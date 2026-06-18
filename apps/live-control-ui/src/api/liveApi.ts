@@ -42,6 +42,10 @@ import type {
   StatblockWorkbenchCommandRequest,
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
+  TiptapMarkdownWriteCommitRequest,
+  TiptapMarkdownWriteCommitResponse,
+  TiptapMarkdownWritePrepareRequest,
+  TiptapMarkdownWritePrepareResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -315,6 +319,24 @@ export async function commitStatblockCorpusWrite(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     },
+  );
+}
+
+export async function prepareTiptapMarkdownWrite(
+  request: TiptapMarkdownWritePrepareRequest,
+): Promise<TiptapMarkdownWritePrepareResponse> {
+  return apiFetch<TiptapMarkdownWritePrepareResponse>(
+    "/api/live/tiptap/markdown-write/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitTiptapMarkdownWrite(
+  request: TiptapMarkdownWriteCommitRequest,
+): Promise<TiptapMarkdownWriteCommitResponse> {
+  return apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit",
+    { method: "POST", body: JSON.stringify(request) },
   );
 }
 

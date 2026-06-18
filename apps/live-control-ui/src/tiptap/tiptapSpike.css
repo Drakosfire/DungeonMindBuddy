@@ -131,6 +131,21 @@
 .tiptap-spike-note h2 { margin-top: 0; }
 .tiptap-spike-note p { margin-bottom: 0; }
 
+.tiptap-write-panel { margin-bottom: 1rem; }
+.tiptap-write-form { display: grid; gap: 0.5rem; }
+.tiptap-write-form input {
+  padding: 0.6rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--text, #e8eaef);
+}
+.tiptap-write-diff { border-left: 3px solid var(--accent, #7aa2f7) !important; }
+.tiptap-write-warning { color: #f4c86b; }
+.tiptap-write-error { color: #ff7b72; }
+.tiptap-write-success { color: #a9f0c8; }
+.tiptap-write-success dd { overflow-wrap: anywhere; }
+
 @media (max-width: 800px) {
   .tiptap-spike-header,
   .tiptap-spike-section-heading { display: block; }

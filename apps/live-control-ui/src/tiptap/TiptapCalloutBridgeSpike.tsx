@@ -4,6 +4,11 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
+import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
+import type {
+  TiptapMarkdownWriteCommitResponse,
+  TiptapMarkdownWritePrepareResponse,
+} from "../api/types";
 import { CalloutNode } from "./extensions/CalloutNode";
 import {
   CALLOUT_KINDS,
@@ -23,6 +28,9 @@ import "./tiptapSpike.css";
 
 export { initialCalloutContent };
 
+export const DEFAULT_TIPTAP_MARKDOWN_TARGET =
+  "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md";
+
 type LocalStateStatus = "Loaded starter content" | "Loaded local draft" | "Saved locally" | "Reset to starter";
 
 interface TiptapCalloutBridgeSpikeProps {
@@ -38,6 +46,12 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   ));
   const [copyMessage, setCopyMessage] = useState("");
   const [isEditorLocked, setIsEditorLocked] = useState(false);
+  const [targetRelpath, setTargetRelpath] = useState(DEFAULT_TIPTAP_MARKDOWN_TARGET);
+  const [preparedWrite, setPreparedWrite] = useState<TiptapMarkdownWritePrepareResponse | null>(null);
+  const [preparedMarkdown, setPreparedMarkdown] = useState("");
+  const [writeStatus, setWriteStatus] = useState("");
+  const [writeError, setWriteError] = useState("");
+  const [commitResult, setCommitResult] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode],
     content: workingState.tiptap_json as Content,
@@ -45,6 +59,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     onUpdate: ({ editor: nextEditor }) => {
       const tiptapJson = nextEditor.getJSON();
       const now = new Date().toISOString();
+      setCommitResult(null);
+      setWriteStatus("");
       setWorkingState((current) => {
         const nextState = {
           ...current,
@@ -80,6 +96,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setWorkingState(resetState);
     setLocalStateStatus("Reset to starter");
     setCopyMessage("");
+    setCommitResult(null);
+    setWriteStatus("");
   }, [editor]);
 
   const copyMarkdown = useCallback(async () => {
@@ -95,6 +113,55 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       setCopyMessage("Copy unavailable in this browser; select the Markdown export manually.");
     }
   }, [workingState.exported_markdown]);
+
+  const prepareFileWrite = useCallback(async () => {
+    setWriteError("");
+    setWriteStatus("Preparing file write…");
+    setCommitResult(null);
+    try {
+      const response = await prepareTiptapMarkdownWrite({
+        document_id: workingState.document_id,
+        title: workingState.title,
+        target_relpath: targetRelpath,
+        markdown: workingState.exported_markdown,
+      });
+      setPreparedWrite(response);
+      setPreparedMarkdown(workingState.exported_markdown);
+      setWriteStatus(response.writer_ok ? "File write prepared. Review the diff before committing." : "");
+    } catch (error) {
+      setPreparedWrite(null);
+      setPreparedMarkdown("");
+      setWriteStatus("");
+      setWriteError(error instanceof Error ? error.message : "File write prepare failed.");
+    }
+  }, [targetRelpath, workingState]);
+
+  const canCommit = Boolean(
+    preparedWrite?.writer_ok
+      && preparedWrite.writer_confirm_token
+      && preparedMarkdown === workingState.exported_markdown
+      && preparedWrite.target_relpath === targetRelpath,
+  );
+
+  const commitFileWrite = useCallback(async () => {
+    if (!preparedWrite?.writer_confirm_token || !canCommit) return;
+    setWriteError("");
+    setWriteStatus("Committing reviewed file write…");
+    try {
+      const response = await commitTiptapMarkdownWrite({
+        document_id: workingState.document_id,
+        title: workingState.title,
+        target_relpath: preparedWrite.target_relpath,
+        markdown: preparedMarkdown,
+        writer_confirm_token: preparedWrite.writer_confirm_token,
+      });
+      setCommitResult(response);
+      setWriteStatus("File written. Local draft remains available for further edits.");
+    } catch (error) {
+      setWriteStatus("");
+      setWriteError(error instanceof Error ? error.message : "File write commit failed.");
+    }
+  }, [canCommit, preparedMarkdown, preparedWrite, workingState.document_id, workingState.title]);
 
   useEffect(() => {
     onEditorToolsChange?.({
@@ -141,11 +208,19 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
             disabled: !editor || isEditorLocked,
           })),
         },
+        {
+          id: "tiptap-file-write",
+          title: "File write",
+          actions: [
+            { id: "tiptap-prepare-file-write", eyebrow: "Preview", label: "Prepare file write", onClick: prepareFileWrite },
+            { id: "tiptap-commit-file-write", eyebrow: "Write", label: "Commit reviewed file write", onClick: commitFileWrite, disabled: !canCommit },
+          ],
+        },
       ],
     });
 
     return () => onEditorToolsChange?.(null);
-  }, [copyMarkdown, editor, insertCallout, isEditorLocked, onEditorToolsChange, resetLocalDraft, toggleEditorLock]);
+  }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
 
@@ -197,6 +272,49 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           <pre data-testid="markdown-export">{workingState.exported_markdown}</pre>
         </section>
       </div>
+
+      <section className="tiptap-spike-panel tiptap-write-panel" aria-labelledby="file-write-heading">
+        <h2 id="file-write-heading">File write preview</h2>
+        <p>
+          Editing is still local. Preparing a write asks the backend to preview a Markdown file change.
+          Committing writes the reviewed Markdown to disk.
+        </p>
+        <div className="tiptap-write-form">
+          <label htmlFor="tiptap-target-path">Target path</label>
+          <input
+            id="tiptap-target-path"
+            value={targetRelpath}
+            onChange={(event) => {
+              setTargetRelpath(event.target.value);
+              setCommitResult(null);
+              setWriteStatus("");
+            }}
+          />
+          <div className="tiptap-local-actions">
+            <button type="button" onClick={prepareFileWrite}>Prepare file write</button>
+            <button type="button" onClick={commitFileWrite} disabled={!canCommit}>Commit reviewed file write</button>
+          </div>
+        </div>
+        {preparedWrite && preparedMarkdown !== workingState.exported_markdown && (
+          <p className="tiptap-write-warning">Editor changed after prepare. Re-prepare before committing.</p>
+        )}
+        {preparedWrite && preparedWrite.target_relpath !== targetRelpath && (
+          <p className="tiptap-write-warning">Target path changed after prepare. Re-prepare before committing.</p>
+        )}
+        {preparedWrite?.writer_diff != null && <pre className="tiptap-write-diff">{preparedWrite.writer_diff}</pre>}
+        {preparedWrite?.warnings.map((warning) => <p className="tiptap-write-warning" key={warning}>{warning}</p>)}
+        {preparedWrite?.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}
+        {writeError && <p className="tiptap-write-error" role="alert">{writeError}</p>}
+        {writeStatus && <p className={commitResult ? "tiptap-write-success" : ""}>{writeStatus}</p>}
+        {commitResult && (
+          <dl className="tiptap-write-success">
+            <div><dt>Path</dt><dd>{commitResult.target_display_path}</dd></div>
+            <div><dt>Bytes written</dt><dd>{commitResult.bytes_written}</dd></div>
+            <div><dt>Fingerprint</dt><dd>{commitResult.file_fingerprint}</dd></div>
+            {commitResult.backup_relpath && <div><dt>Backup</dt><dd>{commitResult.backup_relpath}</dd></div>}
+          </dl>
+        )}
+      </section>
 
       <aside className="tiptap-spike-note" aria-labelledby="bridge-notes-heading">
         <h2 id="bridge-notes-heading">Bridge notes</h2>

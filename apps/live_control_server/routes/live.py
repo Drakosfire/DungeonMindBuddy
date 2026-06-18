@@ -30,6 +30,16 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWriteCommitResponse,
+    TiptapMarkdownWriteError,
+    TiptapMarkdownWritePrepareRequest,
+    TiptapMarkdownWritePrepareResponse,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
+
 from apps.live_control_server.services.statblock_corpus_preview import (
     StatblockCorpusPromotionPreviewRequest,
     StatblockCorpusPromotionPreviewResponse,
@@ -195,8 +205,6 @@ def _target_from_session(
     )
 
 
-
-
 @router.get(
     "/locations/index",
     response_model=LocationCorpusIndexResponse,
@@ -205,7 +213,9 @@ def get_location_corpus_index() -> dict[str, Any]:
     try:
         response = build_location_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="location corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="location corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -217,7 +227,9 @@ def get_roll_table_corpus_index() -> dict[str, Any]:
     try:
         response = build_roll_table_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="roll table corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="roll table corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -241,7 +253,9 @@ def get_statblock_corpus_index() -> dict[str, Any]:
     try:
         response = build_statblock_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -253,7 +267,9 @@ def get_generated_statblock_view_list() -> dict[str, Any]:
     try:
         response = list_generated_statblocks(base=session_dir(), root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock list failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock list failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -275,7 +291,9 @@ def get_generated_statblock_view_detail(
     except StatblockViewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock read failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock read failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -379,7 +397,9 @@ class CombatSavesListResponse(BaseModel):
 def get_combat_saves() -> dict[str, Any]:
     base = session_dir()
     return {
-        "saves": [summary.model_dump(mode="json") for summary in list_combat_saves(base)],
+        "saves": [
+            summary.model_dump(mode="json") for summary in list_combat_saves(base)
+        ],
         "backups": list_combat_backups(base),
     }
 
@@ -454,8 +474,11 @@ def post_generated_statblock_combat_add(
     except StatblockViewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock combat add failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock combat add failed"
+        ) from exc
     return response.model_dump(mode="json")
+
 
 @router.get(
     "/statblocks/workbench/sample",
@@ -561,7 +584,9 @@ def post_statblock_workbench_draft_corpus_preview(
     except StatblockDraftNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus preview failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus preview failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -590,7 +615,9 @@ def post_statblock_workbench_draft_corpus_write_prepare(
     except PreviewTokenMismatchError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus write prepare failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus write prepare failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -621,7 +648,9 @@ def post_statblock_workbench_draft_corpus_write_commit(
     except CorpusWriterCommitError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus write commit failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus write commit failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -645,7 +674,9 @@ def post_statblock_workbench_draft_retrieval_activate(
     except StatblockRetrievalActivationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock retrieval activation failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock retrieval activation failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -677,7 +708,37 @@ def post_statblock_workbench_draft_retrieval_verify(
     except StatblockRetrievalActivationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock retrieval verification failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock retrieval verification failed"
+        ) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/tiptap/markdown-write/prepare",
+    response_model=TiptapMarkdownWritePrepareResponse,
+)
+def post_tiptap_markdown_write_prepare(
+    body: TiptapMarkdownWritePrepareRequest,
+) -> dict[str, Any]:
+    try:
+        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/tiptap/markdown-write/commit",
+    response_model=TiptapMarkdownWriteCommitResponse,
+)
+def post_tiptap_markdown_write_commit(
+    body: TiptapMarkdownWriteCommitRequest,
+) -> dict[str, Any]:
+    try:
+        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
 
 
