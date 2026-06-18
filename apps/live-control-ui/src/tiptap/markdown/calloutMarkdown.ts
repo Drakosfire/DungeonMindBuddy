@@ -11,7 +11,13 @@ type JsonNode = {
   type?: unknown;
   attrs?: Record<string, unknown> | null;
   content?: unknown;
+  marks?: unknown;
   text?: unknown;
+};
+
+type JsonMark = {
+  type?: unknown;
+  attrs?: Record<string, unknown> | null;
 };
 
 const KIND_ALIASES: Record<string, CalloutKind> = {
@@ -61,10 +67,51 @@ function childNodes(node: JsonNode): JsonNode[] {
   return node.content.map(asNode).filter((child): child is JsonNode => child !== null);
 }
 
-function inlineText(node: JsonNode): string {
-  if (node.type === "text") return typeof node.text === "string" ? node.text : "";
+function markdownMarks(value: unknown): JsonMark[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(asNode).filter((mark): mark is JsonMark => mark !== null);
+}
+
+function escapeMarkdownText(text: string): string {
+  return text.replace(/[\\`*_[\]()]/g, "\\$&");
+}
+
+function codeSpan(text: string): string {
+  const longestBacktickRun = Math.max(0, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
+  const delimiter = "`".repeat(longestBacktickRun + 1);
+  const padding = text.startsWith("`") || text.endsWith("`") ? " " : "";
+  return `${delimiter}${padding}${text}${padding}${delimiter}`;
+}
+
+function linkHref(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return value.replace(/ /g, "%20").replace(/[()]/g, "\\$&");
+}
+
+function serializeTextWithMarks(text: string, marks: JsonMark[]): string {
+  const markTypes = new Set(marks.map((mark) => mark.type).filter((type): type is string => typeof type === "string"));
+  let result = markTypes.has("code") ? codeSpan(text) : escapeMarkdownText(text);
+
+  if (!markTypes.has("code")) {
+    if (markTypes.has("bold")) result = `**${result}**`;
+    if (markTypes.has("italic")) result = `*${result}*`;
+    if (markTypes.has("strike")) result = `~~${result}~~`;
+  }
+
+  const link = marks.find((mark) => mark.type === "link");
+  const href = linkHref(link?.attrs?.href);
+  return href ? `[${result}](${href})` : result;
+}
+
+function inlineMarkdown(node: JsonNode): string {
+  if (node.type === "text") {
+    return serializeTextWithMarks(
+      typeof node.text === "string" ? node.text : "",
+      markdownMarks(node.marks),
+    );
+  }
   if (node.type === "hardBreak") return "\n";
-  return childNodes(node).map(inlineText).join("");
+  return childNodes(node).map(inlineMarkdown).join("");
 }
 
 function indentLines(value: string, prefix: string): string {
@@ -95,15 +142,15 @@ function serializeNode(node: JsonNode): string {
     case "doc":
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
     case "text":
-      return typeof node.text === "string" ? node.text : "";
+      return inlineMarkdown(node);
     case "hardBreak":
       return "\n";
     case "paragraph":
-      return childNodes(node).map(inlineText).join("");
+      return childNodes(node).map(inlineMarkdown).join("");
     case "heading": {
       const requestedLevel = Number(node.attrs?.level);
       const level = Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2;
-      return `${"#".repeat(level)} ${childNodes(node).map(inlineText).join("")}`;
+      return `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
     }
     case "bulletList":
       return childNodes(node).map((child) => serializeListItem(child, "- ")).join("\n");
@@ -119,7 +166,7 @@ function serializeNode(node: JsonNode): string {
     case "callout":
       return serializeCallout(node);
     default: {
-      const text = inlineText(node);
+      const text = inlineMarkdown(node);
       return text || `[Unsupported ${typeof node.type === "string" ? node.type : "node"}]`;
     }
   }
