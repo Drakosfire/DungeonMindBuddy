@@ -167,12 +167,12 @@ describe("Tiptap rich text Markdown export", () => {
         content: [
           {
             type: "text",
-            text: "# Not heading\n- Not list\n+ Not list\n> Not quote\n1. Not ordered\n2) Also not ordered\n---\n***",
+            text: "# Not heading\n- Not list\n+ Not list\n> Not quote\n1. Not ordered\n2) Also not ordered\n---\nTitle\n===\n***",
           },
         ],
       }),
     ).toBe(
-      "\\# Not heading\n\\- Not list\n\\+ Not list\n\\> Not quote\n1\\. Not ordered\n2\\) Also not ordered\n\\---\n\\*\\*\\*\n",
+      "\\# Not heading\n\\- Not list\n\\+ Not list\n\\> Not quote\n1\\. Not ordered\n2\\) Also not ordered\n\\---\nTitle\n\\===\n\\*\\*\\*\n",
     );
   });
 
