@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, vi } from "vitest";
 
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
@@ -8,6 +8,10 @@ import {
 } from "./markdown/calloutMarkdown";
 
 describe("semantic callout Markdown bridge", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it.each([
     ["read-aloud", "read-aloud"],
     ["read-aloud-text", "read-aloud"],
@@ -62,7 +66,21 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Editor JSON" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Exported Markdown" })).toBeInTheDocument();
+    expect(screen.getByText(/saved locally in this browser/i)).toBeInTheDocument();
+    expect(screen.getByText(/No backend or corpus write happens here/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset local draft" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Write to file|Commit/i })).not.toBeInTheDocument();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
+  });
+
+  it("resets and saves the starter content locally", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
+
+    expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
+    expect(window.localStorage.length).toBe(1);
   });
 
   it("registers editor tools for the app chrome", async () => {
@@ -77,6 +95,7 @@ describe("semantic callout Markdown bridge", () => {
             expect.objectContaining({ id: "tiptap-edit-lock", label: "Lock editing" }),
           ]),
           sections: expect.arrayContaining([
+            expect.objectContaining({ id: "tiptap-local-state", title: "Local working state" }),
             expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
           ]),
         }),

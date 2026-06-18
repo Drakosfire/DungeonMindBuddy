@@ -637,7 +637,8 @@ Acceptance checks:
 - [x] Export Tiptap callout nodes to semantic Markdown blockquote syntax.
 - [x] Keep Tiptap JSON as working board state only.
 - [ ] Parse arbitrary Markdown into Tiptap nodes.
-- [ ] Save Tiptap state to session/campaign storage.
+- [x] Save the isolated Tiptap spike state to schema-versioned browser-local storage.
+- [ ] Promote exported Markdown through explicit backend prepare/commit endpoints.
 - [ ] Add canon corpus write flow.
 
 ---

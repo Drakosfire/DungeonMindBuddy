@@ -25,6 +25,52 @@
 .tiptap-spike-section-heading h2 { margin: 0; }
 .tiptap-spike-header p { max-width: 68ch; }
 
+.tiptap-local-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tiptap-local-actions button {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+}
+
+.tiptap-local-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tiptap-local-state {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+}
+
+.tiptap-local-state > p:first-child { margin-top: 0; }
+.tiptap-local-state dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.tiptap-local-state dl div { min-width: 0; }
+.tiptap-local-state dt {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tiptap-local-state dd { margin: 0.2rem 0 0; }
+.tiptap-copy-message { margin-bottom: 0; color: var(--accent, #7aa2f7); }
+
 .tiptap-spike-kicker {
   margin: 0 0 0.35rem;
   color: var(--accent, #a9f0c8);
@@ -88,5 +134,7 @@
 @media (max-width: 800px) {
   .tiptap-spike-header,
   .tiptap-spike-section-heading { display: block; }
+  .tiptap-local-actions { margin-top: 1rem; }
+  .tiptap-local-state dl { grid-template-columns: 1fr; }
   .tiptap-spike-grid { grid-template-columns: 1fr; }
 }
