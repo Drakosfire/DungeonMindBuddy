@@ -9,12 +9,15 @@ import {
 describe("semantic callout Markdown bridge", () => {
   it.each([
     ["read-aloud", "read-aloud"],
+    ["read-aloud-text", "read-aloud"],
     ["readaloud", "read-aloud"],
     ["gm-note", "gm-note"],
     ["dm", "gm-note"],
     ["rules", "rules"],
+    ["rules-note", "rules"],
     ["rule", "rules"],
     ["warning", "warning"],
+    ["warn", "warning"],
     ["danger", "warning"],
     ["unknown", "warning"],
   ] as const)("normalizes %s to %s", (input, expected) => {

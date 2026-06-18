@@ -16,6 +16,7 @@ type JsonNode = {
 
 const KIND_ALIASES: Record<string, CalloutKind> = {
   "read-aloud": "read-aloud",
+  "read-aloud-text": "read-aloud",
   readaloud: "read-aloud",
   read: "read-aloud",
   "gm-note": "gm-note",
@@ -24,8 +25,10 @@ const KIND_ALIASES: Record<string, CalloutKind> = {
   dm: "gm-note",
   "dm-note": "gm-note",
   rules: "rules",
+  "rules-note": "rules",
   rule: "rules",
   warning: "warning",
+  warn: "warning",
   danger: "warning",
   caution: "warning",
 };
