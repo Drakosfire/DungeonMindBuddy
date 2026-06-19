@@ -80,8 +80,8 @@ function classifyRunbookBlock(element: HTMLElement, options: { locked: boolean; 
   if (options.locked) return RUNBOOK_BLOCK_BOUNDARIES.locked;
   if (element.querySelector('[data-md-ref-kind="action"]')) return RUNBOOK_BLOCK_BOUNDARIES.operational;
   if (element.querySelector('[data-md-ref-kind="ref"], [data-md-ref-kind="invalid"]')) return RUNBOOK_BLOCK_BOUNDARIES.reference;
-  if (options.committed || options.status === "Imported committed Markdown") return RUNBOOK_BLOCK_BOUNDARIES.committed;
-  if (options.status === "Saved locally" || options.status === "Loaded local draft") return RUNBOOK_BLOCK_BOUNDARIES.draft;
+  if (options.committed) return RUNBOOK_BLOCK_BOUNDARIES.committed;
+  if (options.status === "Imported committed Markdown" || options.status === "Saved locally" || options.status === "Loaded local draft") return RUNBOOK_BLOCK_BOUNDARIES.draft;
   return RUNBOOK_BLOCK_BOUNDARIES.local;
 }
 
@@ -176,12 +176,24 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     const nextLocked = !isEditorLocked;
     setIsEditorLocked(nextLocked);
     editor?.setEditable(!nextLocked);
-    setActiveBlockBoundary(nextLocked ? RUNBOOK_BLOCK_BOUNDARIES.locked : RUNBOOK_BLOCK_BOUNDARIES.local);
-    if (activeBlockRef.current) {
-      activeBlockRef.current.setAttribute("data-runbook-block-state", nextLocked ? "locked" : "local");
-      activeBlockRef.current.setAttribute("data-runbook-block-label", nextLocked ? "Locked for live" : "Local scratch");
+
+    const activeBlock = activeBlockRef.current;
+    if (!activeBlock) {
+      setActiveBlockBoundary(nextLocked ? RUNBOOK_BLOCK_BOUNDARIES.locked : RUNBOOK_BLOCK_BOUNDARIES.local);
+      return;
     }
-  }, [editor, isEditorLocked]);
+
+    const boundary = nextLocked
+      ? RUNBOOK_BLOCK_BOUNDARIES.locked
+      : classifyRunbookBlock(activeBlock, {
+        locked: false,
+        status: localStateStatus,
+        committed: Boolean(commitResult),
+      });
+    activeBlock.setAttribute("data-runbook-block-state", boundary.state);
+    activeBlock.setAttribute("data-runbook-block-label", boundary.label);
+    setActiveBlockBoundary(boundary);
+  }, [commitResult, editor, isEditorLocked, localStateStatus]);
 
   const resetLocalDraft = useCallback(() => {
     if (!editor) return;

@@ -264,6 +264,19 @@ describe("semantic callout Markdown bridge", () => {
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
   });
 
+  it("treats imported committed Markdown as a saved draft until a file write commits", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("# Imported Title\n\nA plain imported plan."));
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+
+    const importedParagraph = await screen.findByText("A plain imported plan.");
+    fireEvent.mouseMove(importedParagraph);
+
+    expect(screen.getAllByText("Saved draft").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Committed prep")).not.toBeInTheDocument();
+  });
+
   it("confirms before replacing a local draft", async () => {
     const state = buildInitialWorkingBoardState(northGateDescriptor);
     state.exported_markdown = "# Existing local draft\n";
@@ -321,6 +334,11 @@ describe("semantic callout Markdown bridge", () => {
 
     expect(screen.getByRole("button", { name: "Unlock live block" })).toBeInTheDocument();
     expect(screen.getAllByText("Locked for live").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Unlock live block" }));
+
+    expect(screen.getAllByText("Operational").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Local scratch")).not.toBeInTheDocument();
   });
 
   it("prepares derived Markdown, shows its diff, and commits the reviewed token", async () => {
