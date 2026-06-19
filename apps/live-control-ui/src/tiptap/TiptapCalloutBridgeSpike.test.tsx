@@ -162,12 +162,12 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
-    expect(screen.getByText("Lysandro Ironveil")).toHaveClass("md-ref-chip-npc");
+    expect(screen.getAllByText("Lysandro Ironveil")[0]).toHaveClass("md-ref-chip-npc");
     expect(screen.getAllByText("North Reach Gate")[0]).toHaveClass("md-ref-chip-location");
-    expect(screen.getByText("Sewer Meat Creature")).toHaveClass("md-ref-chip-statblock");
-    expect(screen.getByText("Gate Dilemma d12")).toHaveClass("md-ref-chip-roll-table");
-    expect(screen.getByText("Session 22 ending")).toHaveClass("md-ref-chip-citation");
-    expect(screen.getByText("North Gate Combat")).toHaveClass("md-ref-chip-action-combat");
+    expect(screen.getAllByText("Sewer Meat Creature")[0]).toHaveClass("md-ref-chip-statblock");
+    expect(screen.getAllByText("Gate Dilemma d12")[0]).toHaveClass("md-ref-chip-roll-table");
+    expect(screen.getAllByText("Session 22 ending")[0]).toHaveClass("md-ref-chip-citation");
+    expect(screen.getAllByText("North Gate Combat")[0]).toHaveClass("md-ref-chip-action-combat");
     const exportedMarkdown = screen.getByTestId("markdown-export");
     expect(exportedMarkdown).toHaveTextContent("#dmb-ref:npc:lysandro-ironveil");
     expect(exportedMarkdown).toHaveTextContent("#dmb-ref:location:north-reach-gate");
@@ -314,12 +314,12 @@ describe("semantic callout Markdown bridge", () => {
   it("shows block save-state guidance when hovering reference and operational blocks", async () => {
     render(<TiptapCalloutBridgeSpike />);
 
-    fireEvent.mouseMove(await screen.findByText("Lysandro Ironveil"));
+    fireEvent.mouseMove((await screen.findAllByText("Lysandro Ironveil"))[0]);
 
     expect(screen.getAllByText("Read-only reference").length).toBeGreaterThan(0);
     expect(screen.getByText(/edit surrounding prose, not the referenced canon identity/i)).toBeInTheDocument();
 
-    fireEvent.mouseMove(screen.getByText("North Gate Combat"));
+    fireEvent.mouseMove(screen.getAllByText("North Gate Combat")[0]);
 
     expect(screen.getAllByText("Operational").length).toBeGreaterThan(0);
     expect(screen.getByText(/points at a live operation\/action/i)).toBeInTheDocument();
@@ -329,7 +329,7 @@ describe("semantic callout Markdown bridge", () => {
   it("can lock the editor from an operational block badge", async () => {
     render(<TiptapCalloutBridgeSpike />);
 
-    fireEvent.mouseMove(await screen.findByText("North Gate Combat"));
+    fireEvent.mouseMove((await screen.findAllByText("North Gate Combat"))[0]);
     fireEvent.click(screen.getByRole("button", { name: "Lock live block" }));
 
     expect(screen.getByRole("button", { name: "Unlock live block" })).toBeInTheDocument();

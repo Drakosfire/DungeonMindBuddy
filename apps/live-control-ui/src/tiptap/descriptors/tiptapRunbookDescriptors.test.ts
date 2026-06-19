@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
   DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID,
   getTiptapRunbookDescriptor,
+  northGateSessionRunbookStarterMarkdown,
   TIPTAP_RUNBOOK_DESCRIPTORS,
   tiptapRunbookStorageKey,
 } from "./tiptapRunbookDescriptors";
@@ -20,5 +24,15 @@ describe("Tiptap runbook descriptors", () => {
     }
     const keys = TIPTAP_RUNBOOK_DESCRIPTORS.map(tiptapRunbookStorageKey);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("keeps the North Gate reset starter aligned with the durable Markdown artifact", () => {
+    const artifactPath = resolve(
+      process.cwd(),
+      "../../evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+    );
+    const artifactMarkdown = readFileSync(artifactPath, "utf8").trim();
+
+    expect(northGateSessionRunbookStarterMarkdown.trim()).toBe(artifactMarkdown);
   });
 });
