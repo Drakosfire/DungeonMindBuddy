@@ -48,6 +48,8 @@ describe("semantic callout Markdown bridge", () => {
     window.history.pushState({}, "", "/tiptap-callout-spike");
     window.localStorage.clear();
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn());
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     prepareMock.mockResolvedValue(preparedResponse);
     commitMock.mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_commit_v1",
@@ -226,6 +228,66 @@ describe("semantic callout Markdown bridge", () => {
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("north-gate-callout-spike");
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("# North Gate Callout Spike");
+  });
+
+
+  it("renders an import committed Markdown action", () => {
+    render(<TiptapCalloutBridgeSpike />);
+
+    expect(screen.getByRole("button", { name: "Import committed Markdown" })).toBeInTheDocument();
+  });
+
+  it("imports from the active descriptor target and writes active local storage", async () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-session-runbook");
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("# Imported Title\n\nTalk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)."));
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md"));
+    expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Imported Title");
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("#dmb-ref:npc:lysandro-ironveil");
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toContain("Imported Title");
+  });
+
+  it("imports using the selected descriptor target and storage key", async () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("# Spike Import\n\n> [!WARNING]\n> Spike warning."));
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md"));
+    expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("Spike Import");
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
+  });
+
+  it("confirms before replacing a local draft", async () => {
+    const state = buildInitialWorkingBoardState(northGateDescriptor);
+    state.exported_markdown = "# Existing local draft\n";
+    state.tiptap_json = { type: "doc", content: [{ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Existing local draft" }] }] };
+    window.localStorage.setItem(tiptapRunbookStorageKey(northGateDescriptor), JSON.stringify(state));
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Existing local draft");
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toContain("Existing local draft");
+  });
+
+  it("renders import errors calmly and leaves the editor unchanged", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("not found", { status: 404, statusText: "Not Found" }));
+
+    render(<TiptapCalloutBridgeSpike />);
+    const before = screen.getByTestId("markdown-export").textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Import failed");
+    expect(screen.getByTestId("markdown-export").textContent).toBe(before);
   });
 
   it("renders the explicit file write boundary without calling the backend", () => {
