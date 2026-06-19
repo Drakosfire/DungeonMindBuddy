@@ -13,10 +13,13 @@ describe("Tiptap local working-board state", () => {
     const now = "2026-06-18T12:00:00.000Z";
     const state = buildInitialWorkingBoardState(now);
 
+    expect(TIPTAP_WORKING_BOARD_KEY).toBe(
+      "dmb:tiptap-working-board:longmont-c2:session-23:north-gate-session-runbook",
+    );
     expect(state).toMatchObject({
       schema_version: "dmb_tiptap_working_board_state_v1",
-      document_id: "north-gate-callout-spike",
-      title: "North-gate callout spike",
+      document_id: "north-gate-session-runbook",
+      title: "North Gate Session Runbook",
       campaign_id: "longmont-c2",
       session: 23,
       surface: "tiptap-callout-spike",
@@ -26,7 +29,7 @@ describe("Tiptap local working-board state", () => {
       last_local_save_at: now,
     });
     expect(state.tiptap_json).toEqual(expect.objectContaining({ type: "doc" }));
-    expect(state.exported_markdown).toContain("## North-gate opening spike");
+    expect(state.exported_markdown).toContain("# C2S23 North Gate Session Runbook");
   });
 
   it("reads valid local state", () => {
@@ -47,7 +50,7 @@ describe("Tiptap local working-board state", () => {
       getItem: () => JSON.stringify(state),
     });
 
-    expect(loaded?.exported_markdown).toContain("## North-gate opening spike");
+    expect(loaded?.exported_markdown).toContain("# C2S23 North Gate Session Runbook");
     expect(loaded?.exported_markdown).not.toContain("stale unsafe markdown");
   });
 

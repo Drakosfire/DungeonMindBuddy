@@ -31,7 +31,7 @@ import "./tiptapSpike.css";
 export { initialCalloutContent };
 
 export const DEFAULT_TIPTAP_MARKDOWN_TARGET =
-  "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md";
+  "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md";
 
 export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
   { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
@@ -255,9 +255,9 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     <main className="tiptap-spike-page">
       <header className="tiptap-spike-header">
         <div>
-          <p className="tiptap-spike-kicker">Developer proof of concept</p>
-          <h1>Tiptap Semantic Callout Bridge Spike</h1>
-          <p>Editable Tiptap nodes sharing the established semantic Markdown callout contract.</p>
+          <p className="tiptap-spike-kicker">Runbook authoring dogfood</p>
+          <h1>Tiptap Session Runbook Editor</h1>
+          <p>Editable local working board that exports semantic Markdown for the static Command Board.</p>
         </div>
         <a href="/">Back to launcher</a>
       </header>
@@ -303,8 +303,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       <section className="tiptap-spike-panel tiptap-write-panel" aria-labelledby="file-write-heading">
         <h2 id="file-write-heading">File write preview</h2>
         <p>
-          Editing is still local. Preparing a write asks the backend to preview a Markdown file change.
-          Committing writes the reviewed Markdown to disk.
+          Editing is still local. Preparing a write asks the backend to preview the Markdown artifact.
+          Committing writes the reviewed runbook Markdown file. It does not write canon or operational state.
         </p>
         <div className="tiptap-write-form">
           <label htmlFor="tiptap-target-path">Target path</label>
