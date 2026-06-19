@@ -316,6 +316,19 @@
     citation: ["Open source note", "Copy citation"],
     combat: ["Launch combat", "Preview encounter seed"],
   };
+  const RUNBOOK_REFERENCE_INDEX_ENDPOINTS = {
+    npc: "/api/live/npcs/index",
+    location: "/api/live/locations/index",
+    statblock: "/api/live/statblocks/index",
+    "roll-table": "/api/live/roll-tables/index",
+  };
+  const RUNBOOK_REFERENCE_INDEX_SOURCES = {
+    npc: "NPC index",
+    location: "location index",
+    statblock: "statblock index",
+    "roll-table": "roll-table index",
+  };
+  const runbookReferenceIndexCache = {};
   let runbookReferencePopoverBound = false;
   let activeRunbookReferenceTrigger = null;
   let suppressRunbookReferenceFocusOpen = false;
@@ -364,6 +377,7 @@
       '<button type="button" class="runbook-ref-popover-close" aria-label="Close reference details">&times;</button>' +
       '</header><dl class="runbook-ref-popover-meta"></dl>' +
       '<div class="runbook-ref-popover-status">Resolver pending. This shell does not fetch canon yet.</div>' +
+      '<div class="runbook-ref-popover-resolution" aria-live="polite"></div>' +
       '<div class="runbook-ref-popover-actions"></div></div>';
     document.body.appendChild(popover);
     popover.querySelector(".runbook-ref-popover-close").addEventListener("click", function () {
@@ -404,6 +418,213 @@
       actions.appendChild(button);
     });
     return popover;
+  }
+
+
+  function normalizeRunbookReferenceKey(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function runbookReferencePathStem(value) {
+    const path = String(value || "").split(/[?#]/)[0];
+    const file = path.split("/").filter(Boolean).pop() || path;
+    return file.replace(/\.[^.]+$/, "");
+  }
+
+  function resetRunbookReferenceIndexCache() {
+    Object.keys(runbookReferenceIndexCache).forEach(function (key) {
+      delete runbookReferenceIndexCache[key];
+    });
+  }
+
+  function fetchRunbookReferenceIndex(type) {
+    if (runbookReferenceIndexCache[type]) return runbookReferenceIndexCache[type];
+    const endpoint = RUNBOOK_REFERENCE_INDEX_ENDPOINTS[type];
+    if (!endpoint) return Promise.resolve(null);
+    runbookReferenceIndexCache[type] = apiGetJson(endpoint).catch(function (err) {
+      delete runbookReferenceIndexCache[type];
+      throw err;
+    });
+    return runbookReferenceIndexCache[type];
+  }
+
+  function itemsForRunbookReferencePayload(type, payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (type === "npc") return payload.npcs || payload.items || [];
+    if (type === "location") return payload.locations || payload.items || [];
+    if (type === "statblock") return payload.statblocks || payload.items || [];
+    if (type === "roll-table") return payload.roll_tables || payload.rollTables || payload.tables || payload.items || [];
+    return [];
+  }
+
+  function addRunbookReferenceCandidate(candidates, value) {
+    const key = normalizeRunbookReferenceKey(value);
+    if (key) candidates.push(key);
+  }
+
+  function candidateKeysForRunbookReferenceItem(type, item) {
+    const candidates = [];
+    if (!item) return candidates;
+    [item.slug, item.index_id, item.title, item.table_id].forEach(function (value) {
+      addRunbookReferenceCandidate(candidates, value);
+    });
+    [item.primary_doc_path, item.hub_path, item.corpus_display_path].forEach(function (path) {
+      const stem = runbookReferencePathStem(path);
+      addRunbookReferenceCandidate(candidates, stem);
+      if (type === "statblock") {
+        const normalizedStem = normalizeRunbookReferenceKey(stem);
+        addRunbookReferenceCandidate(candidates, normalizedStem.replace(/-statblock-cr[-a-z0-9]+$/, ""));
+        addRunbookReferenceCandidate(candidates, normalizedStem.replace(/-statblock$/, ""));
+      }
+    });
+    return candidates;
+  }
+
+  function findRunbookReferenceIndexItem(type, id, payload) {
+    const refKey = normalizeRunbookReferenceKey(id);
+    return itemsForRunbookReferencePayload(type, payload).find(function (item) {
+      const candidates = candidateKeysForRunbookReferenceItem(type, item);
+      if (candidates.indexOf(refKey) !== -1) return true;
+      if (type === "npc" && item && item.index_id) {
+        return normalizeRunbookReferenceKey(item.index_id).endsWith("-" + refKey);
+      }
+      return false;
+    });
+  }
+
+  function resolveRunbookReference(ref) {
+    if (!ref) return Promise.resolve({ status: "unresolved", ref: ref, message: "Missing reference." });
+    if (ref.kind === "action") {
+      return Promise.resolve({
+        status: "unresolved",
+        ref: ref,
+        source: "action-placeholder",
+        message: ref.type === "combat"
+          ? "Combat action placeholder. Launch behavior is intentionally disabled in this PR."
+          : "Action placeholder. Launch behavior is intentionally disabled in this PR.",
+      });
+    }
+    if (ref.type === "citation") {
+      return Promise.resolve({
+        status: "unresolved",
+        ref: ref,
+        source: "citation-placeholder",
+        message: "Citation resolver pending. No citation/source resolver exists yet.",
+      });
+    }
+    return fetchRunbookReferenceIndex(ref.type).then(function (payload) {
+      const item = findRunbookReferenceIndexItem(ref.type, ref.id, payload);
+      if (!item) {
+        return { status: "unresolved", ref: ref, message: "Could not resolve this reference." };
+      }
+      return {
+        status: "resolved",
+        ref: ref,
+        source: ref.type + "-index",
+        item: item,
+        message: "Resolved from " + (RUNBOOK_REFERENCE_INDEX_SOURCES[ref.type] || "live index") + ".",
+      };
+    });
+  }
+
+  function runbookReferenceSourcePath(type, item) {
+    if (!item) return "";
+    if (type === "npc") return item.primary_doc_path || item.dossier_path || item.seed_path || item.hub_path || "";
+    if (type === "location") return item.corpus_display_path || item.hub_path || "";
+    return item.corpus_display_path || "";
+  }
+
+  function appendRunbookReferenceField(list, label, value, className) {
+    if (value === undefined || value === null || value === "") return;
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = String(value);
+    if (className) detail.className = className;
+    row.appendChild(term);
+    row.appendChild(detail);
+    list.appendChild(row);
+  }
+
+  function buildResolvedRunbookReferenceCard(ref, state) {
+    const item = state.item || {};
+    const card = document.createElement("div");
+    card.className = "runbook-ref-resolved-card";
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "runbook-ref-resolved-eyebrow";
+    eyebrow.textContent = "Resolved " + (ref.type === "npc" ? "NPC" : ref.type === "roll-table" ? "Roll Table" : ref.type.charAt(0).toUpperCase() + ref.type.slice(1));
+    const title = document.createElement("h3");
+    title.className = "runbook-ref-resolved-title";
+    title.textContent = item.title || ref.label || ref.id;
+    const fields = document.createElement("dl");
+    fields.className = "runbook-ref-resolved-fields";
+    if (ref.type === "statblock") {
+      appendRunbookReferenceField(fields, "CR", item.challenge_rating);
+      appendRunbookReferenceField(fields, "Creature", item.creature_type);
+      appendRunbookReferenceField(fields, "Role", item.role_tag);
+      appendRunbookReferenceField(fields, "Info", item.info_tag);
+      appendRunbookReferenceField(fields, "Session", item.session || item.source_type);
+    } else if (ref.type === "roll-table") {
+      appendRunbookReferenceField(fields, "Dice", item.dice);
+      appendRunbookReferenceField(fields, "Note", item.table_note);
+      appendRunbookReferenceField(fields, "Section", item.section);
+      appendRunbookReferenceField(fields, "Session", item.session);
+      appendRunbookReferenceField(fields, "Embed", item.embed_start && item.embed_end ? item.embed_start + "–" + item.embed_end : "");
+    } else {
+      appendRunbookReferenceField(fields, "Section", item.section);
+      appendRunbookReferenceField(fields, "Note", item.table_note);
+      appendRunbookReferenceField(fields, "Canon", item.canon_layer);
+      appendRunbookReferenceField(fields, "Embed", item.embed_start && item.embed_end ? item.embed_start + "–" + item.embed_end : "");
+      appendRunbookReferenceField(fields, "Updated", item.updated_at);
+    }
+    appendRunbookReferenceField(fields, "Source", runbookReferenceSourcePath(ref.type, item), "runbook-ref-resolved-path");
+    card.appendChild(eyebrow);
+    card.appendChild(title);
+    card.appendChild(fields);
+    return card;
+  }
+
+  function buildUnresolvedRunbookReferenceCard(ref, state) {
+    const card = document.createElement("div");
+    card.className = state.status === "error" ? "runbook-ref-resolver-error" : "runbook-ref-unresolved";
+    const title = document.createElement("h3");
+    title.textContent = state.source === "action-placeholder" && ref.type === "combat"
+      ? "Combat action placeholder"
+      : state.source === "citation-placeholder"
+        ? "Citation placeholder"
+        : state.status === "error"
+          ? "Resolver unavailable"
+          : "Missing reference";
+    const message = document.createElement("p");
+    message.textContent = state.message || "Could not resolve this reference.";
+    const detail = document.createElement("p");
+    detail.className = "mono";
+    detail.textContent = ref.href + " · Kind: " + ref.kind + " · Type: " + ref.type + " · ID: " + ref.id;
+    card.appendChild(title);
+    card.appendChild(message);
+    card.appendChild(detail);
+    return card;
+  }
+
+  function renderRunbookReferenceResolutionState(popover, state) {
+    const status = popover.querySelector(".runbook-ref-popover-status");
+    const region = popover.querySelector(".runbook-ref-popover-resolution");
+    if (!region) return;
+    region.textContent = "";
+    if (state.status === "loading") {
+      status.textContent = "Loading reference…";
+      return;
+    }
+    status.textContent = state.message || (state.status === "resolved" ? "Reference resolved." : "Could not resolve this reference.");
+    if (state.status === "resolved") region.appendChild(buildResolvedRunbookReferenceCard(state.ref, state));
+    else region.appendChild(buildUnresolvedRunbookReferenceCard(state.ref, state));
   }
 
   function positionRunbookReferencePopover(popover, trigger) {
@@ -452,6 +673,24 @@
     const popover = renderRunbookReferencePopoverContent(ref);
     popover.hidden = false;
     positionRunbookReferencePopover(popover, trigger);
+    renderRunbookReferenceResolutionState(popover, { status: "loading", ref: ref });
+    resolveRunbookReference(ref)
+      .then(function (state) {
+        if (activeRunbookReferenceTrigger === trigger) {
+          renderRunbookReferenceResolutionState(popover, state);
+          positionRunbookReferencePopover(popover, trigger);
+        }
+      })
+      .catch(function (err) {
+        if (activeRunbookReferenceTrigger === trigger) {
+          renderRunbookReferenceResolutionState(popover, {
+            status: "error",
+            ref: ref,
+            message: (err && err.message) || "Resolver failed.",
+          });
+          positionRunbookReferencePopover(popover, trigger);
+        }
+      });
   }
 
   function closeRunbookReferencePopover(options) {
@@ -3964,6 +4203,7 @@
     initRunbookReferencePopoverShell: initRunbookReferencePopoverShell,
     closeRunbookReferencePopover: closeRunbookReferencePopover,
     enhanceRunbookReferenceChips: enhanceRunbookReferenceChips,
+    resetRunbookReferenceIndexCache: resetRunbookReferenceIndexCache,
     openToolbox: function (toolId) {
       initToolbox();
       setToolboxOpen(true, toolId || "statblock");
