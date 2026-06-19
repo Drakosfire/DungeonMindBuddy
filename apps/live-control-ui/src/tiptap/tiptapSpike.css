@@ -109,6 +109,70 @@
   outline: none;
 }
 
+.tiptap-block-boundary-help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+  background: rgba(18, 20, 26, 0.86);
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+}
+.tiptap-block-boundary-help strong { color: var(--fg, #e8eaef); }
+.tiptap-block-boundary-help button {
+  margin-left: auto;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+}
+.tiptap-block-boundary-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.tiptap-block-boundary-local { color: #9aa3b5; }
+.tiptap-block-boundary-draft { color: #7aa2f7; }
+.tiptap-block-boundary-committed { color: #a9f0c8; }
+.tiptap-block-boundary-locked { color: #f4c86b; }
+.tiptap-block-boundary-reference { color: #c4b5fd; }
+.tiptap-block-boundary-operational { color: #fb7185; }
+
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state] {
+  position: relative;
+  outline: 2px solid rgba(122, 162, 247, 0.7);
+  outline-offset: 4px;
+}
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state]::before {
+  content: attr(data-runbook-block-label);
+  position: absolute;
+  z-index: 2;
+  top: -0.85rem;
+  right: 0.35rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: #7aa2f7;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="locked"]::before { color: #f4c86b; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="reference"]::before { color: #c4b5fd; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="operational"]::before { color: #fb7185; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="committed"]::before { color: #a9f0c8; }
+
 .tiptap-spike-editor .md-ref-invalid {
   color: var(--fg-mute, #9aa3b5);
   text-decoration: underline dotted;

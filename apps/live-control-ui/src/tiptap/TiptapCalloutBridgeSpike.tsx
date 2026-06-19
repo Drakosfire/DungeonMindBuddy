@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -57,6 +57,33 @@ export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
 ];
 
 type LocalStateStatus = "Loaded starter content" | "Loaded local draft" | "Saved locally" | "Reset to starter" | "Imported committed Markdown";
+type RunbookBlockSaveState = "local" | "draft" | "committed" | "locked" | "reference" | "operational";
+
+interface RunbookBlockBoundary {
+  state: RunbookBlockSaveState;
+  label: string;
+  description: string;
+}
+
+const RUNBOOK_BLOCK_BOUNDARIES: Record<RunbookBlockSaveState, RunbookBlockBoundary> = {
+  local: { state: "local", label: "Local scratch", description: "Browser-only working text; prepare a file write before expecting a committed artifact." },
+  draft: { state: "draft", label: "Saved draft", description: "Saved in local browser storage; not committed to the runbook Markdown file." },
+  committed: { state: "committed", label: "Committed prep", description: "Imported from or written to the reviewed Markdown artifact; edit with file-write expectations." },
+  locked: { state: "locked", label: "Locked for live", description: "Editing is locked while this block is treated as live-play material." },
+  reference: { state: "reference", label: "Read-only reference", description: "A corpus/reference chip is present; edit surrounding prose, not the referenced canon identity." },
+  operational: { state: "operational", label: "Operational", description: "This block points at a live operation/action. Confirm intent before changing expectations or launching tools." },
+};
+
+const BLOCK_SELECTOR = "aside.md-callout, h1, h2, h3, h4, h5, h6, p, li, blockquote";
+
+function classifyRunbookBlock(element: HTMLElement, options: { locked: boolean; status: LocalStateStatus; committed: boolean }): RunbookBlockBoundary {
+  if (options.locked) return RUNBOOK_BLOCK_BOUNDARIES.locked;
+  if (element.querySelector('[data-md-ref-kind="action"]')) return RUNBOOK_BLOCK_BOUNDARIES.operational;
+  if (element.querySelector('[data-md-ref-kind="ref"], [data-md-ref-kind="invalid"]')) return RUNBOOK_BLOCK_BOUNDARIES.reference;
+  if (options.committed || options.status === "Imported committed Markdown") return RUNBOOK_BLOCK_BOUNDARIES.committed;
+  if (options.status === "Saved locally" || options.status === "Loaded local draft") return RUNBOOK_BLOCK_BOUNDARIES.draft;
+  return RUNBOOK_BLOCK_BOUNDARIES.local;
+}
 
 interface TiptapCalloutBridgeSpikeProps {
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
@@ -82,6 +109,9 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [importStatus, setImportStatus] = useState("");
   const [importError, setImportError] = useState("");
   const [importDiagnostics, setImportDiagnostics] = useState<MarkdownImportDiagnostic[]>([]);
+  const [activeBlockBoundary, setActiveBlockBoundary] = useState<RunbookBlockBoundary>(RUNBOOK_BLOCK_BOUNDARIES.local);
+  const activeBlockRef = useRef<HTMLElement | null>(null);
+  const editorShellRef = useRef<HTMLDivElement | null>(null);
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
     content: workingState.tiptap_json as Content,
@@ -117,10 +147,40 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     editor?.chain().focus().insertRunbookReference(attrs).run();
   }, [editor]);
 
+  const clearActiveBlockDecoration = useCallback(() => {
+    activeBlockRef.current?.removeAttribute("data-runbook-block-state");
+    activeBlockRef.current?.removeAttribute("data-runbook-block-label");
+    activeBlockRef.current?.removeAttribute("data-runbook-block-selected");
+    activeBlockRef.current = null;
+  }, []);
+
+  const decorateActiveBlock = useCallback((target: EventTarget | null, selected = false) => {
+    const root = editorShellRef.current;
+    if (!(target instanceof HTMLElement) || !root) return;
+    const block = target.closest(BLOCK_SELECTOR);
+    if (!(block instanceof HTMLElement) || !root.contains(block)) return;
+    const boundary = classifyRunbookBlock(block, {
+      locked: isEditorLocked,
+      status: localStateStatus,
+      committed: Boolean(commitResult),
+    });
+    clearActiveBlockDecoration();
+    block.setAttribute("data-runbook-block-state", boundary.state);
+    block.setAttribute("data-runbook-block-label", boundary.label);
+    if (selected) block.setAttribute("data-runbook-block-selected", "true");
+    activeBlockRef.current = block;
+    setActiveBlockBoundary(boundary);
+  }, [clearActiveBlockDecoration, commitResult, isEditorLocked, localStateStatus]);
+
   const toggleEditorLock = useCallback(() => {
     const nextLocked = !isEditorLocked;
     setIsEditorLocked(nextLocked);
     editor?.setEditable(!nextLocked);
+    setActiveBlockBoundary(nextLocked ? RUNBOOK_BLOCK_BOUNDARIES.locked : RUNBOOK_BLOCK_BOUNDARIES.local);
+    if (activeBlockRef.current) {
+      activeBlockRef.current.setAttribute("data-runbook-block-state", nextLocked ? "locked" : "local");
+      activeBlockRef.current.setAttribute("data-runbook-block-label", nextLocked ? "Locked for live" : "Local scratch");
+    }
   }, [editor, isEditorLocked]);
 
   const resetLocalDraft = useCallback(() => {
@@ -134,7 +194,9 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setCopyMessage("");
     setCommitResult(null);
     setWriteStatus("");
-  }, [descriptor, editor]);
+    clearActiveBlockDecoration();
+    setActiveBlockBoundary(RUNBOOK_BLOCK_BOUNDARIES.local);
+  }, [clearActiveBlockDecoration, descriptor, editor]);
 
 
   const importCommittedMarkdown = useCallback(async () => {
@@ -243,6 +305,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     }
   }, [canCommit, preparedMarkdown, preparedWrite, workingState.document_id, workingState.title]);
 
+  useEffect(() => () => clearActiveBlockDecoration(), [clearActiveBlockDecoration]);
+
   useEffect(() => {
     onEditorToolsChange?.({
       pinnedActions: [
@@ -348,6 +412,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
             <div><dt>Descriptor</dt><dd>{descriptor.documentId}</dd></div>
             <div><dt>Target</dt><dd>{descriptor.targetRelpath}</dd></div>
             <div><dt>State</dt><dd>{localStateStatus}</dd></div>
+            <div><dt>Active block</dt><dd><span className={`tiptap-block-boundary-pill tiptap-block-boundary-${activeBlockBoundary.state}`}>{activeBlockBoundary.label}</span></dd></div>
             <div><dt>Updated</dt><dd>{updatedAt}</dd></div>
           </dl>
           {unknownDocumentId && (
@@ -368,10 +433,23 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
         </div>
 
         <div
+          ref={editorShellRef}
           className={`tiptap-spike-editor md-content ${editorThemeClass}`}
           data-md-theme={descriptor.themeId}
           data-testid="tiptap-editor"
+          onMouseMove={(event) => decorateActiveBlock(event.target)}
+          onClick={(event) => decorateActiveBlock(event.target, true)}
+          onMouseLeave={() => { clearActiveBlockDecoration(); setActiveBlockBoundary(RUNBOOK_BLOCK_BOUNDARIES.local); }}
         >
+          <div className="tiptap-block-boundary-help" aria-live="polite">
+            <strong>{activeBlockBoundary.label}</strong>
+            <span>{activeBlockBoundary.description}</span>
+            {(activeBlockBoundary.state === "operational" || activeBlockBoundary.state === "locked") && (
+              <button type="button" onClick={toggleEditorLock} disabled={!editor}>
+                {isEditorLocked ? "Unlock live block" : "Lock live block"}
+              </button>
+            )}
+          </div>
           <EditorContent editor={editor} />
         </div>
       </section>

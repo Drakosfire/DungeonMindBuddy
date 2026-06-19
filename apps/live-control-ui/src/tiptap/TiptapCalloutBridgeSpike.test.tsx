@@ -298,6 +298,31 @@ describe("semantic callout Markdown bridge", () => {
     expect(commitMock).not.toHaveBeenCalled();
   });
 
+  it("shows block save-state guidance when hovering reference and operational blocks", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+
+    fireEvent.mouseMove(await screen.findByText("Lysandro Ironveil"));
+
+    expect(screen.getAllByText("Read-only reference").length).toBeGreaterThan(0);
+    expect(screen.getByText(/edit surrounding prose, not the referenced canon identity/i)).toBeInTheDocument();
+
+    fireEvent.mouseMove(screen.getByText("North Gate Combat"));
+
+    expect(screen.getAllByText("Operational").length).toBeGreaterThan(0);
+    expect(screen.getByText(/points at a live operation\/action/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lock live block" })).toBeInTheDocument();
+  });
+
+  it("can lock the editor from an operational block badge", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+
+    fireEvent.mouseMove(await screen.findByText("North Gate Combat"));
+    fireEvent.click(screen.getByRole("button", { name: "Lock live block" }));
+
+    expect(screen.getByRole("button", { name: "Unlock live block" })).toBeInTheDocument();
+    expect(screen.getAllByText("Locked for live").length).toBeGreaterThan(0);
+  });
+
   it("prepares derived Markdown, shows its diff, and commits the reviewed token", async () => {
     render(<TiptapCalloutBridgeSpike />);
     fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
