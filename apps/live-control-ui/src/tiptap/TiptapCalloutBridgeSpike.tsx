@@ -17,6 +17,7 @@ import {
   tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "./markdown/calloutMarkdown";
+import { markdownToTiptapDoc, type MarkdownImportDiagnostic } from "./markdown/markdownToTiptap";
 import type { RunbookReferenceAttrs } from "./references/runbookReferences";
 import {
   buildInitialWorkingBoardState,
@@ -55,7 +56,7 @@ export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
   { kind: "action", refType: "combat", refId: "north-gate-combat", label: "North Gate Combat" },
 ];
 
-type LocalStateStatus = "Loaded starter content" | "Loaded local draft" | "Saved locally" | "Reset to starter";
+type LocalStateStatus = "Loaded starter content" | "Loaded local draft" | "Saved locally" | "Reset to starter" | "Imported committed Markdown";
 
 interface TiptapCalloutBridgeSpikeProps {
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
@@ -78,6 +79,9 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [writeStatus, setWriteStatus] = useState("");
   const [writeError, setWriteError] = useState("");
   const [commitResult, setCommitResult] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
+  const [importStatus, setImportStatus] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importDiagnostics, setImportDiagnostics] = useState<MarkdownImportDiagnostic[]>([]);
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
     content: workingState.tiptap_json as Content,
@@ -87,6 +91,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       const now = new Date().toISOString();
       setCommitResult(null);
       setWriteStatus("");
+      setImportStatus("");
+      setImportError("");
       setWorkingState((current) => {
         const nextState = {
           ...current,
@@ -129,6 +135,50 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setCommitResult(null);
     setWriteStatus("");
   }, [descriptor, editor]);
+
+
+  const importCommittedMarkdown = useCallback(async () => {
+    if (!editor) return;
+    setImportStatus("");
+    setImportError("");
+    setImportDiagnostics([]);
+    setCommitResult(null);
+    setPreparedWrite(null);
+    setPreparedMarkdown("");
+
+    const starterMarkdown = tiptapJsonToSemanticMarkdown(descriptor.starterContent);
+    const shouldConfirm = localStateStatus !== "Loaded starter content" || workingState.exported_markdown !== starterMarkdown;
+    if (shouldConfirm && !window.confirm("Importing committed Markdown will replace this local draft. Continue?")) {
+      return;
+    }
+
+    const importPath = `/${descriptor.targetRelpath}`;
+    try {
+      const response = await fetch(importPath);
+      if (!response.ok) throw new Error(`Import failed for ${descriptor.targetRelpath}: ${response.status} ${response.statusText}`.trim());
+      const markdown = await response.text();
+      const imported = markdownToTiptapDoc(markdown);
+      const now = new Date().toISOString();
+      const importedState: TiptapWorkingBoardState = {
+        ...buildInitialWorkingBoardState(descriptor, now),
+        tiptap_json: imported.doc,
+        exported_markdown: tiptapJsonToSemanticMarkdown(imported.doc),
+        dirty: false,
+        updated_at: now,
+        last_local_save_at: now,
+      };
+
+      editor.commands.setContent(imported.doc as Content, false);
+      writeTiptapWorkingBoardState(window.localStorage, descriptor, importedState);
+      setWorkingState(importedState);
+      setLocalStateStatus("Imported committed Markdown");
+      setImportDiagnostics(imported.diagnostics);
+      setImportStatus(`Imported committed Markdown from ${descriptor.targetRelpath}.`);
+    } catch (error) {
+      setImportStatus("");
+      setImportError(error instanceof Error ? error.message : "Import committed Markdown failed.");
+    }
+  }, [descriptor, editor, localStateStatus, workingState.exported_markdown]);
 
   const copyMarkdown = useCallback(async () => {
     if (!navigator.clipboard?.writeText) {
@@ -254,6 +304,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           id: "tiptap-file-write",
           title: "File write",
           actions: [
+            { id: "tiptap-import-committed-markdown", eyebrow: "Import", label: "Import committed Markdown", onClick: importCommittedMarkdown, disabled: !editor },
             { id: "tiptap-prepare-file-write", eyebrow: "Preview", label: "Prepare file write", onClick: prepareFileWrite },
             { id: "tiptap-commit-file-write", eyebrow: "Write", label: "Commit reviewed file write", onClick: commitFileWrite, disabled: !canCommit },
           ],
@@ -262,7 +313,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     });
 
     return () => onEditorToolsChange?.(null);
-  }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
+  }, [canCommit, commitFileWrite, copyMarkdown, editor, importCommittedMarkdown, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
   const editorThemeClass = `md-theme-${descriptor.themeId}`;
@@ -354,10 +405,18 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
             }}
           />
           <div className="tiptap-local-actions">
+            <button type="button" onClick={importCommittedMarkdown} disabled={!editor}>Import committed Markdown</button>
             <button type="button" onClick={prepareFileWrite}>Prepare file write</button>
             <button type="button" onClick={commitFileWrite} disabled={!canCommit}>Commit reviewed file write</button>
           </div>
         </div>
+        {importStatus && <p className="tiptap-write-success">{importStatus}</p>}
+        {importDiagnostics.map((diagnostic) => (
+          <p className="tiptap-write-warning" key={`${diagnostic.level}-${diagnostic.line ?? "none"}-${diagnostic.message}`}>
+            {diagnostic.line ? `${diagnostic.message} at line ${diagnostic.line}.` : diagnostic.message}
+          </p>
+        ))}
+        {importError && <p className="tiptap-write-error" role="alert">{importError}</p>}
         {preparedWrite && preparedMarkdown !== workingState.exported_markdown && (
           <p className="tiptap-write-warning">Editor changed after prepare. Re-prepare before committing.</p>
         )}
