@@ -1,14 +1,15 @@
 # DESIGN — Runbook Roadmap and Session Ingestion
 
-**Status:** Design anchor / roadmap capture  
-**Created:** 2026-06-18  
-**Project area:** DungeonBuddy / Command Board / Tiptap runbook / session prep ingestion  
+**Status:** Design anchor / roadmap capture
+**Created:** 2026-06-18
+**Project area:** DungeonBuddy / Command Board / Tiptap runbook / session prep ingestion
 **Related:**
 
 - `Docs/Plans/DESIGN-session-runbook-command-surface.md`
 - `Docs/Plans/PLAN-configurable-markdown-rendering-and-tiptap-styling.md`
 - `Docs/Design/DESIGN-mireward-command-board-shell.md`
 - `Docs/Plans/C2S23-MIREWARD-DOGFOOD-NOTES.md`
+- `Docs/Design/DESIGN-play-mode-runbook-product-direction.md`
 
 ---
 
@@ -76,7 +77,7 @@ Manual dogfooding should be minimal except where human UI experience is the thin
 
 ## PR 1 — Typed Markdown Reference Chips
 
-**Branch:** `feat/runbook-reference-chips`  
+**Branch:** `feat/runbook-reference-chips`
 **Title:** `feat(command-board): add typed runbook reference chips`
 
 ### Goal
@@ -157,7 +158,7 @@ Open the Markdown theme fixture and confirm chips remain readable inline, visual
 
 ## PR 2 — Tiptap Inline Reference Chip Spike
 
-**Branch:** `spike/tiptap-inline-reference-chips`  
+**Branch:** `spike/tiptap-inline-reference-chips`
 **Title:** `spike(command-board): prototype Tiptap inline reference chips`
 
 ### Goal
@@ -204,7 +205,7 @@ Insert several chips into prose, export, prepare/commit, and reload the static C
 
 ## PR 3 — Runbook Reference Chip Popover Shell
 
-**Branch:** `feat/runbook-reference-popover-shell`  
+**Branch:** `feat/runbook-reference-popover-shell`
 **Title:** `feat(command-board): add runbook reference chip popover shell`
 
 ### Goal
@@ -245,7 +246,7 @@ Read a sample runbook and click several chips. Confirm the popover does not stea
 
 ## PR 4 — API-Backed Reference Resolver v1
 
-**Branch:** `feat/runbook-reference-resolver-v1`  
+**Branch:** `feat/runbook-reference-resolver-v1`
 **Title:** `feat(command-board): resolve runbook reference chips from live indexes`
 
 ### Goal
@@ -291,7 +292,7 @@ Confirm unresolved refs are useful and non-alarming.
 
 ## PR 5 — Tiptap-Authored Command Board Runbook Dogfood
 
-**Branch:** `feat/tiptap-authored-command-board-runbook`  
+**Branch:** `feat/tiptap-authored-command-board-runbook`
 **Title:** `feat(command-board): dogfood a Tiptap-authored session runbook`
 
 ### Goal
@@ -329,7 +330,7 @@ This is the first actual product loop. Confirm the resulting page feels like som
 
 ## PR 6 — Tiptap Runbook Document Descriptors
 
-**Branch:** `feat/tiptap-runbook-document-descriptors`  
+**Branch:** `feat/tiptap-runbook-document-descriptors`
 **Title:** `feat(command-board): add Tiptap runbook document descriptors`
 
 ### Goal
@@ -373,7 +374,7 @@ Open two descriptors and confirm local draft state does not collide.
 
 ## PR 7 — Minimal Markdown to Tiptap Import v1
 
-**Branch:** `feat/tiptap-runbook-markdown-import-v1`  
+**Branch:** `feat/tiptap-runbook-markdown-import-v1`
 **Title:** `feat(command-board): import supported runbook Markdown into Tiptap`
 
 ### Goal
@@ -406,7 +407,7 @@ Import an existing committed runbook, tweak one paragraph, preserve chips/callou
 
 ## PR 8 — Block Save-State Badges
 
-**Branch:** `feat/runbook-block-save-state-badges`  
+**Branch:** `feat/runbook-block-save-state-badges`
 **Title:** `feat(command-board): show runbook block save-state badges`
 
 ### Goal
@@ -447,7 +448,7 @@ Try to edit a locked block and a read-only/reference block. Confirm the UI preve
 
 ## PR 9 — Replace One Real Markdown Surface
 
-**Branch:** `feat/replace-north-gate-runbook-markdown-surface`  
+**Branch:** `feat/replace-north-gate-runbook-markdown-surface`
 **Title:** `feat(command-board): replace North Gate runbook surface with Tiptap-backed authoring`
 
 ### Goal
@@ -477,34 +478,78 @@ Run a mock five-minute session opening from the page. Edit one detail, prepare/c
 
 ---
 
-## PR 10 — Reusable Tiptap Runbook Editor Component
+## PR 10A — Play Mode Runbook Product Direction
 
-**Branch:** `refactor/tiptap-runbook-editor-component`  
-**Title:** `refactor(command-board): extract reusable Tiptap runbook editor`
+**Branch:** `docs/play-mode-runbook-product-direction`
+**Title:** `docs(command-board): capture play-mode runbook direction`
 
 ### Goal
 
-Move from spike route/component to reusable product component.
+Capture the dogfood learning from the North Gate Tiptap-backed Live Play runbook and re-sequence the roadmap around the Prep Mode / Play Mode split.
+
+The old next step was to extract a reusable Tiptap editor from the spike. Dogfood showed that extraction is still needed, but not before Play Mode has a product shell. Extracting the spike too early would preserve the wrong center of gravity.
 
 ### Scope
 
-Extract:
+Document:
 
-- `TiptapRunbookEditor`.
-- Document descriptor handling.
-- File write panel.
-- Local state hook.
-- Modular callout and reference-chip extensions.
+- What the Tiptap spike proved.
+- Why Live Play must behave like a table surface instead of a website.
+- Prep Mode as workshop and Play Mode as table surface.
+- Beat navigation as the next shell.
+- Reference chips as overlay-first typed handles.
+- In-place editing as a later layer on focused beats.
+- Save/commit workflow extraction as a later reusable boundary.
+- Descriptor pressure from multi-runbook support.
 
 ### Out of scope
 
-- New product features.
-- Broad redesign.
-- Behavior changes.
+- Runtime code.
+- Play Mode shell.
+- Beat parser or navigation.
+- Reference overlays.
+- In-place editing.
+- File-write component extraction.
+- Backend routes, resolver APIs, session ledger, CMS, canon writes, or operational mutation.
 
 ### Manual dogfood
 
-No dedicated product dogfood beyond regression. This is extraction after the real loop is proven.
+No runtime dogfood. This is a design lock and roadmap correction.
+
+## PR 10B — Play Mode Beat Shell
+
+**Branch:** `feat/play-mode-runbook-beat-shell`
+**Title:** `feat(command-board): add play-mode runbook beat shell`
+
+### Goal
+
+Build the smallest Play Mode shell before extracting editor internals.
+
+### Scope
+
+- Full timeline / focused beat toggle.
+- Next / Back beat navigation.
+- Existing committed Markdown render as source.
+- No editing yet.
+- No real overlays yet, except a placeholder layer if cheap.
+
+### Out of scope
+
+- In-place editing.
+- Reference resolvers.
+- File-write workflow extraction.
+- Descriptor schema migration.
+- Session ledger.
+
+### Manual dogfood
+
+Yes. Run a short table-flow read and confirm the GM can move between beats without losing place.
+
+## Later — Reusable Tiptap Runbook Editor / File Write Extraction
+
+The reusable editor is still needed, but extraction should follow real product seams rather than the `/tiptap-callout-spike` route shape.
+
+Likely later seams include `RunbookBeatEditor`, `RunbookFileWritePanel`, `useRunbookDocumentState`, `useRunbookLocalDraft`, and `useRunbookFileWrite`.
 
 ---
 
@@ -587,7 +632,7 @@ This data is mutable during play and must not be embedded as canon or durable pr
 
 ## PR 11 — Session Descriptor Manifest v0
 
-**Branch:** `spike/session-descriptor-manifest-v0`  
+**Branch:** `spike/session-descriptor-manifest-v0`
 **Title:** `spike(command-board): describe a session from manifest data`
 
 ### Goal
@@ -639,7 +684,7 @@ None beyond inspecting the rendered metadata once.
 
 ## PR 12 — Unified Typed Reference Index v0
 
-**Branch:** `spike/runbook-reference-index-v0`  
+**Branch:** `spike/runbook-reference-index-v0`
 **Title:** `spike(command-board): expose unified typed reference index`
 
 ### Goal
@@ -684,7 +729,7 @@ None. Unit tests and one resolver integration test are enough.
 
 ## PR 13 — Session Operational Seeds v0
 
-**Branch:** `spike/session-operational-seeds-v0`  
+**Branch:** `spike/session-operational-seeds-v0`
 **Title:** `spike(command-board): move live combat defaults into session seeds`
 
 ### Goal
@@ -730,7 +775,7 @@ Load combat from seed, change HP/initiative, reload, and confirm current live st
 
 ## PR 14 — Next-Session Builder Spike
 
-**Branch:** `spike/next-session-builder-from-current-assets`  
+**Branch:** `spike/next-session-builder-from-current-assets`
 **Title:** `spike(command-board): generate a next-session draft descriptor from existing prep`
 
 ### Goal
@@ -779,7 +824,7 @@ Read the generated next-session runbook and answer: “Would I build from this?�
 
 ## PR 15 — Dynamic Live Play Page from Session Descriptor
 
-**Branch:** `feat/live-play-from-session-descriptor`  
+**Branch:** `feat/live-play-from-session-descriptor`
 **Title:** `feat(command-board): render Live Play from session descriptor`
 
 ### Goal
@@ -944,20 +989,26 @@ Near-term:
 4. PR 4 — Reference resolver v1.
 5. PR 5 — Tiptap-authored runbook dogfood.
 
-Bridge to reuse:
+Bridge to Play Mode:
 
 6. PR 6 — Document descriptors.
 7. PR 7 — Markdown import.
 8. PR 8 — Block save-state badges.
 9. PR 9 — Replace one real Markdown surface.
-10. PR 10 — Extract reusable editor.
+10. PR 10A — Play Mode runbook product direction.
+11. PR 10B — Play Mode beat shell.
+12. PR 11 — Non-navigating reference overlay shell.
+13. PR 12 — Reference overlay resolvers.
+14. PR 13 — In-place beat editing spike.
+15. PR 14 — Save/commit workflow extraction.
+16. PR 15 — Descriptor-backed multi-runbook Play entry.
 
-Next-session infrastructure:
+Next-session infrastructure continues after the Play Mode shell and descriptor-backed entry clarify the product boundary:
 
-11. PR 11 — Session descriptor manifest v0.
-12. PR 12 — Unified typed reference index v0.
-13. PR 13 — Session operational seeds v0.
-14. PR 14 — Next-session builder spike.
-15. PR 15 — Dynamic Live Play page from session descriptor.
+17. Session descriptor manifest v0.
+18. Unified typed reference index v0.
+19. Session operational seeds v0.
+20. Next-session builder spike.
+21. Dynamic Live Play page from session descriptor.
 
 The important restraint is sequencing. The project becomes powerful by layering small, durable contracts.
