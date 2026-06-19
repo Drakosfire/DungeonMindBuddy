@@ -259,7 +259,27 @@ Build a deterministic report over the synthetic materialized bundle.
 
 The report should show node counts, edge counts, provenance paths, validation issue counts, taxonomy usage, and source-grounding shape.
 
-Status: next.
+Status: implemented in report CLI v0.
+
+## Materializer Report CLI
+
+Rung 6 materializer report CLI is tracked in:
+
+`src/graph_memory/report.py`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_materializer`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_materializer_report`
+
+Human-readable guide:
+
+`evals/graph_memory_layer/MATERIALIZER-REPORT.md`
+
+This report makes the synthetic materialized GraphBundle inspectable before any real source surface is admitted. It reports node counts, edge counts, taxonomy usage, lifecycle states, visibility states, evidence roles, provenance refs, source refs, and validation issue summaries. It does not broaden materialization, scan real data, call LLMs, or affect production retrieval.
 
 ### Rung 7: Real-Structure Materialization Gate
 

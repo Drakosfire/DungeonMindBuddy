@@ -67,6 +67,20 @@ uv run python -m evals.graph_memory_layer.validate_materializer
 
 This materializer validation converts only the explicit synthetic fixture into an Ontology IR `GraphBundle`. It is deterministic, uses no LLM, performs no corpus scanning, and makes no retrieval changes.
 
+Render the synthetic-only materializer report with the no-LLM report CLI:
+
+```bash
+uv run python -m evals.graph_memory_layer.report_materializer
+```
+
+Validate the report path with the no-LLM report validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_materializer_report
+```
+
+The materializer report is report-first and synthetic-only. It summarizes the deterministic fixture output, taxonomy usage, lifecycle and visibility states, evidence roles, provenance refs, source refs, validation issues, and per-record rows. It does not broaden materialization, scan real data, call an LLM, or change retrieval behavior. Informational diagnostic-only validation issues are expected and visible; the report path fails only on `error` or `fatal` validation issues.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
