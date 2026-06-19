@@ -19,6 +19,7 @@ REQUIRED_TOP_LEVEL = {
     "status",
     "workstream",
     "purpose",
+    "promotion_semantics",
     "vocabularies",
 }
 REQUIRED_VOCAB_FIELDS = {"id", "label", "description", "terms"}
@@ -30,12 +31,22 @@ REQUIRED_TERM_FIELDS = {
     "disallowed_usage",
     "examples",
     "allowed_graph_record_states",
+    "admissibility_notes",
 }
 TERM_LIST_FIELDS = {
     "allowed_usage",
     "disallowed_usage",
     "examples",
     "allowed_graph_record_states",
+}
+ALLOWED_GRAPH_RECORD_STATES = {
+    "baseline",
+    "candidate",
+    "validated",
+    "promoted",
+    "rejected",
+    "deprecated",
+    "archived",
 }
 REQUIRED_VOCABULARIES = {
     "source_kind",
@@ -127,9 +138,17 @@ def validate_registry(data: dict[str, Any]) -> list[str]:
                 errors.append(f"duplicate term id in {key!r}: {term_id}")
             else:
                 seen_term_ids.add(term_id)
-            for field in ("label", "description"):
+            for field in ("label", "description", "admissibility_notes"):
                 if not _is_nonblank(term.get(field)):
                     errors.append(f"term {term_id!r} in {key!r} has blank {field}")
+            states = term.get("allowed_graph_record_states")
+            if isinstance(states, list):
+                invalid_states = [state for state in states if state not in ALLOWED_GRAPH_RECORD_STATES]
+                if invalid_states:
+                    errors.append(
+                        f"term {term_id!r} in {key!r} has invalid allowed_graph_record_states: "
+                        + ", ".join(map(str, invalid_states))
+                    )
             for field in TERM_LIST_FIELDS:
                 if not isinstance(term.get(field), list):
                     errors.append(f"term {term_id!r} in {key!r} field {field} must be a list")

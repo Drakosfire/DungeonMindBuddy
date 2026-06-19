@@ -17,8 +17,9 @@ REQUIRED_VOCABULARIES = {
 }
 REQUIRED_TERM_FIELDS = {
     "id", "label", "description", "allowed_usage", "disallowed_usage",
-    "examples", "allowed_graph_record_states",
+    "examples", "allowed_graph_record_states", "admissibility_notes",
 }
+ALLOWED_GRAPH_RECORD_STATES = {"baseline", "candidate", "validated", "promoted", "rejected", "deprecated", "archived"}
 LIST_FIELDS = {"allowed_usage", "disallowed_usage", "examples", "allowed_graph_record_states"}
 REQUIRED_SAFETY_TERMS = {
     "source_evidence", "diagnostic_only", "played_truth", "gm_prep", "rumor",
@@ -89,9 +90,52 @@ def test_required_safety_terms_exist_somewhere() -> None:
     assert REQUIRED_SAFETY_TERMS <= seen
 
 
-def test_no_blank_term_id_label_or_description() -> None:
+def test_allowed_graph_record_states_use_known_values() -> None:
+    for vocabulary in load_registry()["vocabularies"].values():
+        for term in vocabulary["terms"]:
+            assert set(term["allowed_graph_record_states"]) <= ALLOWED_GRAPH_RECORD_STATES
+
+
+def find_term(term_id: str) -> dict[str, Any]:
+    for vocabulary in load_registry()["vocabularies"].values():
+        for term in vocabulary["terms"]:
+            if term["id"] == term_id:
+                return term
+    raise AssertionError(f"missing term {term_id}")
+
+
+def semantic_text(term: dict[str, Any]) -> str:
+    parts: list[str] = [term["description"], term["admissibility_notes"]]
+    parts.extend(term["allowed_usage"])
+    parts.extend(term["disallowed_usage"])
+    return " ".join(parts).lower()
+
+
+def test_evidence_role_guardrails_are_explicit() -> None:
+    for term_id in {"diagnostic_only", "derived_summary", "routing_hint", "not_admissible"}:
+        text = semantic_text(find_term(term_id))
+        assert "not source evidence" in text or "not admit" in text or "not admissible" in text
+        assert "promoted" not in find_term(term_id)["allowed_graph_record_states"]
+
+
+def test_authority_state_guardrails_do_not_imply_source_truth() -> None:
+    for term_id in {"llm_inferred", "rumor", "gm_prep", "unknown", "contradicted"}:
+        text = semantic_text(find_term(term_id))
+        assert "do not" in text or "not source" in text or "not imply" in text
+        assert "promoted" not in find_term(term_id)["allowed_graph_record_states"]
+
+
+def test_visibility_terms_preserve_boundaries() -> None:
+    assert "player" in semantic_text(find_term("player_visible"))
+    assert "gm" in semantic_text(find_term("private_gm"))
+    assert "spoiler" in semantic_text(find_term("spoiler_sensitive"))
+    assert "internal" in semantic_text(find_term("internal_diagnostic"))
+
+
+def test_no_blank_term_id_label_description_or_admissibility_notes() -> None:
     for vocabulary in load_registry()["vocabularies"].values():
         for term in vocabulary["terms"]:
             assert term["id"].strip()
             assert term["label"].strip()
             assert term["description"].strip()
+            assert term["admissibility_notes"].strip()

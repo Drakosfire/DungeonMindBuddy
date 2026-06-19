@@ -46,7 +46,9 @@ This PR does not define graph nodes, graph edges, graph bundles, ontology IR, gr
 
 ## Vocabulary Details
 
-The JSON registry is authoritative for term IDs and usage guidance. Term fields are consistent across vocabularies: `id`, `label`, `description`, `allowed_usage`, `disallowed_usage`, `examples`, and `allowed_graph_record_states`.
+The JSON registry is authoritative for term IDs and usage guidance. Term fields are consistent across vocabularies: `id`, `label`, `description`, `allowed_usage`, `disallowed_usage`, `examples`, `allowed_graph_record_states`, and `admissibility_notes`.
+
+`allowed_graph_record_states` means the controlled term may appear on records in those lifecycle states; it does **not** mean a claim is admissible as source evidence, player-visible, or safe to promote without source, authority, visibility, and validation checks.
 
 Important safety distinctions are represented as first-class terms:
 

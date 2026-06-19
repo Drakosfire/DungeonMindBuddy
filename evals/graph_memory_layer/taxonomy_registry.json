@@ -12,12 +12,12 @@
         {
           "id": "session_recap",
           "label": "Session Recap",
-          "description": "Controlled term for session recap in the source kind vocabulary.",
+          "description": "Taxonomy value for session recap in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits session recap within source kind."
+            "Use to classify a record or report value as session recap within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -28,17 +28,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "normalized_recap",
           "label": "Normalized Recap",
-          "description": "Controlled term for normalized recap in the source kind vocabulary.",
+          "description": "Taxonomy value for normalized recap in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits normalized recap within source kind."
+            "Use to classify a record or report value as normalized recap within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -49,17 +50,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "breadcrumbed_recap",
           "label": "Breadcrumbed Recap",
-          "description": "Controlled term for breadcrumbed recap in the source kind vocabulary.",
+          "description": "Taxonomy value for breadcrumbed recap in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits breadcrumbed recap within source kind."
+            "Use to classify a record or report value as breadcrumbed recap within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -70,17 +72,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "session_memory_record",
           "label": "Session Memory Record",
-          "description": "Controlled term for session memory record in the source kind vocabulary.",
+          "description": "Taxonomy value for session memory record in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits session memory record within source kind."
+            "Use to classify a record or report value as session memory record within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -91,17 +94,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "planning_manifest",
           "label": "Planning Manifest",
-          "description": "Controlled term for planning manifest in the source kind vocabulary.",
+          "description": "Taxonomy value for planning manifest in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits planning manifest within source kind."
+            "Use to classify a record or report value as planning manifest within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -112,17 +116,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "gm_prep_doc",
           "label": "GM Prep Doc",
-          "description": "Controlled term for gm prep doc in the source kind vocabulary.",
+          "description": "Taxonomy value for gm prep doc in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits gm prep doc within source kind."
+            "Use to classify a record or report value as gm prep doc within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -133,17 +138,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "design_doc",
           "label": "Design Doc",
-          "description": "Controlled term for design doc in the source kind vocabulary.",
+          "description": "Taxonomy value for design doc in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits design doc within source kind."
+            "Use to classify a record or report value as design doc within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -154,17 +160,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "eval_report",
           "label": "Eval Report",
-          "description": "Controlled term for eval report in the source kind vocabulary.",
+          "description": "Taxonomy value for eval report in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits eval report within source kind."
+            "Use to classify a record or report value as eval report within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -175,17 +182,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "support_card",
           "label": "Support Card",
-          "description": "Controlled term for support card in the source kind vocabulary.",
+          "description": "Taxonomy value for support card in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits support card within source kind."
+            "Use to classify a record or report value as support card within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -196,17 +204,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "corpus_source",
           "label": "Corpus Source",
-          "description": "Controlled term for corpus source in the source kind vocabulary.",
+          "description": "Taxonomy value for corpus source in the source kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits corpus source within source kind."
+            "Use to classify a record or report value as corpus source within source kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -217,7 +226,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -229,12 +239,12 @@
         {
           "id": "raw_source",
           "label": "Raw Source",
-          "description": "Controlled term for raw source in the source layer vocabulary.",
+          "description": "Taxonomy value for raw source in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits raw source within source layer."
+            "Use to classify a record or report value as raw source within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -245,17 +255,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "canonical_source",
           "label": "Canonical Source",
-          "description": "Controlled term for canonical source in the source layer vocabulary.",
+          "description": "Taxonomy value for canonical source in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits canonical source within source layer."
+            "Use to classify a record or report value as canonical source within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -266,17 +277,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "normalized_source",
           "label": "Normalized Source",
-          "description": "Controlled term for normalized source in the source layer vocabulary.",
+          "description": "Taxonomy value for normalized source in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits normalized source within source layer."
+            "Use to classify a record or report value as normalized source within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -287,17 +299,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "breadcrumb_layer",
           "label": "Breadcrumb Layer",
-          "description": "Controlled term for breadcrumb layer in the source layer vocabulary.",
+          "description": "Taxonomy value for breadcrumb layer in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits breadcrumb layer within source layer."
+            "Use to classify a record or report value as breadcrumb layer within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -308,17 +321,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "memory_layer",
           "label": "Memory Layer",
-          "description": "Controlled term for memory layer in the source layer vocabulary.",
+          "description": "Taxonomy value for memory layer in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits memory layer within source layer."
+            "Use to classify a record or report value as memory layer within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -329,17 +343,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "manifest_layer",
           "label": "Manifest Layer",
-          "description": "Controlled term for manifest layer in the source layer vocabulary.",
+          "description": "Taxonomy value for manifest layer in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits manifest layer within source layer."
+            "Use to classify a record or report value as manifest layer within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -350,17 +365,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "derived_report",
           "label": "Derived Report",
-          "description": "Controlled term for derived report in the source layer vocabulary.",
+          "description": "Taxonomy value for derived report in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits derived report within source layer."
+            "Use to classify a record or report value as derived report within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -371,17 +387,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "diagnostic_layer",
           "label": "Diagnostic Layer",
-          "description": "Controlled term for diagnostic layer in the source layer vocabulary.",
+          "description": "Taxonomy value for diagnostic layer in the source layer vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits diagnostic layer within source layer."
+            "Use to classify a record or report value as diagnostic layer within source layer."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -392,7 +409,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -404,12 +422,12 @@
         {
           "id": "pc",
           "label": "PC",
-          "description": "Controlled term for pc in the entity kind vocabulary.",
+          "description": "Taxonomy value for pc in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits pc within entity kind."
+            "Use to classify a record or report value as pc within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -420,17 +438,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "npc",
           "label": "NPC",
-          "description": "Controlled term for npc in the entity kind vocabulary.",
+          "description": "Taxonomy value for npc in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits npc within entity kind."
+            "Use to classify a record or report value as npc within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -441,17 +460,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "party",
           "label": "Party",
-          "description": "Controlled term for party in the entity kind vocabulary.",
+          "description": "Taxonomy value for party in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits party within entity kind."
+            "Use to classify a record or report value as party within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -462,17 +482,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "faction",
           "label": "Faction",
-          "description": "Controlled term for faction in the entity kind vocabulary.",
+          "description": "Taxonomy value for faction in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits faction within entity kind."
+            "Use to classify a record or report value as faction within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -483,17 +504,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "location",
           "label": "Location",
-          "description": "Controlled term for location in the entity kind vocabulary.",
+          "description": "Taxonomy value for location in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits location within entity kind."
+            "Use to classify a record or report value as location within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -504,17 +526,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "sublocation",
           "label": "Sublocation",
-          "description": "Controlled term for sublocation in the entity kind vocabulary.",
+          "description": "Taxonomy value for sublocation in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits sublocation within entity kind."
+            "Use to classify a record or report value as sublocation within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -525,17 +548,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "region",
           "label": "Region",
-          "description": "Controlled term for region in the entity kind vocabulary.",
+          "description": "Taxonomy value for region in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits region within entity kind."
+            "Use to classify a record or report value as region within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -546,17 +570,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "threat",
           "label": "Threat",
-          "description": "Controlled term for threat in the entity kind vocabulary.",
+          "description": "Taxonomy value for threat in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits threat within entity kind."
+            "Use to classify a record or report value as threat within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -567,17 +592,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "creature",
           "label": "Creature",
-          "description": "Controlled term for creature in the entity kind vocabulary.",
+          "description": "Taxonomy value for creature in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits creature within entity kind."
+            "Use to classify a record or report value as creature within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -588,17 +614,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "item",
           "label": "Item",
-          "description": "Controlled term for item in the entity kind vocabulary.",
+          "description": "Taxonomy value for item in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits item within entity kind."
+            "Use to classify a record or report value as item within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -609,17 +636,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "event",
           "label": "Event",
-          "description": "Controlled term for event in the entity kind vocabulary.",
+          "description": "Taxonomy value for event in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits event within entity kind."
+            "Use to classify a record or report value as event within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -630,17 +658,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "hook",
           "label": "Hook",
-          "description": "Controlled term for hook in the entity kind vocabulary.",
+          "description": "Taxonomy value for hook in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits hook within entity kind."
+            "Use to classify a record or report value as hook within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -651,17 +680,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "quest",
           "label": "Quest",
-          "description": "Controlled term for quest in the entity kind vocabulary.",
+          "description": "Taxonomy value for quest in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits quest within entity kind."
+            "Use to classify a record or report value as quest within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -672,17 +702,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "session",
           "label": "Session",
-          "description": "Controlled term for session in the entity kind vocabulary.",
+          "description": "Taxonomy value for session in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits session within entity kind."
+            "Use to classify a record or report value as session within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -693,17 +724,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "campaign",
           "label": "Campaign",
-          "description": "Controlled term for campaign in the entity kind vocabulary.",
+          "description": "Taxonomy value for campaign in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits campaign within entity kind."
+            "Use to classify a record or report value as campaign within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -714,17 +746,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "route",
           "label": "Route",
-          "description": "Controlled term for route in the entity kind vocabulary.",
+          "description": "Taxonomy value for route in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits route within entity kind."
+            "Use to classify a record or report value as route within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -735,17 +768,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "hub",
           "label": "Hub",
-          "description": "Controlled term for hub in the entity kind vocabulary.",
+          "description": "Taxonomy value for hub in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits hub within entity kind."
+            "Use to classify a record or report value as hub within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -756,17 +790,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "source_unit",
           "label": "Source Unit",
-          "description": "Controlled term for source unit in the entity kind vocabulary.",
+          "description": "Taxonomy value for source unit in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits source unit within entity kind."
+            "Use to classify a record or report value as source unit within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -777,17 +812,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "source_document",
           "label": "Source Document",
-          "description": "Controlled term for source document in the entity kind vocabulary.",
+          "description": "Taxonomy value for source document in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits source document within entity kind."
+            "Use to classify a record or report value as source document within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -798,17 +834,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "source_section",
           "label": "Source Section",
-          "description": "Controlled term for source section in the entity kind vocabulary.",
+          "description": "Taxonomy value for source section in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits source section within entity kind."
+            "Use to classify a record or report value as source section within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -819,17 +856,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "source_anchor",
           "label": "Source Anchor",
-          "description": "Controlled term for source anchor in the entity kind vocabulary.",
+          "description": "Taxonomy value for source anchor in the entity kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits source anchor within entity kind."
+            "Use to classify a record or report value as source anchor within entity kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -840,7 +878,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -852,12 +891,12 @@
         {
           "id": "character_route",
           "label": "Character Route",
-          "description": "Controlled term for character route in the route kind vocabulary.",
+          "description": "Taxonomy value for character route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits character route within route kind."
+            "Use to classify a record or report value as character route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -868,17 +907,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "party_route",
           "label": "Party Route",
-          "description": "Controlled term for party route in the route kind vocabulary.",
+          "description": "Taxonomy value for party route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits party route within route kind."
+            "Use to classify a record or report value as party route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -889,17 +929,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "location_route",
           "label": "Location Route",
-          "description": "Controlled term for location route in the route kind vocabulary.",
+          "description": "Taxonomy value for location route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits location route within route kind."
+            "Use to classify a record or report value as location route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -910,17 +951,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "faction_route",
           "label": "Faction Route",
-          "description": "Controlled term for faction route in the route kind vocabulary.",
+          "description": "Taxonomy value for faction route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits faction route within route kind."
+            "Use to classify a record or report value as faction route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -931,17 +973,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "threat_route",
           "label": "Threat Route",
-          "description": "Controlled term for threat route in the route kind vocabulary.",
+          "description": "Taxonomy value for threat route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits threat route within route kind."
+            "Use to classify a record or report value as threat route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -952,17 +995,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "session_route",
           "label": "Session Route",
-          "description": "Controlled term for session route in the route kind vocabulary.",
+          "description": "Taxonomy value for session route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits session route within route kind."
+            "Use to classify a record or report value as session route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -973,17 +1017,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "campaign_route",
           "label": "Campaign Route",
-          "description": "Controlled term for campaign route in the route kind vocabulary.",
+          "description": "Taxonomy value for campaign route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits campaign route within route kind."
+            "Use to classify a record or report value as campaign route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -994,17 +1039,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "support_route",
           "label": "Support Route",
-          "description": "Controlled term for support route in the route kind vocabulary.",
+          "description": "Taxonomy value for support route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits support route within route kind."
+            "Use to classify a record or report value as support route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -1015,17 +1061,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "breadcrumb_route",
           "label": "Breadcrumb Route",
-          "description": "Controlled term for breadcrumb route in the route kind vocabulary.",
+          "description": "Taxonomy value for breadcrumb route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits breadcrumb route within route kind."
+            "Use to classify a record or report value as breadcrumb route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -1036,17 +1083,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "manifest_route",
           "label": "Manifest Route",
-          "description": "Controlled term for manifest route in the route kind vocabulary.",
+          "description": "Taxonomy value for manifest route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits manifest route within route kind."
+            "Use to classify a record or report value as manifest route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -1057,17 +1105,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "hub_route",
           "label": "Hub Route",
-          "description": "Controlled term for hub route in the route kind vocabulary.",
+          "description": "Taxonomy value for hub route in the route kind vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits hub route within route kind."
+            "Use to classify a record or report value as hub route within route kind."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -1078,7 +1127,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -1090,12 +1140,12 @@
         {
           "id": "source_evidence",
           "label": "Source Evidence",
-          "description": "Information that may support answer claims because it is grounded in an admissible source.",
+          "description": "Admissible source-grounded evidence that may support answer claims when cited to the underlying source.",
           "allowed_usage": [
-            "Use for source-supported facts or events that can be cited as evidence."
+            "Use only for source-supported facts, events, or text spans that can ground an answer claim."
           ],
           "disallowed_usage": [
-            "Do not use for diagnostic reports, routing hints, or unsupported derived summaries."
+            "Do not use for diagnostics, routing hints, summaries, or unsupported candidates."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with source_evidence."
@@ -1105,18 +1155,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "May support answer claims when coupled to source citation/provenance."
         },
         {
           "id": "supporting_context",
           "label": "Supporting Context",
-          "description": "Controlled term for supporting context in the evidence role vocabulary.",
+          "description": "Context that can help interpret source evidence but should not carry the answer claim by itself.",
           "allowed_usage": [
-            "Use when a record clearly fits supporting context within evidence role."
+            "Use for nearby context that frames an admissible source."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not cite as the sole basis for a factual answer claim."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with supporting_context."
@@ -1126,19 +1176,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Can accompany source evidence but is not sufficient alone."
         },
         {
           "id": "routing_hint",
           "label": "Routing Hint",
-          "description": "Controlled term for routing hint in the evidence role vocabulary.",
+          "description": "Navigation metadata used to find likely relevant material; it is not source evidence.",
           "allowed_usage": [
-            "Use when a record clearly fits routing hint within evidence role."
+            "Use for route, lane, or index signals that help retrieval find candidates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence.",
-            "Must not be admitted as source evidence for answer claims."
+            "Do not admit as source evidence or treat as proof of a claim."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with routing_hint."
@@ -1146,21 +1195,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source evidence; routing-only values must be backed by a real source before answering."
         },
         {
           "id": "diagnostic_only",
           "label": "Diagnostic Only",
-          "description": "Controlled term for diagnostic only in the evidence role vocabulary.",
+          "description": "Internal diagnostic output for evaluation, debugging, or reporting; it is not source evidence.",
           "allowed_usage": [
-            "Use when a record clearly fits diagnostic only within evidence role."
+            "Use for validator, report, or debug artifacts that explain system behavior."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence.",
-            "Must not be admitted as source evidence for answer claims."
+            "Do not expose as source truth or admit as evidence for answer claims."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with diagnostic_only."
@@ -1168,21 +1215,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source evidence and not promotion-safe as answer support."
         },
         {
           "id": "derived_summary",
           "label": "Derived Summary",
-          "description": "Controlled term for derived summary in the evidence role vocabulary.",
+          "description": "A summary derived from source material; useful for orientation but not independently admissible as source evidence.",
           "allowed_usage": [
-            "Use when a record clearly fits derived summary within evidence role."
+            "Use when the value summarizes or compresses other source-backed material."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence.",
-            "Must not be admitted as source evidence for answer claims."
+            "Do not cite as source evidence unless the original source support is also present."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with derived_summary."
@@ -1190,20 +1235,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source evidence by itself; source citations must point through to original material."
         },
         {
           "id": "candidate_evidence",
           "label": "Candidate Evidence",
-          "description": "Controlled term for candidate evidence in the evidence role vocabulary.",
+          "description": "Proposed evidence that still needs validation against source material.",
           "allowed_usage": [
-            "Use when a record clearly fits candidate evidence within evidence role."
+            "Use for candidate evidence awaiting source verification."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as answer-supporting source evidence until validated."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with candidate_evidence."
@@ -1213,18 +1257,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Candidate only until validated against source support."
         },
         {
           "id": "not_admissible",
           "label": "Not Admissible",
-          "description": "Controlled term for not admissible in the evidence role vocabulary.",
+          "description": "Content that must not be used as evidence for answer claims.",
           "allowed_usage": [
-            "Use when a record clearly fits not admissible within evidence role."
+            "Use when policy, provenance, or source quality blocks evidentiary use."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not admit as source evidence or promote as answer support."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with not_admissible."
@@ -1232,20 +1276,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Explicitly not source evidence."
         },
         {
           "id": "navigation_only",
           "label": "Navigation Only",
-          "description": "Controlled term for navigation only in the evidence role vocabulary.",
+          "description": "A navigational marker that helps locate material but is not itself evidentiary.",
           "allowed_usage": [
-            "Use when a record clearly fits navigation only within evidence role."
+            "Use for anchors, routes, or wayfinding structures."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as proof of campaign facts."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with navigation_only."
@@ -1255,7 +1298,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Navigation-only; requires separate source evidence for claims."
         }
       ]
     },
@@ -1267,13 +1311,12 @@
         {
           "id": "played_truth",
           "label": "Played Truth",
-          "description": "Controlled term for played truth in the authority state vocabulary.",
+          "description": "Information established in actual play or canonical session recap.",
           "allowed_usage": [
-            "Use when a record clearly fits played truth within authority state."
+            "Use for source-supported events or facts established in play."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for GM prep that has not occurred in play or unsupported inference."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with played_truth."
@@ -1283,18 +1326,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Source-grounded played truth may support promoted records when citations are present."
         },
         {
           "id": "canonical_recap",
           "label": "Canonical Recap",
-          "description": "Controlled term for canonical recap in the authority state vocabulary.",
+          "description": "Information asserted by an accepted canonical recap.",
           "allowed_usage": [
-            "Use when a record clearly fits canonical recap within authority state."
+            "Use for facts represented in the canonical recap surface."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for loose notes, drafts, or private prep unless accepted as recap."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with canonical_recap."
@@ -1304,18 +1347,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Can support answers when the recap source is admissible."
         },
         {
           "id": "gm_prep",
           "label": "GM Prep",
-          "description": "Controlled term for gm prep in the authority state vocabulary.",
+          "description": "GM-only prepared material that may not have happened in play.",
           "allowed_usage": [
-            "Use when a record clearly fits gm prep within authority state."
+            "Use for private preparation, plans, secrets, or unrevealed possibilities."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as played truth or player-visible fact."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with gm_prep."
@@ -1323,20 +1366,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source evidence for played events; promotion requires preserving GM-prep authority."
         },
         {
           "id": "rumor",
           "label": "Rumor",
-          "description": "Controlled term for rumor in the authority state vocabulary.",
+          "description": "In-world or out-of-world claim whose truth is intentionally uncertain.",
           "allowed_usage": [
-            "Use when a record clearly fits rumor within authority state."
+            "Use for hearsay, leads, and unconfirmed claims."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not upgrade to confirmed fact without source-supported confirmation."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with rumor."
@@ -1344,20 +1386,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Uncertain authority; not source truth by itself."
         },
         {
           "id": "unreliable_claim",
           "label": "Unreliable Claim",
-          "description": "Controlled term for unreliable claim in the authority state vocabulary.",
+          "description": "A claim from a source or speaker marked as unreliable.",
           "allowed_usage": [
-            "Use when a record clearly fits unreliable claim within authority state."
+            "Use when the source provides information but reliability is disputed."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as confirmed source truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with unreliable_claim."
@@ -1365,20 +1406,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Requires explicit reliability context."
         },
         {
           "id": "candidate",
           "label": "Candidate",
-          "description": "Controlled term for candidate in the authority state vocabulary.",
+          "description": "A proposed authority classification awaiting validation.",
           "allowed_usage": [
-            "Use when a record clearly fits candidate within authority state."
+            "Use for unreviewed or provisional authority assignments."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as confirmed, played, or human-approved truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with candidate."
@@ -1386,20 +1426,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Candidate only until validation."
         },
         {
           "id": "llm_inferred",
           "label": "LLM Inferred",
-          "description": "Controlled term for llm inferred in the authority state vocabulary.",
+          "description": "Information inferred by an LLM rather than directly sourced.",
           "allowed_usage": [
-            "Use when a record clearly fits llm inferred within authority state."
+            "Use only to label inference provenance."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not admit as source evidence or played truth without source support."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with llm_inferred."
@@ -1407,20 +1446,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source evidence; must remain marked as inferred unless independently validated."
         },
         {
           "id": "system_derived",
           "label": "System Derived",
-          "description": "Controlled term for system derived in the authority state vocabulary.",
+          "description": "Information deterministically derived by system logic from existing records.",
           "allowed_usage": [
-            "Use when a record clearly fits system derived within authority state."
+            "Use for computed classifications, joins, or reports."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not cite as original source evidence."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with system_derived."
@@ -1430,18 +1468,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Can be useful for routing/reporting but needs source lineage for claims."
         },
         {
           "id": "human_confirmed",
           "label": "Human Confirmed",
-          "description": "Controlled term for human confirmed in the authority state vocabulary.",
+          "description": "Information reviewed and confirmed by a human operator.",
           "allowed_usage": [
-            "Use when a record clearly fits human confirmed within authority state."
+            "Use for human-approved corrections or confirmations."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not assume human confirmation supplies missing source provenance."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with human_confirmed."
@@ -1451,18 +1489,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "May support promotion when source and visibility constraints are also satisfied."
         },
         {
           "id": "contradicted",
           "label": "Contradicted",
-          "description": "Controlled term for contradicted in the authority state vocabulary.",
+          "description": "Information with known conflicting source support or explicit contradiction.",
           "allowed_usage": [
-            "Use when a record clearly fits contradicted within authority state."
+            "Use when a claim has been challenged by another source or adjudication."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as settled truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with contradicted."
@@ -1470,20 +1508,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not source truth by itself; must preserve conflict context."
         },
         {
           "id": "unknown",
           "label": "Unknown",
-          "description": "Controlled term for unknown in the authority state vocabulary.",
+          "description": "Authority cannot currently be determined.",
           "allowed_usage": [
-            "Use when a record clearly fits unknown within authority state."
+            "Use when provenance or authority is missing or unresolved."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use as a shortcut for confirmed, inferred, or played truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with unknown."
@@ -1491,9 +1528,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Unknown authority must not imply source evidence."
         }
       ]
     },
@@ -1505,13 +1542,12 @@
         {
           "id": "player_visible",
           "label": "Player Visible",
-          "description": "Controlled term for player visible in the visibility state vocabulary.",
+          "description": "Content safe for players because it has been revealed or is otherwise player-facing.",
           "allowed_usage": [
-            "Use when a record clearly fits player visible within visibility state."
+            "Use for content that can appear in player-facing answers."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for GM secrets, unreleased prep, or spoiler-sensitive material."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with player_visible."
@@ -1521,18 +1557,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Player-visible content may be promoted when other authority checks pass."
         },
         {
           "id": "private_gm",
           "label": "Private GM",
-          "description": "Controlled term for private gm in the visibility state vocabulary.",
+          "description": "GM-only content that should not be revealed to players by default.",
           "allowed_usage": [
-            "Use when a record clearly fits private gm within visibility state."
+            "Use for secrets, unrevealed prep, or behind-the-screen notes."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not expose in player-facing retrieval or answers."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with private_gm."
@@ -1542,18 +1578,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Preserve GM-only boundary even if the record is validated."
         },
         {
           "id": "internal_diagnostic",
           "label": "Internal Diagnostic",
-          "description": "Controlled term for internal diagnostic in the visibility state vocabulary.",
+          "description": "Internal system/debug content not intended as campaign-facing knowledge.",
           "allowed_usage": [
-            "Use when a record clearly fits internal diagnostic within visibility state."
+            "Use for validation, evaluation, report, or debug-only material."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not expose as player-facing or GM-authored fiction."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with internal_diagnostic."
@@ -1563,18 +1599,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Internal only; not source evidence."
         },
         {
           "id": "unreleased",
           "label": "Unreleased",
-          "description": "Controlled term for unreleased in the visibility state vocabulary.",
+          "description": "Content not yet released into play or a player-visible surface.",
           "allowed_usage": [
-            "Use when a record clearly fits unreleased within visibility state."
+            "Use for planned or staged content awaiting reveal."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as played truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with unreleased."
@@ -1584,18 +1620,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Requires reveal/authority transition before player-visible use."
         },
         {
           "id": "spoiler_sensitive",
           "label": "Spoiler Sensitive",
-          "description": "Controlled term for spoiler sensitive in the visibility state vocabulary.",
+          "description": "Content that may reveal hidden information or future developments.",
           "allowed_usage": [
-            "Use when a record clearly fits spoiler sensitive within visibility state."
+            "Use for content needing spoiler controls."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not surface without an explicit visibility policy."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with spoiler_sensitive."
@@ -1605,18 +1641,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Promotion must preserve spoiler controls."
         },
         {
           "id": "unknown_visibility",
           "label": "Unknown Visibility",
-          "description": "Controlled term for unknown visibility in the visibility state vocabulary.",
+          "description": "Visibility has not been classified.",
           "allowed_usage": [
-            "Use when a record clearly fits unknown visibility within visibility state."
+            "Use when player/GM/internal visibility is unresolved."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not assume player visibility."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with unknown_visibility."
@@ -1624,9 +1660,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Unknown visibility should block player-facing admission."
         }
       ]
     },
@@ -1638,13 +1674,12 @@
         {
           "id": "asserted",
           "label": "Asserted",
-          "description": "Controlled term for asserted in the truth state vocabulary.",
+          "description": "A claim has been stated by a source but not necessarily independently confirmed.",
           "allowed_usage": [
-            "Use when a record clearly fits asserted within truth state."
+            "Use for stated claims with source attribution."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not imply the claim is verified."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with asserted."
@@ -1654,18 +1689,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Requires source attribution and truth-state preservation."
         },
         {
           "id": "confirmed",
           "label": "Confirmed",
-          "description": "Controlled term for confirmed in the truth state vocabulary.",
+          "description": "A claim has been verified by accepted source or human review.",
           "allowed_usage": [
-            "Use when a record clearly fits confirmed within truth state."
+            "Use when validation supports the claim as true in its scope."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for rumors, candidates, or unsupported inference."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with confirmed."
@@ -1675,18 +1710,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "May support promotion when provenance and visibility also pass."
         },
         {
           "id": "candidate",
           "label": "Candidate",
-          "description": "Controlled term for candidate in the truth state vocabulary.",
+          "description": "A proposed truth classification awaiting validation.",
           "allowed_usage": [
-            "Use when a record clearly fits candidate within truth state."
+            "Use for provisional truth labels."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use as confirmed truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with candidate."
@@ -1694,20 +1729,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Candidate only."
         },
         {
           "id": "inferred",
           "label": "Inferred",
-          "description": "Controlled term for inferred in the truth state vocabulary.",
+          "description": "A truth value inferred from other information rather than directly asserted.",
           "allowed_usage": [
-            "Use when a record clearly fits inferred within truth state."
+            "Use for derived truth classifications."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as directly sourced fact."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with inferred."
@@ -1717,18 +1751,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Must preserve inference provenance."
         },
         {
           "id": "rumored",
           "label": "Rumored",
-          "description": "Controlled term for rumored in the truth state vocabulary.",
+          "description": "A claim is represented as rumor or hearsay.",
           "allowed_usage": [
-            "Use when a record clearly fits rumored within truth state."
+            "Use for uncertain in-world claims."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not convert to fact without confirmation."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with rumored."
@@ -1736,20 +1770,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Not confirmed source truth."
         },
         {
           "id": "false",
           "label": "False",
-          "description": "Controlled term for false in the truth state vocabulary.",
+          "description": "A claim is known false in the relevant campaign context.",
           "allowed_usage": [
-            "Use when a record clearly fits false within truth state."
+            "Use for disproven or rejected claims."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for merely unknown claims."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with false."
@@ -1759,18 +1792,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Can be retained to prevent resurfacing false facts."
         },
         {
           "id": "conflicted",
           "label": "Conflicted",
-          "description": "Controlled term for conflicted in the truth state vocabulary.",
+          "description": "A claim has unresolved conflicting truth support.",
           "allowed_usage": [
-            "Use when a record clearly fits conflicted within truth state."
+            "Use when sources or adjudications disagree."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as settled truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with conflicted."
@@ -1778,20 +1811,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Must preserve conflict."
         },
         {
           "id": "retconned",
           "label": "Retconned",
-          "description": "Controlled term for retconned in the truth state vocabulary.",
+          "description": "A claim was superseded by later continuity correction.",
           "allowed_usage": [
-            "Use when a record clearly fits retconned within truth state."
+            "Use for facts intentionally revised out of current truth."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use as current truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with retconned."
@@ -1799,20 +1831,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Retain for history, not current answer support."
         },
         {
           "id": "unknown_truth",
           "label": "Unknown Truth",
-          "description": "Controlled term for unknown truth in the truth state vocabulary.",
+          "description": "Truth cannot currently be determined.",
           "allowed_usage": [
-            "Use when a record clearly fits unknown truth within truth state."
+            "Use when truth support is missing or unresolved."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not infer truth from absence of contradiction."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with unknown_truth."
@@ -1820,9 +1851,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Unknown truth must not imply source evidence."
         }
       ]
     },
@@ -1834,13 +1865,12 @@
         {
           "id": "candidate",
           "label": "Candidate",
-          "description": "Controlled term for candidate in the lifecycle state vocabulary.",
+          "description": "A proposed record or classification awaiting validation.",
           "allowed_usage": [
-            "Use when a record clearly fits candidate within lifecycle state."
+            "Use for new unvalidated graph-memory candidates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as durable graph truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with candidate."
@@ -1848,20 +1878,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Candidate records are not promoted."
         },
         {
           "id": "validated",
           "label": "Validated",
-          "description": "Controlled term for validated in the lifecycle state vocabulary.",
+          "description": "A record or classification has passed its current validation checks.",
           "allowed_usage": [
-            "Use when a record clearly fits validated within lifecycle state."
+            "Use after validator or human review accepts the record in scope."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not imply production retrieval admission."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with validated."
@@ -1871,18 +1900,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Validated is experiment-safe, not automatically retrieval-active."
         },
         {
           "id": "promoted",
           "label": "Promoted",
-          "description": "Controlled term for promoted in the lifecycle state vocabulary.",
+          "description": "A record or classification has been approved for the next durable use stage.",
           "allowed_usage": [
-            "Use when a record clearly fits promoted within lifecycle state."
+            "Use only after validation and promotion criteria pass."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use to bypass source, authority, or visibility constraints."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with promoted."
@@ -1892,18 +1921,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Promotion does not turn unsafe content into source evidence."
         },
         {
           "id": "rejected",
           "label": "Rejected",
-          "description": "Controlled term for rejected in the lifecycle state vocabulary.",
+          "description": "A candidate failed validation or review.",
           "allowed_usage": [
-            "Use when a record clearly fits rejected within lifecycle state."
+            "Use to retain rejection history and prevent reintroduction."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use as active graph truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with rejected."
@@ -1911,20 +1940,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Rejected records should not be promoted."
         },
         {
           "id": "deprecated",
           "label": "Deprecated",
-          "description": "Controlled term for deprecated in the lifecycle state vocabulary.",
+          "description": "A once-valid value is retained but should no longer be preferred.",
           "allowed_usage": [
-            "Use when a record clearly fits deprecated within lifecycle state."
+            "Use for older terms or records kept for compatibility/history."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for new preferred records."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with deprecated."
@@ -1932,20 +1960,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Deprecated content should not be newly promoted."
         },
         {
           "id": "superseded",
           "label": "Superseded",
-          "description": "Controlled term for superseded in the lifecycle state vocabulary.",
+          "description": "A record has been replaced by a newer or more authoritative record.",
           "allowed_usage": [
-            "Use when a record clearly fits superseded within lifecycle state."
+            "Use when a replacement exists."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not prefer over the successor."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with superseded."
@@ -1953,20 +1980,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Retain lineage to successor."
         },
         {
           "id": "conflicted",
           "label": "Conflicted",
-          "description": "Controlled term for conflicted in the lifecycle state vocabulary.",
+          "description": "A record is retained with unresolved conflicts.",
           "allowed_usage": [
-            "Use when a record clearly fits conflicted within lifecycle state."
+            "Use when validation found conflicting support."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as settled truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with conflicted."
@@ -1974,20 +2000,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Requires conflict-aware handling."
         },
         {
           "id": "retconned",
           "label": "Retconned",
-          "description": "Controlled term for retconned in the lifecycle state vocabulary.",
+          "description": "A record was changed by continuity correction.",
           "allowed_usage": [
-            "Use when a record clearly fits retconned within lifecycle state."
+            "Use for old continuity facts preserved for audit/history."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as current truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with retconned."
@@ -1995,20 +2020,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Retconned records should not be answer support for current truth."
         },
         {
           "id": "archived",
           "label": "Archived",
-          "description": "Controlled term for archived in the lifecycle state vocabulary.",
+          "description": "A record is retained for history but no longer active.",
           "allowed_usage": [
-            "Use when a record clearly fits archived within lifecycle state."
+            "Use for closed or historical experiment records."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as active retrieval input."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with archived."
@@ -2016,9 +2040,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Archive state preserves traceability."
         }
       ]
     },
@@ -2030,13 +2054,12 @@
         {
           "id": "identity",
           "label": "Identity",
-          "description": "Controlled term for identity in the relationship predicate family vocabulary.",
+          "description": "Relationships about sameness, canonical identity, or disambiguation.",
           "allowed_usage": [
-            "Use when a record clearly fits identity within relationship predicate family."
+            "Use to group future identity predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact identity edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with identity."
@@ -2046,18 +2069,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "alias",
           "label": "Alias",
-          "description": "Controlled term for alias in the relationship predicate family vocabulary.",
+          "description": "Relationships connecting aliases, nicknames, handles, or alternate labels.",
           "allowed_usage": [
-            "Use when a record clearly fits alias within relationship predicate family."
+            "Use to group alias/identity-bridge predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not resolve aliases here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with alias."
@@ -2067,18 +2090,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "membership",
           "label": "Membership",
-          "description": "Controlled term for membership in the relationship predicate family vocabulary.",
+          "description": "Relationships about belonging to parties, factions, groups, or sets.",
           "allowed_usage": [
-            "Use when a record clearly fits membership within relationship predicate family."
+            "Use to group membership predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define member edge schemas here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with membership."
@@ -2088,18 +2111,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "location_hierarchy",
           "label": "Location Hierarchy",
-          "description": "Controlled term for location hierarchy in the relationship predicate family vocabulary.",
+          "description": "Relationships about containment or hierarchy among places.",
           "allowed_usage": [
-            "Use when a record clearly fits location hierarchy within relationship predicate family."
+            "Use to group region/location/sublocation hierarchy predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact located-in edges here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with location_hierarchy."
@@ -2109,18 +2132,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "temporal_sequence",
           "label": "Temporal Sequence",
-          "description": "Controlled term for temporal sequence in the relationship predicate family vocabulary.",
+          "description": "Relationships about ordering, before/after, or session sequence.",
           "allowed_usage": [
-            "Use when a record clearly fits temporal sequence within relationship predicate family."
+            "Use to group temporal predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not materialize timelines here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with temporal_sequence."
@@ -2130,18 +2153,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "participation",
           "label": "Participation",
-          "description": "Controlled term for participation in the relationship predicate family vocabulary.",
+          "description": "Relationships about taking part in events, sessions, encounters, or scenes.",
           "allowed_usage": [
-            "Use when a record clearly fits participation within relationship predicate family."
+            "Use to group participation predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define participant edge schemas here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with participation."
@@ -2151,18 +2174,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "ownership",
           "label": "Ownership",
-          "description": "Controlled term for ownership in the relationship predicate family vocabulary.",
+          "description": "Relationships about possession, control, or ownership.",
           "allowed_usage": [
-            "Use when a record clearly fits ownership within relationship predicate family."
+            "Use to group ownership predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not adjudicate ownership truth here."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with ownership."
@@ -2172,18 +2195,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "causality",
           "label": "Causality",
-          "description": "Controlled term for causality in the relationship predicate family vocabulary.",
+          "description": "Relationships about cause, consequence, trigger, or dependency.",
           "allowed_usage": [
-            "Use when a record clearly fits causality within relationship predicate family."
+            "Use to group causal predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not infer causality without source support."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with causality."
@@ -2193,18 +2216,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only."
         },
         {
           "id": "threat_relation",
           "label": "Threat Relation",
-          "description": "Controlled term for threat relation in the relationship predicate family vocabulary.",
+          "description": "Relationships about threat relation as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits threat relation within relationship predicate family."
+            "Use to group future threat relation predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with threat_relation."
@@ -2214,18 +2237,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "hook_relation",
           "label": "Hook Relation",
-          "description": "Controlled term for hook relation in the relationship predicate family vocabulary.",
+          "description": "Relationships about hook relation as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits hook relation within relationship predicate family."
+            "Use to group future hook relation predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with hook_relation."
@@ -2235,18 +2258,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "source_derivation",
           "label": "Source Derivation",
-          "description": "Controlled term for source derivation in the relationship predicate family vocabulary.",
+          "description": "Relationships about source derivation as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits source derivation within relationship predicate family."
+            "Use to group future source derivation predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with source_derivation."
@@ -2256,18 +2279,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "citation",
           "label": "Citation",
-          "description": "Controlled term for citation in the relationship predicate family vocabulary.",
+          "description": "Relationships about citation as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits citation within relationship predicate family."
+            "Use to group future citation predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with citation."
@@ -2277,18 +2300,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "routing",
           "label": "Routing",
-          "description": "Controlled term for routing in the relationship predicate family vocabulary.",
+          "description": "Relationships about routing as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits routing within relationship predicate family."
+            "Use to group future routing predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with routing."
@@ -2298,18 +2321,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "visibility",
           "label": "Visibility",
-          "description": "Controlled term for visibility in the relationship predicate family vocabulary.",
+          "description": "Relationships about visibility as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits visibility within relationship predicate family."
+            "Use to group future visibility predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with visibility."
@@ -2319,18 +2342,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         },
         {
           "id": "authority",
           "label": "Authority",
-          "description": "Controlled term for authority in the relationship predicate family vocabulary.",
+          "description": "Relationships about authority as a broad predicate family.",
           "allowed_usage": [
-            "Use when a record clearly fits authority within relationship predicate family."
+            "Use to group future authority predicates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not define exact graph edges in this taxonomy registry."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with authority."
@@ -2340,7 +2363,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         }
       ]
     },
@@ -2352,12 +2376,12 @@
         {
           "id": "character_party_behavior",
           "label": "Character Party Behavior",
-          "description": "Controlled term for character party behavior in the planning lane vocabulary.",
+          "description": "Taxonomy value for character party behavior in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits character party behavior within planning lane."
+            "Use to classify a record or report value as character party behavior within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2368,17 +2392,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "location_worldbuilding",
           "label": "Location Worldbuilding",
-          "description": "Controlled term for location worldbuilding in the planning lane vocabulary.",
+          "description": "Taxonomy value for location worldbuilding in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits location worldbuilding within planning lane."
+            "Use to classify a record or report value as location worldbuilding within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2389,17 +2414,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "prior_campaign_memory",
           "label": "Prior Campaign Memory",
-          "description": "Controlled term for prior campaign memory in the planning lane vocabulary.",
+          "description": "Taxonomy value for prior campaign memory in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits prior campaign memory within planning lane."
+            "Use to classify a record or report value as prior campaign memory within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2410,17 +2436,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "support_knowledge",
           "label": "Support Knowledge",
-          "description": "Controlled term for support knowledge in the planning lane vocabulary.",
+          "description": "Taxonomy value for support knowledge in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits support knowledge within planning lane."
+            "Use to classify a record or report value as support knowledge within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2431,17 +2458,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "known_gaps_and_safety_constraints",
           "label": "Known Gaps And Safety Constraints",
-          "description": "Controlled term for known gaps and safety constraints in the planning lane vocabulary.",
+          "description": "Taxonomy value for known gaps and safety constraints in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits known gaps and safety constraints within planning lane."
+            "Use to classify a record or report value as known gaps and safety constraints within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2452,17 +2480,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "mechanics_rules",
           "label": "Mechanics Rules",
-          "description": "Controlled term for mechanics rules in the planning lane vocabulary.",
+          "description": "Taxonomy value for mechanics rules in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits mechanics rules within planning lane."
+            "Use to classify a record or report value as mechanics rules within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2473,17 +2502,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "session_prep",
           "label": "Session Prep",
-          "description": "Controlled term for session prep in the planning lane vocabulary.",
+          "description": "Taxonomy value for session prep in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits session prep within planning lane."
+            "Use to classify a record or report value as session prep within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2494,17 +2524,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "live_play_context",
           "label": "Live Play Context",
-          "description": "Controlled term for live play context in the planning lane vocabulary.",
+          "description": "Taxonomy value for live play context in the planning lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits live play context within planning lane."
+            "Use to classify a record or report value as live play context within planning lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2515,7 +2546,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -2527,12 +2559,12 @@
         {
           "id": "direct_source_recall",
           "label": "Direct Source Recall",
-          "description": "Controlled term for direct source recall in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for direct source recall in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits direct source recall within retrieval lane."
+            "Use to classify a record or report value as direct source recall within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2543,17 +2575,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "entity_resolution",
           "label": "Entity Resolution",
-          "description": "Controlled term for entity resolution in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for entity resolution in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits entity resolution within retrieval lane."
+            "Use to classify a record or report value as entity resolution within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2564,17 +2597,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "route_expansion",
           "label": "Route Expansion",
-          "description": "Controlled term for route expansion in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for route expansion in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits route expansion within retrieval lane."
+            "Use to classify a record or report value as route expansion within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2585,17 +2619,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "location_hierarchy_expansion",
           "label": "Location Hierarchy Expansion",
-          "description": "Controlled term for location hierarchy expansion in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for location hierarchy expansion in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits location hierarchy expansion within retrieval lane."
+            "Use to classify a record or report value as location hierarchy expansion within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2606,17 +2641,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "alias_bridge",
           "label": "Alias Bridge",
-          "description": "Controlled term for alias bridge in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for alias bridge in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits alias bridge within retrieval lane."
+            "Use to classify a record or report value as alias bridge within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2627,17 +2663,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "temporal_ordering",
           "label": "Temporal Ordering",
-          "description": "Controlled term for temporal ordering in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for temporal ordering in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits temporal ordering within retrieval lane."
+            "Use to classify a record or report value as temporal ordering within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2648,17 +2685,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "hook_resurfacing",
           "label": "Hook Resurfacing",
-          "description": "Controlled term for hook resurfacing in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for hook resurfacing in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits hook resurfacing within retrieval lane."
+            "Use to classify a record or report value as hook resurfacing within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2669,17 +2707,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "hub_expansion",
           "label": "Hub Expansion",
-          "description": "Controlled term for hub expansion in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for hub expansion in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits hub expansion within retrieval lane."
+            "Use to classify a record or report value as hub expansion within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2690,17 +2729,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "authority_filtering",
           "label": "Authority Filtering",
-          "description": "Controlled term for authority filtering in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for authority filtering in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits authority filtering within retrieval lane."
+            "Use to classify a record or report value as authority filtering within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2711,17 +2751,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "citation_grounding",
           "label": "Citation Grounding",
-          "description": "Controlled term for citation grounding in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for citation grounding in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits citation grounding within retrieval lane."
+            "Use to classify a record or report value as citation grounding within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2732,17 +2773,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         },
         {
           "id": "control_case_no_expansion",
           "label": "Control Case No Expansion",
-          "description": "Controlled term for control case no expansion in the retrieval lane vocabulary.",
+          "description": "Taxonomy value for control case no expansion in the retrieval lane vocabulary.",
           "allowed_usage": [
-            "Use when a record clearly fits control case no expansion within retrieval lane."
+            "Use to classify a record or report value as control case no expansion within retrieval lane."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not treat this taxonomy term alone as a full ontology schema, graph edge, or materialized graph record.",
             "Do not use to admit unsupported claims as source evidence."
           ],
           "examples": [
@@ -2753,7 +2795,8 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "This term is a controlled vocabulary value only; source, authority, visibility, and validation policy determine admissibility."
         }
       ]
     },
@@ -2765,13 +2808,12 @@
         {
           "id": "candidate",
           "label": "Candidate",
-          "description": "Controlled term for candidate in the graph candidate state vocabulary.",
+          "description": "A proposed graph record awaiting validation.",
           "allowed_usage": [
-            "Use when a record clearly fits candidate within graph candidate state."
+            "Use for unvalidated records."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not admit as source evidence."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with candidate."
@@ -2779,20 +2821,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Candidate state is not promotion."
         },
         {
           "id": "validated",
           "label": "Validated",
-          "description": "Controlled term for validated in the graph candidate state vocabulary.",
+          "description": "A candidate has passed current validation checks.",
           "allowed_usage": [
-            "Use when a record clearly fits validated within graph candidate state."
+            "Use for records accepted by validator/review."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not imply production retrieval use."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with validated."
@@ -2802,18 +2843,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Validated records still need promotion policy."
         },
         {
           "id": "rejected",
           "label": "Rejected",
-          "description": "Controlled term for rejected in the graph candidate state vocabulary.",
+          "description": "A candidate has failed validation or review.",
           "allowed_usage": [
-            "Use when a record clearly fits rejected within graph candidate state."
+            "Use to record failed candidates."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not promote or admit as truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with rejected."
@@ -2821,20 +2862,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Rejected candidates are retained for audit only."
         },
         {
           "id": "needs_review",
           "label": "Needs Review",
-          "description": "Controlled term for needs review in the graph candidate state vocabulary.",
+          "description": "A candidate requires human or later automated review.",
           "allowed_usage": [
-            "Use when a record clearly fits needs review within graph candidate state."
+            "Use when validation cannot decide."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not promote until resolved."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with needs_review."
@@ -2842,20 +2882,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Review required."
         },
         {
           "id": "diagnostic_only",
           "label": "Diagnostic Only",
-          "description": "Controlled term for diagnostic only in the graph candidate state vocabulary.",
+          "description": "A candidate exists only for diagnostics or reports.",
           "allowed_usage": [
-            "Use when a record clearly fits diagnostic only within graph candidate state."
+            "Use for debug/report records."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not admit as source evidence or production truth."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with diagnostic_only."
@@ -2863,20 +2902,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Diagnostic-only state is not source evidence."
         },
         {
           "id": "blocked_by_policy",
           "label": "Blocked By Policy",
-          "description": "Controlled term for blocked by policy in the graph candidate state vocabulary.",
+          "description": "A candidate is blocked by a policy or scope constraint.",
           "allowed_usage": [
-            "Use when a record clearly fits blocked by policy within graph candidate state."
+            "Use when rules prevent use regardless of structure."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not bypass policy via promotion."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with blocked_by_policy."
@@ -2884,20 +2922,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Policy block must be explicit."
         },
         {
           "id": "missing_source",
           "label": "Missing Source",
-          "description": "Controlled term for missing source in the graph candidate state vocabulary.",
+          "description": "A candidate lacks required source support.",
           "allowed_usage": [
-            "Use when a record clearly fits missing source within graph candidate state."
+            "Use when provenance or citation is absent."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not validate as source-grounded."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with missing_source."
@@ -2905,20 +2942,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Missing source blocks evidence use."
         },
         {
           "id": "conflicted",
           "label": "Conflicted",
-          "description": "Controlled term for conflicted in the graph candidate state vocabulary.",
+          "description": "A candidate has unresolved conflicts.",
           "allowed_usage": [
-            "Use when a record clearly fits conflicted within graph candidate state."
+            "Use when sources or validations disagree."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not present as settled."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with conflicted."
@@ -2926,9 +2962,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Conflict-aware review required."
         }
       ]
     },
@@ -2940,13 +2976,12 @@
         {
           "id": "not_promoted",
           "label": "Not Promoted",
-          "description": "Controlled term for not promoted in the promotion state vocabulary.",
+          "description": "No promotion has occurred.",
           "allowed_usage": [
-            "Use when a record clearly fits not promoted within promotion state."
+            "Use for baseline or local-only records."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as approved for durable use."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with not_promoted."
@@ -2956,18 +2991,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Default non-promoted state."
         },
         {
           "id": "shadow_only",
           "label": "Shadow Only",
-          "description": "Controlled term for shadow only in the promotion state vocabulary.",
+          "description": "Approved only for shadow-mode experiment use.",
           "allowed_usage": [
-            "Use when a record clearly fits shadow only within promotion state."
+            "Use for non-production graph experiments."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not affect production retrieval."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with shadow_only."
@@ -2975,20 +3010,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Shadow only."
         },
         {
           "id": "report_only",
           "label": "Report Only",
-          "description": "Controlled term for report only in the promotion state vocabulary.",
+          "description": "Approved only for reports and diagnostics.",
           "allowed_usage": [
-            "Use when a record clearly fits report only within promotion state."
+            "Use for operator visibility without retrieval influence."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for retrieval expansion."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with report_only."
@@ -2996,20 +3030,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Report-only admission."
         },
         {
           "id": "validated_for_experiment",
           "label": "Validated For Experiment",
-          "description": "Controlled term for validated for experiment in the promotion state vocabulary.",
+          "description": "Validated enough for experiment use but not durable promotion.",
           "allowed_usage": [
-            "Use when a record clearly fits validated for experiment within promotion state."
+            "Use after experiment validators pass."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not imply production approval."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with validated_for_experiment."
@@ -3019,18 +3052,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Experiment-scoped validation."
         },
         {
           "id": "approved_for_promotion",
           "label": "Approved For Promotion",
-          "description": "Controlled term for approved for promotion in the promotion state vocabulary.",
+          "description": "Reviewed and ready for promotion, pending promotion action.",
           "allowed_usage": [
-            "Use when a record clearly fits approved for promotion within promotion state."
+            "Use after explicit approval."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use before validation and policy checks."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with approved_for_promotion."
@@ -3040,18 +3073,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Promotion gate passed."
         },
         {
           "id": "promoted",
           "label": "Promoted",
-          "description": "Controlled term for promoted in the promotion state vocabulary.",
+          "description": "Promoted to the next approved durable stage.",
           "allowed_usage": [
-            "Use when a record clearly fits promoted within promotion state."
+            "Use only after explicit promotion."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use to override authority, visibility, or evidence restrictions."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with promoted."
@@ -3061,18 +3094,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Promotion preserves admissibility constraints."
         },
         {
           "id": "rolled_back",
           "label": "Rolled Back",
-          "description": "Controlled term for rolled back in the promotion state vocabulary.",
+          "description": "A prior promotion was reverted.",
           "allowed_usage": [
-            "Use when a record clearly fits rolled back within promotion state."
+            "Use for rollback/audit trail."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not treat as currently promoted."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with rolled_back."
@@ -3080,20 +3113,19 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Rollback state."
         },
         {
           "id": "blocked",
           "label": "Blocked",
-          "description": "Controlled term for blocked in the promotion state vocabulary.",
+          "description": "Promotion is blocked.",
           "allowed_usage": [
-            "Use when a record clearly fits blocked within promotion state."
+            "Use when promotion criteria fail."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not promote until blocker is resolved."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with blocked."
@@ -3101,9 +3133,9 @@
           "allowed_graph_record_states": [
             "baseline",
             "candidate",
-            "validated",
-            "promoted"
-          ]
+            "validated"
+          ],
+          "admissibility_notes": "Blocked state."
         }
       ]
     },
@@ -3115,13 +3147,12 @@
         {
           "id": "info",
           "label": "Info",
-          "description": "Controlled term for info in the validation severity vocabulary.",
+          "description": "Informational validation output.",
           "allowed_usage": [
-            "Use when a record clearly fits info within validation severity."
+            "Use for non-blocking observations."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not use for blocking failures."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with info."
@@ -3131,18 +3162,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Informational only."
         },
         {
           "id": "warning",
           "label": "Warning",
-          "description": "Controlled term for warning in the validation severity vocabulary.",
+          "description": "Non-fatal validation concern.",
           "allowed_usage": [
-            "Use when a record clearly fits warning within validation severity."
+            "Use for issues that deserve attention but may not block."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not ignore if promotion policy treats warnings as blockers."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with warning."
@@ -3152,18 +3183,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Warning semantics depend on policy."
         },
         {
           "id": "error",
           "label": "Error",
-          "description": "Controlled term for error in the validation severity vocabulary.",
+          "description": "Validation failure that should block readiness.",
           "allowed_usage": [
-            "Use when a record clearly fits error within validation severity."
+            "Use for failed required checks."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not mark registry ready while errors remain."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with error."
@@ -3173,18 +3204,18 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Blocks success."
         },
         {
           "id": "fatal",
           "label": "Fatal",
-          "description": "Controlled term for fatal in the validation severity vocabulary.",
+          "description": "Validation failure severe enough to stop processing.",
           "allowed_usage": [
-            "Use when a record clearly fits fatal within validation severity."
+            "Use for corrupt input or impossible continuation."
           ],
           "disallowed_usage": [
-            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
-            "Do not use to admit unsupported claims as source evidence."
+            "Do not continue normal validation after fatal errors."
           ],
           "examples": [
             "A future graph-memory report labels a candidate with fatal."
@@ -3194,9 +3225,11 @@
             "candidate",
             "validated",
             "promoted"
-          ]
+          ],
+          "admissibility_notes": "Hard stop."
         }
       ]
     }
-  }
+  },
+  "promotion_semantics": "allowed_graph_record_states means the controlled term may appear on records in those lifecycle states; it does not mean a claim is admissible as source evidence, player-visible, or safe to promote without source, authority, visibility, and validation checks."
 }
