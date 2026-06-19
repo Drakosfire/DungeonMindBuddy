@@ -155,8 +155,10 @@ def test_edge_endpoint_missing_is_detected() -> None:
         lifecycle_state=ref("lifecycle_state", "candidate"),
         visibility_state=ref("visibility_state", "internal_diagnostic"),
     )
-    bundle = bundle_with([subject])
-    bundle.edges.append(edge)
+    bundle = GraphBundle.from_dict_unchecked_endpoints({
+        **bundle_with([subject]).to_dict(),
+        "edges": [edge.to_dict()],
+    })
     result = validate_bundle_against_taxonomy(bundle, registry())
     assert "edge_endpoint_missing" in codes(result)
 

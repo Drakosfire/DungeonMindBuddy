@@ -369,3 +369,23 @@ The project now has two parallel but separate paths:
 - Ontology / Taxonomy ladder work defines the future semantic and graph model.
 
 The ontology ladder should not wait passively, but it should avoid irreversible corpus assumptions. Proceed with docs, taxonomy, schema, validation, deterministic materialization, and reports. Delay wholesale corpus rework until the canonical document model is stable.
+
+## Deterministic Materializer
+
+Rung 5 deterministic materializer is tracked in:
+
+`src/graph_memory/materialize.py`
+
+Synthetic input fixture:
+
+`evals/graph_memory_layer/examples/materializer_input_minimal.json`
+
+Human-readable guide:
+
+`evals/graph_memory_layer/MATERIALIZER.md`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_materializer`
+
+This materializer converts a tiny synthetic fixture into a validated Ontology IR GraphBundle. It does not materialize campaign data, scan corpus files, read session memory, parse Markdown, infer entities, resolve aliases, call LLMs, or affect production retrieval.

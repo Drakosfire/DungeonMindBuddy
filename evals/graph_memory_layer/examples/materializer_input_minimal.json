@@ -1,0 +1,36 @@
+{
+  "fixture_id": "example:materializer:minimal-input",
+  "fixture_version": "0.1",
+  "description": "Synthetic source-unit fixture for deterministic graph materializer validation only.",
+  "source_documents": [
+    {
+      "source_id": "example:source:document:alpha",
+      "source_path": null,
+      "source_kind": "design_doc",
+      "source_layer": "diagnostic_layer",
+      "source_reference": "Synthetic Design Doc Alpha",
+      "anchor": "synthetic-alpha",
+      "units": [
+        {
+          "unit_id": "example:source-unit:alpha-1",
+          "label": "Synthetic Source Unit Alpha 1",
+          "text": "Synthetic source unit used only for graph materializer validation.",
+          "line_start": 1,
+          "line_end": 1,
+          "visibility_state": "internal_diagnostic",
+          "authority_state": "system_derived",
+          "evidence_role": "diagnostic_only"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "example:relationship:document-contains-unit",
+      "subject_unit_or_document_id": "example:source:document:alpha",
+      "object_unit_or_document_id": "example:source-unit:alpha-1",
+      "predicate_family": "source_derivation",
+      "label": "synthetic document contains unit"
+    }
+  ]
+}

@@ -59,6 +59,14 @@ uv run python -m evals.graph_memory_layer.validate_ontology_ir_rules
 
 This rule validation uses only synthetic bundles. It validates taxonomy references, evidence/admissibility policy, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and source-grounding expectations. It does not call an LLM, materialize graph data, scan real data, or change retrieval behavior.
 
+Validate the deterministic, fixture-only materializer with the no-LLM materializer validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_materializer
+```
+
+This materializer validation converts only the explicit synthetic fixture into an Ontology IR `GraphBundle`. It is deterministic, uses no LLM, performs no corpus scanning, and makes no retrieval changes.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
