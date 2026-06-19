@@ -158,6 +158,22 @@ Define controlled vocabularies before defining graph edges. Initial vocabulary a
 
 This gives the graph a language before it has machinery.
 
+## Taxonomy Registry
+
+Rung 2 taxonomy vocabulary is tracked in:
+
+`evals/graph_memory_layer/taxonomy_registry.json`
+
+Human-readable index:
+
+`evals/graph_memory_layer/TAXONOMY-REGISTRY.md`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_taxonomy_registry`
+
+The taxonomy registry defines controlled vocabulary only. It does not define ontology IR, graph node schemas, graph edge schemas, materialization, or retrieval behavior.
+
 ### Rung 3: Ontology IR
 
 Define the internal model for nodes, edges, source refs, provenance, confidence, lifecycle state, and validation status. The model should be RDF-compatible in spirit, but not RDF-first.
