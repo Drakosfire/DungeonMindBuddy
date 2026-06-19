@@ -1,10 +1,24 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.2
-Status: active operational anchor
+Version: 0.3
+Status: active operational anchor — post-synthetic-materializer checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
+
+## Current Checkpoint
+
+The ladder has completed the safe foundation rungs:
+
+1. Baseline case freeze
+2. Taxonomy Registry v0
+3. Ontology IR Schema v0
+4. Ontology IR Validation Rules v0
+5. Synthetic Deterministic Materializer v0
+
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, and materialize a tiny synthetic fixture into a validated Ontology IR GraphBundle.
+
+The project has not yet materialized real campaign data, corpus data, session-memory JSONL, Markdown, Tiptap output, activated manifests, or live-play records.
 
 ## Core Decision
 
@@ -119,14 +133,13 @@ Stable abstraction names:
 
 Tiptap may change how `SourceDocument` and `SourceBlock` are produced. It should not change the ontology layer's need for source identity, provenance, evidence roles, and graph relationships.
 
-## Ladder Order
+## Updated Ladder Order
 
 ### Rung 1: Baseline and Safety
 
-- Freeze or document current retrieval behavior.
-- Preserve known failure families.
-- Keep smoke and branch checks working.
-- Add no graph logic yet.
+Freeze known graph-native failure families and preserve smoke checks.
+
+Status: complete.
 
 ## Baseline Case Manifest
 
@@ -140,23 +153,11 @@ Human-readable index:
 
 These cases define the graph-native failure families future ladder rungs must preserve, measure, or improve before promotion.
 
-### Rung 2: Taxonomy Before Ontology
+### Rung 2: Taxonomy Registry v0
 
-Define controlled vocabularies before defining graph edges. Initial vocabulary areas include:
+Define controlled vocabulary before ontology machinery.
 
-- source kinds
-- entity kinds
-- route kinds
-- evidence roles
-- authority states
-- visibility states
-- truth states
-- lifecycle states
-- relationship predicate names
-- planning lanes
-- retrieval lanes
-
-This gives the graph a language before it has machinery.
+Status: complete.
 
 ## Taxonomy Registry
 
@@ -174,9 +175,11 @@ Validator:
 
 The taxonomy registry defines controlled vocabulary only. It does not define ontology IR, graph node schemas, graph edge schemas, materialization, or retrieval behavior.
 
-### Rung 3: Ontology IR
+### Rung 3: Ontology IR Schema v0
 
-Define the internal model for nodes, edges, source refs, provenance, confidence, lifecycle state, and validation status. The model should be RDF-compatible in spirit, but not RDF-first.
+Define schema-only graph-memory records: taxonomy refs, source refs, provenance refs, graph nodes, graph edges, validation status, and graph bundles.
+
+Status: complete.
 
 ## Ontology IR Schema
 
@@ -198,16 +201,11 @@ Validator:
 
 This schema defines graph-memory record shapes only. It does not materialize real campaign data, perform extraction, resolve aliases, export RDF, or affect production retrieval.
 
-### Rung 4: Validation Before Extraction
+### Rung 4: Ontology IR Validation Rules v0
 
-Define validation rules before LLM extraction. Examples:
+Validate graph bundles against taxonomy refs, source-grounding expectations, evidence/admissibility rules, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and endpoint integrity.
 
-- Every canonical edge needs provenance.
-- Every source-supported claim needs a source anchor.
-- Every route attachment points to a known route or explicit candidate.
-- Every entity merge must preserve source support.
-- Every inferred edge must be marked as inferred.
-- No graph summary is admissible as source evidence.
+Status: complete.
 
 ## Ontology IR Validation Rules
 
@@ -229,62 +227,77 @@ Validator:
 
 These rules validate Ontology IR bundles against taxonomy references, evidence/admissibility guardrails, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and source-grounding expectations. They do not materialize graph data, extract entities, scan corpus files, call LLMs, or affect production retrieval.
 
-### Rung 5: Deterministic Materialization
+### Rung 5: Synthetic Deterministic Materializer v0
 
-Materialize what already exists:
+Convert a tiny synthetic fixture into a validated Ontology IR GraphBundle.
 
-- session memory records
-- routes
-- breadcrumbs
-- manifest records
-- source documents
-- sentence units
-- evidence roles
-- locations if already present
-- party records if already present
-- new hub candidates if already present
+Status: complete.
 
-Do not ask an LLM to invent structure yet.
+## Deterministic Materializer
 
-### Rung 6: Reporting and Debugging
+Rung 5 deterministic materializer is tracked in:
 
-Build graph reports before graph retrieval. Reports should show:
+`src/graph_memory/materialize.py`
 
-- node counts
-- edge counts
-- orphan routes
-- units without routes
-- routes without units
-- high-degree hubs
-- unknown taxonomy values
-- source-support gaps
-- unresolved hooks
-- candidate entities
-- validation failures
+Synthetic input fixture:
 
-The first operator value should be visibility.
+`evals/graph_memory_layer/examples/materializer_input_minimal.json`
 
-### Rung 7: Shadow Retrieval
+Human-readable guide:
 
-Only after deterministic materialization and reporting exist should the graph propose retrieval expansions.
+`evals/graph_memory_layer/MATERIALIZER.md`
 
-Graph-assisted retrieval must run in shadow mode and explain:
+Validator:
 
-- what node caused an expansion
-- what edge caused an expansion
-- what source supports that edge
-- what confidence/lifecycle state it has
-- why it was admitted or rejected
+`uv run python -m evals.graph_memory_layer.validate_materializer`
 
-### Rung 8: LLM Candidate Extraction
+This materializer converts a tiny synthetic fixture into a validated Ontology IR GraphBundle. It does not materialize campaign data, scan corpus files, read session memory, parse Markdown, infer entities, resolve aliases, call LLMs, or affect production retrieval.
 
-Only after deterministic structure works should LLMs propose entity candidates, alias candidates, relationship candidates, taxonomy additions, or ontology refinements.
+### Rung 6: Materializer Report CLI v0
 
-LLMs propose. Validators and source anchors authorize.
+Build a deterministic report over the synthetic materialized bundle.
 
-### Rung 9: Promotion
+The report should show node counts, edge counts, provenance paths, validation issue counts, taxonomy usage, and source-grounding shape.
 
-Only after measured wins should any graph-assisted behavior be promoted into production retrieval. Promotion requires a report.
+Status: next.
+
+### Rung 7: Real-Structure Materialization Gate
+
+Before reading real existing structures, add an explicit gate review that defines which source surfaces may be consumed first.
+
+Candidate surfaces may include session-memory JSONL, route metadata, breadcrumb records, manifest records, or source documents, but only one family should be admitted at a time.
+
+Status: future.
+
+### Rung 8: First Real-Structure Materializer
+
+Materialize one approved real existing structure into graph records without changing production retrieval.
+
+Status: future.
+
+### Rung 9: Graph Report Over Real Existing Structure
+
+Report coverage, orphan records, source-support gaps, taxonomy usage, route/entity coverage, and validation issues over the first real-structure materializer output.
+
+Status: future.
+
+### Rung 10: Shadow Retrieval Fixtures
+
+Only after deterministic materialization and reporting exist should graph-assisted retrieval be tested in shadow mode.
+
+Status: future.
+
+### Rung 11: LLM Candidate Extraction
+
+Only after deterministic graph structure, validation, reports, and shadow retrieval fixtures exist should LLMs propose candidate entities, aliases, relationships, taxonomy additions, or ontology refinements.
+
+Status: future.
+
+### Rung 12: Promotion Report
+
+Only after measured wins and no source-grounding regression should any graph-assisted behavior be considered for production retrieval.
+
+Status: future.
 
 ## Allowed and Forbidden Areas
 
@@ -323,14 +336,42 @@ This PR defines the ladder model, branch model, non-goals, rung order, relations
 
 ## Next PR Sequence
 
-1. Freeze baseline reports: document known retrieval behavior and hard failure families; no graph logic.
-2. Taxonomy registry v0: create controlled vocabulary definitions; no extraction or graph materialization.
-3. Ontology IR schema: create `src/graph_memory/schema.py` for nodes, edges, provenance, source refs, and lifecycle states; no retrieval integration.
-4. Validation rules: fail closed on missing source/provenance; no LLM extraction.
-5. Deterministic materializer: read existing session-memory JSONL and manifest artifacts and emit a graph bundle; no production retrieval changes.
-6. Graph report CLI: show graph coverage, orphan routes, source-support gaps, high-degree hubs, and taxonomy usage.
-7. Shadow retrieval fixtures: compare current retrieval versus graph-expanded retrieval on hard cases; no production integration.
-8. Promotion report: summarize measured wins, regressions, gates, and remaining risks before production behavior changes.
+1. Materializer Report CLI v0: report the synthetic materialized bundle, validation summary, node/edge counts, source refs, provenance refs, and taxonomy usage.
+2. Real-Structure Materialization Gate: decide which existing source family can be safely materialized first.
+3. First Real-Structure Materializer: materialize one approved source family without production retrieval changes.
+4. Graph Report Over Real Structure: show coverage, gaps, validation issues, and source-grounding paths.
+5. Shadow Retrieval Fixtures: compare current retrieval with graph-expanded retrieval on hard cases, still no production integration.
+6. LLM Candidate Extraction: allow LLMs to propose candidates only after deterministic structure and reporting are proven.
+7. Promotion Report: summarize measured wins, regressions, gates, and remaining risks before production behavior changes.
+
+## Pause Decision
+
+The ladder should pause after Synthetic Deterministic Materializer v0 and re-anchor before widening materialization.
+
+Reason:
+
+The project now has enough machinery to create graph records, but not enough operator visibility to safely broaden inputs.
+
+The next rung should be reporting, not broader materialization.
+
+A materializer report should make visible:
+
+- graph bundle ID
+- schema version
+- taxonomy registry version
+- node count
+- edge count
+- node kinds
+- edge predicate families
+- provenance refs
+- source refs
+- validation issue counts
+- validation severities
+- non-admissible evidence roles
+- candidate/promoted lifecycle distribution
+- visibility distribution
+
+Do not start real campaign/corpus/session-memory materialization until reporting exists.
 
 ## Promotion Gates
 
@@ -369,23 +410,3 @@ The project now has two parallel but separate paths:
 - Ontology / Taxonomy ladder work defines the future semantic and graph model.
 
 The ontology ladder should not wait passively, but it should avoid irreversible corpus assumptions. Proceed with docs, taxonomy, schema, validation, deterministic materialization, and reports. Delay wholesale corpus rework until the canonical document model is stable.
-
-## Deterministic Materializer
-
-Rung 5 deterministic materializer is tracked in:
-
-`src/graph_memory/materialize.py`
-
-Synthetic input fixture:
-
-`evals/graph_memory_layer/examples/materializer_input_minimal.json`
-
-Human-readable guide:
-
-`evals/graph_memory_layer/MATERIALIZER.md`
-
-Validator:
-
-`uv run python -m evals.graph_memory_layer.validate_materializer`
-
-This materializer converts a tiny synthetic fixture into a validated Ontology IR GraphBundle. It does not materialize campaign data, scan corpus files, read session memory, parse Markdown, infer entities, resolve aliases, call LLMs, or affect production retrieval.
