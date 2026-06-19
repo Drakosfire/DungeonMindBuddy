@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { beforeEach, vi } from "vitest";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
@@ -23,10 +24,10 @@ const commitMock = vi.mocked(commitTiptapMarkdownWrite);
 
 const preparedResponse = {
   schema_version: "dmb_tiptap_markdown_write_prepare_v1" as const,
-  document_id: "north-gate-callout-spike",
-  title: "North-gate callout spike",
-  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
-  target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+  document_id: "north-gate-session-runbook",
+  title: "North Gate Session Runbook",
+  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+  target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
   file_exists: false,
   writer_ok: true,
   writer_phase: "prepare",
@@ -140,7 +141,7 @@ describe("semantic callout Markdown bridge", () => {
   it("renders the spike surface and initialized callouts", async () => {
     render(<TiptapCalloutBridgeSpike />);
 
-    expect(screen.getByRole("heading", { name: "Tiptap Semantic Callout Bridge Spike" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
     expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Editor JSON" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Exported Markdown" })).toBeInTheDocument();
@@ -150,15 +151,25 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
-    expect(screen.getByText("Gate Dilemma d12")).toHaveClass("md-ref-chip-roll-table");
-    expect(screen.getByText("North Gate Combat")).toHaveClass("md-ref-chip-action-combat");
     expect(screen.getByText("Lysandro Ironveil")).toHaveClass("md-ref-chip-npc");
+    expect(screen.getAllByText("North Reach Gate")[0]).toHaveClass("md-ref-chip-location");
+    expect(screen.getByText("Sewer Meat Creature")).toHaveClass("md-ref-chip-statblock");
+    expect(screen.getByText("Gate Dilemma d12")).toHaveClass("md-ref-chip-roll-table");
+    expect(screen.getByText("Session 22 ending")).toHaveClass("md-ref-chip-citation");
+    expect(screen.getByText("North Gate Combat")).toHaveClass("md-ref-chip-action-combat");
+    const exportedMarkdown = screen.getByTestId("markdown-export");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-ref:npc:lysandro-ironveil");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-ref:location:north-reach-gate");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-ref:statblock:sewer-meat-creature");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-ref:roll-table:gate-dilemma-d12");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-ref:citation:c2s22-ending");
+    expect(exportedMarkdown).toHaveTextContent("#dmb-action:combat:north-gate-combat");
   });
 
   it("renders the explicit file write boundary without calling the backend", () => {
     render(<TiptapCalloutBridgeSpike />);
     expect(screen.getByText(/Preparing a write asks the backend/)).toBeInTheDocument();
-    expect(screen.getByText(/Committing writes the reviewed Markdown to disk/)).toBeInTheDocument();
+    expect(screen.getByText(/Committing writes the reviewed runbook Markdown file/)).toBeInTheDocument();
     expect(prepareMock).not.toHaveBeenCalled();
     expect(commitMock).not.toHaveBeenCalled();
   });
@@ -168,8 +179,8 @@ describe("semantic callout Markdown bridge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
 
     await waitFor(() => expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
-      document_id: "north-gate-callout-spike",
-      title: "North-gate callout spike",
+      document_id: "north-gate-session-runbook",
+      title: "North Gate Session Runbook",
       target_relpath: preparedResponse.target_relpath,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
     })));
@@ -285,6 +296,14 @@ describe("semantic callout Markdown bridge", () => {
     expect(invalidReference).toHaveAttribute("data-md-ref-kind", "invalid");
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("Bog Thing");
     expect(screen.getByTestId("markdown-export")).not.toHaveTextContent("#dmb-ref:monster");
+  });
+
+  it("embeds the Tiptap-authored runbook from live play", () => {
+    const html = readFileSync("../../evals/c2_live_prep/mireward-prep/live-play.html", "utf8");
+
+    expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
+    expect(html).toContain("/tiptap-callout-spike");
+    expect(html).not.toContain("content/tiptap/north-gate-callout-spike.md");
   });
 
   it("does not render page-local tool copy", () => {
