@@ -18,10 +18,59 @@
     return after === -1 ? "" : src.slice(after + 1);
   }
 
+  const DMB_REF_TYPES = new Set(["npc", "location", "statblock", "roll-table", "citation"]);
+  const DMB_ACTION_TYPES = new Set(["combat"]);
+
+  function parseDmbTypedHref(href) {
+    const raw = String(href || "").trim();
+    const refMatch = raw.match(/^#dmb-ref:([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_-]*)$/);
+    if (refMatch) {
+      const type = refMatch[1];
+      if (!DMB_REF_TYPES.has(type)) return null;
+      return { kind: "ref", type: type, id: refMatch[2] };
+    }
+
+    const actionMatch = raw.match(
+      /^#dmb-action:([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_-]*)$/,
+    );
+    if (actionMatch) {
+      const type = actionMatch[1];
+      if (!DMB_ACTION_TYPES.has(type)) return null;
+      return { kind: "action", type: type, id: actionMatch[2] };
+    }
+
+    return null;
+  }
+
+  function renderDmbRefChip(label, parsed) {
+    const classes = ["md-ref-chip"];
+    if (parsed.kind === "action") {
+      classes.push("md-ref-chip-action", "md-ref-chip-action-" + parsed.type);
+    } else {
+      classes.push("md-ref-chip-" + parsed.type);
+    }
+
+    return (
+      '<button type="button" class="' +
+      classes.map(escapeHtml).join(" ") +
+      '" data-md-ref-kind="' +
+      escapeHtml(parsed.kind) +
+      '" data-md-ref-type="' +
+      escapeHtml(parsed.type) +
+      '" data-md-ref-id="' +
+      escapeHtml(parsed.id) +
+      '">' +
+      escapeHtml(label) +
+      "</button>"
+    );
+  }
+
   function inlineMarkdown(text) {
     let s = escapeHtml(text);
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_m, label, href) {
+      const typedRef = parseDmbTypedHref(href);
+      if (typedRef) return renderDmbRefChip(label, typedRef);
       return (
         '<a href="' +
         escapeHtml(href) +
