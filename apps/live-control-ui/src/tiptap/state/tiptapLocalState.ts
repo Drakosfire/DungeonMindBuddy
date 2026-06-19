@@ -12,6 +12,27 @@ export const initialCalloutContent = {
       content: [{ type: "text", text: "North-gate opening spike" }],
     },
     {
+      type: "paragraph",
+      content: [
+        { type: "text", text: "If the players push toward the refugees, use " },
+        {
+          type: "runbookReference",
+          attrs: { kind: "ref", refType: "roll-table", refId: "gate-dilemma-d12", label: "Gate Dilemma d12" },
+        },
+        { type: "text", text: ". If combat starts, launch " },
+        {
+          type: "runbookReference",
+          attrs: { kind: "action", refType: "combat", refId: "north-gate-combat", label: "North Gate Combat" },
+        },
+        { type: "text", text: ". Key person: " },
+        {
+          type: "runbookReference",
+          attrs: { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
+        },
+        { type: "text", text: "." },
+      ],
+    },
+    {
       type: "callout",
       attrs: { kind: "read-aloud" },
       content: [{ type: "paragraph", content: [{ type: "text", text: "The southern road gives way to the dark wall of Mireward." }] }],

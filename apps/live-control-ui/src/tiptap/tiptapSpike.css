@@ -109,6 +109,13 @@
   outline: none;
 }
 
+.tiptap-spike-editor .md-ref-invalid {
+  color: var(--fg-mute, #9aa3b5);
+  text-decoration: underline dotted;
+  text-decoration-color: rgba(239, 68, 68, 0.7);
+  cursor: help;
+}
+
 .tiptap-spike-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

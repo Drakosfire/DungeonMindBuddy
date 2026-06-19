@@ -1,12 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, vi } from "vitest";
 
+import type { AppChromeTools } from "../chrome/AppChrome";
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
   normalizeCalloutKind,
   tiptapJsonToSemanticMarkdown,
 } from "./markdown/calloutMarkdown";
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
+import {
+  buildInitialWorkingBoardState,
+  TIPTAP_WORKING_BOARD_KEY,
+} from "./state/tiptapLocalState";
 
 vi.mock("../api/liveApi", () => ({
   prepareTiptapMarkdownWrite: vi.fn(),
@@ -96,6 +101,42 @@ describe("semantic callout Markdown bridge", () => {
     expect(markdown).toContain("> [!WARNING] Breach clock");
   });
 
+  it("serializes reference and action nodes to typed Markdown", () => {
+    const markdown = tiptapJsonToSemanticMarkdown({
+      type: "paragraph",
+      content: [
+        { type: "text", text: "Talk to " },
+        { type: "runbookReference", attrs: { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" } },
+        { type: "text", text: ", then launch " },
+        { type: "runbookReference", attrs: { kind: "action", refType: "combat", refId: "north-gate-combat", label: "North Gate Combat" } },
+        { type: "text", text: "." },
+      ],
+    });
+
+    expect(markdown).toContain("Talk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)");
+    expect(markdown).toContain("[North Gate Combat](#dmb-action:combat:north-gate-combat).");
+  });
+
+  it("escapes reference labels and falls back to text for unsupported attrs", () => {
+    const safe = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "ref", refType: "npc", refId: "safe-id", label: "Bad [label](javascript:evil)" },
+    });
+    const unsupported = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "ref", refType: "monster", refId: "bog-thing", label: "Bog Thing" },
+    });
+    const malformed = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "mystery", refType: "npc", refId: "BadCaps", label: "Malformed NPC" },
+    });
+
+    expect(safe).toBe("[Bad \\[label\\]\\(javascript:evil\\)](#dmb-ref:npc:safe-id)\n");
+    expect(unsupported).toBe("Bog Thing\n");
+    expect(unsupported).not.toContain("#dmb-ref:");
+    expect(malformed).toBe("Malformed NPC\n");
+  });
+
   it("renders the spike surface and initialized callouts", async () => {
     render(<TiptapCalloutBridgeSpike />);
 
@@ -109,6 +150,9 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
+    expect(screen.getByText("Gate Dilemma d12")).toHaveClass("md-ref-chip-roll-table");
+    expect(screen.getByText("North Gate Combat")).toHaveClass("md-ref-chip-action-combat");
+    expect(screen.getByText("Lysandro Ironveil")).toHaveClass("md-ref-chip-npc");
   });
 
   it("renders the explicit file write boundary without calling the backend", () => {
@@ -192,10 +236,55 @@ describe("semantic callout Markdown bridge", () => {
           sections: expect.arrayContaining([
             expect.objectContaining({ id: "tiptap-local-state", title: "Local working state" }),
             expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
+            expect.objectContaining({ id: "tiptap-insert-refs", title: "Insert refs" }),
           ]),
         }),
       );
     });
+  });
+
+  it("inserts a registered reference action and updates exported Markdown", async () => {
+    let tools: AppChromeTools | null = null;
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={(nextTools) => { tools = nextTools; }} />);
+
+    await waitFor(() => expect(tools?.sections?.find((section) => section.id === "tiptap-insert-refs")).toBeDefined());
+    const insertLocation = tools?.sections
+      ?.find((section) => section.id === "tiptap-insert-refs")
+      ?.actions.find((action) => action.label === "North Reach Gate");
+
+    expect(insertLocation).toBeDefined();
+    act(() => insertLocation?.onClick());
+
+    await waitFor(() => {
+      expect(screen.getByTestId("markdown-export")).toHaveTextContent(
+        "[North Reach Gate](#dmb-ref:location:north-reach-gate)",
+      );
+    });
+  });
+
+  it("renders malformed persisted references as invalid editor text", async () => {
+    const state = buildInitialWorkingBoardState();
+    state.tiptap_json = {
+      type: "doc",
+      content: [{
+        type: "paragraph",
+        content: [{
+          type: "runbookReference",
+          attrs: { kind: "ref", refType: "monster", refId: "bog-thing", label: "Bog Thing" },
+        }],
+      }],
+    };
+    window.localStorage.setItem(TIPTAP_WORKING_BOARD_KEY, JSON.stringify(state));
+
+    render(<TiptapCalloutBridgeSpike />);
+
+    const invalidReference = await screen.findByTitle("Invalid runbook reference");
+    expect(invalidReference).toHaveTextContent("Bog Thing");
+    expect(invalidReference).toHaveClass("md-ref-invalid");
+    expect(invalidReference).not.toHaveClass("md-ref-chip");
+    expect(invalidReference).toHaveAttribute("data-md-ref-kind", "invalid");
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("Bog Thing");
+    expect(screen.getByTestId("markdown-export")).not.toHaveTextContent("#dmb-ref:monster");
   });
 
   it("does not render page-local tool copy", () => {

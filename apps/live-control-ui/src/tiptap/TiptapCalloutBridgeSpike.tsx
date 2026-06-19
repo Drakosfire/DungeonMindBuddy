@@ -10,12 +10,14 @@ import type {
   TiptapMarkdownWritePrepareResponse,
 } from "../api/types";
 import { CalloutNode } from "./extensions/CalloutNode";
+import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 import {
   CALLOUT_KINDS,
   defaultCalloutLabel,
   tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "./markdown/calloutMarkdown";
+import type { RunbookReferenceAttrs } from "./references/runbookReferences";
 import {
   buildInitialWorkingBoardState,
   initialCalloutContent,
@@ -30,6 +32,15 @@ export { initialCalloutContent };
 
 export const DEFAULT_TIPTAP_MARKDOWN_TARGET =
   "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md";
+
+export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
+  { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
+  { kind: "ref", refType: "location", refId: "north-reach-gate", label: "North Reach Gate" },
+  { kind: "ref", refType: "statblock", refId: "sewer-meat-creature", label: "Sewer Meat Creature" },
+  { kind: "ref", refType: "roll-table", refId: "gate-dilemma-d12", label: "Gate Dilemma d12" },
+  { kind: "ref", refType: "citation", refId: "c2s22-ending", label: "Session 22 ending" },
+  { kind: "action", refType: "combat", refId: "north-gate-combat", label: "North Gate Combat" },
+];
 
 type LocalStateStatus = "Loaded starter content" | "Loaded local draft" | "Saved locally" | "Reset to starter";
 
@@ -53,7 +64,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [writeError, setWriteError] = useState("");
   const [commitResult, setCommitResult] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const editor = useEditor({
-    extensions: [StarterKit, CalloutNode],
+    extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
     content: workingState.tiptap_json as Content,
     editable: !isEditorLocked,
     onUpdate: ({ editor: nextEditor }) => {
@@ -79,6 +90,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
 
   const insertCallout = useCallback((kind: CalloutKind) => {
     editor?.chain().focus().insertCallout({ kind }).run();
+  }, [editor]);
+
+  const insertRunbookReference = useCallback((attrs: RunbookReferenceAttrs) => {
+    editor?.chain().focus().insertRunbookReference(attrs).run();
   }, [editor]);
 
   const toggleEditorLock = useCallback(() => {
@@ -209,6 +224,18 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           })),
         },
         {
+          id: "tiptap-insert-refs",
+          title: "Insert refs",
+          defaultOpen: true,
+          actions: RUNBOOK_REFERENCE_SAMPLES.map((sample) => ({
+            id: `insert-${sample.kind}-${sample.refType}`,
+            eyebrow: sample.kind === "action" ? "Action" : sample.refType,
+            label: sample.label,
+            onClick: () => insertRunbookReference(sample),
+            disabled: !editor || isEditorLocked,
+          })),
+        },
+        {
           id: "tiptap-file-write",
           title: "File write",
           actions: [
@@ -220,7 +247,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     });
 
     return () => onEditorToolsChange?.(null);
-  }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
+  }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
 
