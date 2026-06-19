@@ -81,6 +81,15 @@ uv run python -m evals.graph_memory_layer.validate_materializer_report
 
 The materializer report is report-first and synthetic-only. It summarizes the deterministic fixture output, taxonomy usage, lifecycle and visibility states, evidence roles, provenance refs, source refs, validation issues, and per-record rows. It does not broaden materialization, scan real data, call an LLM, or change retrieval behavior. Informational diagnostic-only validation issues are expected and visible; the report path fails only on `error` or `fatal` validation issues.
 
+
+Validate the real-structure materialization gate with the no-LLM gate validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_real_structure_gate
+```
+
+This validates the gate manifest for the first future real-structure materializer. It does not materialize real data, read session-memory JSONL, scan corpus files, parse Markdown/Tiptap output, call an LLM, or change retrieval behavior. The gate admits exactly one future source family and keeps real materialization deferred to a later PR under validation and reporting constraints.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
