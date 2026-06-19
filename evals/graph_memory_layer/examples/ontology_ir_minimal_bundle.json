@@ -1,0 +1,50 @@
+{
+  "bundle_id": "synthetic-valid-ontology-ir-bundle-v0",
+  "taxonomy_registry_version": "0.1",
+  "nodes": [
+    {
+      "node_id": "node.synthetic.person_a",
+      "label": "Synthetic Person A",
+      "kind": {"vocabulary": "entity_kind", "term": "person"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "promoted"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": [
+        {
+          "provenance_id": "prov.synthetic.source_a",
+          "evidence_role": {"vocabulary": "evidence_role", "term": "source_evidence"},
+          "authority_state": {"vocabulary": "authority_state", "term": "played_truth"},
+          "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+          "source_refs": [
+            {
+              "source_id": "synthetic-source-a",
+              "source_kind": {"vocabulary": "source_kind", "term": "synthetic_fixture"},
+              "source_layer": {"vocabulary": "source_layer", "term": "synthetic"},
+              "path": "evals/graph_memory_layer/examples/ontology_ir_minimal_bundle.json",
+              "line_start": 1,
+              "line_end": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "node.synthetic.place_a",
+      "label": "Synthetic Place A",
+      "kind": {"vocabulary": "entity_kind", "term": "place"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "draft"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": []
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge.synthetic.person_a.place_a",
+      "subject_node_id": "node.synthetic.person_a",
+      "object_node_id": "node.synthetic.place_a",
+      "predicate_family": {"vocabulary": "relationship_predicate_family", "term": "located_in"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "draft"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": []
+    }
+  ]
+}

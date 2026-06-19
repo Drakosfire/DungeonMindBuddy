@@ -44,3 +44,13 @@ uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expect
 Later phases may add graph materialization, graph reports, graph-shadow retrieval, entity candidates, relationship candidates, taxonomy governance, and live retrieval shadow mode.
 
 Any LLM-backed experiment must be added behind explicit CLI flags in a later PR.
+
+## Ontology IR Validation Rules
+
+Validate synthetic Ontology IR bundles against taxonomy references, source-grounding guardrails, evidence-role classifications, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and bundle endpoint integrity:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_ontology_ir_rules
+```
+
+This command uses only synthetic bundles in `evals/graph_memory_layer/examples/`. It performs no LLM calls, no graph materialization, no corpus scanning, and no production retrieval changes.

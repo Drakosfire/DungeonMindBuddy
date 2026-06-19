@@ -160,3 +160,23 @@ Materialize existing structure.
 Report what exists.
 
 Only then use the graph to influence retrieval.
+
+## Ontology IR Validation Rules
+
+Rung 4 validation rules are tracked in:
+
+`src/graph_memory/validation_rules.py`
+
+Human-readable guide:
+
+`evals/graph_memory_layer/ONTOLOGY-IR-VALIDATION-RULES.md`
+
+Synthetic invalid fixture:
+
+`evals/graph_memory_layer/examples/ontology_ir_invalid_bundle.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_ontology_ir_rules`
+
+These rules validate Ontology IR bundles against taxonomy references, evidence/admissibility guardrails, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and source-grounding expectations. They do not materialize graph data, extract entities, scan corpus files, call LLMs, or affect production retrieval.

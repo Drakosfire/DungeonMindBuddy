@@ -1,0 +1,14 @@
+{
+  "taxonomy_registry_version": "0.1",
+  "vocabularies": {
+    "validation_severity": ["info", "warning", "error", "fatal"],
+    "source_kind": ["synthetic_fixture", "manifest", "session_memory", "corpus_document"],
+    "source_layer": ["synthetic", "canonical", "derived"],
+    "entity_kind": ["person", "place", "organization", "item", "concept"],
+    "evidence_role": ["source_evidence", "diagnostic_only", "routing_hint", "derived_summary", "navigation_only", "not_admissible"],
+    "authority_state": ["played_truth", "gm_prep", "rumor", "unreliable_claim", "candidate", "llm_inferred", "contradicted", "unknown"],
+    "visibility_state": ["player_visible", "private_gm", "spoiler_sensitive", "internal_diagnostic"],
+    "lifecycle_state": ["draft", "candidate", "promoted", "rejected"],
+    "relationship_predicate_family": ["located_in", "member_of", "related_to"]
+  }
+}

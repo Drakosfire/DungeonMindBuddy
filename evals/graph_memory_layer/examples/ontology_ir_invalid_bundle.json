@@ -1,0 +1,41 @@
+{
+  "bundle_id": "synthetic-invalid-ontology-ir-bundle-v0",
+  "taxonomy_registry_version": "0.1",
+  "nodes": [
+    {
+      "node_id": "node.synthetic.invalid_kind",
+      "label": "Synthetic Invalid Kind",
+      "kind": {"vocabulary": "entity_kind", "term": "dragon_king"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "promoted"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": []
+    },
+    {
+      "node_id": "node.synthetic.private_conflict",
+      "label": "Synthetic Private Conflict",
+      "kind": {"vocabulary": "entity_kind", "term": "person"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "promoted"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": [
+        {
+          "provenance_id": "prov.synthetic.private_no_source",
+          "evidence_role": {"vocabulary": "evidence_role", "term": "source_evidence"},
+          "authority_state": {"vocabulary": "authority_state", "term": "gm_prep"},
+          "visibility_state": {"vocabulary": "visibility_state", "term": "private_gm"},
+          "source_refs": []
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge.synthetic.missing_endpoint",
+      "subject_node_id": "node.synthetic.private_conflict",
+      "object_node_id": "node.synthetic.missing",
+      "predicate_family": {"vocabulary": "relationship_predicate_family", "term": "related_to"},
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "draft"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"},
+      "provenance": []
+    }
+  ]
+}
