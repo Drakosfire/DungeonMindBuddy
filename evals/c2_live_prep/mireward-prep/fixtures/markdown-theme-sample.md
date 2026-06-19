@@ -33,6 +33,18 @@ Lead paragraph with **bold**, *italic*, `inline code`, and a [relative Markdown 
 > [!WARNING]
 > The gate will fail in 3 rounds unless reinforced.
 
+## Typed Reference Chip Fixtures
+
+Runbook refs should stay readable as Markdown while rendering as inline chips in Command Board prose.
+
+If the players push toward the refugees, use [Gate Dilemma d12](#dmb-ref:roll-table:gate-dilemma-d12). If combat starts, launch [North Gate Combat](#dmb-action:combat:north-gate-combat).
+
+Active threats: [Sewer Meat Creature](#dmb-ref:statblock:sewer-meat-creature), [Aberrant Meatwing](#dmb-ref:statblock:aberrant-meatwing), [Corrupted Meat Golem](#dmb-ref:statblock:corrupted-meat-golem).
+
+Key people: [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil), [Brin Holloway](#dmb-ref:npc:brin-holloway), [Captain Lysandra Ironveil](#dmb-ref:npc:captain-lysandra-ironveil).
+
+Location context: [North Reach Gate](#dmb-ref:location:north-reach-gate), [Mireward Wall](#dmb-ref:location:mireward-wall). Source: [Session 22 ending](#dmb-ref:citation:c2s22-ending).
+
 ## Table Fixture
 
 | Creature | Role | CR | Notes |
