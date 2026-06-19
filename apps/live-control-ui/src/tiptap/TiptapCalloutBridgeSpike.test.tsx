@@ -1,12 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, vi } from "vitest";
 
+import type { AppChromeTools } from "../chrome/AppChrome";
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
   normalizeCalloutKind,
   tiptapJsonToSemanticMarkdown,
 } from "./markdown/calloutMarkdown";
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
+import {
+  buildInitialWorkingBoardState,
+  TIPTAP_WORKING_BOARD_KEY,
+} from "./state/tiptapLocalState";
 
 vi.mock("../api/liveApi", () => ({
   prepareTiptapMarkdownWrite: vi.fn(),
@@ -236,6 +241,50 @@ describe("semantic callout Markdown bridge", () => {
         }),
       );
     });
+  });
+
+  it("inserts a registered reference action and updates exported Markdown", async () => {
+    let tools: AppChromeTools | null = null;
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={(nextTools) => { tools = nextTools; }} />);
+
+    await waitFor(() => expect(tools?.sections?.find((section) => section.id === "tiptap-insert-refs")).toBeDefined());
+    const insertLocation = tools?.sections
+      ?.find((section) => section.id === "tiptap-insert-refs")
+      ?.actions.find((action) => action.label === "North Reach Gate");
+
+    expect(insertLocation).toBeDefined();
+    act(() => insertLocation?.onClick());
+
+    await waitFor(() => {
+      expect(screen.getByTestId("markdown-export")).toHaveTextContent(
+        "[North Reach Gate](#dmb-ref:location:north-reach-gate)",
+      );
+    });
+  });
+
+  it("renders malformed persisted references as invalid editor text", async () => {
+    const state = buildInitialWorkingBoardState();
+    state.tiptap_json = {
+      type: "doc",
+      content: [{
+        type: "paragraph",
+        content: [{
+          type: "runbookReference",
+          attrs: { kind: "ref", refType: "monster", refId: "bog-thing", label: "Bog Thing" },
+        }],
+      }],
+    };
+    window.localStorage.setItem(TIPTAP_WORKING_BOARD_KEY, JSON.stringify(state));
+
+    render(<TiptapCalloutBridgeSpike />);
+
+    const invalidReference = await screen.findByTitle("Invalid runbook reference");
+    expect(invalidReference).toHaveTextContent("Bog Thing");
+    expect(invalidReference).toHaveClass("md-ref-invalid");
+    expect(invalidReference).not.toHaveClass("md-ref-chip");
+    expect(invalidReference).toHaveAttribute("data-md-ref-kind", "invalid");
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("Bog Thing");
+    expect(screen.getByTestId("markdown-export")).not.toHaveTextContent("#dmb-ref:monster");
   });
 
   it("does not render page-local tool copy", () => {
