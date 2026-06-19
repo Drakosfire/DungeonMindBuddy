@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 type MirewardPrepPopoverApi = {
   initRunbookReferencePopoverShell: () => void;
   closeRunbookReferencePopover: (options?: { restoreFocus?: boolean }) => void;
+  resetRunbookReferenceIndexCache: () => void;
 };
+
+type FetchMock = ReturnType<typeof vi.fn>;
 
 function prepApi(): MirewardPrepPopoverApi {
   return (window as typeof window & { MirewardPrep: MirewardPrepPopoverApi }).MirewardPrep;
@@ -44,9 +47,38 @@ beforeAll(() => {
 
 beforeEach(() => {
   prepApi().closeRunbookReferencePopover();
+  prepApi().resetRunbookReferenceIndexCache();
   document.body.innerHTML = '<button type="button" id="outside">Outside</button>';
+  (globalThis as typeof globalThis & { fetch: FetchMock }).fetch = vi.fn((url: string) =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(emptyPayloadForUrl(String(url))),
+    }),
+  ) as FetchMock;
   prepApi().initRunbookReferencePopoverShell();
 });
+
+function emptyPayloadForUrl(url: string): unknown {
+  if (url.includes("/npcs/")) return { npcs: [] };
+  if (url.includes("/locations/")) return { locations: [] };
+  if (url.includes("/statblocks/")) return { statblocks: [] };
+  if (url.includes("/roll-tables/")) return { roll_tables: [] };
+  return {};
+}
+
+function mockJsonRoutes(routes: Record<string, unknown>): FetchMock {
+  const fetch = vi.fn((url: string) => {
+    const path = String(url);
+    const payload = routes[path] ?? emptyPayloadForUrl(path);
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) });
+  }) as FetchMock;
+  (globalThis as typeof globalThis & { fetch: FetchMock }).fetch = fetch;
+  return fetch;
+}
+
+function nextTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe("runbook reference popover shell", () => {
   it("stacks above the Markdown viewer modal for modal preview chips", () => {
@@ -80,7 +112,7 @@ describe("runbook reference popover shell", () => {
       "Href#dmb-ref:npc:lysandro-ironveil",
     );
     expect(popover?.querySelector(".runbook-ref-popover-status")).toHaveTextContent(
-      "Resolver pending",
+      "Loading reference",
     );
     expect(chip).toHaveAttribute("aria-haspopup", "dialog");
     expect(chip).toHaveAttribute("aria-controls", "runbook-ref-popover");
@@ -194,5 +226,155 @@ describe("runbook reference popover shell", () => {
 
     expect(document.getElementById("runbook-ref-popover")?.hidden).toBe(false);
     expect(chip).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+
+describe("runbook reference resolver", () => {
+  it("resolves an NPC chip from the live NPC index", async () => {
+    mockJsonRoutes({
+      "/api/live/npcs/index": {
+        npcs: [{
+          index_id: "campaign_2-lysandro-ironveil",
+          title: "Lysandro Ironveil",
+          slug: "lysandro-ironveil",
+          section: "campaign_2",
+          primary_doc_path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/lysandro-ironveil/character_seed.md",
+          table_note: "Human accelerant at the gate.",
+          canon_layer: "active",
+        }],
+      },
+    });
+    referenceChip().click();
+    expect(document.querySelector(".runbook-ref-popover-status")).toHaveTextContent("Loading reference");
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolved-eyebrow")).toHaveTextContent("Resolved NPC");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Lysandro Ironveil");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Human accelerant at the gate.");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("character_seed.md");
+    expect(document.querySelector(".runbook-ref-popover-actions")).toHaveTextContent("Pin to session context");
+    document.querySelectorAll<HTMLButtonElement>(".runbook-ref-popover-actions button").forEach((button) =>
+      expect(button).toBeDisabled(),
+    );
+  });
+
+  it("matches statblock references against normalized source path stems", async () => {
+    mockJsonRoutes({
+      "/api/live/statblocks/index": {
+        statblocks: [{
+          index_id: "c2-sewer-meat-creature-statblock",
+          title: "Sewer Meat Creature",
+          corpus_display_path: "corpus/bestiary/sewer_meat_creature_statblock_cr3.md",
+          challenge_rating: "3",
+          creature_type: "aberration",
+          role_tag: "Brute",
+          info_tag: "Gate hazard",
+        }],
+      },
+    });
+    referenceChip({ type: "statblock", id: "sewer-meat-creature", label: "Sewer Meat Creature" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolved-eyebrow")).toHaveTextContent("Resolved Statblock");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("CR3");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Brute");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Gate hazard");
+  });
+
+  it("resolves roll table chips from table_id", async () => {
+    mockJsonRoutes({
+      "/api/live/roll-tables/index": {
+        roll_tables: [{
+          table_id: "gate-dilemma-d12",
+          title: "Gate Dilemma d12",
+          dice: "1d12",
+          table_note: "Pressure at North Reach Gate.",
+          corpus_display_path: "corpus/tables/gate_dilemma_d12.md",
+        }],
+      },
+    });
+    referenceChip({ type: "roll-table", id: "gate-dilemma-d12", label: "Gate Dilemma d12" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolved-eyebrow")).toHaveTextContent("Resolved Roll Table");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("1d12");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Pressure at North Reach Gate.");
+  });
+
+  it("resolves location chips from the location index", async () => {
+    mockJsonRoutes({
+      "/api/live/locations/index": {
+        locations: [{
+          index_id: "north-reach-gate",
+          title: "North Reach Gate",
+          table_note: "Crowded checkpoint.",
+          corpus_display_path: "corpus/locations/north_reach_gate.md",
+        }],
+      },
+    });
+    referenceChip({ type: "location", id: "north-reach-gate", label: "North Reach Gate" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolved-eyebrow")).toHaveTextContent("Resolved Location");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Crowded checkpoint.");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("north_reach_gate.md");
+  });
+
+  it("renders citation and combat action placeholders without fetching indexes", async () => {
+    const fetch = mockJsonRoutes({});
+    referenceChip({ type: "citation", id: "c2s22-ending", label: "Session 22 ending" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("Citation placeholder");
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("Citation resolver pending");
+
+    referenceChip({ kind: "action", type: "combat", id: "north-gate-combat", label: "North Gate Combat" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("Combat action placeholder");
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("Launch behavior is intentionally disabled");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("renders calm unresolved and error states", async () => {
+    mockJsonRoutes({ "/api/live/npcs/index": { npcs: [] } });
+    referenceChip({ id: "missing-person", label: "Missing Person" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("Missing reference");
+    expect(document.querySelector(".runbook-ref-unresolved")).toHaveTextContent("#dmb-ref:npc:missing-person");
+
+    (globalThis as typeof globalThis & { fetch: FetchMock }).fetch = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({ detail: "Service unavailable" }) }),
+    ) as FetchMock;
+    referenceChip({ type: "location", id: "north-reach-gate", label: "North Reach Gate" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolver-error")).toHaveTextContent("Resolver unavailable");
+    expect(document.querySelector(".runbook-ref-popover")?.hasAttribute("hidden")).toBe(false);
+  });
+
+  it("uses per-type cache and guards against stale async results", async () => {
+    const fetch = mockJsonRoutes({
+      "/api/live/npcs/index": { npcs: [{ slug: "lysandro-ironveil", title: "Lysandro Ironveil" }] },
+      "/api/live/statblocks/index": { statblocks: [{ title: "Sewer Meat Creature", corpus_display_path: "sewer_meat_creature_statblock_cr3.md" }] },
+    });
+    referenceChip().click();
+    await nextTick();
+    referenceChip({ id: "lysandro-ironveil", label: "Lysandro Again" }).click();
+    await nextTick();
+    expect(fetch.mock.calls.filter(([url]) => String(url) === "/api/live/npcs/index")).toHaveLength(1);
+
+    prepApi().resetRunbookReferenceIndexCache();
+    let resolveNpc!: (value: unknown) => void;
+    (globalThis as typeof globalThis & { fetch: FetchMock }).fetch = vi.fn((url: string) => {
+      if (String(url).includes("npcs")) {
+        return new Promise((resolve) => { resolveNpc = resolve; });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ statblocks: [{ title: "Sewer Meat Creature", corpus_display_path: "sewer_meat_creature_statblock_cr3.md" }] }),
+      });
+    }) as FetchMock;
+    referenceChip({ id: "new-npc", label: "New NPC" }).click();
+    referenceChip({ type: "statblock", id: "sewer-meat-creature", label: "Sewer Meat Creature" }).click();
+    resolveNpc({ ok: true, json: () => Promise.resolve({ npcs: [{ slug: "new-npc", title: "Wrong NPC" }] }) });
+    await nextTick();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Sewer Meat Creature");
+    expect(document.querySelector(".runbook-ref-resolved-card")).not.toHaveTextContent("Wrong NPC");
   });
 });
