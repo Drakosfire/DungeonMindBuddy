@@ -265,6 +265,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
+  const editorThemeClass = `md-theme-${descriptor.themeId}`;
 
   return (
     <main className="tiptap-spike-page">
@@ -315,7 +316,11 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           {copyMessage && <p className="tiptap-copy-message">{copyMessage}</p>}
         </div>
 
-        <div className="tiptap-spike-editor md-content md-theme-command" data-md-theme="command" data-testid="tiptap-editor">
+        <div
+          className={`tiptap-spike-editor md-content ${editorThemeClass}`}
+          data-md-theme={descriptor.themeId}
+          data-testid="tiptap-editor"
+        >
           <EditorContent editor={editor} />
         </div>
       </section>

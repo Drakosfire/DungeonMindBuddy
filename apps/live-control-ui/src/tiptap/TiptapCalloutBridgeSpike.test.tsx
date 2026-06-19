@@ -150,6 +150,8 @@ describe("semantic callout Markdown bridge", () => {
 
     expect(screen.getByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
     expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("tiptap-editor")).toHaveAttribute("data-md-theme", "command");
+    expect(screen.getByTestId("tiptap-editor")).toHaveClass("md-theme-command");
     expect(screen.getByRole("heading", { name: "Editor JSON" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Exported Markdown" })).toBeInTheDocument();
     expect(screen.getByText(/saved locally in this browser/i)).toBeInTheDocument();
