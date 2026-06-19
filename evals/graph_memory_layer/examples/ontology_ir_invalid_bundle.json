@@ -1,0 +1,68 @@
+{
+  "bundle_id": "example:ontology-ir:invalid",
+  "schema_version": "0.1",
+  "taxonomy_registry_version": "0.1",
+  "created_by": "ontology_ir_validation_rules_v0",
+  "description": "Synthetic invalid bundle for validation-rules tests only.",
+  "nodes": [
+    {
+      "node_id": "example:invalid:node:unknown-kind",
+      "kind": {"vocabulary": "entity_kind", "term": "imaginary_construct"},
+      "label": "Synthetic Unknown Kind",
+      "aliases": [],
+      "properties": {"synthetic": true},
+      "provenance": [],
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "candidate"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "internal_diagnostic"}
+    },
+    {
+      "node_id": "example:invalid:node:promoted-without-provenance",
+      "kind": {"vocabulary": "entity_kind", "term": "source_document"},
+      "label": "Synthetic Promoted Without Provenance",
+      "aliases": [],
+      "properties": {"synthetic": true},
+      "provenance": [],
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "promoted"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "internal_diagnostic"}
+    },
+    {
+      "node_id": "example:invalid:node:player-visible-private-source",
+      "kind": {"vocabulary": "entity_kind", "term": "source_unit"},
+      "label": "Synthetic Visibility Conflict",
+      "aliases": [],
+      "properties": {"synthetic": true},
+      "provenance": [
+        {
+          "provenance_id": "example:invalid:provenance:private-source",
+          "source_refs": [],
+          "authority_state": {"vocabulary": "authority_state", "term": "candidate"},
+          "evidence_role": {"vocabulary": "evidence_role", "term": "source_evidence"},
+          "visibility_state": {"vocabulary": "visibility_state", "term": "private_gm"},
+          "notes": "Synthetic policy violation."
+        }
+      ],
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "promoted"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "player_visible"}
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "example:invalid:edge:missing-endpoint",
+      "subject_id": "example:invalid:node:unknown-kind",
+      "object_id": "example:invalid:node:missing",
+      "predicate_family": {"vocabulary": "relationship_predicate_family", "term": "source_derivation"},
+      "label": "synthetic missing endpoint relationship",
+      "properties": {"synthetic": true},
+      "provenance": [],
+      "lifecycle_state": {"vocabulary": "lifecycle_state", "term": "candidate"},
+      "visibility_state": {"vocabulary": "visibility_state", "term": "internal_diagnostic"}
+    }
+  ],
+  "validation": [
+    {
+      "state": {"vocabulary": "lifecycle_state", "term": "candidate"},
+      "severity": {"vocabulary": "validation_severity", "term": "info"},
+      "message": "Synthetic invalid bundle for rule validation."
+    }
+  ]
+}

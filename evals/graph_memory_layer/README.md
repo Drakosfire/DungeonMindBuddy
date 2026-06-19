@@ -51,6 +51,14 @@ uv run python -m evals.graph_memory_layer.validate_ontology_ir
 
 This ontology IR validation uses the standard library plus the local `src.graph_memory.ontology_ir` package only. It validates a synthetic example bundle only and does not materialize campaign data, scan corpus files, call an LLM, extract entities, infer relationships, or change retrieval behavior.
 
+Validate synthetic Ontology IR bundles against taxonomy and source-grounding guardrails with the no-LLM rule validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_ontology_ir_rules
+```
+
+This rule validation uses only synthetic bundles. It validates taxonomy references, evidence/admissibility policy, authority boundaries, visibility boundaries, lifecycle/promotion constraints, and source-grounding expectations. It does not call an LLM, materialize graph data, scan real data, or change retrieval behavior.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
