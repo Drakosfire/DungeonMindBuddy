@@ -35,6 +35,11 @@ describe("Tiptap local working-board state", () => {
     });
     expect(state.tiptap_json).toEqual(expect.objectContaining({ type: "doc" }));
     expect(state.exported_markdown).toContain("# C2S23 North Gate Session Runbook");
+    expect(state.exported_markdown).toContain("## Table start checklist");
+    expect(state.exported_markdown).toContain("## First player prompt");
+    expect(state.exported_markdown).toContain("### Gate clock");
+    expect(state.exported_markdown).toContain("## What to say when they stall");
+    expect(state.exported_markdown).toContain("## Exit ramps into combat / council / chase");
   });
 
   it("builds descriptor-derived initial state for the callout spike", () => {
