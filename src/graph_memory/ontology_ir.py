@@ -186,11 +186,14 @@ class GraphNode:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GraphNode":
+        aliases = data.get("aliases", [])
+        if not isinstance(aliases, list):
+            raise OntologyIRValidationError("aliases must be a list")
         return cls(
             node_id=data.get("node_id", ""),
             kind=TaxonomyRef.from_dict(_require_mapping(data.get("kind"), "kind")),
             label=data.get("label", ""),
-            aliases=list(data.get("aliases", [])),
+            aliases=list(aliases),
             properties=validate_scalar_properties(data.get("properties", {})),
             provenance=[ProvenanceRef.from_dict(_require_mapping(item, "provenance")) for item in data.get("provenance", [])],
             lifecycle_state=_optional_taxonomy_ref(data.get("lifecycle_state"), "lifecycle_state"),
@@ -293,6 +296,32 @@ class GraphBundle:
             edges=[GraphEdge.from_dict(_require_mapping(item, "edge")) for item in data.get("edges", [])],
             validation=[ValidationStatus.from_dict(_require_mapping(item, "validation")) for item in data.get("validation", [])],
         )
+
+    @classmethod
+    def from_dict_unchecked_endpoints(cls, data: dict[str, Any]) -> "GraphBundle":
+        """Load a synthetic test bundle without enforcing edge endpoint integrity.
+
+        This is only for invalid-fixture validation-rule tests that need to
+        exercise endpoint-integrity findings. Production and materializer paths
+        must use the strict ``from_dict`` constructor.
+        """
+        bundle = object.__new__(cls)
+        object.__setattr__(bundle, "bundle_id", data.get("bundle_id", ""))
+        object.__setattr__(bundle, "schema_version", data.get("schema_version", ""))
+        object.__setattr__(bundle, "taxonomy_registry_version", data.get("taxonomy_registry_version", ""))
+        object.__setattr__(bundle, "created_by", data.get("created_by", ""))
+        object.__setattr__(bundle, "description", data.get("description", ""))
+        object.__setattr__(bundle, "nodes", [GraphNode.from_dict(_require_mapping(item, "node")) for item in data.get("nodes", [])])
+        object.__setattr__(bundle, "edges", [GraphEdge.from_dict(_require_mapping(item, "edge")) for item in data.get("edges", [])])
+        object.__setattr__(bundle, "validation", [ValidationStatus.from_dict(_require_mapping(item, "validation")) for item in data.get("validation", [])])
+        _require_nonblank(bundle.bundle_id, "bundle_id")
+        node_ids = [node.node_id for node in bundle.nodes]
+        edge_ids = [edge.edge_id for edge in bundle.edges]
+        if len(node_ids) != len(set(node_ids)):
+            raise OntologyIRValidationError("node IDs must be unique")
+        if len(edge_ids) != len(set(edge_ids)):
+            raise OntologyIRValidationError("edge IDs must be unique")
+        return bundle
 
     def to_dict(self) -> dict[str, Any]:
         return {

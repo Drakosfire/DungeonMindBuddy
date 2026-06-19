@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from src.graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ValidationStatus, _require_mapping
+from src.graph_memory.ontology_ir import GraphBundle
 from src.graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -18,20 +18,7 @@ def _load_bundle(path: Path, *, allow_missing_edge_endpoints: bool = False) -> G
         data = json.load(handle)
     if not allow_missing_edge_endpoints:
         return GraphBundle.from_dict(data)
-    nodes = [GraphNode.from_dict(_require_mapping(item, "node")) for item in data.get("nodes", [])]
-    validation = [ValidationStatus.from_dict(_require_mapping(item, "validation")) for item in data.get("validation", [])]
-    bundle = GraphBundle(
-        bundle_id=data.get("bundle_id", ""),
-        schema_version=data.get("schema_version", ""),
-        taxonomy_registry_version=data.get("taxonomy_registry_version", ""),
-        created_by=data.get("created_by", ""),
-        description=data.get("description", ""),
-        nodes=nodes,
-        edges=[],
-        validation=validation,
-    )
-    bundle.edges.extend(GraphEdge.from_dict(_require_mapping(item, "edge")) for item in data.get("edges", []))
-    return bundle
+    return GraphBundle.from_dict_unchecked_endpoints(data)
 
 
 def main() -> int:
