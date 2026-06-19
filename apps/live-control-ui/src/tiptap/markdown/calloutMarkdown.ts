@@ -1,3 +1,8 @@
+import {
+  normalizeRunbookReferenceAttrs,
+  runbookReferenceHref,
+} from "../references/runbookReferences";
+
 export const CALLOUT_KINDS = ["read-aloud", "gm-note", "rules", "warning"] as const;
 
 export type CalloutKind = (typeof CALLOUT_KINDS)[number];
@@ -147,6 +152,13 @@ function inlineMarkdown(node: JsonNode): string {
     );
   }
   if (node.type === "hardBreak") return "\n";
+  if (node.type === "runbookReference") {
+    const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {});
+    const label = escapeMarkdownText(attrs.label);
+    const hasKnownKind = node.attrs?.kind === "ref" || node.attrs?.kind === "action";
+    const href = hasKnownKind ? runbookReferenceHref(attrs) : null;
+    return href ? `[${label}](${href})` : label;
+  }
   return childNodes(node).map(inlineMarkdown).join("");
 }
 
@@ -181,6 +193,8 @@ function serializeNode(node: JsonNode): string {
       return inlineMarkdown(node);
     case "hardBreak":
       return "\n";
+    case "runbookReference":
+      return inlineMarkdown(node);
     case "paragraph":
       return childNodes(node).map(inlineMarkdown).join("");
     case "heading": {

@@ -96,6 +96,42 @@ describe("semantic callout Markdown bridge", () => {
     expect(markdown).toContain("> [!WARNING] Breach clock");
   });
 
+  it("serializes reference and action nodes to typed Markdown", () => {
+    const markdown = tiptapJsonToSemanticMarkdown({
+      type: "paragraph",
+      content: [
+        { type: "text", text: "Talk to " },
+        { type: "runbookReference", attrs: { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" } },
+        { type: "text", text: ", then launch " },
+        { type: "runbookReference", attrs: { kind: "action", refType: "combat", refId: "north-gate-combat", label: "North Gate Combat" } },
+        { type: "text", text: "." },
+      ],
+    });
+
+    expect(markdown).toContain("Talk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)");
+    expect(markdown).toContain("[North Gate Combat](#dmb-action:combat:north-gate-combat).");
+  });
+
+  it("escapes reference labels and falls back to text for unsupported attrs", () => {
+    const safe = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "ref", refType: "npc", refId: "safe-id", label: "Bad [label](javascript:evil)" },
+    });
+    const unsupported = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "ref", refType: "monster", refId: "bog-thing", label: "Bog Thing" },
+    });
+    const malformed = tiptapJsonToSemanticMarkdown({
+      type: "runbookReference",
+      attrs: { kind: "mystery", refType: "npc", refId: "BadCaps", label: "Malformed NPC" },
+    });
+
+    expect(safe).toBe("[Bad \\[label\\]\\(javascript:evil\\)](#dmb-ref:npc:safe-id)\n");
+    expect(unsupported).toBe("Bog Thing\n");
+    expect(unsupported).not.toContain("#dmb-ref:");
+    expect(malformed).toBe("Malformed NPC\n");
+  });
+
   it("renders the spike surface and initialized callouts", async () => {
     render(<TiptapCalloutBridgeSpike />);
 
@@ -109,6 +145,9 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
+    expect(screen.getByText("Gate Dilemma d12")).toHaveClass("md-ref-chip-roll-table");
+    expect(screen.getByText("North Gate Combat")).toHaveClass("md-ref-chip-action-combat");
+    expect(screen.getByText("Lysandro Ironveil")).toHaveClass("md-ref-chip-npc");
   });
 
   it("renders the explicit file write boundary without calling the backend", () => {
@@ -192,6 +231,7 @@ describe("semantic callout Markdown bridge", () => {
           sections: expect.arrayContaining([
             expect.objectContaining({ id: "tiptap-local-state", title: "Local working state" }),
             expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
+            expect.objectContaining({ id: "tiptap-insert-refs", title: "Insert refs" }),
           ]),
         }),
       );
