@@ -1583,6 +1583,126 @@ body.md-viewer-open { overflow: hidden; }
   font-size: 13px;
 }
 
+.runbook-ref-popover {
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 24px));
+}
+
+.runbook-ref-popover-card {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--panel, #171b24);
+  color: var(--fg, #e8eaef);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+}
+
+.runbook-ref-popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.runbook-ref-popover-header h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.runbook-ref-popover-kicker {
+  margin: 0;
+  color: var(--fg-mute, #a8afbf);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.runbook-ref-popover-close {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--fg-mute, #a8afbf);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.runbook-ref-popover-close:hover {
+  color: var(--fg, #e8eaef);
+}
+
+.runbook-ref-popover-meta {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.runbook-ref-popover-meta > div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.runbook-ref-popover-meta dt {
+  color: var(--fg-mute, #a8afbf);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.runbook-ref-popover-meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.runbook-ref-popover-meta .mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+}
+
+.runbook-ref-popover-status {
+  margin-top: 14px;
+  border-left: 2px solid var(--accent, #8b9bb4);
+  padding: 8px 10px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--fg-mute, #a8afbf);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runbook-ref-popover-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.runbook-ref-popover-actions button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: transparent;
+  color: var(--fg-mute, #a8afbf);
+  font-size: 12px;
+  text-align: left;
+}
+
+.runbook-ref-popover-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.md-ref-chip[aria-expanded="true"] {
+  outline: 2px solid var(--md-ref-chip-border, rgba(148, 163, 184, 0.55));
+  outline-offset: 2px;
+}
+
 @media (max-width: 640px) {
   .statblocks-count,
   .npcs-count,

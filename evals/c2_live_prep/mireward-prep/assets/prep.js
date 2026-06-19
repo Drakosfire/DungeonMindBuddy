@@ -308,6 +308,210 @@
     });
   }
 
+  const RUNBOOK_REFERENCE_PLACEHOLDER_ACTIONS = {
+    npc: ["Open NPC card", "Pin to session context"],
+    location: ["Open location card", "Show nearby context"],
+    statblock: ["Preview statblock", "Add to encounter"],
+    "roll-table": ["Open roll table", "Roll on table"],
+    citation: ["Open source note", "Copy citation"],
+    combat: ["Launch combat", "Preview encounter seed"],
+  };
+  let runbookReferencePopoverBound = false;
+  let activeRunbookReferenceTrigger = null;
+  let suppressRunbookReferenceFocusOpen = false;
+
+  function runbookReferenceHref(ref) {
+    return "#dmb-" + ref.kind + ":" + ref.type + ":" + ref.id;
+  }
+
+  function runbookReferencePlaceholderActions(ref) {
+    return RUNBOOK_REFERENCE_PLACEHOLDER_ACTIONS[ref.type] || ["Open reference", "Copy ref id"];
+  }
+
+  function readRunbookReferenceChip(trigger) {
+    if (!trigger || !trigger.classList || !trigger.classList.contains("md-ref-chip")) return null;
+    const kind = trigger.getAttribute("data-md-ref-kind");
+    const type = trigger.getAttribute("data-md-ref-type");
+    const id = trigger.getAttribute("data-md-ref-id");
+    if ((kind !== "ref" && kind !== "action") || !type || !id) return null;
+    const ref = {
+      label: (trigger.textContent || "").trim(),
+      kind: kind,
+      type: type,
+      id: id,
+      isAction: kind === "action",
+    };
+    ref.href = runbookReferenceHref(ref);
+    return ref;
+  }
+
+  function ensureRunbookReferencePopover() {
+    let popover = document.getElementById("runbook-ref-popover");
+    if (popover) return popover;
+
+    popover = document.createElement("div");
+    popover.id = "runbook-ref-popover";
+    popover.className = "runbook-ref-popover";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-modal", "false");
+    popover.setAttribute("aria-labelledby", "runbook-ref-popover-title");
+    popover.hidden = true;
+    popover.innerHTML =
+      '<div class="runbook-ref-popover-card">' +
+      '<header class="runbook-ref-popover-header"><div>' +
+      '<p class="runbook-ref-popover-kicker">Reference shell</p>' +
+      '<h2 id="runbook-ref-popover-title"></h2></div>' +
+      '<button type="button" class="runbook-ref-popover-close" aria-label="Close reference details">&times;</button>' +
+      '</header><dl class="runbook-ref-popover-meta"></dl>' +
+      '<div class="runbook-ref-popover-status">Resolver pending. This shell does not fetch canon yet.</div>' +
+      '<div class="runbook-ref-popover-actions"></div></div>';
+    document.body.appendChild(popover);
+    popover.querySelector(".runbook-ref-popover-close").addEventListener("click", function () {
+      closeRunbookReferencePopover({ restoreFocus: true });
+    });
+    return popover;
+  }
+
+  function renderRunbookReferencePopoverContent(ref) {
+    const popover = ensureRunbookReferencePopover();
+    popover.querySelector("#runbook-ref-popover-title").textContent = ref.label;
+    const meta = popover.querySelector(".runbook-ref-popover-meta");
+    meta.textContent = "";
+    [
+      ["Kind", ref.kind, false],
+      ["Type", ref.type, false],
+      ["ID", ref.id, true],
+      ["Href", ref.href, true],
+    ].forEach(function (entry) {
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = entry[0];
+      detail.textContent = entry[1];
+      if (entry[2]) detail.className = "mono";
+      row.appendChild(term);
+      row.appendChild(detail);
+      meta.appendChild(row);
+    });
+
+    const actions = popover.querySelector(".runbook-ref-popover-actions");
+    actions.textContent = "";
+    runbookReferencePlaceholderActions(ref).forEach(function (label) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.disabled = true;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+    return popover;
+  }
+
+  function positionRunbookReferencePopover(popover, trigger) {
+    const gap = 8;
+    const edge = 12;
+    const triggerRect = trigger.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const width = popoverRect.width || Math.min(360, window.innerWidth - edge * 2);
+    const height = popoverRect.height;
+    const left = Math.min(
+      Math.max(edge, triggerRect.left),
+      Math.max(edge, window.innerWidth - width - edge)
+    );
+    const fitsBelow = triggerRect.bottom + gap + height <= window.innerHeight - edge;
+    const top = fitsBelow
+      ? triggerRect.bottom + gap
+      : Math.max(edge, triggerRect.top - height - gap);
+    popover.style.left = Math.round(left) + "px";
+    popover.style.top = Math.round(top) + "px";
+  }
+
+  function enhanceRunbookReferenceChip(trigger) {
+    if (!readRunbookReferenceChip(trigger)) return false;
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-controls", "runbook-ref-popover");
+    if (trigger !== activeRunbookReferenceTrigger) trigger.setAttribute("aria-expanded", "false");
+    return true;
+  }
+
+  function enhanceRunbookReferenceChips(root) {
+    if (!root || typeof root.querySelectorAll !== "function") return;
+    root
+      .querySelectorAll(".md-ref-chip[data-md-ref-kind][data-md-ref-type][data-md-ref-id]")
+      .forEach(enhanceRunbookReferenceChip);
+  }
+
+  function openRunbookReferencePopover(trigger) {
+    const ref = readRunbookReferenceChip(trigger);
+    if (!ref) return;
+    if (activeRunbookReferenceTrigger && activeRunbookReferenceTrigger !== trigger) {
+      activeRunbookReferenceTrigger.setAttribute("aria-expanded", "false");
+    }
+    enhanceRunbookReferenceChip(trigger);
+    activeRunbookReferenceTrigger = trigger;
+    trigger.setAttribute("aria-expanded", "true");
+    const popover = renderRunbookReferencePopoverContent(ref);
+    popover.hidden = false;
+    positionRunbookReferencePopover(popover, trigger);
+  }
+
+  function closeRunbookReferencePopover(options) {
+    const trigger = activeRunbookReferenceTrigger;
+    const popover = document.getElementById("runbook-ref-popover");
+    if (popover) popover.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    activeRunbookReferenceTrigger = null;
+    if (options && options.restoreFocus && trigger && typeof trigger.focus === "function") {
+      suppressRunbookReferenceFocusOpen = true;
+      trigger.focus();
+      suppressRunbookReferenceFocusOpen = false;
+    }
+  }
+
+  function initRunbookReferencePopoverShell() {
+    ensureRunbookReferencePopover();
+    enhanceRunbookReferenceChips(document);
+    if (runbookReferencePopoverBound) return;
+    runbookReferencePopoverBound = true;
+
+    document.addEventListener("click", function (event) {
+      const target = event.target instanceof Element ? event.target : null;
+      const chip = target && target.closest(".md-ref-chip");
+      if (chip) {
+        openRunbookReferencePopover(chip);
+      } else if (!target || !target.closest("#runbook-ref-popover")) {
+        closeRunbookReferencePopover();
+      }
+    });
+    document.addEventListener("focusin", function (event) {
+      if (suppressRunbookReferenceFocusOpen) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const chip = target && target.closest(".md-ref-chip");
+      if (chip) openRunbookReferencePopover(chip);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && activeRunbookReferenceTrigger) {
+        event.preventDefault();
+        closeRunbookReferencePopover({ restoreFocus: true });
+      }
+    });
+    window.addEventListener("resize", function () {
+      const popover = document.getElementById("runbook-ref-popover");
+      if (popover && !popover.hidden && activeRunbookReferenceTrigger) {
+        positionRunbookReferencePopover(popover, activeRunbookReferenceTrigger);
+      }
+    });
+    window.addEventListener(
+      "scroll",
+      function () {
+        const popover = document.getElementById("runbook-ref-popover");
+        if (popover && !popover.hidden && activeRunbookReferenceTrigger) {
+          positionRunbookReferencePopover(popover, activeRunbookReferenceTrigger);
+        }
+      },
+      true
+    );
+  }
+
   function renderMarkdownHtml(markdownText) {
     const markdown = String(markdownText || "");
     if (!window.MirewardMarkdown || typeof window.MirewardMarkdown.render !== "function") {
@@ -3756,6 +3960,9 @@
     openMarkdownViewer: openMarkdownViewer,
     openMarkdownFromText: openMarkdownFromText,
     closeMarkdownViewer: closeMarkdownViewer,
+    initRunbookReferencePopoverShell: initRunbookReferencePopoverShell,
+    closeRunbookReferencePopover: closeRunbookReferencePopover,
+    enhanceRunbookReferenceChips: enhanceRunbookReferenceChips,
     openToolbox: function (toolId) {
       initToolbox();
       setToolboxOpen(true, toolId || "statblock");
@@ -3764,6 +3971,7 @@
 
   function bootMirewardPrepChrome() {
     initToolbox();
+    initRunbookReferencePopoverShell();
   }
 
   if (document.readyState === "loading") {
