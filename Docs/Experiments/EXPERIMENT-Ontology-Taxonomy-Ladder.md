@@ -178,6 +178,26 @@ The taxonomy registry defines controlled vocabulary only. It does not define ont
 
 Define the internal model for nodes, edges, source refs, provenance, confidence, lifecycle state, and validation status. The model should be RDF-compatible in spirit, but not RDF-first.
 
+## Ontology IR Schema
+
+Rung 3 ontology IR schema is tracked in:
+
+`src/graph_memory/ontology_ir.py`
+
+Human-readable schema guide:
+
+`evals/graph_memory_layer/ONTOLOGY-IR-SCHEMA.md`
+
+Synthetic example bundle:
+
+`evals/graph_memory_layer/examples/ontology_ir_minimal_bundle.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_ontology_ir`
+
+This schema defines graph-memory record shapes only. It does not materialize real campaign data, perform extraction, resolve aliases, export RDF, or affect production retrieval.
+
 ### Rung 4: Validation Before Extraction
 
 Define validation rules before LLM extraction. Examples:
