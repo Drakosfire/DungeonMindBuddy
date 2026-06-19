@@ -347,6 +347,33 @@ describe("runbook reference resolver", () => {
     expect(document.querySelector(".runbook-ref-popover")?.hasAttribute("hidden")).toBe(false);
   });
 
+  it("does not cache a failed index fetch and retries on the next chip click", async () => {
+    let npcRequests = 0;
+    (globalThis as typeof globalThis & { fetch: FetchMock }).fetch = vi.fn((url: string) => {
+      if (String(url) === "/api/live/npcs/index") {
+        npcRequests += 1;
+        if (npcRequests === 1) return Promise.reject(new Error("Temporary backend hiccup"));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            npcs: [{ slug: "lysandro-ironveil", title: "Lysandro Ironveil", table_note: "Recovered." }],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(emptyPayloadForUrl(String(url))) });
+    }) as FetchMock;
+
+    referenceChip({ id: "lysandro-ironveil", label: "Lysandro First" }).click();
+    await nextTick();
+    expect(document.querySelector(".runbook-ref-resolver-error")).toHaveTextContent("Temporary backend hiccup");
+
+    referenceChip({ id: "lysandro-ironveil", label: "Lysandro Retry" }).click();
+    await nextTick();
+    expect(npcRequests).toBe(2);
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Lysandro Ironveil");
+    expect(document.querySelector(".runbook-ref-resolved-card")).toHaveTextContent("Recovered.");
+  });
+
   it("uses per-type cache and guards against stale async results", async () => {
     const fetch = mockJsonRoutes({
       "/api/live/npcs/index": { npcs: [{ slug: "lysandro-ironveil", title: "Lysandro Ironveil" }] },

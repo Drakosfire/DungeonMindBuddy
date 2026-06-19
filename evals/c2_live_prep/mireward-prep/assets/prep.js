@@ -446,7 +446,10 @@
     if (runbookReferenceIndexCache[type]) return runbookReferenceIndexCache[type];
     const endpoint = RUNBOOK_REFERENCE_INDEX_ENDPOINTS[type];
     if (!endpoint) return Promise.resolve(null);
-    runbookReferenceIndexCache[type] = apiGetJson(endpoint);
+    runbookReferenceIndexCache[type] = apiGetJson(endpoint).catch(function (err) {
+      delete runbookReferenceIndexCache[type];
+      throw err;
+    });
     return runbookReferenceIndexCache[type];
   }
 
