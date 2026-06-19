@@ -35,6 +35,14 @@ uv run python -m evals.graph_memory_layer.validate_baseline_cases
 
 This validation is standard-library only and safe for scaffold/baseline work.
 
+Validate the controlled vocabulary registry with the no-LLM taxonomy validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_taxonomy_registry
+```
+
+This taxonomy validation is standard-library only. It validates the controlled vocabulary registry and does not validate graph records, graph nodes, graph edges, ontology IR, materialization, extraction, or retrieval behavior yet.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash

@@ -1,0 +1,3202 @@
+{
+  "version": "0.1",
+  "status": "taxonomy_registry_v0",
+  "workstream": "ontology_taxonomy_ladder",
+  "purpose": "Define controlled vocabularies before ontology IR, graph materialization, or shadow retrieval work.",
+  "vocabularies": {
+    "source_kind": {
+      "id": "source_kind",
+      "label": "Source Kind",
+      "description": "Classifies broad kinds of source artifacts.",
+      "terms": [
+        {
+          "id": "session_recap",
+          "label": "Session Recap",
+          "description": "Controlled term for session recap in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits session recap within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with session_recap."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "normalized_recap",
+          "label": "Normalized Recap",
+          "description": "Controlled term for normalized recap in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits normalized recap within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with normalized_recap."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "breadcrumbed_recap",
+          "label": "Breadcrumbed Recap",
+          "description": "Controlled term for breadcrumbed recap in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits breadcrumbed recap within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with breadcrumbed_recap."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "session_memory_record",
+          "label": "Session Memory Record",
+          "description": "Controlled term for session memory record in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits session memory record within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with session_memory_record."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "planning_manifest",
+          "label": "Planning Manifest",
+          "description": "Controlled term for planning manifest in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits planning manifest within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with planning_manifest."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "gm_prep_doc",
+          "label": "GM Prep Doc",
+          "description": "Controlled term for gm prep doc in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits gm prep doc within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with gm_prep_doc."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "design_doc",
+          "label": "Design Doc",
+          "description": "Controlled term for design doc in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits design doc within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with design_doc."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "eval_report",
+          "label": "Eval Report",
+          "description": "Controlled term for eval report in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits eval report within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with eval_report."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "support_card",
+          "label": "Support Card",
+          "description": "Controlled term for support card in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits support card within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with support_card."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "corpus_source",
+          "label": "Corpus Source",
+          "description": "Controlled term for corpus source in the source kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits corpus source within source kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with corpus_source."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "source_layer": {
+      "id": "source_layer",
+      "label": "Source Layer",
+      "description": "Classifies the source-processing layer for an artifact or derived record.",
+      "terms": [
+        {
+          "id": "raw_source",
+          "label": "Raw Source",
+          "description": "Controlled term for raw source in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits raw source within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with raw_source."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "canonical_source",
+          "label": "Canonical Source",
+          "description": "Controlled term for canonical source in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits canonical source within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with canonical_source."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "normalized_source",
+          "label": "Normalized Source",
+          "description": "Controlled term for normalized source in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits normalized source within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with normalized_source."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "breadcrumb_layer",
+          "label": "Breadcrumb Layer",
+          "description": "Controlled term for breadcrumb layer in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits breadcrumb layer within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with breadcrumb_layer."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "memory_layer",
+          "label": "Memory Layer",
+          "description": "Controlled term for memory layer in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits memory layer within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with memory_layer."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "manifest_layer",
+          "label": "Manifest Layer",
+          "description": "Controlled term for manifest layer in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits manifest layer within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with manifest_layer."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "derived_report",
+          "label": "Derived Report",
+          "description": "Controlled term for derived report in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits derived report within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with derived_report."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "diagnostic_layer",
+          "label": "Diagnostic Layer",
+          "description": "Controlled term for diagnostic layer in the source layer vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits diagnostic layer within source layer."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with diagnostic_layer."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "entity_kind": {
+      "id": "entity_kind",
+      "label": "Entity Kind",
+      "description": "Classifies entity-like concepts without defining graph node classes.",
+      "terms": [
+        {
+          "id": "pc",
+          "label": "PC",
+          "description": "Controlled term for pc in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits pc within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with pc."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "npc",
+          "label": "NPC",
+          "description": "Controlled term for npc in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits npc within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with npc."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "party",
+          "label": "Party",
+          "description": "Controlled term for party in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits party within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with party."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "faction",
+          "label": "Faction",
+          "description": "Controlled term for faction in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits faction within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with faction."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "location",
+          "label": "Location",
+          "description": "Controlled term for location in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits location within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with location."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "sublocation",
+          "label": "Sublocation",
+          "description": "Controlled term for sublocation in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits sublocation within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with sublocation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "region",
+          "label": "Region",
+          "description": "Controlled term for region in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits region within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with region."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "threat",
+          "label": "Threat",
+          "description": "Controlled term for threat in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits threat within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with threat."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "creature",
+          "label": "Creature",
+          "description": "Controlled term for creature in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits creature within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with creature."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "item",
+          "label": "Item",
+          "description": "Controlled term for item in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits item within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with item."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "event",
+          "label": "Event",
+          "description": "Controlled term for event in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits event within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with event."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hook",
+          "label": "Hook",
+          "description": "Controlled term for hook in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hook within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hook."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "quest",
+          "label": "Quest",
+          "description": "Controlled term for quest in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits quest within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with quest."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "session",
+          "label": "Session",
+          "description": "Controlled term for session in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits session within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with session."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "campaign",
+          "label": "Campaign",
+          "description": "Controlled term for campaign in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits campaign within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with campaign."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "route",
+          "label": "Route",
+          "description": "Controlled term for route in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits route within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hub",
+          "label": "Hub",
+          "description": "Controlled term for hub in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hub within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hub."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "source_unit",
+          "label": "Source Unit",
+          "description": "Controlled term for source unit in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits source unit within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_unit."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "source_document",
+          "label": "Source Document",
+          "description": "Controlled term for source document in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits source document within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_document."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "source_section",
+          "label": "Source Section",
+          "description": "Controlled term for source section in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits source section within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_section."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "source_anchor",
+          "label": "Source Anchor",
+          "description": "Controlled term for source anchor in the entity kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits source anchor within entity kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_anchor."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "route_kind": {
+      "id": "route_kind",
+      "label": "Route Kind",
+      "description": "Classifies route and hub structures used by current and future retrieval surfaces.",
+      "terms": [
+        {
+          "id": "character_route",
+          "label": "Character Route",
+          "description": "Controlled term for character route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits character route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with character_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "party_route",
+          "label": "Party Route",
+          "description": "Controlled term for party route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits party route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with party_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "location_route",
+          "label": "Location Route",
+          "description": "Controlled term for location route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits location route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with location_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "faction_route",
+          "label": "Faction Route",
+          "description": "Controlled term for faction route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits faction route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with faction_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "threat_route",
+          "label": "Threat Route",
+          "description": "Controlled term for threat route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits threat route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with threat_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "session_route",
+          "label": "Session Route",
+          "description": "Controlled term for session route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits session route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with session_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "campaign_route",
+          "label": "Campaign Route",
+          "description": "Controlled term for campaign route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits campaign route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with campaign_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "support_route",
+          "label": "Support Route",
+          "description": "Controlled term for support route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits support route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with support_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "breadcrumb_route",
+          "label": "Breadcrumb Route",
+          "description": "Controlled term for breadcrumb route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits breadcrumb route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with breadcrumb_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "manifest_route",
+          "label": "Manifest Route",
+          "description": "Controlled term for manifest route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits manifest route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with manifest_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hub_route",
+          "label": "Hub Route",
+          "description": "Controlled term for hub route in the route kind vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hub route within route kind."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hub_route."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "evidence_role": {
+      "id": "evidence_role",
+      "label": "Evidence Role",
+      "description": "Classifies how a record may be used as evidence or routing context.",
+      "terms": [
+        {
+          "id": "source_evidence",
+          "label": "Source Evidence",
+          "description": "Information that may support answer claims because it is grounded in an admissible source.",
+          "allowed_usage": [
+            "Use for source-supported facts or events that can be cited as evidence."
+          ],
+          "disallowed_usage": [
+            "Do not use for diagnostic reports, routing hints, or unsupported derived summaries."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_evidence."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "supporting_context",
+          "label": "Supporting Context",
+          "description": "Controlled term for supporting context in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits supporting context within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with supporting_context."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "routing_hint",
+          "label": "Routing Hint",
+          "description": "Controlled term for routing hint in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits routing hint within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence.",
+            "Must not be admitted as source evidence for answer claims."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with routing_hint."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "diagnostic_only",
+          "label": "Diagnostic Only",
+          "description": "Controlled term for diagnostic only in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits diagnostic only within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence.",
+            "Must not be admitted as source evidence for answer claims."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with diagnostic_only."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "derived_summary",
+          "label": "Derived Summary",
+          "description": "Controlled term for derived summary in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits derived summary within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence.",
+            "Must not be admitted as source evidence for answer claims."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with derived_summary."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "candidate_evidence",
+          "label": "Candidate Evidence",
+          "description": "Controlled term for candidate evidence in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits candidate evidence within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with candidate_evidence."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "not_admissible",
+          "label": "Not Admissible",
+          "description": "Controlled term for not admissible in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits not admissible within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with not_admissible."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "navigation_only",
+          "label": "Navigation Only",
+          "description": "Controlled term for navigation only in the evidence role vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits navigation only within evidence role."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with navigation_only."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "authority_state": {
+      "id": "authority_state",
+      "label": "Authority State",
+      "description": "Distinguishes kinds of truth, authority, and source support.",
+      "terms": [
+        {
+          "id": "played_truth",
+          "label": "Played Truth",
+          "description": "Controlled term for played truth in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits played truth within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with played_truth."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "canonical_recap",
+          "label": "Canonical Recap",
+          "description": "Controlled term for canonical recap in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits canonical recap within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with canonical_recap."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "gm_prep",
+          "label": "GM Prep",
+          "description": "Controlled term for gm prep in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits gm prep within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with gm_prep."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "rumor",
+          "label": "Rumor",
+          "description": "Controlled term for rumor in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits rumor within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with rumor."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "unreliable_claim",
+          "label": "Unreliable Claim",
+          "description": "Controlled term for unreliable claim in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits unreliable claim within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with unreliable_claim."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "candidate",
+          "label": "Candidate",
+          "description": "Controlled term for candidate in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits candidate within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with candidate."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "llm_inferred",
+          "label": "LLM Inferred",
+          "description": "Controlled term for llm inferred in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits llm inferred within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with llm_inferred."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "system_derived",
+          "label": "System Derived",
+          "description": "Controlled term for system derived in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits system derived within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with system_derived."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "human_confirmed",
+          "label": "Human Confirmed",
+          "description": "Controlled term for human confirmed in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits human confirmed within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with human_confirmed."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "contradicted",
+          "label": "Contradicted",
+          "description": "Controlled term for contradicted in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits contradicted within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with contradicted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "unknown",
+          "label": "Unknown",
+          "description": "Controlled term for unknown in the authority state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits unknown within authority state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with unknown."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "visibility_state": {
+      "id": "visibility_state",
+      "label": "Visibility State",
+      "description": "Classifies whether content is player-visible, GM-only, spoiler-sensitive, or internal.",
+      "terms": [
+        {
+          "id": "player_visible",
+          "label": "Player Visible",
+          "description": "Controlled term for player visible in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits player visible within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with player_visible."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "private_gm",
+          "label": "Private GM",
+          "description": "Controlled term for private gm in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits private gm within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with private_gm."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "internal_diagnostic",
+          "label": "Internal Diagnostic",
+          "description": "Controlled term for internal diagnostic in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits internal diagnostic within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with internal_diagnostic."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "unreleased",
+          "label": "Unreleased",
+          "description": "Controlled term for unreleased in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits unreleased within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with unreleased."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "spoiler_sensitive",
+          "label": "Spoiler Sensitive",
+          "description": "Controlled term for spoiler sensitive in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits spoiler sensitive within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with spoiler_sensitive."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "unknown_visibility",
+          "label": "Unknown Visibility",
+          "description": "Controlled term for unknown visibility in the visibility state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits unknown visibility within visibility state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with unknown_visibility."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "truth_state": {
+      "id": "truth_state",
+      "label": "Truth State",
+      "description": "Classifies claim truth semantics without adjudicating ontology records.",
+      "terms": [
+        {
+          "id": "asserted",
+          "label": "Asserted",
+          "description": "Controlled term for asserted in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits asserted within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with asserted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "confirmed",
+          "label": "Confirmed",
+          "description": "Controlled term for confirmed in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits confirmed within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with confirmed."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "candidate",
+          "label": "Candidate",
+          "description": "Controlled term for candidate in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits candidate within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with candidate."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "inferred",
+          "label": "Inferred",
+          "description": "Controlled term for inferred in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits inferred within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with inferred."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "rumored",
+          "label": "Rumored",
+          "description": "Controlled term for rumored in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits rumored within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with rumored."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "false",
+          "label": "False",
+          "description": "Controlled term for false in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits false within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with false."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "conflicted",
+          "label": "Conflicted",
+          "description": "Controlled term for conflicted in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits conflicted within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with conflicted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "retconned",
+          "label": "Retconned",
+          "description": "Controlled term for retconned in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits retconned within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with retconned."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "unknown_truth",
+          "label": "Unknown Truth",
+          "description": "Controlled term for unknown truth in the truth state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits unknown truth within truth state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with unknown_truth."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "lifecycle_state": {
+      "id": "lifecycle_state",
+      "label": "Lifecycle State",
+      "description": "Classifies lifecycle for graph candidates and facts before any ontology schema exists.",
+      "terms": [
+        {
+          "id": "candidate",
+          "label": "Candidate",
+          "description": "Controlled term for candidate in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits candidate within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with candidate."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "validated",
+          "label": "Validated",
+          "description": "Controlled term for validated in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits validated within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with validated."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "promoted",
+          "label": "Promoted",
+          "description": "Controlled term for promoted in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits promoted within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with promoted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "rejected",
+          "label": "Rejected",
+          "description": "Controlled term for rejected in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits rejected within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with rejected."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "deprecated",
+          "label": "Deprecated",
+          "description": "Controlled term for deprecated in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits deprecated within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with deprecated."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "superseded",
+          "label": "Superseded",
+          "description": "Controlled term for superseded in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits superseded within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with superseded."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "conflicted",
+          "label": "Conflicted",
+          "description": "Controlled term for conflicted in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits conflicted within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with conflicted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "retconned",
+          "label": "Retconned",
+          "description": "Controlled term for retconned in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits retconned within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with retconned."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "archived",
+          "label": "Archived",
+          "description": "Controlled term for archived in the lifecycle state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits archived within lifecycle state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with archived."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "relationship_predicate_family": {
+      "id": "relationship_predicate_family",
+      "label": "Relationship Predicate Family",
+      "description": "Defines broad relationship families before exact ontology predicates or graph edges.",
+      "terms": [
+        {
+          "id": "identity",
+          "label": "Identity",
+          "description": "Controlled term for identity in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits identity within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with identity."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "alias",
+          "label": "Alias",
+          "description": "Controlled term for alias in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits alias within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with alias."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "membership",
+          "label": "Membership",
+          "description": "Controlled term for membership in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits membership within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with membership."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "location_hierarchy",
+          "label": "Location Hierarchy",
+          "description": "Controlled term for location hierarchy in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits location hierarchy within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with location_hierarchy."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "temporal_sequence",
+          "label": "Temporal Sequence",
+          "description": "Controlled term for temporal sequence in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits temporal sequence within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with temporal_sequence."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "participation",
+          "label": "Participation",
+          "description": "Controlled term for participation in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits participation within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with participation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "ownership",
+          "label": "Ownership",
+          "description": "Controlled term for ownership in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits ownership within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with ownership."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "causality",
+          "label": "Causality",
+          "description": "Controlled term for causality in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits causality within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with causality."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "threat_relation",
+          "label": "Threat Relation",
+          "description": "Controlled term for threat relation in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits threat relation within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with threat_relation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hook_relation",
+          "label": "Hook Relation",
+          "description": "Controlled term for hook relation in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hook relation within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hook_relation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "source_derivation",
+          "label": "Source Derivation",
+          "description": "Controlled term for source derivation in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits source derivation within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with source_derivation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "citation",
+          "label": "Citation",
+          "description": "Controlled term for citation in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits citation within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with citation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "routing",
+          "label": "Routing",
+          "description": "Controlled term for routing in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits routing within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with routing."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "visibility",
+          "label": "Visibility",
+          "description": "Controlled term for visibility in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits visibility within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with visibility."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "authority",
+          "label": "Authority",
+          "description": "Controlled term for authority in the relationship predicate family vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits authority within relationship predicate family."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with authority."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "planning_lane": {
+      "id": "planning_lane",
+      "label": "Planning Lane",
+      "description": "Classifies planner-facing context lanes for future graph-memory reporting.",
+      "terms": [
+        {
+          "id": "character_party_behavior",
+          "label": "Character Party Behavior",
+          "description": "Controlled term for character party behavior in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits character party behavior within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with character_party_behavior."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "location_worldbuilding",
+          "label": "Location Worldbuilding",
+          "description": "Controlled term for location worldbuilding in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits location worldbuilding within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with location_worldbuilding."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "prior_campaign_memory",
+          "label": "Prior Campaign Memory",
+          "description": "Controlled term for prior campaign memory in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits prior campaign memory within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with prior_campaign_memory."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "support_knowledge",
+          "label": "Support Knowledge",
+          "description": "Controlled term for support knowledge in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits support knowledge within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with support_knowledge."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "known_gaps_and_safety_constraints",
+          "label": "Known Gaps And Safety Constraints",
+          "description": "Controlled term for known gaps and safety constraints in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits known gaps and safety constraints within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with known_gaps_and_safety_constraints."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "mechanics_rules",
+          "label": "Mechanics Rules",
+          "description": "Controlled term for mechanics rules in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits mechanics rules within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with mechanics_rules."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "session_prep",
+          "label": "Session Prep",
+          "description": "Controlled term for session prep in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits session prep within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with session_prep."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "live_play_context",
+          "label": "Live Play Context",
+          "description": "Controlled term for live play context in the planning lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits live play context within planning lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with live_play_context."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "retrieval_lane": {
+      "id": "retrieval_lane",
+      "label": "Retrieval Lane",
+      "description": "Classifies retrieval and admission lanes for future shadow graph experiments.",
+      "terms": [
+        {
+          "id": "direct_source_recall",
+          "label": "Direct Source Recall",
+          "description": "Controlled term for direct source recall in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits direct source recall within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with direct_source_recall."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "entity_resolution",
+          "label": "Entity Resolution",
+          "description": "Controlled term for entity resolution in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits entity resolution within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with entity_resolution."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "route_expansion",
+          "label": "Route Expansion",
+          "description": "Controlled term for route expansion in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits route expansion within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with route_expansion."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "location_hierarchy_expansion",
+          "label": "Location Hierarchy Expansion",
+          "description": "Controlled term for location hierarchy expansion in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits location hierarchy expansion within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with location_hierarchy_expansion."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "alias_bridge",
+          "label": "Alias Bridge",
+          "description": "Controlled term for alias bridge in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits alias bridge within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with alias_bridge."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "temporal_ordering",
+          "label": "Temporal Ordering",
+          "description": "Controlled term for temporal ordering in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits temporal ordering within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with temporal_ordering."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hook_resurfacing",
+          "label": "Hook Resurfacing",
+          "description": "Controlled term for hook resurfacing in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hook resurfacing within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hook_resurfacing."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "hub_expansion",
+          "label": "Hub Expansion",
+          "description": "Controlled term for hub expansion in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits hub expansion within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with hub_expansion."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "authority_filtering",
+          "label": "Authority Filtering",
+          "description": "Controlled term for authority filtering in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits authority filtering within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with authority_filtering."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "citation_grounding",
+          "label": "Citation Grounding",
+          "description": "Controlled term for citation grounding in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits citation grounding within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with citation_grounding."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "control_case_no_expansion",
+          "label": "Control Case No Expansion",
+          "description": "Controlled term for control case no expansion in the retrieval lane vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits control case no expansion within retrieval lane."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with control_case_no_expansion."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "graph_candidate_state": {
+      "id": "graph_candidate_state",
+      "label": "Graph Candidate State",
+      "description": "Classifies proposed graph records before validation or promotion.",
+      "terms": [
+        {
+          "id": "candidate",
+          "label": "Candidate",
+          "description": "Controlled term for candidate in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits candidate within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with candidate."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "validated",
+          "label": "Validated",
+          "description": "Controlled term for validated in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits validated within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with validated."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "rejected",
+          "label": "Rejected",
+          "description": "Controlled term for rejected in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits rejected within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with rejected."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "needs_review",
+          "label": "Needs Review",
+          "description": "Controlled term for needs review in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits needs review within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with needs_review."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "diagnostic_only",
+          "label": "Diagnostic Only",
+          "description": "Controlled term for diagnostic only in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits diagnostic only within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with diagnostic_only."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "blocked_by_policy",
+          "label": "Blocked By Policy",
+          "description": "Controlled term for blocked by policy in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits blocked by policy within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with blocked_by_policy."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "missing_source",
+          "label": "Missing Source",
+          "description": "Controlled term for missing source in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits missing source within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with missing_source."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "conflicted",
+          "label": "Conflicted",
+          "description": "Controlled term for conflicted in the graph candidate state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits conflicted within graph candidate state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with conflicted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "promotion_state": {
+      "id": "promotion_state",
+      "label": "Promotion State",
+      "description": "Classifies readiness for promotion from experiment output toward durable use.",
+      "terms": [
+        {
+          "id": "not_promoted",
+          "label": "Not Promoted",
+          "description": "Controlled term for not promoted in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits not promoted within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with not_promoted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "shadow_only",
+          "label": "Shadow Only",
+          "description": "Controlled term for shadow only in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits shadow only within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with shadow_only."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "report_only",
+          "label": "Report Only",
+          "description": "Controlled term for report only in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits report only within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with report_only."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "validated_for_experiment",
+          "label": "Validated For Experiment",
+          "description": "Controlled term for validated for experiment in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits validated for experiment within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with validated_for_experiment."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "approved_for_promotion",
+          "label": "Approved For Promotion",
+          "description": "Controlled term for approved for promotion in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits approved for promotion within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with approved_for_promotion."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "promoted",
+          "label": "Promoted",
+          "description": "Controlled term for promoted in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits promoted within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with promoted."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "rolled_back",
+          "label": "Rolled Back",
+          "description": "Controlled term for rolled back in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits rolled back within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with rolled_back."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "blocked",
+          "label": "Blocked",
+          "description": "Controlled term for blocked in the promotion state vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits blocked within promotion state."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with blocked."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    },
+    "validation_severity": {
+      "id": "validation_severity",
+      "label": "Validation Severity",
+      "description": "Classifies validation outcomes emitted by no-LLM validators or future graph checks.",
+      "terms": [
+        {
+          "id": "info",
+          "label": "Info",
+          "description": "Controlled term for info in the validation severity vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits info within validation severity."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with info."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "warning",
+          "label": "Warning",
+          "description": "Controlled term for warning in the validation severity vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits warning within validation severity."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with warning."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "error",
+          "label": "Error",
+          "description": "Controlled term for error in the validation severity vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits error within validation severity."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with error."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        },
+        {
+          "id": "fatal",
+          "label": "Fatal",
+          "description": "Controlled term for fatal in the validation severity vocabulary.",
+          "allowed_usage": [
+            "Use when a record clearly fits fatal within validation severity."
+          ],
+          "disallowed_usage": [
+            "Do not use as an ontology node class, graph edge class, or materialized graph record.",
+            "Do not use to admit unsupported claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with fatal."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ]
+        }
+      ]
+    }
+  }
+}
