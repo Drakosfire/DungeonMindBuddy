@@ -1585,7 +1585,8 @@ body.md-viewer-open { overflow: hidden; }
 
 .runbook-ref-popover {
   position: fixed;
-  z-index: 1000;
+  /* Above .md-viewer at z-index: 1000 so chips work inside Markdown modal previews. */
+  z-index: 1100;
   width: min(360px, calc(100vw - 24px));
 }
 

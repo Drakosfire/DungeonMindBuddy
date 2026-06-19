@@ -477,7 +477,8 @@
       const target = event.target instanceof Element ? event.target : null;
       const chip = target && target.closest(".md-ref-chip");
       if (chip) {
-        openRunbookReferencePopover(chip);
+        if (readRunbookReferenceChip(chip)) openRunbookReferencePopover(chip);
+        else closeRunbookReferencePopover();
       } else if (!target || !target.closest("#runbook-ref-popover")) {
         closeRunbookReferencePopover();
       }

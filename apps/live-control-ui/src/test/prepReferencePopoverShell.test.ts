@@ -49,6 +49,17 @@ beforeEach(() => {
 });
 
 describe("runbook reference popover shell", () => {
+  it("stacks above the Markdown viewer modal for modal preview chips", () => {
+    const cssPath = resolve(
+      process.cwd(),
+      "../../evals/c2_live_prep/mireward-prep/assets/prep.css",
+    );
+    const css = readFileSync(cssPath, "utf8");
+
+    expect(css).toMatch(/Above \.md-viewer at z-index: 1000/);
+    expect(css).toMatch(/\.runbook-ref-popover\s*{[^}]*z-index:\s*1100;/s);
+  });
+
   it("opens from a reference chip and shows its shell metadata", () => {
     const chip = referenceChip();
 
@@ -143,6 +154,19 @@ describe("runbook reference popover shell", () => {
     malformed.click();
 
     expect(document.getElementById("runbook-ref-popover")).toHaveAttribute("hidden");
+  });
+
+  it("closes an already-open popover when a malformed chip is clicked", () => {
+    const chip = referenceChip();
+    chip.click();
+    const malformed = document.createElement("button");
+    malformed.className = "md-ref-chip";
+    document.body.appendChild(malformed);
+
+    malformed.click();
+
+    expect(document.getElementById("runbook-ref-popover")).toHaveAttribute("hidden");
+    expect(chip).toHaveAttribute("aria-expanded", "false");
   });
 
   it("opens for a chip inserted after initialization", () => {
