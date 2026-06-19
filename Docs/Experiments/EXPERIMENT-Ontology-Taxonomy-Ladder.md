@@ -55,35 +55,29 @@ source artifact -> source anchor -> source unit -> derived semantic graph
 
 ## Current Ladder State
 
-The ladder branch has established the workstream anchor and baseline case surface.
+The ladder branch has advanced past the initial anchor, baseline case surface, taxonomy registry, ontology IR schema, and validation-rule rungs. As of PR #151 review context, Rung 7 is an active real-structure gate rather than a materializer implementation.
 
-This `main` document does not promote the full ladder branch. It only records the operational direction.
+The approved gate surface is policy and validation only. It grants permission for exactly one future materializer target, `session_memory_jsonl_sentence_units`, while continuing to forbid production retrieval changes, corpus mutation, LLM calls, extraction, alias resolution, relationship inference, promoted records, and production graph summaries as evidence.
+
+This `main` document does not promote the full ladder branch. It records the operational direction and the latest reviewed gate boundary.
+
+## Current Active Gate
+
+PR #151 is mergeable as the Rung 7 gate because it limits the next implementation to one source family and keeps that family diagnostic-only by default.
+
+The admitted family is constrained to an explicit session-memory JSONL fixture or configured path. It does not admit corpus, Live Play, activated manifest, Tiptap, Markdown, or retrieval surfaces as evidence. The only admitted evidence shapes are source document, source unit, explicit route, and evidence role shapes.
+
+The gate continues to block campaign facts, identity merges, alias edges, inferred relationships, promoted claims, graph summaries as evidence, and any materializer behavior that reads real data during the gate PR itself.
 
 ## Next Rung
 
 The next ladder rung is:
 
-`graph-memory: add taxonomy registry v0`
+`graph-memory: add session-memory sentence-unit materializer v0`
 
-Taxonomy must come before ontology IR.
+That future materializer may target exactly the `session_memory_jsonl_sentence_units` source family admitted by the gate. It must remain deterministic, diagnostic, candidate-only, validation-first, and report-first. It must not change production retrieval behavior.
 
-The taxonomy registry should define controlled vocabularies for:
-
-- source kinds
-- source layers
-- entity kinds
-- route kinds
-- evidence roles
-- authority states
-- visibility states
-- truth states
-- lifecycle states
-- relationship predicate families
-- planning lanes
-- retrieval lanes
-- graph candidate states
-- promotion states
-- validation severities
+The nonblocking test-quality critique to carry forward: avoid tests that claim to inspect PR changed files by running `git diff --name-only HEAD` inside pytest. After a commit exists, that command only sees uncommitted working-tree changes and may be empty in CI/review checkouts. Future guard tests should assert against explicit forbidden repo paths or another stable fixture/list rather than making PR-diff claims from inside pytest.
 
 ## Non-Goals
 
