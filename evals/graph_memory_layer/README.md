@@ -43,6 +43,14 @@ uv run python -m evals.graph_memory_layer.validate_taxonomy_registry
 
 This taxonomy validation is standard-library only. It validates the controlled vocabulary registry, semantic guardrail fields, and allowed graph-record-state values. It does not validate graph records, graph nodes, graph edges, ontology IR, materialization, extraction, or retrieval behavior yet.
 
+Validate the synthetic Ontology IR example bundle with the no-LLM ontology validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_ontology_ir
+```
+
+This ontology IR validation uses the standard library plus the local `src.graph_memory.ontology_ir` package only. It validates a synthetic example bundle only and does not materialize campaign data, scan corpus files, call an LLM, extract entities, infer relationships, or change retrieval behavior.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
