@@ -13,6 +13,10 @@ import {
   buildInitialWorkingBoardState,
   TIPTAP_WORKING_BOARD_KEY,
 } from "./state/tiptapLocalState";
+import {
+  getTiptapRunbookDescriptor,
+  tiptapRunbookStorageKey,
+} from "./descriptors/tiptapRunbookDescriptors";
 
 vi.mock("../api/liveApi", () => ({
   prepareTiptapMarkdownWrite: vi.fn(),
@@ -21,6 +25,8 @@ vi.mock("../api/liveApi", () => ({
 
 const prepareMock = vi.mocked(prepareTiptapMarkdownWrite);
 const commitMock = vi.mocked(commitTiptapMarkdownWrite);
+const northGateDescriptor = getTiptapRunbookDescriptor("north-gate-session-runbook");
+const spikeDescriptor = getTiptapRunbookDescriptor("north-gate-callout-spike");
 
 const preparedResponse = {
   schema_version: "dmb_tiptap_markdown_write_prepare_v1" as const,
@@ -39,6 +45,7 @@ const preparedResponse = {
 
 describe("semantic callout Markdown bridge", () => {
   beforeEach(() => {
+    window.history.pushState({}, "", "/tiptap-callout-spike");
     window.localStorage.clear();
     vi.clearAllMocks();
     prepareMock.mockResolvedValue(preparedResponse);
@@ -166,6 +173,59 @@ describe("semantic callout Markdown bridge", () => {
     expect(exportedMarkdown).toHaveTextContent("#dmb-action:combat:north-gate-combat");
   });
 
+
+  it("loads descriptor-selected callout spike target", () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+
+    render(<TiptapCalloutBridgeSpike />);
+
+    expect(screen.getAllByText("North Gate Callout Spike").length).toBeGreaterThan(0);
+    expect(screen.getByText("north-gate-callout-spike")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md")).toBeInTheDocument();
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# North Gate Callout Spike");
+  });
+
+  it("falls back to the default descriptor for unknown query docs", () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=bogus");
+
+    render(<TiptapCalloutBridgeSpike />);
+
+    expect(screen.getByText(/Unknown document id "bogus"; loaded default descriptor/)).toBeInTheDocument();
+    expect(screen.getByText("north-gate-session-runbook")).toBeInTheDocument();
+  });
+
+  it("prepares writes with the active descriptor target path", async () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+    prepareMock.mockResolvedValueOnce({
+      ...preparedResponse,
+      document_id: "north-gate-callout-spike",
+      title: "North Gate Callout Spike",
+      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+      target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+    });
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+
+    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
+      document_id: "north-gate-callout-spike",
+      title: "North Gate Callout Spike",
+      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+    })));
+  });
+
+  it("resets the active descriptor starter content under its own key", async () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
+
+    expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("north-gate-callout-spike");
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# North Gate Callout Spike");
+  });
+
   it("renders the explicit file write boundary without calling the backend", () => {
     render(<TiptapCalloutBridgeSpike />);
     expect(screen.getByText(/Preparing a write asks the backend/)).toBeInTheDocument();
@@ -274,7 +334,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("renders malformed persisted references as invalid editor text", async () => {
-    const state = buildInitialWorkingBoardState();
+    const state = buildInitialWorkingBoardState(northGateDescriptor);
     state.tiptap_json = {
       type: "doc",
       content: [{
@@ -302,7 +362,7 @@ describe("semantic callout Markdown bridge", () => {
     const html = readFileSync("../../evals/c2_live_prep/mireward-prep/live-play.html", "utf8");
 
     expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
-    expect(html).toContain("/tiptap-callout-spike");
+    expect(html).toContain("/tiptap-callout-spike?doc=north-gate-session-runbook");
     expect(html).not.toContain("content/tiptap/north-gate-callout-spike.md");
   });
 
