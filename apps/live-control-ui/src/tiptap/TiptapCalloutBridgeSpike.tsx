@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -25,13 +25,26 @@ import {
   writeTiptapWorkingBoardState,
   type TiptapWorkingBoardState,
 } from "./state/tiptapLocalState";
+import {
+  getTiptapRunbookDescriptor,
+  isKnownTiptapRunbookDocumentId,
+  TIPTAP_RUNBOOK_DESCRIPTORS,
+} from "./descriptors/tiptapRunbookDescriptors";
 import "../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "./tiptapSpike.css";
 
 export { initialCalloutContent };
 
-export const DEFAULT_TIPTAP_MARKDOWN_TARGET =
-  "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md";
+export function activeTiptapRunbookDescriptorFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  return getTiptapRunbookDescriptor(params.get("doc"));
+}
+
+function unknownDocumentIdFromLocation(): string | null {
+  const documentId = new URLSearchParams(window.location.search).get("doc");
+  return documentId && !isKnownTiptapRunbookDocumentId(documentId) ? documentId : null;
+}
+
 
 export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
   { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
@@ -49,15 +62,17 @@ interface TiptapCalloutBridgeSpikeProps {
 }
 
 export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutBridgeSpikeProps) {
+  const descriptor = useMemo(activeTiptapRunbookDescriptorFromLocation, []);
+  const unknownDocumentId = useMemo(unknownDocumentIdFromLocation, []);
   const [workingState, setWorkingState] = useState<TiptapWorkingBoardState>(() => (
-    readTiptapWorkingBoardState(window.localStorage) ?? buildInitialWorkingBoardState()
+    readTiptapWorkingBoardState(window.localStorage, descriptor) ?? buildInitialWorkingBoardState(descriptor)
   ));
   const [localStateStatus, setLocalStateStatus] = useState<LocalStateStatus>(() => (
-    readTiptapWorkingBoardState(window.localStorage) ? "Loaded local draft" : "Loaded starter content"
+    readTiptapWorkingBoardState(window.localStorage, descriptor) ? "Loaded local draft" : "Loaded starter content"
   ));
   const [copyMessage, setCopyMessage] = useState("");
   const [isEditorLocked, setIsEditorLocked] = useState(false);
-  const [targetRelpath, setTargetRelpath] = useState(DEFAULT_TIPTAP_MARKDOWN_TARGET);
+  const [targetRelpath, setTargetRelpath] = useState(descriptor.targetRelpath);
   const [preparedWrite, setPreparedWrite] = useState<TiptapMarkdownWritePrepareResponse | null>(null);
   const [preparedMarkdown, setPreparedMarkdown] = useState("");
   const [writeStatus, setWriteStatus] = useState("");
@@ -81,7 +96,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           updated_at: now,
           last_local_save_at: now,
         };
-        writeTiptapWorkingBoardState(window.localStorage, nextState);
+        writeTiptapWorkingBoardState(window.localStorage, descriptor, nextState);
         return nextState;
       });
       setLocalStateStatus("Saved locally");
@@ -105,15 +120,15 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const resetLocalDraft = useCallback(() => {
     if (!editor) return;
     const now = new Date().toISOString();
-    const resetState = buildInitialWorkingBoardState(now);
-    editor.commands.setContent(initialCalloutContent, false);
-    writeTiptapWorkingBoardState(window.localStorage, resetState);
+    const resetState = buildInitialWorkingBoardState(descriptor, now);
+    editor.commands.setContent(descriptor.starterContent as Content, false);
+    writeTiptapWorkingBoardState(window.localStorage, descriptor, resetState);
     setWorkingState(resetState);
     setLocalStateStatus("Reset to starter");
     setCopyMessage("");
     setCommitResult(null);
     setWriteStatus("");
-  }, [editor]);
+  }, [descriptor, editor]);
 
   const copyMarkdown = useCallback(async () => {
     if (!navigator.clipboard?.writeText) {
@@ -250,6 +265,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   }, [canCommit, commitFileWrite, copyMarkdown, editor, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
+  const editorThemeClass = `md-theme-${descriptor.themeId}`;
 
   return (
     <main className="tiptap-spike-page">
@@ -277,14 +293,34 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
         <div className="tiptap-local-state" aria-live="polite">
           <p>Working board state is saved locally in this browser. No backend or corpus write happens here.</p>
           <dl>
-            <div><dt>Document</dt><dd>{workingState.title}</dd></div>
+            <div><dt>Document</dt><dd>{descriptor.title}</dd></div>
+            <div><dt>Descriptor</dt><dd>{descriptor.documentId}</dd></div>
+            <div><dt>Target</dt><dd>{descriptor.targetRelpath}</dd></div>
             <div><dt>State</dt><dd>{localStateStatus}</dd></div>
             <div><dt>Updated</dt><dd>{updatedAt}</dd></div>
           </dl>
+          {unknownDocumentId && (
+            <p className="tiptap-write-warning">Unknown document id &quot;{unknownDocumentId}&quot;; loaded default descriptor.</p>
+          )}
+          <label htmlFor="tiptap-runbook-document">Runbook document</label>
+          <select
+            id="tiptap-runbook-document"
+            aria-label="Runbook document"
+            value={descriptor.documentId}
+            onChange={(event) => { window.location.href = `/tiptap-callout-spike?doc=${event.target.value}`; }}
+          >
+            {TIPTAP_RUNBOOK_DESCRIPTORS.map((option) => (
+              <option key={option.documentId} value={option.documentId}>{option.title}</option>
+            ))}
+          </select>
           {copyMessage && <p className="tiptap-copy-message">{copyMessage}</p>}
         </div>
 
-        <div className="tiptap-spike-editor md-content md-theme-command" data-md-theme="command" data-testid="tiptap-editor">
+        <div
+          className={`tiptap-spike-editor md-content ${editorThemeClass}`}
+          data-md-theme={descriptor.themeId}
+          data-testid="tiptap-editor"
+        >
           <EditorContent editor={editor} />
         </div>
       </section>
