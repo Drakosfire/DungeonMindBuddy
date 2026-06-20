@@ -287,7 +287,25 @@ Before reading real existing structures, add an explicit gate review that define
 
 Candidate surfaces may include session-memory JSONL, route metadata, breadcrumb records, manifest records, or source documents, but only one family should be admitted at a time.
 
-Status: future.
+Status: active gate.
+
+## Real-Structure Materialization Gate
+
+Rung 7 real-structure materialization gate is tracked in:
+
+`evals/graph_memory_layer/real_structure_materialization_gate.json`
+
+Human-readable guide:
+
+`evals/graph_memory_layer/REAL-STRUCTURE-MATERIALIZATION-GATE.md`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_real_structure_gate`
+
+The gate admits exactly one source family for the next materializer PR: `session_memory_jsonl_sentence_units`.
+
+This gate does not materialize real data. It defines the constraints a future materializer must obey before reading any real existing structure. It keeps production retrieval, corpus mutation, LLM extraction, alias resolution, relationship inference, and promoted records forbidden.
 
 ### Rung 8: First Real-Structure Materializer
 
