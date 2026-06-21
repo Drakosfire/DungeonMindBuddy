@@ -1,0 +1,75 @@
+{
+  "unit_count": 1,
+  "units": [
+    {
+      "unit_id": "93986e04d19fd4216c338e583e002b59899a2ded6ee7ef7b7ec010fa79e6820f",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "c0c7bce074c6fb5ff1eb86fb3e08a1e2c1f722e943d15f1a24c4cce6a7e73e42",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "orphan_count": 0,
+        "note": "single-unit page exempted"
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 0,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 1,
+        "oversized_count": 0,
+        "undersized_ratio": 1.0,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "93986e04d19fd421",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

@@ -2071,6 +2071,7 @@
   }
 
   let toolboxInitialized = false;
+  let ingestionToolboxInitialized = false;
   let statblockDogfoodInitialized = false;
 
   function formatGenerationCostSuffix(generationInfo) {
@@ -2158,6 +2159,9 @@
   function statblockDogfoodPanelHtml() {
     return (
       '<section id="statblock-dogfood" class="prep-toolbox-panel statblock-dogfood" data-tool-panel="statblock">' +
+      '<details class="fold fold-section statblock-toolbox-fold">' +
+      "<summary>Statblock generator</summary>" +
+      '<div class="fold-bd">' +
       '<p class="muted">' +
       "Generate a draft through the local API, preview the full sheet, accept into the browser-local combat tracker, or promote to corpus." +
       "</p>" +
@@ -2173,6 +2177,76 @@
       '<div id="statblock-dogfood-toast" class="statblock-dogfood-toast" hidden role="status" aria-live="polite"></div>' +
       '<span id="statblock-dogfood-status" class="statblock-dogfood-status muted">Ready. Provider is chosen server-side; no corpus write until promoted.</span>' +
       '<div id="statblock-dogfood-output" class="statblock-dogfood-output"></div>' +
+      "</div>" +
+      "</details>" +
+      "</section>"
+    );
+  }
+
+  function ingestionToolboxPanelHtml() {
+    return (
+      '<section id="recap-ingestion-toolbox" class="prep-toolbox-panel recap-ingestion-toolbox" data-tool-panel="ingestion">' +
+      '<div class="recap-ingestion-grid">' +
+      '<div class="recap-ingestion-controls">' +
+      '<p class="muted">Paste raw session notes here, then run the same recap-ingest operations exposed by the FastAPI server. Terminal commands remain valid; this is a UI wrapper over that path.</p>' +
+      '<section class="recap-ingestion-flow-card" aria-label="Recap ingestion workflow progress">' +
+      '<div class="recap-ingestion-flow-copy">' +
+      '<p class="recap-ingestion-flow-kicker">Single workflow with human review gates</p>' +
+      '<strong>Current next action</strong>' +
+      '<p id="recap-ingestion-next-action">Paste raw recap text, then run Stage + Preview.</p>' +
+      "</div>" +
+      '<ol id="recap-ingestion-flow-steps" class="recap-ingestion-flow-steps">' +
+      '<li data-flow-step="source"><span>Source</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="preview"><span>Preview</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="apply"><span>Apply</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="seed"><span>Seed</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="breadcrumb"><span>Breadcrumb</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="memory"><span>Memory</span><strong>Waiting</strong></li>' +
+      "</ol>" +
+      "</section>" +
+      '<div class="recap-ingestion-source-row">' +
+      '<div class="field">' +
+      '<label for="recap-ingestion-session">Recap/source session</label>' +
+      '<input id="recap-ingestion-session" type="number" min="1" step="1" value="23" />' +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-slug">Slug</label>' +
+      '<input id="recap-ingestion-slug" type="text" value="Mireward Gate Battle" />' +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-title">Title</label>' +
+      '<input id="recap-ingestion-title" type="text" value="Session 23 - Mireward Gate Battle" />' +
+      "</div>" +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-raw">Raw recap text</label>' +
+      '<textarea id="recap-ingestion-raw" rows="18" placeholder="Paste raw recap notes here..."></textarea>' +
+      "</div>" +
+      '<div class="recap-ingestion-actions">' +
+      '<button type="button" id="recap-ingestion-stage" class="primary">Stage + Preview</button>' +
+      '<button type="button" id="recap-ingestion-apply">Apply + Normalize</button>' +
+      '<button type="button" id="recap-ingestion-seed">Build Frontmatter Seed</button>' +
+      '<button type="button" id="recap-ingestion-breadcrumb">Run Breadcrumb Ingest</button>' +
+      '<button type="button" id="recap-ingestion-materialize">Materialize Session Memory</button>' +
+      "</div>" +
+      '<div id="recap-ingestion-action-explainer" class="recap-ingestion-action-explainer muted"></div>' +
+      '<div id="recap-ingestion-status" class="recap-ingestion-status muted" role="status" aria-live="polite">Ready. Start with Stage + Preview.</div>' +
+      '<details class="fold fold-section recap-ingestion-terminal">' +
+      "<summary>Terminal path stays available</summary>" +
+      '<div class="fold-bd">' +
+      '<pre><code id="recap-ingestion-terminal-commands"></code></pre>' +
+      "</div>" +
+      "</details>" +
+      '<div id="recap-ingestion-result" class="recap-ingestion-result"></div>' +
+      "</div>" +
+      '<aside class="recap-ingestion-preview" aria-label="Rendered recap markdown preview">' +
+      '<div class="recap-ingestion-preview-header">' +
+      "<strong>Rendered markdown preview</strong>" +
+      '<span class="pill pill-neutral">draft preview</span>' +
+      "</div>" +
+      '<div id="recap-ingestion-rendered" class="md-content md-theme-command recap-ingestion-rendered"></div>' +
+      "</aside>" +
+      "</div>" +
       "</section>"
     );
   }
@@ -2198,9 +2272,11 @@
       '<button type="button" class="prep-toolbox-close" data-toolbox-close="1" aria-label="Close toolbox">×</button>' +
       "</header>" +
       '<nav class="prep-toolbox-nav" aria-label="Toolbox tools">' +
-      '<button type="button" class="prep-toolbox-nav-btn active" data-toolbox-tool="statblock">Statblock</button>' +
+      '<button type="button" class="prep-toolbox-nav-btn active" data-toolbox-tool="ingestion">Ingestion</button>' +
+      '<button type="button" class="prep-toolbox-nav-btn" data-toolbox-tool="statblock">Statblock</button>' +
       "</nav>" +
       '<div class="prep-toolbox-body">' +
+      ingestionToolboxPanelHtml() +
       statblockDogfoodPanelHtml() +
       "</div>" +
       "</aside>";
@@ -2226,6 +2302,11 @@
   }
 
   function setToolboxTool(toolId) {
+    const root = document.getElementById("prep-toolbox");
+    if (root) {
+      root.classList.toggle("tool-ingestion", toolId === "ingestion");
+      root.classList.toggle("tool-statblock", toolId === "statblock");
+    }
     document.querySelectorAll("[data-toolbox-tool]").forEach(function (button) {
       button.classList.toggle("active", button.getAttribute("data-toolbox-tool") === toolId);
     });
@@ -2242,7 +2323,7 @@
 
     const toggle = document.getElementById("prep-toolbox-toggle");
     const savedOpen = get("toolboxOpen", false);
-    const savedTool = get("toolboxTool", "statblock");
+    const savedTool = get("toolboxTool", "ingestion");
     setToolboxTool(savedTool);
     if (savedOpen) setToolboxOpen(true);
 
@@ -2282,7 +2363,339 @@
     toolboxInitialized = true;
     ensureToolboxDrawer();
     wireToolboxControls();
+    initRecapIngestionToolbox();
     initStatblockGeneratorDogfood();
+  }
+
+  function initRecapIngestionToolbox() {
+    if (ingestionToolboxInitialized) return;
+    const root = document.getElementById("recap-ingestion-toolbox");
+    if (!root) return;
+    ingestionToolboxInitialized = true;
+
+    const sessionInput = document.getElementById("recap-ingestion-session");
+    const slugInput = document.getElementById("recap-ingestion-slug");
+    const titleInput = document.getElementById("recap-ingestion-title");
+    const rawInput = document.getElementById("recap-ingestion-raw");
+    const rendered = document.getElementById("recap-ingestion-rendered");
+    const status = document.getElementById("recap-ingestion-status");
+    const resultHost = document.getElementById("recap-ingestion-result");
+    const terminal = document.getElementById("recap-ingestion-terminal-commands");
+    const nextAction = document.getElementById("recap-ingestion-next-action");
+    const flowSteps = document.getElementById("recap-ingestion-flow-steps");
+    const actionExplainer = document.getElementById("recap-ingestion-action-explainer");
+    const buttons = {
+      stage: document.getElementById("recap-ingestion-stage"),
+      apply: document.getElementById("recap-ingestion-apply"),
+      seed: document.getElementById("recap-ingestion-seed"),
+      breadcrumb: document.getElementById("recap-ingestion-breadcrumb"),
+      materialize: document.getElementById("recap-ingestion-materialize"),
+    };
+    let latestStatus = null;
+
+    bindTextarea("recapIngestion.rawText", rawInput, "");
+    if (sessionInput) {
+      sessionInput.value = String(get("recapIngestion.session", Number(sessionInput.value) || 23));
+      sessionInput.addEventListener("input", function () {
+        set("recapIngestion.session", Number(sessionInput.value) || 23);
+        updateTerminalCommands();
+        updateProgress();
+      });
+    }
+    if (slugInput) {
+      slugInput.value = get("recapIngestion.slug", slugInput.value || "");
+      slugInput.addEventListener("input", function () {
+        set("recapIngestion.slug", slugInput.value);
+      });
+    }
+    if (titleInput) {
+      titleInput.value = get("recapIngestion.title", titleInput.value || "");
+      titleInput.addEventListener("input", function () {
+        set("recapIngestion.title", titleInput.value);
+      });
+    }
+
+    function currentSession() {
+      return Math.max(1, Number(sessionInput && sessionInput.value) || 23);
+    }
+
+    function campaignNumber() {
+      return 2;
+    }
+
+    function basePayload(operation) {
+      return {
+        operation: operation,
+        campaign_id: "longmont-c2",
+        session: currentSession(),
+        slug: slugInput && slugInput.value.trim() ? slugInput.value.trim() : undefined,
+        title: titleInput && titleInput.value.trim() ? titleInput.value.trim() : undefined,
+      };
+    }
+
+    function setBusy(isBusy, label) {
+      Object.keys(buttons).forEach(function (key) {
+        if (buttons[key]) buttons[key].disabled = isBusy;
+      });
+      if (status && label) status.textContent = label;
+      if (label && nextAction) nextAction.textContent = label;
+    }
+
+    function setStatusText(message, kind) {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("warn", kind === "warn");
+      status.classList.toggle("saved", kind === "saved");
+    }
+
+    function updateMarkdownPreview() {
+      if (!rendered || !rawInput) return;
+      const raw = rawInput.value || "";
+      rendered.innerHTML = raw.trim()
+        ? renderMarkdownHtml(raw)
+        : '<p class="muted">Paste raw notes to preview rendered markdown here.</p>';
+      wireMarkdownBodyLinks(rendered, "");
+    }
+
+    function updateTerminalCommands() {
+      if (!terminal) return;
+      const session = currentSession();
+      terminal.textContent = [
+        "uv run python scripts/build_recap_frontmatter_seed.py --campaign " + campaignNumber() + " --session " + session,
+        "uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run --ingest-routing-only ...",
+        "uv run python scripts/materialize_session_memory.py --campaign " + campaignNumber() + " --session " + session + " --check",
+      ].join("\n");
+    }
+
+    function hasState(stateName) {
+      return !!(
+        latestStatus &&
+        Array.isArray(latestStatus.states) &&
+        latestStatus.states.indexOf(stateName) !== -1
+      );
+    }
+
+    function hasApplied() {
+      return (
+        hasState("recap_applied") ||
+        hasState("recap_reused") ||
+        hasState("normalized_created") ||
+        hasState("normalized_reused")
+      );
+    }
+
+    function hasUsablePreview() {
+      return hasApplied() || hasState("recap_preview_created") || hasState("staged_raw_notes_reused");
+    }
+
+    function hasFrontmatterSeed() {
+      return hasState("frontmatter_seed_found");
+    }
+
+    function hasBreadcrumb() {
+      return hasState("breadcrumb_found");
+    }
+
+    function hasMaterialized() {
+      return hasState("session_memory_materialized") || hasState("ready_for_planning_activation");
+    }
+
+    function workflowStepState(done, active) {
+      if (done) return "done";
+      if (active) return "active";
+      return "locked";
+    }
+
+    function setFlowStep(stepId, state) {
+      if (!flowSteps) return;
+      const item = flowSteps.querySelector('[data-flow-step="' + stepId + '"]');
+      if (!item) return;
+      item.classList.remove("done", "active", "locked");
+      item.classList.add(state);
+      const label = item.querySelector("strong");
+      if (label) label.textContent = state === "done" ? "Done" : state === "active" ? "Now" : "Waiting";
+    }
+
+    function currentNextAction() {
+      const rawReady = !!(rawInput && rawInput.value.trim());
+      if (!rawReady && !hasUsablePreview()) return "Paste raw recap text, then run Stage + Preview.";
+      if (!hasUsablePreview()) return "Next: Stage + Preview. This prepares a review preview only.";
+      if (!hasApplied()) return "Next: review the preview, then Apply + Normalize.";
+      if (!hasFrontmatterSeed()) return "Next: Build Frontmatter Seed, then review the generated seed.";
+      if (!hasBreadcrumb()) return "Next: after reviewing the seed, Run Breadcrumb Ingest.";
+      if (!hasMaterialized()) return "Next: Materialize Session Memory.";
+      return "Complete: session memory is ready for planning activation.";
+    }
+
+    function updateProgress() {
+      const rawReady = !!(rawInput && rawInput.value.trim());
+      setFlowStep("source", workflowStepState(rawReady || hasUsablePreview(), !rawReady && !hasUsablePreview()));
+      setFlowStep("preview", workflowStepState(hasUsablePreview(), rawReady && !hasUsablePreview()));
+      setFlowStep("apply", workflowStepState(hasApplied(), hasUsablePreview() && !hasApplied()));
+      setFlowStep("seed", workflowStepState(hasFrontmatterSeed(), hasApplied() && !hasFrontmatterSeed()));
+      setFlowStep("breadcrumb", workflowStepState(hasBreadcrumb(), hasFrontmatterSeed() && !hasBreadcrumb()));
+      setFlowStep("memory", workflowStepState(hasMaterialized(), hasBreadcrumb() && !hasMaterialized()));
+      if (nextAction) nextAction.textContent = currentNextAction();
+      if (actionExplainer) {
+        const reasons = [];
+        if (!hasUsablePreview()) reasons.push("Apply waits for Stage + Preview.");
+        else if (!hasApplied()) reasons.push("Seed waits for Apply + Normalize.");
+        else if (!hasFrontmatterSeed()) reasons.push("Breadcrumb waits for the reviewed frontmatter seed.");
+        else if (!hasBreadcrumb()) reasons.push("Materialize waits for breadcrumb_found.");
+        actionExplainer.innerHTML = reasons.map(function (reason) {
+          return "<p>" + escapeHtml(reason) + "</p>";
+        }).join("");
+      }
+    }
+
+    function updateButtons() {
+      if (!latestStatus) {
+        if (buttons.apply) buttons.apply.disabled = true;
+        if (buttons.seed) buttons.seed.disabled = true;
+        if (buttons.breadcrumb) buttons.breadcrumb.disabled = true;
+        if (buttons.materialize) buttons.materialize.disabled = true;
+        updateProgress();
+        return;
+      }
+      if (buttons.apply) {
+        buttons.apply.disabled = !hasUsablePreview();
+      }
+      if (buttons.seed) {
+        buttons.seed.disabled = !hasApplied() || hasFrontmatterSeed();
+      }
+      if (buttons.breadcrumb) {
+        buttons.breadcrumb.disabled = !hasFrontmatterSeed() || hasBreadcrumb();
+      }
+      if (buttons.materialize) {
+        buttons.materialize.disabled = !hasBreadcrumb();
+      }
+      updateProgress();
+    }
+
+    function renderStatus(data) {
+      latestStatus = data;
+      updateButtons();
+      if (!resultHost) return;
+      const states = Array.isArray(data.states) ? data.states : [];
+      const nextActions = Array.isArray(data.next_actions) ? data.next_actions : [];
+      const paths = data.paths || {};
+      const report = data.ingest_report || {};
+      const previewDiff = typeof report.preview_diff === "string" ? report.preview_diff : "";
+      resultHost.innerHTML =
+        '<div class="recap-ingestion-status-card">' +
+        '<h3>Status: <code>' + escapeHtml(data.status || "unknown") + "</code></h3>" +
+        '<div class="table-summary">' +
+        '<span class="pill pill-neutral">states: ' + states.length + "</span>" +
+        (hasState("breadcrumb_found") ? '<span class="pill pill-success">breadcrumb found</span>' : "") +
+        (hasState("frontmatter_seed_found") ? '<span class="pill pill-info">seed found</span>' : "") +
+        "</div>" +
+        '<details class="fold fold-section"><summary>Paths</summary><div class="fold-bd"><ul>' +
+        Object.keys(paths)
+          .map(function (key) {
+            return "<li><strong>" + escapeHtml(key) + ":</strong> <code>" + escapeHtml(paths[key] || "") + "</code></li>";
+          })
+          .join("") +
+        "</ul></div></details>" +
+        '<details class="fold fold-section" open><summary>States</summary><div class="fold-bd"><ul>' +
+        states.map(function (value) { return "<li>" + escapeHtml(value) + "</li>"; }).join("") +
+        "</ul></div></details>" +
+        (nextActions.length
+          ? '<details class="fold fold-section" open><summary>Next actions</summary><div class="fold-bd"><ul>' +
+            nextActions.map(function (value) { return "<li>" + escapeHtml(value) + "</li>"; }).join("") +
+            "</ul></div></details>"
+          : "") +
+        (previewDiff
+          ? '<details class="fold fold-section" open><summary>Canonical preview diff</summary><div class="fold-bd"><pre><code>' +
+            escapeHtml(previewDiff) +
+            "</code></pre></div></details>"
+          : "") +
+        "</div>";
+    }
+
+    function operationStartMessage(operation) {
+      if (operation === "stage_preview") return "Running Stage + Preview...";
+      if (operation === "apply_normalize") return "Applying + normalizing recap...";
+      if (operation === "build_frontmatter_seed") return "Building frontmatter seed for review...";
+      if (operation === "run_breadcrumb_ingest") return "Running breadcrumb ingest...";
+      if (operation === "materialize_session_memory") return "Materializing session memory...";
+      return "Running " + operation + "...";
+    }
+
+    function operationDoneMessage(operation, data) {
+      if (operation === "stage_preview" && hasState("staged_raw_notes_conflict")) {
+        return "Existing staged notes reused for preview. Pasted text was not overwritten.";
+      }
+      if (operation === "build_frontmatter_seed") {
+        if (hasState("frontmatter_seed_built")) return "Frontmatter seed built. Review it before breadcrumb ingest.";
+        if (hasState("frontmatter_seed_reused") || hasState("frontmatter_seed_found")) {
+          return "Frontmatter seed ready. Review it before breadcrumb ingest.";
+        }
+      }
+      if (operation === "run_breadcrumb_ingest" && hasState("breadcrumb_found")) {
+        return "Breadcrumb artifact ready. Next: materialize session memory.";
+      }
+      if (operation === "materialize_session_memory" && hasMaterialized()) {
+        return "Session memory materialized. Ingest is ready for planning activation.";
+      }
+      return "Finished " + operation + ": " + ((data && data.status) || "ok");
+    }
+
+    function operationStatusKind(operation, data) {
+      if (data && data.status === "error") return "warn";
+      if (hasState("staged_raw_notes_conflict")) return "warn";
+      if (
+        operation === "build_frontmatter_seed" ||
+        operation === "run_breadcrumb_ingest" ||
+        operation === "materialize_session_memory"
+      ) {
+        return "saved";
+      }
+      return "saved";
+    }
+
+    function runOperation(operation) {
+      if (isFileProtocol()) {
+        setStatusText("Ingestion needs the Vite dev server so /api can proxy to FastAPI.", "warn");
+        return;
+      }
+      const payload = basePayload(operation);
+      if (operation === "stage_preview") {
+        payload.raw_text = rawInput && rawInput.value ? rawInput.value : "";
+      }
+      if (operation === "materialize_session_memory") {
+        payload.check = true;
+      }
+      setBusy(true, operationStartMessage(operation));
+      apiPostJson("/api/live/recap-ingest", payload)
+        .then(function (data) {
+          renderStatus(data);
+          setStatusText(operationDoneMessage(operation, data), operationStatusKind(operation, data));
+        })
+        .catch(function (err) {
+          setStatusText((err && err.message) || "Ingestion request failed.", "warn");
+        })
+        .finally(function () {
+          setBusy(false);
+          updateButtons();
+        });
+    }
+
+    if (rawInput) {
+      rawInput.addEventListener("input", function () {
+        updateMarkdownPreview();
+        updateProgress();
+      });
+    }
+    if (buttons.stage) buttons.stage.addEventListener("click", function () { runOperation("stage_preview"); });
+    if (buttons.apply) buttons.apply.addEventListener("click", function () { runOperation("apply_normalize"); });
+    if (buttons.seed) buttons.seed.addEventListener("click", function () { runOperation("build_frontmatter_seed"); });
+    if (buttons.breadcrumb) buttons.breadcrumb.addEventListener("click", function () { runOperation("run_breadcrumb_ingest"); });
+    if (buttons.materialize) buttons.materialize.addEventListener("click", function () { runOperation("materialize_session_memory"); });
+
+    updateTerminalCommands();
+    updateMarkdownPreview();
+    updateButtons();
+    updateProgress();
   }
 
   function initStatblockGeneratorDogfood() {

@@ -1,0 +1,797 @@
+{
+  "schema": "dmb_combat_encounter_state_v1",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "encounter_id": "mireward-north-reach-gate",
+  "title": "North Reach Gate Combat",
+  "round": 2,
+  "active_turn_entity_id": "caelynn",
+  "round_start_entity_id": "karsemine",
+  "queue_model": "circular_barrel_v1",
+  "entities": [
+    {
+      "id": "karsemine",
+      "name": "Karsemine",
+      "team": "pc",
+      "order": 1,
+      "init": 25,
+      "ac": null,
+      "hp": "54",
+      "max_hp": "44",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "karsemine"
+        }
+      ]
+    },
+    {
+      "id": "ephanna",
+      "name": "Ephanna",
+      "team": "pc",
+      "order": 2,
+      "init": 22,
+      "ac": null,
+      "hp": "48",
+      "max_hp": "36",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "Charmed 1 min meatwing",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "ephanna"
+        }
+      ]
+    },
+    {
+      "id": "bonogo",
+      "name": "Bonogo",
+      "team": "pc",
+      "order": 3,
+      "init": 18,
+      "ac": null,
+      "hp": "53",
+      "max_hp": "43",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "Charmed 1 min meatwing",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "bonogo"
+        }
+      ]
+    },
+    {
+      "id": "thrinn",
+      "name": "Thrinn",
+      "team": "ally",
+      "order": 4,
+      "init": 18,
+      "ac": null,
+      "hp": "44",
+      "max_hp": "44",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "thrinn"
+        }
+      ]
+    },
+    {
+      "id": "sewer-meat-a",
+      "name": "Sewer Meat Creature A",
+      "team": "enemy",
+      "order": 5,
+      "init": 13,
+      "ac": null,
+      "hp": "13",
+      "max_hp": 37,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "sewer-meat-a"
+        }
+      ]
+    },
+    {
+      "id": "sewer-meat-b",
+      "name": "Sewer Meat Creature B",
+      "team": "enemy",
+      "order": 6,
+      "init": 13,
+      "ac": null,
+      "hp": "13",
+      "max_hp": 37,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "sewer-meat-b"
+        }
+      ]
+    },
+    {
+      "id": "baergrom",
+      "name": "Baergrom",
+      "team": "pc",
+      "order": 7,
+      "init": 12,
+      "ac": null,
+      "hp": "64",
+      "max_hp": "54",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "baergrom"
+        }
+      ]
+    },
+    {
+      "id": "tripod-null-calf-a",
+      "name": "Tripod Null-Calf A",
+      "team": "enemy",
+      "order": 8,
+      "init": 11,
+      "ac": null,
+      "hp": "70",
+      "max_hp": 95,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "sleeping",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "tripod-null-calf-a"
+        }
+      ]
+    },
+    {
+      "id": "tripod-null-calf-b",
+      "name": "Tripod Null-Calf B",
+      "team": "enemy",
+      "order": 9,
+      "init": 11,
+      "ac": null,
+      "hp": "63",
+      "max_hp": 95,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "tripod-null-calf-b"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-a",
+      "name": "Aberrant Meatwing A",
+      "team": "enemy",
+      "order": 10,
+      "init": 10,
+      "ac": null,
+      "hp": "8",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-a"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-b",
+      "name": "Aberrant Meatwing B",
+      "team": "enemy",
+      "order": 11,
+      "init": 10,
+      "ac": null,
+      "hp": "8",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-b"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-e",
+      "name": "Aberrant Meatwing E",
+      "team": "enemy",
+      "order": 12,
+      "init": 10,
+      "ac": null,
+      "hp": "8",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-e"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-h",
+      "name": "Aberrant Meatwing H",
+      "team": "enemy",
+      "order": 13,
+      "init": 10,
+      "ac": null,
+      "hp": "8",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-h"
+        }
+      ]
+    },
+    {
+      "id": "stafl",
+      "name": "Stafl",
+      "team": "pc",
+      "order": 14,
+      "init": 7,
+      "ac": null,
+      "hp": "28",
+      "max_hp": "28",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "stafl"
+        }
+      ]
+    },
+    {
+      "id": "corrupted-meat-golem-a",
+      "name": "Corrupted Meat Golem A",
+      "team": "enemy",
+      "order": 15,
+      "init": 6,
+      "ac": null,
+      "hp": "39",
+      "max_hp": 55,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "corrupted-meat-golem-a"
+        }
+      ]
+    },
+    {
+      "id": "lysandra",
+      "name": "Lysandra",
+      "team": "ally",
+      "order": 16,
+      "init": 5,
+      "ac": null,
+      "hp": "52",
+      "max_hp": "52",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "lysandra"
+        }
+      ]
+    },
+    {
+      "id": "caelynn",
+      "name": "Caelynn",
+      "team": "pc",
+      "order": 17,
+      "init": 4,
+      "ac": null,
+      "hp": "30",
+      "max_hp": "37",
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "imported",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "caelynn"
+        }
+      ]
+    },
+    {
+      "id": "fleshborn-hybrid-a",
+      "name": "Fleshborn Hybrid A",
+      "team": "enemy",
+      "order": 18,
+      "init": 4,
+      "ac": null,
+      "hp": 45,
+      "max_hp": 45,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "fleshborn-hybrid-a"
+        }
+      ]
+    },
+    {
+      "id": "fleshborn-hybrid-b",
+      "name": "Fleshborn Hybrid B",
+      "team": "enemy",
+      "order": 19,
+      "init": 4,
+      "ac": null,
+      "hp": "20",
+      "max_hp": 45,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "fleshborn-hybrid-b"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-c",
+      "name": "Aberrant Meatwing C",
+      "team": "enemy",
+      "order": 20,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-c"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-j",
+      "name": "Aberrant Meatwing J",
+      "team": "enemy",
+      "order": 21,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-j"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-i",
+      "name": "Aberrant Meatwing I",
+      "team": "enemy",
+      "order": 22,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": "1",
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-i"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-d",
+      "name": "Aberrant Meatwing D",
+      "team": "enemy",
+      "order": 23,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": "1",
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-d"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-f",
+      "name": "Aberrant Meatwing F",
+      "team": "enemy",
+      "order": 24,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-f"
+        }
+      ]
+    },
+    {
+      "id": "aberrant-meatwing-g",
+      "name": "Aberrant Meatwing G",
+      "team": "enemy",
+      "order": 25,
+      "init": 10,
+      "ac": null,
+      "hp": "0",
+      "max_hp": 18,
+      "temp_hp": null,
+      "defeated": true,
+      "notes": "",
+      "conditions": [],
+      "tags": [
+        "mireward_static_import"
+      ],
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "statblock_artifact_id": null,
+      "statblock_title": null,
+      "corpus_fingerprint": null,
+      "source": "corpus",
+      "provenance": [
+        {
+          "source": "mireward_static_combat_bridge",
+          "imported_at": "2026-06-10T22:15:44Z",
+          "static_entity_id": "aberrant-meatwing-g"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group_key": "static-aberrant_meat_wing_statblock_cr1",
+      "label": "Aberrant Meat Wing Cr1",
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "member_ids": [
+        "aberrant-meatwing-a",
+        "aberrant-meatwing-b",
+        "aberrant-meatwing-e",
+        "aberrant-meatwing-h",
+        "aberrant-meatwing-c",
+        "aberrant-meatwing-j",
+        "aberrant-meatwing-i",
+        "aberrant-meatwing-d",
+        "aberrant-meatwing-f",
+        "aberrant-meatwing-g"
+      ],
+      "collapsed": false
+    },
+    {
+      "group_key": "static-fleshborn_hybrid_statblock_cr3",
+      "label": "Fleshborn Hybrid Cr3",
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md",
+      "member_ids": [
+        "fleshborn-hybrid-a",
+        "fleshborn-hybrid-b"
+      ],
+      "collapsed": false
+    },
+    {
+      "group_key": "static-sewer_meat_creature_statblock_cr3",
+      "label": "Sewer Meat Creature Cr3",
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md",
+      "member_ids": [
+        "sewer-meat-a",
+        "sewer-meat-b"
+      ],
+      "collapsed": false
+    },
+    {
+      "group_key": "static-tripod_null_calf_statblock_cr5",
+      "label": "Tripod Null Calf Cr5",
+      "statblock_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+      "member_ids": [
+        "tripod-null-calf-a",
+        "tripod-null-calf-b"
+      ],
+      "collapsed": false
+    }
+  ],
+  "provenance": [
+    {
+      "source": "mireward_static_combat_bridge",
+      "imported_at": "2026-06-10T22:15:44Z",
+      "static_schema": "mireward_north_reach_gate_combat_state_v1",
+      "static_exported_at": "2026-06-07T17:42:00Z"
+    }
+  ],
+  "updated_at": "2026-06-10T22:15:44Z"
+}

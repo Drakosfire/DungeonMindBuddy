@@ -1,0 +1,145 @@
+[
+  {
+    "label": "Storm Djinn_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Events/The Festival of Expansion/Combat Contest/Storm Djinn.pdf",
+    "page": 0,
+    "elapsed_sec": 25.615,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 11,
+      "table_count": 1,
+      "content_hash": "568362277d3cee5f20f2ef88d508408ee4c80b0f36c529a8de61242625fc177a",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 1568,
+            "ast_content_chars": 1568,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 9,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 1,
+            "ast_table_count": 1,
+            "count_match": true,
+            "raw_row_counts": [
+              2
+            ],
+            "ast_row_counts": [
+              2
+            ],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 9,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "orphan_count": 5,
+            "orphan_rate": 0.5556,
+            "fail_threshold": 1.0,
+            "warn_threshold": 0.5,
+            "warned": true,
+            "orphans": [
+              {
+                "unit_id": "82061ccbad465d30",
+                "unit_type": "prose",
+                "ordering_key": 0,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "be9f9fa6bd7052fc",
+                "unit_type": "prose",
+                "ordering_key": 1,
+                "text_preview": "THE STORM DJINN SURGES ACROSS THE BATTLEFIELD AS A DANCING COLUMN OF WIND AND RO"
+              },
+              {
+                "unit_id": "70c1315aa6b5f9a6",
+                "unit_type": "table",
+                "ordering_key": 2,
+                "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+              },
+              {
+                "unit_id": "2e6b3cef8a2a6227",
+                "unit_type": "prose",
+                "ordering_key": 3,
+                "text_preview": "Saving Throws : str : 0, dex : 4, wis : 0"
+              },
+              {
+                "unit_id": "8549995d8678040e",
+                "unit_type": "prose",
+                "ordering_key": 4,
+                "text_preview": "Skills : perception : 4\nResistances :\nSenses : darkvision : 60\nLanguages : Auran"
+              }
+            ]
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 1,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 1,
+            "oversized_count": 0,
+            "undersized_ratio": 0.1111,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "82061ccbad465d30",
+                "unit_type": "prose",
+                "char_count": 17,
+                "text_preview": "![](images/0.jpg)"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "gate_name": "coverage",
+    "passed": true,
+    "detail": {
+      "raw_content_chars": 1053,
+      "ast_content_chars": 1053,
+      "ratio": 1.0,
+      "threshold": 0.95
+    }
+  },
+  {
+    "gate_name": "ordering",
+    "passed": true,
+    "detail": {
+      "leaf_count": 4,
+      "inversion_count": 0,
+      "inversions": []
+    }
+  },
+  {
+    "gate_name": "table_parse",
+    "passed": true,
+    "detail": {
+      "raw_table_count": 1,
+      "ast_table_count": 1,
+      "count_match": true,
+      "raw_row_counts": [
+        13
+      ],
+      "ast_row_counts": [
+        13
+      ],
+      "row_mismatches": []
+    }
+  }
+]

@@ -1,5 +1,5 @@
 ---
-title: "Mireward — place build scaffold (non-canon until promoted)"
+title: "Mireward Reach — place build scaffold (non-canon until promoted)"
 document_class: planning
 subject_class: location
 subject_doc_kind: notes_aggregate
@@ -10,14 +10,14 @@ session: null
 origin_session: 21
 last_updated_session: 21
 source_class: planning_document
-table_note: "Brainstorm + structure for building Mireward. NOT table canon. Promote sections into README, gazetteer, dossiers, NPC hubs; delete or strike promoted blocks here."
+table_note: "Brainstorm + structure for building Mireward Reach. NOT table canon except where explicitly promoted. Stable corpus route remains Mireward/ until route migration."
 ---
 
-# Mireward — place build scaffold
+# Mireward Reach — place build scaffold
 
 **Status:** `scaffold` — iterate here; promote to canon files when locked.  
 **Pilot for:** “build a place” workflow (see `Backlog.md` → `[IDEA] Corpus — standardize build a place workflow`).  
-**Table canon already fixed:** Named Session 21; ~5 days north of party at end S21; next town on the Reach before fen/swamp (`Session 21 - Drake Nest Mirathorn Call.md`).
+**Table canon already fixed:** Settlement display name is **Mireward Reach**; stable corpus route remains `Elderwyld/Cities and Towns/Mireward/` until route migration. Named Session 21; ~5 days north of party at end S21; next town on the Reach before fen/swamp (`Session 21 - Drake Nest Mirathorn Call.md`).
 
 ---
 
@@ -37,7 +37,7 @@ table_note: "Brainstorm + structure for building Mireward. NOT table canon. Prom
 
 ## A. One-sentence pitch (draft)
 
-**Mireward is the last walled town on the Mireward Reach before the fen — a crown tithe-and-ferry knot where ex-city folk, stink-trades, and retired spears built a life on sky and road… and right now the garrison is thin, the festival has pulled the young south, and the north is filling the haylofts faster than anyone thought possible.**
+**Mireward Reach is the last walled town before the fen — a crown tithe-and-ferry knot where ex-city folk, stink-trades, and retired spears built a life on sky and road… and right now the garrison is thin, the festival has pulled the young south, and the north is filling the haylofts faster than anyone thought possible.**
 
 ---
 
@@ -49,7 +49,7 @@ table_note: "Brainstorm + structure for building Mireward. NOT table canon. Prom
 
 ### The baseline attitude
 
-Reach folk are mostly **less city, not less civilized**. Mirathorn is lake, river, plains, and **crowd**. Out here: **grass, Stormspire west, road north**, charter bell, visible horizon. Generations grew up hearing that the **last time the edge of reality really troubled Elderwyld** was **long ago** — old songs, not living memory. Safety feels **earned and boring**, not fragile. That complacency is doing real work when the north breaks.
+Reach folk are mostly **less city, not less civilized**. Mirathorn is lake, river, plains, and **crowd**. Out here: **grass, Stormspire west, road north**, charter bell, visible horizon. Generations grew up hearing that the **last time the edge of reality really troubled Elderwyld** was **long ago** — old songs, not living memory. Safety feels **earned and boring**, not fragile. That complacency is doing real work when the north breaks against Mireward Reach.
 
 ### Four legs of “why Mireward”
 
@@ -79,7 +79,7 @@ Reach folk are mostly **less city, not less civilized**. Mirathorn is lake, rive
 
 ### Table read (one paragraph)
 
-*Mireward is a pension town with a bell tower and a ferry — retired spears, stink-trades, and people who wanted sky instead of spires. The wall still stands; the patrols still ride; it’s just that the festival has the young guards in Mirathorn singing, one long patrol is still out on the fen rotation, and nobody alive remembers the last time the weird north really came for them. The road economy still looks fine from the apron. The haylofts tell a different story.*
+*Mireward Reach is a pension town with a bell tower and a ferry — retired spears, stink-trades, and people who wanted sky instead of spires. The wall still stands; the patrols still ride; it’s just that the festival has the young guards in Mirathorn singing, one long patrol is still out on the fen rotation, and nobody alive remembers the last time the weird north really came for them. The road economy still looks fine from the apron. The haylofts tell a different story.*
 
 ---
 

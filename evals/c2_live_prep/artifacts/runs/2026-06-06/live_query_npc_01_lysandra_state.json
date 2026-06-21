@@ -1,0 +1,197 @@
+{
+  "question": "What is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-06T20:44:53Z",
+  "step_2_context_packet": {
+    "retrieval_query": "What is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?",
+    "effective_question": "What is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-93845f624a",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 194,
+        "line_end": 199,
+        "text_excerpt": "| File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Psychology + command — **this file is the soap**. | | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Town tone; Ironveil row in §F | | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | Gate pressures — **Lysandro voice**, not Hald Voss | | `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | S22 play log |"
+      },
+      {
+        "evidence_id": "ev-f09e502eb0",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 15,
+        "line_end": 18,
+        "text_excerpt": "RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS"
+      },
+      {
+        "evidence_id": "ev-2922af8a17",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 218,
+        "line_end": 224,
+        "text_excerpt": "- **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a"
+      },
+      {
+        "evidence_id": "ev-cca83b0ea8",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 114,
+        "line_end": 125,
+        "text_excerpt": "| Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays"
+      },
+      {
+        "evidence_id": "ev-44545a2057",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 7,
+        "line_end": 7,
+        "text_excerpt": "CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO"
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?\n\nADMITTED EVIDENCE:\n[ev-93845f624a]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 194-199\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Psychology + command — **this file is the soap**. | | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Town tone; Ironveil row in §F | | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | Gate pressures — **Lysandro voice**, not Hald Voss | | `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | S22 play log |\n\n[ev-f09e502eb0]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md\nline_range: 15-18\nunit_id: None\nexcerpt: RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS\n\n[ev-2922af8a17]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md\nline_range: 218-224\nunit_id: None\nexcerpt: - **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a\n\n[ev-cca83b0ea8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 114-125\nunit_id: None\nexcerpt: | Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays\n\n[ev-44545a2057]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: 7-7\nunit_id: None\nexcerpt: CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO\n\n[ev-e73c147a2c]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 15-15\nunit_id: None\nexcerpt: # Captain Lysandra Ironveil — Mirathorn (setting seed)\n\n[ev-e03b4709f2]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 14-15\nunit_id: None\nexcerpt: - Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread. - The table should decide who carries the next outbound message before the march day ends.\n\n[ev-9ac421a926]\nrole: live_event\nauthority: live_observation\npath: evals/c2_live_prep/live/session_23/event_log.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: {\"schema_version\":\"0.1.0\",\"id\":\"evt-recap-ingested-65078848865c\",\"created_at\":\"2026-05-30T21:27:01Z\",\"campaign_id\":\"longmont-c2\",\"session\":23,\"session_clock\":\"session-bootstrap\",\"event_type\":\"state_note\",\"event_origin\":\"server\",\"latency_mode\":null,\"summary\":\"Fresh recap ingested for Session 23 planning.\",\"derived_fields\":{\"command_type\":\"bootstrap_session_from_recap\",\"recap_path\":\"recap.md\",\"source_session\":22,\"planning_session\":23,\"candidate_open_loop_count\":4,\"candidate_planning_beat_count\":10},\"provenance\":{\"source_paths\":[{\"path\":\"recap.md\",\"role\":\"fresh_recap\",\"notes\":\"Source recap used to bootstrap planning session.\"}],\"generated_by\":\"session_bootstrap\",\"notes\":\"Deterministic PR90 boot\n\n[ev-c128048f5a]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"schema_version\": \"0.1.0\",   \"campaign_id\": \"longmont-c2\",   \"session\": 23,\n\n[ev-2a0c592b07]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 142-142\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clear\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-c9c196f918]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md\nline_range: 62-62\nunit_id: None\nexcerpt: > You made camp in the shadow of a storm that **shimmers**. Lysandra is with you again — awake, fragile, furious at the gaps in her own memory. Supplies are being **burned** down to what you can trust. Caelynn’s rockie-talkie is still trying to turn **Mirathorn’s silence** into an answer. Mossford thinks you’ve gone; Ephanna, you’re the one who said you’re going **back** — under a different face — before the rain makes liars of all of you.\n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "Going into Session 23, Captain Lysandra Ironveil appears to be in a **high-pressure, unresolved command state** rather than a settled one.\n\n### Play facts\n- She is still carrying an **open communication obligation**: she “still owes a reply on the Silver Raven dispatch thread,” and the table is expected to decide who sends the next outbound message before the march day ends [ev-e03b4709f2].\n- Her immediate Session 22 stated objective was to **keep the team focused on going to the swamp and destroying the source of the cult**, which suggests her current commitment is mission-first and anti-drift [ev-2a0c592b07].\n- She has a strong background of **family-aligned anti-authoritarian values** from Mireward, and she shares those beliefs, even if she dislikes how loudly her family expresses them [ev-2922af8a17].\n- Her family context is still active in her identity: her father **Lysandro** is an emeritus gate sergeant and calls her “Lysa,” and the Ironveil family has a history of mutual-aid and protest culture around the gate [ev-2922af8a17][ev-cca83b0ea8].\n- Her earlier life included a long-term personal loss/abandonment thread: she left for Mirathorn “one season” and stayed, while **Delwen Rast** waited and then married elsewhere [ev-2922af8a17][ev-cca83b0ea8].\n- In the broader setting, Lysandra is established as a **respected, disciplined captain** with strong tactical leadership and resolve [ev-f09e502eb0][ev-44545a2057].\n\n### Immediate pressures\n- The biggest immediate pressure visible in the Session 23 bootstrap is the **unanswered Silver Raven dispatch**, which implies an active decision point and possible time sensitivity [ev-e03b4709f2].\n- Her current mission pressure is to **keep the party moving toward the swamp and the cult source**, so she is likely balancing command focus against whatever side threads are pulling at the table [ev-2a0c592b07].\n- Her family/gate background suggests she may be especially sensitive to **gate-related or civic-duty tensions**, though that is a characterization inference grounded in her Mireward history rather than a direct Session 23 event [ev-2922af8a17][ev-cca83b0ea8].\n\n### Relationship snapshot\n- **With the party:** aligned as a mission-driving leader, trying to keep them on task [ev-2a0c592b07].\n- **With family:** still emotionally and ideologically connected to the Ironveils, especially Lysandro, but with some friction around their loudness [ev-2922af8a17].\n- **With Delwen:** a past personal relationship that ended in separation and marriage elsewhere,",
+    "result": {
+      "answer": "Going into Session 23, Captain Lysandra Ironveil appears to be in a **high-pressure, unresolved command state** rather than a settled one.\n\n### Play facts\n- She is still carrying an **open communication obligation**: she “still owes a reply on the Silver Raven dispatch thread,” and the table is expected to decide who sends the next outbound message before the march day ends [ev-e03b4709f2].\n- Her immediate Session 22 stated objective was to **keep the team focused on going to the swamp and destroying the source of the cult**, which suggests her current commitment is mission-first and anti-drift [ev-2a0c592b07].\n- She has a strong background of **family-aligned anti-authoritarian values** from Mireward, and she shares those beliefs, even if she dislikes how loudly her family expresses them [ev-2922af8a17].\n- Her family context is still active in her identity: her father **Lysandro** is an emeritus gate sergeant and calls her “Lysa,” and the Ironveil family has a history of mutual-aid and protest culture around the gate [ev-2922af8a17][ev-cca83b0ea8].\n- Her earlier life included a long-term personal loss/abandonment thread: she left for Mirathorn “one season” and stayed, while **Delwen Rast** waited and then married elsewhere [ev-2922af8a17][ev-cca83b0ea8].\n- In the broader setting, Lysandra is established as a **respected, disciplined captain** with strong tactical leadership and resolve [ev-f09e502eb0][ev-44545a2057].\n\n### Immediate pressures\n- The biggest immediate pressure visible in the Session 23 bootstrap is the **unanswered Silver Raven dispatch**, which implies an active decision point and possible time sensitivity [ev-e03b4709f2].\n- Her current mission pressure is to **keep the party moving toward the swamp and the cult source**, so she is likely balancing command focus against whatever side threads are pulling at the table [ev-2a0c592b07].\n- Her family/gate background suggests she may be especially sensitive to **gate-related or civic-duty tensions**, though that is a characterization inference grounded in her Mireward history rather than a direct Session 23 event [ev-2922af8a17][ev-cca83b0ea8].\n\n### Relationship snapshot\n- **With the party:** aligned as a mission-driving leader, trying to keep them on task [ev-2a0c592b07].\n- **With family:** still emotionally and ideologically connected to the Ironveils, especially Lysandro, but with some friction around their loudness [ev-2922af8a17].\n- **With Delwen:** a past personal relationship that ended in separation and marriage elsewhere,",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?\n\nADMITTED EVIDENCE:\n[ev-93845f624a]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 194-199\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Psychology + command — **this file is the soap**. | | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Town tone; Ironveil row in §F | | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | Gate pressures — **Lysandro voice**, not Hald Voss | | `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | S22 play log |\n\n[ev-f09e502eb0]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md\nline_range: 15-18\nunit_id: None\nexcerpt: RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS\n\n[ev-2922af8a17]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md\nline_range: 218-224\nunit_id: None\nexcerpt: - **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a\n\n[ev-cca83b0ea8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 114-125\nunit_id: None\nexcerpt: | Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays\n\n[ev-44545a2057]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: 7-7\nunit_id: None\nexcerpt: CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO\n\n[ev-e73c147a2c]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 15-15\nunit_id: None\nexcerpt: # Captain Lysandra Ironveil — Mirathorn (setting seed)\n\n[ev-e03b4709f2]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 14-15\nunit_id: None\nexcerpt: - Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread. - The table should decide who carries the next outbound message before the march day ends.\n\n[ev-9ac421a926]\nrole: live_event\nauthority: live_observation\npath: evals/c2_live_prep/live/session_23/event_log.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: {\"schema_version\":\"0.1.0\",\"id\":\"evt-recap-ingested-65078848865c\",\"created_at\":\"2026-05-30T21:27:01Z\",\"campaign_id\":\"longmont-c2\",\"session\":23,\"session_clock\":\"session-bootstrap\",\"event_type\":\"state_note\",\"event_origin\":\"server\",\"latency_mode\":null,\"summary\":\"Fresh recap ingested for Session 23 planning.\",\"derived_fields\":{\"command_type\":\"bootstrap_session_from_recap\",\"recap_path\":\"recap.md\",\"source_session\":22,\"planning_session\":23,\"candidate_open_loop_count\":4,\"candidate_planning_beat_count\":10},\"provenance\":{\"source_paths\":[{\"path\":\"recap.md\",\"role\":\"fresh_recap\",\"notes\":\"Source recap used to bootstrap planning session.\"}],\"generated_by\":\"session_bootstrap\",\"notes\":\"Deterministic PR90 boot\n\n[ev-c128048f5a]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"schema_version\": \"0.1.0\",   \"campaign_id\": \"longmont-c2\",   \"session\": 23,\n\n[ev-2a0c592b07]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 142-142\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clear\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-c9c196f918]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md\nline_range: 62-62\nunit_id: None\nexcerpt: > You made camp in the shadow of a storm that **shimmers**. Lysandra is with you again — awake, fragile, furious at the gaps in her own memory. Supplies are being **burned** down to what you can trust. Caelynn’s rockie-talkie is still trying to turn **Mirathorn’s silence** into an answer. Mossford thinks you’ve gone; Ephanna, you’re the one who said you’re going **back** — under a different face — before the rain makes liars of all of you.\n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-e03b4709f2",
+            "ev-2a0c592b07",
+            "ev-2922af8a17",
+            "ev-cca83b0ea8",
+            "ev-f09e502eb0",
+            "ev-44545a2057"
+          ],
+          "admitted_citation_ids": [
+            "ev-e03b4709f2",
+            "ev-2a0c592b07",
+            "ev-2922af8a17",
+            "ev-cca83b0ea8",
+            "ev-f09e502eb0",
+            "ev-44545a2057"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-e03b4709f2",
+          "path": "evals/c2_live_prep/live/session_23/recap.md",
+          "line_start": 14,
+          "line_end": 15,
+          "source_role": "fresh_recap",
+          "authority": "pre_canonical_evidence"
+        },
+        {
+          "evidence_id": "ev-2a0c592b07",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+          "line_start": 142,
+          "line_end": 142,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-2922af8a17",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+          "line_start": 218,
+          "line_end": 224,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-cca83b0ea8",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+          "line_start": 114,
+          "line_end": 125,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-f09e502eb0",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "line_start": 15,
+          "line_end": 18,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-44545a2057",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+          "line_start": 7,
+          "line_end": 7,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-e03b4709f2",
+          "ev-2a0c592b07",
+          "ev-2922af8a17",
+          "ev-cca83b0ea8",
+          "ev-f09e502eb0",
+          "ev-44545a2057"
+        ],
+        "admitted_citation_ids": [
+          "ev-e03b4709f2",
+          "ev-2a0c592b07",
+          "ev-2922af8a17",
+          "ev-cca83b0ea8",
+          "ev-f09e502eb0",
+          "ev-44545a2057"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "Going into Session 23, Captain Lysandra Ironveil appears to be in a **high-pressure, unresolved command state** rather than a settled one.\n\n### Play facts\n- She is still carrying an **open communication obligation**: she “still owes a reply on the Silver Raven dispatch thread,” and the table is expected to decide who sends the next outbound message before the march day ends [ev-e03b4709f2].\n- Her immediate Session 22 stated objective was to **keep the team focused on going to the swamp and destroying the source of the cult**, which suggests her current commitment is mission-first and anti-drift [ev-2a0c592b07].\n- She has a strong background of **family-aligned anti-authoritarian values** from Mireward, and she shares those beliefs, even if she dislikes how loudly her family expresses them [ev-2922af8a17].\n- Her family context is still active in her identity: her father **Lysandro** is an emeritus gate sergeant and calls her “Lysa,” and the Ironveil family has a history of mutual-aid and protest culture around the gate [ev-2922af8a17][ev-cca83b0ea8].\n- Her earlier life included a long-term personal loss/abandonment thread: she left for Mirathorn “one season” and stayed, while **Delwen Rast** waited and then married elsewhere [ev-2922af8a17][ev-cca83b0ea8].\n- In the broader setting, Lysandra is established as a **respected, disciplined captain** with strong tactical leadership and resolve [ev-f09e502eb0][ev-44545a2057].\n\n### Immediate pressures\n- The biggest immediate pressure visible in the Session 23 bootstrap is the **unanswered Silver Raven dispatch**, which implies an active decision point and possible time sensitivity [ev-e03b4709f2].\n- Her current mission pressure is to **keep the party moving toward the swamp and the cult source**, so she is likely balancing command focus against whatever side threads are pulling at the table [ev-2a0c592b07].\n- Her family/gate background suggests she may be especially sensitive to **gate-related or civic-duty tensions**, though that is a characterization inference grounded in her Mireward history rather than a direct Session 23 event [ev-2922af8a17][ev-cca83b0ea8].\n\n### Relationship snapshot\n- **With the party:** aligned as a mission-driving leader, trying to keep them on task [ev-2a0c592b07].\n- **With family:** still emotionally and ideologically connected to the Ironveils, especially Lysandro, but with some friction around their loudness [ev-2922af8a17].\n- **With Delwen:** a past personal relationship that ended in separation and marriage elsewhere,"
+    }
+  }
+}

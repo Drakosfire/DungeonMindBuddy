@@ -1,0 +1,20 @@
+{
+  "schema": "dmb_combat_encounter_state_v1",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "encounter_id": "current-combat",
+  "title": "Scratch Combat Proof",
+  "round": 1,
+  "active_turn_entity_id": null,
+  "round_start_entity_id": null,
+  "queue_model": "circular_barrel_v1",
+  "entities": [],
+  "groups": [],
+  "provenance": [
+    {
+      "source": "mireward_static_combat_bridge",
+      "reason": "created new empty current combat state"
+    }
+  ],
+  "updated_at": "2026-06-10T22:15:45Z"
+}

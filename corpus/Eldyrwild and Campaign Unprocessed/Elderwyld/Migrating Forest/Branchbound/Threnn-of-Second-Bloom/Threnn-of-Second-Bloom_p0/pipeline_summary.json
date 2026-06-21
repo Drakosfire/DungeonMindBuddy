@@ -1,0 +1,418 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 31,
+    "table_count": 1,
+    "content_hash": "b7878f363601121c67b46adab8a731ac0fd96336746e7c896a16a73260bee879",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 1888,
+          "ast_content_chars": 1888,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 23,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            3
+          ],
+          "ast_row_counts": [
+            3
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "abdb285efd0025b7cfb689f9245fa96a07e3430b97c34cd05aa21a207cfc137f",
+        "unit_type": "prose",
+        "text": "Threnn-of-Second-Bloom — Medium, humanoid (half-elf), chaotic neutral",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "f395c85b6e9c46c8d6677793e3494375ab5352fdd20cc82ac540ca5716058e20",
+        "source_line_start": 1,
+        "source_line_end": 5,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4d26795365513f0572ce14e203f17b2ef8148423d44cb2ef2828799f0a7c2a15",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 1,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 6,
+        "source_line_end": 7,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "5d7fa9cd034fc1bc5b3d93d50ee9d5b95d5172749a6ff9527e1b6c2e42df590e",
+        "unit_type": "prose",
+        "text": "Threnn-of-Second-Bloom is a half-elf from the Branchbound lineage, marked by their canopy-born heritage. With a slim frame and bark-like scar tissue, they embody the forest's impermanence while struggling to let go of attachments. Threnn's reflective amber eyes and moss-dyed leathers blend them seamlessly into their woodland home, but their refusal to move on from the overdue-to-be-abandoned Second Bloom has marked them as a defector. Though they are quiet and observant, their commitment to protection and discomfort with authority make them a complex figure, driven by a fear of unfinished business rather than mortality itself.",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 2,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "fe9b03c04e4893072cac75b76ca95826ba4655764b6df154340042ff97a68f93",
+        "source_line_start": 11,
+        "source_line_end": 12,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "cb65738206c409cdd2d5f60e2484a13e60bd9db04036d246749015eeac28d66e",
+        "unit_type": "prose",
+        "text": "Armor Class : 15",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 3,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "abb3aad7f0b8bdccba59d91cc78055f42549e56412cb2cfef02c181509e97838",
+        "source_line_start": 14,
+        "source_line_end": 15,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "bdc5f17e0a605a4d5a01a7815d942827ac992d54a2351e885825c2a83adb2cbb",
+        "unit_type": "prose",
+        "text": "Hit Points: 44 Hit Dice : 5d10+10",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 4,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "0b7ab578d477763adf5eb122f0bee39ded1220b94d564f088fbf69399e3630c5",
+        "source_line_start": 17,
+        "source_line_end": 18,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b597c21eae1cdaa038669d993f0a39e3223acfaf6a87777a6763d9cd87b3db2e",
+        "unit_type": "prose",
+        "text": "Speed: walk 35 ft., fly null ft., swim null ft., climb 35 ft., burrow null ft.\nSaving Throws : dex 6, wis 5",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 5,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "9d1b2254ee983d8f1223ca9564a4cb8e68def6317c00847eaa74549a34f96a64",
+        "source_line_start": 20,
+        "source_line_end": 22,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "85afaafa2329db28ef527c47fb12446835a3f6c330ef728cf0779241ffa2dd34",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>10</td><td>16</td><td>14</td><td>11</td><td>15</td><td>9</td></tr><tr><td>(+0)</td><td>(+3)</td><td>(+2)</td><td>(+0)</td><td>(+2)</td><td>(-1)</td></tr></table>",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 6,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "50c586f3484c92b3bf15a1c5f6e3f835fb6bc28995d49098426a8e68312edf64",
+        "source_line_start": 24,
+        "source_line_end": 25,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "6af87c3a122a689ead669a0543c8b14d80ac6ea433ee764fd890357818519de5",
+        "unit_type": "prose",
+        "text": "Skills : stealth 6, perception 5, survival 5, athletics 2",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 7,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "07ec45d35a80f8902a0daa7ee6785c0ba345be1f557d32b4d772629bbf9779be",
+        "source_line_start": 27,
+        "source_line_end": 28,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a8e3b9684b692da5a948532d55b2844d6a32fa6bc51ba21513a16abb256c2843",
+        "unit_type": "prose",
+        "text": "Damage Resistances : —",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 8,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "e5cd02afc206a6eb7e1d90e8bc3f7248b6ae888ec2ac8369c72c6a2df3bad0bb",
+        "source_line_start": 30,
+        "source_line_end": 31,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "80ee337697e17d12295743c4efc3acc2ce909515637f22a1652527c372808290",
+        "unit_type": "prose",
+        "text": "Damage Immunities : —",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 9,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "c39dbe1534916a54e94036fd38cb56c2e841b580d12ea00f2bcc4b2f2541a708",
+        "source_line_start": 33,
+        "source_line_end": 34,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4be53019c97f656c9299f5d1ee325cd25223a9bed29bfef0d23f4926da250f50",
+        "unit_type": "prose",
+        "text": "Condition Immunities : —",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 10,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "54fe7ac8e51290ee11c8825fb1630b6399d81831ade8527fc32ebc881bf3723c",
+        "source_line_start": 36,
+        "source_line_end": 37,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1ee9b87ede4aa84bb5281c0de44de760056839fb626165d3b58161c014cce9af",
+        "unit_type": "prose",
+        "text": "Senses : darkvision 60, passive_perception 15",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 11,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "1c92a828516d67347a917c838e47a552fb29de6159d8077129844ccac7b77806",
+        "source_line_start": 39,
+        "source_line_end": 40,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "88a5f2231c55871e83588f48ec23c922b378c4b93d6ce77989bc746685cd385a",
+        "unit_type": "prose",
+        "text": "Languages : Common, Elvish, Sylvan",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 12,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "885cc64a29a7f5efd6087c76920d7ed43fc7eb6e594e1f19de49589e7b694642",
+        "source_line_start": 42,
+        "source_line_end": 43,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "7df6339a09ff6cc9cabaa3b818fa5868b2936e88d5214fcd0506a0f7bf073584",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 3 (700 XP)",
+        "structural_path": [
+          "Threnn-of-Second-Bloom"
+        ],
+        "ordering_key": 13,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "cd12ed3d79abfec88dc9d3148f0a40612c6f0c085fc48c31b836ef5167d0266e",
+        "source_line_start": 45,
+        "source_line_end": 46,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "97493f1f5a8c75bda644b18ad9bcb281d8475da13edfb42e766867ff961a1a45",
+        "unit_type": "prose",
+        "text": "ACTIONS — Multitattack — Threnn makes two attacks with their leafblade shortsword or longbow.",
+        "structural_path": [
+          "Multitattack"
+        ],
+        "ordering_key": 14,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "946e9292015e9a32332d877864c061ac8e04c3fb768273961751ac97ab9d0f81",
+        "source_line_start": 48,
+        "source_line_end": 55,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "caf63b6ed697850b031f89d911820c45dc0b20f80521b3168134b99e0402bd33",
+        "unit_type": "prose",
+        "text": "Leafblade Shortsword — Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) slashing damage. Once per turn, if attacking a creature adjacent to foliage, roots, or natural terrain, deal an additional 2 (1d4) damage. Damage: 1d6+4 Range: Melee",
+        "structural_path": [
+          "Leafblade Shortsword"
+        ],
+        "ordering_key": 15,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "0019b9993c4c70dbe382503b6e3b8a1f0843f4040a07d66a51332665082bfae3",
+        "source_line_start": 57,
+        "source_line_end": 61,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "50655733e0a541fa2a965d07955778286538be21e0d7a35652f6d724c7121e21",
+        "unit_type": "prose",
+        "text": "Longbow — Ranged Weapon Attack: +6 to hit, range 150/600 ft., one target. Hit: 7 (1d8 + 3) piercing damage. If attacking from partial or full concealment, the first hit each combat has advantage. Damage: 1d8+3 Range: Range 150/600",
+        "structural_path": [
+          "Longbow"
+        ],
+        "ordering_key": 16,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "391081220c732a58a8abfd396813ded1e9a72a0bf418bf8bb266d9ce88794930",
+        "source_line_start": 63,
+        "source_line_end": 67,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "6090cc8bf2d6e5033491ef169e3acef34f2958d5c9b05d52ae44d93d95aa8cb9",
+        "unit_type": "prose",
+        "text": "BONUS ACTIONS — Canopy Step — Threnn moves up to 20 ft without provoking opportunity attacks, provided they start or end adjacent to natural terrain, roots, or trees. Recharge 4–6. Recharge 4–6",
+        "structural_path": [
+          "Canopy Step"
+        ],
+        "ordering_key": 17,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "201722ffc1c22716cdfc038d7cd62ab37c65da1894a706c3f094838e7d032595",
+        "source_line_start": 69,
+        "source_line_end": 76,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "c6f19626dedbb67cbae41d87830c8c8a74427ef4385598cae8611b5e64fe20ef",
+        "unit_type": "prose",
+        "text": "TRAITS — Root-Sense — Threnn has advantage on Perception checks to detect movement through natural terrain and cannot be surprised by creatures moving through plants, roots, or canopy.",
+        "structural_path": [
+          "Root-Sense"
+        ],
+        "ordering_key": 18,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "16bde77a2b7c216bae9a4f8f769d9af82fe9ee90ae2089c54b80c15db30ecec1",
+        "source_line_start": 78,
+        "source_line_end": 85,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "2878114876bed601b3478dfab13f15657fb066d1f16ffa4b1ce2e24894e09d1f",
+        "unit_type": "prose",
+        "text": "Witness Seed (Passive) — Threnn is affected by the Witness Seed at all times. Effects are detailed in The Witness Seed Document.",
+        "structural_path": [
+          "Witness Seed (Passive)"
+        ],
+        "ordering_key": 19,
+        "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+        "content_hash": "7ce0d430eaa20ebb33e4b95b1e44edd2eaa07f2287298af8034b3f829d6f1120",
+        "source_line_start": 87,
+        "source_line_end": 91,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 20,
+          "orphan_count": 0,
+          "orphan_rate": 0.0,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": false,
+          "orphans": []
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 20,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 20,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 2,
+          "oversized_count": 0,
+          "undersized_ratio": 0.1,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "4d26795365513f05",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "cb65738206c409cd",
+              "unit_type": "prose",
+              "char_count": 16,
+              "text_preview": "Armor Class : 15"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

@@ -15,15 +15,17 @@ import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
+import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike";
+type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/surface" || path === "/live-control") return "surface";
   if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
+  if (path === "/plan") return "plan";
   return "index";
 }
 
@@ -36,12 +38,17 @@ function MirewardIndex() {
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
-        <a className="launcher-card primary" href="/live-play">
+        <a className="launcher-card primary" href="/plan">
+          <span className="launcher-kicker">Plan</span>
+          <strong>Prep surface</strong>
+          <span>Intentional planning canvas with ingestion, statblock tools, and reference-chip navigation.</span>
+        </a>
+        <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/live-play.html">
           <span className="launcher-kicker">Live Play</span>
           <strong>Command board</strong>
           <span>At-table launch surface for combat, notes, statblocks, roll tables, and bridge proof links.</span>
         </a>
-        <a className="launcher-card" href="/retrieval">
+        <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/retrieval.html">
           <span className="launcher-kicker">Retrieval</span>
           <strong>Dogfood surface</strong>
           <span>Source links, authority labels, planning packets, and retrieval context checks.</span>
@@ -227,5 +234,6 @@ export function App() {
     );
   }
   if (route === "tiptap-callout-spike") return <TiptapSpikeRoute />;
+  if (route === "plan") return <PlanSurfacePage />;
   return <LiveControlApp />;
 }

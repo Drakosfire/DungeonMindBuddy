@@ -28,13 +28,14 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
       "href",
-      "/live-play",
+      "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
     expect(screen.getByRole("link", { name: /retrieval dogfood surface/i })).toHaveAttribute(
       "href",
-      "/retrieval",
+      "/evals/c2_live_prep/mireward-prep/retrieval.html",
     );
     expect(screen.getByRole("link", { name: /live control react surface/i })).toHaveAttribute(
       "href",
@@ -57,6 +58,16 @@ describe("App inspector integration", () => {
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /inspector/i }));
     expect(screen.getByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
+  });
+
+  it("renders plan surface from /plan", async () => {
+    window.history.pushState({}, "", "/plan");
+    render(<App />);
+
+    expect(await screen.findByText(/preparing Session 23 · ingesting Session 21/i)).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Plan tools" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
+    expect(liveApi.getPlanView).toHaveBeenCalled();
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {

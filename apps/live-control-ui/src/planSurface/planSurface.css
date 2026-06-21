@@ -1,0 +1,431 @@
+.plan-surface-root {
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+  color: var(--fg, var(--text, #e8eaef));
+}
+
+.plan-surface-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--accent, #7aa2f7);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plan-nav-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: rgba(18, 20, 26, 0.72);
+  padding: 0.9rem 1rem;
+}
+
+.plan-nav-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.plan-nav-subtitle {
+  margin: 0.45rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.92rem;
+}
+
+.plan-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.plan-nav-links a {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg-mute, #9aa3b5);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.plan-nav-links a[aria-current="page"],
+.plan-nav-links a:hover {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--fg, #e8eaef);
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.plan-surface-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "main"
+    "edit";
+  gap: 1rem;
+  align-items: start;
+}
+
+.plan-surface-main {
+  grid-area: main;
+  display: grid;
+  gap: 1rem;
+}
+
+.plan-toolbox-card {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: linear-gradient(135deg, rgba(122, 162, 247, 0.1), rgba(18, 20, 26, 0.78));
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.plan-toolbox-copy h2,
+.plan-toolbox-copy p {
+  margin: 0;
+}
+
+.plan-toolbox-copy p:not(.plan-surface-kicker) {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.92rem;
+}
+
+.plan-tool-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.plan-tool-bar button {
+  min-width: 9.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+}
+
+.plan-tool-bar button.active,
+.plan-tool-bar button[aria-pressed="true"] {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.plan-tool-bar button small {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.72rem;
+}
+
+.plan-surface-canvas {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: var(--bg-card, var(--panel, #171b24));
+  padding: 1rem;
+}
+
+.plan-canvas-heading h2 {
+  margin: 0 0 0.75rem;
+}
+
+.plan-canvas-doc-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+}
+
+.plan-canvas-heading select {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  margin-bottom: 0.75rem;
+}
+
+.plan-edit-bar {
+  grid-area: edit;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: rgba(18, 20, 26, 0.72);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.plan-edit-bar h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.plan-edit-bar-empty {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.plan-edit-actions,
+.plan-edit-fold-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.plan-edit-actions button,
+.plan-edit-bar > button,
+.plan-edit-fold-body button {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+}
+
+.plan-edit-actions button[aria-pressed="true"],
+.plan-edit-bar > button[aria-pressed="true"],
+.plan-edit-fold-body button[aria-pressed="true"] {
+  border-color: var(--accent, #7aa2f7);
+}
+
+.plan-edit-fold {
+  margin-top: 0.65rem;
+}
+
+.plan-toolbox-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 850;
+  border: 1px solid var(--border, #2a3142);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: rgba(22, 25, 34, 0.96);
+  color: var(--fg, #e8eaef);
+  padding: 10px 8px 10px 10px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.plan-toolbox-toggle:hover,
+.plan-toolbox.open .plan-toolbox-toggle {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-toolbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 855;
+  background: rgba(8, 10, 14, 0.45);
+}
+
+.plan-toolbox-backdrop[hidden] {
+  display: none !important;
+}
+
+.plan-toolbox-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border, #2a3142);
+  flex-shrink: 0;
+}
+
+.plan-toolbox-nav button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg-mute, #9aa3b5);
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.plan-toolbox-nav button:hover,
+.plan-toolbox-nav button.active,
+.plan-toolbox-nav button[aria-pressed="true"] {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.plan-projection-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 860;
+  border: 1px solid var(--border, #2a3142);
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  border-radius: 0;
+  background: var(--bg-card, var(--panel, #171b24));
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.plan-toolbox.open .plan-projection-container {
+  transform: translateX(0);
+}
+
+.plan-projection-compact {
+  width: min(440px, 94vw);
+}
+
+.plan-projection-wide {
+  width: min(1080px, 96vw);
+}
+
+.plan-projection-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  z-index: 1000;
+  max-height: none;
+}
+
+.plan-projection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+  background: rgba(18, 20, 26, 0.88);
+  flex-shrink: 0;
+}
+
+.plan-projection-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.plan-projection-header-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.plan-projection-header-actions button {
+  min-width: 32px;
+  height: 32px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.plan-projection-body {
+  flex: 1;
+  padding: 0.85rem 1rem 1rem;
+  overflow: auto;
+}
+
+.plan-projection-empty,
+.plan-content-note {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.9rem;
+}
+
+.plan-content-surface-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.plan-content-surface-header h3 {
+  margin: 0;
+}
+
+.plan-content-path code {
+  font-family: var(--mono, monospace);
+  font-size: 0.85rem;
+}
+
+.plan-content-fields {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+}
+
+.plan-content-fields dt {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.plan-content-fields dd {
+  margin: 0.15rem 0 0;
+}
+
+.plan-content-note-editable {
+  color: #a9f0c8;
+}
+
+@media (max-width: 960px) {
+  .plan-surface-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "edit";
+  }
+
+  .plan-projection-wide,
+  .plan-projection-compact {
+    width: min(100vw, 100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .plan-toolbox-toggle {
+    top: auto;
+    bottom: 72px;
+    transform: none;
+    writing-mode: horizontal-tb;
+    border-right: 1px solid var(--border, #2a3142);
+    border-radius: 8px 0 0 8px;
+    padding: 8px 12px;
+  }
+}
+
+body.plan-toolbox-open {
+  overflow: hidden;
+}
