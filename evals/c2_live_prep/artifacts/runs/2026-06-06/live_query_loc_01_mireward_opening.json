@@ -1,0 +1,197 @@
+{
+  "question": "Where did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-06T20:44:41Z",
+  "step_2_context_packet": {
+    "retrieval_query": "Where did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?",
+    "effective_question": "Where did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-602dc27cd4",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "line_start": 18,
+        "line_end": 25,
+        "text_excerpt": "| Knob | Question | Write answer to | |------|----------|-----------------| | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat | | **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline | | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mirewa"
+      },
+      {
+        "evidence_id": "ev-75c314d12a",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "line_start": 14,
+        "line_end": 14,
+        "text_excerpt": "# Session 22 — open GM knobs"
+      },
+      {
+        "evidence_id": "ev-4d840eb459",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 130,
+        "line_end": 130,
+        "text_excerpt": "While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] They can just make out the code phrase before they realize it is Grobnok.[NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/] What follows is not a great update fro"
+      },
+      {
+        "evidence_id": "ev-cc36f40cfc",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "line_start": 57,
+        "line_end": 68,
+        "text_excerpt": "| ID | Path | Role | Status | |----|------|------|--------| | **P0** | `session_22/README.md` | Planning hub — register, phases, checklist | draft | | **P1** | `Session Prep/Session 22 - open GM knobs.md` | GM decisions not yet in lore files | draft | | **P2** | `session_22/session_22_prep_brief.md` | Runnable prep (threads, NPC beats, travel) | **ready** | | **P2a** | `session_22/session_22_planning_anchor.md` | **This file** — where-we-are snapshot | **ready** | | **R1** | `Journey - Mireward Reach (Campaign 2).md` | Distances, terrain, camp | draft | | **R3** | `Elderwyld/Cities and Towns/Mireward/README.md` | Location hub index | scaffold | | **R3b** | `…/Mireward/Mireward_PLACE_BUILD_SC"
+      },
+      {
+        "evidence_id": "ev-fb5ca4d09b",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 24,
+        "line_end": 24,
+        "text_excerpt": "While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to"
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhere did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?\n\nADMITTED EVIDENCE:\n[ev-602dc27cd4]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nline_range: 18-25\nunit_id: None\nexcerpt: | Knob | Question | Write answer to | |------|----------|-----------------| | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat | | **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline | | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mirewa\n\n[ev-75c314d12a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nline_range: 14-14\nunit_id: None\nexcerpt: # Session 22 — open GM knobs\n\n[ev-4d840eb459]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 130-130\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] They can just make out the code phrase before they realize it is Grobnok.[NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/] What follows is not a great update fro\n\n[ev-cc36f40cfc]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md\nline_range: 57-68\nunit_id: None\nexcerpt: | ID | Path | Role | Status | |----|------|------|--------| | **P0** | `session_22/README.md` | Planning hub — register, phases, checklist | draft | | **P1** | `Session Prep/Session 22 - open GM knobs.md` | GM decisions not yet in lore files | draft | | **P2** | `session_22/session_22_prep_brief.md` | Runnable prep (threads, NPC beats, travel) | **ready** | | **P2a** | `session_22/session_22_planning_anchor.md` | **This file** — where-we-are snapshot | **ready** | | **R1** | `Journey - Mireward Reach (Campaign 2).md` | Distances, terrain, camp | draft | | **R3** | `Elderwyld/Cities and Towns/Mireward/README.md` | Location hub index | scaffold | | **R3b** | `…/Mireward/Mireward_PLACE_BUILD_SC\n\n[ev-fb5ca4d09b]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 24-24\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to\n\n[ev-94a74c6b02]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 29-29\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to\n\n[ev-e69a3b951d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: After another failed attempt to contact Mirathorn by rockie-talkie, the group decides they need to come up with a plan to contact someone in the city they can trust.[Location][Elderwyld/Cities and Towns/Mirathorn/][Party][Longmont Campaign/Campaign 2/Parties/questionable_company/] After some debate, they decide they should send a message to Professor Tealeaf, assuming the Wizard’s College is the least likely to be affected by anything nefarious happening, and an encoded message to Grobnok in case the message gets intercepted.[NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/] The group decides on a spoken and written message about the problems they have had contacting the city\n\n[ev-f3dc77f1a3]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 36-36\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations. He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult. It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clearly see the group of heroes. Karsemine, thinking of Lysanrda’s new found leadership, says our leader should step forward. But Bonogo, believing that she means him, steps forward with a simple hello. The man’s eyes grow big as\n\n[ev-d5768af0e9]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 41-41\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations. He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult. It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clearly see the group of heroes. Karsemine, thinking of Lysanrda’s new found leadership, says our leader should step forward. But Bonogo, believing that she means him, steps forward with a simple hello. The man’s eyes grow big as\n\n[ev-48463d8f28]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Dense Worker Housing.md\nline_range: 126-126\nunit_id: None\nexcerpt: ▸ A child disappears between two houses where there should not be enough space to hide in.\n\n[ev-a5d23438f2]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md\nline_range: 80-80\nunit_id: None\nexcerpt: • “If it smells sweet where it should smell dry, back away and fetch me.”\n\n[ev-210d347bfa]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md\nline_range: 18-18\nunit_id: None\nexcerpt: The Drying Barns stand between raw wet growth and usable material. They are where cut moss slab, fiber bundles, binding reeds, and treated stock wait to become valuable. The work is slower here, more watchful, and more vulnerable to spoiled weather than in the Moldyards, which gives the district a nervous patience all its own.\n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "**Play fact:** Session 22 ended with the party at a wall in the darkness, being challenged by a guard at the top; they had just been traveling on the Mireward Road and had reached the point where the guard demanded they stop and identify themselves [ev-f3dc77f1a3][ev-d5768af0e9]. The recap also shows the scene immediately followed their campfire conversation and the failed/partial city contact update, so the fiction had moved from roadside camp into an encounter at a wall/gate-like boundary [ev-4d840eb459][ev-fb5ca4d09b].\n\n**Play fact:** The party was still in the broader Mireward Road / Lysandra travel sequence, and the session recap title itself is “Mireward Road and Lysandro,” which matches the road-bound ending state [ev-fb5ca4d09b].\n\n**Planning suggestion:** For scene grounding, open these location hubs:\n- **Mireward** hub, since the planning scaffold explicitly points to `Elderwywyld/Cities and Towns/Mireward/README.md` as the location hub index for Session 22 prep [ev-cc36f40cfc].\n- **Mirathorn** hub, because the party was actively trying to contact the city and the recap references Mirathorn by rockie-talkie, including plans to message Professor Tealeaf and Grobnok [ev-e69a3b951d][ev-4d840eb459].\n- If you want the immediate encounter context, also open the **Mireward Reach / journey** material referenced in the planning anchor, since it is the travel/terrain/camp support for this session’s positioning [ev-cc36f40cfc].\n\nIf you want, I can also turn this into a short “open these 3 tabs first” prep checklist.",
+    "result": {
+      "answer": "**Play fact:** Session 22 ended with the party at a wall in the darkness, being challenged by a guard at the top; they had just been traveling on the Mireward Road and had reached the point where the guard demanded they stop and identify themselves [ev-f3dc77f1a3][ev-d5768af0e9]. The recap also shows the scene immediately followed their campfire conversation and the failed/partial city contact update, so the fiction had moved from roadside camp into an encounter at a wall/gate-like boundary [ev-4d840eb459][ev-fb5ca4d09b].\n\n**Play fact:** The party was still in the broader Mireward Road / Lysandra travel sequence, and the session recap title itself is “Mireward Road and Lysandro,” which matches the road-bound ending state [ev-fb5ca4d09b].\n\n**Planning suggestion:** For scene grounding, open these location hubs:\n- **Mireward** hub, since the planning scaffold explicitly points to `Elderwywyld/Cities and Towns/Mireward/README.md` as the location hub index for Session 22 prep [ev-cc36f40cfc].\n- **Mirathorn** hub, because the party was actively trying to contact the city and the recap references Mirathorn by rockie-talkie, including plans to message Professor Tealeaf and Grobnok [ev-e69a3b951d][ev-4d840eb459].\n- If you want the immediate encounter context, also open the **Mireward Reach / journey** material referenced in the planning anchor, since it is the travel/terrain/camp support for this session’s positioning [ev-cc36f40cfc].\n\nIf you want, I can also turn this into a short “open these 3 tabs first” prep checklist.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhere did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?\n\nADMITTED EVIDENCE:\n[ev-602dc27cd4]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nline_range: 18-25\nunit_id: None\nexcerpt: | Knob | Question | Write answer to | |------|----------|-----------------| | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat | | **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline | | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mirewa\n\n[ev-75c314d12a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nline_range: 14-14\nunit_id: None\nexcerpt: # Session 22 — open GM knobs\n\n[ev-4d840eb459]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 130-130\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] They can just make out the code phrase before they realize it is Grobnok.[NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/] What follows is not a great update fro\n\n[ev-cc36f40cfc]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md\nline_range: 57-68\nunit_id: None\nexcerpt: | ID | Path | Role | Status | |----|------|------|--------| | **P0** | `session_22/README.md` | Planning hub — register, phases, checklist | draft | | **P1** | `Session Prep/Session 22 - open GM knobs.md` | GM decisions not yet in lore files | draft | | **P2** | `session_22/session_22_prep_brief.md` | Runnable prep (threads, NPC beats, travel) | **ready** | | **P2a** | `session_22/session_22_planning_anchor.md` | **This file** — where-we-are snapshot | **ready** | | **R1** | `Journey - Mireward Reach (Campaign 2).md` | Distances, terrain, camp | draft | | **R3** | `Elderwyld/Cities and Towns/Mireward/README.md` | Location hub index | scaffold | | **R3b** | `…/Mireward/Mireward_PLACE_BUILD_SC\n\n[ev-fb5ca4d09b]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 24-24\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to\n\n[ev-94a74c6b02]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 29-29\nunit_id: None\nexcerpt: While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to\n\n[ev-e69a3b951d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: After another failed attempt to contact Mirathorn by rockie-talkie, the group decides they need to come up with a plan to contact someone in the city they can trust.[Location][Elderwyld/Cities and Towns/Mirathorn/][Party][Longmont Campaign/Campaign 2/Parties/questionable_company/] After some debate, they decide they should send a message to Professor Tealeaf, assuming the Wizard’s College is the least likely to be affected by anything nefarious happening, and an encoded message to Grobnok in case the message gets intercepted.[NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/] The group decides on a spoken and written message about the problems they have had contacting the city\n\n[ev-f3dc77f1a3]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 36-36\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations. He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult. It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clearly see the group of heroes. Karsemine, thinking of Lysanrda’s new found leadership, says our leader should step forward. But Bonogo, believing that she means him, steps forward with a simple hello. The man’s eyes grow big as\n\n[ev-d5768af0e9]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 41-41\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations. He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult. It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clearly see the group of heroes. Karsemine, thinking of Lysanrda’s new found leadership, says our leader should step forward. But Bonogo, believing that she means him, steps forward with a simple hello. The man’s eyes grow big as\n\n[ev-48463d8f28]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Dense Worker Housing.md\nline_range: 126-126\nunit_id: None\nexcerpt: ▸ A child disappears between two houses where there should not be enough space to hide in.\n\n[ev-a5d23438f2]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md\nline_range: 80-80\nunit_id: None\nexcerpt: • “If it smells sweet where it should smell dry, back away and fetch me.”\n\n[ev-210d347bfa]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md\nline_range: 18-18\nunit_id: None\nexcerpt: The Drying Barns stand between raw wet growth and usable material. They are where cut moss slab, fiber bundles, binding reeds, and treated stock wait to become valuable. The work is slower here, more watchful, and more vulnerable to spoiled weather than in the Moldyards, which gives the district a nervous patience all its own.\n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-f3dc77f1a3",
+            "ev-d5768af0e9",
+            "ev-4d840eb459",
+            "ev-fb5ca4d09b",
+            "ev-cc36f40cfc",
+            "ev-e69a3b951d"
+          ],
+          "admitted_citation_ids": [
+            "ev-f3dc77f1a3",
+            "ev-d5768af0e9",
+            "ev-4d840eb459",
+            "ev-fb5ca4d09b",
+            "ev-cc36f40cfc",
+            "ev-e69a3b951d"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-f3dc77f1a3",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 36,
+          "line_end": 36,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-d5768af0e9",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 41,
+          "line_end": 41,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-4d840eb459",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+          "line_start": 130,
+          "line_end": 130,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-fb5ca4d09b",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 24,
+          "line_end": 24,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-cc36f40cfc",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+          "line_start": 57,
+          "line_end": 68,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-e69a3b951d",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+          "line_start": 122,
+          "line_end": 122,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-f3dc77f1a3",
+          "ev-d5768af0e9",
+          "ev-4d840eb459",
+          "ev-fb5ca4d09b",
+          "ev-cc36f40cfc",
+          "ev-e69a3b951d"
+        ],
+        "admitted_citation_ids": [
+          "ev-f3dc77f1a3",
+          "ev-d5768af0e9",
+          "ev-4d840eb459",
+          "ev-fb5ca4d09b",
+          "ev-cc36f40cfc",
+          "ev-e69a3b951d"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "**Play fact:** Session 22 ended with the party at a wall in the darkness, being challenged by a guard at the top; they had just been traveling on the Mireward Road and had reached the point where the guard demanded they stop and identify themselves [ev-f3dc77f1a3][ev-d5768af0e9]. The recap also shows the scene immediately followed their campfire conversation and the failed/partial city contact update, so the fiction had moved from roadside camp into an encounter at a wall/gate-like boundary [ev-4d840eb459][ev-fb5ca4d09b].\n\n**Play fact:** The party was still in the broader Mireward Road / Lysandra travel sequence, and the session recap title itself is “Mireward Road and Lysandro,” which matches the road-bound ending state [ev-fb5ca4d09b].\n\n**Planning suggestion:** For scene grounding, open these location hubs:\n- **Mireward** hub, since the planning scaffold explicitly points to `Elderwywyld/Cities and Towns/Mireward/README.md` as the location hub index for Session 22 prep [ev-cc36f40cfc].\n- **Mirathorn** hub, because the party was actively trying to contact the city and the recap references Mirathorn by rockie-talkie, including plans to message Professor Tealeaf and Grobnok [ev-e69a3b951d][ev-4d840eb459].\n- If you want the immediate encounter context, also open the **Mireward Reach / journey** material referenced in the planning anchor, since it is the travel/terrain/camp support for this session’s positioning [ev-cc36f40cfc].\n\nIf you want, I can also turn this into a short “open these 3 tabs first” prep checklist."
+    }
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "unit_count": 11,
+  "units": [
+    {
+      "unit_id": "826aa1ff263150fa34f738cb76d7831d808b37ff1200aaff36a59d5ee827a31a",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "a3c44ed1051c6fe6637a8b8fc35ba4b00c75c23d01eb8615db5a84b51984475c",
+      "unit_type": "prose",
+      "text": "Torbin Jove is a young, bright-eyed boy of about 10 years old with a mop of curly brown hair and a mischievous grin. He is filled with youthful exuberance and a fearless curiosity about the world around him. Having been inspired by the adventurers, he has developed a keen sense of ambition and dreams of becoming a hero himself one day. Torbin is known for his impulsive spending habits, often squandering any money he gets on things that catch his fancy, like expensive candy or shiny trinkets.\nArmor Class : 10\nHit Points: 6 Hit Dice : 1d6\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "65711e2d6f0cae431818ffa7af240806539b198ea8ace6f0088be0f7058193d0",
+      "source_line_start": 5,
+      "source_line_end": 9,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "a6eafe8817ac0da805cb4a14af86b6f5ba7486bd870bea4603c2ac1235ce1122",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>8</td><td>12</td><td>10</td><td>12</td><td>8</td><td>14</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "8d61b5cab1a0272f1015b7864b6b239ab2e6a6f55541d5357add6b8324ac679d",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "a036153188abc707a69ada639335e59d0c47a23903d54de852bab23d78c12a63",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 0, dex : 1, wis : -1",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "e07d57b51fb66a6d857e1b83b6b17ee47ce82726ef641b747df76f8f61068654",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "f0babb800838146710b3c1c79a76a753917a9da6ae7e58d31165cc46f604b869",
+      "unit_type": "prose",
+      "text": "Skills : perception : 2\nResistances :",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "d6e14f1eb1e11b67695ecb0826d7814fc2c43b8147a0d7161cff59e868c9dedf",
+      "source_line_start": 17,
+      "source_line_end": 19,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "629ccfe39f6294a34a5d8d0440655f52900fd3e1f0bbf63918ef53ab51a2fc34",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 0",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "98700e75a7cf4fb10789cadeeca2e480372f9aed83c52446d041e428f862b5d9",
+      "source_line_start": 21,
+      "source_line_end": 22,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "8be9a0e6cad3b77fad956240559a62f4010b0cd23a79a76fc365a5c22fe43f39",
+      "unit_type": "prose",
+      "text": "Languages : Common",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "25e4b8c5fbf535b96aafd2a562ab7e951c499fd2691012627a80fd03e5ecc0c9",
+      "source_line_start": 24,
+      "source_line_end": 25,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "9d4c3812b27001104fb8e4af2229d6e452c7f6fdaf32e467a9ef56c50823d1f9",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 1/8 (25)",
+      "structural_path": [],
+      "ordering_key": 7,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "78b7700e1b866f117f0d77e2306c8a3526e87f408f182446c56c6b94f68c8445",
+      "source_line_start": 27,
+      "source_line_end": 28,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "70bc049902584ffde562d25b8af3928d68e4b94e3b973305d5da225af9f7fbbf",
+      "unit_type": "prose",
+      "text": "ACTIONS — Candy Throw : 'Torbin throws a piece of hard candy at a creature within 20 feet. Make a ranged attack roll with a +2 bonus. On a hit, the target takes 1d4 bludgeoning damage and the target must succeed on a DC 10 Dexterity saving throw or be distracted, giving the next attack roll against it advantage until the end of Torbin's next turn.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "bb2ab96666569c5d9d5218a066ee80716b0925eda0fc7006287ec1729e52d4d7",
+      "source_line_start": 30,
+      "source_line_end": 34,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "908e15b3f861652606b12709f11450367d4c9870c177fc07db1fe68c0120a171",
+      "unit_type": "prose",
+      "text": "Impulsive Lash : 'Torbin makes a quick jab with whatever small object he has at hand. He makes a melee attack with a +2 bonus to hit, dealing 1d4 bludgeoning or piercing damage.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "4a0bf893d4a20d0ae64cd5778c5dc5882a1b7b995734a03c9c4ff6df06791b1f",
+      "source_line_start": 36,
+      "source_line_end": 37,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "e3a975c2d052109a4ccc8538bbc1511ea36343bb93703f970b757bc484f2bb92",
+      "unit_type": "prose",
+      "text": "Quick Climb : 'Torbin can climb a vertical surface up to 15 feet without needing an ability check.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "a8c77ffa771953cc70388ab4a29fc25d570bd756c3a73ad26d2c0f5abe949a85",
+      "content_hash": "56e7b47a0b5a417c15432f4c2b9a3bd1d23c2472c6bf4d7ea7d8a38af8588239",
+      "source_line_start": 39,
+      "source_line_end": 40,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 11,
+        "orphan_count": 8,
+        "orphan_rate": 0.7273,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "826aa1ff263150fa",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "a3c44ed1051c6fe6",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "Torbin Jove is a young, bright-eyed boy of about 10 years old with a mop of curl"
+          },
+          {
+            "unit_id": "a6eafe8817ac0da8",
+            "unit_type": "table",
+            "ordering_key": 2,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "a036153188abc707",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "Saving Throws : str : 0, dex : 1, wis : -1"
+          },
+          {
+            "unit_id": "f0babb8008381467",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Skills : perception : 2\nResistances :"
+          },
+          {
+            "unit_id": "629ccfe39f6294a3",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Senses : darkvision : 0"
+          },
+          {
+            "unit_id": "8be9a0e6cad3b77f",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Languages : Common"
+          },
+          {
+            "unit_id": "9d4c3812b2700110",
+            "unit_type": "prose",
+            "ordering_key": 7,
+            "text_preview": "Challenge Rating : 1/8 (25)"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 11,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 11,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 2,
+        "oversized_count": 0,
+        "undersized_ratio": 0.1818,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "826aa1ff263150fa",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "8be9a0e6cad3b77f",
+            "unit_type": "prose",
+            "char_count": 18,
+            "text_preview": "Languages : Common"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

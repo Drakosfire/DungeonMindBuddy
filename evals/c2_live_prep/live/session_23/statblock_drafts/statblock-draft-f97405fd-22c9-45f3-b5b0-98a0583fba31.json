@@ -1,0 +1,193 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "statblock-draft-f97405fd-22c9-45f3-b5b0-98a0583fba31",
+  "title": "Gatekisser",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "stored_at": "2026-06-13T20:43:39.304810Z",
+  "updated_at": "2026-06-13T20:43:41.335443Z",
+  "storage_path": "statblock_drafts/statblock-draft-f97405fd-22c9-45f3-b5b0-98a0583fba31.json",
+  "corpus_relpath": "Longmont Campaign/Campaign 2/Statblocks/generated/gatekisser.md",
+  "corpus_display_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/gatekisser.md",
+  "corpus_written_at": "2026-06-13T20:43:41.335443Z",
+  "corpus_preview_token": "9ea8b3609b954b849483a1eeb7125f3c",
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "statblock-draft-f97405fd-22c9-45f3-b5b0-98a0583fba31",
+    "draft_id": "draft-command-board-dogfood-1781383393759",
+    "title": "Gatekisser",
+    "markdown": "# Gatekisser\n*Medium aberration, chaotic neutral*\n\n**Armor Class** 16\n**Hit Points** 130 (20d8+40)\n**Speed** 30 ft., climb 30 ft.\n\n|STR|DEX|CON|INT|WIS|CHA|\n|---:|---:|---:|---:|---:|---:|\n|14 (+2)|14 (+2)|14 (+2)|10 (+0)|12 (+1)|16 (+3)|\n\n**Skills** stealth +5, deception +6, athletics +4\n**Damage Resistances** acid\n**Condition Immunities** frightened\n**Senses** darkvision 60 ft., passive Perception 11\n**Languages** Deep Speech, Common\n**Challenge** 5.0 (1,800 XP)\n\n## Actions\n**Rusting Grasp.** Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6+3) acid damage. Nonmagical metal armor or shield worn or carried by the target takes a permanent and cumulative -1 penalty to the AC it offers. The penalty worsens each time the Gatekisser hits with this attack. If the penalty drops to -5, the armor or shield is destroyed.\n**Kiss the Hinge.** The Gatekisser targets a metal object within 5 feet that is part of a door, manacle, shield, or gate. It kisses the object, dealing 14 (4d6) acid damage. If the object is reduced to 0 hit points by this damage, it is destroyed.\n**Borrowed Face.** The Gatekisser can use its action to assume the appearance of a missing civilian it has seen within the last 24 hours. This effect lasts for 1 minute or until the Gatekisser uses an action to revert to its true form. Any inspection reveals the illusion as false.\n\n## Reactions\n**Corrosive Sigh.** When the Gatekisser is reduced to 0 hit points within 10 feet of a metal object, it releases a corrosive sigh. All creatures within 10 feet must make a DC 13 Dexterity saving throw. On a failed save, a creature takes 10 (3d6) acid damage and nonmagical metal objects worn or carried by the creature take a permanent and cumulative -1 penalty to their AC. Objects are destroyed if their penalty reaches -5.\n\n## Description\nGatekissers are mysterious entities resembling child-sized, smooth-faced humanoids. Their unsettling presence comes with an uncanny ability to rot and destroy metal objects with their corrosive touch, making them ideal siege infiltrators. With an affectionate touch that belies their destructive nature, they can dissolve the toughest locks and hinges, leaving gates and defenses in ruins. Their unsettling nature is compounded by their ability to mimic the visage of vanished civilians, sowing confusion and fear. When slain, they release a final corrosive sigh that threatens to ruin the weapons and armor of those around them.",
+    "structured_statblock": {
+      "name": "Gatekisser",
+      "size": "Medium",
+      "type": "aberration",
+      "subtype": "humanoid",
+      "alignment": "chaotic neutral",
+      "armorClass": 16,
+      "hitPoints": 130,
+      "hitDice": "20d8+40",
+      "speed": {
+        "walk": 30,
+        "fly": null,
+        "swim": null,
+        "climb": 30,
+        "burrow": null
+      },
+      "abilities": {
+        "str": 14,
+        "dex": 14,
+        "con": 14,
+        "int": 10,
+        "wis": 12,
+        "cha": 16
+      },
+      "savingThrows": null,
+      "skills": {
+        "stealth": 5,
+        "deception": 6,
+        "athletics": 4
+      },
+      "damageResistance": "acid",
+      "damageImmunity": null,
+      "conditionImmunity": "frightened",
+      "damageVulnerability": null,
+      "senses": {
+        "darkvision": 60,
+        "blindsight": null,
+        "tremorsense": null,
+        "truesight": null,
+        "passive_perception": 11
+      },
+      "languages": "Deep Speech, Common",
+      "challengeRating": 5,
+      "xp": 1800,
+      "proficiencyBonus": 3,
+      "actions": [
+        {
+          "name": "Rusting Grasp",
+          "desc": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6+3) acid damage. Nonmagical metal armor or shield worn or carried by the target takes a permanent and cumulative -1 penalty to the AC it offers. The penalty worsens each time the Gatekisser hits with this attack. If the penalty drops to -5, the armor or shield is destroyed.",
+          "attack_bonus": 5,
+          "damage": "2d6+3",
+          "damage_type": "acid",
+          "range": "5 ft.",
+          "recharge": null
+        },
+        {
+          "name": "Kiss the Hinge",
+          "desc": "The Gatekisser targets a metal object within 5 feet that is part of a door, manacle, shield, or gate. It kisses the object, dealing 14 (4d6) acid damage. If the object is reduced to 0 hit points by this damage, it is destroyed.",
+          "attack_bonus": null,
+          "damage": "4d6",
+          "damage_type": "acid",
+          "range": "5 ft.",
+          "recharge": null
+        },
+        {
+          "name": "Borrowed Face",
+          "desc": "The Gatekisser can use its action to assume the appearance of a missing civilian it has seen within the last 24 hours. This effect lasts for 1 minute or until the Gatekisser uses an action to revert to its true form. Any inspection reveals the illusion as false.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": null,
+          "recharge": null
+        }
+      ],
+      "bonusActions": null,
+      "reactions": [
+        {
+          "name": "Corrosive Sigh",
+          "desc": "When the Gatekisser is reduced to 0 hit points within 10 feet of a metal object, it releases a corrosive sigh. All creatures within 10 feet must make a DC 13 Dexterity saving throw. On a failed save, a creature takes 10 (3d6) acid damage and nonmagical metal objects worn or carried by the creature take a permanent and cumulative -1 penalty to their AC. Objects are destroyed if their penalty reaches -5.",
+          "attack_bonus": null,
+          "damage": "3d6",
+          "damage_type": "acid",
+          "range": "10 ft.",
+          "recharge": null
+        }
+      ],
+      "specialAbilities": null,
+      "spells": null,
+      "legendaryActions": null,
+      "lairActions": null,
+      "description": "Gatekissers are mysterious entities resembling child-sized, smooth-faced humanoids. Their unsettling presence comes with an uncanny ability to rot and destroy metal objects with their corrosive touch, making them ideal siege infiltrators. With an affectionate touch that belies their destructive nature, they can dissolve the toughest locks and hinges, leaving gates and defenses in ruins. Their unsettling nature is compounded by their ability to mimic the visage of vanished civilians, sowing confusion and fear. When slain, they release a final corrosive sigh that threatens to ruin the weapons and armor of those around them.",
+      "sdPrompt": "A child-sized, smooth-faced humanoid with an eerie presence, the Gatekisser is a siege infiltrator that corrodes metal with its touch. Visualize it in a dark, mysterious setting, with metal locks and hinges dissolving at its touch. The creature's ability to mimic humans should be subtly hinted at in its expression or posture. Emphasize its otherworldly and unsettling nature.",
+      "projectId": null,
+      "createdAt": "2026-06-13T20:43:25.336661",
+      "lastModified": "2026-06-13T20:43:25.336670",
+      "tags": []
+    },
+    "combat_defaults": {
+      "name": "Gatekisser",
+      "armor_class": 16,
+      "hit_points": 130,
+      "initiative_bonus": 2,
+      "passive_perception": 11,
+      "speed_summary": "30 ft., climb 30 ft.",
+      "speed": null,
+      "senses_summary": "darkvision 60 ft., passive Perception 11",
+      "primary_actions": [
+        "Rusting Grasp",
+        "Kiss the Hinge",
+        "Borrowed Face"
+      ],
+      "suggested_tactics": [
+        "Open with Rusting Grasp when the target is in range.",
+        "Reserve reaction for Corrosive Sigh."
+      ],
+      "legendary_actions": null,
+      "save_dcs": [
+        13
+      ],
+      "condition_immunities": "frightened"
+    },
+    "warnings": [],
+    "provenance": {
+      "request_id": "command-board-dogfood-1781383393759",
+      "mode": "generate_from_prompt",
+      "generator": "StatBlockGenerator.generate_creature",
+      "generated_at": "2026-06-13T20:43:25.337131+00:00",
+      "source_refs": [],
+      "generation_info": {
+        "prompt_version": "1.0.0",
+        "model_used": "gpt-4o-2024-08-06",
+        "generation_time": "2026-06-13T20:43:25.336838",
+        "structured_outputs": true
+      },
+      "persistence_request": null,
+      "adapter_version": "0.1.0",
+      "persist_requested": false
+    },
+    "review_status": "needs_dm_review",
+    "lifecycle_state": "corpus_promoted",
+    "storage_status": "stored_draft",
+    "corpus_status": "promotion_confirmed",
+    "source_refs": [],
+    "breadcrumbs": [
+      {
+        "label": "surface:statblock_workbench",
+        "source": "live_control",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "source:http_provider",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "command:statblock.draft.generate",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-06-13T20:43:25.406390+00:00",
+    "updated_at": "2026-06-13T20:43:41.335443Z"
+  }
+}

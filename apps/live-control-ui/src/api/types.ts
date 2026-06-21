@@ -377,6 +377,8 @@ export interface ResolvedRollResponse {
 export type RecapIngestOperation =
   | "stage_preview"
   | "apply_normalize"
+  | "build_frontmatter_seed"
+  | "run_breadcrumb_ingest"
   | "materialize_session_memory"
   | "inspect_status";
 

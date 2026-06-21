@@ -1,0 +1,209 @@
+{
+  "question": "What is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-06T20:44:47Z",
+  "step_2_context_packet": {
+    "retrieval_query": "What is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?",
+    "effective_question": "What is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-ae6561c398",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 18,
+        "line_end": 18,
+        "text_excerpt": "**The Mireward Reach** is the drove-road and wheel-way that carries trade, troops, and rumor north from Mirathorn toward the fen country and the swamp frontier — past Outtown, waystations, and towns like Mossford that earn their living from distance. It is not one king’s highway; it is a braid of maintained crown span, patched county line, and mud tracks honest cartwrights swear by."
+      },
+      {
+        "evidence_id": "ev-715ed0dd86",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 18,
+        "line_end": 18,
+        "text_excerpt": "**Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road)."
+      },
+      {
+        "evidence_id": "ev-467d7b2cc4",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 82,
+        "line_end": 82,
+        "text_excerpt": "*Mireward is a pension town with a bell tower and a ferry — retired spears, stink-trades, and people who wanted sky instead of spires. The wall still stands; the patrols still ride; it’s just that the festival has the young guards in Mirathorn singing, one long patrol is still out on the fen rotation, and nobody alive remembers the last time the weird north really came for them. The road economy still looks fine from the apron. The haylofts tell a different story.*"
+      },
+      {
+        "evidence_id": "ev-89a7021d5c",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 71,
+        "line_end": 76,
+        "text_excerpt": "| | | |--|--| | **Work** | **Fuller’s Row**, second-generation; hands permanently stained; knows every refugee by **smell of their laundry**. | | **Politics** | **Annual mock reeve campaign** (“Merrow Ironveil — Reeve of Honest Air”) — one speech, one banner, zero votes, **maximum embarrassment**. | | **Toward Lysandra** | Fierce pride **weaponized as criticism**: *“Don’t you dare salute me, I’m your **mother**.”* Will **corner her in downwind lane** if party enters town. | | **Toward Mirathorn** | *“Spire noise.”* Blames **Commander Thalia** for “stealing her sensible child.” |"
+      },
+      {
+        "evidence_id": "ev-17aa141bab",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 65,
+        "line_end": 67,
+        "text_excerpt": "- *“Road’s open. Town’s full. I’m not opening for wagons till dawn unless you’re bleeding or useful — and my **daughter** doesn’t count as useful till she says hello to her **father**.”* - *“Write **foot only** — and if the axle folk want a miracle they can lift like the hymn says.”* - On rank: *“You look like you’ve been **eating rank** again.”*"
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?\n\nADMITTED EVIDENCE:\n[ev-ae6561c398]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nline_range: 18-18\nunit_id: None\nexcerpt: **The Mireward Reach** is the drove-road and wheel-way that carries trade, troops, and rumor north from Mirathorn toward the fen country and the swamp frontier — past Outtown, waystations, and towns like Mossford that earn their living from distance. It is not one king’s highway; it is a braid of maintained crown span, patched county line, and mud tracks honest cartwrights swear by.\n\n[ev-715ed0dd86]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nline_range: 18-18\nunit_id: None\nexcerpt: **Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road).\n\n[ev-467d7b2cc4]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nline_range: 82-82\nunit_id: None\nexcerpt: *Mireward is a pension town with a bell tower and a ferry — retired spears, stink-trades, and people who wanted sky instead of spires. The wall still stands; the patrols still ride; it’s just that the festival has the young guards in Mirathorn singing, one long patrol is still out on the fen rotation, and nobody alive remembers the last time the weird north really came for them. The road economy still looks fine from the apron. The haylofts tell a different story.*\n\n[ev-89a7021d5c]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 71-76\nunit_id: None\nexcerpt: | | | |--|--| | **Work** | **Fuller’s Row**, second-generation; hands permanently stained; knows every refugee by **smell of their laundry**. | | **Politics** | **Annual mock reeve campaign** (“Merrow Ironveil — Reeve of Honest Air”) — one speech, one banner, zero votes, **maximum embarrassment**. | | **Toward Lysandra** | Fierce pride **weaponized as criticism**: *“Don’t you dare salute me, I’m your **mother**.”* Will **corner her in downwind lane** if party enters town. | | **Toward Mirathorn** | *“Spire noise.”* Blames **Commander Thalia** for “stealing her sensible child.” |\n\n[ev-17aa141bab]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 65-67\nunit_id: None\nexcerpt: - *“Road’s open. Town’s full. I’m not opening for wagons till dawn unless you’re bleeding or useful — and my **daughter** doesn’t count as useful till she says hello to her **father**.”* - *“Write **foot only** — and if the axle folk want a miracle they can lift like the hymn says.”* - On rank: *“You look like you’ve been **eating rank** again.”*\n\n[ev-ffef0e03d9]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 19-20\nunit_id: None\nexcerpt: - Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23. - Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.\n\n[ev-821c6f7900]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 47-51\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Character reference (voice, psychology, how to run her in scenes). | | `lysandra_ironveil_mireward_history.md` | Mireward roots, Ironveil family cast, soapy timeline, gate/homecoming. | | `timeline.md` | Session-ordered beats for **this** campaign (curated from recaps + historical `Campaign 2 Notes.md` pulls). |\n\n[ev-c128048f5a]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"schema_version\": \"0.1.0\",   \"campaign_id\": \"longmont-c2\",   \"session\": 23,\n\n[ev-17e34f750a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nline_range: 24-31\nunit_id: None\nexcerpt: | d6 | Gate dilemma | |----|--------------| | 1 | **Help the queue: the axle line** · A refugee wagon breaks sideways in the mud and blocks the gate mouth while rain starts again. The party can help clear it, organize bystanders, wait, or demand the guards solve their own line. · Reveals Mireward’s garrison is not cruel, just short-handed; competent help earns quiet favor. | | 2 | **Help the queue: the chapel goats** · A family argues that their goats were promised chapel shelter, while the clerk insists animals go outside the wall. The party can mediate, use coin, use rank, or side with policy. · Reveals the town is already rationing mercy by category: people, animals, locals, outsiders. |\n\n[ev-9ac421a926]\nrole: live_event\nauthority: live_observation\npath: evals/c2_live_prep/live/session_23/event_log.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: {\"schema_version\":\"0.1.0\",\"id\":\"evt-recap-ingested-65078848865c\",\"created_at\":\"2026-05-30T21:27:01Z\",\"campaign_id\":\"longmont-c2\",\"session\":23,\"session_clock\":\"session-bootstrap\",\"event_type\":\"state_note\",\"event_origin\":\"server\",\"latency_mode\":null,\"summary\":\"Fresh recap ingested for Session 23 planning.\",\"derived_fields\":{\"command_type\":\"bootstrap_session_from_recap\",\"recap_path\":\"recap.md\",\"source_session\":22,\"planning_session\":23,\"candidate_open_loop_count\":4,\"candidate_planning_beat_count\":10},\"provenance\":{\"source_paths\":[{\"path\":\"recap.md\",\"role\":\"fresh_recap\",\"notes\":\"Source recap used to bootstrap planning session.\"}],\"generated_by\":\"session_bootstrap\",\"notes\":\"Deterministic PR90 boot\n\n[ev-94d0eac33d]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md\nline_range: 163-169\nunit_id: None\nexcerpt: | Sense | Southbound (where they've been) | Approaching Mireward | |-------|----------------------------------|---------------------| | **Sight** | Conical hills, pond crowns, wagon ruts, mirage spires (hot mud) | **Palisade + bell** on horizon; **smoke too much** for one town; refugee lines on berm | | **Sound** | Wind in grass; ditch crews; distant thunder without lightning | **Bell for Mirathorn festival** prayers; queue noise; **maybe** bass on wind (ambiguous — prep brief §6) | | **Smell** | Savory/shimmer rain (S21); horse sweat | **Downwind craft** before walls — lime, tannin, charcoal (§10 Bracken & Lime) | | **Touch** | Static in hair (storm inheritance); mud to the knee | Crowd pre\n\n[ev-85b3756c9a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nline_range: 35-37\nunit_id: None\nexcerpt: - **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap. - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain. - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.\n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "The next town on the Mireward Reach is **Mireward itself**: table canon says it is the “**next little town north**” on the road, about **five days** from the party’s conical-hill camp at the end of Session 21 [ev-715ed0dd86]. The road leading there is the **Mireward Reach**, a trade-and-travel route carrying “trade, troops, and rumor” north from Mirathorn toward the fen country and swamp frontier, with places like **Outtown**, waystations, and towns such as **Mossford** along the way [ev-ae6561c398].\n\nFor **Session 23 opening scenes**, the trade/economy hooks that matter most are:\n\n- **Road traffic and logistics:** the route is explicitly a trade road, so wagons, axle trouble, and freight pressure are natural opening beats [ev-ae6561c398].\n- **Town capacity vs. demand:** Mireward is described as a **pension town with a bell tower and a ferry**, with “retired spears,” “stink-trades,” and a road economy that “looks fine from the apron” but has strain in the haylofts [ev-467d7b2cc4].\n- **Gate/queue friction:** prep material for the gate scene highlights refugee wagons, rationing, and the town being “short-handed,” which makes **helping the queue**, **organizing bystanders**, or **negotiating with guards** strong opening actions [ev-17e34f750a].\n- **Downwind crafts and supply smells:** the approach to Mireward includes **lime, tannin, and charcoal** before the walls, which suggests active craft/supply work and a town economy tied to processing and hauling [ev-94d0eac33d].\n- **Authority and access:** Lysandro Ironveil’s gate line—“Road’s open. Town’s full”—sets up a scene where access, wagon priority, and who gets in first are part of the economy of the opening [ev-17aa141bab].\n\nPlanning suggestion: open Session 23 with a **gate-and-queue scene** that immediately shows Mireward’s trade economy under strain—wagons, refugees, ferry traffic, and downwind craft smells—then let the party choose between **helping throughput**, **bargaining for access**, or **following the detour offer** from the courier encounter noted in the recap [ev-ffef0e03d9][ev-17e34f750a][ev-94d0eac33d].",
+    "result": {
+      "answer": "The next town on the Mireward Reach is **Mireward itself**: table canon says it is the “**next little town north**” on the road, about **five days** from the party’s conical-hill camp at the end of Session 21 [ev-715ed0dd86]. The road leading there is the **Mireward Reach**, a trade-and-travel route carrying “trade, troops, and rumor” north from Mirathorn toward the fen country and swamp frontier, with places like **Outtown**, waystations, and towns such as **Mossford** along the way [ev-ae6561c398].\n\nFor **Session 23 opening scenes**, the trade/economy hooks that matter most are:\n\n- **Road traffic and logistics:** the route is explicitly a trade road, so wagons, axle trouble, and freight pressure are natural opening beats [ev-ae6561c398].\n- **Town capacity vs. demand:** Mireward is described as a **pension town with a bell tower and a ferry**, with “retired spears,” “stink-trades,” and a road economy that “looks fine from the apron” but has strain in the haylofts [ev-467d7b2cc4].\n- **Gate/queue friction:** prep material for the gate scene highlights refugee wagons, rationing, and the town being “short-handed,” which makes **helping the queue**, **organizing bystanders**, or **negotiating with guards** strong opening actions [ev-17e34f750a].\n- **Downwind crafts and supply smells:** the approach to Mireward includes **lime, tannin, and charcoal** before the walls, which suggests active craft/supply work and a town economy tied to processing and hauling [ev-94d0eac33d].\n- **Authority and access:** Lysandro Ironveil’s gate line—“Road’s open. Town’s full”—sets up a scene where access, wagon priority, and who gets in first are part of the economy of the opening [ev-17aa141bab].\n\nPlanning suggestion: open Session 23 with a **gate-and-queue scene** that immediately shows Mireward’s trade economy under strain—wagons, refugees, ferry traffic, and downwind craft smells—then let the party choose between **helping throughput**, **bargaining for access**, or **following the detour offer** from the courier encounter noted in the recap [ev-ffef0e03d9][ev-17e34f750a][ev-94d0eac33d].",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?\n\nADMITTED EVIDENCE:\n[ev-ae6561c398]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nline_range: 18-18\nunit_id: None\nexcerpt: **The Mireward Reach** is the drove-road and wheel-way that carries trade, troops, and rumor north from Mirathorn toward the fen country and the swamp frontier — past Outtown, waystations, and towns like Mossford that earn their living from distance. It is not one king’s highway; it is a braid of maintained crown span, patched county line, and mud tracks honest cartwrights swear by.\n\n[ev-715ed0dd86]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nline_range: 18-18\nunit_id: None\nexcerpt: **Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road).\n\n[ev-467d7b2cc4]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nline_range: 82-82\nunit_id: None\nexcerpt: *Mireward is a pension town with a bell tower and a ferry — retired spears, stink-trades, and people who wanted sky instead of spires. The wall still stands; the patrols still ride; it’s just that the festival has the young guards in Mirathorn singing, one long patrol is still out on the fen rotation, and nobody alive remembers the last time the weird north really came for them. The road economy still looks fine from the apron. The haylofts tell a different story.*\n\n[ev-89a7021d5c]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 71-76\nunit_id: None\nexcerpt: | | | |--|--| | **Work** | **Fuller’s Row**, second-generation; hands permanently stained; knows every refugee by **smell of their laundry**. | | **Politics** | **Annual mock reeve campaign** (“Merrow Ironveil — Reeve of Honest Air”) — one speech, one banner, zero votes, **maximum embarrassment**. | | **Toward Lysandra** | Fierce pride **weaponized as criticism**: *“Don’t you dare salute me, I’m your **mother**.”* Will **corner her in downwind lane** if party enters town. | | **Toward Mirathorn** | *“Spire noise.”* Blames **Commander Thalia** for “stealing her sensible child.” |\n\n[ev-17aa141bab]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 65-67\nunit_id: None\nexcerpt: - *“Road’s open. Town’s full. I’m not opening for wagons till dawn unless you’re bleeding or useful — and my **daughter** doesn’t count as useful till she says hello to her **father**.”* - *“Write **foot only** — and if the axle folk want a miracle they can lift like the hymn says.”* - On rank: *“You look like you’ve been **eating rank** again.”*\n\n[ev-ffef0e03d9]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 19-20\nunit_id: None\nexcerpt: - Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23. - Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.\n\n[ev-821c6f7900]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 47-51\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Character reference (voice, psychology, how to run her in scenes). | | `lysandra_ironveil_mireward_history.md` | Mireward roots, Ironveil family cast, soapy timeline, gate/homecoming. | | `timeline.md` | Session-ordered beats for **this** campaign (curated from recaps + historical `Campaign 2 Notes.md` pulls). |\n\n[ev-c128048f5a]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"schema_version\": \"0.1.0\",   \"campaign_id\": \"longmont-c2\",   \"session\": 23,\n\n[ev-17e34f750a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nline_range: 24-31\nunit_id: None\nexcerpt: | d6 | Gate dilemma | |----|--------------| | 1 | **Help the queue: the axle line** · A refugee wagon breaks sideways in the mud and blocks the gate mouth while rain starts again. The party can help clear it, organize bystanders, wait, or demand the guards solve their own line. · Reveals Mireward’s garrison is not cruel, just short-handed; competent help earns quiet favor. | | 2 | **Help the queue: the chapel goats** · A family argues that their goats were promised chapel shelter, while the clerk insists animals go outside the wall. The party can mediate, use coin, use rank, or side with policy. · Reveals the town is already rationing mercy by category: people, animals, locals, outsiders. |\n\n[ev-9ac421a926]\nrole: live_event\nauthority: live_observation\npath: evals/c2_live_prep/live/session_23/event_log.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: {\"schema_version\":\"0.1.0\",\"id\":\"evt-recap-ingested-65078848865c\",\"created_at\":\"2026-05-30T21:27:01Z\",\"campaign_id\":\"longmont-c2\",\"session\":23,\"session_clock\":\"session-bootstrap\",\"event_type\":\"state_note\",\"event_origin\":\"server\",\"latency_mode\":null,\"summary\":\"Fresh recap ingested for Session 23 planning.\",\"derived_fields\":{\"command_type\":\"bootstrap_session_from_recap\",\"recap_path\":\"recap.md\",\"source_session\":22,\"planning_session\":23,\"candidate_open_loop_count\":4,\"candidate_planning_beat_count\":10},\"provenance\":{\"source_paths\":[{\"path\":\"recap.md\",\"role\":\"fresh_recap\",\"notes\":\"Source recap used to bootstrap planning session.\"}],\"generated_by\":\"session_bootstrap\",\"notes\":\"Deterministic PR90 boot\n\n[ev-94d0eac33d]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md\nline_range: 163-169\nunit_id: None\nexcerpt: | Sense | Southbound (where they've been) | Approaching Mireward | |-------|----------------------------------|---------------------| | **Sight** | Conical hills, pond crowns, wagon ruts, mirage spires (hot mud) | **Palisade + bell** on horizon; **smoke too much** for one town; refugee lines on berm | | **Sound** | Wind in grass; ditch crews; distant thunder without lightning | **Bell for Mirathorn festival** prayers; queue noise; **maybe** bass on wind (ambiguous — prep brief §6) | | **Smell** | Savory/shimmer rain (S21); horse sweat | **Downwind craft** before walls — lime, tannin, charcoal (§10 Bracken & Lime) | | **Touch** | Static in hair (storm inheritance); mud to the knee | Crowd pre\n\n[ev-85b3756c9a]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nline_range: 35-37\nunit_id: None\nexcerpt: - **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap. - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain. - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.\n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-715ed0dd86",
+            "ev-ae6561c398",
+            "ev-467d7b2cc4",
+            "ev-17e34f750a",
+            "ev-94d0eac33d",
+            "ev-17aa141bab",
+            "ev-ffef0e03d9"
+          ],
+          "admitted_citation_ids": [
+            "ev-715ed0dd86",
+            "ev-ae6561c398",
+            "ev-467d7b2cc4",
+            "ev-17e34f750a",
+            "ev-94d0eac33d",
+            "ev-17aa141bab",
+            "ev-ffef0e03d9"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-715ed0dd86",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+          "line_start": 18,
+          "line_end": 18,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-ae6561c398",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+          "line_start": 18,
+          "line_end": 18,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-467d7b2cc4",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+          "line_start": 82,
+          "line_end": 82,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-17e34f750a",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+          "line_start": 24,
+          "line_end": 31,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-94d0eac33d",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+          "line_start": 163,
+          "line_end": 169,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-17aa141bab",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+          "line_start": 65,
+          "line_end": 67,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-ffef0e03d9",
+          "path": "evals/c2_live_prep/live/session_23/recap.md",
+          "line_start": 19,
+          "line_end": 20,
+          "source_role": "fresh_recap",
+          "authority": "pre_canonical_evidence"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-715ed0dd86",
+          "ev-ae6561c398",
+          "ev-467d7b2cc4",
+          "ev-17e34f750a",
+          "ev-94d0eac33d",
+          "ev-17aa141bab",
+          "ev-ffef0e03d9"
+        ],
+        "admitted_citation_ids": [
+          "ev-715ed0dd86",
+          "ev-ae6561c398",
+          "ev-467d7b2cc4",
+          "ev-17e34f750a",
+          "ev-94d0eac33d",
+          "ev-17aa141bab",
+          "ev-ffef0e03d9"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "The next town on the Mireward Reach is **Mireward itself**: table canon says it is the “**next little town north**” on the road, about **five days** from the party’s conical-hill camp at the end of Session 21 [ev-715ed0dd86]. The road leading there is the **Mireward Reach**, a trade-and-travel route carrying “trade, troops, and rumor” north from Mirathorn toward the fen country and swamp frontier, with places like **Outtown**, waystations, and towns such as **Mossford** along the way [ev-ae6561c398].\n\nFor **Session 23 opening scenes**, the trade/economy hooks that matter most are:\n\n- **Road traffic and logistics:** the route is explicitly a trade road, so wagons, axle trouble, and freight pressure are natural opening beats [ev-ae6561c398].\n- **Town capacity vs. demand:** Mireward is described as a **pension town with a bell tower and a ferry**, with “retired spears,” “stink-trades,” and a road economy that “looks fine from the apron” but has strain in the haylofts [ev-467d7b2cc4].\n- **Gate/queue friction:** prep material for the gate scene highlights refugee wagons, rationing, and the town being “short-handed,” which makes **helping the queue**, **organizing bystanders**, or **negotiating with guards** strong opening actions [ev-17e34f750a].\n- **Downwind crafts and supply smells:** the approach to Mireward includes **lime, tannin, and charcoal** before the walls, which suggests active craft/supply work and a town economy tied to processing and hauling [ev-94d0eac33d].\n- **Authority and access:** Lysandro Ironveil’s gate line—“Road’s open. Town’s full”—sets up a scene where access, wagon priority, and who gets in first are part of the economy of the opening [ev-17aa141bab].\n\nPlanning suggestion: open Session 23 with a **gate-and-queue scene** that immediately shows Mireward’s trade economy under strain—wagons, refugees, ferry traffic, and downwind craft smells—then let the party choose between **helping throughput**, **bargaining for access**, or **following the detour offer** from the courier encounter noted in the recap [ev-ffef0e03d9][ev-17e34f750a][ev-94d0eac33d]."
+    }
+  }
+}

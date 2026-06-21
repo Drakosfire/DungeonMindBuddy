@@ -1,0 +1,151 @@
+[
+  {
+    "label": "Flamekissed Brioche Golem_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Events/The Hearthbound Bake-Off/Flamekissed Brioche Golem.pdf",
+    "page": 0,
+    "elapsed_sec": 28.91,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 20,
+      "table_count": 1,
+      "content_hash": "842276e60b4a4c5ab79a1e0b97266e40b4983ed98f1452ee3aa9a696243ba810",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 1674,
+            "ast_content_chars": 1674,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 16,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 1,
+            "ast_table_count": 1,
+            "count_match": true,
+            "raw_row_counts": [
+              2
+            ],
+            "ast_row_counts": [
+              2
+            ],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 16,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 16,
+            "orphan_count": 5,
+            "orphan_rate": 0.3125,
+            "fail_threshold": 1.0,
+            "warn_threshold": 0.5,
+            "warned": false,
+            "orphans": [
+              {
+                "unit_id": "4d452e034f791165",
+                "unit_type": "prose",
+                "ordering_key": 0,
+                "text_preview": "Flamekissed Brioche Golem"
+              },
+              {
+                "unit_id": "49e8791d32b78382",
+                "unit_type": "prose",
+                "ordering_key": 1,
+                "text_preview": "Medium, Construct, Fae Animated, Neutral"
+              },
+              {
+                "unit_id": "98a26057fcf8a4c2",
+                "unit_type": "prose",
+                "ordering_key": 2,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "4b1406330f71b332",
+                "unit_type": "prose",
+                "ordering_key": 3,
+                "text_preview": "AT THE BASE OF THE PLATTER RESTS THE FLAMEKISSED BRIOCHE Golem, ITS DEEP AMBER C"
+              },
+              {
+                "unit_id": "156a910e416b57ee",
+                "unit_type": "prose",
+                "ordering_key": 4,
+                "text_preview": "Armor Class : 11\nHit Points: 22 Hit Dice : 4d8 + 4"
+              }
+            ]
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 16,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 1,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 16,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 2,
+            "oversized_count": 0,
+            "undersized_ratio": 0.125,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "98a26057fcf8a4c2",
+                "unit_type": "prose",
+                "char_count": 17,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "b30aaf2d3252b5b7",
+                "unit_type": "prose",
+                "char_count": 13,
+                "text_preview": "Resistances :"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

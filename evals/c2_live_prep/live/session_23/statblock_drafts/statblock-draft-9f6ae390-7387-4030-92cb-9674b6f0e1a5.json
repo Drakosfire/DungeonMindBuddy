@@ -1,0 +1,210 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "statblock-draft-9f6ae390-7387-4030-92cb-9674b6f0e1a5",
+  "title": "Palisade Gnawer",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "stored_at": "2026-06-13T18:18:02.616871Z",
+  "updated_at": "2026-06-13T19:50:44.826551Z",
+  "storage_path": "statblock_drafts/statblock-draft-9f6ae390-7387-4030-92cb-9674b6f0e1a5.json",
+  "corpus_relpath": "Longmont Campaign/Campaign 2/Statblocks/generated/palisade_gnawer.md",
+  "corpus_display_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/palisade_gnawer.md",
+  "corpus_written_at": "2026-06-13T19:50:44.826551Z",
+  "corpus_preview_token": "28f95997f14f5ec2d48b65f2b0917ded",
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "statblock-draft-9f6ae390-7387-4030-92cb-9674b6f0e1a5",
+    "draft_id": "draft-command-board-dogfood-1781374651593",
+    "title": "Palisade Gnawer",
+    "markdown": "# Palisade Gnawer\n*Large monstrosity, unaligned*\n\n**Armor Class** 16\n**Hit Points** 140 (15d10+60)\n**Speed** 30 ft., burrow 30 ft.\n\n|STR|DEX|CON|INT|WIS|CHA|\n|---:|---:|---:|---:|---:|---:|\n|21 (+5)|12 (+1)|18 (+4)|4 (-3)|12 (+1)|7 (-2)|\n\n**Skills** Perception +4, Athletics +7\n**Condition Immunities** charmed, frightened\n**Senses** darkvision 60 ft., passive Perception 14\n**Languages** understands Common but can't speak\n**Challenge** 5.0 (1,800 XP)\n\n## Traits\n**Rubble Stride.** The Palisade Gnawer can move through difficult terrain made of rubble without expending extra movement.\n\n## Actions\n**Multiattack.** The Palisade Gnawer makes two attacks: one with its Bite and one with its Skull Ram.\n**Bite.** Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 18 (3d8 + 5) piercing damage. If the target is a structure made of wood or stone, the damage is doubled.\n**Skull Ram.** Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) bludgeoning damage. If the target is a structure, the damage is doubled.\n**Foundation Gnaw.** The Palisade Gnawer deals double damage to wooden and stone structures with its Bite and Skull Ram attacks.\n**Splinter Spray (Recharge 5-6).** After damaging a barricade or structure, the Palisade Gnawer can expel sharp splinters from its teeth in a 30-foot cone. Each creature in that cone must make a DC 15 Dexterity saving throw, taking 27 (6d8) piercing damage on a failed save, or half as much damage on a successful one.\n\n## Description\nThe Palisade Gnawer is a terrifying fusion of beaver and rat, engineered for siege warfare with its thick, plated skull and teeth sharp enough to saw through stone. It is a relentless force of destruction, plowing through obstacles with brute strength and devastating structures with ease. Despite its size and power, it lacks intelligence and acts purely on instinct, driven by a primal urge to gnaw and destroy.",
+    "structured_statblock": {
+      "name": "Palisade Gnawer",
+      "size": "Large",
+      "type": "monstrosity",
+      "subtype": null,
+      "alignment": "unaligned",
+      "armorClass": 16,
+      "hitPoints": 140,
+      "hitDice": "15d10+60",
+      "speed": {
+        "walk": 30,
+        "fly": null,
+        "swim": null,
+        "climb": null,
+        "burrow": 30
+      },
+      "abilities": {
+        "str": 21,
+        "dex": 12,
+        "con": 18,
+        "int": 4,
+        "wis": 12,
+        "cha": 7
+      },
+      "savingThrows": null,
+      "skills": {
+        "Perception": 4,
+        "Athletics": 7
+      },
+      "damageResistance": null,
+      "damageImmunity": null,
+      "conditionImmunity": "charmed, frightened",
+      "damageVulnerability": null,
+      "senses": {
+        "darkvision": 60,
+        "blindsight": null,
+        "tremorsense": null,
+        "truesight": null,
+        "passive_perception": 14
+      },
+      "languages": "understands Common but can't speak",
+      "challengeRating": 5,
+      "xp": 1800,
+      "proficiencyBonus": 3,
+      "actions": [
+        {
+          "name": "Multiattack",
+          "desc": "The Palisade Gnawer makes two attacks: one with its Bite and one with its Skull Ram.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": null,
+          "recharge": null
+        },
+        {
+          "name": "Bite",
+          "desc": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 18 (3d8 + 5) piercing damage. If the target is a structure made of wood or stone, the damage is doubled.",
+          "attack_bonus": 7,
+          "damage": "3d8 + 5",
+          "damage_type": "piercing",
+          "range": "5 ft.",
+          "recharge": null
+        },
+        {
+          "name": "Skull Ram",
+          "desc": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) bludgeoning damage. If the target is a structure, the damage is doubled.",
+          "attack_bonus": 7,
+          "damage": "2d8 + 5",
+          "damage_type": "bludgeoning",
+          "range": "5 ft.",
+          "recharge": null
+        },
+        {
+          "name": "Foundation Gnaw",
+          "desc": "The Palisade Gnawer deals double damage to wooden and stone structures with its Bite and Skull Ram attacks.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": null,
+          "recharge": null
+        },
+        {
+          "name": "Splinter Spray (Recharge 5-6)",
+          "desc": "After damaging a barricade or structure, the Palisade Gnawer can expel sharp splinters from its teeth in a 30-foot cone. Each creature in that cone must make a DC 15 Dexterity saving throw, taking 27 (6d8) piercing damage on a failed save, or half as much damage on a successful one.",
+          "attack_bonus": null,
+          "damage": "6d8",
+          "damage_type": "piercing",
+          "range": "30 ft. cone",
+          "recharge": "5-6"
+        }
+      ],
+      "bonusActions": null,
+      "reactions": null,
+      "specialAbilities": [
+        {
+          "name": "Rubble Stride",
+          "desc": "The Palisade Gnawer can move through difficult terrain made of rubble without expending extra movement.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": null,
+          "recharge": null
+        }
+      ],
+      "spells": null,
+      "legendaryActions": null,
+      "lairActions": null,
+      "description": "The Palisade Gnawer is a terrifying fusion of beaver and rat, engineered for siege warfare with its thick, plated skull and teeth sharp enough to saw through stone. It is a relentless force of destruction, plowing through obstacles with brute strength and devastating structures with ease. Despite its size and power, it lacks intelligence and acts purely on instinct, driven by a primal urge to gnaw and destroy.",
+      "sdPrompt": "A monstrous creature resembling a gigantic beaver-rat hybrid, with a plated skull and teeth like stone saws. It has a robust, armored body built for burrowing and demolishing structures. The scene shows it amidst a ruined barricade, splinters flying as it chews through wood and stone.",
+      "projectId": null,
+      "createdAt": "2026-06-13T18:17:41.876037",
+      "lastModified": "2026-06-13T18:17:41.876046",
+      "tags": null
+    },
+    "combat_defaults": {
+      "name": "Palisade Gnawer",
+      "armor_class": 16,
+      "hit_points": 140,
+      "initiative_bonus": 1,
+      "passive_perception": 14,
+      "speed_summary": "30 ft., burrow 30 ft.",
+      "speed": null,
+      "senses_summary": "darkvision 60 ft., passive Perception 14",
+      "primary_actions": [
+        "Multiattack",
+        "Bite",
+        "Skull Ram",
+        "Foundation Gnaw"
+      ],
+      "suggested_tactics": [
+        "Open with Multiattack when the target is in range."
+      ],
+      "legendary_actions": null,
+      "save_dcs": [
+        15
+      ],
+      "condition_immunities": "charmed, frightened"
+    },
+    "warnings": [],
+    "provenance": {
+      "request_id": "command-board-dogfood-1781374651593",
+      "mode": "generate_from_prompt",
+      "generator": "StatBlockGenerator.generate_creature",
+      "generated_at": "2026-06-13T18:17:41.878082+00:00",
+      "source_refs": [],
+      "generation_info": {
+        "prompt_version": "1.0.0",
+        "model_used": "gpt-4o-2024-08-06",
+        "generation_time": "2026-06-13T18:17:41.877082",
+        "structured_outputs": true
+      },
+      "persistence_request": null,
+      "adapter_version": "0.1.0",
+      "persist_requested": false
+    },
+    "review_status": "needs_dm_review",
+    "lifecycle_state": "corpus_promoted",
+    "storage_status": "stored_draft",
+    "corpus_status": "promotion_confirmed",
+    "source_refs": [],
+    "breadcrumbs": [
+      {
+        "label": "surface:statblock_workbench",
+        "source": "live_control",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "source:http_provider",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "command:statblock.draft.generate",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-06-13T18:17:41.927714+00:00",
+    "updated_at": "2026-06-13T19:50:44.826551Z"
+  }
+}

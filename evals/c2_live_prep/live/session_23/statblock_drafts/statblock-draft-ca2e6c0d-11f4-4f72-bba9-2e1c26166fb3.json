@@ -1,0 +1,131 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "statblock-draft-ca2e6c0d-11f4-4f72-bba9-2e1c26166fb3",
+  "title": "Generated Obsidian Thornling",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "stored_at": "2026-06-12T20:30:39.660863Z",
+  "updated_at": "2026-06-12T21:27:54.305926Z",
+  "storage_path": "statblock_drafts/statblock-draft-ca2e6c0d-11f4-4f72-bba9-2e1c26166fb3.json",
+  "corpus_relpath": "Longmont Campaign/Campaign 2/Statblocks/generated/generated_obsidian_thornling.md",
+  "corpus_display_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/generated_obsidian_thornling.md",
+  "corpus_written_at": "2026-06-12T21:27:54.305926Z",
+  "corpus_preview_token": "a2bfffe528c49fda9ff1728c48f35fa6",
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "statblock-draft-ca2e6c0d-11f4-4f72-bba9-2e1c26166fb3",
+    "draft_id": "mock-generated-obsidian-thornling",
+    "title": "Generated Obsidian Thornling",
+    "markdown": "## Generated Obsidian Thornling\n*Small plant, unaligned*\n\n**Armor Class** 14 (glassy bark)\n**Hit Points** 45 (10d6 + 10)\n**Speed** 35 ft., climb 20 ft.\n\n### Actions\n**Splinter Thorn.** Ranged Weapon Attack: +6 to hit, one target.\n\n**Root Snare.** The thornling lashes obsidian roots around a creature.",
+    "structured_statblock": {
+      "name": "Generated Obsidian Thornling",
+      "size": "Small",
+      "type": "plant",
+      "challenge_rating": "2"
+    },
+    "combat_defaults": {
+      "name": "Generated Obsidian Thornling",
+      "armor_class": 14,
+      "hit_points": 45,
+      "initiative_bonus": 3,
+      "passive_perception": 12,
+      "speed_summary": "35 ft., climb 20 ft.",
+      "speed": null,
+      "senses_summary": "tremorsense 30 ft., passive Perception 12",
+      "primary_actions": [
+        "Splinter Thorn",
+        "Root Snare"
+      ],
+      "suggested_tactics": [
+        "Skirmish from bramble cover and retreat up ruined stone.",
+        "Use Root Snare to hold a target inside hazardous undergrowth."
+      ],
+      "legendary_actions": null
+    },
+    "warnings": [
+      {
+        "code": "generated_mock_needs_dm_review",
+        "message": "Review root restraint wording before table use.",
+        "severity": "warning",
+        "path": "actions.root_snare"
+      }
+    ],
+    "provenance": {
+      "request_id": "live-control-statblock-workbench-generate",
+      "mode": "generate_from_prompt",
+      "generator": "mock-statblock-generator",
+      "generated_at": "2026-06-09T00:00:00Z",
+      "source_refs": [
+        {
+          "id": "sample-source-obsidian-thornling",
+          "kind": "prompt_seed",
+          "label": "Obsidian thornling generated mock prompt",
+          "reason": "Mock generate provenance only; not read or written by endpoint.",
+          "source_type": null,
+          "source_id": null,
+          "title": null,
+          "uri": null,
+          "path": "workbench/mock/generate-prompt",
+          "page": null,
+          "excerpt": null,
+          "metadata": {}
+        }
+      ],
+      "generation_info": {
+        "generated": true,
+        "sample": true,
+        "provider": "MockStatBlockGeneratorProvider"
+      },
+      "persistence_request": null
+    },
+    "review_status": "needs_dm_review",
+    "lifecycle_state": "corpus_promoted",
+    "storage_status": "stored_draft",
+    "corpus_status": "promotion_confirmed",
+    "source_refs": [
+      {
+        "id": "sample-source-obsidian-thornling",
+        "kind": "prompt_seed",
+        "label": "Obsidian thornling generated mock prompt",
+        "reason": "Mock generate provenance only; not read or written by endpoint.",
+        "source_type": null,
+        "source_id": null,
+        "title": null,
+        "uri": null,
+        "path": "workbench/mock/generate-prompt",
+        "page": null,
+        "excerpt": null,
+        "metadata": {}
+      }
+    ],
+    "breadcrumbs": [
+      {
+        "label": "surface:statblock_workbench",
+        "source": "live_control",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "source:mock_provider",
+        "source": "mock_provider",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "command:statblock.draft.generate",
+        "source": "mock_provider",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-06-12T20:30:32.889472+00:00",
+    "updated_at": "2026-06-12T21:27:54.305926Z"
+  }
+}

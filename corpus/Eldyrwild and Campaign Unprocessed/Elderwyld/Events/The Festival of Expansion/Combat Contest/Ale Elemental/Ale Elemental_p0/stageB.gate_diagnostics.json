@@ -1,0 +1,117 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 13,
+      "orphan_count": 9,
+      "orphan_rate": 0.6923,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": true,
+      "orphans": [
+        {
+          "unit_id": "e66605eafb5ef470",
+          "unit_type": "prose",
+          "ordering_key": 0,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "d48143b436b08cf7",
+          "unit_type": "prose",
+          "ordering_key": 1,
+          "text_preview": "BORN FROM CENTURIES OF TAVERN REVELRY AND ERRANT MAGIC, THE ALE ELEMENTAL LURCHE"
+        },
+        {
+          "unit_id": "d9aa0339fddcbeb9",
+          "unit_type": "table",
+          "ordering_key": 2,
+          "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+        },
+        {
+          "unit_id": "50acf8bc30a88415",
+          "unit_type": "prose",
+          "ordering_key": 3,
+          "text_preview": "Saving Throws : str : 2, dex : 2, wis : 0"
+        },
+        {
+          "unit_id": "91aeaa51834ae203",
+          "unit_type": "prose",
+          "ordering_key": 4,
+          "text_preview": "Skills : perception : 2"
+        },
+        {
+          "unit_id": "19229f5116d37f53",
+          "unit_type": "prose",
+          "ordering_key": 5,
+          "text_preview": "Resistances :"
+        },
+        {
+          "unit_id": "bf1eba4e64b4108b",
+          "unit_type": "prose",
+          "ordering_key": 6,
+          "text_preview": "Senses : darkvision : 60"
+        },
+        {
+          "unit_id": "c47069553d276478",
+          "unit_type": "prose",
+          "ordering_key": 7,
+          "text_preview": "Languages : understands Common and Primordial but can't speak"
+        },
+        {
+          "unit_id": "0e01570cef4f2757",
+          "unit_type": "prose",
+          "ordering_key": 8,
+          "text_preview": "Challenge Rating : 4 (1100)"
+        }
+      ]
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 13,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 1,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 13,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 2,
+      "oversized_count": 0,
+      "undersized_ratio": 0.1538,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "e66605eafb5ef470",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "19229f5116d37f53",
+          "unit_type": "prose",
+          "char_count": 13,
+          "text_preview": "Resistances :"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

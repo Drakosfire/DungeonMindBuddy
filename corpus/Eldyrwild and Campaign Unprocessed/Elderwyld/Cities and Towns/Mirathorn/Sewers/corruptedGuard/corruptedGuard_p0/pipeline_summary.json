@@ -1,0 +1,460 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 19,
+    "table_count": 1,
+    "content_hash": "553d2e667995292402df1c069fad09350a1c9ce6ec78755c88876c5492fa7723",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 803,
+          "ast_content_chars": 803,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 17,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "e118a4151ebcd38d0d23bf39804654effb3dbb1731ba3fcdfc64a884a2784789",
+        "unit_type": "prose",
+        "text": "CORRUPTED GUARD",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "f1edc5206421ed8870afb2b776d47a1ae70b35bb977416ba935e355308727356",
+        "source_line_start": 1,
+        "source_line_end": 2,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "157cbbbabcb5d409d807b44b19b8e1ea1ceb42d2109fd3e5642c59c0002b8797",
+        "unit_type": "prose",
+        "text": "Medium, humanoid, neutral evil",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "778ab8df469fbc47856ac06e45f27ecd320f5160cb0f34e8d73ccbd33a5dbbd1",
+        "source_line_start": 4,
+        "source_line_end": 5,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "7df599ef3c813b42cc1d8aa0d8c14c4c6a0282106aad9488e54d427cc316d09f",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 6,
+        "source_line_end": 7,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "80fb27d5d64ef1861611c2ed7782f5f9f9d5474637fb3a57976f3354d0480c9a",
+        "unit_type": "prose",
+        "text": "ONCE PROUD DEFENDERS OF THE REALM, THESE GUARDS HAVE SUCCUMBED TO A CREEPING CORRUPTION THAT'S WARPED THEIR MINDS AND BODIES. THEIR ARMOR AND WEAPONS BEAR DARK, OILY STAINS, AND THEIR EYES FLICK WITH A SINISTER GLEAM. THEIR CORRUPTION MAKES THEM STRONGER AND MORE AGGRESSIVE THAN ORDINARY SOLDIERS, BUT ALSO CHAINS THEM TO A MALEVOLENT FORCE LURKING BEHIND THEIR FALL FROM GRACE.",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "27f9be593a8d9ab4e9ca650bb207aa4339cf39e9eacc3973a9649fbf1126c63a",
+        "source_line_start": 11,
+        "source_line_end": 12,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a405e18efdaf524e893e9c35ba5e667992eb746dc79267b98680fadde089f4ef",
+        "unit_type": "prose",
+        "text": "Armor Class : 12",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "3a84aafaba3352b0cd38e471ba1a1310ce00517372fca5b655bb31d7e524b322",
+        "source_line_start": 14,
+        "source_line_end": 15,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b05b93a79f6c310d8a2af2471ac8d7b5aeb76b89c0d7e2a71696357a8d343133",
+        "unit_type": "prose",
+        "text": "Hit Points: 16 Hit Dice : 3d8+3",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "e5cc879ada2d900279dcbfcf32fd4dba340f3bdc9871cc0d981a2f674e229d0d",
+        "source_line_start": 17,
+        "source_line_end": 18,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "c127b026dd96e5998e485d41a480557a2d32e3630d42f0537de7135424f7a94a",
+        "unit_type": "prose",
+        "text": "Speed: walk : 30",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "89f41614537fa49a1e5dd2cddaeb49e440aa67fdbd8427fa8f519ce45606045c",
+        "source_line_start": 20,
+        "source_line_end": 21,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "7038b069b5c8fb3ff4667b49b78bca5a9da3b63f7de95d6279fdef3cff4390fd",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>10</td><td>12</td><td>8</td><td>10</td><td>9</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "3d000ccbd40f7f3249a0b80fcf9110107468dc5dbb93b8a60819ecdb514a2893",
+        "source_line_start": 23,
+        "source_line_end": 24,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a8a4ba684d13995330930856e67f934e1fac38b4208b288ee9d68efa6b15cc15",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 4, dex : 1, wis : 2",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "da8796e8ca5e0ccdb089a14ed577d4d67ad5a44dcf8cb423d5128bc0fa31ff21",
+        "source_line_start": 26,
+        "source_line_end": 27,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "617421567e592bba18955694a0d6a81b86443f44d9b8562539163659661d5716",
+        "unit_type": "prose",
+        "text": "Skills : perception : 2",
+        "structural_path": [],
+        "ordering_key": 9,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "3e35eb81ceea5dd1b00c73ee47b8803af0669dd502137ccaf60476e4f68b6eec",
+        "source_line_start": 29,
+        "source_line_end": 30,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "711737cbf2647408a2650797219f65d04e630bc59bc1871026528534e0ea37d5",
+        "unit_type": "prose",
+        "text": "Resistances :",
+        "structural_path": [],
+        "ordering_key": 10,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+        "source_line_start": 32,
+        "source_line_end": 33,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "de4bf9624060a1f57a59f7d60fee63c67b2452c7fb9bb01bff68e02fb8bb22f7",
+        "unit_type": "prose",
+        "text": "Senses : darkvision : 60",
+        "structural_path": [],
+        "ordering_key": 11,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+        "source_line_start": 35,
+        "source_line_end": 36,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b6c1cc813980a89f2aa398ba0b720f270eda9f2f6f16ecd8d36a379cbdda4948",
+        "unit_type": "prose",
+        "text": "Languages : Common",
+        "structural_path": [],
+        "ordering_key": 12,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "25e4b8c5fbf535b96aafd2a562ab7e951c499fd2691012627a80fd03e5ecc0c9",
+        "source_line_start": 38,
+        "source_line_end": 39,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "50a28c5cd1fca6657a87e2c941be8233c31b474743258e31f78f8aae3904e5f2",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 1 (200)",
+        "structural_path": [],
+        "ordering_key": 13,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "c05a417b323c7357220ce9985009265df64584fc65ea3c891512b3316557b81f",
+        "source_line_start": 41,
+        "source_line_end": 42,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "15a53a4cb06d56feb0cb2abc9136e69cc14502187841d150ae588c0e7da35546",
+        "unit_type": "prose",
+        "text": "ACTIONS — Multiattack : 'The Corrupted Guard makes two melee attacks.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 14,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "5d5b2d97a1d436b6f084fa19b8cca584e0fc6c8dc61a0b969dc23799716fcc4f",
+        "source_line_start": 44,
+        "source_line_end": 48,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ef6081d34aea30cb25a0a59529b3cc3fce103ea3e777e7d84d21b93383e559bb",
+        "unit_type": "prose",
+        "text": "Longsword : 'Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 6 (1d8+2) slashing damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 15,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "cd62eb3aef51f9ef785fd062ecdc7cc425174636a4deb25af682b4032e8a7b21",
+        "source_line_start": 50,
+        "source_line_end": 51,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a4823a144f1c81b2f61b92b234b970781bf9f2cbf26a6880935e64cc5d79f69e",
+        "unit_type": "prose",
+        "text": "Spear : 'Melee or Ranged Weapon Attack: +3 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d6+2) piercing damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 16,
+        "page_fingerprint": "378419e2486d2dc7212e4cc2c18930ca9d671f768e55f936b24ff513dd65bdba",
+        "content_hash": "3ee7535c4debdfc92edcdef24aff538eb4380fa1291907e5d7bef9badabd686b",
+        "source_line_start": 53,
+        "source_line_end": 54,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "orphan_count": 14,
+          "orphan_rate": 0.8235,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": true,
+          "orphans": [
+            {
+              "unit_id": "e118a4151ebcd38d",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "CORRUPTED GUARD"
+            },
+            {
+              "unit_id": "157cbbbabcb5d409",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "Medium, humanoid, neutral evil"
+            },
+            {
+              "unit_id": "7df599ef3c813b42",
+              "unit_type": "prose",
+              "ordering_key": 2,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "80fb27d5d64ef186",
+              "unit_type": "prose",
+              "ordering_key": 3,
+              "text_preview": "ONCE PROUD DEFENDERS OF THE REALM, THESE GUARDS HAVE SUCCUMBED TO A CREEPING COR"
+            },
+            {
+              "unit_id": "a405e18efdaf524e",
+              "unit_type": "prose",
+              "ordering_key": 4,
+              "text_preview": "Armor Class : 12"
+            },
+            {
+              "unit_id": "b05b93a79f6c310d",
+              "unit_type": "prose",
+              "ordering_key": 5,
+              "text_preview": "Hit Points: 16 Hit Dice : 3d8+3"
+            },
+            {
+              "unit_id": "c127b026dd96e599",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Speed: walk : 30"
+            },
+            {
+              "unit_id": "7038b069b5c8fb3f",
+              "unit_type": "table",
+              "ordering_key": 7,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "a8a4ba684d139953",
+              "unit_type": "prose",
+              "ordering_key": 8,
+              "text_preview": "Saving Throws : str : 4, dex : 1, wis : 2"
+            },
+            {
+              "unit_id": "617421567e592bba",
+              "unit_type": "prose",
+              "ordering_key": 9,
+              "text_preview": "Skills : perception : 2"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 6,
+          "oversized_count": 0,
+          "undersized_ratio": 0.3529,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "e118a4151ebcd38d",
+              "unit_type": "prose",
+              "char_count": 15,
+              "text_preview": "CORRUPTED GUARD"
+            },
+            {
+              "unit_id": "7df599ef3c813b42",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "a405e18efdaf524e",
+              "unit_type": "prose",
+              "char_count": 16,
+              "text_preview": "Armor Class : 12"
+            },
+            {
+              "unit_id": "c127b026dd96e599",
+              "unit_type": "prose",
+              "char_count": 16,
+              "text_preview": "Speed: walk : 30"
+            },
+            {
+              "unit_id": "711737cbf2647408",
+              "unit_type": "prose",
+              "char_count": 13,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "b6c1cc813980a89f",
+              "unit_type": "prose",
+              "char_count": 18,
+              "text_preview": "Languages : Common"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

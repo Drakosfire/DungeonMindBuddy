@@ -4,11 +4,32 @@
   "session": 23,
   "packet_id": "longmont-c2-session-23-live-packet",
   "created_at": "2026-05-30T21:27:01Z",
+  "refreshed_at": "2026-06-20T16:41:00Z",
   "source_paths": [
     {
       "path": "recap.md",
       "role": "fresh_recap",
       "notes": "Bootstrapped from /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c2_live_prep/live/session_23/recap.md"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "role": "canon_play",
+      "notes": "Canonical Session 23 recap: north-gate arrival, Edge refugees, first meat-flank combat."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - Mireward Gate Battle.records_meta.jsonl",
+      "role": "derived_memory",
+      "notes": "Materialized Session 23 memory, checked 2026-06-20: 82 records, 77 with routes."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+      "role": "location_hub",
+      "notes": "Table-facing canonical display name is Mireward Reach; stable corpus route remains Mireward/."
+    },
+    {
+      "path": "evals/c2_live_prep/live/session_23/combat/current_combat.json",
+      "role": "active_combat_state",
+      "notes": "North Reach Gate Combat is in round 2, active turn Caelynn."
     }
   ],
   "latency_modes": [
@@ -18,64 +39,88 @@
     "post_session"
   ],
   "planning_manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
-  "known_roll_tables": [],
+  "known_roll_tables": [
+    {
+      "id": "mireward-reach-respite-events-d8",
+      "title": "Mireward Reach respite events d8",
+      "source_path": "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md"
+    },
+    {
+      "id": "second-wave-warning-signs-d6",
+      "title": "Second wave warning signs d6",
+      "source_path": "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md"
+    }
+  ],
   "current_state_seed": {
     "day_label": "Session 23",
-    "party_position": "From recap bootstrap",
-    "route_intent": "Review recap and prepare next session",
+    "party_position": "Mireward Reach north wall / north gate",
+    "route_intent": "End the current meat-flank combat, let the town breathe, then hit the walls with a second breach wave.",
     "active_weather": null,
-    "next_suggested_beat": "Silver Raven comms pressure"
+    "next_suggested_beat": "Resolve Caelynn's lightning-bolt moment, then move into first-wave cleanup and named NPC triage."
   },
   "open_loops": [
     {
-      "loop_id": "the-table-should-decide-who-carries-the-next-out",
-      "title": "The table should decide who carries the next outbound message before the march d",
+      "loop_id": "first-wave-combat-end-state",
+      "title": "First wave combat needs a satisfying end state without ending the siege.",
       "status": "open",
-      "summary": "- The table should decide who carries the next outbound message before the march day ends.",
+      "summary": "Use the current combat to show the first meat flank can be beaten back, but not that Mireward Reach is safe.",
       "source_paths": [
         {
-          "path": "recap.md",
-          "role": "fresh_recap",
-          "notes": "- The table should decide who carries the next outbound message before the march day ends."
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - Mireward Gate Battle.records_meta.jsonl",
+          "role": "derived_memory",
+          "notes": "Session 23 combat is mid-fight after Caelynn's lightning bolt."
         }
       ]
     },
     {
-      "loop_id": "storm-fronts-made-the-first-march-day-tense-we-n",
-      "title": "Storm fronts made the first march day tense; we need to plan the next weather ro",
+      "loop_id": "respite-npc-surface",
+      "title": "Mireward Reach NPCs need to surface during the respite.",
       "status": "open",
-      "summary": "- Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23.",
+      "summary": "Salla, Orric, Nera, Lysandro, Brin, Delwen, Maera, and Orin each own one pressure the party can choose to answer.",
       "source_paths": [
         {
-          "path": "recap.md",
-          "role": "fresh_recap",
-          "notes": "- Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23."
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+          "role": "location_hub",
+          "notes": "Suggested reads list the current NPC hubs."
         }
       ]
     },
     {
-      "loop_id": "hester-mull-appeared-as-a-courier-encounter-unre",
-      "title": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts",
+      "loop_id": "second-wave-breach-clock",
+      "title": "Second wave should be a wall-tearing breach event.",
       "status": "open",
-      "summary": "- Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.",
+      "summary": "Latch-Harrow is the visible siege breaker; Palisade Gnawer / burrowing beasties create the underground surprise; Gatekisser or glassy civilians create hinge panic.",
       "source_paths": [
         {
-          "path": "recap.md",
-          "role": "fresh_recap",
-          "notes": "- Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer."
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+          "role": "statblock",
+          "notes": "Later-wave siege breaker / breach-clock monster."
         }
       ]
     },
     {
-      "loop_id": "grobnok-promised-evening-contact-again-this-thre",
-      "title": "Grobnok promised evening contact again. This thread is still open and should fol",
+      "loop_id": "mireward-reach-name-canon",
+      "title": "Use Mireward Reach as the table-facing canonical settlement name.",
       "status": "open",
-      "summary": "Grobnok promised evening contact again. This thread is still open and should follow into next session prep.",
+      "summary": "Keep existing corpus paths stable under Mireward/ for now, but say Mireward Reach at the table and in new prep.",
       "source_paths": [
         {
-          "path": "recap.md",
-          "role": "fresh_recap",
-          "notes": "Grobnok promised evening contact again. This thread is still open and should follow into next session prep."
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+          "role": "location_hub",
+          "notes": "Display-name canon updated 2026-06-20."
+        }
+      ]
+    },
+    {
+      "loop_id": "post-battle-respite-length",
+      "title": "Choose how long the respite lasts before the second wave.",
+      "status": "open",
+      "summary": "The respite should feel like enough time to make commitments, not enough time to solve the siege.",
+      "source_paths": [
+        {
+          "path": "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+          "role": "live_runbook",
+          "notes": "Contains the current event tables and second-wave trigger menu."
         }
       ]
     }
@@ -83,84 +128,36 @@
   "roll_stack": [],
   "planning_beats": [
     {
-      "beat_id": "silver-raven-comms-pressure",
-      "label": "Silver Raven comms pressure",
-      "summary": "Silver Raven comms pressure",
+      "beat_id": "first-wave-cleanup",
+      "label": "First-wave cleanup",
+      "summary": "Resolve the active north-gate combat after Caelynn's lightning bolt; the monsters can break, retreat, or be cut down, but the wall remains under siege pressure.",
       "time_hint": null,
       "status": "projected",
-      "table_ready_prompt": "What should the table resolve for Silver Raven comms pressure?"
+      "table_ready_prompt": "What visible cost or rescue marks the end of the first wave?"
     },
     {
-      "beat_id": "captain-lysandra-ironveil-still-owes-a-reply-on-",
-      "label": "Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread",
-      "summary": "Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread.",
-      "time_hint": "Silver Raven comms pressure",
+      "beat_id": "respite-triage",
+      "label": "Respite triage",
+      "summary": "Named Mireward Reach NPCs ask for help: Salla counts, Orric manages panic, Nera braces walls, Lysandro mobilizes neighbors, Brin protects refugees.",
+      "time_hint": "after first wave",
       "status": "projected",
-      "table_ready_prompt": "Review prep for: Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread."
+      "table_ready_prompt": "Which NPC pressure do the players answer before the second wave?"
     },
     {
-      "beat_id": "the-table-should-decide-who-carries-the-next-out",
-      "label": "The table should decide who carries the next outbound message before the march d",
-      "summary": "The table should decide who carries the next outbound message before the march day ends.",
-      "time_hint": "Silver Raven comms pressure",
+      "beat_id": "second-wave-warning",
+      "label": "Second-wave warning",
+      "summary": "The ground and walls announce a heavier horror before the players see it: burrows, hinge rot, wrong quiet, and a Latch-Harrow silhouette.",
+      "time_hint": "end of respite",
       "status": "projected",
-      "table_ready_prompt": "Review prep for: The table should decide who carries the next outbound message before the march day ends."
+      "table_ready_prompt": "Which warning sign tells the table the respite is over?"
     },
     {
-      "beat_id": "road-and-weather-beats",
-      "label": "Road and weather beats",
-      "summary": "Road and weather beats",
+      "beat_id": "second-wave-breach",
+      "label": "Second-wave breach",
+      "summary": "Run a visible Breach Clock: Latch-Harrow attacks the wall/gate, Palisade Gnawer or burrowers attack foundations, and civilians become tactical stakes.",
       "time_hint": null,
       "status": "projected",
-      "table_ready_prompt": "What should the table resolve for Road and weather beats?"
-    },
-    {
-      "beat_id": "storm-fronts-made-the-first-march-day-tense-we-n",
-      "label": "Storm fronts made the first march day tense; we need to plan the next weather ro",
-      "summary": "Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23.",
-      "time_hint": "Road and weather beats",
-      "status": "projected",
-      "table_ready_prompt": "Review prep for: Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session "
-    },
-    {
-      "beat_id": "hester-mull-appeared-as-a-courier-encounter-unre",
-      "label": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts",
-      "summary": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.",
-      "time_hint": "Road and weather beats",
-      "status": "projected",
-      "table_ready_prompt": "Review prep for: Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer."
-    },
-    {
-      "beat_id": "grobnok-callback",
-      "label": "Grobnok callback",
-      "summary": "Grobnok callback",
-      "time_hint": null,
-      "status": "projected",
-      "table_ready_prompt": "What should the table resolve for Grobnok callback?"
-    },
-    {
-      "beat_id": "mireward-gate-planning",
-      "label": "Mireward gate planning",
-      "summary": "Mireward gate planning",
-      "time_hint": null,
-      "status": "projected",
-      "table_ready_prompt": "What should the table resolve for Mireward gate planning?"
-    },
-    {
-      "beat_id": "review-gate-arrival-framing-and-lysandra-reveal-",
-      "label": "Review gate arrival framing and Lysandra reveal timing for the opening beat.",
-      "summary": "Review gate arrival framing and Lysandra reveal timing for the opening beat.",
-      "time_hint": "Mireward gate planning",
-      "status": "projected",
-      "table_ready_prompt": "Review prep for: Review gate arrival framing and Lysandra reveal timing for the opening beat."
-    },
-    {
-      "beat_id": "plan-whether-the-gate-dilemma-table-is-the-first",
-      "label": "Plan whether the gate dilemma table is the first roll at the apron.",
-      "summary": "Plan whether the gate dilemma table is the first roll at the apron.",
-      "time_hint": "Mireward gate planning",
-      "status": "projected",
-      "table_ready_prompt": "Review prep for: Plan whether the gate dilemma table is the first roll at the apron."
+      "table_ready_prompt": "Do the players defend the gate, the foundations, the civilians, or the cure line first?"
     }
   ],
   "surface_catalog": [

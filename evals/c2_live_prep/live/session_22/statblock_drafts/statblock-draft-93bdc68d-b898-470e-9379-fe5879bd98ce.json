@@ -1,0 +1,190 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "statblock-draft-93bdc68d-b898-470e-9379-fe5879bd98ce",
+  "title": "Under-Hymn Brood",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "stored_at": "2026-06-20T16:51:56.669058Z",
+  "updated_at": "2026-06-20T16:52:57.991022Z",
+  "storage_path": "statblock_drafts/statblock-draft-93bdc68d-b898-470e-9379-fe5879bd98ce.json",
+  "corpus_relpath": "Longmont Campaign/Campaign 2/Statblocks/generated/under_hymn_brood.md",
+  "corpus_display_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/under_hymn_brood.md",
+  "corpus_written_at": "2026-06-20T16:52:57.991022Z",
+  "corpus_preview_token": "84c19acae15a5c08646ea14c8033b8da",
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "statblock-draft-93bdc68d-b898-470e-9379-fe5879bd98ce",
+    "draft_id": "draft-command-board-dogfood-1781974176889",
+    "title": "Under-Hymn Brood",
+    "markdown": "# Under-Hymn Brood\n*Small aberration, unaligned*\n\n**Armor Class** 14\n**Hit Points** 110 (13d6+52)\n**Speed** 20 ft., burrow 30 ft.\n\n|STR|DEX|CON|INT|WIS|CHA|\n|---:|---:|---:|---:|---:|---:|\n|12 (+1)|18 (+4)|18 (+4)|2 (-4)|11 (+0)|6 (-2)|\n\n**Skills** stealth +7\n**Damage Resistances** nonmagical bludgeoning, piercing, and slashing\n**Damage Immunities** psychic\n**Condition Immunities** charmed, frightened, prone\n**Senses** darkvision 60 ft., blindsight 30 ft., tremorsense 60 ft., passive Perception 10\n**Languages** understands Deep Speech but can't speak\n**Challenge** 5.0 (1,800 XP)\n\n## Traits\n**Earth Meld.** The Brood can move through nonmagical, unworked earth and stone as if it were difficult terrain. It leaves no tunnel or sign of its passage.\n\n## Actions\n**Bite.** Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (3d6 + 4) piercing damage.\n**Tunneling Swarm.** The Brood burrows at an incredible pace, creating difficult terrain in a 20-foot radius centered on itself. Structures within this area take 10 damage at the start of each of the Brood's turns.\n**Shepherd's Hymn.** The Brood emits a low hum that reverberates through solid objects. Each creature within 30 feet that can hear the hum must succeed on a DC 15 Constitution saving throw or be deafened for 1 minute.\n\n## Description\nThe Under-Hymn Brood is a swarm of small aberrant creatures that undermine fortifications and structures. They operate as a single-minded entity, digesting the foundation of walls and barricades rather than directly attacking defenders. Their presence is marked by the unsettling sound of their humming chorus and the ground shifting beneath feet.",
+    "structured_statblock": {
+      "name": "Under-Hymn Brood",
+      "size": "Small",
+      "type": "aberration",
+      "subtype": null,
+      "alignment": "unaligned",
+      "armorClass": 14,
+      "hitPoints": 110,
+      "hitDice": "13d6+52",
+      "speed": {
+        "walk": 20,
+        "fly": null,
+        "swim": null,
+        "climb": null,
+        "burrow": 30
+      },
+      "abilities": {
+        "str": 12,
+        "dex": 18,
+        "con": 18,
+        "int": 2,
+        "wis": 11,
+        "cha": 6
+      },
+      "savingThrows": null,
+      "skills": {
+        "stealth": 7
+      },
+      "damageResistance": "nonmagical bludgeoning, piercing, and slashing",
+      "damageImmunity": "psychic",
+      "conditionImmunity": "charmed, frightened, prone",
+      "damageVulnerability": null,
+      "senses": {
+        "darkvision": 60,
+        "blindsight": 30,
+        "tremorsense": 60,
+        "truesight": null,
+        "passive_perception": 10
+      },
+      "languages": "understands Deep Speech but can't speak",
+      "challengeRating": 5,
+      "xp": 1800,
+      "proficiencyBonus": 3,
+      "actions": [
+        {
+          "name": "Bite",
+          "desc": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (3d6 + 4) piercing damage.",
+          "attack_bonus": 7,
+          "damage": "3d6 + 4",
+          "damage_type": "piercing",
+          "range": "5 ft.",
+          "recharge": null
+        },
+        {
+          "name": "Tunneling Swarm",
+          "desc": "The Brood burrows at an incredible pace, creating difficult terrain in a 20-foot radius centered on itself. Structures within this area take 10 damage at the start of each of the Brood's turns.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": "20 ft. radius",
+          "recharge": null
+        },
+        {
+          "name": "Shepherd's Hymn",
+          "desc": "The Brood emits a low hum that reverberates through solid objects. Each creature within 30 feet that can hear the hum must succeed on a DC 15 Constitution saving throw or be deafened for 1 minute.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": "30 ft.",
+          "recharge": "Recharge 5-6"
+        }
+      ],
+      "bonusActions": null,
+      "reactions": null,
+      "specialAbilities": [
+        {
+          "name": "Earth Meld",
+          "desc": "The Brood can move through nonmagical, unworked earth and stone as if it were difficult terrain. It leaves no tunnel or sign of its passage.",
+          "attack_bonus": null,
+          "damage": null,
+          "damage_type": null,
+          "range": null,
+          "recharge": null
+        }
+      ],
+      "spells": null,
+      "legendaryActions": null,
+      "lairActions": null,
+      "description": "The Under-Hymn Brood is a swarm of small aberrant creatures that undermine fortifications and structures. They operate as a single-minded entity, digesting the foundation of walls and barricades rather than directly attacking defenders. Their presence is marked by the unsettling sound of their humming chorus and the ground shifting beneath feet.",
+      "sdPrompt": "A swarm of small, pale, knuckled creatures with slick corded tissue and chitinous tooth-plates, burrowing through the earth. They have shovel-shaped skulls and tiny hooked limbs. The scene is set in a muddy battlefield, with the creatures emerging around structures and defenders, creating chaos.",
+      "projectId": null,
+      "createdAt": "2026-06-20T16:49:49.036227",
+      "lastModified": "2026-06-20T16:49:49.036240",
+      "tags": null
+    },
+    "combat_defaults": {
+      "name": "Under-Hymn Brood",
+      "armor_class": 14,
+      "hit_points": 110,
+      "initiative_bonus": 4,
+      "passive_perception": 10,
+      "speed_summary": "20 ft., burrow 30 ft.",
+      "speed": null,
+      "senses_summary": "darkvision 60 ft., blindsight 30 ft., tremorsense 60 ft., passive Perception 10",
+      "primary_actions": [
+        "Bite",
+        "Tunneling Swarm",
+        "Shepherd's Hymn"
+      ],
+      "suggested_tactics": [
+        "Open with Bite when the target is in range."
+      ],
+      "legendary_actions": null,
+      "save_dcs": [
+        15
+      ],
+      "condition_immunities": "charmed, frightened, prone"
+    },
+    "warnings": [],
+    "provenance": {
+      "request_id": "command-board-dogfood-1781974176889",
+      "mode": "generate_from_prompt",
+      "generator": "StatBlockGenerator.generate_creature",
+      "generated_at": "2026-06-20T16:49:49.036659+00:00",
+      "source_refs": [],
+      "generation_info": {
+        "prompt_version": "1.0.0",
+        "model_used": "gpt-4o-2024-08-06",
+        "generation_time": "2026-06-20T16:49:49.036404",
+        "structured_outputs": true
+      },
+      "persistence_request": null,
+      "adapter_version": "0.1.0",
+      "persist_requested": false
+    },
+    "review_status": "needs_dm_review",
+    "lifecycle_state": "corpus_promoted",
+    "storage_status": "stored_draft",
+    "corpus_status": "promotion_confirmed",
+    "source_refs": [],
+    "breadcrumbs": [
+      {
+        "label": "surface:statblock_workbench",
+        "source": "live_control",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "source:http_provider",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "command:statblock.draft.generate",
+        "source": "http_provider",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-06-20T16:49:49.132810+00:00",
+    "updated_at": "2026-06-20T16:52:57.991022Z"
+  }
+}

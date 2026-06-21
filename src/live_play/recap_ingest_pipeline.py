@@ -432,10 +432,16 @@ def run_pipeline(
                     staged_path.write_text(raw_text, encoding="utf-8")
                     status.add_state("staged_raw_notes_created")
                 else:
-                    status.add_error(
-                        "staged raw notes already exists; pass --force-stage to overwrite"
+                    recap_text_for_assembly = existing
+                    status.add_state("staged_raw_notes_reused")
+                    status.add_state("staged_raw_notes_conflict")
+                    status.add_warning(
+                        "staged raw notes already exists; pasted raw text was not used"
                     )
-                    return status.to_dict()
+                    status.add_next_action(
+                        "Review the preview generated from the existing staged notes, "
+                        "or enable --force-stage to overwrite them with the pasted text."
+                    )
         else:
             if raw_text is None:
                 status.add_error("cannot stage without raw recap source")

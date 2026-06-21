@@ -1,0 +1,134 @@
+[
+  {
+    "label": "Wolf Manor Ground Floor_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf Manor Ground Floor.pdf",
+    "page": 0,
+    "elapsed_sec": 12.66,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 8,
+      "table_count": 0,
+      "content_hash": "37882da6b700328c6eeb1a2c563c75c645c7a4033f4fb9a781b85569f08b784a",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 69,
+            "ast_content_chars": 69,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 6,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 0,
+            "ast_table_count": 0,
+            "count_match": true,
+            "raw_row_counts": [],
+            "ast_row_counts": [],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 6,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 6,
+            "orphan_count": 0,
+            "orphan_rate": 0.0,
+            "fail_threshold": 1.0,
+            "warn_threshold": 0.5,
+            "warned": false,
+            "orphans": []
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 6,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 0,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 6,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 5,
+            "oversized_count": 0,
+            "undersized_ratio": 0.8333,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "541e708fec46a185",
+                "unit_type": "prose",
+                "char_count": 15,
+                "text_preview": "CRUMBLING\nCRYPT"
+              },
+              {
+                "unit_id": "b68818f7d88bb0c5",
+                "unit_type": "prose",
+                "char_count": 12,
+                "text_preview": "CONSERVATORY"
+              },
+              {
+                "unit_id": "336150b836a96685",
+                "unit_type": "prose",
+                "char_count": 7,
+                "text_preview": "KITCHEN"
+              },
+              {
+                "unit_id": "40b2724e88795521",
+                "unit_type": "prose",
+                "char_count": 6,
+                "text_preview": "PARLOR"
+              },
+              {
+                "unit_id": "85ce71166554ca16",
+                "unit_type": "prose",
+                "char_count": 10,
+                "text_preview": "MAIN STAIR"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

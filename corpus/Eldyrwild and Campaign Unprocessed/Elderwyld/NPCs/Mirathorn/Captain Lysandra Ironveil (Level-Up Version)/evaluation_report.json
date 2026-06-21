@@ -1,0 +1,229 @@
+{
+  "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/NPCs/Mirathorn/Captain Lysandra Ironveil (Level-Up Version).pdf",
+  "stem": "Captain Lysandra Ironveil (Level-Up Version)",
+  "num_pages": 1,
+  "total_elapsed_sec": 30.23,
+  "valid_pages": 1,
+  "error_pages": 0,
+  "stage_a_gate_rates": {
+    "coverage": 1.0,
+    "ordering": 1.0,
+    "table_parse": 1.0
+  },
+  "stage_b_gate_rates": {
+    "orphan": 1.0,
+    "bleed": 1.0,
+    "table_integrity": 1.0,
+    "unit_size": 1.0,
+    "cross_page_join_rate": 0.0,
+    "join_unit_id_conservation": 0.0,
+    "join_page_fingerprint_conservation": 0.0,
+    "join_table_unit_conservation": 0.0,
+    "toc_binding_coverage": 0.0,
+    "orphan_after_toc": 0.0
+  },
+  "salvage_score_mean": 1.0,
+  "salvage_score_median": 1.0,
+  "salvage_score_min": 1.0,
+  "salvage_score_max": 1.0,
+  "unit_count_total": 16,
+  "unit_count_per_page_mean": 16,
+  "all_a_gates_pass_count": 1,
+  "all_b_gates_pass_count": 1,
+  "all_ab_gates_pass_count": 1,
+  "per_page_results": [
+    {
+      "label": "Captain Lysandra Ironveil (Level-Up Version)_p0",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/NPCs/Mirathorn/Captain Lysandra Ironveil (Level-Up Version).pdf",
+      "page": 0,
+      "elapsed_sec": 30.23,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 18,
+        "table_count": 1,
+        "content_hash": "b316f965de54ff0efb48ea7bca1af923ede0529a25f4219370702100d9c9e189",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 1868,
+              "ast_content_chars": 1868,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 16,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 1,
+              "ast_table_count": 1,
+              "count_match": true,
+              "raw_row_counts": [
+                2
+              ],
+              "ast_row_counts": [
+                2
+              ],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 16,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "orphan_count": 10,
+              "orphan_rate": 0.625,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": true,
+              "orphans": [
+                {
+                  "unit_id": "0d065ce9d7442e39",
+                  "unit_type": "prose",
+                  "ordering_key": 0,
+                  "text_preview": "CAPTAIN LYSANDRA IRONVEIL (LEVEL-UP VERSION)"
+                },
+                {
+                  "unit_id": "a0fc153a855b7e9c",
+                  "unit_type": "prose",
+                  "ordering_key": 1,
+                  "text_preview": "Medium, humanoid, human, lawful good"
+                },
+                {
+                  "unit_id": "8e410c30a57575e0",
+                  "unit_type": "prose",
+                  "ordering_key": 2,
+                  "text_preview": "![](images/0.jpg)"
+                },
+                {
+                  "unit_id": "8c1a4a2ea24ab712",
+                  "unit_type": "prose",
+                  "ordering_key": 3,
+                  "text_preview": "RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATT"
+                },
+                {
+                  "unit_id": "951943a996e22a9b",
+                  "unit_type": "table",
+                  "ordering_key": 4,
+                  "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+                },
+                {
+                  "unit_id": "63bf122ede281183",
+                  "unit_type": "prose",
+                  "ordering_key": 5,
+                  "text_preview": "Saving Throws : str : 6, dex : , wis : 5"
+                },
+                {
+                  "unit_id": "0d2b228cfaa8fb8a",
+                  "unit_type": "prose",
+                  "ordering_key": 6,
+                  "text_preview": "Skills : perception : 5\nResistances :"
+                },
+                {
+                  "unit_id": "ff7987053fb16587",
+                  "unit_type": "prose",
+                  "ordering_key": 7,
+                  "text_preview": "Senses : darkvision :"
+                },
+                {
+                  "unit_id": "cd95385b252549cb",
+                  "unit_type": "prose",
+                  "ordering_key": 8,
+                  "text_preview": "Languages : Common, Elvish"
+                },
+                {
+                  "unit_id": "de8a97e2a109418e",
+                  "unit_type": "prose",
+                  "ordering_key": 9,
+                  "text_preview": "Challenge Rating : 4 (1100)"
+                }
+              ]
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 1,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 1,
+              "oversized_count": 0,
+              "undersized_ratio": 0.0625,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [
+                {
+                  "unit_id": "8e410c30a57575e0",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/0.jpg)"
+                }
+              ],
+              "oversized": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    }
+  ],
+  "error_labels": [],
+  "stage_a_failed_pages": {
+    "coverage": [],
+    "ordering": [],
+    "table_parse": []
+  },
+  "stage_b_failed_pages": {
+    "orphan": [],
+    "bleed": [],
+    "table_integrity": [],
+    "unit_size": [],
+    "cross_page_join_rate": [],
+    "join_unit_id_conservation": [],
+    "join_page_fingerprint_conservation": [],
+    "join_table_unit_conservation": [],
+    "toc_binding_coverage": [],
+    "orphan_after_toc": []
+  },
+  "orphan_header_results": [],
+  "toc_enrichment": null
+}

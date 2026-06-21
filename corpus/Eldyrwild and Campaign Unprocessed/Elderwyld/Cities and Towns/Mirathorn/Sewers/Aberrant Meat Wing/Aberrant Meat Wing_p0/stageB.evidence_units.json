@@ -1,0 +1,356 @@
+{
+  "unit_count": 14,
+  "units": [
+    {
+      "unit_id": "625f8741b1960edf254d64fbb9fbf445cc4b709d2ba1c7797e2e2565ce762f7a",
+      "unit_type": "prose",
+      "text": "Aberrant Meatwing",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "627be51644a743d9cd2d8073ceb3de21266078031eb522d38a4c06a4e8487bd2",
+      "source_line_start": 1,
+      "source_line_end": 2,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "2f4e0db74ccd21b5e60ca82afb0dd80d3bfe54eb14821914008ab2347bbd39a1",
+      "unit_type": "prose",
+      "text": "Medium, Aberration, Chaotic Evil",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "91c3d26a97a439a2d86656005f06216d91fb51ee1a41ceb60cbd39c2b9b5e2c0",
+      "source_line_start": 4,
+      "source_line_end": 5,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "94a254f74988a500dbd6fb7bac3fc0da7ec7aff350ee32c648cd4c0f472e29e8",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 6,
+      "source_line_end": 7,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "12c9812d8847dfe2a387885ddad4f56bfeb4833b9f0b931d0abd6d70b86581a3",
+      "unit_type": "prose",
+      "text": "The Aberrant Meatwing is a grotesque fusion of sinew and wings, gliding ominously through the air. Its body continuously emanates a tantalizing aroma of cooking meat, which is both hypnotic and revolting. While it seems to be constantly roasting itself, this creature is anything but tasty; its scent is a lure for the unwary.",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "1fae6a19a6029952c95130d92c7e4ef58ce8b585b433739a52413de2c2d17fa2",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0281721387257da3ca1ff68bc590453dd3060893cfb378b0355dfd9e4f6f07e1",
+      "unit_type": "prose",
+      "text": "Armor Class : 11\nHit Points: 18 Hit Dice : 2d10+6\nSpeed: walk : 20, fly : 50",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "01cc03d6e6566816a8375c1a7d712cb0dffff04529ae40db43ad331559e16c6b",
+      "source_line_start": 14,
+      "source_line_end": 17,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "4d5bbee38bc33283bff6a8e7a3d8216eef898890a1d6d6d87dd294540c5a45f5",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>12</td><td>14</td><td>16</td><td>8</td><td>10</td><td>12</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "b598ea081d129d089626034f5514a7fc084147484582cf38726677ab8227361f",
+      "source_line_start": 19,
+      "source_line_end": 20,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "1d65802d090a9a8637ec810d4969f642c75ef6e02e75406edfb45ca5e0aedb23",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 2, dex : 4, wis : 2",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "b8eadbddcf6e6685280ac9a82f517ed9e8e686143c258f0ec6180b14c4260cbc",
+      "source_line_start": 22,
+      "source_line_end": 23,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "f83ec7ff9b6802c4750100672cf76f329a710685213b982fe5c5e2dd8545c359",
+      "unit_type": "prose",
+      "text": "Skills : perception : 4",
+      "structural_path": [],
+      "ordering_key": 7,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "31905cf2e254383bfe419b8fdc96814b04eaa40120d885d751bfe4e32d972b4b",
+      "source_line_start": 25,
+      "source_line_end": 26,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "57f6d89d0891b8cecc8a59d9eefd54f11d3f5a0c2ff1dba6a313a47b8850043b",
+      "unit_type": "prose",
+      "text": "Resistances :",
+      "structural_path": [],
+      "ordering_key": 8,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+      "source_line_start": 28,
+      "source_line_end": 29,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "fc057656963dc1fb1b7958e86b4dfa82929a7117a36ac7e659c009d7dcdc2e85",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60",
+      "structural_path": [],
+      "ordering_key": 9,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+      "source_line_start": 31,
+      "source_line_end": 32,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "dcfbefd1932e040499f17ade7423e2b5da4c67fdd18a600c4d7faf0c01a97040",
+      "unit_type": "prose",
+      "text": "Languages :",
+      "structural_path": [],
+      "ordering_key": 10,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "a3403d8ad30adfcf9461dade1c113b538fcfbc4db4aa54389cef708af3216939",
+      "source_line_start": 34,
+      "source_line_end": 35,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "e403304f636525f7c7d35374fae4f55c9961fa3a4adef5bcf95598de27123e03",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 1 (200)",
+      "structural_path": [],
+      "ordering_key": 11,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "c05a417b323c7357220ce9985009265df64584fc65ea3c891512b3316557b81f",
+      "source_line_start": 37,
+      "source_line_end": 38,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "29981276193740b23f40a6dd01d84b0bf3c7168cd9dc56d7381c203e158b6b06",
+      "unit_type": "prose",
+      "text": "ACTIONS — Meat Splat : 'The Aberrant Meatwing hurls a glob of superheated meat at a target within 20 feet. The target must succeed on a DC 13 Dexterity saving throw or take 1d6 fire damage.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "417c0f7c9bd4f067c24b44c894a14c7ebaffa38e7e0b03198b0d6d586ae7ad13",
+      "source_line_start": 40,
+      "source_line_end": 44,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "e9f15ca787288c085e5d5990c95abaf5af2de15b3286e84d1fafc2f9dc7cd3a1",
+      "unit_type": "prose",
+      "text": "Hypnotic Aroma : 'All creatures within 30 feet of the Aberrant Meatwing must succeed on a DC 13 Wisdom saving throw or be charmed for 1 minute. While charmed in this way, a creature has disadvantage on Perception checks and is drawn towards the enticing aroma. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself with a successful save.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+      "content_hash": "4a0db9f249e775cd0761b8e248cde74cb2f087bd2750902b23a49ecc172c0ac5",
+      "source_line_start": 46,
+      "source_line_end": 47,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "orphan_count": 12,
+        "orphan_rate": 0.8571,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "625f8741b1960edf",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "Aberrant Meatwing"
+          },
+          {
+            "unit_id": "2f4e0db74ccd21b5",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "Medium, Aberration, Chaotic Evil"
+          },
+          {
+            "unit_id": "94a254f74988a500",
+            "unit_type": "prose",
+            "ordering_key": 2,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "12c9812d8847dfe2",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "The Aberrant Meatwing is a grotesque fusion of sinew and wings, gliding ominousl"
+          },
+          {
+            "unit_id": "0281721387257da3",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Armor Class : 11\nHit Points: 18 Hit Dice : 2d10+6\nSpeed: walk : 20, fly : 50"
+          },
+          {
+            "unit_id": "4d5bbee38bc33283",
+            "unit_type": "table",
+            "ordering_key": 5,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "1d65802d090a9a86",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Saving Throws : str : 2, dex : 4, wis : 2"
+          },
+          {
+            "unit_id": "f83ec7ff9b6802c4",
+            "unit_type": "prose",
+            "ordering_key": 7,
+            "text_preview": "Skills : perception : 4"
+          },
+          {
+            "unit_id": "57f6d89d0891b8ce",
+            "unit_type": "prose",
+            "ordering_key": 8,
+            "text_preview": "Resistances :"
+          },
+          {
+            "unit_id": "fc057656963dc1fb",
+            "unit_type": "prose",
+            "ordering_key": 9,
+            "text_preview": "Senses : darkvision : 60"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 4,
+        "oversized_count": 0,
+        "undersized_ratio": 0.2857,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "625f8741b1960edf",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "Aberrant Meatwing"
+          },
+          {
+            "unit_id": "94a254f74988a500",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "57f6d89d0891b8ce",
+            "unit_type": "prose",
+            "char_count": 13,
+            "text_preview": "Resistances :"
+          },
+          {
+            "unit_id": "dcfbefd1932e0404",
+            "unit_type": "prose",
+            "char_count": 11,
+            "text_preview": "Languages :"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

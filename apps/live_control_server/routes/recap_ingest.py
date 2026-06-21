@@ -8,19 +8,43 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.agent.recap_frontmatter_seed import (
+    build_frontmatter_seed,
+    default_frontmatter_seed_path,
+)
+from src.corpus.session_recap_paths import (
+    breadcrumbed_relpath,
+    campaign_number_from_id,
+    frontmatter_seed_relpath,
+    normalized_recap_relpath,
+)
 from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
+from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 
 router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
     "stage_preview",
     "apply_normalize",
+    "build_frontmatter_seed",
+    "run_breadcrumb_ingest",
     "materialize_session_memory",
     "inspect_status",
 ]
 
 _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
-_GENERIC_TITLE_TAILS = {"", "recap"}
+_GENERIC_TITLE_TAILS = {
+    "",
+    "ingest",
+    "ingestion",
+    "raw recap",
+    "raw recap ingest",
+    "raw recap ingestion",
+    "recap",
+    "recap ingest",
+    "recap ingestion",
+    "session recap",
+}
 
 
 class RecapIngestRequest(BaseModel):
@@ -65,8 +89,8 @@ def _tail_from_title(title: str | None) -> str:
 
 
 def _is_non_generic_slug_or_title(*, slug: str | None, title: str | None) -> bool:
-    if slug and slug.strip().rstrip(":").lower() not in _GENERIC_TITLE_TAILS:
-        return True
+    if slug and slug.strip().rstrip(":").lower():
+        return slug.strip().rstrip(":").lower() not in _GENERIC_TITLE_TAILS
     tail = _tail_from_title(title)
     return tail not in _GENERIC_TITLE_TAILS
 
@@ -79,6 +103,141 @@ def _pipeline_corpus_root() -> Path | None:
     if not root.is_dir():
         raise HTTPException(status_code=500, detail=f"invalid {_CORPUS_ROOT_ENV}: {root}")
     return root
+
+
+def _run_routing_only_breadcrumb(
+    *,
+    recap_md: Path,
+    frontmatter_seed_md: Path,
+    corpus_root: Path,
+    out_path: Path,
+) -> dict[str, Any]:
+    from evals.sentence_routing_retrieval_falsification.breadcrumb_prompt import (
+        PROMPT_VARIANT_CONTINUATION,
+    )
+    from evals.sentence_routing_retrieval_falsification.breadcrumb_query_run import (
+        _generate_breadcrumb_artifact_routing_only,
+        _resolve_breadcrumb_ingest_model,
+    )
+
+    return _generate_breadcrumb_artifact_routing_only(
+        recap_md=recap_md,
+        frontmatter_seed_md=frontmatter_seed_md,
+        corpus_root=corpus_root,
+        variant=PROMPT_VARIANT_CONTINUATION,
+        model=_resolve_breadcrumb_ingest_model(None),
+        out_path=out_path,
+        min_routed_records=1,
+    )
+
+
+def _add_unique(values: list[str], value: str) -> None:
+    if value not in values:
+        values.append(value)
+
+
+def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path) -> dict[str, Any]:
+    campaign_number = campaign_number_from_id(body.campaign_id)
+    out_path = default_frontmatter_seed_path(
+        corpus_root=corpus,
+        campaign_number=campaign_number,
+        session=body.session,
+    ).resolve()
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+    if out_path.is_file():
+        _add_unique(status["states"], "frontmatter_seed_reused")
+        _add_unique(status["warnings"], "frontmatter_seed_already_exists")
+        status["ingest_report"]["frontmatter_seed_path"] = str(out_path)
+        return status
+
+    seed = build_frontmatter_seed(
+        corpus_root=corpus,
+        campaign_number=campaign_number,
+        session=body.session,
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(seed if seed.endswith("\n") else seed + "\n", encoding="utf-8")
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+    _add_unique(status["states"], "frontmatter_seed_built")
+    status["ingest_report"]["frontmatter_seed_path"] = str(out_path)
+    return status
+
+
+def _run_breadcrumb_ingest_from_request(body: RecapIngestRequest, corpus: Path) -> dict[str, Any]:
+    campaign_number = campaign_number_from_id(body.campaign_id)
+    normalized_path = (
+        corpus
+        / normalized_recap_relpath(
+            campaign_number=campaign_number,
+            session=body.session,
+            corpus_root=corpus,
+        )
+    ).resolve()
+    seed_path = (
+        corpus
+        / frontmatter_seed_relpath(
+            campaign_number=campaign_number,
+            session=body.session,
+            corpus_root=corpus,
+        )
+    ).resolve()
+    breadcrumb_path = (
+        corpus
+        / breadcrumbed_relpath(
+            campaign_number=campaign_number,
+            session=body.session,
+            corpus_root=corpus,
+        )
+    ).resolve()
+
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+    if not seed_path.is_file():
+        raise HTTPException(status_code=422, detail=f"frontmatter seed missing: {seed_path}")
+    if breadcrumb_path.is_file():
+        _add_unique(status["states"], "breadcrumb_ingest_reused")
+        _add_unique(status["warnings"], "breadcrumbed_recap_already_exists")
+        status["ingest_report"]["breadcrumbed_recap_path"] = str(breadcrumb_path)
+        return status
+
+    try:
+        report = _run_routing_only_breadcrumb(
+            recap_md=normalized_path,
+            frontmatter_seed_md=seed_path,
+            corpus_root=corpus,
+            out_path=breadcrumb_path,
+        )
+    except SystemExit as exc:
+        detail = str(exc) or "breadcrumb ingest failed"
+        raise HTTPException(status_code=422, detail=detail) from exc
+
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+    _add_unique(status["states"], "breadcrumb_ingest_ran")
+    status["ingest_report"]["breadcrumb_ingest"] = report
+    return status
 
 
 def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
@@ -167,6 +326,16 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                 title=body.title,
                 slug=body.slug,
                 corpus=corpus,
+            )
+        if body.operation == "build_frontmatter_seed":
+            return _build_frontmatter_seed_from_request(
+                body,
+                corpus=(corpus or default_corpus_root()).resolve(),
+            )
+        if body.operation == "run_breadcrumb_ingest":
+            return _run_breadcrumb_ingest_from_request(
+                body,
+                corpus=(corpus or default_corpus_root()).resolve(),
             )
         options = _options_for_request(body)
         if body.operation == "stage_preview":

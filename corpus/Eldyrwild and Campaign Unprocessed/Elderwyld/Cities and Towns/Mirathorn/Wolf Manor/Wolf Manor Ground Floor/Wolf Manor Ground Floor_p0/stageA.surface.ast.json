@@ -1,0 +1,66 @@
+{
+  "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+  "content_hash": "37882da6b700328c6eeb1a2c563c75c645c7a4033f4fb9a781b85569f08b784a",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 22,
+    "children": [
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "GROUND FLOOR",
+        "source_line_start": 1,
+        "source_line_end": 2,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "TROPPY\nROOM",
+            "source_line_start": 4,
+            "source_line_end": 6
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "CRUMBLING\nCRYPT",
+            "source_line_start": 8,
+            "source_line_end": 10
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "CONSERVATORY",
+            "source_line_start": 12,
+            "source_line_end": 13
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "KITCHEN",
+            "source_line_start": 15,
+            "source_line_end": 16
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "PARLOR",
+            "source_line_start": 18,
+            "source_line_end": 19
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "MAIN STAIR",
+            "source_line_start": 21,
+            "source_line_end": 22
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 8,
+  "table_count": 0
+}

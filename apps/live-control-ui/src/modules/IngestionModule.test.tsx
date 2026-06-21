@@ -23,6 +23,8 @@ function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStat
         "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
       normalized_recap:
         "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      frontmatter_seed:
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
       breadcrumbed_recap:
         "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
       session_memory_jsonl:
@@ -32,6 +34,7 @@ function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStat
       staged_raw_notes: "pre_canonical_evidence",
       canonical_recap: "canon_play",
       normalized_recap: "canon_play_prepared",
+      frontmatter_seed: "reviewable_route_allowlist",
       breadcrumbed_recap: "canon_play_routed",
       session_memory: "derived_memory",
     },
@@ -153,6 +156,7 @@ describe("IngestionModule", () => {
 
   it("disables stage preview with empty raw text", () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    expect(screen.getByText("Paste raw recap text, then continue to preview.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stage + Preview" })).toBeDisabled();
   });
 
@@ -203,6 +207,37 @@ describe("IngestionModule", () => {
     expect(screen.getByLabelText("Canonical preview diff")).toHaveTextContent("@@ -1 +1 @@");
   });
 
+  it("explains existing staged raw notes as a review gate instead of a failed stage", async () => {
+    const user = userEvent.setup();
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "recap_preview_created",
+        states: [
+          "raw_text_received",
+          "staged_raw_notes_reused",
+          "staged_raw_notes_conflict",
+          "recap_preview_created",
+        ],
+        warnings: ["staged raw notes already exists; pasted raw text was not used"],
+        next_actions: [
+          "Review the preview generated from the existing staged notes, or enable --force-stage to overwrite them with the pasted text.",
+        ],
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nDifferent pasted text.");
+    await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Existing staged notes reused").length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText(/preview uses those notes/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/did not overwrite it with the pasted text/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeEnabled();
+  });
+
   it("disables apply normalize before preview and without non-generic slug", async () => {
     const user = userEvent.setup();
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
@@ -212,6 +247,18 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Slug"), "Recap");
     expect(applyButton).toBeDisabled();
+  });
+
+  it("rejects tool-shaped ingest as a generic slug before full ingest", async () => {
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={22} />);
+
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
+    await user.clear(screen.getByLabelText("Slug"));
+    await user.type(screen.getByLabelText("Slug"), "ingest");
+
+    expect(screen.getByRole("button", { name: "Run full ingest" })).toBeDisabled();
+    expect(screen.getByText("Run full ingest needs a non-generic slug or title.")).toBeInTheDocument();
   });
 
   it("invalidates preview when raw text changes", async () => {
@@ -267,8 +314,146 @@ describe("IngestionModule", () => {
     expect(screen.getByText("Breadcrumb required before retrieval")).toBeInTheDocument();
     expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
     expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
-    expect(screen.getByText(/Materialize is disabled until disk status reports/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("Next: click Build Frontmatter Seed, then review the generated seed.")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByText("Terminal path stays available"));
+    expect(screen.getByText("Materialize waits for breadcrumb_found.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
+  });
+
+  it("runs the full ingest pipeline as one sequential operation", async () => {
+    const user = userEvent.setup();
+    const spy = mockRecapIngestWithInspect((body) => {
+      if (body.operation === "stage_preview") {
+        return makeStatus({
+          status: "recap_preview_created",
+          states: ["raw_text_received", "recap_preview_created"],
+        });
+      }
+      if (body.operation === "apply_normalize") {
+        return makeStatus({
+          status: "breadcrumb_required",
+          states: ["recap_applied", "normalized_created", "breadcrumb_required"],
+        });
+      }
+      if (body.operation === "build_frontmatter_seed") {
+        return makeStatus({
+          status: "breadcrumb_required",
+          states: ["recap_applied", "normalized_reused", "frontmatter_seed_found", "breadcrumb_required"],
+        });
+      }
+      if (body.operation === "run_breadcrumb_ingest") {
+        return makeStatus({
+          status: "recap_applied",
+          states: ["recap_applied", "normalized_reused", "frontmatter_seed_found", "breadcrumb_found"],
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation"],
+        ingest_report: { session_memory_record_count: 10, session_memory_check: "ok" },
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
+    await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+
+    await waitFor(() =>
+      expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0),
+    );
+    const operations = spy.mock.calls
+      .map(([body]) => body.operation)
+      .filter((operation) => operation !== "inspect_status");
+    expect(operations).toEqual([
+      "stage_preview",
+      "apply_normalize",
+      "build_frontmatter_seed",
+      "run_breadcrumb_ingest",
+      "materialize_session_memory",
+    ]);
+    expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
+    expect(screen.getByText("Complete: session memory is ready for planning activation.")).toBeInTheDocument();
+    expect(screen.getByText("records: 10")).toBeInTheDocument();
+  });
+
+  it("submits build_frontmatter_seed from the breadcrumb boundary", async () => {
+    const user = userEvent.setup();
+    const spy = mockRecapIngestWithInspect((body) => {
+      if (body.operation === "apply_normalize") {
+        return makeStatus({
+          status: "breadcrumb_required",
+          states: ["recap_applied", "normalized_created", "frontmatter_seed_required", "breadcrumb_required"],
+        });
+      }
+      if (body.operation === "build_frontmatter_seed") {
+        return makeStatus({
+          status: "breadcrumb_required",
+          states: [
+            "recap_applied",
+            "normalized_reused",
+            "frontmatter_seed_built",
+            "frontmatter_seed_found",
+            "breadcrumb_required",
+          ],
+        });
+      }
+      return makeStatus();
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
+    await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Apply + Normalize" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Build Frontmatter Seed" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Build Frontmatter Seed" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ operation: "build_frontmatter_seed", session: 22 }),
+      ),
+    );
+    expect(await screen.findByText("Frontmatter seed ready")).toBeInTheDocument();
+    expect(screen.getAllByText(/run breadcrumb ingest/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("frontmatter_seed_found").length).toBeGreaterThan(0);
+  });
+
+  it("submits run_breadcrumb_ingest after frontmatter seed is found", async () => {
+    const user = userEvent.setup();
+    const spy = mockRecapIngestWithInspect((body) => {
+      if (body.operation === "run_breadcrumb_ingest") {
+        return makeStatus({
+          status: "recap_applied",
+          states: ["recap_applied", "normalized_reused", "frontmatter_seed_found", "breadcrumb_found", "breadcrumb_ingest_ran"],
+        });
+      }
+      return makeStatus({
+        status: "breadcrumb_required",
+        states: ["recap_applied", "normalized_reused", "frontmatter_seed_found", "breadcrumb_required"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
+    await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run Breadcrumb Ingest" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run Breadcrumb Ingest" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ operation: "run_breadcrumb_ingest", session: 22 }),
+      ),
+    );
+    expect(screen.getAllByText("breadcrumb_found").length).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.getByText("Next: click Materialize Session Memory.")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeEnabled();
   });
 
   it("submits materialize_session_memory with edited recap session and shows ready state", async () => {
