@@ -347,7 +347,7 @@ Status: complete.
 
 Rung 8 session-memory sentence-unit materializer is tracked in:
 
-`src/graph_memory/session_memory_materializer.py`
+`src/graph_memory/session_memory_materialize.py`
 
 Validator:
 
