@@ -20,6 +20,7 @@ class RecapStagePaths:
     canonical_recap_rel: str
     canonical_basename: str
     normalized_recap_rel: str
+    frontmatter_seed_rel: str
     breadcrumbed_recap_rel: str
     session_memory_jsonl_rel: str
     session_memory_meta_rel: str
@@ -35,6 +36,9 @@ class RecapStagePaths:
         )
         canonical_recap_rel = f"{session_prefix}/{canonical_basename}.md"
         normalized_recap_rel = f"{session_prefix}/_normalized/Session {session:02d} - {slug_tail}.md"
+        frontmatter_seed_rel = (
+            f"{session_prefix}/_breadcrumbed/{canonical_basename}.frontmatter_seed.md"
+        )
         breadcrumbed_recap_rel = (
             f"{session_prefix}/_breadcrumbed/{canonical_basename}.breadcrumbed.md"
         )
@@ -52,6 +56,7 @@ class RecapStagePaths:
             canonical_recap_rel=canonical_recap_rel,
             canonical_basename=canonical_basename,
             normalized_recap_rel=normalized_recap_rel,
+            frontmatter_seed_rel=frontmatter_seed_rel,
             breadcrumbed_recap_rel=breadcrumbed_recap_rel,
             session_memory_jsonl_rel=session_memory_jsonl_rel,
             session_memory_meta_rel=session_memory_meta_rel,

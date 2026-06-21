@@ -19,6 +19,7 @@ class RecapIngestStatus:
             "staged_raw_notes": "pre_canonical_evidence",
             "canonical_recap": "canon_play",
             "normalized_recap": "canon_play_prepared",
+            "frontmatter_seed": "reviewable_route_allowlist",
             "breadcrumbed_recap": "canon_play_routed",
             "session_memory": "derived_memory",
         }

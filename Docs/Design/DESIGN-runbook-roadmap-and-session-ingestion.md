@@ -10,6 +10,7 @@
 - `Docs/Design/DESIGN-mireward-command-board-shell.md`
 - `Docs/Plans/C2S23-MIREWARD-DOGFOOD-NOTES.md`
 - `Docs/Design/DESIGN-play-mode-runbook-product-direction.md`
+- `Docs/Plans/HANDOFF-plan-mode-command-board-jumpstart.md`
 
 ---
 
@@ -485,7 +486,7 @@ Run a mock five-minute session opening from the page. Edit one detail, prepare/c
 
 ### Goal
 
-Capture the dogfood learning from the North Gate Tiptap-backed Live Play runbook and re-sequence the roadmap around the Prep Mode / Play Mode split.
+Capture the dogfood learning from the North Gate Tiptap-backed Live Play runbook and re-sequence the roadmap around the Plan / Play surface split (Build named but not yet designed).
 
 The old next step was to extract a reusable Tiptap editor from the spike. Dogfood showed that extraction is still needed, but not before Play Mode has a product shell. Extracting the spike too early would preserve the wrong center of gravity.
 
@@ -495,7 +496,7 @@ Document:
 
 - What the Tiptap spike proved.
 - Why Live Play must behave like a table surface instead of a website.
-- Prep Mode as workshop and Play Mode as table surface.
+- Plan surface as workshop and Play surface as table surface.
 - Beat navigation as the next shell.
 - Reference chips as overlay-first typed handles.
 - In-place editing as a later layer on focused beats.
@@ -627,6 +628,57 @@ Examples:
 - Current tool outputs.
 
 This data is mutable during play and must not be embedded as canon or durable prose by accident.
+
+---
+
+## Plan-mode recap ingest v1 (first Plan proof slice)
+
+**Status:** Spec locked for Command Board Plan anchor pane — docs 2026-06-20.
+
+**Why first:** Ingesting the prior session recap into the queryable corpus is the critical proof that Plan can enrich context via retrieval. It lays groundwork for rules ingestion and broader world context without requiring full Build surface.
+
+**Product surface:** Plan anchor pane wizard (not Play). Paste raw notes → stage → preview diff → apply canonical recap → normalize → build deterministic `frontmatter_seed.md` skeleton → **stop visibly at `breadcrumb_required`** until breadcrumb + session memory are blessed.
+
+### In scope (deterministic orchestrator)
+
+| Step | Proof artifact |
+|------|----------------|
+| Stage raw notes to `_ingest_staging/session_{N}_raw_notes.md` | `paths.staged_raw_notes` |
+| Preview assembly (`assemble_recap`) | `ingest_report.preview_diff`, paragraph counts |
+| Apply canonical `Session Recaps/Session N - <slug>.md` | `paths.canonical_recap`, state `recap_applied` |
+| Normalize to `_normalized/` | `paths.normalized_recap`, `dmb_recap_normalized_v1` |
+| Build deterministic frontmatter seed skeleton | `paths.frontmatter_seed`, `frontmatter_seed_required` / `frontmatter_seed_found` |
+| Status envelope | `dmb_raw_recap_ingest_status_v1` with `next_actions[]` |
+
+**Entry points today:** `src/live_play/recap_ingest_pipeline.py`, `POST /api/live/recap-ingest` (`apps/live_control_server/routes/recap_ingest.py`).
+
+### Explicit v1 boundary (product copy, not hidden failure)
+
+Terminal status **`breadcrumb_required`** is **expected**, not an error. UI must say:
+
+- Canonical + normalized recap exist on disk.
+- Breadcrumb + session memory are **not** retrieval-ready yet.
+- Next action: build/review deterministic `frontmatter_seed.md` skeleton, bless route allowlist, run `breadcrumb_query_run --ingest-routing-only`, then materialize session memory.
+
+Do **not** claim retrieval-ready or planning-manifest activation until breadcrumb and `*.records_meta.jsonl` exist.
+
+### Out of scope for v1
+
+- Full automated `frontmatter_seed.md` / `entity_index` compiler with new-hub judgment (deterministic skeleton is in scope; see `Docs/Design/DESIGN-plan-recap-ingest-frontmatter-seed.md`)
+- In-pane LLM breadcrumb execution
+- Session memory materialize button without blessed breadcrumb on disk
+- Build-surface object editing
+- Rules ingestion graph
+
+### Verification (when implementing UI or touching pipeline)
+
+```bash
+uv run pytest tests/test_live_recap_ingest_pipeline.py tests/test_live_recap_ingest_api.py tests/test_recap_ingest_helpers.py -q
+```
+
+### Surfaces teach each other
+
+Plan ingest friction (missing seed, slug gates, duplicate normalized files) feeds Backlog guardrails and future Build hub requirements. Play live-query misses after ingest complete feed retrieval scoring. Record dogfood notes under `Docs/Plans/` when ingest exposes a gap Build should own.
 
 ---
 

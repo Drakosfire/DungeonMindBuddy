@@ -1,8 +1,61 @@
-# Design: Play Mode Runbook Product Direction
+# Design: Command Board Surfaces — Plan, Play, Build
 
 **Status:** Direction record after North Gate Tiptap dogfood
-**Scope:** Command Board / Live Play runbook UX
-**Related:** runbook roadmap, Runbook Lantern anchor, PRs #135–#148
+**Scope:** Command Board surfaces — Plan anchor pane, Play runbook UX, Build (named but not yet designed)
+**Related:** runbook roadmap, Runbook Lantern anchor, PRs #135–#148, `Docs/Plans/HANDOFF-plan-mode-command-board-jumpstart.md`
+
+---
+
+## 0. Three surfaces, one memory
+
+The Command Board projects the same campaign memory through **three named surfaces**:
+
+
+| Surface   | Role today                                 | Primary question                                                                                |
+| --------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **Plan**  | Workshop + anchor pane when overlays close | What slice of the campaign matters for the next session, and what is ready to commit?           |
+| **Play**  | Table-facing runbook + operational tools   | What does the GM need in the next few minutes without losing place?                             |
+| **Build** | Named, not yet designed or built           | What durable world objects (NPCs, locations, items, adversaries, rules) should exist in corpus? |
+
+
+Plan replaces the older **Prep Mode** vocabulary. Play and Build are peers in the model, not afterthoughts.
+
+**Build is not in scope for design or implementation yet.** It is still first-class in the product model so Plan and Play do not paint it into a corner.
+
+### Surfaces teach each other
+
+Each surface we design is both a **consumer** and a **writer** of lessons about the others:
+
+- **Plan** consumes Build's world objects (hubs, statblocks, roll tables) and writes session scope: descriptor, ingest status, runbook target, operational seeds.
+- **Play** consumes Plan's runbook and committed prep; writes back operational friction (rules hovers, spawn templates, beat navigation gaps).
+- **Build** (future) will consume Play/Plan friction — the objects and depth levels the GM kept reaching for — and write durable corpus artifacts.
+
+Every Plan or Play design decision should be checked against: **what does this imply for the other two surfaces?** Record the answer in design docs or dogfood notes so Build inherits requirements from evidence, not guesses.
+
+All three surfaces stay constrained by the same authority boundaries:
+
+```txt
+Canon/reference = corpus files and read-only indexes
+Runbook prose = session script / prep Markdown / Tiptap export
+Session descriptor = planning lens (scope, sources, seeds)
+Operational state = combat, clocks, live JSON — never canon prose
+```
+
+### Overlays are a shared projection primitive
+
+Popups, hovers, and drawers are **not** a Play-only mechanism. They are the shared way every surface projects detail and tools without becoming a multi-tab dashboard. Plan, Play, and Build can all **emit** the same overlay vocabulary:
+
+```txt
+inline chip -> compact popover -> context drawer -> full modal
+```
+
+What differs per surface is **what remains when the overlay closes** (the anchor), not whether overlays exist:
+
+- **Plan** closes back to the anchor pane (descriptor, ingest status, save boundary, workshop).
+- **Play** closes back to the focused beat (never lose the table moment).
+- **Build** (future) will close back to the object being constructed and its interconnections.
+
+Design overlay components (chip, popover, drawer, modal, hover card) as **surface-agnostic** with a surface-aware "return target." Reuse the same `RunbookReferenceOverlay` / popover shell across surfaces rather than reinventing per surface.
 
 ---
 
@@ -45,13 +98,13 @@ return to exact beat
 
 The current implementation succeeded as a laboratory. The next product risk is freezing the laboratory shape into the product by extracting `/tiptap-callout-spike` too early.
 
-## 3. Product thesis: Play Mode is not Prep Mode
+## 3. Product thesis: Plan is not Play (Build is the third surface)
 
-The product should split the runbook experience into two related modes.
+The runbook experience splits across surfaces with different interaction contracts.
 
-### Prep Mode
+### Plan surface
 
-Prep Mode is the workshop. It supports:
+Plan is the workshop and the **anchor pane** — what remains when popups, hovers, and overlays close. It supports:
 
 - generate
 - retrieve
@@ -60,12 +113,15 @@ Prep Mode is the workshop. It supports:
 - compare
 - commit
 - promote
+- ingest prior-session recap into queryable corpus (first critical proof slice)
 
-Prep Mode can expose more plumbing because the GM is preparing, reviewing, and assembling material. It can show diffs, paths, diagnostics, target files, source provenance, index refreshes, descriptor identity, and other implementation-adjacent details.
+Plan can expose more plumbing because the GM is preparing, reviewing, and assembling material. It can show diffs, paths, diagnostics, target files, source provenance, index refreshes, descriptor identity, ingest status, and other implementation-adjacent details.
 
-### Play Mode
+Plan is the most flexible surface: Tiptap markdown editing for timelines, runbooks, and prep docs; corpus-backed indexes; rules query/review; and the recap ingest wizard that proves context enrichment via retrieval.
 
-Play Mode is the table surface. It supports:
+### Play surface
+
+Play is the table surface. It supports:
 
 - run beats
 - read aloud
@@ -75,9 +131,17 @@ Play Mode is the table surface. It supports:
 - make small in-context edits
 - avoid losing place
 
-Play Mode should hide plumbing until the GM intentionally asks for it. The GM should be able to inspect detail, use a tool, or make a narrow correction without leaving the current runbook moment.
+Play should hide plumbing until the GM intentionally asks for it. The GM should be able to inspect detail, use a tool, or make a narrow correction without leaving the current runbook moment.
 
-A session runbook can be edited in both Prep Mode and Play Mode, but the interaction model should differ. Prep Mode can feel like a workshop; Play Mode should feel like a calm table surface.
+Play is narrower than Plan: combat, beat navigation, rules hovers, spawn actions — operational cockpit, not world construction.
+
+### Build surface (named, not yet designed)
+
+Build will be the wide write surface for durable world objects: locations, NPCs, items, adversaries, interconnected hub depth. We are not designing or building it yet.
+
+While building Plan and Play, record what each surface keeps reaching for that belongs in Build (missing hub, shallow NPC card, rules term without graph entry, entity that needed a manual corpus crawl). Those notes become Build requirements when the surface is designed.
+
+A session runbook can be edited in both Plan and Play, but the interaction model should differ. Plan feels like a workshop; Play feels like a calm table surface.
 
 ## 4. Runbook as script plus slide deck
 
@@ -187,7 +251,7 @@ Descriptors are right, but still spike-oriented. Future descriptor work should a
 - Which local draft exists?
 - What references are resolvable?
 - What save targets are allowed?
-- What mode opened the document: prep or play?
+- What surface opened the document: plan, play, or build?
 - What operational tools are linked but not owned?
 
 Use the three-runbook pressure test:
@@ -222,26 +286,26 @@ Potential future components:
 - `useRunbookLocalDraft`
 - `useRunbookFileWrite`
 
-Do not extract around `/tiptap-callout-spike` as the product. Extract around Play Mode and Prep Mode needs.
+Do not extract around `/tiptap-callout-spike` as the product. Extract around Play and Plan surface needs.
 
 ## 11. Re-sequenced roadmap
 
 The next slices should move the product center of gravity toward Play Mode before extracting editor internals:
 
 1. **PR 10A — Play Mode Runbook Product Direction**
-   Docs only; captures dogfood and re-sequences the roadmap.
+  Docs only; captures dogfood and re-sequences the roadmap.
 2. **PR 10B — Play Mode Beat Shell**
-   Full timeline / focused beat toggle, Next / Back beat navigation, existing committed Markdown render, no editing yet, and no overlays except a placeholder shell if cheap.
+  Full timeline / focused beat toggle, Next / Back beat navigation, existing committed Markdown render, no editing yet, and no overlays except a placeholder shell if cheap.
 3. **PR 11 — Non-Navigating Reference Overlay Shell**
-   Chip primary click opens an overlay; source/full-detail is a secondary link; no mutation; no in-place editing.
+  Chip primary click opens an overlay; source/full-detail is a secondary link; no mutation; no in-place editing.
 4. **PR 12 — Reference Overlay Resolvers**
-   NPC, location, statblock, roll-table, citation, and action cards; read-only first; existing resolver APIs where available.
+  NPC, location, statblock, roll-table, citation, and action cards; read-only first; existing resolver APIs where available.
 5. **PR 13 — In-Place Beat Editing Spike**
-   Edit one focused beat in place; local draft only at first; no full CMS.
+  Edit one focused beat in place; local draft only at first; no full CMS.
 6. **PR 14 — Save/Commit Workflow Extraction**
-   Reusable `FileWriteWorkflow` / `RunbookFileWritePanel`; calmer product copy; existing backend prepare/commit unchanged.
+  Reusable `FileWriteWorkflow` / `RunbookFileWritePanel`; calmer product copy; existing backend prepare/commit unchanged.
 7. **PR 15 — Descriptor-backed Multi-Runbook Play Entry**
-   Select active runbook(s); no full session ledger yet.
+  Select active runbook(s); no full session ledger yet.
 
 The exact PR numbers may flex if existing numbering constraints require it. The dependency order is the important part.
 
@@ -273,8 +337,9 @@ This is a direction and roadmap PR, not a product-code PR.
 ## 13. Review questions
 
 1. Does this preserve the value of the Tiptap spike without mistaking the spike route for the product?
-2. Is the Prep Mode / Play Mode split clear enough to guide future PRs?
+2. Is the Plan / Play / Build surface model clear enough to guide future PRs (even though Build is not yet designed)?
 3. Is beat navigation the correct next product shell before in-place editing?
 4. Are reference chips correctly framed as typed handles rather than links?
 5. Does the roadmap avoid overbuilding a CMS or session ledger too early?
 6. Does this still honor the Runbook Lantern boundary?
+

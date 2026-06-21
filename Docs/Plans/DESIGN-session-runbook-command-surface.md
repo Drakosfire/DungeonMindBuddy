@@ -290,15 +290,24 @@ Instead:
 inline chip -> compact popover -> context drawer -> full modal
 ```
 
-A right rail can exist, but it should be calm until something is selected.
+### Overlays emit on every surface; the anchor differs
 
-No selection:
+The overlay ladder (`inline chip -> compact popover -> context drawer -> full modal`) is a **shared projection primitive**. Plan, Play, and Build can all emit popups, hovers, and drawers from the same surface-agnostic components. What changes per surface is the **return target** when the overlay closes:
 
-- Session status.
+- **Plan surface** closes back to the calm **anchor pane** (right rail or default home): session status, ingest status, save boundary, descriptor identity, clocks summary, plus context for the selected chip or block.
+- **Play surface** closes back to the **focused beat** — overlay-first interaction (reference overlay, rules hover, combat popover) where the GM never navigates away from the current moment.
+- **Build surface** (future) closes back to the object under construction and its interconnections.
+
+Build the overlay/popover/drawer components once and parameterize them with a surface-aware return target; do not fork the overlay shell per surface.
+
+No selection on Plan anchor pane:
+
+- Session / descriptor status.
+- Recap ingest status (`breadcrumb_required` vs `ready_for_planning_activation`).
 - Save boundary.
 - Maybe clocks.
 
-NPC selected:
+NPC selected (Plan or Play overlay):
 
 - NPC card.
 - Relationships.
@@ -312,13 +321,13 @@ Statblock selected:
 Roll table selected:
 
 - Roll UI.
-- Edit/commit affordances.
+- Edit/commit affordances (Plan; read-only or roll-only in Play until explicitly unlocked).
 
 Block selected:
 
-- Edit, lock, prepare, commit controls.
+- Edit, lock, prepare, commit controls (primarily Plan; narrow in-context edits in Play).
 
-This preserves the central thread of the runbook.
+This preserves the central thread of the runbook on Play while Plan remains the flexible workshop behind it.
 
 ---
 

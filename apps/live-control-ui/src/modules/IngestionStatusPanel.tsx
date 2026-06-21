@@ -32,6 +32,15 @@ export function IngestionStatusPanel({ result }: IngestionStatusPanelProps) {
       <p>
         <strong>{result.status}</strong>
       </p>
+      {result.status === "breadcrumb_required" ? (
+        <div className="ingestion-boundary-card">
+          <strong>Expected boundary, not a failed job</strong>
+          <p>
+            Canonical and normalized recap files are prepared. Breadcrumb tagging and session
+            memory records are still required before this session is retrieval-ready.
+          </p>
+        </div>
+      ) : null}
       <div className="ingestion-status-columns">
         <div>
           <h5>States</h5>

@@ -20,6 +20,7 @@ from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
 from src.corpus.session_recap_paths import (
     breadcrumbed_relpath,
+    frontmatter_seed_relpath,
     normalized_recap_relpath,
     resolve_under_corpus,
     session_memory_jsonl_relpath,
@@ -285,6 +286,11 @@ def _disk_derivative_paths(
             session=session,
             corpus_root=corpus_dir,
         ),
+        "frontmatter_seed": frontmatter_seed_relpath(
+            campaign_number=campaign_number,
+            session=session,
+            corpus_root=corpus_dir,
+        ),
         "session_memory_jsonl": session_memory_jsonl_relpath(
             campaign_number=campaign_number,
             session=session,
@@ -391,6 +397,7 @@ def run_pipeline(
         "staged_raw_notes": paths.staged_raw_notes_rel,
         "canonical_recap": paths.canonical_recap_rel,
         "normalized_recap": paths.normalized_recap_rel,
+        "frontmatter_seed": paths.frontmatter_seed_rel,
         "breadcrumbed_recap": paths.breadcrumbed_recap_rel,
         "session_memory_jsonl": paths.session_memory_jsonl_rel,
         "session_memory_meta": paths.session_memory_meta_rel,
@@ -543,13 +550,24 @@ def run_pipeline(
             pass
         status.add_warning("slug_mismatch_used_disk_breadcrumb")
 
+    frontmatter_seed_path = (corpus_dir / str(status.paths["frontmatter_seed"])).resolve()
+    if frontmatter_seed_path.is_file():
+        status.add_state("frontmatter_seed_found")
+    elif "normalized_created" in status.states or "normalized_reused" in status.states:
+        status.add_state("frontmatter_seed_required")
+        status.add_next_action(
+            "Build deterministic frontmatter seed skeleton: "
+            f"uv run python scripts/build_recap_frontmatter_seed.py "
+            f"--campaign {paths.campaign_number} --session {options.session}"
+        )
+
     if breadcrumb_path.is_file():
         status.add_state("breadcrumb_found")
     else:
         status.add_state("breadcrumb_required")
         status.add_next_action(
-            f"Generate/bless breadcrumb artifact for Session {options.session}, then rerun "
-            "--materialize-session-memory."
+            f"Review/bless frontmatter seed, run breadcrumb_query_run --ingest-routing-only "
+            f"for Session {options.session}, then rerun --materialize-session-memory."
         )
 
     if options.materialize_session_memory:
@@ -601,6 +619,7 @@ def inspect_recap_ingest_status(
         "staged_raw_notes": paths.staged_raw_notes_rel,
         "canonical_recap": paths.canonical_recap_rel,
         "normalized_recap": paths.normalized_recap_rel,
+        "frontmatter_seed": paths.frontmatter_seed_rel,
         "breadcrumbed_recap": paths.breadcrumbed_recap_rel,
         "session_memory_jsonl": paths.session_memory_jsonl_rel,
         "session_memory_meta": paths.session_memory_meta_rel,
@@ -634,6 +653,17 @@ def inspect_recap_ingest_status(
     if normalized_path.is_file():
         status.add_state("normalized_reused")
 
+    frontmatter_seed_path = (corpus_dir / str(status.paths["frontmatter_seed"])).resolve()
+    if frontmatter_seed_path.is_file():
+        status.add_state("frontmatter_seed_found")
+    elif "normalized_reused" in status.states:
+        status.add_state("frontmatter_seed_required")
+        status.add_next_action(
+            "Build deterministic frontmatter seed skeleton: "
+            f"uv run python scripts/build_recap_frontmatter_seed.py "
+            f"--campaign {paths.campaign_number} --session {session}"
+        )
+
     try:
         breadcrumb_path, breadcrumb_rel = _resolve_breadcrumb_path(
             corpus_dir,
@@ -653,8 +683,8 @@ def inspect_recap_ingest_status(
     else:
         status.add_state("breadcrumb_required")
         status.add_next_action(
-            f"Generate/bless breadcrumb artifact for Session {session}, then rerun "
-            "--materialize-session-memory."
+            f"Review/bless frontmatter seed, run breadcrumb_query_run --ingest-routing-only "
+            f"for Session {session}, then rerun --materialize-session-memory."
         )
 
     memory_jsonl = (corpus_dir / str(status.paths["session_memory_jsonl"])).resolve()

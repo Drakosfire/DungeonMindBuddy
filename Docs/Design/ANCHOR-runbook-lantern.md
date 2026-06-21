@@ -3,7 +3,7 @@
 **Anchor phrase:** `Runbook Lantern`  
 **Created:** 2026-06-18  
 **Project area:** DungeonBuddy / Command Board / Tiptap runbook / campaign memory  
-**Use this when context drifts:** “Pull us back to the Runbook Lantern.”
+**Use this when context drifts:** “Pull us back to the Runbook Lantern.” For Plan surface + ingest v1 pickup, also read `Docs/Plans/HANDOFF-plan-mode-command-board-jumpstart.md`.
 
 ---
 
@@ -122,9 +122,9 @@ This layer answers:
 What is true, where did it come from, how has it changed, and what evidence supports it?
 ```
 
-### Layer 2 — The lantern lens
+### Layer 2 — The lantern lens (Plan anchor pane)
 
-This is the session descriptor / planning selection layer:
+This is the **Plan surface** session descriptor / planning selection layer — the anchor pane that remains when overlays close:
 
 - What session is being built or run?
 - Which sources matter now?
@@ -132,6 +132,7 @@ This is the session descriptor / planning selection layer:
 - Which runbook file is the table-facing projection?
 - Which combat/clocks/tool seeds initialize operational state?
 - Which material is ready, draft, locked, or reference-only?
+- **Recap ingest status** — staged, canonical, normalized, breadcrumb required, session memory ready?
 
 This layer answers:
 
@@ -139,7 +140,9 @@ This layer answers:
 What slice of the campaign should be visible for this session?
 ```
 
-### Layer 3 — Light at the table
+Plan is the most flexible Command Board surface. It consumes world objects from corpus (future **Build** surface writes) and writes session scope for **Play** to run. Design Plan features as consumers and writers of lessons about Play and Build even before Build is designed.
+
+### Layer 3 — Light at the table (Play surface)
 
 This is the GM-facing runbook and Live Play command surface:
 
@@ -175,6 +178,8 @@ Corpus/canon = separate authority boundary
 Operational JSON = live combat/clocks/tools state
 ```
 
+Overlays (popups, hovers, drawers) are a **shared projection primitive** across all three surfaces — Plan, Play, and Build can each emit them. They project detail and tools without spawning new tabs. What differs is the return target when an overlay closes (Plan → anchor pane, Play → focused beat, Build → object under construction), not whether overlays exist. Reuse one overlay shell across surfaces.
+
 If a future PR blurs these lines, invoke the anchor.
 
 Examples:
@@ -202,9 +207,9 @@ If it answers “what is canonically true?” it belongs behind a typed referenc
 
 If it answers “what is currently happening in combat or clocks?” it belongs in operational state.
 
-If it answers “what should be in scope for this session?” it belongs in the session descriptor.
+If it answers “what should be in scope for this session?” it belongs in the Plan anchor pane (session descriptor).
 
-If it answers “how does the campaign world evolve over time?” it belongs in DungeonBuddy memory/canon systems.
+If it answers “how does the campaign world evolve over time?” it belongs in DungeonBuddy memory/canon systems — eventually the **Build** surface authors durable objects; Plan and Play consume them.
 
 ---
 
@@ -222,10 +227,11 @@ When this anchor is invoked, reload these assumptions:
 2. The runbook is a compiled table-facing projection, not the database.
 3. The roadmap should proceed by small contracts.
 4. C2S23 is proof material, not permanent hardcoded architecture.
-5. Session descriptor is the stable bridge from campaign memory to next-session command surface.
+5. Session descriptor is the stable bridge from campaign memory to next-session command surface (Plan anchor pane).
 6. Reference chips are doorways into source/canon/tools, not canon themselves.
 7. Operational live state must remain separate from prose and canon.
-8. The GM-facing surface should stay calm, linear, and playable.
+8. The GM-facing Play surface should stay calm, linear, and playable.
+9. Three surfaces — Plan, Play, Build — project the same memory differently; Build is named but not yet designed; each surface teaches the others.
 
 ---
 
@@ -233,7 +239,7 @@ When this anchor is invoked, reload these assumptions:
 
 Use this paragraph in future handoffs when context needs to be restored:
 
-> Anchor: **Runbook Lantern**. DungeonBuddy is the durable campaign-memory and planning system; the session runbook is the GM-facing light cast from that memory for one session. It should read like a linear script and behave like a typed command surface, while keeping canon/reference data, editable runbook prose, session descriptors, and operational live state separate. C2S23 is proof material, not the hardcoded future architecture. Build small contracts that make the next session easier to construct and run without turning the runbook into a dashboard, database, or hidden canon mutation surface.
+> Anchor: **Runbook Lantern**. DungeonBuddy is the durable campaign-memory and planning system; the session runbook is the GM-facing light cast from that memory for one session. The Command Board has three named surfaces — **Plan** (anchor pane + workshop), **Play** (table runbook + operational tools), and **Build** (future durable world construction; not yet designed). Plan and Play are active; each should record lessons for the others. It should read like a linear script and behave like a typed command surface, while keeping canon/reference data, editable runbook prose, session descriptors, and operational live state separate. C2S23 is proof material, not the hardcoded future architecture. Build small contracts that make the next session easier to construct and run without turning the runbook into a dashboard, database, or hidden canon mutation surface.
 
 ---
 

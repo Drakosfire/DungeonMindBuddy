@@ -693,6 +693,21 @@ code {
   min-height: 1.1rem;
 }
 
+.ingestion-boundary-card {
+  border: 1px solid #4f6f9f;
+  border-radius: 8px;
+  background: rgba(79, 111, 159, 0.14);
+  padding: 0.55rem 0.65rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.ingestion-boundary-card p {
+  margin: 0;
+  color: #c1c9d8;
+  font-size: 0.86rem;
+}
+
 .ingestion-advanced-options {
   margin-top: 0.4rem;
   display: grid;

@@ -11,7 +11,7 @@ interface IngestionModuleProps {
   session: number;
 }
 
-const INGESTION_DRAFT_STORAGE_VERSION = 2;
+const INGESTION_DRAFT_STORAGE_VERSION = 3;
 
 const SESSION_22_CANONICAL_SLUG = "Mireward Road and Lysandro";
 const SESSION_22_CANONICAL_TITLE = "Session 22 - Mireward Road and Lysandro";
@@ -26,7 +26,6 @@ interface IngestionModuleDraft {
   showAdvanced: boolean;
   forceStage: boolean;
   forceRecap: boolean;
-  retryAfterBreadcrumb: boolean;
   latestResult: RecapIngestStatus | null;
   previewSignature: string | null;
   state: IngestionPaneState;
@@ -302,7 +301,6 @@ function readDraft(storageKey: string): IngestionModuleDraft | null {
       showAdvanced: Boolean(parsed.showAdvanced),
       forceStage: Boolean(parsed.forceStage),
       forceRecap: Boolean(parsed.forceRecap),
-      retryAfterBreadcrumb: Boolean(parsed.retryAfterBreadcrumb),
       latestResult,
       previewSignature:
         typeof parsed.previewSignature === "string" || parsed.previewSignature === null
@@ -401,7 +399,11 @@ function buildToastForResult(
   }
 
   if (result.status === "breadcrumb_required") {
-    nextSteps.unshift("Generate/bless breadcrumb artifact, then rerun Materialize Session Memory.");
+    nextSteps.unshift(
+      "Canonical + normalized recap exist on disk.",
+      "Breadcrumb + session memory are not retrieval-ready yet.",
+      "Bless the frontmatter seed and breadcrumb artifact, then inspect status before materializing session memory.",
+    );
   }
 
   if (result.status === "ready_for_planning_activation") {
@@ -422,23 +424,26 @@ function buildToastForResult(
       ? "success"
       : result.status === "error"
         ? "error"
-        : result.status === "breadcrumb_required"
-          ? "warning"
-          : "info";
+        : "info";
 
   const detail =
-    result.errors.length > 0
-      ? result.errors.join("; ")
-      : result.warnings.length > 0
-        ? result.warnings.join("; ")
-        : "Operation completed.";
+    result.status === "breadcrumb_required"
+      ? "Expected v1 stop: canonical recap and normalized recap are prepared; retrieval activation waits for breadcrumb + session memory."
+      : result.errors.length > 0
+        ? result.errors.join("; ")
+        : result.warnings.length > 0
+          ? result.warnings.join("; ")
+          : "Operation completed.";
 
   return {
     tone,
-    title: `Ingestion ${result.status}`,
+    title:
+      result.status === "breadcrumb_required"
+        ? "Breadcrumb required before retrieval"
+        : `Ingestion ${result.status}`,
     detail,
     nextSteps: uniqueNextSteps.slice(0, 4),
-    sticky: tone === "warning" || tone === "error",
+    sticky: tone === "error",
   };
 }
 
@@ -460,7 +465,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [forceStage, setForceStage] = useState(false);
   const [forceRecap, setForceRecap] = useState(false);
-  const [retryAfterBreadcrumb, setRetryAfterBreadcrumb] = useState(false);
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
@@ -490,7 +494,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const canMaterialize =
     !busy &&
     !!latestResult &&
-    (hasState(latestResult, "breadcrumb_found") || retryAfterBreadcrumb);
+    hasState(latestResult, "breadcrumb_found");
   const hasApplied =
     hasState(latestResult, "recap_applied") ||
     hasState(latestResult, "recap_reused") ||
@@ -519,7 +523,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         setShowAdvanced(false);
         setForceStage(false);
         setForceRecap(false);
-        setRetryAfterBreadcrumb(false);
         setState({ status: "idle" });
         setLatestResult(null);
         setPreviewSignature(null);
@@ -532,7 +535,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         setShowAdvanced(draft.showAdvanced);
         setForceStage(draft.forceStage);
         setForceRecap(draft.forceRecap);
-        setRetryAfterBreadcrumb(draft.retryAfterBreadcrumb);
         setState(draft.state);
         setLatestResult(draft.latestResult);
         setPreviewSignature(draft.previewSignature);
@@ -580,9 +582,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           }
           return derivePaneStateFromResult(sanitizedResult);
         });
-        if (hasState(sanitizedResult, "breadcrumb_found")) {
-          setRetryAfterBreadcrumb(true);
-        }
       } catch {
         // Disk probe is best-effort; local draft still applies.
       }
@@ -624,7 +623,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       showAdvanced,
       forceStage,
       forceRecap,
-      retryAfterBreadcrumb,
       latestResult,
       previewSignature,
       state,
@@ -640,7 +638,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     showAdvanced,
     forceStage,
     forceRecap,
-    retryAfterBreadcrumb,
     latestResult,
     previewSignature,
     state,
@@ -688,7 +685,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     setState({ status: "idle" });
     setLatestResult(null);
     setPreviewSignature(null);
-    setRetryAfterBreadcrumb(false);
     const canonicalDefaults = canonicalSlugTitleForRecapSession(recapSession);
     if (canonicalDefaults) {
       setSlug(canonicalDefaults.slug);
@@ -1019,7 +1015,14 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       </section>
 
       <section className={`ingestion-step ${activeStep === 3 ? "is-active" : ""}`} aria-label="Ingestion step 3">
-        <h3 className="ingestion-step-title">Step 3 — materialize session memory</h3>
+        <h3 className="ingestion-step-title">Step 3 — breadcrumb and session memory readiness</h3>
+        {latestResult?.status === "breadcrumb_required" ? (
+          <div className="ingestion-boundary-card" role="status">
+            <strong>Expected v1 boundary: breadcrumb required</strong>
+            <p>Canonical recap and normalized recap are on disk. Retrieval is not ready until a blessed breadcrumb and session memory records exist.</p>
+            <p>Use the established content-ops path for `frontmatter_seed.md` and breadcrumb tagging, then inspect status again before materializing session memory.</p>
+          </div>
+        ) : null}
         <div className="ingestion-actions">
           <button
             type="button"
@@ -1039,15 +1042,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         <p className="module-muted ingestion-live-status" role="status" aria-live="polite">
           {isMaterializing ? "Materialization in progress..." : ""}
         </p>
-        {latestResult?.status === "breadcrumb_required" ? (
-          <label>
-            <input
-              type="checkbox"
-              checked={retryAfterBreadcrumb}
-              onChange={(event) => setRetryAfterBreadcrumb(event.target.checked)}
-            />{" "}
-            I added breadcrumb artifact; retry materialization.
-          </label>
+        {!canMaterialize ? (
+          <p className="module-muted">Materialize is disabled until disk status reports `breadcrumb_found`.</p>
         ) : null}
         <div className="ingestion-step-actions">
           <button type="button" onClick={() => jumpToStep(2)}>

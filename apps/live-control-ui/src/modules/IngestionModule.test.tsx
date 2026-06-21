@@ -264,6 +264,11 @@ describe("IngestionModule", () => {
     await waitFor(() =>
       expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
+    expect(screen.getByText("Breadcrumb required before retrieval")).toBeInTheDocument();
+    expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
+    expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/Materialize is disabled until disk status reports/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
   });
 
   it("submits materialize_session_memory with edited recap session and shows ready state", async () => {
