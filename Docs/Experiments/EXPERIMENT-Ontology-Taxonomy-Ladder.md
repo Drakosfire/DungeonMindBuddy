@@ -448,3 +448,27 @@ The project now has two parallel but separate paths:
 - Ontology / Taxonomy ladder work defines the future semantic and graph model.
 
 The ontology ladder should not wait passively, but it should avoid irreversible corpus assumptions. Proceed with docs, taxonomy, schema, validation, deterministic materialization, and reports. Delay wholesale corpus rework until the canonical document model is stable.
+
+## Session-Memory Sentence-Unit Materializer
+
+Rung 8 session-memory sentence-unit materializer is tracked in:
+
+`src/graph_memory/session_memory_materialize.py`
+
+Synthetic session-memory fixture:
+
+`evals/graph_memory_layer/examples/session_memory_sentence_units_minimal.jsonl`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_session_memory_materializer`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_session_memory_materializer`
+
+Human-readable guide:
+
+`evals/graph_memory_layer/SESSION-MEMORY-MATERIALIZER.md`
+
+This materializer consumes only explicit session-memory JSONL sentence/source-unit records. The default validator uses a tiny synthetic fixture. It emits candidate/internal/diagnostic source-document and source-unit graph records with provenance and source refs. It does not scan corpus files, parse Markdown/Tiptap output, read manifests, infer entities, resolve aliases, emit promoted facts, call LLMs, or affect production retrieval.

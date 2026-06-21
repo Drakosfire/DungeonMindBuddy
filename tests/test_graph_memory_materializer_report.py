@@ -111,3 +111,25 @@ def test_report_source_does_not_import_production_retrieval_session_memory_or_ll
     source = REPORT_SOURCE_PATH.read_text(encoding="utf-8")
     for snippet in FORBIDDEN_IMPORT_SNIPPETS:
         assert snippet not in source
+
+
+def test_validation_issue_rows_use_actual_severity_code_pairs() -> None:
+    from src.graph_memory.report import build_graph_report
+    from src.graph_memory.validation_rules import ValidationIssue
+
+    bundle, _report, records, _issues = report_parts()
+    issues = [
+        ValidationIssue(severity="info", code="non_admissible_evidence_role", message="info", record_id=None, field=None),
+        ValidationIssue(severity="error", code="source_evidence_without_source_ref", message="error", record_id=None, field=None),
+    ]
+    mixed_report = build_graph_report(bundle, issues)
+    rendered = render_graph_report_markdown(mixed_report, records)
+
+    assert mixed_report.validation_issue_pairs == {
+        "error/source_evidence_without_source_ref": 1,
+        "info/non_admissible_evidence_role": 1,
+    }
+    assert "| info | non_admissible_evidence_role | 1 |" in rendered
+    assert "| error | source_evidence_without_source_ref | 1 |" in rendered
+    assert "| info | source_evidence_without_source_ref |" not in rendered
+    assert "| error | non_admissible_evidence_role |" not in rendered
