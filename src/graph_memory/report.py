@@ -35,6 +35,7 @@ class GraphReport:
     validation_issue_count: int
     validation_issue_severities: dict[str, int]
     validation_issue_codes: dict[str, int]
+    validation_issue_pairs: dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,7 @@ def build_graph_report(bundle: GraphBundle, issues: list[ValidationIssue]) -> Gr
     authority_states: dict[str, int] = {}
     validation_issue_severities: dict[str, int] = {}
     validation_issue_codes: dict[str, int] = {}
+    validation_issue_pairs: dict[str, int] = {}
 
     for node in bundle.nodes:
         _increment(node_kinds, _term(node.kind))
@@ -95,6 +97,7 @@ def build_graph_report(bundle: GraphBundle, issues: list[ValidationIssue]) -> Gr
     for issue in issues:
         _increment(validation_issue_severities, issue.severity)
         _increment(validation_issue_codes, issue.code)
+        _increment(validation_issue_pairs, f"{issue.severity}/{issue.code}")
 
     return GraphReport(
         bundle_id=bundle.bundle_id,
@@ -114,6 +117,7 @@ def build_graph_report(bundle: GraphBundle, issues: list[ValidationIssue]) -> Gr
         validation_issue_count=len(issues),
         validation_issue_severities=dict(sorted(validation_issue_severities.items())),
         validation_issue_codes=dict(sorted(validation_issue_codes.items())),
+        validation_issue_pairs=dict(sorted(validation_issue_pairs.items())),
     )
 
 
@@ -161,13 +165,10 @@ def _render_count_table(title: str, first_column: str, counts: dict[str, int]) -
 
 def _render_validation_issues(report: GraphReport) -> list[str]:
     lines = ["## Validation Issues", "", "| Severity | Code | Count |", "|---|---|---:|"]
-    if report.validation_issue_severities and report.validation_issue_codes:
-        for severity in sorted(report.validation_issue_severities):
-            for code in sorted(report.validation_issue_codes):
-                # The v0 summary keeps severity and code distributions compact. For
-                # deterministic fixture output, each code appears at one severity.
-                count = min(report.validation_issue_severities[severity], report.validation_issue_codes[code])
-                lines.append(f"| {severity} | {code} | {count} |")
+    if report.validation_issue_pairs:
+        for pair in sorted(report.validation_issue_pairs):
+            severity, code = pair.split("/", 1)
+            lines.append(f"| {severity} | {code} | {report.validation_issue_pairs[pair]} |")
     else:
         lines.append("| none | none | 0 |")
     lines.append("")

@@ -107,3 +107,23 @@ uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expect
 Later phases may add graph materialization, graph reports, graph-shadow retrieval, entity candidates, relationship candidates, taxonomy governance, and live retrieval shadow mode.
 
 Any LLM-backed experiment must be added behind explicit CLI flags in a later PR.
+
+## Session-Memory Sentence-Unit Materializer
+
+The session-memory sentence-unit materializer validates the first gated real-structure source family:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_session_memory_materializer
+uv run python -m evals.graph_memory_layer.report_session_memory_materializer
+```
+
+By default these commands read only the tiny synthetic fixture at
+`evals/graph_memory_layer/examples/session_memory_sentence_units_minimal.jsonl`.
+The validator checks real-structure gate compliance, emits a diagnostic
+candidate graph bundle, validates it, and reports the output. The report CLI
+also includes session-memory route/source-unit coverage counts.
+
+This rung does not scan corpus files, read manifests, parse Markdown or Tiptap
+output, infer entities or aliases, promote graph facts, call LLMs, or change
+production retrieval behavior. Optional input must be supplied as an explicit
+JSONL path.
