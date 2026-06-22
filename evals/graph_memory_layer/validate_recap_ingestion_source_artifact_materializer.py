@@ -23,6 +23,7 @@ MATERIALIZER_GATE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "recap_ing
 ADAPTER_FIELDS = {"payload_kind", "source_unit_projection", "projection_card", "surface_owned_projection_kind", "plan_chip", "agent_interaction_payload"}
 FORBIDDEN_UNIT_PARTS = ("entity_fact", "relationship_fact", "alias", "promotion", "identity_merge")
 RAW_INTERNALS = ("_normalized/", "_breadcrumbed/", ".records_meta.jsonl", "/workspace/", "/home/", "/mnt/", "C:\\")
+ABSOLUTE_PATH_TOKENS = ("/workspace/", "/home/", "/mnt/", "C:\\")
 
 
 def _require(condition: bool, message: str) -> None:
@@ -78,21 +79,35 @@ def main() -> int:
         anchors_by_artifact.setdefault(anchor["source_artifact_id"], []).append(anchor)
     units_by_artifact = {}
     anchor_ids = {anchor["source_anchor_id"] for anchor in data["anchors"]}
+    source_ref_ids = []
     for unit in data["units"]:
         units_by_artifact.setdefault(unit["source_artifact_id"], []).append(unit)
         _require(unit["source_anchor_id"] in anchor_ids, "unit points outside local anchors")
         _require(unit.get("source_ref"), "unit missing source_ref")
+        source_ref_id = unit["source_ref"].get("source_ref_id")
+        _require(isinstance(source_ref_id, str) and source_ref_id, "unit missing source_ref_id")
+        _require(source_ref_id.startswith("source-ref:"), "source_ref_id prefix mismatch")
+        _require(not any(token in source_ref_id for token in ABSOLUTE_PATH_TOKENS), "source_ref_id leaked absolute path")
+        source_ref_ids.append(source_ref_id)
         _require(unit.get("provenance"), "unit missing provenance")
+        for provenance in unit["provenance"]:
+            _require(provenance.get("source_ref_id") == source_ref_id, "provenance source_ref_id mismatch")
         _require(unit.get("canon_state"), "unit missing canon_state")
         _require(unit.get("display_summary") and unit["display_summary"] not in ("source_evidence", "narrative_evidence"), "display_summary treated as evidence")
         _require(not any(part in unit["unit_kind"] for part in FORBIDDEN_UNIT_PARTS), "forbidden unit kind emitted")
+    _require(len(source_ref_ids) == len(set(source_ref_ids)), "source_ref_id values are not unique")
+    repeat = recap_ingestion_materialization_to_dict(materialize_recap_ingestion_source_artifacts(inputs))
+    repeat_ids = [unit["source_ref"]["source_ref_id"] for unit in repeat["units"]]
+    _require(source_ref_ids == repeat_ids, "source_ref_id values are not deterministic")
     for artifact in data["artifacts"]:
         _require(anchors_by_artifact.get(artifact["artifact_id"]), "artifact missing anchor")
         _require(units_by_artifact.get(artifact["artifact_id"]), "artifact missing unit")
     print("- anchors: ready")
     print("- source units: ready")
     print("- source refs: ready")
+    print("- source ref ids: ready")
     print("- provenance: ready")
+    print("- provenance source-ref linkage: ready")
     output = json.dumps(data, sort_keys=True)
     _require('"full_text"' not in output and '"text"' not in output and '"content"' not in output, "full text field emitted")
     for path in DEFAULT_INPUTS.values():

@@ -85,3 +85,7 @@ The report does not connect `/plan`, does not create plan chips, does not create
 ## Deferred Work
 
 Deferred work includes projection-readiness evaluation, stable source-ref identifiers if needed, explicit provenance-to-source-ref linkage, adapter design, retrieval integration, entity extraction, alias resolution, relationship inference, fact promotion, and canon promotion.
+
+## Source Ref / Provenance Linkage Hardening v0
+
+Source Ref / Provenance Linkage Hardening v0 adds stable source_ref_id coverage and explicit provenance-to-source-ref linkage for recap-ingestion source artifact materializer output. The report keeps missing_source_ref_id and missing_provenance_source_ref_link issue codes for regression detection, but the default explicit-input fixture should now report those coverage checks as ready.

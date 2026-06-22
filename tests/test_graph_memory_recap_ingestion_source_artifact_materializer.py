@@ -129,6 +129,21 @@ def test_every_unit_points_to_local_anchor_and_has_source_ref_provenance_and_can
         assert unit["canon_state"]
 
 
+def test_source_ref_ids_are_stable_unique_and_linked_to_provenance() -> None:
+    data = _materialized()
+    repeat = _materialized()
+    source_ref_ids = [unit["source_ref"]["source_ref_id"] for unit in data["units"]]
+    assert len(source_ref_ids) == len(set(source_ref_ids)) == len(data["units"])
+    assert source_ref_ids == [unit["source_ref"]["source_ref_id"] for unit in repeat["units"]]
+    for unit in data["units"]:
+        source_ref_id = unit["source_ref"].get("source_ref_id")
+        assert source_ref_id and source_ref_id.startswith("source-ref:")
+        assert not any(token in source_ref_id for token in ["/workspace/", "/home/", "/mnt/", "C:\\"])
+        for path in FIXTURES.values():
+            assert path.read_text(encoding="utf-8").strip() not in source_ref_id
+        assert all(provenance.get("source_ref_id") == source_ref_id for provenance in unit["provenance"])
+
+
 def test_display_summary_is_not_evidence() -> None:
     for unit in _materialized()["units"]:
         assert unit["display_summary"]
@@ -172,6 +187,7 @@ def test_normalized_recap_forbids_extracted_fact_shapes() -> None:
 
 def test_design_report_exists_and_states_boundaries() -> None:
     text = REPORT_PATH.read_text(encoding="utf-8")
+    assert "Source Ref / Provenance Linkage Hardening v0" in text
     assert "explicitly supplied" in text
     assert "does not discover files" in text
     assert "connect `/plan`" in text

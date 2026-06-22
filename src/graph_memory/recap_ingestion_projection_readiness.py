@@ -106,10 +106,10 @@ def assess_recap_ingestion_projection_readiness(materialization: RecapIngestionM
             source_ref_ids += 1
         provenance_total += len(unit.provenance)
         for prov in unit.provenance:
-            if prov.get("source_ref_id"):
+            if prov.get("source_ref_id") and prov.get("source_ref_id") == unit.source_ref.get("source_ref_id"):
                 provenance_links += 1
             else:
-                _add_issue(issues, "blocker", "missing_provenance_source_ref_link", "Provenance record does not link to source_ref_id.", unit.source_artifact_id, unit.source_unit_id, "provenance.source_ref_id")
+                _add_issue(issues, "blocker", "missing_provenance_source_ref_link", "Provenance record does not link to matching source_ref_id.", unit.source_artifact_id, unit.source_unit_id, "provenance.source_ref_id")
         if unit.source_ref.get("locator"):
             source_ref_locator += 1
         else:
@@ -196,5 +196,5 @@ def render_recap_ingestion_projection_readiness_report(report: RecapIngestionPro
         for issue in report.issues:
             target = f" ({issue.artifact_id or 'materialization'}{', ' + issue.unit_id if issue.unit_id else ''})"
             lines.append(f"- {issue.severity}: {issue.code}{target} — {issue.message}")
-    lines.extend(["", "## Deferred Work", "", "This output is not projection-ready until stable source_ref_id coverage and provenance-to-source-ref linkage are added.", "", "This report is diagnostic only and is not a production adapter payload or not a production adapter contract.", "It does not connect `/plan`.", "It does not connect Agent Interaction."])
+    lines.extend(["", "## Deferred Work", "", "After hardening, the default explicit-input fixture output is projection-ready at the diagnostic source-structure level. Projection-ready remains diagnostic and does not mean production-ready.", "", "This report is diagnostic only and is not a production adapter payload or not a production adapter contract.", "It does not connect `/plan`.", "It does not connect Agent Interaction."])
     return "\n".join(lines) + "\n"

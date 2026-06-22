@@ -51,3 +51,7 @@ The materializer does not connect `/plan`, Agent Interaction, graph retrieval, s
 ## Deferred Work
 
 Deferred work includes richer materializer reporting, projection-readiness over materialized recap-ingestion artifacts, adapter design, shadow retrieval evaluation, and any future promotion gate. Entity extraction, alias resolution, relationship inference, fact promotion, and canon promotion remain out of scope.
+
+## Source Ref / Provenance Linkage Hardening v0
+
+Source Ref / Provenance Linkage Hardening v0 adds stable source_ref_id coverage and explicit provenance-to-source-ref linkage for recap-ingestion source artifact materializer output. The source_ref_id remains diagnostic source structure, not a public UI contract, adapter contract, or runtime surface concept.

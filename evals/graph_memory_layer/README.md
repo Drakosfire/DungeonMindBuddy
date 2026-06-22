@@ -219,3 +219,15 @@ Validates and renders projection-readiness diagnostics over explicit-input recap
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_readiness
 uv run python -m evals.graph_memory_layer.report_recap_ingestion_projection_readiness
 ```
+
+## Recap-Ingestion Source Ref / Provenance Linkage Hardening
+
+The recap-ingestion source artifact materializer now emits stable `source_ref_id` values in each source_ref and links each provenance record back to the same source_ref_id. This hardening moves the source-ref/provenance projection-readiness checks from blocked to ready while remaining diagnostic-only.
+
+Validation:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_report
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_readiness
+```
