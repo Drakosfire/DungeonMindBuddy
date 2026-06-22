@@ -209,3 +209,13 @@ Validates and renders a richer diagnostic report over explicit-input recap-inges
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_report
 uv run python -m evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer_diagnostics
 ```
+
+
+## Recap-Ingestion Projection-Readiness
+
+Validates and renders projection-readiness diagnostics over explicit-input recap-ingestion materializer output. This report may intentionally return a blocked readiness status when required source-ref/provenance structure is missing. It does not implement projection adapters, `/plan`, Agent Interaction, retrieval, corpus scanning, or runtime behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_readiness
+uv run python -m evals.graph_memory_layer.report_recap_ingestion_projection_readiness
+```
