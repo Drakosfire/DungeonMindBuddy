@@ -254,7 +254,7 @@ The primary agent should refine these; do not treat as committed scope.
 ### Live-control React (legacy / idea mine — learn from, do not blindly promote)
 
 11. `apps/live-control-ui/src/surface/` — InspectorPane, module registry
-12. `Docs/Plans/HANDOFF-pr84-l5f-read-only-pane-renderers.md` — read-only artifact renderers already built
+12. `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr84-l5f-read-only-pane-renderers.md` — read-only artifact renderers already built
 
 ### Backlog pressure
 

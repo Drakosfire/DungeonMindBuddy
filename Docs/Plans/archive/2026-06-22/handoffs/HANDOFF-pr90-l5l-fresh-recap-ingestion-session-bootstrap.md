@@ -11,7 +11,7 @@ related_documents:
     role: parent_plan
   - path: Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md
     role: execution_tracker
-  - path: Docs/Plans/HANDOFF-pr89-l5k-patch-ux-hardening-read-after-write-evidence.md
+  - path: Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr89-l5k-patch-ux-hardening-read-after-write-evidence.md
     role: prior_patch_hardening_slice
 ---
 

@@ -10,7 +10,7 @@
 - `Docs/Plans/HANDOFF-statblock-lifecycle-seam-pr1.md`
 - `Docs/Plans/HANDOFF-statblock-lifecycle-command-smoke-pr2.md`
 - `Docs/Plans/HANDOFF-statblock-workbench-readonly-pr3.md`
-- `Docs/Plans/HANDOFF-statblock-workbench-draft-storage-pr107.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-workbench-draft-storage-pr107.md`
 **Mode:** Corpus promotion preview only. Generate a reviewable corpus-write preview from a stored draft. Do not write corpus, ingest, retrieve, or mutate combat.
 
 ---
@@ -22,9 +22,9 @@ You are implementing Statblock Workbench PR108 in `Drakosfire/DungeonMindBuddy`.
 
 Read first:
 
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
 - `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`
-- `Docs/Plans/HANDOFF-statblock-workbench-draft-storage-pr107.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-workbench-draft-storage-pr107.md`
 - `src/agent/corpus_writer.py`
 
 Goal: add corpus promotion preview for stored statblock draft artifacts.

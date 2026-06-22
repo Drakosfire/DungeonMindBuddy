@@ -10,9 +10,9 @@
 - `Docs/Plans/HANDOFF-statblock-lifecycle-seam-pr1.md`
 - `Docs/Plans/HANDOFF-statblock-lifecycle-command-smoke-pr2.md`
 - `Docs/Plans/HANDOFF-statblock-workbench-readonly-pr3.md`
-- `Docs/Plans/HANDOFF-statblock-workbench-draft-storage-pr107.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-workbench-draft-storage-pr107.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
 **Mode:** Retrieval activation + verification. Activate generated statblock corpus files into the current manifest-backed retrieval layer and prove they can be admitted as evidence. Do not build Statblock View, do not add to combat, and do not introduce a new vector/embedding system.
 
 ---
@@ -24,9 +24,9 @@ You are implementing Statblock Workbench PR110 in `Drakosfire/DungeonMindBuddy`.
 
 Read first:
 
-- `Docs/Plans/HANDOFF-statblock-retrieval-activation-pr110.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-retrieval-activation-pr110.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
 - `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`
 - `src/live_play/manifest_context_query.py`
 - `src/live_play/live_query_context.py`

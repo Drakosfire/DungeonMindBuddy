@@ -79,7 +79,7 @@ table_note: "Where-we-are snapshot for Session 22 prep. Not table canon. Refresh
 
 | Path | Role |
 |------|------|
-| `Docs/Plans/HANDOFF-s22-live-play-agent.md` | **Live play agent** — resources, retrieval, corpus search |
+| `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` | **Live play agent** — resources, retrieval, corpus search |
 | `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | Legacy path index |
 | `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` | Ingest + retrieval workflow |
 | `evals/c2_live_prep/artifacts/runs/2026-05-23/` | Retrieval smoke (S20+S21 memory) |

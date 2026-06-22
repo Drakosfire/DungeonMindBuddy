@@ -34,7 +34,7 @@ This folder is the **GM-facing index** for everything produced while planning Se
 8. `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` — design scaffold (not table canon).
 9. `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` — **this file** (artifact register, promotion rules, **§2 notes table**).
 
-**Repo-only (agents):** `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md` — live-play index, retrieval vs corpus search, **§11 notes discipline**.
+**Repo-only (agents):** `DungeonMindBuddy/Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` — live-play index, retrieval vs corpus search, **§11 notes discipline**.
 
 ---
 
@@ -51,7 +51,7 @@ This folder is the **GM-facing index** for everything produced while planning Se
 
 ### Where to keep notes (Session 22)
 
-Full agent runbook: `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md` **§11**.
+Full agent runbook: `DungeonMindBuddy/Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` **§11**.
 
 | When | Where | Canon? |
 |------|-------|--------|
@@ -83,7 +83,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md`
 | **P2b** | **Travel → Mireward runbook** | `Session Prep/session_22/session_22_travel_to_mireward_runbook.md` | **ready** | n/a | Roll registry §6 + §7 procedure; player rolls R5/R6 + tables below |
 | **P3** | Retrieval smoke report | `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md` | ready | n/a | Repo artifact; optional link in proof ledger |
 | **P3b** | Targeted probes (Lysandra, Thrin, storm) | `evals/c2_live_prep/artifacts/runs/2026-05-23/{lysandra_state_probe,thrin_foreground,storm_travel}.json` | ready | n/a | Follow-on smoke; index in `c2s22_probe_index.json` |
-| **P4** | Agent live-play handoff | `Docs/Plans/HANDOFF-s22-live-play-agent.md` | **ready** | n/a | Primary agent entry for S22 play + lookup |
+| **P4** | Agent live-play handoff | `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` | **ready** | n/a | Primary agent entry for S22 play + lookup |
 | **P4b** | Legacy agent index | `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | draft | n/a | Superseded by P4 for retrieval/corpus ladder |
 | **R1** | Journey tracker | `Journey - Mireward Reach (Campaign 2).md` | draft | promote_after_play | Update distances / camp location after play |
 | **R2** | Mirathorn away + comms + **dual-front arc** | `Mirathorn — While You Were Away.md`, `Mirathorn — rockie-talkie comms timeline.md`, `Campaign 2 — Dual Front Shepherd Arc (GM planning).md` | **ready** | promote_after_play | Promote wire beats + any **proven** truths to recap |

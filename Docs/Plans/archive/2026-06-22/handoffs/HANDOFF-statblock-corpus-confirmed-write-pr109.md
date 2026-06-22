@@ -10,8 +10,8 @@
 - `Docs/Plans/HANDOFF-statblock-lifecycle-seam-pr1.md`
 - `Docs/Plans/HANDOFF-statblock-lifecycle-command-smoke-pr2.md`
 - `Docs/Plans/HANDOFF-statblock-workbench-readonly-pr3.md`
-- `Docs/Plans/HANDOFF-statblock-workbench-draft-storage-pr107.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-workbench-draft-storage-pr107.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
 **Mode:** Confirmed corpus write only. Add a narrow generated-statblock writer allowlist and a two-step prepare/commit flow. Do not ingest, retrieve, index, or mutate combat.
 
 ---
@@ -23,8 +23,8 @@ You are implementing Statblock Workbench PR109 in `Drakosfire/DungeonMindBuddy`.
 
 Read first:
 
-- `Docs/Plans/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
 - `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`
 - `src/agent/corpus_writer.py`
 - `apps/live_control_server/services/statblock_corpus_preview.py`

@@ -12,9 +12,9 @@ related_documents:
     role: parent_plan
   - path: Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md
     role: execution_tracker
-  - path: Docs/Plans/HANDOFF-pr79-l5a-projection-command-contracts.md
+  - path: Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr79-l5a-projection-command-contracts.md
     role: prior_contract_slice
-  - path: Docs/Plans/HANDOFF-pr80-l5b-plan-view-projection.md
+  - path: Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr80-l5b-plan-view-projection.md
     role: prior_projection_slice
 ---
 

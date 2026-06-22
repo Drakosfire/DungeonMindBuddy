@@ -74,7 +74,7 @@ Stacked PR branches:
 
 ## Handoffs
 
-See `Docs/Plans/HANDOFF-pr*-plan-surface-*.md` for agent dispatch packages.
+See `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr*-plan-surface-*.md` for early ladder dispatch packages (archived); active tracking is this file.
 
 ## Verification (integration)
 

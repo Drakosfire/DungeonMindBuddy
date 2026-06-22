@@ -145,7 +145,7 @@ Paths relative to `corpus/eldyrwild-markdown/` unless noted. Repo-only paths pre
 
 | Path | Role |
 |------|------|
-| `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md` | **This file** |
+| `DungeonMindBuddy/Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` | **This file** |
 | `DungeonMindBuddy/Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | Legacy path index |
 | `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-travel-roll-tables.md` | Roll-table build handoff (done) |
 | `DungeonMindBuddy/Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` | Ingest + retrieval pipeline deep dive |

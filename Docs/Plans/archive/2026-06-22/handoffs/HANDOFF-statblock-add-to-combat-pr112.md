@@ -12,11 +12,11 @@
 - `Docs/Plans/HANDOFF-statblock-lifecycle-seam-pr1.md`
 - `Docs/Plans/HANDOFF-statblock-lifecycle-command-smoke-pr2.md`
 - `Docs/Plans/HANDOFF-statblock-workbench-readonly-pr3.md`
-- `Docs/Plans/HANDOFF-statblock-workbench-draft-storage-pr107.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
-- `Docs/Plans/HANDOFF-statblock-retrieval-activation-pr110.md`
-- `Docs/Plans/HANDOFF-statblock-view-readonly-pr111.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-workbench-draft-storage-pr107.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-promotion-preview-pr108.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-retrieval-activation-pr110.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-view-readonly-pr111.md`
 **Mode:** First combat mutation slice. Add corpus-backed generated statblocks to a live-session current combat state using `combat_defaults`. Do not build the full combat tracker rewrite yet.
 
 ---
@@ -28,9 +28,9 @@ You are implementing Statblock Add to Combat PR112 in `Drakosfire/DungeonMindBud
 
 Read first:
 
-- `Docs/Plans/HANDOFF-statblock-add-to-combat-pr112.md`
-- `Docs/Plans/HANDOFF-statblock-view-readonly-pr111.md`
-- `Docs/Plans/HANDOFF-statblock-retrieval-activation-pr110.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-view-readonly-pr111.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-retrieval-activation-pr110.md`
 - `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`
 - `apps/live_control_server/services/statblock_view.py`
 - `apps/live_control_server/session_store.py`

@@ -11,7 +11,7 @@ related_documents:
     role: parent_plan
   - path: Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md
     role: execution_tracker
-  - path: Docs/Plans/HANDOFF-pr81-l5c-timeline-module.md
+  - path: Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr81-l5c-timeline-module.md
     role: prior_ui_projection_slice
 ---
 

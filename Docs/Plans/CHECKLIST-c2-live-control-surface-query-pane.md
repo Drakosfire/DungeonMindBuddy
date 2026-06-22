@@ -84,7 +84,7 @@ uv run pytest tests/test_live_projection_contracts.py -q
 ### Evidence (PR #79, 2026-05-28)
 
 - Branch: `pr79-l5a` → `main` ([PR #79](https://github.com/Drakosfire/DungeonMindBuddy/pull/79))
-- Handoff: `Docs/Plans/HANDOFF-pr79-l5a-projection-command-contracts.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr79-l5a-projection-command-contracts.md`
 - `uv run pytest tests/test_live_projection_contracts.py -q` → 16 passed
 - `uv run pytest tests/test_live_control_server.py tests/test_live_play_turn_loop.py -q` → 25 passed
 - Scope held: contracts + tests only; no FastAPI routes, UI, command bus execution, or corpus writes
@@ -125,7 +125,7 @@ uv run pytest tests/test_live_control_server.py -q
 ### Evidence (PR #80, 2026-05-28)
 
 - Branch: `pr80-l5b-plan-view` → `main`
-- Handoff: `Docs/Plans/HANDOFF-pr80-l5b-plan-view-projection.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr80-l5b-plan-view-projection.md`
 - Added schema: `evals/c2_live_prep/live/schemas/plan_view.schema.json`
 - Added sample: `evals/c2_live_prep/live/session_22/plan_view.sample.json`
 - Added builder: `src/live_play/projections/plan_view.py`
@@ -163,7 +163,7 @@ uv run pytest tests/test_live_control_server.py -q
 ### Evidence (PR #81, 2026-05-28)
 
 - Branch: `pr81-l5c-timeline-module` (in progress)
-- Handoff: `Docs/Plans/HANDOFF-pr81-l5c-timeline-module.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr81-l5c-timeline-module.md`
 - Added typed API contract + client helper: `apps/live-control-ui/src/api/types.ts`, `apps/live-control-ui/src/api/liveApi.ts`
 - Wired `planView` load/path: `apps/live-control-ui/src/App.tsx`, `apps/live-control-ui/src/surface/SurfaceShell.tsx`, `apps/live-control-ui/src/surface/moduleRegistry.tsx`
 - Added module + styling: `apps/live-control-ui/src/surface/modules/TimelineModule.tsx`, `apps/live-control-ui/src/styles.css`
@@ -204,7 +204,7 @@ cd apps/live-control-ui && npm test && npm run build
 ### Evidence (PR #82, 2026-05-28)
 
 - Branch: `pr82-l5d-inspector-pane-shell` (in progress)
-- Handoff: `Docs/Plans/HANDOFF-pr82-l5d-inspector-pane-shell.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr82-l5d-inspector-pane-shell.md`
 - Added target model helpers: `apps/live-control-ui/src/surface/targetTypes.ts`
 - Added selectable/inert chip helper: `apps/live-control-ui/src/surface/TargetChip.tsx`
 - Added shared pane shell + state type: `apps/live-control-ui/src/surface/InspectorPane.tsx`
@@ -250,7 +250,7 @@ uv run pytest tests/test_live_projection_contracts.py -q
 ### Evidence (PR #83, 2026-05-29)
 
 - Branch: `pr83-l5e-artifact-capability-reads`
-- Handoff: `Docs/Plans/HANDOFF-pr83-l5e-artifact-capability-reads.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr83-l5e-artifact-capability-reads.md`
 - Added artifact read contracts + resolvers:
   - `src/live_play/projections/artifacts.py`
   - `apps/live_control_server/routes/live.py` (`GET /api/live/artifact`)
@@ -291,7 +291,7 @@ cd apps/live-control-ui && npm run build
 ### Evidence (PR #84, 2026-05-29)
 
 - Branch: `pr84-l5f-read-only-pane-renderers`
-- Handoff: `Docs/Plans/HANDOFF-pr84-l5f-read-only-pane-renderers.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr84-l5f-read-only-pane-renderers.md`
 - Added typed artifact/capability contracts:
   - `apps/live-control-ui/src/api/types.ts`
 - Added read-only client helpers:
@@ -345,7 +345,7 @@ uv run pytest tests/test_live_play_schemas.py -q
 ### Evidence (PR #85, 2026-05-29)
 
 - Branch: `pr85-l5g-command-bus-first-write`
-- Handoff: `Docs/Plans/HANDOFF-pr85-l5g-command-bus-first-write.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr85-l5g-command-bus-first-write.md`
 - Added command bus executor with first safe write command:
   - `src/live_play/projections/command_bus.py`
 - Added `POST /api/live/commands` thin route:
@@ -396,7 +396,7 @@ cd apps/live-control-ui && npm run build
 ### Evidence (PR #86, 2026-05-29)
 
 - Branch: `pr86-l5h-pane-action-ui-append-observation`
-- Handoff: `Docs/Plans/HANDOFF-pr86-l5h-pane-action-ui-append-observation.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr86-l5h-pane-action-ui-append-observation.md`
 - Added typed command/write-result contract coverage in UI:
   - `apps/live-control-ui/src/api/types.ts`
 - Added command client helper:
@@ -458,7 +458,7 @@ uv run pytest tests/test_live_projection_contracts.py -q
 ### Evidence (PR #87, 2026-05-29)
 
 - Branch: `pr87-l5i-scoped-roll-table-patch-command`
-- Handoff: `Docs/Plans/HANDOFF-pr87-l5i-scoped-roll-table-patch-command.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr87-l5i-scoped-roll-table-patch-command.md`
 - Added scoped roll-table patch command engine:
   - `src/live_play/projections/artifact_patching.py`
 - Updated command bus dispatch to support `patch_artifact` while preserving `append_observation`:
@@ -521,7 +521,7 @@ cd apps/live-control-ui && npm run build
 ### Evidence (PR #88, 2026-05-29)
 
 - Branch: `pr88-l5j-roll-table-patch-ui-preview`
-- Handoff: `Docs/Plans/HANDOFF-pr88-l5j-roll-table-patch-ui-preview.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr88-l5j-roll-table-patch-ui-preview.md`
 - Added roll-table preview-first patch action component:
   - `apps/live-control-ui/src/surface/PatchArtifactAction.tsx`
 - Updated capability/action gating + artifact-aware action seam:
@@ -574,7 +574,7 @@ cd apps/live-control-ui && npm run build
 ### Evidence (PR #89, 2026-05-30)
 
 - Branch: `pr89-l5k-patch-ux-hardening-read-after-write-evidence`
-- Handoff: `Docs/Plans/HANDOFF-pr89-l5k-patch-ux-hardening-read-after-write-evidence.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr89-l5k-patch-ux-hardening-read-after-write-evidence.md`
 - Added write-evidence component:
   - `apps/live-control-ui/src/surface/WriteEvidencePanel.tsx`
   - `apps/live-control-ui/src/surface/WriteEvidencePanel.test.tsx`
@@ -623,7 +623,7 @@ uv run pytest tests/test_live_command_bus.py tests/test_live_artifact_reads.py t
 
 ### Evidence (PR #90, 2026-05-29)
 
-- Handoff: `Docs/Plans/HANDOFF-pr90-l5l-fresh-recap-ingestion-session-bootstrap.md`
+- Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr90-l5l-fresh-recap-ingestion-session-bootstrap.md`
 - Fixture: `tests/fixtures/live_bootstrap/session_22_fresh_recap.md`
 
 ---

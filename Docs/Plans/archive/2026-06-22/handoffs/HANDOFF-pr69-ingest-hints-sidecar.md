@@ -32,7 +32,7 @@ This PR formalizes the sidecar only. It does **not** wire the sidecar into recap
 | Create | `.cursor/skills/ingest-hints-sidecar/SKILL.md` |
 | Create | `tests/test_ingest_hints_output_schema.py` |
 | Create | `tests/test_ingest_hints_prompt_contract.py` |
-| Create | `Docs/Plans/HANDOFF-pr69-ingest-hints-sidecar.md` |
+| Create | `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr69-ingest-hints-sidecar.md` |
 | Modify | `Docs/Plans/C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md` |
 | Modify | `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` |
 

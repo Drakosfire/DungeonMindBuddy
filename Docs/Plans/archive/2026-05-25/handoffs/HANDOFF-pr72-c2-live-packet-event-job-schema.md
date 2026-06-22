@@ -20,7 +20,7 @@ Read in this order:
 4. `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` — Reanchor Block + Phase L1.
 5. `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` — Product Shape, **Modular Surface UI**, Minimal Architecture, Live Turn Loop, Latency Modes, PR Slices, and Acceptance Criteria.
 6. `Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md` — product-friction study; prevents the substrate from turning into a dashboard/file-browser model.
-7. `Docs/Plans/HANDOFF-s22-live-play-agent.md` — Session 22 dogfood contract, notes discipline, and roll-table lookup shape.
+7. `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` — Session 22 dogfood contract, notes discipline, and roll-table lookup shape.
 
 Current-state hypothesis to carry into the PR:
 
@@ -49,7 +49,7 @@ Read these before designing fields:
 1. `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md`
 2. `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md`
 3. `Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md`
-4. `Docs/Plans/HANDOFF-s22-live-play-agent.md`
+4. `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md`
 5. `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`
 6. `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md`
 7. `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`

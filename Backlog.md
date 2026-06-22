@@ -101,7 +101,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Surfaces when:** Moving the demo out of Cursor; designing a live-play server; implementing roll resolver / classifier; creating HANDOFF-pr<N> docs for the next DungeonBuddy product slice; evaluating whether a UI is a product surface or an IDE artifact.
 
-**Refs:** Session 22 transcript `[Session 22 live play](873301f8-c5de-4bee-a629-8c553e0b86b0)`; `Docs/Plans/HANDOFF-s22-live-play-agent.md`; `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; `_ingest_staging/session_22_raw_notes.md`; `Session Prep/session_22/session_22_travel_to_mireward_runbook.md`.
+**Refs:** Session 22 transcript `[Session 22 live play](873301f8-c5de-4bee-a629-8c553e0b86b0)`; `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md`; `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; `_ingest_staging/session_22_raw_notes.md`; `Session Prep/session_22/session_22_travel_to_mireward_runbook.md`.
 
 ## [READY] Session 22 — capture Grobnok callback verbatim (Silver Raven reply) — captured 2026-05-23
 
@@ -147,7 +147,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Surfaces when:** Mid-prep worldbuilding; "what's happening in X while party is away"; long-horizon cult/endgame; live-play agent HANDOFF; any task mixing **runnable S22** with **S25+ arc**.
 
-**Refs:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, `Mirathorn — rockie-talkie comms timeline.md`, `Mirathorn — While You Were Away.md`, `Session Prep/session_22/travel_mirathorn_comms_d100.md`, `Session 21 - brainstorming dump.md`, `Backlog.md` place-build workflow IDEA, `Docs/Plans/HANDOFF-s22-live-play-agent.md`.
+**Refs:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, `Mirathorn — rockie-talkie comms timeline.md`, `Mirathorn — While You Were Away.md`, `Session Prep/session_22/travel_mirathorn_comms_d100.md`, `Session 21 - brainstorming dump.md`, `Backlog.md` place-build workflow IDEA, `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md`.
 
 ## [IDEA] Mireward — Reach folk identity, garrison thin, Orin anchor (scaffold §A2–§F2) — captured 2026-05-23
 

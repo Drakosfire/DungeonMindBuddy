@@ -12,7 +12,7 @@ related_documents:
     role: parent_plan
   - path: Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md
     role: execution_tracker
-  - path: Docs/Plans/HANDOFF-pr88-l5j-roll-table-patch-ui-preview.md
+  - path: Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr88-l5j-roll-table-patch-ui-preview.md
     role: prior_patch_ui_slice
 ---
 
