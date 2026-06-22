@@ -150,6 +150,16 @@ uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_family
 
 Validates the recap-ingestion source-family gate. This gate decides which current recap-ingestion outputs may later be materialized as source artifacts, anchors, and units. It does not materialize those artifacts, implement adapters, touch `/plan`, scan corpus files, or change runtime behavior.
 
+## Recap-Ingestion Source Artifact Fixture
+
+Validate the synthetic recap-ingestion source artifact fixture with the no-runtime fixture validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_fixture
+```
+
+Validates the synthetic recap-ingestion source artifact fixture. This fixture proves the gate-admitted recap-ingestion artifact families can be represented as `SourceArtifact -> SourceAnchor -> SourceUnit` without reading real recap outputs, implementing a materializer, touching `/plan`, or changing runtime behavior.
+
 ## Surface Vocabulary Boundary
 
 Validate the surface vocabulary boundary manifest with the no-runtime boundary validator:

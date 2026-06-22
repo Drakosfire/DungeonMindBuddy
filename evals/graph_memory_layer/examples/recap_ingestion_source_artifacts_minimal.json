@@ -1,0 +1,334 @@
+{
+  "schema": "dmb_recap_ingestion_source_artifact_fixture_v0",
+  "version": "0.1",
+  "fixture_id": "example:recap-ingestion-source-artifacts:minimal",
+  "source_family": "recap_ingestion_source_artifacts",
+  "purpose": "Synthetic fixture proving admitted recap-ingestion artifact families can be represented as SourceArtifact -> SourceAnchor -> SourceUnit without materializing real recap outputs.",
+  "artifacts": [
+    {
+      "artifact_id": "artifact:synthetic:normalized-recap:s01",
+      "admitted_artifact_id": "normalized_recap_markdown",
+      "artifact_kind": "normalized_recap",
+      "source_layer": "normalized_source",
+      "label": "Synthetic normalized recap artifact",
+      "canon_state": "played_canon",
+      "lifecycle_state": "ingested",
+      "evidence_role": "source_evidence",
+      "authority_state": "system_derived",
+      "visibility_state": "gm_private",
+      "locator": {
+        "locator_id": "locator:synthetic:normalized-recap:s01",
+        "scheme": "artifact_path",
+        "value": "synthetic://recap-ingestion/normalized-recap/s01",
+        "anchor": "document"
+      },
+      "anchors": [
+        {
+          "source_anchor_id": "anchor:synthetic:normalized-recap:s01:document",
+          "anchor_kind": "document",
+          "label": "Synthetic document anchor",
+          "locator": {
+            "locator_id": "locator:synthetic:normalized-recap:s01:document",
+            "scheme": "artifact_path",
+            "value": "synthetic://recap-ingestion/normalized-recap/s01#document",
+            "anchor": "document"
+          }
+        },
+        {
+          "source_anchor_id": "anchor:synthetic:normalized-recap:s01:section-01",
+          "anchor_kind": "section",
+          "label": "Anchored normalized recap section",
+          "locator": {
+            "locator_id": "locator:synthetic:normalized-recap:s01:section-01",
+            "scheme": "line_range",
+            "value": "synthetic://recap-ingestion/normalized-recap/s01#section-01",
+            "line_start": 10,
+            "line_end": 18,
+            "anchor": "section-01"
+          }
+        }
+      ],
+      "units": [
+        {
+          "source_unit_id": "unit:synthetic:normalized-recap:s01:section-01",
+          "source_anchor_id": "anchor:synthetic:normalized-recap:s01:section-01",
+          "unit_kind": "recap_section",
+          "label": "Synthetic recap section unit",
+          "display_summary": "Synthetic recap section summary for shape validation only.",
+          "source_ref": {
+            "source_ref_id": "source-ref:synthetic:normalized-recap:s01:section-01",
+            "source_artifact_id": "artifact:synthetic:normalized-recap:s01",
+            "source_anchor_id": "anchor:synthetic:normalized-recap:s01:section-01"
+          },
+          "provenance": [
+            {
+              "provenance_id": "provenance:synthetic:normalized-recap:s01:section-01",
+              "role": "source_evidence",
+              "source_ref_id": "source-ref:synthetic:normalized-recap:s01:section-01"
+            }
+          ],
+          "canon_state": "played_canon",
+          "lifecycle_state": "ingested",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        }
+      ],
+      "forbidden_interpretations": [
+        "entity_fact",
+        "relationship_fact",
+        "alias_merge",
+        "promotion_record"
+      ]
+    },
+    {
+      "artifact_id": "artifact:synthetic:breadcrumbed-recap:s01",
+      "admitted_artifact_id": "breadcrumbed_recap_markdown",
+      "artifact_kind": "breadcrumbed_recap",
+      "source_layer": "breadcrumb_layer",
+      "label": "Synthetic breadcrumbed recap artifact",
+      "canon_state": "played_canon",
+      "lifecycle_state": "indexed",
+      "evidence_role": "navigation_hint",
+      "authority_state": "system_derived",
+      "visibility_state": "gm_private",
+      "locator": {
+        "locator_id": "locator:synthetic:breadcrumbed-recap:s01",
+        "scheme": "artifact_path",
+        "value": "synthetic://recap-ingestion/breadcrumbed-recap/s01",
+        "anchor": "document"
+      },
+      "anchors": [
+        {
+          "source_anchor_id": "anchor:synthetic:breadcrumbed-recap:s01:breadcrumb",
+          "anchor_kind": "breadcrumb",
+          "label": "Synthetic breadcrumb anchor",
+          "locator": {
+            "locator_id": "locator:synthetic:breadcrumbed-recap:s01:breadcrumb",
+            "scheme": "artifact_path",
+            "value": "synthetic://recap-ingestion/breadcrumbed-recap/s01#breadcrumb",
+            "anchor": "breadcrumb"
+          }
+        }
+      ],
+      "units": [
+        {
+          "source_unit_id": "unit:synthetic:breadcrumbed-recap:s01:breadcrumb",
+          "source_anchor_id": "anchor:synthetic:breadcrumbed-recap:s01:breadcrumb",
+          "unit_kind": "navigation_reference",
+          "label": "Synthetic navigation reference unit",
+          "display_summary": "Synthetic navigation reference summary for shape validation only.",
+          "source_ref": {
+            "source_ref_id": "source-ref:synthetic:breadcrumbed-recap:s01:breadcrumb",
+            "source_artifact_id": "artifact:synthetic:breadcrumbed-recap:s01",
+            "source_anchor_id": "anchor:synthetic:breadcrumbed-recap:s01:breadcrumb"
+          },
+          "provenance": [
+            {
+              "provenance_id": "provenance:synthetic:breadcrumbed-recap:s01:breadcrumb",
+              "role": "navigation_hint",
+              "source_ref_id": "source-ref:synthetic:breadcrumbed-recap:s01:breadcrumb"
+            }
+          ],
+          "canon_state": "played_canon",
+          "lifecycle_state": "indexed",
+          "evidence_role": "navigation_hint",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        }
+      ],
+      "forbidden_interpretations": [
+        "entity_fact",
+        "relationship_fact",
+        "alias_merge",
+        "source_evidence_without_anchor"
+      ]
+    },
+    {
+      "artifact_id": "artifact:synthetic:frontmatter-seed:s01",
+      "admitted_artifact_id": "frontmatter_seed_markdown",
+      "artifact_kind": "frontmatter_seed",
+      "source_layer": "diagnostic_layer",
+      "label": "Synthetic frontmatter seed artifact",
+      "canon_state": "planning_scaffold",
+      "lifecycle_state": "candidate",
+      "evidence_role": "not_evidence",
+      "authority_state": "system_derived",
+      "visibility_state": "internal_diagnostic",
+      "locator": {
+        "locator_id": "locator:synthetic:frontmatter-seed:s01",
+        "scheme": "artifact_path",
+        "value": "synthetic://recap-ingestion/frontmatter-seed/s01",
+        "anchor": "document"
+      },
+      "anchors": [
+        {
+          "source_anchor_id": "anchor:synthetic:frontmatter-seed:s01:frontmatter_field",
+          "anchor_kind": "frontmatter_field",
+          "label": "Synthetic frontmatter field anchor",
+          "locator": {
+            "locator_id": "locator:synthetic:frontmatter-seed:s01:frontmatter_field",
+            "scheme": "artifact_path",
+            "value": "synthetic://recap-ingestion/frontmatter-seed/s01#frontmatter_field",
+            "anchor": "frontmatter_field"
+          }
+        }
+      ],
+      "units": [
+        {
+          "source_unit_id": "unit:synthetic:frontmatter-seed:s01:frontmatter_field",
+          "source_anchor_id": "anchor:synthetic:frontmatter-seed:s01:frontmatter_field",
+          "unit_kind": "candidate_seed",
+          "label": "Synthetic candidate seed unit",
+          "display_summary": "Synthetic candidate seed summary for shape validation only.",
+          "source_ref": {
+            "source_ref_id": "source-ref:synthetic:frontmatter-seed:s01:frontmatter_field",
+            "source_artifact_id": "artifact:synthetic:frontmatter-seed:s01",
+            "source_anchor_id": "anchor:synthetic:frontmatter-seed:s01:frontmatter_field"
+          },
+          "provenance": [
+            {
+              "provenance_id": "provenance:synthetic:frontmatter-seed:s01:frontmatter_field",
+              "role": "not_evidence",
+              "source_ref_id": "source-ref:synthetic:frontmatter-seed:s01:frontmatter_field"
+            }
+          ],
+          "canon_state": "planning_scaffold",
+          "lifecycle_state": "candidate",
+          "evidence_role": "not_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "internal_diagnostic"
+        }
+      ],
+      "forbidden_interpretations": [
+        "played_canon_fact",
+        "source_evidence_claim",
+        "promotion_record"
+      ]
+    },
+    {
+      "artifact_id": "artifact:synthetic:session-memory-meta:s01",
+      "admitted_artifact_id": "session_memory_jsonl_meta",
+      "artifact_kind": "session_memory_meta",
+      "source_layer": "memory_layer",
+      "label": "Synthetic session memory meta artifact",
+      "canon_state": "candidate_extraction",
+      "lifecycle_state": "candidate",
+      "evidence_role": "diagnostic_only",
+      "authority_state": "system_derived",
+      "visibility_state": "internal_diagnostic",
+      "locator": {
+        "locator_id": "locator:synthetic:session-memory-meta:s01",
+        "scheme": "artifact_path",
+        "value": "synthetic://recap-ingestion/session-memory-meta/s01",
+        "anchor": "document"
+      },
+      "anchors": [
+        {
+          "source_anchor_id": "anchor:synthetic:session-memory-meta:s01:metadata",
+          "anchor_kind": "metadata",
+          "label": "Synthetic metadata anchor",
+          "locator": {
+            "locator_id": "locator:synthetic:session-memory-meta:s01:metadata",
+            "scheme": "artifact_path",
+            "value": "synthetic://recap-ingestion/session-memory-meta/s01#metadata",
+            "anchor": "metadata"
+          }
+        }
+      ],
+      "units": [
+        {
+          "source_unit_id": "unit:synthetic:session-memory-meta:s01:metadata",
+          "source_anchor_id": "anchor:synthetic:session-memory-meta:s01:metadata",
+          "unit_kind": "diagnostic_metadata",
+          "label": "Synthetic diagnostic metadata unit",
+          "display_summary": "Synthetic diagnostic metadata summary for shape validation only.",
+          "source_ref": {
+            "source_ref_id": "source-ref:synthetic:session-memory-meta:s01:metadata",
+            "source_artifact_id": "artifact:synthetic:session-memory-meta:s01",
+            "source_anchor_id": "anchor:synthetic:session-memory-meta:s01:metadata"
+          },
+          "provenance": [
+            {
+              "provenance_id": "provenance:synthetic:session-memory-meta:s01:metadata",
+              "role": "diagnostic_only",
+              "source_ref_id": "source-ref:synthetic:session-memory-meta:s01:metadata"
+            }
+          ],
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "diagnostic_only",
+          "authority_state": "system_derived",
+          "visibility_state": "internal_diagnostic"
+        }
+      ],
+      "forbidden_interpretations": [
+        "played_canon_fact",
+        "identity_merge",
+        "relationship_fact"
+      ]
+    },
+    {
+      "artifact_id": "artifact:synthetic:impact-proof:s01",
+      "admitted_artifact_id": "corpus_impact_proof",
+      "artifact_kind": "corpus_impact_proof",
+      "source_layer": "diagnostic_layer",
+      "label": "Synthetic corpus impact proof artifact",
+      "canon_state": "diagnostic_only",
+      "lifecycle_state": "diagnostic",
+      "evidence_role": "diagnostic_only",
+      "authority_state": "diagnostic",
+      "visibility_state": "internal_diagnostic",
+      "locator": {
+        "locator_id": "locator:synthetic:impact-proof:s01",
+        "scheme": "artifact_path",
+        "value": "synthetic://recap-ingestion/impact-proof/s01",
+        "anchor": "document"
+      },
+      "anchors": [
+        {
+          "source_anchor_id": "anchor:synthetic:impact-proof:s01:proof",
+          "anchor_kind": "proof",
+          "label": "Synthetic proof anchor",
+          "locator": {
+            "locator_id": "locator:synthetic:impact-proof:s01:proof",
+            "scheme": "artifact_path",
+            "value": "synthetic://recap-ingestion/impact-proof/s01#proof",
+            "anchor": "proof"
+          }
+        }
+      ],
+      "units": [
+        {
+          "source_unit_id": "unit:synthetic:impact-proof:s01:proof",
+          "source_anchor_id": "anchor:synthetic:impact-proof:s01:proof",
+          "unit_kind": "diagnostic_proof",
+          "label": "Synthetic diagnostic proof unit",
+          "display_summary": "Synthetic diagnostic proof summary for shape validation only.",
+          "source_ref": {
+            "source_ref_id": "source-ref:synthetic:impact-proof:s01:proof",
+            "source_artifact_id": "artifact:synthetic:impact-proof:s01",
+            "source_anchor_id": "anchor:synthetic:impact-proof:s01:proof"
+          },
+          "provenance": [
+            {
+              "provenance_id": "provenance:synthetic:impact-proof:s01:proof",
+              "role": "diagnostic_only",
+              "source_ref_id": "source-ref:synthetic:impact-proof:s01:proof"
+            }
+          ],
+          "canon_state": "diagnostic_only",
+          "lifecycle_state": "diagnostic",
+          "evidence_role": "diagnostic_only",
+          "authority_state": "diagnostic",
+          "visibility_state": "internal_diagnostic"
+        }
+      ],
+      "forbidden_interpretations": [
+        "narrative_evidence",
+        "played_canon_fact",
+        "source_evidence_claim"
+      ]
+    }
+  ]
+}

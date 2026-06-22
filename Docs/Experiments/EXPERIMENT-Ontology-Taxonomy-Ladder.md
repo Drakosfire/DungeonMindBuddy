@@ -169,6 +169,24 @@ Human-readable report:
 
 This gate admits explicit recap-ingestion artifacts only as source artifacts, anchors, units, diagnostics, and proof metadata. It does not materialize them, implement adapters, connect `/plan`, connect Agent Interaction, scan corpus files, mutate corpus files, infer entities, resolve aliases, infer relationships, promote facts, or change production behavior.
 
+### Recap-Ingestion Source Artifact Fixture v0
+
+After gating the recap-ingestion source family, the ladder adds a tiny synthetic fixture proving that each admitted artifact family can be represented as `SourceArtifact -> SourceAnchor -> SourceUnit`.
+
+Fixture:
+
+`evals/graph_memory_layer/examples/recap_ingestion_source_artifacts_minimal.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_fixture`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-FIXTURE.md`
+
+This proves shape compatibility only. It does not read real recap-ingestion outputs, implement a materializer, implement adapters, connect `/plan`, connect Agent Interaction, scan corpus files, mutate corpus files, infer entities, resolve aliases, infer relationships, promote facts, or change production behavior.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |
