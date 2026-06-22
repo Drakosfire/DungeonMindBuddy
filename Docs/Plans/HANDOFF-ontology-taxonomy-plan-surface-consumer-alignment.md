@@ -3,7 +3,7 @@
 **Created:** 2026-06-21 (UTC).  
 **Status:** ACTIVE - design-alignment handoff for the Ontology / Taxonomy ladder.  
 **Parent context:** Cursor plan-surface implementation and dogfood feedback.  
-**Consumer anchor:** `/plan` surface, live-control UI, and current static live-play toolbox prototype.  
+**Consumer anchor:** App-level Agent Interaction Bar/Pane, `/plan` surface, live-control UI, and current static live-play toolbox prototype.  
 **Ontology anchor:** `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`.
 
 ---
@@ -14,7 +14,9 @@ Evolve the Ontology / Taxonomy ladder with explicit knowledge of the `/plan` sur
 
 ## §2 Why this handoff exists
 
-The `/plan` workstream is no longer only a route scaffold. It is becoming the GM-facing planning surface that will consume derived knowledge: recap ingestion, statblock generation, reference-chip navigation, projected content surfaces, and eventually deeper graph-backed traversal.
+The `/plan` workstream is no longer only a route scaffold. It is becoming one GM-facing surface that will consume derived knowledge: recap ingestion, statblock generation, reference-chip navigation, projected content surfaces, and eventually deeper graph-backed traversal.
+
+Canon decision (2026-06-21): the durable consumer is the app-level **Agent Interaction Bar/Pane**, owned by `AgentInteractionProvider`, not a `/plan` sub-state. `/plan` publishes context and projection registrations into that provider. The provider owns user/session continuity across surfaces/projects: active conversation/thread pointers, pane state, active projection, recent tool runs, notifications, and proof-trail pointers.
 
 The ontology ladder is still correctly isolated. It owns derived semantics, controlled vocabulary, graph model, validation, reports, and later shadow retrieval. It must not be pulled prematurely into UI implementation or production retrieval. But its design should now know what kind of consumer is coming so it does not mature in a vacuum.
 
@@ -22,14 +24,20 @@ The desired outcome is early alignment, not coupling. `/plan` should keep readin
 
 ## §3 Product shape of the consumer
 
-`/plan` is an intentional planning workspace, not a random live session page. Its current product shape:
+`/plan` is an intentional planning workspace, not a random live session page. Its consumer role is now part of a larger app-level interaction model:
 
 - A main Tiptap/Markdown planning canvas where the GM writes and reviews prep.
-- A right-side Tools drawer, lifted from the static live-play prototype, with a persistent vertical `Tools` handle and content-sized expansion.
-- Tool projections for recap ingestion and statblock generation. These are workflows, not pages.
+- A persistent bottom Agent Interaction Bar owned above surfaces, with an expandable Agent Interaction Pane.
+- Tool projections for recap ingestion, statblock generation, chat/ask, reference inspection, and corpus-impact proof. These are workflows/projections, not pages.
 - Reference chips inside the canvas, encoded as opaque handles such as `#dmb-ref:<type>:<id>`, that resolve into projected content surfaces.
-- A shared projection container: opening a tool and following a reference use the same projection mechanism.
+- A shared projection registry: opening a tool, following a reference, and viewing proof use the same projection mechanism.
 - Edit is a capability, not a separate data model: content is read-only by default, can be unlocked, and committed writes must go through the corpus writer / two-phase safety model where applicable.
+
+Ownership boundary:
+
+- `AgentInteractionProvider` owns user interaction continuity and stores pointers/summaries, not canonical corpus payloads.
+- `/plan` publishes ambient context: campaign id, prep/live/ingest sessions, selected canvas block/reference, and available projections.
+- Ontology/graph outputs should target adapters that can feed app-level projections, not route-specific drawer state.
 
 Today, `/plan` resolves chips through live-derived corpus indexes:
 
@@ -55,8 +63,9 @@ Current files to read before changing ontology design:
 3. `/home/drakosfire/.cursor/plans/plan-surface-toolbox_5034ad28.plan.md`
 4. `apps/live-control-ui/src/planSurface/derivedViews/derivedViewsAdapter.ts`
 5. `apps/live-control-ui/src/planSurface/reference/referenceResolver.ts`
-6. `apps/live-control-ui/src/planSurface/projection/AdaptiveProjectionContainer.tsx`
-7. `apps/live-control-ui/src/planSurface/projection/projectionRegistry.tsx`
+6. `apps/live-control-ui/src/chrome/AppChrome.tsx`
+7. `apps/live-control-ui/src/planSurface/projection/AdaptiveProjectionContainer.tsx`
+8. `apps/live-control-ui/src/planSurface/projection/projectionRegistry.tsx`
 
 Important current contract:
 
@@ -81,7 +90,7 @@ Use these as design review prompts before adding new graph-memory rungs.
 
 6. **Depth control:** Reference chips are navigation handles into deeper context. What bounded expansion shape prevents high-degree hubs from flooding the drawer? What measurements tell us expansion is useful rather than noisy?
 
-7. **Write interaction:** Recap ingestion and statblock promotion produce new corpus/session-memory artifacts. Does graph materialization consume these as source artifacts after the writer path completes, or does it imply a second write path? It must not mutate canonical corpus.
+7. **Write interaction:** Recap ingestion and statblock promotion produce new corpus/session-memory artifacts. Does graph materialization consume these as source artifacts after the writer path completes, or does it imply a second write path? It must not mutate canonical corpus. `AgentInteractionProvider` can remember proof pointers and tool-run summaries, but writes still go through explicit project/corpus APIs.
 
 8. **Generated statblocks:** Statblock generation has draft, accepted-to-combat, promoted-to-corpus, and indexed states. Which of these are graph candidates, which are corpus truth, and which must remain local/browser state?
 

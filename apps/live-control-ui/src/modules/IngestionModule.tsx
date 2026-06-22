@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { postRecapIngest } from "../api/recapIngestApi";
-import type { RecapIngestStatus } from "../api/types";
+import type { NormalizedRecapCandidate, RecapIngestStatus } from "../api/types";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -50,6 +50,16 @@ interface IngestionToast {
   sticky?: boolean;
 }
 
+interface CorpusImpactRow {
+  key: string;
+  relpath: string;
+  exists: boolean;
+  size_bytes?: number;
+  modified_at?: string;
+  record_count?: number;
+  preview?: string;
+}
+
 function defaultRecapSession(liveSession: number): number {
   return Math.max(1, liveSession - 1);
 }
@@ -81,9 +91,25 @@ function isNonGenericSlugOrTitle(slug: string, title: string): boolean {
   if (!normalizedTitle) {
     return false;
   }
-  const match = normalizedTitle.match(/^Session\s+\d+\s*-\s*(.+)$/i);
+  const match = normalizedTitle.match(/^Session\s+\d+\s*(?:-\s*)?(.+)$/i);
   const tail = (match ? match[1] : normalizedTitle).trim().toLowerCase().replace(/:$/, "");
   return !GENERIC_RECAP_TAILS.has(tail);
+}
+
+function inferTitleFromRawText(rawText: string, session: number): string {
+  const firstMeaningfulLine = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^#+\s*/, ""))
+    .find((line) => line.length > 0);
+  if (!firstMeaningfulLine) {
+    return "";
+  }
+  if (!isNonGenericSlugOrTitle("", firstMeaningfulLine)) {
+    return "";
+  }
+  return /^Session\s+\d+\s*-/i.test(firstMeaningfulLine)
+    ? firstMeaningfulLine
+    : `Session ${session} - ${firstMeaningfulLine}`;
 }
 
 function hasState(result: RecapIngestStatus | null, state: string): boolean {
@@ -94,8 +120,29 @@ function slugFromCanonicalPath(path: string | null | undefined): string | null {
   if (!path) {
     return null;
   }
-  const match = path.match(/Session \d+ - (.+)\.md$/);
-  return match?.[1] ?? null;
+  const filename = path.split("/").pop() ?? "";
+  const withoutKnownSuffix = filename
+    .replace(/\.records_meta\.jsonl$/i, "")
+    .replace(/\.records_meta\.json$/i, "")
+    .replace(/\.breadcrumbed\.md$/i, "")
+    .replace(/\.frontmatter_seed\.md$/i, "")
+    .replace(/\.md$/i, "");
+  const match = withoutKnownSuffix.match(/^Session\s+\d+\s*-\s*(.+)$/i);
+  if (!match) {
+    return null;
+  }
+  const tail = match[1].trim();
+  const cleaned = tail
+    .replace(/^session[-_\s]*\d+[-_\s]*/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) {
+    return tail;
+  }
+  return /[-_]/.test(tail)
+    ? cleaned.replace(/\b[a-z]/g, (char) => char.toUpperCase())
+    : cleaned;
 }
 
 function isStaleSession22Slug(slug: string): boolean {
@@ -135,9 +182,18 @@ function canonicalSlugTitleForRecapSession(
   if (recapSession === 22) {
     return { slug: SESSION_22_CANONICAL_SLUG, title: SESSION_22_CANONICAL_TITLE };
   }
-  const fromPath = slugFromCanonicalPath(paths?.canonical_recap ?? undefined);
-  if (fromPath) {
-    return { slug: fromPath, title: `Session ${recapSession} - ${fromPath}` };
+  const pathKeys = [
+    "canonical_recap",
+    "normalized_recap",
+    "breadcrumbed_recap",
+    "session_memory_jsonl",
+    "session_memory_meta",
+  ];
+  for (const key of pathKeys) {
+    const fromPath = slugFromCanonicalPath(paths?.[key] ?? undefined);
+    if (fromPath && isNonGenericSlugOrTitle(fromPath, "")) {
+      return { slug: fromPath, title: `Session ${recapSession} - ${fromPath}` };
+    }
   }
   return null;
 }
@@ -407,6 +463,64 @@ function pathLabel(key: string): string {
   return key.replace(/_/g, " ");
 }
 
+function normalizedRecapCandidates(result: RecapIngestStatus | null): NormalizedRecapCandidate[] {
+  const raw = result?.ingest_report?.normalized_recap_candidates;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
+    .map((row) => ({
+      basename: String(row.basename ?? ""),
+      relpath: String(row.relpath ?? ""),
+      size_bytes: Number(row.size_bytes ?? 0),
+      modified_at: String(row.modified_at ?? ""),
+      is_generic: Boolean(row.is_generic),
+      recommended: Boolean(row.recommended),
+    }))
+    .filter((row) => row.basename.length > 0);
+}
+
+function corpusImpactRows(result: RecapIngestStatus | null): CorpusImpactRow[] {
+  const raw = result?.ingest_report?.corpus_impact;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
+    .map((row) => ({
+      key: String(row.key ?? ""),
+      relpath: String(row.relpath ?? ""),
+      exists: Boolean(row.exists),
+      size_bytes: typeof row.size_bytes === "number" ? row.size_bytes : undefined,
+      modified_at: typeof row.modified_at === "string" ? row.modified_at : undefined,
+      record_count: typeof row.record_count === "number" ? row.record_count : undefined,
+      preview: typeof row.preview === "string" ? row.preview : undefined,
+    }))
+    .filter((row) => row.key.length > 0 && row.relpath.length > 0);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+function RequiredBadge({ satisfied }: { satisfied: boolean }): ReactNode {
+  if (satisfied) {
+    return null;
+  }
+  return (
+    <span className="field-required" aria-hidden="true">
+      Required
+    </span>
+  );
+}
+
 function proofPathKeys(result: RecapIngestStatus | null): string[] {
   const preferred = [
     "canonical_recap",
@@ -470,7 +584,7 @@ function buildToastForResult(
       "Existing staged notes were reused for this preview.",
       forceStage
         ? "Click Stage + Preview again to overwrite the staged notes."
-        : "Enable overwrite staged raw notes if the pasted text should replace them.",
+        : "Use Advanced only if the pasted text should replace the saved raw notes.",
     );
   }
 
@@ -480,24 +594,24 @@ function buildToastForResult(
       nextSteps.unshift(
         forceStage
           ? "Click Stage + Preview again (force stage is enabled)."
-          : "Enable overwrite staged raw notes (--force-stage), then rerun Stage + Preview.",
+          : "Use Advanced to replace the saved raw notes, then rerun Stage + Preview.",
       );
     }
     if (joinedErrors.includes("canonical recap already exists")) {
       nextSteps.unshift(
         forceRecap
           ? "Click Apply + Normalize again (force recap is enabled)."
-          : "Enable overwrite canonical recap (--force-recap), then rerun Apply + Normalize.",
+          : "Use Advanced to replace the saved canonical recap, then rerun Apply + Normalize.",
       );
     }
   }
 
   if (warningSet.has("slug_mismatch_used_disk_breadcrumb")) {
-    nextSteps.unshift("Slug in the form did not match canon on disk; fields were synced to the canonical recap slug.");
+    nextSteps.unshift("The saved canon on disk used a different recap title; fields were synced to the canonical recap.");
   }
 
   if (warningSet.has("slug_required_for_apply") || !genericGuardPass) {
-    nextSteps.push("Set a non-generic slug/title before Apply + Normalize.");
+    nextSteps.push("Session title is required before saving canon.");
   }
 
   if (hasReviewOnlySpellingVariants(result)) {
@@ -592,6 +706,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [toast, setToast] = useState<IngestionToast | null>(null);
+  const [reconcileChoice, setReconcileChoice] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
   const lastToastKeyRef = useRef<string | null>(null);
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
@@ -601,12 +717,21 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     hydrateInspectGenerationRef.current += 1;
   }
 
+  const inferredTitle = useMemo(
+    () => inferTitleFromRawText(rawText, recapSession),
+    [rawText, recapSession],
+  );
+  const effectiveTitle = title.trim() || inferredTitle;
+  const slugOverrideIsSpecific = slug.trim().length > 0 && isNonGenericSlugOrTitle(slug, "");
+  const ignoredFileNameOverride = showAdvanced && slug.trim().length > 0 && !slugOverrideIsSpecific;
+  const effectiveSlug = showAdvanced && slugOverrideIsSpecific ? slug.trim() : "";
   const currentPreviewSignature = useMemo(
-    () => previewSourceSignature(recapSession, rawText, slug),
-    [recapSession, rawText, slug],
+    () => previewSourceSignature(recapSession, rawText, effectiveTitle || effectiveSlug),
+    [recapSession, rawText, effectiveSlug, effectiveTitle],
   );
   const previewInvalidated =
     previewSignature != null && previewSignature !== currentPreviewSignature;
+  const rawTextSatisfied = rawText.trim().length > 0;
   const busy = [
     "running_full_ingest",
     "previewing",
@@ -620,7 +745,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       !previewInvalidated &&
       previewSignature === currentPreviewSignature) ||
     hasState(latestResult, "staged_raw_notes_reused");
-  const genericGuardPass = isNonGenericSlugOrTitle(slug, title);
+  const genericGuardPass = isNonGenericSlugOrTitle(effectiveSlug, effectiveTitle);
   const hasApplied =
     hasState(latestResult, "recap_applied") ||
     hasState(latestResult, "recap_reused") ||
@@ -696,9 +821,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     if (state.status === "materializing") return "Working: materializing session memory.";
     if (hasMaterialized) return "Complete: session memory is ready for planning activation.";
     if (!validRecapSession) return "Enter a valid recap/source session number.";
-    if (rawText.trim().length === 0 && !hasUsablePreview) return "Paste raw recap text, then continue to preview.";
+    if (!rawTextSatisfied && !hasUsablePreview) return "Paste raw recap text, then continue to preview.";
     if (!hasUsablePreview) return "Next: click Run full ingest. This stages, writes, breadcrumbs, and materializes in sequence.";
-    if (!genericGuardPass) return "Set a non-generic slug or title before applying.";
+    if (!genericGuardPass) return "Session title is required before saving canon.";
     if (!hasApplied) return "Next: review the preview, then click Apply + Normalize.";
     if (!hasFrontmatterSeed) return "Next: click Build Frontmatter Seed, then review the generated seed.";
     if (!hasBreadcrumb) return "Next: after reviewing the seed, click Run Breadcrumb Ingest.";
@@ -711,7 +836,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       : !hasPreview
         ? "Apply waits for Stage + Preview."
         : !genericGuardPass
-          ? "Apply needs a non-generic slug or title."
+          ? "Session title is required before Apply + Normalize."
           : null;
   const frontmatterDisabledReason =
     hasFrontmatterSeed
@@ -731,21 +856,22 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       : !hasBreadcrumb
         ? "Materialize waits for breadcrumb_found."
         : null;
+  const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
   const canRunFullIngest =
     !busy &&
     validRecapSession &&
-    rawText.trim().length > 0 &&
+    (rawTextSatisfied || canResumeFromDisk) &&
     genericGuardPass &&
     !hasMaterialized;
   const fullIngestDisabledReason =
     hasMaterialized
       ? "Session memory already materialized."
-      : rawText.trim().length === 0
-        ? "Run full ingest waits for raw recap text."
+      : !rawTextSatisfied && !canResumeFromDisk
+        ? "Raw recap text is required to start a new ingest."
         : !validRecapSession
           ? "Run full ingest needs a valid recap/source session."
           : !genericGuardPass
-            ? "Run full ingest needs a non-generic slug or title."
+            ? "Session title is required. Use a clear table title, like \"Mireward Gate Battle\"."
             : null;
 
   useEffect(() => {
@@ -754,7 +880,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     async function hydrateFromStorageAndDisk() {
       const draft = readDraft(storageKey);
       const defaultRecap = draft?.recapSession ?? defaultRecapSession(session);
-      const initialSlug = draft?.slug ?? canonicalSlugTitleForRecapSession(defaultRecap)?.slug ?? "";
+      const restoredSlug = draft?.slug ?? canonicalSlugTitleForRecapSession(defaultRecap)?.slug ?? "";
+      const initialSlug =
+        draft?.showAdvanced && isNonGenericSlugOrTitle(restoredSlug, "") ? restoredSlug : "";
       const initialTitle = draft?.title ?? canonicalSlugTitleForRecapSession(defaultRecap)?.title ?? "";
 
       if (!draft) {
@@ -801,7 +929,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           const merged = mergeInspectResult(prev ?? draft?.latestResult ?? null, inspected);
           return sanitizeLatestResult(merged) ?? merged;
         });
-        const synced = syncSlugTitleFromResult(sanitizedResult);
+  const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
         if (synced) {
           setSlug(synced.slug);
           setTitle(synced.title);
@@ -928,21 +1056,24 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
 
   function resetWizardFlow(nextStep = 1) {
     lastToastKeyRef.current = null;
+    window.localStorage.removeItem(storageKey);
+    setRawText("");
+    setSlug("");
+    setTitle("");
+    setShowAdvanced(false);
+    setForceStage(false);
+    setForceRecap(false);
+    setToast(null);
     setState({ status: "idle" });
     setLatestResult(null);
     setPreviewSignature(null);
-    const canonicalDefaults = canonicalSlugTitleForRecapSession(recapSession);
-    if (canonicalDefaults) {
-      setSlug(canonicalDefaults.slug);
-      setTitle(canonicalDefaults.title);
-    }
     jumpToStep(nextStep);
   }
 
   function applyResultAndSyncSlug(result: RecapIngestStatus) {
     const sanitizedResult = sanitizeLatestResult(result) ?? result;
     setLatestResult(sanitizedResult);
-    const synced = syncSlugTitleFromResult(sanitizedResult);
+    const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
     if (synced) {
       setSlug(synced.slug);
       setTitle(synced.title);
@@ -977,43 +1108,46 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     jumpToStep(2);
 
     try {
-      let currentSlug = slug;
-      let currentTitle = title;
+      let currentSlug = effectiveSlug;
+      let currentTitle = effectiveTitle;
       const syncFields = (result: RecapIngestStatus) => {
-        const synced = syncSlugTitleFromResult(result);
+        const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
         if (synced) {
           currentSlug = synced.slug;
           currentTitle = synced.title;
         }
       };
 
-      let result = applyAutomatedResult(
-        await postRecapIngest({
-          operation: "stage_preview",
-          campaign_id: campaignId,
-          session: recapSession,
-          raw_text: rawText,
-          slug: currentSlug.trim() || undefined,
-          title: currentTitle.trim() || undefined,
-          force_stage: forceStage || undefined,
-        }),
-      );
-      syncFields(result);
-      setPreviewSignature(previewSourceSignature(recapSession, rawText, currentSlug));
-      if (result.status === "error") {
-        setState({ status: "error", result, message: resultErrorMessage(result, "Stage + Preview failed") });
-        return;
-      }
-      if (result.states.includes("staged_raw_notes_conflict") && !forceStage) {
-        setState({ status: "preview_ready", result });
-        setToast({
-          tone: "warning",
-          title: "Full ingest paused",
-          detail: "Existing staged notes were reused, so the pasted text was not ingested. Enable overwrite staged raw notes to run end-to-end with the pasted text.",
-          nextSteps: ["Review the existing staged preview or enable overwrite staged raw notes and rerun full ingest."],
-          sticky: true,
-        });
-        return;
+      let result = latestResult ? applyAutomatedResult(latestResult) : null;
+      if (rawTextSatisfied || !result) {
+        result = applyAutomatedResult(
+          await postRecapIngest({
+            operation: "stage_preview",
+            campaign_id: campaignId,
+            session: recapSession,
+            raw_text: rawText,
+            slug: currentSlug.trim() || undefined,
+            title: currentTitle.trim() || undefined,
+            force_stage: forceStage || undefined,
+          }),
+        );
+        syncFields(result);
+        setPreviewSignature(previewSourceSignature(recapSession, rawText, currentTitle || currentSlug));
+        if (result.status === "error") {
+          setState({ status: "error", result, message: resultErrorMessage(result, "Stage + Preview failed") });
+          return;
+        }
+        if (result.states.includes("staged_raw_notes_conflict") && !forceStage) {
+          setState({ status: "preview_ready", result });
+          setToast({
+            tone: "warning",
+            title: "Full ingest paused",
+            detail: "Existing staged notes were reused, so the pasted text was not ingested. Use Advanced only if the pasted text should replace them.",
+            nextSteps: ["Review the existing staged preview or use Advanced to replace saved raw notes and rerun full ingest."],
+            sticky: true,
+          });
+          return;
+        }
       }
 
       const applied =
@@ -1122,14 +1256,15 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         campaign_id: campaignId,
         session: recapSession,
         raw_text: rawText,
-        slug: slug.trim() || undefined,
-        title: title.trim() || undefined,
+        slug: effectiveSlug || undefined,
+        title: effectiveTitle || undefined,
         force_stage: forceStage || undefined,
       });
       applyResultAndSyncSlug(result);
-      const synced = syncSlugTitleFromResult(sanitizeLatestResult(result) ?? result);
+      const cleanResult = sanitizeLatestResult(result) ?? result;
+      const synced = cleanResult.session === recapSession ? syncSlugTitleFromResult(cleanResult) : null;
       setPreviewSignature(
-        previewSourceSignature(recapSession, rawText, synced?.slug ?? slug),
+        previewSourceSignature(recapSession, rawText, synced?.title ?? (effectiveTitle || effectiveSlug)),
       );
       if (result.status === "error") {
         setState({
@@ -1165,8 +1300,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "apply_normalize",
         campaign_id: campaignId,
         session: recapSession,
-        slug: slug.trim() || undefined,
-        title: title.trim() || undefined,
+        slug: effectiveSlug || undefined,
+        title: effectiveTitle || undefined,
         force_recap: forceRecap || undefined,
       });
       applyResultAndSyncSlug(result);
@@ -1210,8 +1345,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "build_frontmatter_seed",
         campaign_id: campaignId,
         session: recapSession,
-        slug: slug.trim() || undefined,
-        title: title.trim() || undefined,
+        slug: effectiveSlug || undefined,
+        title: effectiveTitle || undefined,
       });
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
@@ -1252,8 +1387,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "run_breadcrumb_ingest",
         campaign_id: campaignId,
         session: recapSession,
-        slug: slug.trim() || undefined,
-        title: title.trim() || undefined,
+        slug: effectiveSlug || undefined,
+        title: effectiveTitle || undefined,
       });
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
@@ -1294,8 +1429,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "materialize_session_memory",
         campaign_id: campaignId,
         session: recapSession,
-        slug: slug.trim() || undefined,
-        title: title.trim() || undefined,
+        slug: effectiveSlug || undefined,
+        title: effectiveTitle || undefined,
         check: true,
       });
       applyResultAndSyncSlug(result);
@@ -1328,11 +1463,78 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     }
   }
 
+  async function reconcileNormalizedRecap(keepBasename: string) {
+    invalidateInFlightHydrateInspect();
+    lastToastKeyRef.current = null;
+    setReconciling(true);
+    setToast({
+      tone: "info",
+      title: "Reconciling duplicate recaps",
+      detail: `Keeping "${keepBasename}" and archiving the rest, then re-checking on disk.`,
+      nextSteps: [],
+    });
+    try {
+      const result = await postRecapIngest({
+        operation: "reconcile_normalized_recap",
+        campaign_id: campaignId,
+        session: recapSession,
+        keep_basename: keepBasename,
+      });
+      applyResultAndSyncSlug(result);
+      setReconcileChoice(null);
+      if (result.status === "error") {
+        setState({ status: "error", result, message: resultErrorMessage(result, "Reconcile failed") });
+        return;
+      }
+      setState(derivePaneStateFromResult(result));
+      const archivedRows = result.ingest_report?.reconciled_archived;
+      const archivedCount = Array.isArray(archivedRows) ? archivedRows.length : 0;
+      setToast({
+        tone: "success",
+        title: "Duplicate recaps reconciled",
+        detail: `Kept "${keepBasename}". Archived ${archivedCount} artifact${
+          archivedCount === 1 ? "" : "s"
+        } under _archive. Exactly one normalized recap remains.`,
+        nextSteps: result.states.includes("session_memory_materialized")
+          ? []
+          : ["Run full ingest to finish proving this session."],
+        sticky: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Reconcile failed";
+      setState({ status: "error", result: latestResult ?? undefined, message });
+      setToast({
+        tone: "error",
+        title: "Reconcile failed",
+        detail: message,
+        nextSteps: ["Inspect the corpus _normalized folder and retry."],
+        sticky: true,
+      });
+    } finally {
+      setReconciling(false);
+    }
+  }
+
   const report = latestResult?.ingest_report ?? {};
   const previewDiff = typeof report.preview_diff === "string" ? report.preview_diff : "";
   const proofPaths = proofPathKeys(latestResult);
   const sessionMemoryRecordCount = String(report.session_memory_record_count ?? "-");
   const sessionMemoryCheck = String(report.session_memory_check ?? "-");
+  const titlePlaceholder =
+    inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
+  const normalizedDuplicates = normalizedRecapCandidates(latestResult);
+  const corpusImpact = corpusImpactRows(latestResult);
+  const hasNormalizedDuplicates = normalizedDuplicates.length > 1;
+  const recommendedKeep =
+    normalizedDuplicates.find((row) => row.recommended)?.basename ?? null;
+  const selectableKeep = normalizedDuplicates.filter((row) => !row.is_generic);
+  const selectedKeep =
+    (reconcileChoice && normalizedDuplicates.some((row) => row.basename === reconcileChoice)
+      ? reconcileChoice
+      : null) ??
+    recommendedKeep ??
+    (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
+  const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -1346,7 +1548,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           </p>
         </div>
         <button type="button" className="wizard-step-chip" onClick={() => resetWizardFlow(1)}>
-          Reset flow
+          Clear flow
         </button>
       </header>
 
@@ -1392,9 +1594,12 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         <section className="ingestion-controls-pane" aria-label="Ingestion source and controls">
           <div className="ingestion-source-grid">
             <div>
-              <label htmlFor="ingestion-recap-session">Recap/source session</label>
+              <label htmlFor="ingestion-recap-session">
+                Recap/source session <RequiredBadge satisfied={validRecapSession} />
+              </label>
               <input
                 id="ingestion-recap-session"
+                aria-label="Recap/source session"
                 type="number"
                 min={1}
                 step={1}
@@ -1406,27 +1611,24 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               />
             </div>
             <div>
-              <label htmlFor="ingestion-slug">Slug</label>
-              <input
-                id="ingestion-slug"
-                value={slug}
-                onChange={(event) => setSlug(event.target.value)}
-                placeholder="Mireward Road and Lysandro"
-              />
-            </div>
-            <div>
-              <label htmlFor="ingestion-title">Title (optional)</label>
+              <label htmlFor="ingestion-title">
+                Session title <RequiredBadge satisfied={genericGuardPass} />
+              </label>
               <input
                 id="ingestion-title"
+                aria-label="Session title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Session 22 - Mireward Road and Lysandro"
+                placeholder={titlePlaceholder}
               />
             </div>
             <div className="ingestion-raw-block">
-              <label htmlFor="ingestion-raw-text">Raw recap text</label>
+              <label htmlFor="ingestion-raw-text">
+                Raw recap text <RequiredBadge satisfied={rawTextSatisfied} />
+              </label>
               <textarea
                 id="ingestion-raw-text"
+                aria-label="Raw recap text"
                 value={rawText}
                 onChange={(event) => setRawText(event.target.value)}
                 rows={18}
@@ -1456,7 +1658,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           <div className="ingestion-action-explainer">
             {fullIngestDisabledReason ? <p>{fullIngestDisabledReason}</p> : null}
             {previewInvalidated ? (
-              <p>Preview invalidated by raw text/slug/title edits. Re-run full ingest.</p>
+              <p>Preview invalidated by raw text/title edits. Re-run full ingest.</p>
             ) : null}
             <p className="ingestion-live-status" role="status" aria-live="polite">
               {isRunningFullIngest ? "Full ingest in progress..." : isMaterializing ? "Materialization in progress..." : ""}
@@ -1464,17 +1666,32 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           </div>
 
           <details className="ingestion-advanced-fold">
-            <summary>Advanced overwrite controls</summary>
+            <summary>Advanced file controls</summary>
             <label>
               <input
                 type="checkbox"
                 checked={showAdvanced}
                 onChange={(event) => setShowAdvanced(event.target.checked)}
               />{" "}
-              Enable overwrite toggles
+              Show file replacement and filename override controls
             </label>
             {showAdvanced ? (
               <div className="ingestion-advanced-options">
+                <label htmlFor="ingestion-slug">Canonical file name override</label>
+                <input
+                  id="ingestion-slug"
+                  value={slug}
+                  onChange={(event) => setSlug(event.target.value)}
+                  placeholder="Mireward Gate Battle"
+                />
+                <p className="module-muted">
+                  Usually leave this blank. The session title already chooses the saved filename.
+                </p>
+                {ignoredFileNameOverride ? (
+                  <p className="module-muted">
+                    This override looks like a tool label, so the session title will be used instead.
+                  </p>
+                ) : null}
                 <label>
                   <input
                     type="checkbox"
@@ -1484,7 +1701,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                       resetWizardFlow(2);
                     }}
                   />{" "}
-                  Overwrite staged raw notes (`--force-stage`)
+                  Replace saved raw notes with the pasted text
                 </label>
                 <label>
                   <input
@@ -1495,10 +1712,10 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                       resetWizardFlow(2);
                     }}
                   />{" "}
-                  Overwrite existing canonical recap (`--force-recap`)
+                  Replace existing canonical recap file
                 </label>
                 <p className="module-muted">
-                  Changing overwrite toggles resets flow to Step 2 so you can rerun Stage + Preview.
+                  These controls are only for correcting prior saved files. The normal path does not need them.
                 </p>
               </div>
             ) : null}
@@ -1600,6 +1817,69 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
             </span>
           </div>
 
+          {hasNormalizedDuplicates ? (
+            <div className="ingestion-reconcile-card" role="alert">
+              <strong>Resolve duplicate normalized recaps</strong>
+              <p>
+                Found {normalizedDuplicates.length} normalized recaps for this session. Retrieval
+                expects exactly one canonical recap. Pick the one that represents canon; the rest are
+                archived (moved to <code>_archive</code>, never deleted).
+              </p>
+              <ul className="ingestion-reconcile-options">
+                {normalizedDuplicates.map((row) => {
+                  const checked = selectedKeep === row.basename;
+                  return (
+                    <li
+                      key={row.basename}
+                      className={`ingestion-reconcile-option${checked ? " is-selected" : ""}`}
+                    >
+                      <label>
+                        <input
+                          type="radio"
+                          name="reconcile-keep"
+                          value={row.basename}
+                          checked={checked}
+                          disabled={row.is_generic || reconciling}
+                          onChange={() => setReconcileChoice(row.basename)}
+                        />
+                        <span className="ingestion-reconcile-option-main">
+                          <code>{row.basename}</code>
+                          {row.recommended ? <span className="pill pill-success">recommended</span> : null}
+                          {row.is_generic ? <span className="pill pill-warning">tool-shaped</span> : null}
+                        </span>
+                        <span className="ingestion-reconcile-option-meta">
+                          {formatBytes(row.size_bytes)}
+                          {row.modified_at ? ` - ${new Date(row.modified_at).toLocaleString()}` : ""}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="ingestion-reconcile-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!canReconcile}
+                  onClick={() => selectedKeep && reconcileNormalizedRecap(selectedKeep)}
+                >
+                  {reconciling ? "Repairing..." : "Repair and Prove"}
+                </button>
+                {selectedKeep ? (
+                  <p className="ingestion-action-explainer">
+                    Will keep <code>{selectedKeep}</code> and archive the other
+                    {normalizedDuplicates.length > 2 ? " duplicates" : ""}.
+                  </p>
+                ) : (
+                  <p className="ingestion-action-explainer">
+                    No non-generic recap to keep automatically. Pick a canonical recap, or re-run
+                    Apply + Normalize with a real session title first.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {latestResult?.status === "breadcrumb_required" ? (
             <div className="ingestion-boundary-card" role="status">
               <strong>Expected v1 boundary: breadcrumb required</strong>
@@ -1653,6 +1933,36 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               })}
             </ul>
           </section>
+
+          {corpusImpact.length > 0 ? (
+            <section className="ingestion-proof-card" aria-label="What was ingested">
+              <h4>What was ingested?</h4>
+              <p className="module-muted">
+                Read-only corpus impact from the latest ingest/status check.
+              </p>
+              <div className="ingestion-impact-list">
+                {corpusImpact.map((row) => (
+                  <details key={`${row.key}-${row.relpath}`} className="ingestion-impact-row">
+                    <summary>
+                      <span>{pathLabel(row.key)}</span>
+                      <strong>{row.exists ? "Found" : "Missing"}</strong>
+                      {typeof row.record_count === "number" ? (
+                        <span className="pill pill-neutral">records: {row.record_count}</span>
+                      ) : null}
+                    </summary>
+                    <code>{row.relpath}</code>
+                    {row.exists ? (
+                      <p className="module-muted">
+                        {formatBytes(row.size_bytes ?? 0)}
+                        {row.modified_at ? ` - ${new Date(row.modified_at).toLocaleString()}` : ""}
+                      </p>
+                    ) : null}
+                    {row.preview ? <pre>{row.preview}</pre> : null}
+                  </details>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {latestResult ? (
             <section className="ingestion-status-panel">

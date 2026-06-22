@@ -3,7 +3,7 @@
 **Status:** Active self-continuity handoff  
 **Written:** 2026-06-21  
 **Audience:** Fresh in-IDE agent working directly with the user on design before implementation  
-**Primary goal:** Redesign the `/plan` toolbar / Tools drawer experience, with the recap ingestion workflow as the initial focus, so the user can complete the ingestion pipeline in the UI and prove the result through interaction.
+**Primary goal:** Redesign the app-level agent interaction experience that `/plan` uses, with the recap ingestion workflow as the initial focus, so the user can complete the ingestion pipeline in the UI and prove the result through interaction.
 
 ## 0. Hard Stop Context
 
@@ -15,27 +15,31 @@ The exemplar is:
 
 `http://localhost:5173/evals/c2_live_prep/mireward-prep/live-play.html`
 
-That static live-play route is not perfect, but it is materially better than `/plan` for this purpose. It has the "glorious Tools drawer" feel the user wants copied or lifted: fast, styled, right-side drawer, vertical Tools handle, tool tabs, content-specific drawer expansion, and a calmer command-board feel.
+That static live-play route is not perfect, but it is materially better than `/plan` for this purpose. It has the "glorious Tools drawer" feel the user wants copied or lifted: fast, styled, obvious handle, tool tabs, content-specific expansion, and a calmer command-board feel. The placement decision has changed: the durable shell should be a persistent bottom **Agent Interaction Bar** and expandable **Agent Interaction Pane**, not a `/plan`-owned right drawer.
 
 ## 1. Mission
 
-Work with the user to design the toolbar / Tools drawer component for `/plan`, using the live-play Tools drawer as the source of truth. The first workflow to design inside that component is recap ingestion.
+Work with the user to design the app-level Agent Interaction Bar/Pane, using the live-play Tools drawer as the feel/source of truth but not as a literal placement constraint. The first workflow to design inside that component is recap ingestion.
 
 Do not jump straight into implementation. The first deliverable should be a clear design proposal or wireframe-level component model that the user can react to.
 
 The design must make it possible to dogfood this end-to-end goal:
 
 1. Start on `/plan`.
-2. Open the Tools drawer.
-3. Run the full recap ingestion pipeline through the UI.
-4. Understand each review gate without guessing.
-5. Prove ingestion succeeded by interacting with the resulting knowledge or artifacts from the UI.
+2. Use the bottom Agent Interaction Bar.
+3. Open the Agent Interaction Pane into the ingestion projection.
+4. Run the full recap ingestion pipeline through the UI.
+5. Understand each review gate without guessing.
+6. Prove ingestion succeeded by interacting with the resulting knowledge or artifacts from the UI.
 
 ## 2. Non-Negotiable Product Direction
 
 - `/plan` is **not** the exemplar.
 - The static live-play page **is** the exemplar: `evals/c2_live_prep/mireward-prep/live-play.html`.
-- The design should copy or lift the live-play Tools drawer pattern as much as is practical.
+- The design should copy or lift the live-play Tools drawer feel as much as is practical, but the persistent control lives along the bottom as the Agent Interaction Bar.
+- `AgentInteractionProvider` is app/user scoped, not `/plan` scoped. It belongs above surfaces, alongside or inside `AppChrome`.
+- Surfaces publish context and available projections into the agent layer; they do not own conversation state, pane state, proof trail state, or cross-project continuity.
+- The Agent Interaction Bar is intended to live across surfaces and projects. `/plan` is the first consumer, not the owner.
 - Ingestion must feel like one guided workflow with human review gates, not a random row of peer buttons.
 - The UI must reduce distraction. If the user cannot focus or tell whether something worked, the design has failed.
 - The terminal path must remain available, but it should be secondary/collapsible. The UI is the primary dogfood path.
@@ -69,6 +73,8 @@ Quote-level intent to preserve:
 
 > "That expands different amounts. That is the prototype. Rebuild it or lift it whole."
 
+> "Agent Interaction bar lives across Surfaces as well. That should be inherent. It's state is the users state across all projects. Not a sub state of a particular surface."
+
 ## 4. Files In Scope For Design Investigation
 
 Read these first.
@@ -97,6 +103,7 @@ Key static drawer areas:
 
 Current `/plan` implementation state:
 
+- `apps/live-control-ui/src/chrome/AppChrome.tsx`
 - `apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx`
 - `apps/live-control-ui/src/planSurface/projection/AdaptiveProjectionContainer.tsx`
 - `apps/live-control-ui/src/planSurface/projection/projectionContext.tsx`
@@ -147,7 +154,7 @@ The previous agent moved `/plan` toward a live-play-like drawer:
   - `npm run build`
   - Only the existing Vite large-chunk warning appeared.
 
-This is implementation state, not design approval. The user still considers the ingestion experience bad.
+This is implementation state, not design approval. The user still considers the ingestion experience bad, and has now clarified that the right-side Tools drawer is the wrong ownership boundary. The durable interaction surface is an app-level bottom Agent Interaction Bar/Pane.
 
 ## 7. Design Problem To Solve
 
@@ -158,7 +165,7 @@ The current UI is mixing two questions:
 
 The design must separate those.
 
-The ingestion drawer should answer, at a glance:
+The ingestion projection should answer, at a glance:
 
 - What session/slug/title is being ingested?
 - What is the current pipeline step?
@@ -170,25 +177,57 @@ The ingestion drawer should answer, at a glance:
 
 Avoid a flat list of operation buttons as the primary mental model. The operations are real, but the user should experience them as a guided pipeline.
 
-## 8. Proposed Design Direction For Next Agent To Explore
+## 8. Canonical Agent Interaction Direction
 
-Use the live-play drawer shell nearly verbatim, then redesign the ingestion panel inside it.
+Use the live-play drawer shell as a feel/design source, then implement the ownership boundary as an app-level agent interaction layer.
 
-Suggested shape:
+The canonical composition is:
 
-### Drawer Shell
+```text
+AppChrome
+  AgentInteractionProvider
+    Route / Surface
+      PlanSurfaceShell
+      LiveControlSurface
+      TiptapSurface
 
-- Fixed right-side drawer.
-- Vertical `Tools` tab.
-- Backdrop.
-- Header: `Command Board` / `Toolbox`.
-- Tool tabs: `Ingestion`, `Statblock`.
-- Drawer width expands by active tool:
-  - default/compact around `440px`,
-  - ingestion/statblock wide around `1080px`.
-- Body scrolls independently.
+  AgentInteractionBar
+  AgentInteractionPane
+```
 
-### Ingestion Panel
+### AgentInteractionProvider
+
+This provider owns the user's agent interaction state across surfaces/projects:
+
+- current conversation/thread pointers,
+- open/minimized/expanded pane state,
+- active projection (`chat`, `ingestion`, `statblock`, `reference`, `corpus-impact`, etc.),
+- recent tool runs and proof-trail pointers,
+- notifications like "C2S23 ready - view proof",
+- ambient project/campaign/session context received from surfaces.
+
+It should store pointers, summaries, and UI state. It must not become a second corpus store and must not bypass explicit backend write flows.
+
+### Surface Boundary
+
+Surfaces contribute context and projection registrations:
+
+- `/plan`: campaign id, prep/live/ingest sessions, selected canvas block/reference, planning projections.
+- `/surface`: live session, active event/job/combat state, live projections.
+- editor/developer surfaces: selected document/reference and edit capability state.
+
+The surface can request `openProjection("ingestion")` or publish `selectedReference`, but it does not own the agent pane lifecycle.
+
+### Bottom Shell
+
+- Persistent bottom Agent Interaction Bar.
+- Compact status/ask affordance visible across surfaces.
+- Expandable bottom pane with peek/half/full sizes.
+- Projection tabs or chips for `Ask`, `Ingestion`, `Statblock`, `Inspect`, and `Proof` as available.
+- Body scrolls independently inside the pane.
+- The pane renders app-level projections using the shared projection registry.
+
+### Ingestion Projection
 
 The panel likely wants three zones:
 
@@ -223,6 +262,8 @@ Candidate proof affordances:
 - let the user click an entity/reference and open the same projection surface used by reference chips,
 - expose an "Ask/inspect what changed" UI if such a safe endpoint exists,
 - at minimum, provide an inspectable artifact list with statuses and links.
+
+In the bottom bar, this should become a durable notification/proof affordance: e.g. `C2S23 ready - 7 memory records - View proof`. Expanding it opens the corpus-impact proof projection and preserves that proof pointer even if the user navigates away from `/plan`.
 
 If the current backend does not expose enough proof metadata, design the UI state first and then identify the smallest backend/API addition needed.
 
@@ -260,6 +301,8 @@ The next design is good enough to implement only if the user can look at it and 
 - "I can tell what artifact changed."
 - "I can prove the recap has become usable campaign knowledge without opening a terminal."
 - "This feels like the live-play Tools drawer lineage, not a separate dashboard."
+- "The ask/proof/tool surface follows me across surfaces instead of being trapped inside `/plan`."
+- "The surface gives context to the agent pane; it does not own my agent interaction state."
 
 ## 11. Verification Plan Once Implemented
 
@@ -279,7 +322,7 @@ Dogfood:
   - Vite at `http://localhost:5173`
   - FastAPI at `http://localhost:8000`
 - Open `/plan`.
-- Open Tools.
+- Use the bottom Agent Interaction Bar.
 - Complete the ingestion pipeline through the UI.
 - Use the final proof surface to interact with what was ingested.
 - Compare drawer feel against `http://localhost:5173/evals/c2_live_prep/mireward-prep/live-play.html`.

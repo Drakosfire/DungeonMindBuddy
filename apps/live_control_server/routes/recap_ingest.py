@@ -16,9 +16,16 @@ from src.corpus.session_recap_paths import (
     breadcrumbed_relpath,
     campaign_number_from_id,
     frontmatter_seed_relpath,
+    is_generic_recap_tail,
     normalized_recap_relpath,
+    recap_tail,
 )
-from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
+from src.live_play.recap_ingest_pipeline import (
+    PipelineOptions,
+    inspect_recap_ingest_status,
+    reconcile_normalized_recap,
+    run_pipeline,
+)
 from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -30,21 +37,10 @@ RecapIngestOperation = Literal[
     "run_breadcrumb_ingest",
     "materialize_session_memory",
     "inspect_status",
+    "reconcile_normalized_recap",
 ]
 
 _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
-_GENERIC_TITLE_TAILS = {
-    "",
-    "ingest",
-    "ingestion",
-    "raw recap",
-    "raw recap ingest",
-    "raw recap ingestion",
-    "recap",
-    "recap ingest",
-    "recap ingestion",
-    "session recap",
-}
 
 
 class RecapIngestRequest(BaseModel):
@@ -56,6 +52,7 @@ class RecapIngestRequest(BaseModel):
     raw_text: str | None = None
     slug: str | None = None
     title: str | None = None
+    keep_basename: str | None = None
     force_stage: bool = False
     force_recap: bool = False
     check: bool = False
@@ -78,21 +75,10 @@ class RecapIngestStatusResponse(BaseModel):
     entity_spelling_audit: list[dict[str, Any]]
 
 
-def _tail_from_title(title: str | None) -> str:
-    if not title:
-        return ""
-    raw = title.strip()
-    if raw.lower().startswith("session ") and "-" in raw:
-        _prefix, _dash, tail = raw.partition("-")
-        return tail.strip().rstrip(":").lower()
-    return raw.rstrip(":").lower()
-
-
 def _is_non_generic_slug_or_title(*, slug: str | None, title: str | None) -> bool:
     if slug and slug.strip().rstrip(":").lower():
-        return slug.strip().rstrip(":").lower() not in _GENERIC_TITLE_TAILS
-    tail = _tail_from_title(title)
-    return tail not in _GENERIC_TITLE_TAILS
+        return not is_generic_recap_tail(slug)
+    return not is_generic_recap_tail(title)
 
 
 def _pipeline_corpus_root() -> Path | None:
@@ -335,6 +321,27 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
         if body.operation == "run_breadcrumb_ingest":
             return _run_breadcrumb_ingest_from_request(
                 body,
+                corpus=(corpus or default_corpus_root()).resolve(),
+            )
+        if body.operation == "reconcile_normalized_recap":
+            keep = (body.keep_basename or "").strip()
+            if not keep:
+                raise HTTPException(
+                    status_code=422,
+                    detail="reconcile_normalized_recap requires keep_basename",
+                )
+            if is_generic_recap_tail(keep):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"keep_basename {recap_tail(keep)!r} is a generic/tool-shaped recap; "
+                        "choose a canonical session title to keep"
+                    ),
+                )
+            return reconcile_normalized_recap(
+                campaign_id=body.campaign_id,
+                session=body.session,
+                keep_basename=keep,
                 corpus=(corpus or default_corpus_root()).resolve(),
             )
         options = _options_for_request(body)

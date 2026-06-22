@@ -380,7 +380,8 @@ export type RecapIngestOperation =
   | "build_frontmatter_seed"
   | "run_breadcrumb_ingest"
   | "materialize_session_memory"
-  | "inspect_status";
+  | "inspect_status"
+  | "reconcile_normalized_recap";
 
 export interface RecapIngestRequest {
   operation: RecapIngestOperation;
@@ -389,9 +390,19 @@ export interface RecapIngestRequest {
   raw_text?: string;
   slug?: string;
   title?: string;
+  keep_basename?: string;
   force_stage?: boolean;
   force_recap?: boolean;
   check?: boolean;
+}
+
+export interface NormalizedRecapCandidate {
+  basename: string;
+  relpath: string;
+  size_bytes: number;
+  modified_at: string;
+  is_generic: boolean;
+  recommended: boolean;
 }
 
 export interface RecapIngestStatus {

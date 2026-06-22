@@ -730,6 +730,15 @@ code {
   margin-bottom: 0.25rem;
 }
 
+.field-required {
+  margin-left: 0.35rem;
+  color: #f0d7a9;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .ingestion-source-grid input,
 .ingestion-source-grid textarea {
   width: 100%;
@@ -865,6 +874,88 @@ code {
   color: #a9f0c8;
 }
 
+.pill-warning {
+  border-color: #9f7a3a;
+  color: #f0d7a9;
+}
+
+.ingestion-reconcile-card {
+  border: 1px solid #9f5a4f;
+  border-radius: 8px;
+  background: rgba(159, 90, 79, 0.16);
+  padding: 0.65rem 0.7rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ingestion-reconcile-card > p {
+  margin: 0;
+  color: #e0c7c1;
+  font-size: 0.86rem;
+}
+
+.ingestion-reconcile-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ingestion-reconcile-option {
+  border: 1px solid #3a4358;
+  border-radius: 6px;
+  background: rgba(20, 24, 33, 0.4);
+  padding: 0.4rem 0.5rem;
+}
+
+.ingestion-reconcile-option.is-selected {
+  border-color: #4f8f68;
+  background: rgba(79, 143, 104, 0.14);
+}
+
+.ingestion-reconcile-option label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  cursor: pointer;
+}
+
+.ingestion-reconcile-option input[type="radio"] {
+  grid-row: span 2;
+}
+
+.ingestion-reconcile-option-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ingestion-reconcile-option-meta {
+  grid-column: 2;
+  color: #9aa3b5;
+  font-size: 0.78rem;
+}
+
+.ingestion-reconcile-actions {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.ingestion-reconcile-actions button.primary {
+  justify-self: start;
+  min-width: 11rem;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.ingestion-reconcile-actions button.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .ingestion-rendered-preview {
   padding: 0.75rem;
   border-bottom: 1px solid #2a3142;
@@ -939,6 +1030,43 @@ code {
 .ingestion-proof-path code {
   overflow-wrap: anywhere;
   font-size: 0.78rem;
+}
+
+.ingestion-impact-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ingestion-impact-row {
+  border: 1px solid #2e3648;
+  border-radius: 8px;
+  background: rgba(20, 24, 33, 0.45);
+  padding: 0.45rem 0.55rem;
+}
+
+.ingestion-impact-row summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.ingestion-impact-row summary strong {
+  color: #a9f0c8;
+}
+
+.ingestion-impact-row code {
+  display: block;
+  margin-top: 0.45rem;
+  color: #aeb8cc;
+  word-break: break-word;
+}
+
+.ingestion-impact-row pre {
+  max-height: 14rem;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 .ingestion-proof-path-done {

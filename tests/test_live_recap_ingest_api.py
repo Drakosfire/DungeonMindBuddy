@@ -380,6 +380,110 @@ def test_invalid_operation_rejected(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def _seed_duplicate_normalized(corpus: Path) -> tuple[Path, Path]:
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    canonical = norm_dir / "Session 23 - Mireward Gate Battle.md"
+    generic = norm_dir / "Session 23 - ingest.md"
+    canonical.write_text(
+        "---\ntitle: Session 23 - Mireward Gate Battle\n---\nThe gate battle.\n",
+        encoding="utf-8",
+    )
+    generic.write_text(
+        "---\ntitle: Session 23 - ingest\n---\nTool-shaped duplicate.\n",
+        encoding="utf-8",
+    )
+    return canonical, generic
+
+
+def test_inspect_status_flags_duplicate_normalized_recaps(
+    client: TestClient, isolated_session: Path
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    _seed_duplicate_normalized(corpus)
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={"operation": "inspect_status", "campaign_id": "longmont-c2", "session": 23},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "needs_reconciliation"
+    assert "normalized_recap_duplicates" in body["states"]
+    candidates = body["ingest_report"]["normalized_recap_candidates"]
+    assert {row["basename"] for row in candidates} == {
+        "Session 23 - Mireward Gate Battle",
+        "Session 23 - ingest",
+    }
+    recommended = [row for row in candidates if row["recommended"]]
+    assert len(recommended) == 1
+    assert recommended[0]["basename"] == "Session 23 - Mireward Gate Battle"
+    generic_row = next(row for row in candidates if row["basename"] == "Session 23 - ingest")
+    assert generic_row["is_generic"] is True
+
+
+def test_reconcile_normalized_recap_archives_rejected_duplicate(
+    client: TestClient, isolated_session: Path
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    canonical, generic = _seed_duplicate_normalized(corpus)
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "reconcile_normalized_recap",
+            "campaign_id": "longmont-c2",
+            "session": 23,
+            "keep_basename": "Session 23 - Mireward Gate Battle",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "normalized_recap_reconciled" in body["states"]
+    assert "normalized_recap_duplicates" not in body["states"]
+    assert canonical.is_file()
+    assert not generic.exists()
+    archive_dir = generic.parent / "_archive"
+    archived = list(archive_dir.glob("Session 23 - ingest__*.md"))
+    assert len(archived) == 1
+    assert body["ingest_report"]["reconciled_kept_basename"] == "Session 23 - Mireward Gate Battle"
+
+
+def test_reconcile_rejects_generic_keep_basename(
+    client: TestClient, isolated_session: Path
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    _seed_duplicate_normalized(corpus)
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "reconcile_normalized_recap",
+            "campaign_id": "longmont-c2",
+            "session": 23,
+            "keep_basename": "Session 23 - ingest",
+        },
+    )
+    assert response.status_code == 422
+    assert "generic" in response.json()["detail"]
+
+
+def test_reconcile_requires_more_than_one_candidate(
+    client: TestClient, isolated_session: Path
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (norm_dir / "Session 23 - Mireward Gate Battle.md").write_text("solo", encoding="utf-8")
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "reconcile_normalized_recap",
+            "campaign_id": "longmont-c2",
+            "session": 23,
+            "keep_basename": "Session 23 - Mireward Gate Battle",
+        },
+    )
+    assert response.status_code == 422
+
+
 def test_inspect_status_is_read_only_and_reports_disk(client: TestClient, isolated_session: Path) -> None:
     corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
     recap = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
@@ -399,4 +503,5 @@ def test_inspect_status_is_read_only_and_reports_disk(client: TestClient, isolat
     assert body["schema"] == "dmb_raw_recap_ingest_status_v1"
     assert "ingest_status_inspected" in body["states"]
     assert "recap_reused" in body["states"]
+    assert "corpus_impact" in body["ingest_report"]
     assert recap.read_text(encoding="utf-8") == "canonical on disk"

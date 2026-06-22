@@ -59,13 +59,15 @@ def test_stage_preview_reports_ingest_details(tmp_path: Path) -> None:
     assert ingest["duplicates_detected"] == 0
 
 
-def test_stage_refuses_overwrite_without_force(tmp_path: Path) -> None:
+def test_stage_reuses_existing_notes_as_review_gate_without_force(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
     staged.write_text("old raw notes", encoding="utf-8")
     status = run_pipeline(_opts(), corpus=corpus)
-    assert status["status"] == "error"
-    assert any("force-stage" in msg for msg in status["errors"])
+    assert status["status"] == "breadcrumb_required"
+    assert "staged_raw_notes_conflict" in status["states"]
+    assert any("force-stage" in msg for msg in status["next_actions"])
+    assert staged.read_text(encoding="utf-8") == "old raw notes"
 
 
 def test_stage_overwrites_with_force_stage(tmp_path: Path) -> None:
@@ -75,6 +77,30 @@ def test_stage_overwrites_with_force_stage(tmp_path: Path) -> None:
     status = run_pipeline(_opts(force_stage=True), corpus=corpus)
     assert status["status"] == "breadcrumb_required"
     assert staged.read_text(encoding="utf-8").startswith("Session 22 Recap")
+
+
+def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (norm_dir / "Session 22 - Mireward Road and Lysandro.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 22 - Mireward.md").write_text("partial duplicate", encoding="utf-8")
+
+    status = run_pipeline(
+        _opts(
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=False,
+            materialize_session_memory=True,
+            slug="Mireward Road and Lysandro",
+        ),
+        corpus=corpus,
+    )
+
+    assert status["status"] == "needs_reconciliation"
+    assert "normalized_recap_duplicates" in status["states"]
+    assert "expected exactly one normalized recap" not in " ".join(status["errors"])
 
 
 def test_apply_requires_non_generic_slug_or_title(tmp_path: Path) -> None:

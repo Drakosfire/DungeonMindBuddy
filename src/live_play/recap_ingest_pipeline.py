@@ -4,8 +4,10 @@ import argparse
 import difflib
 import json
 import re
+import shutil
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
@@ -21,16 +23,19 @@ from src.agent.recap_ingest_helpers import assemble_recap
 from src.corpus.session_recap_paths import (
     breadcrumbed_relpath,
     frontmatter_seed_relpath,
+    is_generic_recap_tail,
+    normalized_recap_candidates,
     normalized_recap_relpath,
     resolve_under_corpus,
     session_memory_jsonl_relpath,
     session_memory_meta_relpath,
+    session_recaps_prefix,
 )
 from src.live_play.recap_ingest_status import RecapIngestStatus
 from src.live_play.recap_stage_paths import RecapStagePaths, corpus_root
 
-_GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*-\s*Recap\s*:?\s*$", re.IGNORECASE)
-_SESSION_TITLE_RE = re.compile(r"^Session\s+\d+\s*-\s*(.+?)\s*$", re.IGNORECASE)
+_GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?Recap\s*:?\s*$", re.IGNORECASE)
+_SESSION_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?(.+?)\s*$", re.IGNORECASE)
 _NAME_TOKEN_RE = re.compile(r"\b[A-Z][a-zA-Z]{3,}\b")
 
 
@@ -530,6 +535,16 @@ def run_pipeline(
     else:
         status.add_state("normalized_skipped")
 
+    duplicate_candidates = _annotate_normalized_duplicates(
+        status,
+        corpus_dir,
+        campaign_number=paths.campaign_number,
+        session=options.session,
+    )
+    if len(duplicate_candidates) > 1:
+        _annotate_corpus_impact(status, corpus_dir)
+        return status.to_dict()
+
     try:
         breadcrumb_path, breadcrumb_rel = _resolve_breadcrumb_path(
             corpus_dir,
@@ -602,7 +617,190 @@ def run_pipeline(
     else:
         status.add_state("session_memory_skipped")
 
+    _annotate_corpus_impact(status, corpus_dir)
     return status.to_dict()
+
+
+def _normalized_candidate_rows(
+    corpus_dir: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> list[dict[str, object]]:
+    """Structured metadata for every ``_normalized`` recap candidate of a session."""
+    candidates = normalized_recap_candidates(
+        corpus_dir, campaign_number=campaign_number, session=session
+    )
+    prefix = session_recaps_prefix(campaign_number)
+    rows: list[dict[str, object]] = []
+    for path in candidates:
+        try:
+            stat = path.stat()
+            size_bytes = stat.st_size
+            modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+        except OSError:
+            size_bytes = 0
+            modified_at = ""
+        rows.append(
+            {
+                "basename": path.stem,
+                "relpath": f"{prefix}/_normalized/{path.name}",
+                "size_bytes": size_bytes,
+                "modified_at": modified_at,
+                "is_generic": is_generic_recap_tail(path.stem),
+            }
+        )
+    non_generic = [row for row in rows if not row["is_generic"]]
+    recommended = non_generic[0]["basename"] if len(non_generic) == 1 else None
+    for row in rows:
+        row["recommended"] = bool(recommended) and row["basename"] == recommended
+    return rows
+
+
+def _annotate_normalized_duplicates(
+    status: RecapIngestStatus,
+    corpus_dir: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> list[dict[str, object]]:
+    """Surface duplicate normalized recaps so the UI can offer reconciliation."""
+    rows = _normalized_candidate_rows(
+        corpus_dir, campaign_number=campaign_number, session=session
+    )
+    if len(rows) > 1:
+        status.add_state("normalized_recap_duplicates")
+        status.add_warning(
+            f"found {len(rows)} normalized recaps for this session; expected exactly one"
+        )
+        status.ingest_report["normalized_recap_candidates"] = rows
+        status.add_next_action(
+            "Resolve duplicate normalized recaps: keep one canonical recap and archive the rest."
+        )
+    return rows
+
+
+def _annotate_corpus_impact(status: RecapIngestStatus, corpus_dir: Path) -> None:
+    """Attach small read-only previews/counts for the artifacts the ingest pipeline touched."""
+    rows: list[dict[str, object]] = []
+    for key in (
+        "canonical_recap",
+        "normalized_recap",
+        "frontmatter_seed",
+        "breadcrumbed_recap",
+        "session_memory_jsonl",
+        "session_memory_meta",
+    ):
+        rel = status.paths.get(key)
+        if not rel:
+            continue
+        path = (corpus_dir / str(rel)).resolve()
+        try:
+            path.relative_to(corpus_dir)
+        except ValueError:
+            continue
+        row: dict[str, object] = {
+            "key": key,
+            "relpath": str(rel),
+            "exists": path.is_file(),
+        }
+        if path.is_file():
+            stat = path.stat()
+            row["size_bytes"] = stat.st_size
+            row["modified_at"] = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+            if key == "session_memory_jsonl":
+                lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+                row["record_count"] = len([line for line in lines if line.strip()])
+                row["preview"] = "\n".join(lines[:3])
+            elif path.suffix.lower() in {".md", ".json"}:
+                row["preview"] = path.read_text(encoding="utf-8", errors="replace")[:1600]
+        rows.append(row)
+    status.ingest_report["corpus_impact"] = rows
+
+
+def reconcile_normalized_recap(
+    *,
+    campaign_id: str,
+    session: int,
+    keep_basename: str,
+    corpus: Path | None = None,
+) -> dict[str, object]:
+    """Archive every normalized recap (and matching derivatives) except ``keep_basename``.
+
+    Moves rejected artifacts into sibling ``_archive`` folders (reversible, no deletes),
+    then returns a fresh read-only status probe so the caller can prove the result.
+    """
+    from src.corpus.session_recap_paths import campaign_number_from_id
+
+    corpus_dir = (corpus or corpus_root()).resolve()
+    campaign_number = campaign_number_from_id(campaign_id)
+    keep = keep_basename.strip()
+    if not keep:
+        raise ValueError("keep_basename is required to reconcile duplicate recaps")
+
+    candidates = normalized_recap_candidates(
+        corpus_dir, campaign_number=campaign_number, session=session
+    )
+    if len(candidates) < 2:
+        raise ValueError(
+            "reconcile requires more than one normalized recap; "
+            f"found {len(candidates)} for C{campaign_number}S{session}"
+        )
+    stems = {path.stem for path in candidates}
+    if keep not in stems:
+        raise ValueError(
+            f"keep_basename {keep!r} is not one of the normalized recaps on disk: {sorted(stems)}"
+        )
+
+    prefix = session_recaps_prefix(campaign_number)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archived: list[dict[str, str]] = []
+
+    def _archive(path: Path) -> None:
+        try:
+            path.resolve().relative_to(corpus_dir)
+        except ValueError as exc:
+            raise ValueError(f"refusing to archive path outside corpus: {path}") from exc
+        archive_dir = path.parent / "_archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        target = archive_dir / f"{path.stem}__{stamp}{path.suffix}"
+        shutil.move(str(path), str(target))
+        archived.append(
+            {
+                "from": str(path.relative_to(corpus_dir)),
+                "to": str(target.relative_to(corpus_dir)),
+            }
+        )
+
+    session_dir = corpus_dir / prefix
+    for path in candidates:
+        if path.stem == keep:
+            continue
+        _archive(path)
+        # Downstream derivatives keyed on the rejected basename.
+        derivatives = [
+            session_dir / "_breadcrumbed" / f"{path.stem}.breadcrumbed.md",
+            session_dir / "_breadcrumbed" / f"{path.stem}.frontmatter_seed.md",
+            session_dir / "_session_memory" / f"{path.stem}.records_meta.jsonl",
+            session_dir / "_session_memory" / f"{path.stem}.records_meta.json",
+        ]
+        for derivative in derivatives:
+            if derivative.is_file():
+                _archive(derivative)
+
+    status = inspect_recap_ingest_status(
+        campaign_id=campaign_id,
+        session=session,
+        title=None,
+        slug=None,
+        corpus=corpus_dir,
+    )
+    status["states"] = list(dict.fromkeys([*status.get("states", []), "normalized_recap_reconciled"]))
+    report = status.setdefault("ingest_report", {})
+    if isinstance(report, dict):
+        report["reconciled_kept_basename"] = keep
+        report["reconciled_archived"] = archived
+    return status
 
 
 def inspect_recap_ingest_status(
@@ -642,6 +840,16 @@ def inspect_recap_ingest_status(
             status.add_warning("slug_mismatch_used_disk_breadcrumb")
     except FileNotFoundError:
         pass
+
+    duplicate_candidates = _annotate_normalized_duplicates(
+        status,
+        corpus_dir,
+        campaign_number=paths.campaign_number,
+        session=session,
+    )
+    if len(duplicate_candidates) > 1:
+        _annotate_corpus_impact(status, corpus_dir)
+        return status.to_dict()
 
     staged_path = (corpus_dir / str(status.paths["staged_raw_notes"])).resolve()
     if staged_path.is_file():
@@ -702,6 +910,7 @@ def inspect_recap_ingest_status(
         status.add_next_action("Run Materialize Session Memory.")
 
     status.add_state("ingest_status_inspected")
+    _annotate_corpus_impact(status, corpus_dir)
     return status.to_dict()
 
 
