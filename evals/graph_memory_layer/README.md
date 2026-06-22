@@ -127,3 +127,14 @@ This rung does not scan corpus files, read manifests, parse Markdown or Tiptap
 output, infer entities or aliases, promote graph facts, call LLMs, or change
 production retrieval behavior. Optional input must be supplied as an explicit
 JSONL path.
+
+
+## Surface Vocabulary Boundary
+
+Validate the surface vocabulary boundary manifest with the no-runtime boundary validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_surface_vocabulary_boundary
+```
+
+This validates which terms belong to the shared semantic envelope, which terms are ontology-owned, which terms are surface-owned, which terms are contested, and which collapses are forbidden before graph memory is consumed by DungeonMindBuddy surfaces. It does not implement adapters, does not touch `/plan`, and preserves shared source/provenance/evidence/lifecycle semantics while allowing surface-owned vocabulary such as chips, projections, drawers, and tool workflows.
