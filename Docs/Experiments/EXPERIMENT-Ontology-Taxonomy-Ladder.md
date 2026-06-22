@@ -1,14 +1,14 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.5
-Status: active operational anchor — post-recap-ingestion-source-artifact-fixture checkpoint
+Version: 0.6
+Status: active operational anchor — post-recap-ingestion-source-artifact-materializer-gate checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
 
-The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family shape proofs:
+The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer-gate shape proofs:
 
 1. Baseline case freeze
 2. Taxonomy Registry v0
@@ -25,20 +25,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 13. Projection-Readiness Report v0
 14. Recap-Ingestion Source-Family Gate v0
 15. Recap-Ingestion Source Artifact Fixture v0
+16. Recap-Ingestion Source Artifact Materializer Gate v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, and prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, and decide that a future materializer may be implemented only under a strict explicit-input contract.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no real recap-ingestion artifact materializer exists; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Source Artifact Materializer Gate v0**.
+The next checkpoint is **Recap-Ingestion Source Artifact Materializer v0**.
 
-That next gate should decide whether the ladder is ready to implement a real explicit-input materializer for admitted recap-ingestion artifacts. It should not implement the materializer itself.
+That next PR may implement the real explicit-input materializer for admitted recap-ingestion artifacts under this gate contract.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer Gate v0`.
+The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer v0`.
 
-That PR should be another gate, not a materializer. It should decide whether the ladder is ready to implement a real explicit-input materializer for recap-ingestion artifacts.
+That PR may implement the first real explicit-input materializer for recap-ingestion artifacts, constrained by the Recap-Ingestion Source Artifact Materializer Gate v0.
 
 It must continue to block:
 
@@ -218,6 +219,24 @@ Human-readable report:
 `Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-FIXTURE.md`
 
 This proves shape compatibility only. It does not read real recap-ingestion outputs, implement a materializer, implement adapters, connect `/plan`, connect Agent Interaction, scan corpus files, mutate corpus files, infer entities, resolve aliases, infer relationships, promote facts, or change production behavior.
+
+### Recap-Ingestion Source Artifact Materializer Gate v0
+
+After proving the synthetic recap-ingestion source artifact fixture, the ladder gates whether a real explicit-input materializer may be implemented for admitted recap-ingestion artifacts.
+
+Gate manifest:
+
+`evals/graph_memory_layer/recap_ingestion_source_artifact_materializer_gate.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_gate`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-GATE.md`
+
+This gate allows a future PR to implement a real explicit-input materializer. It does not implement that materializer. It continues to block directory scanning, corpus scanning, corpus mutation, `/plan`, Agent Interaction, graph retrieval, shadow retrieval, entity extraction, alias resolution, relationship inference, fact promotion, canon promotion, adapter output, runtime UI payloads, and production behavior changes.
 
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
