@@ -1,24 +1,29 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.3
-Status: active operational anchor — post-synthetic-materializer checkpoint
+Version: 0.4
+Status: active operational anchor — post-session-memory-materializer / plan-consumer-alignment checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
 
-The ladder has completed the safe foundation rungs:
+The ladder has completed the safe foundation and first gated real-structure rungs:
 
 1. Baseline case freeze
 2. Taxonomy Registry v0
 3. Ontology IR Schema v0
 4. Ontology IR Validation Rules v0
 5. Synthetic Deterministic Materializer v0
+6. Materializer Report CLI v0
+7. Real-Structure Materialization Gate v0
+8. Session-Memory Sentence-Unit Materializer v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, and materialize a tiny synthetic fixture into a validated Ontology IR GraphBundle.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, and materialize explicit session-memory JSONL sentence/source-unit records into a diagnostic candidate GraphBundle.
 
-The project has not yet materialized real campaign data, corpus data, session-memory JSONL, Markdown, Tiptap output, activated manifests, or live-play records.
+The default validator still uses a tiny synthetic fixture for the baseline materializer path. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, or corpus mutation has happened; and no production retrieval behavior has changed.
+
+The next checkpoint is consumer alignment with `/plan`, the first named future graph-memory consumer.
 
 ## Core Decision
 
@@ -75,6 +80,31 @@ This workstream is not:
 In particular, early ladder work must not change `src/agent/session_memory_query.py`, `src/agent/planner_retrieval_router.py`, `src/live_play/manifest_context_query.py`, or canonical corpus files.
 
 The ladder begins by describing and validating structure before it tries to influence retrieval.
+
+## Plan Surface Consumer Alignment
+
+`/plan` is now the first named future consumer for graph-memory derived structures.
+
+The ladder remains isolated and must not be pulled into UI implementation or production retrieval. The alignment goal is to ensure the graph-memory model can later serve `/plan` through adapters without forcing `/plan` to own taxonomy, ontology, aliasing, evidence policy, lifecycle semantics, or graph traversal.
+
+The expected adapter vocabulary is:
+
+`source artifact -> source anchor -> source unit`
+
+The UI should not become graph-aware. The UI should ask for source-backed, lifecycle-aware units through a stable adapter. `/plan` should consume those units without learning graph internals.
+
+The current live-index path remains the fallback until graph-assisted retrieval is measured in shadow mode and explicitly promoted.
+
+| Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
+|---|---|---|---|
+| Projection UI | Yes | No | Receives projection-ready source units |
+| Reference chips | Yes | No | Chips carry opaque handles, not graph internals |
+| Taxonomy vocabulary | No | Yes | Adapter maps graph terms to projection kinds |
+| Alias resolution | No | Yes, later | Adapter may expose candidates separately from matches |
+| Lifecycle semantics | Display only | Yes | Adapter returns lifecycle/provenance fields |
+| Source evidence | Display/cite | Yes | Adapter returns source anchors and evidence roles |
+| Graph traversal | No | Later shadow mode | Adapter returns bounded expansions with explanations |
+| Current fallback | Yes | No | Live-index fallback remains valid |
 
 ## Branch Model
 
@@ -307,11 +337,23 @@ The gate admits exactly one source family for the next materializer PR: `session
 
 This gate does not materialize real data. It defines the constraints a future materializer must obey before reading any real existing structure. It keeps production retrieval, corpus mutation, LLM extraction, alias resolution, relationship inference, and promoted records forbidden.
 
-### Rung 8: First Real-Structure Materializer
+### Rung 8: Session-Memory Sentence-Unit Materializer v0
 
-Materialize one approved real existing structure into graph records without changing production retrieval.
+Materialize explicit session-memory JSONL sentence/source-unit records into a diagnostic candidate GraphBundle without changing production retrieval.
 
-Status: future.
+Status: complete.
+
+## Session-Memory Sentence-Unit Materializer
+
+Rung 8 session-memory sentence-unit materializer is tracked in:
+
+`src/graph_memory/session_memory_materialize.py`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_session_memory_materializer`
+
+This materializer consumes only explicit session-memory JSONL records admitted by the real-structure gate. It emits source-document/source-unit graph records for diagnostics and candidate reporting only. It does not scan broad campaign/corpus files, parse Markdown or Tiptap output, infer aliases/entities/relationships, call LLMs, mutate corpus files, influence `/plan`, or change production retrieval.
 
 ### Rung 9: Graph Report Over Real Existing Structure
 
