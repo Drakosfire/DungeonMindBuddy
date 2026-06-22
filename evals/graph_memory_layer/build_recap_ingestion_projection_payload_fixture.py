@@ -24,8 +24,12 @@ def _artifact_kind_by_id(materialization: RecapIngestionMaterialization) -> dict
     return {artifact.admitted_artifact_id: artifact.artifact_kind for artifact in materialization.artifacts}
 
 
-def build_projection_payload_fixture() -> dict[str, Any]:
-    materialization = materialize_recap_ingestion_source_artifacts([RecapIngestionMaterializerInput(k, v) for k, v in DEFAULT_INPUTS.items()])
+def build_projection_payload_fixture_from_materialization(
+    materialization: RecapIngestionMaterialization,
+    *,
+    fixture_id: str,
+    created_by: str = CREATED_BY,
+) -> dict[str, Any]:
     materializer_report = analyze_recap_ingestion_materializer_output(materialization)
     readiness = assess_recap_ingestion_projection_readiness(materialization, materializer_report)
     if readiness.readiness_status != "ready":
@@ -83,9 +87,9 @@ def build_projection_payload_fixture() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "version": VERSION,
-        "fixture_id": FIXTURE_ID,
+        "fixture_id": fixture_id,
         "source_family": SOURCE_FAMILY,
-        "created_by": CREATED_BY,
+        "created_by": created_by,
         "projection_mode": "diagnostic_fixture_only",
         "projection_status": "fixture_ready",
         "source": {
@@ -106,6 +110,10 @@ def build_projection_payload_fixture() -> dict[str, Any]:
         },
     }
 
+
+def build_projection_payload_fixture() -> dict[str, Any]:
+    materialization = materialize_recap_ingestion_source_artifacts([RecapIngestionMaterializerInput(k, v) for k, v in DEFAULT_INPUTS.items()])
+    return build_projection_payload_fixture_from_materialization(materialization, fixture_id=FIXTURE_ID)
 
 def main() -> int:
     print(json.dumps(build_projection_payload_fixture(), indent=2, sort_keys=True))

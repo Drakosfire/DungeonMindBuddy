@@ -1,0 +1,8 @@
+{
+  "fixture": "recap-ingestion-explicit-real-artifact-dogfood-v0",
+  "jsonl_source": "redacted-session-memory-jsonl",
+  "line_count": 18,
+  "chunking": {"sentence_units": 12, "blank_lines_preserved": true, "speaker_labels_redacted": true},
+  "safety": {"contains_secrets": false, "contains_absolute_paths": false, "runtime_ingestion": false},
+  "diagnostics": ["quoted-note", "frontmatter-neighbor", "breadcrumb-neighbor"]
+}

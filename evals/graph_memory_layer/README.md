@@ -240,3 +240,12 @@ Validates and reports a diagnostic projection payload fixture over hardened reca
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_payload_fixture
 uv run python -m evals.graph_memory_layer.report_recap_ingestion_projection_payload_fixture
 ```
+
+## Recap-Ingestion Explicit Real-Artifact Dogfood Fixture
+
+Validates and reports the first explicit real-artifact dogfood fixture for recap-ingestion Graph Memory. The dogfood bundle is loaded from a manifest of explicit relative file paths only. It exercises the materializer, materializer report, projection-readiness, and projection-payload chain outside runtime. It does not scan directories, scan corpus files, mutate corpus files, connect `/plan`, connect Agent Interaction, perform retrieval, or change production behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_explicit_real_artifact_dogfood
+uv run python -m evals.graph_memory_layer.report_recap_ingestion_explicit_real_artifact_dogfood
+```
