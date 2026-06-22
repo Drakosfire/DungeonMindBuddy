@@ -129,6 +129,17 @@ production retrieval behavior. Optional input must be supplied as an explicit
 JSONL path.
 
 
+## Projection-Readiness Reporting
+
+Projection-readiness reporting measures whether materialized session-memory source-unit records have enough source grounding, provenance, lifecycle, canon, evidence, authority, and visibility metadata to become projection-safe surface payloads in a future adapter. It does not implement adapters, touch `/plan`, or change runtime behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_projection_readiness_report
+uv run python -m evals.graph_memory_layer.report_projection_readiness
+```
+
+The report is diagnostic only: missing fields are reported instead of invented, display summaries are not evidence, and full source text/raw ingestion internals are not printed.
+
 ## Surface Vocabulary Boundary
 
 Validate the surface vocabulary boundary manifest with the no-runtime boundary validator:
