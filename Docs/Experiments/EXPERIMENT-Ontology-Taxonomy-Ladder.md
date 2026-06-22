@@ -1,7 +1,7 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.8
-Status: active operational anchor — post-recap-ingestion-projection-readiness checkpoint
+Version: 0.9
+Status: active operational anchor — post-recap-ingestion-source-ref-provenance-linkage-hardening checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
@@ -29,20 +29,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 17. Recap-Ingestion Source Artifact Materializer v0
 18. Recap-Ingestion Source Artifact Materializer Report v0
 19. Projection-Readiness Over Materialized Recap-Ingestion Artifacts v0
+20. Recap-Ingestion Source Ref / Provenance Linkage Hardening v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts while honestly surfacing source-ref/provenance blockers.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Source Ref / Provenance Linkage Hardening v0**.
+The next checkpoint is **Recap-Ingestion Projection Payload Fixture v0**.
 
-That next PR may harden stable source_ref_id coverage and provenance-to-source-ref linkage without implementing adapters or runtime integration.
+That next PR may define a projection-safe payload fixture over the hardened diagnostic source-unit output without implementing adapters or runtime integration.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Source Ref / Provenance Linkage Hardening v0`.
+The next technical checkpoint is `Recap-Ingestion Projection Payload Fixture v0`.
 
-That PR may address the blocked projection-readiness findings by adding stable source reference IDs and explicit provenance linkage while remaining diagnostic and avoiding adapters or runtime integration.
+That PR may define a projection-safe payload fixture now that source-ref/provenance readiness is diagnostic-ready, while still avoiding adapters and runtime integration.
 
 It must continue to block:
 
@@ -307,7 +308,29 @@ Human-readable report:
 
 This report evaluates projection-readiness only. It does not implement a projection adapter, does not connect `/plan`, does not connect Agent Interaction, does not perform graph retrieval, does not scan or mutate corpus files, does not infer entities, does not resolve aliases, does not infer relationships, does not promote facts, does not promote canon, and does not change production behavior.
 
-The expected v0 outcome may be `blocked` because current materializer output lacks stable `source_ref_id` coverage and provenance-to-source-ref linkage.
+The expected v0 outcome was `blocked` before source-ref/provenance hardening because materializer output lacked stable `source_ref_id` coverage and provenance-to-source-ref linkage.
+
+### Recap-Ingestion Source Ref / Provenance Linkage Hardening v0
+
+After projection-readiness reported blocked source-ref/provenance checks, the ladder hardens recap-ingestion source artifact materializer output with stable `source_ref_id` coverage and explicit provenance-to-source-ref linkage.
+
+Materializer:
+
+`src/graph_memory/recap_ingestion_materialize.py`
+
+Readiness analyzer:
+
+`src/graph_memory/recap_ingestion_projection_readiness.py`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_readiness`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-REF-PROVENANCE-LINKAGE-HARDENING.md`
+
+This hardening moves the default explicit-input materializer output from blocked to ready for source-ref/provenance projection-readiness checks. It does not implement adapters, does not connect `/plan`, does not connect Agent Interaction, does not perform graph retrieval, does not scan or mutate corpus files, does not infer entities, does not resolve aliases, does not infer relationships, does not promote facts, does not promote canon, and does not change production behavior.
 
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|

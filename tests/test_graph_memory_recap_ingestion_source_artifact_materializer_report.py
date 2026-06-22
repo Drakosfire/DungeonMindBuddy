@@ -99,14 +99,12 @@ def test_structural_coverage_and_boundaries() -> None:
     assert report.structural_coverage["forbidden_unit_kind_count"] == 0
 
 
-def test_current_source_ref_gaps_are_surfaced() -> None:
+def test_source_ref_and_provenance_linkage_are_ready() -> None:
     report = _report()
-    if not report.structural_coverage["all_units_have_source_ref_id"]:
-        assert report.issue_counts["missing_source_ref_id"] == report.total_units
-        assert any(issue.severity == "warning" and issue.code == "missing_source_ref_id" for issue in report.issues)
-    if not report.structural_coverage["all_provenance_records_link_to_source_ref_id"]:
-        assert report.issue_counts["missing_provenance_source_ref_link"] == report.total_provenance_records
-        assert any(issue.severity == "warning" and issue.code == "missing_provenance_source_ref_link" for issue in report.issues)
+    assert report.structural_coverage["all_units_have_source_ref_id"] is True
+    assert report.structural_coverage["all_provenance_records_link_to_source_ref_id"] is True
+    assert report.issue_counts.get("missing_source_ref_id", 0) == 0
+    assert report.issue_counts.get("missing_provenance_source_ref_link", 0) == 0
 
 
 def test_rendered_report_contains_sections_and_no_raw_contents() -> None:
@@ -124,6 +122,7 @@ def test_rendered_report_contains_sections_and_no_raw_contents() -> None:
 
 def test_design_report_states_boundaries() -> None:
     text = DESIGN_REPORT.read_text(encoding="utf-8")
+    assert "Source Ref / Provenance Linkage Hardening v0" in text
     assert "does not implement projection-readiness" in text
     assert "does not create adapter payloads" in text
     assert "does not connect `/plan`" in text

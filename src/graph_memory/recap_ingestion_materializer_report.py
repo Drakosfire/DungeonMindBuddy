@@ -154,11 +154,12 @@ def analyze_recap_ingestion_materializer_output(materialization: RecapIngestionM
             source_ref_id_units += 1
         else:
             _add(issues, "warning", "missing_source_ref_id", "Unit source_ref lacks stable source_ref_id.", unit.source_artifact_id, unit.source_unit_id, "source_ref_id")
+        unit_source_ref_id = unit.source_ref.get("source_ref_id")
         for provenance in unit.provenance:
-            if provenance.get("source_ref_id"):
+            if provenance.get("source_ref_id") and provenance.get("source_ref_id") == unit_source_ref_id:
                 linked_provenance += 1
             else:
-                _add(issues, "warning", "missing_provenance_source_ref_link", "Provenance record does not link to source_ref_id.", unit.source_artifact_id, unit.source_unit_id, "provenance.source_ref_id")
+                _add(issues, "warning", "missing_provenance_source_ref_link", "Provenance record does not link to matching source_ref_id.", unit.source_artifact_id, unit.source_unit_id, "provenance.source_ref_id")
         if any(part in unit.unit_kind for part in FORBIDDEN_UNIT_PARTS):
             forbidden_unit_kind_count += 1
             _add(issues, "error", "forbidden_unit_kind", "Unit kind contains projection/entity/promotion vocabulary.", unit.source_artifact_id, unit.source_unit_id, "unit_kind")
@@ -282,5 +283,5 @@ def render_recap_ingestion_materializer_report(report: RecapIngestionMaterialize
         for issue in report.issues:
             target = f" ({issue.artifact_id or 'materialization'}{', ' + issue.unit_id if issue.unit_id else ''})"
             lines.append(f"- {issue.severity}: {issue.code}{target} — {issue.message}")
-    lines.extend(["", "display_summary is not evidence.", "This report is diagnostic only and is not a production adapter payload."])
+    lines.extend(["", "Source Ref / Provenance Linkage Hardening v0 covers stable source_ref_id values and provenance-to-source-ref linkage.", "display_summary is not evidence.", "This report is diagnostic only and is not a production adapter payload."])
     return "\n".join(lines) + "\n"

@@ -115,6 +115,14 @@ def _safe_id(prefix: str, admitted_artifact_id: str, path: Path) -> str:
     return f"{prefix}:{admitted_artifact_id}:{digest}"
 
 
+def _source_ref_id(admitted_artifact_id: str, artifact_id: str, anchor_id: str, unit_id: str) -> str:
+    digest = blake2s(
+        f"{admitted_artifact_id}|{artifact_id}|{anchor_id}|{unit_id}".encode("utf-8"),
+        digest_size=8,
+    ).hexdigest()
+    return f"source-ref:{admitted_artifact_id}:{digest}"
+
+
 def _locator(admitted_artifact_id: str, path: Path, fragment: str | None = None) -> dict[str, object]:
     value = f"explicit-input://recap-ingestion/{admitted_artifact_id}/{path.name}"
     if fragment:
@@ -178,6 +186,7 @@ def materialize_recap_ingestion_source_artifacts(
         artifact_id = _safe_id("source-artifact", admitted_id, path)
         anchor_id = _safe_id("source-anchor", admitted_id, path)
         unit_id = _safe_id("source-unit", admitted_id, path)
+        source_ref_id = _source_ref_id(admitted_id, artifact_id, anchor_id, unit_id)
         heading = _first_heading_or_key(path, admitted_id)
         artifact_locator = _locator(admitted_id, path)
         artifact = RecapIngestionSourceArtifact(
@@ -207,14 +216,14 @@ def materialize_recap_ingestion_source_artifacts(
             unit_kind=unit_kind,
             label=f"{gate['artifact_kind']} source unit",
             display_summary=summary,
-            source_ref={"source_artifact_id": artifact_id, "source_anchor_id": anchor_id, "locator": anchor.locator},
-            provenance=({"created_by": CREATED_BY, "input_mode": INPUT_MODE, "admitted_artifact_id": admitted_id},),
+            source_ref={"source_ref_id": source_ref_id, "source_artifact_id": artifact_id, "source_anchor_id": anchor_id, "locator": anchor.locator},
+            provenance=({"created_by": CREATED_BY, "input_mode": INPUT_MODE, "admitted_artifact_id": admitted_id, "source_ref_id": source_ref_id},),
             canon_state=artifact.canon_state,
             lifecycle_state=artifact.lifecycle_state,
             evidence_role=artifact.evidence_role,
             authority_state=artifact.authority_state,
             visibility_state=artifact.visibility_state,
-            diagnostics={"file_name": path.name, "line_count": _line_count(path), "display_summary_is_evidence": False},
+            diagnostics={"file_name": path.name, "line_count": _line_count(path), "display_summary_is_evidence": False, "source_ref_id_present": True},
         )
         artifacts.append(artifact)
         anchors.append(anchor)

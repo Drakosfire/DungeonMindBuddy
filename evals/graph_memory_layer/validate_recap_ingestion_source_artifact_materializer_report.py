@@ -79,10 +79,11 @@ def main() -> int:
     _require(report.structural_coverage["all_units_have_canon_state"], "canon state coverage missing")
     _require(report.structural_coverage["all_units_have_display_summary_marked_non_evidence"], "display_summary evidence boundary missing")
     print("- structural coverage: ready")
-    source_ref_gap = not report.structural_coverage["all_units_have_source_ref_id"]
-    provenance_gap = not report.structural_coverage["all_provenance_records_link_to_source_ref_id"]
-    _require((not source_ref_gap) or report.issue_counts.get("missing_source_ref_id", 0) > 0, "source_ref_id gap not surfaced")
-    _require((not provenance_gap) or report.issue_counts.get("missing_provenance_source_ref_link", 0) > 0, "provenance linkage gap not surfaced")
+    _require(report.structural_coverage["all_units_have_source_ref_id"] is True, "source_ref_id coverage not ready")
+    _require(report.structural_coverage["all_provenance_records_link_to_source_ref_id"] is True, "provenance linkage not ready")
+    _require(report.issue_counts.get("missing_source_ref_id", 0) == 0, "source_ref_id gap should be absent")
+    _require(report.issue_counts.get("missing_provenance_source_ref_link", 0) == 0, "provenance linkage gap should be absent")
+    print("- source-ref/provenance linkage: ready")
     print("- issue classification: ready")
     _require(report.structural_coverage["full_text_field_count"] == 0, "full text field leak")
     output = json.dumps(data, sort_keys=True) + rendered

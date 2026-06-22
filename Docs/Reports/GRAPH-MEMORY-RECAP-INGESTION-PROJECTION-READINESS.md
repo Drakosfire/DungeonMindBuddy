@@ -55,3 +55,9 @@ This report does not connect `/plan` and does not connect Agent Interaction. It 
 ## Deferred Work
 
 A later hardening rung should add stable `source_ref_id` coverage and explicit provenance-to-source-ref linkage, then rerun this report to move blocked checks toward ready without adding retrieval, corpus mutation, entity extraction, alias resolution, relationship inference, fact promotion, or canon promotion.
+
+## Source Ref / Provenance Linkage Hardening v0
+
+Source Ref / Provenance Linkage Hardening v0 adds stable source_ref_id coverage and explicit provenance-to-source-ref linkage for recap-ingestion source artifact materializer output.
+
+After hardening, the default explicit-input fixture output is projection-ready at the diagnostic source-structure level. Projection-ready still does not mean production-ready, UI-ready, `/plan`-ready, Agent Interaction-ready, retrieval-ready, or promotion-ready.

@@ -50,18 +50,14 @@ def test_required_checks_and_expected_ready_groups() -> None:
         assert by_id[check_id].status == "ready"
 
 
-def test_current_source_ref_and_provenance_gaps_are_blocked() -> None:
-    materialization = _materialization()
-    report = assess_recap_ingestion_projection_readiness(materialization, analyze_recap_ingestion_materializer_output(materialization))
+def test_source_ref_and_provenance_linkage_are_ready() -> None:
+    report = _report()
     by_id = {check.check_id: check for check in report.checks}
-    if any(not unit.source_ref.get("source_ref_id") for unit in materialization.units):
-        assert by_id["all_source_refs_have_stable_source_ref_id"].status == "blocked"
-        assert any(issue.code == "missing_source_ref_id" and issue.severity == "blocker" for issue in report.issues)
-    if any(not prov.get("source_ref_id") for unit in materialization.units for prov in unit.provenance):
-        assert by_id["all_provenance_records_link_to_source_ref_id"].status == "blocked"
-        assert any(issue.code == "missing_provenance_source_ref_link" and issue.severity == "blocker" for issue in report.issues)
-    if by_id["all_source_refs_have_stable_source_ref_id"].status == "blocked" or by_id["all_provenance_records_link_to_source_ref_id"].status == "blocked":
-        assert report.readiness_status == "blocked"
+    assert by_id["all_source_refs_have_stable_source_ref_id"].status == "ready"
+    assert by_id["all_provenance_records_link_to_source_ref_id"].status == "ready"
+    assert not any(issue.code == "missing_source_ref_id" and issue.severity == "blocker" for issue in report.issues)
+    assert not any(issue.code == "missing_provenance_source_ref_link" and issue.severity == "blocker" for issue in report.issues)
+    assert report.readiness_status == "ready"
 
 
 def test_rendered_report_sections_and_no_leaks() -> None:
@@ -75,5 +71,6 @@ def test_rendered_report_sections_and_no_leaks() -> None:
 
 def test_design_report_states_boundaries() -> None:
     text = DESIGN_REPORT.read_text(encoding="utf-8")
+    assert "After hardening" in text
     for phrase in ("does not implement a projection adapter", "does not mean production-ready", "does not connect `/plan`", "does not connect Agent Interaction", "does not perform graph retrieval", "does not mutate corpus files", "does not infer entities", "does not resolve aliases", "does not infer relationships", "does not promote facts", "does not promote canon"):
         assert phrase in text

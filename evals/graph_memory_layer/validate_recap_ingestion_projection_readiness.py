@@ -34,12 +34,11 @@ def main() -> int:
     for group, label in ((ARTIFACT_CHECKS, "artifact coverage checks"), (ANCHOR_CHECKS, "anchor coverage checks"), (UNIT_CHECKS, "unit coverage checks"), (EVIDENCE_CHECKS, "evidence boundary checks"), (SAFETY_CHECKS - {"no_raw_ingestion_internal_paths"}, "safety boundary checks")):
         _require(all(by_id[c].status == "ready" for c in group if c in by_id), f"{label} not ready")
         print(f"- {label}: ready")
-    source_ref_gap = any(not unit.source_ref.get("source_ref_id") for unit in materialization.units)
-    provenance_gap = any(not prov.get("source_ref_id") for unit in materialization.units for prov in unit.provenance)
-    _require((not source_ref_gap) or by_id["all_source_refs_have_stable_source_ref_id"].status == "blocked", "source_ref_id gap not blocked")
-    _require((not provenance_gap) or by_id["all_provenance_records_link_to_source_ref_id"].status == "blocked", "provenance link gap not blocked")
-    _require((not (source_ref_gap or provenance_gap)) or report.readiness_status == "blocked", "overall status should be blocked")
-    print("- source-ref/provenance readiness gaps: surfaced")
+    _require(by_id["all_source_refs_have_stable_source_ref_id"].status == "ready", "source_ref_id check not ready")
+    _require(by_id["all_provenance_records_link_to_source_ref_id"].status == "ready", "provenance link check not ready")
+    _require(not any(issue.severity == "blocker" for issue in report.issues), "blocker issues remain")
+    _require(report.readiness_status == "ready", "overall status should be ready")
+    print("- source-ref/provenance linkage: ready")
     print(f"- readiness status: {report.readiness_status}")
     serialized = json.dumps(data, sort_keys=True) + rendered
     for path in DEFAULT_INPUTS.values():
