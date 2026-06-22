@@ -1,14 +1,14 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.6
-Status: active operational anchor — post-recap-ingestion-source-artifact-materializer-gate checkpoint
+Version: 0.7
+Status: active operational anchor — post-recap-ingestion-source-artifact-materializer checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
 
-The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer-gate shape proofs:
+The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer shape proofs:
 
 1. Baseline case freeze
 2. Taxonomy Registry v0
@@ -26,20 +26,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 14. Recap-Ingestion Source-Family Gate v0
 15. Recap-Ingestion Source Artifact Fixture v0
 16. Recap-Ingestion Source Artifact Materializer Gate v0
+17. Recap-Ingestion Source Artifact Materializer v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, and decide that a future materializer may be implemented only under a strict explicit-input contract.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, and implement the first real explicit-input recap-ingestion source artifact materializer.
 
-The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no real recap-ingestion artifact materializer exists; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
+The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Source Artifact Materializer v0**.
+The next checkpoint is **Recap-Ingestion Source Artifact Materializer Report v0**.
 
-That next PR may implement the real explicit-input materializer for admitted recap-ingestion artifacts under this gate contract.
+That next PR may add richer diagnostics over the explicit-input materializer output before projection-readiness over materialized recap-ingestion artifacts begins.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer v0`.
+The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer Report v0`.
 
-That PR may implement the first real explicit-input materializer for recap-ingestion artifacts, constrained by the Recap-Ingestion Source Artifact Materializer Gate v0.
+That PR may add richer diagnostics over the explicit-input materializer output before projection-readiness over materialized recap-ingestion artifacts begins.
 
 It must continue to block:
 
@@ -237,6 +238,28 @@ Human-readable report:
 `Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-GATE.md`
 
 This gate allows a future PR to implement a real explicit-input materializer. It does not implement that materializer. It continues to block directory scanning, corpus scanning, corpus mutation, `/plan`, Agent Interaction, graph retrieval, shadow retrieval, entity extraction, alias resolution, relationship inference, fact promotion, canon promotion, adapter output, runtime UI payloads, and production behavior changes.
+
+### Recap-Ingestion Source Artifact Materializer v0
+
+After gating the materializer, the ladder implements a real explicit-input materializer for admitted recap-ingestion artifacts.
+
+Module:
+
+`src/graph_memory/recap_ingestion_materialize.py`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER.md`
+
+This materializer reads explicitly supplied artifact inputs only and emits diagnostic source artifacts, anchors, units, source refs, provenance, semantic-envelope states, and diagnostics. It does not discover files, scan directories, scan corpus files, mutate corpus files, implement adapters, connect `/plan`, connect Agent Interaction, infer entities, resolve aliases, infer relationships, promote facts, promote canon, or change production behavior.
 
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|

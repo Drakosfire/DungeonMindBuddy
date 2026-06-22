@@ -170,6 +170,17 @@ uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifa
 
 Validates the recap-ingestion source artifact materializer gate. This gate decides whether a future PR may implement a real explicit-input materializer for gate-admitted recap-ingestion artifacts. It does not implement the materializer, add adapters, touch `/plan`, scan corpus files, or change runtime behavior.
 
+## Recap-Ingestion Source Artifact Materializer
+
+Validate and report the explicit-input recap-ingestion source artifact materializer:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer
+uv run python -m evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer
+```
+
+Validates and reports the explicit-input recap-ingestion source artifact materializer. This materializer reads only explicitly supplied synthetic/eval recap-ingestion artifact inputs and emits diagnostic `SourceArtifact -> SourceAnchor -> SourceUnit` structures. It does not discover files, scan corpus files, implement adapters, touch `/plan`, or change runtime behavior.
+
 ## Surface Vocabulary Boundary
 
 Validate the surface vocabulary boundary manifest with the no-runtime boundary validator:
