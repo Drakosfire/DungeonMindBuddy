@@ -1,0 +1,7 @@
+{
+  "fixture": "recap-ingestion-explicit-real-artifact-dogfood-v0",
+  "proof_kind": "no_corpus_mutation_diagnostic",
+  "before": {"canonical_files_changed": 0, "corpus_scan_required": false},
+  "after": {"canonical_files_changed": 0, "corpus_scan_required": false},
+  "assertions": {"no_directory_scan": true, "no_corpus_mutation": true, "no_fact_promotion": true, "no_canon_promotion": true}
+}
