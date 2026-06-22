@@ -114,6 +114,25 @@ Report:
 
 Decision: DungeonMindBuddy should share a semantic envelope across graph memory and surfaces, not force one shared UI/ontology vocabulary. Surfaces keep interaction vocabulary such as chips, projections, drawers, and tool workflows. Graph Memory owns provenance, lifecycle, evidence role, authority, visibility, validation, and source-grounding semantics.
 
+
+### Projection-Safe Source Unit Fixture v0
+
+Before implementing adapters or graph-backed surface consumption, the ladder validates a tiny projection-safe source-unit fixture.
+
+Fixture:
+
+`evals/graph_memory_layer/examples/projection_safe_source_unit_minimal.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_projection_safe_source_unit`
+
+Report:
+
+`Docs/Reports/GRAPH-MEMORY-PROJECTION-SAFE-SOURCE-UNIT.md`
+
+This proves shape compatibility only. It requires `source_anchor`, `source_ref`, `provenance`, `evidence_role`, `authority_state`, `visibility_state`, `lifecycle_state`, and `canon_state`. It does not implement `/plan`, Agent Interaction, adapters, graph retrieval, shadow retrieval, or production behavior.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |

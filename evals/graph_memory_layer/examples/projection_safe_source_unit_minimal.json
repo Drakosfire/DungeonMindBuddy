@@ -1,0 +1,61 @@
+{
+  "schema": "dmb_projection_safe_source_unit_fixture_v0",
+  "version": "0.1",
+  "fixture_id": "example:projection-safe-source-unit:minimal",
+  "purpose": "Diagnostic fixture proving graph/source-unit records can be represented as surface-safe payloads with the shared semantic envelope.",
+  "source_family": "session_memory_jsonl_sentence_units",
+  "payloads": [
+    {
+      "adapter_key": "session_memory_unit",
+      "ref_id": "projection-safe:session-memory-unit:synthetic-campaign:s01:u001",
+      "label": "Session 1 memory unit",
+      "display_summary": "A synthetic source unit summary for projection safety validation.",
+      "payload_kind": "source_unit_projection",
+      "surface_owned_projection_kind": "projection_card",
+      "source_anchor": {
+        "source_artifact_id": "artifact:session-memory-recordset:synthetic-campaign:s01",
+        "source_anchor_id": "anchor:session-memory-record:synthetic-campaign:s01:u001",
+        "source_kind": "session_memory_record",
+        "source_layer": "memory_layer",
+        "locator": {
+          "locator_id": "locator:session-memory-record:synthetic-campaign:s01:u001",
+          "scheme": "jsonl_record",
+          "value": "synthetic-session-memory.jsonl#u001",
+          "line_start": 1,
+          "line_end": 1,
+          "anchor": "u001"
+        }
+      },
+      "source_ref": {
+        "source_ref_id": "source-ref:synthetic-campaign:s01:u001",
+        "source_artifact_id": "artifact:session-memory-recordset:synthetic-campaign:s01",
+        "source_anchor_id": "anchor:session-memory-record:synthetic-campaign:s01:u001"
+      },
+      "provenance": [
+        {
+          "provenance_id": "provenance:projection-safe:u001",
+          "role": "diagnostic_only",
+          "source_ref_id": "source-ref:synthetic-campaign:s01:u001"
+        }
+      ],
+      "evidence_role": "diagnostic_only",
+      "authority_state": "system_derived",
+      "visibility_state": "internal_diagnostic",
+      "lifecycle_state": "candidate",
+      "canon_state": "candidate_extraction",
+      "fields": {
+        "campaign_id": "synthetic-campaign",
+        "session_number": 1,
+        "unit_id": "u001",
+        "route_count": 1,
+        "has_routes": true,
+        "text_length": 86
+      },
+      "diagnostics": {
+        "graph_node_id": "diagnostic-only:graph-node:source-unit:u001",
+        "validation_codes": [],
+        "notes": "Graph node IDs are diagnostic-only and not public UI contract."
+      }
+    }
+  ]
+}

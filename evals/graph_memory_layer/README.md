@@ -138,3 +138,13 @@ uv run python -m evals.graph_memory_layer.validate_surface_vocabulary_boundary
 ```
 
 This validates which terms belong to the shared semantic envelope, which terms are ontology-owned, which terms are surface-owned, which terms are contested, and which collapses are forbidden before graph memory is consumed by DungeonMindBuddy surfaces. It does not implement adapters, does not touch `/plan`, and preserves shared source/provenance/evidence/lifecycle semantics while allowing surface-owned vocabulary such as chips, projections, drawers, and tool workflows.
+
+## Projection-Safe Source Unit Fixture
+
+Validate the eval-only projection-safe source unit fixture with the no-runtime fixture validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_projection_safe_source_unit
+```
+
+Validates the eval-only projection-safe source unit fixture. This proves a graph/source-unit-shaped record can be represented as a surface-safe payload carrying the shared semantic envelope. It does not implement adapters, touch `/plan`, or change runtime behavior.
