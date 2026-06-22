@@ -1,7 +1,7 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.9
-Status: active operational anchor — post-recap-ingestion-source-ref-provenance-linkage-hardening checkpoint
+Version: 0.10
+Status: active operational anchor — post-recap-ingestion-projection-payload-fixture checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
@@ -30,20 +30,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 18. Recap-Ingestion Source Artifact Materializer Report v0
 19. Projection-Readiness Over Materialized Recap-Ingestion Artifacts v0
 20. Recap-Ingestion Source Ref / Provenance Linkage Hardening v0
+21. Recap-Ingestion Projection Payload Fixture v0
 
 The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Projection Payload Fixture v0**.
+The next checkpoint is **Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0**.
 
-That next PR may define a projection-safe payload fixture over the hardened diagnostic source-unit output without implementing adapters or runtime integration.
+That next PR may test the explicit-input/materializer/projection-payload chain against one carefully selected real recap-ingestion artifact bundle, still outside runtime.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Projection Payload Fixture v0`.
+The next technical checkpoint is `Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0`.
 
-That PR may define a projection-safe payload fixture now that source-ref/provenance readiness is diagnostic-ready, while still avoiding adapters and runtime integration.
+That PR may test the same explicit-input/materializer/projection-payload chain against one carefully selected real recap-ingestion artifact bundle, still outside runtime and without corpus scanning.
 
 It must continue to block:
 
@@ -331,6 +332,28 @@ Human-readable report:
 `Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-REF-PROVENANCE-LINKAGE-HARDENING.md`
 
 This hardening moves the default explicit-input materializer output from blocked to ready for source-ref/provenance projection-readiness checks. It does not implement adapters, does not connect `/plan`, does not connect Agent Interaction, does not perform graph retrieval, does not scan or mutate corpus files, does not infer entities, does not resolve aliases, does not infer relationships, does not promote facts, does not promote canon, and does not change production behavior.
+
+### Recap-Ingestion Projection Payload Fixture v0
+
+After source-ref/provenance hardening moved projection-readiness checks to ready, the ladder adds a tiny diagnostic projection payload fixture over hardened recap-ingestion source-unit output.
+
+Fixture:
+
+`evals/graph_memory_layer/examples/recap_ingestion_projection_payload_minimal.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_payload_fixture`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_recap_ingestion_projection_payload_fixture`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-PROJECTION-PAYLOAD-FIXTURE.md`
+
+This fixture proves that hardened diagnostic source-unit output can be represented as a bounded projection-safe payload shape for future adapter design. It does not implement adapters, does not connect `/plan`, does not connect Agent Interaction, does not perform graph retrieval, does not scan or mutate corpus files, does not infer entities, does not resolve aliases, does not infer relationships, does not promote facts, does not promote canon, and does not change production behavior.
 
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
