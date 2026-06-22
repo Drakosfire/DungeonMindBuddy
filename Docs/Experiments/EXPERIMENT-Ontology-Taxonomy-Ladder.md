@@ -95,6 +95,25 @@ The UI should not become graph-aware. The UI should ask for source-backed, lifec
 
 The current live-index path remains the fallback until graph-assisted retrieval is measured in shadow mode and explicitly promoted.
 
+
+### Surface Vocabulary Boundary v0
+
+Before building adapter code or graph-backed surface integration, the ladder defines which concepts must be shared globally and which remain surface-owned.
+
+Boundary manifest:
+
+`evals/graph_memory_layer/surface_vocabulary_boundary.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_surface_vocabulary_boundary`
+
+Report:
+
+`Docs/Reports/GRAPH-MEMORY-SURFACE-VOCABULARY-BOUNDARY.md`
+
+Decision: DungeonMindBuddy should share a semantic envelope across graph memory and surfaces, not force one shared UI/ontology vocabulary. Surfaces keep interaction vocabulary such as chips, projections, drawers, and tool workflows. Graph Memory owns provenance, lifecycle, evidence role, authority, visibility, validation, and source-grounding semantics.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |
