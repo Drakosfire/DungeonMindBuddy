@@ -200,3 +200,12 @@ uv run python -m evals.graph_memory_layer.validate_projection_safe_source_unit
 ```
 
 Validates the eval-only projection-safe source unit fixture. This proves a graph/source-unit-shaped record can be represented as a surface-safe payload carrying the shared semantic envelope. It does not implement adapters, touch `/plan`, or change runtime behavior.
+
+## Recap-Ingestion Source Artifact Materializer Diagnostics Report v0
+
+Validates and renders a richer diagnostic report over explicit-input recap-ingestion source artifact materializer output. This report summarizes artifact coverage, semantic states, structural coverage, and known gaps. It does not implement projection-readiness, adapters, `/plan`, Agent Interaction, or runtime behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_report
+uv run python -m evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer_diagnostics
+```

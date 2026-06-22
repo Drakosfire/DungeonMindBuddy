@@ -1,14 +1,14 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.7
-Status: active operational anchor — post-recap-ingestion-source-artifact-materializer checkpoint
+Version: 0.8
+Status: active operational anchor — post-recap-ingestion-source-artifact-materializer-report checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
 
-The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer shape proofs:
+The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer shape proofs and diagnostics:
 
 1. Baseline case freeze
 2. Taxonomy Registry v0
@@ -27,20 +27,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 15. Recap-Ingestion Source Artifact Fixture v0
 16. Recap-Ingestion Source Artifact Materializer Gate v0
 17. Recap-Ingestion Source Artifact Materializer v0
+18. Recap-Ingestion Source Artifact Materializer Report v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, and implement the first real explicit-input recap-ingestion source artifact materializer.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, and render richer diagnostic materializer reports.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Source Artifact Materializer Report v0**.
+The next checkpoint is **Projection-Readiness Over Materialized Recap-Ingestion Artifacts v0**.
 
-That next PR may add richer diagnostics over the explicit-input materializer output before projection-readiness over materialized recap-ingestion artifacts begins.
+That next PR may evaluate projection-readiness over measured recap-ingestion materializer output without implementing adapters or runtime integration.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer Report v0`.
+The next technical checkpoint is `Projection-Readiness Over Materialized Recap-Ingestion Artifacts v0`.
 
-That PR may add richer diagnostics over the explicit-input materializer output before projection-readiness over materialized recap-ingestion artifacts begins.
+That PR may evaluate whether explicit-input recap-ingestion materializer output is projection-ready while remaining diagnostic and avoiding adapters or runtime integration.
 
 It must continue to block:
 
@@ -260,6 +261,28 @@ Human-readable report:
 `Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER.md`
 
 This materializer reads explicitly supplied artifact inputs only and emits diagnostic source artifacts, anchors, units, source refs, provenance, semantic-envelope states, and diagnostics. It does not discover files, scan directories, scan corpus files, mutate corpus files, implement adapters, connect `/plan`, connect Agent Interaction, infer entities, resolve aliases, infer relationships, promote facts, promote canon, or change production behavior.
+
+### Recap-Ingestion Source Artifact Materializer Report v0
+
+After implementing the explicit-input recap-ingestion source artifact materializer, the ladder adds a richer diagnostic report over materializer output.
+
+Report analyzer:
+
+`src/graph_memory/recap_ingestion_materializer_report.py`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_report`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer_diagnostics`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-REPORT.md`
+
+This report summarizes artifact coverage, source anchors, source units, source refs, provenance, semantic state counts, structural coverage, and known gaps. It does not implement projection-readiness, adapters, `/plan`, Agent Interaction, graph retrieval, shadow retrieval, corpus scanning, corpus mutation, entity extraction, alias resolution, relationship inference, fact promotion, canon promotion, or production behavior changes.
 
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
