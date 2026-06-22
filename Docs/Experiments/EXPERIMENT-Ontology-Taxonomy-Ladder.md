@@ -95,6 +95,12 @@ The UI should not become graph-aware. The UI should ask for source-backed, lifec
 
 The current live-index path remains the fallback until graph-assisted retrieval is measured in shadow mode and explicitly promoted.
 
+Shared source vocabulary contract for Agent Interaction, `/plan`, and future DungeonMindBuddy surfaces:
+
+`Docs/Reports/GRAPH-MEMORY-SHARED-SOURCE-VOCABULARY-CONTRACT.md`
+
+That contract defines the minimal source-facing envelope between recap ingestion outputs and downstream consumers: `SourceArtifact -> SourceAnchor -> SourceUnit`, opaque locators, canon/lifecycle/evidence/authority/visibility states, and adapter rules that prevent Agent Interaction from depending on raw ingestion internals such as `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or `corpus_impact`.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |
