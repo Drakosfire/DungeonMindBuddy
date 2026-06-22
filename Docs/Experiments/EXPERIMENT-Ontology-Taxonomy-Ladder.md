@@ -1,14 +1,14 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.4
-Status: active operational anchor — post-session-memory-materializer / plan-consumer-alignment checkpoint
+Version: 0.5
+Status: active operational anchor — post-recap-ingestion-source-artifact-fixture checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
 
-The ladder has completed the safe foundation and first gated real-structure rungs:
+The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family shape proofs:
 
 1. Baseline case freeze
 2. Taxonomy Registry v0
@@ -18,12 +18,42 @@ The ladder has completed the safe foundation and first gated real-structure rung
 6. Materializer Report CLI v0
 7. Real-Structure Materialization Gate v0
 8. Session-Memory Sentence-Unit Materializer v0
+9. Plan Surface Consumer Alignment
+10. Shared Source Vocabulary Contract
+11. Surface Vocabulary Boundary v0
+12. Projection-Safe Source Unit Fixture v0
+13. Projection-Readiness Report v0
+14. Recap-Ingestion Source-Family Gate v0
+15. Recap-Ingestion Source Artifact Fixture v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, and materialize explicit session-memory JSONL sentence/source-unit records into a diagnostic candidate GraphBundle.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, and prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family.
 
-The default validator still uses a tiny synthetic fixture for the baseline materializer path. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, or corpus mutation has happened; and no production retrieval behavior has changed.
+The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no real recap-ingestion artifact materializer exists; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is consumer alignment with `/plan`, the first named future graph-memory consumer.
+The next checkpoint is **Recap-Ingestion Source Artifact Materializer Gate v0**.
+
+That next gate should decide whether the ladder is ready to implement a real explicit-input materializer for admitted recap-ingestion artifacts. It should not implement the materializer itself.
+
+## Next Technical Checkpoint
+
+The next technical checkpoint is `Recap-Ingestion Source Artifact Materializer Gate v0`.
+
+That PR should be another gate, not a materializer. It should decide whether the ladder is ready to implement a real explicit-input materializer for recap-ingestion artifacts.
+
+It must continue to block:
+
+- real artifact directory scanning
+- canonical corpus scanning
+- corpus mutation
+- `/plan` integration
+- Agent Interaction integration
+- graph retrieval
+- shadow retrieval
+- entity extraction
+- alias resolution
+- relationship inference
+- fact promotion
+- production behavior changes
 
 ## Core Decision
 
@@ -92,6 +122,8 @@ The expected adapter vocabulary is:
 `source artifact -> source anchor -> source unit`
 
 The UI should not become graph-aware. The UI should ask for source-backed, lifecycle-aware units through a stable adapter. `/plan` should consume those units without learning graph internals.
+
+`/plan` remains the first named future consumer, but graph-backed `/plan` consumption is still blocked until materialized source artifacts are measured, reported, and explicitly promoted through later gates.
 
 The current live-index path remains the fallback until graph-assisted retrieval is measured in shadow mode and explicitly promoted.
 
