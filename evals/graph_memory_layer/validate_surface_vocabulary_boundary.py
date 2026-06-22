@@ -8,12 +8,12 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "surface_vocabulary_boundary.json"
 
-REQUIRED_SHARED_TERMS = {"source_artifact", "source_anchor", "source_unit", "provenance", "evidence_role", "lifecycle_state"}
+REQUIRED_SHARED_TERMS = {"source_artifact", "source_anchor", "source_unit", "provenance", "evidence_role", "lifecycle_state", "canon_state"}
 REQUIRED_ONTOLOGY_TERMS = {"entity_kind", "source_kind", "evidence_role", "authority_state", "visibility_state", "lifecycle_state"}
 REQUIRED_SURFACE_TERMS = {"npc_chip", "location_chip", "statblock_projection", "roll_table_projection", "reference_chip", "projection_card"}
 REQUIRED_CONTESTED_TERMS = {"statblock", "summary", "route"}
 REQUIRED_FORBIDDEN_COLLAPSES = {"summary_as_source_evidence", "lifecycle_as_known_fact", "ui_ref_type_as_taxonomy_owner", "surface_projection_as_corpus_truth"}
-REQUIRED_PAYLOAD_FIELDS = {"adapter_key", "ref_id", "label", "source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "provenance"}
+REQUIRED_PAYLOAD_FIELDS = {"adapter_key", "ref_id", "label", "source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "canon_state", "provenance"}
 
 
 def _require(condition: bool, message: str) -> None:

@@ -14,6 +14,7 @@
     {"id": "authority_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Indicates whether a record is canonical, candidate, diagnostic, generated, or otherwise authority-limited."},
     {"id": "visibility_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Preserves privacy and player/DM-facing visibility boundaries."},
     {"id": "lifecycle_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Prevents prep, rumor, generated candidate, diagnostic-only records, and played truth from collapsing into known fact."},
+    {"id": "canon_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Prevents played canon, planning scaffold, generated candidate, candidate extraction, diagnostic-only metadata, and reference-only tools from collapsing into one surface blob."},
     {"id": "validation_issue", "required_for_graph_surface_payload": false, "surface_may_rename": false, "notes": "A structured warning/error explaining why a graph-derived payload is blocked, degraded, or diagnostic-only."},
     {"id": "source_backed_claim", "required_for_graph_surface_payload": false, "surface_may_rename": false, "notes": "A claim that must have source refs and an evidence role."},
     {"id": "display_summary", "required_for_graph_surface_payload": false, "surface_may_rename": true, "notes": "A display/navigation aid that may be shared as a field name but is never evidence."},
@@ -45,6 +46,6 @@
     {"id": "surface_projection_as_corpus_truth", "description": "Projection payloads must not be treated as promoted corpus truth unless lifecycle/provenance says so."}
   ],
   "future_payload_required_fields": [
-    "adapter_key", "ref_id", "label", "source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "provenance"
+    "adapter_key", "ref_id", "label", "source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "canon_state", "provenance"
   ]
 }

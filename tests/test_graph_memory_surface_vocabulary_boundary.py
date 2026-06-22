@@ -51,7 +51,7 @@ def test_surface_vocabulary_boundary_decision() -> None:
 def test_shared_semantic_envelope_includes_source_provenance_lifecycle_and_evidence() -> None:
     shared = _ids(_manifest()["shared_semantic_envelope"])
     assert {"source_artifact", "source_anchor", "source_unit", "source_ref"}.issubset(shared)
-    assert {"provenance", "lifecycle_state", "evidence_role", "authority_state", "visibility_state"}.issubset(shared)
+    assert {"provenance", "lifecycle_state", "canon_state", "evidence_role", "authority_state", "visibility_state"}.issubset(shared)
 
 
 def test_ontology_owned_vocabulary_includes_lifecycle_evidence_source_and_entity_terms() -> None:
@@ -80,7 +80,7 @@ def test_forbidden_collapses_include_summary_as_evidence_and_lifecycle_as_known_
 def test_future_payload_required_fields_include_semantic_envelope_fields() -> None:
     fields = set(_manifest()["future_payload_required_fields"])
     assert {"adapter_key", "ref_id", "label"}.issubset(fields)
-    assert {"source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "provenance"}.issubset(fields)
+    assert {"source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "canon_state", "provenance"}.issubset(fields)
 
 
 def test_surface_vocabulary_boundary_report_exists() -> None:

@@ -49,6 +49,7 @@ Every graph-derived surface payload must carry or be able to derive this envelop
 - `authority_state`
 - `visibility_state`
 - `lifecycle_state`
+- `canon_state`
 - `validation_issue`
 - `source_backed_claim`
 - `display_summary`
@@ -59,7 +60,8 @@ Rules:
 - `display_summary` may be shared as a field name, but it is never evidence.
 - `source_backed_claim` requires source refs and evidence role.
 - `diagnostic_record` cannot be shown as canon.
-- Future surface-facing graph payloads must preserve source/provenance/evidence/lifecycle/authority/visibility semantics even if the UI renders them as chips, cards, drawers, or workflow results.
+- `canon_state` prevents played canon, planning scaffold, generated candidate, candidate extraction, diagnostic-only metadata, and reference-only tools from collapsing into one surface blob.
+- Future surface-facing graph payloads must preserve source/provenance/evidence/lifecycle/canon/authority/visibility semantics even if the UI renders them as chips, cards, drawers, or workflow results.
 
 ## Ontology-Owned Vocabulary
 
@@ -205,13 +207,14 @@ Every future graph-derived surface-facing payload should include at least:
 - `authority_state`
 - `visibility_state`
 - `lifecycle_state`
+- `canon_state`
 - `provenance`
 
 These fields are an envelope, not a UI vocabulary replacement. A `projection_card` or `npc_chip` may still use surface-owned names while carrying the envelope.
 
 ## Examples
 
-A graph-derived NPC reference may render as an `npc_chip`, a `reference_chip`, or a `projection_card`. Those labels belong to the surface. The chip still needs source anchors, provenance, evidence role, authority state, visibility state, and lifecycle state if it is backed by graph-derived content.
+A graph-derived NPC reference may render as an `npc_chip`, a `reference_chip`, or a `projection_card`. Those labels belong to the surface. The chip still needs source anchors, provenance, evidence role, authority state, visibility state, lifecycle state, and canon state if it is backed by graph-derived content.
 
 A graph-derived statblock preview may display a `display_summary`, but that summary cannot become source evidence. A source-backed statblock claim must carry source refs and evidence role.
 
