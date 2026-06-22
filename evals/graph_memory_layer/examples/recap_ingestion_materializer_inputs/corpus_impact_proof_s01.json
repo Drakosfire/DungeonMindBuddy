@@ -1,0 +1,5 @@
+{
+  "schema": "synthetic_corpus_impact_proof_v0",
+  "result": "no corpus mutation in synthetic validation",
+  "purpose": "synthetic materializer input only"
+}
