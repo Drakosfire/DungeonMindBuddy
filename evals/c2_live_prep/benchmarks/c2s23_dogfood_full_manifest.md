@@ -3,7 +3,7 @@
 - **schema:** `dmb_c2s23_dogfood_full_manifest_v1`
 - **planning_session:** 23
 - **source_sessions:** 21, 22, 23
-- **entries:** 182
+- **entries:** 211
 - **planning_live_workspace_dir:** `evals/c2_live_prep/live/session_23`
 
 Routes are repo-relative references; this manifest inlines no corpus prose. `route_exists: false` / `admissible: false` marks an in-bounds source that is not yet materialized and must not be used for admission.
@@ -14,6 +14,7 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 |---|---|---|---|---|---|
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | play_facts |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | play_facts |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_23_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | play_facts |
 
 ## play_recap — authority: canon_play
 
@@ -25,9 +26,9 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
-| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - (uningested).breadcrumbed.md` | no | no | — | play_facts |
-| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - (uningested).md` | no | no | — | play_facts |
-| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - (uningested).md` | no | no | — | play_facts |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - session-23-mireward.breadcrumbed.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - session-23-mireward.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - session-23-mireward.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 
 ## session_memory — authority: derived_memory
 
@@ -37,8 +38,8 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl` | yes | yes | play_facts, search, routing, evidence_support | — |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json` | yes | yes | play_facts, search, routing, evidence_support | — |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl` | yes | yes | play_facts, search, routing, evidence_support | — |
-| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.json` | no | no | — | play_facts |
-| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.jsonl` | no | no | — | play_facts |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.json` | yes | yes | play_facts, search, routing, evidence_support | — |
+| 23 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.jsonl` | yes | yes | play_facts, search, routing, evidence_support | — |
 
 ## prep_scaffold — authority: planning_scaffold
 
@@ -60,6 +61,12 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md` | yes | yes | planning_context, reusable_prep | play_facts |
 | 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` | yes | yes | planning_context, reusable_prep | play_facts |
 
+## roll_table — authority: reference_tool
+
+| Session | Route | Exists | Admissible | Allowed | Forbidden |
+|---|---|---|---|---|---|
+| 23 | `evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md` | yes | yes | table_use, table_patch | play_facts |
+
 ## live_packet — authority: planning_scaffold
 
 | Session | Route | Exists | Admissible | Allowed | Forbidden |
@@ -76,7 +83,7 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 
 | Session | Route | Exists | Admissible | Allowed | Forbidden |
 |---|---|---|---|---|---|
-| 23 | `evals/c2_live_prep/live/session_23/recap.md` | yes | yes | planning_input | — |
+| 23 | `evals/c2_live_prep/live/session_23/recap.md` | yes | yes | planning_input | play_facts |
 
 ## hub_evidence — authority: canon_play
 
@@ -138,6 +145,8 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/The Witness Seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/Threnn-of-Second-Bloom.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
@@ -150,6 +159,8 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Cultural Ceremonies at the Temple of the Aspitome.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Festival Crafting Chaos.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
@@ -165,6 +176,10 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/HEX KEY_ THE MIGRATING FOREST BOARD.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
@@ -190,11 +205,21 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Watch Tower.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Map_Key_and_Gazetteer.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_first_names_d100.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_last_names_d100.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_naming_conventions.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Roads/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Event Posters & Pamphlets.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Festival of Expansion Schedule.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
@@ -209,7 +234,16 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/character_seed.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
+| 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |
 | 21, 22, 23 | `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md` | yes | yes | setting_context, mechanical_reference, npc_grounding | play_facts |

@@ -29,6 +29,7 @@ from src.live_play.projections import (
 )
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -203,6 +204,25 @@ def _target_from_session(
     raise HTTPException(
         status_code=404, detail=f"unknown target id for roll_table: {target_id}"
     )
+
+
+@router.get(
+    "/source-bundle",
+    response_model=IngestionSourceBundle,
+)
+def get_ingestion_source_bundle(
+    scope: str = Query(default="campaign-ingested", min_length=1),
+    campaign_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    try:
+        response = build_ingestion_source_bundle(
+            root=repo_root(),
+            scope=scope,
+            campaign_id=campaign_id,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="source bundle build failed") from exc
+    return response.model_dump(mode="json")
 
 
 @router.get(
