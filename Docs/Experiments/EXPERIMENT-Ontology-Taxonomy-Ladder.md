@@ -151,6 +151,24 @@ Human-readable report:
 
 This measures readiness only. It does not implement adapters, `/plan`, Agent Interaction, graph retrieval, shadow retrieval, corpus scanning, corpus mutation, or production behavior.
 
+### Recap-Ingestion Source-Family Gate v0
+
+After measuring projection-readiness over current session-memory source-unit output, the ladder gates whether recap-ingestion artifacts may be admitted as future source artifacts, anchors, and units.
+
+Gate manifest:
+
+`evals/graph_memory_layer/recap_ingestion_source_family_gate.json`
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_family_gate`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-SOURCE-FAMILY-GATE.md`
+
+This gate admits explicit recap-ingestion artifacts only as source artifacts, anchors, units, diagnostics, and proof metadata. It does not materialize them, implement adapters, connect `/plan`, connect Agent Interaction, scan corpus files, mutate corpus files, infer entities, resolve aliases, infer relationships, promote facts, or change production behavior.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |
