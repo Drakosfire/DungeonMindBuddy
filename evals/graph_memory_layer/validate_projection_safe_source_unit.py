@@ -43,9 +43,9 @@ EVIDENCE_ROLES = {
     "reference_tool",
     "not_evidence",
 }
-AUTHORITY_STATES = {"system_derived", "human_authored", "mixed", "unknown"}
-VISIBILITY_STATES = {"internal_diagnostic", "surface_safe", "hidden", "unknown"}
-LIFECYCLE_STATES = {"candidate", "active", "deprecated", "rejected", "unknown"}
+AUTHORITY_STATES = {"played_truth", "gm_prep", "system_derived", "llm_generated", "user_generated", "diagnostic", "unknown"}
+VISIBILITY_STATES = {"gm_private", "player_visible", "internal_diagnostic", "spoiler_sensitive", "unknown"}
+LIFECYCLE_STATES = {"created", "ingested", "indexed", "candidate", "validated", "promoted", "rejected", "stale", "diagnostic"}
 FORBIDDEN_INTERNALS = ("_normalized/", "_breadcrumbed/", ".records_meta.jsonl", "corpus_impact")
 FORBIDDEN_TEXT_FIELDS = {"lexical_plain", "full_text", "markdown_body", "raw_text", "recap_text"}
 ABSOLUTE_PATH_PATTERN = re.compile(r"^/[A-Za-z0-9._~/-]*")
