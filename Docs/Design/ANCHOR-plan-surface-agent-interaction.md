@@ -15,8 +15,8 @@ read-only source-vocabulary adapter:
 - `cb0c953 feat(live): add ingestion source bundle` landed R11's backend adapter:
   `IngestionSourceBundle` maps ingested corpus artifacts into `SourceArtifact -> SourceAnchor -> SourceUnit`
   without embedding corpus bodies.
-- Local working tree currently has uncommitted Agent Interaction / Hermes spike work; review
-  `git status --short` before dispatching implementation work.
+- Agent Interaction / Hermes spike work lives on branch `cursor/hermes-agent-interaction-bar`
+  (tip `eac1b8f`); see `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
@@ -77,9 +77,12 @@ Recommended migration remains **lift-then-replace**.
 Before implementation, write a scoped handoff/PR slice for:
 
 1. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
-2. **Hermes runtime boundary spike:** keep the current in-process plugin call only as a local proof; decide whether the next slice runs Hermes as a separate agent/runtime and has it call `dungeon_context_lookup`, `dungeon_manifest_index`, and `dungeon_get_document` as tools.
+2. **Hermes as backing agent:** CLI one-shot + preflight retrieval is landed on
+   `cursor/hermes-agent-interaction-bar`. Next: Hermes **session continuity**, multi-turn
+   conversation UI, richer tool-step trace, explicit memory policy (`.hermes.md`).
 
-Recommended sequence: finish the current branch review, then split R10 provider work from Hermes runtime-boundary work if both remain in scope.
+Recommended sequence: merge or PR-review the Hermes branch, then Slice A (session continuity)
+before R10 provider hoist unless the user prioritizes app-wide bar placement.
 
 ## Verification Targets
 

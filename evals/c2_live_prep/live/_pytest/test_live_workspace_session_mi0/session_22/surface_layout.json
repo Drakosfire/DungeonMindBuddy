@@ -1,7 +1,7 @@
 {
   "schema_version": "0.1.0",
   "layout_version": 1,
-  "updated_at": "2026-06-02T23:09:53Z",
+  "updated_at": "2026-06-22T03:53:05Z",
   "campaign_id": "longmont-c2",
   "session": 22,
   "modules": [
@@ -19,6 +19,33 @@
       "slot": "main",
       "order": 1,
       "enabled": true,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
+      "module_id": "statblock_workbench",
+      "slot": "main",
+      "order": 2,
+      "enabled": false,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
+      "module_id": "statblock_view",
+      "slot": "main",
+      "order": 3,
+      "enabled": false,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
+      "module_id": "combat_roster",
+      "slot": "main",
+      "order": 4,
+      "enabled": false,
       "collapsed": false,
       "size": "1fr",
       "config": {}

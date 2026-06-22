@@ -2,7 +2,7 @@
 campaign_id: longmont-c2
 source_session: 21
 planning_session: 22
-ingested_at: '2026-06-02T23:09:53Z'
+ingested_at: '2026-06-22T03:53:05Z'
 generated_by: "session_bootstrap"
 ---
 # Session 22 — Travel North (Fresh Recap Stub)
