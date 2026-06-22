@@ -9,7 +9,14 @@ from typing import Any
 
 import pytest
 
-from src.live_play.manifest_context_query import QueryConfig, QueryRequest, build_context_packet, build_query_plan, load_manifest
+from src.live_play.manifest_context_query import (
+    QueryConfig,
+    QueryRequest,
+    _session_number_from_path,
+    build_context_packet,
+    build_query_plan,
+    load_manifest,
+)
 from src.live_play.session_paths import repo_root
 
 ROOT = repo_root()
@@ -580,8 +587,49 @@ def test_cross_session_question_can_still_retrieve_multiple_sessions(
         config=query_config,
     )
     admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
-    assert "Session 21 - Drake Nest Mirathorn Call" in admitted_paths
-    assert "Session 22 - Mireward Road and Lysandro" in admitted_paths
+    activation_paths = " ".join(
+        str(r.get("route") or "") for r in (packet.get("activation_manifest_refs") or [])
+    )
+    combined_paths = f"{admitted_paths} {activation_paths}"
+    assert "Session 21 - Drake Nest Mirathorn Call" in combined_paths
+    assert "Session 22 - Mireward Road and Lysandro" in combined_paths
+
+
+def test_session22_end_question_excludes_session23_excerpts(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("s22-end", "What happened at the end of session 22?"),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    assert packet["claims"][0]["claim_type"] == "play_fact"
+    assert packet["query_signals"]["asks_for_last_or_final"] is True
+    assert 22 in packet["query_signals"]["session_numbers"]
+    admitted = packet["admitted_evidence"]
+    for item in admitted:
+        path = str(item.get("path") or "")
+        session = _session_number_from_path(path)
+        if session is not None:
+            assert session == 22, path
+    excerpts = " ".join(str(e.get("text_excerpt") or "") for e in admitted[:3]).lower()
+    assert "lysandro" in excerpts or "and that is how" in excerpts
+    assert "lightning bolt" not in excerpts
+    assert "turn the tide" not in excerpts
+
+
+def test_session23_end_question_admits_recap_or_memory_tail(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("s23-end", "What change at the end of session 23?"),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    assert packet["claims"][0]["claim_type"] == "play_fact"
+    assert packet["query_signals"]["asks_for_last_or_final"] is True
+    excerpts = [str(e.get("text_excerpt") or "") for e in packet["admitted_evidence"]]
+    top_three = " ".join(excerpts[:3]).lower()
+    assert "lightning bolt" in top_three or "turn the tide" in top_three or "overrun" in top_three
+    assert not any(str(e.get("path") or "").endswith(".records_meta.json") for e in packet["admitted_evidence"])
 
 
 def test_session22_exact_title_wins_in_expanded_session_window(tmp_path: Path) -> None:

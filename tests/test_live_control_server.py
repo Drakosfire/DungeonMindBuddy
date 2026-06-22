@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -121,6 +122,75 @@ def test_context_question_does_not_resolve_roll(client: TestClient) -> None:
     body = response.json()
     assert body["classification"]["latency_mode"] == "context_lookup"
     assert "Hail dent" not in body["answer"]
+
+
+def test_query_can_route_through_hermes_backend(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "What happened at the end of session 22?",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "hermes_context_lookup"
+    assert body["classification"]["intent"] == "hermes_context_lookup"
+    assert body["provenance"]["backend"] == "hermes"
+    assert body["diagnostics"]["hermes_tool"] == "dungeon_context_lookup"
+    assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
+    assert body["events_written"] == []
+    assert body["jobs_queued"] == []
+    assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
+    assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
+
+
+def test_query_can_route_through_hermes_cli_backend(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+
+    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
+    monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
+
+    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        assert args[0][0] == "/usr/bin/hermes"
+        assert "--oneshot" in args[0]
+        assert kwargs["cwd"] == ROOT
+        assert kwargs["env"]["DUNGEONBUDDY_REPO"] == str(ROOT)
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="Hermes loop answer")
+
+    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "What happened at the end of session 22?",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "hermes_cli_oneshot"
+    assert body["answer"] == "Hermes loop answer"
+    assert body["provenance"]["runtime"] == "cli"
+    assert body["context_packet"] is None
+    assert body["events_written"] == []
+    assert body["jobs_queued"] == []
+    assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
+    assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
 
 
 def test_invalid_campaign_returns_400(client: TestClient) -> None:
@@ -368,6 +438,7 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/surface",
         "/api/live/surface/layout",
         "/api/live/plan-view",
+        "/api/live/source-bundle",
         "/api/live/artifact",
         "/api/live/capabilities",
         "/api/live/commands",

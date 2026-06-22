@@ -6,13 +6,17 @@
 
 ## Current State
 
-The workstream has a committed vertical slice for `/plan` recap ingestion in the React surface:
+The workstream has a committed vertical slice for `/plan` recap ingestion and the first
+read-only source-vocabulary adapter:
 
 - `/plan` exists as the first intentional configured surface.
 - Current implementation still has surface-local projection state and a transitional right-side Tools drawer.
 - The ingestion workflow can run through the UI and expose proof/impact metadata.
-- The latest committed checkpoint is `588f7ab feat(plan): add recap ingest toolbar workflow`.
-- Local working tree currently has uncommitted design updates in this workstream; review `git status --short` before dispatching implementation work.
+- `cb0c953 feat(live): add ingestion source bundle` landed R11's backend adapter:
+  `IngestionSourceBundle` maps ingested corpus artifacts into `SourceArtifact -> SourceAnchor -> SourceUnit`
+  without embedding corpus bodies.
+- Local working tree currently has uncommitted Agent Interaction / Hermes spike work; review
+  `git status --short` before dispatching implementation work.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
@@ -47,11 +51,11 @@ The active rung map lives in `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`.
 
 Important rungs for the next phase:
 
+- **R11 — ingestion-source-vocabulary-adapter:** backend adapter is landed in `cb0c953`; remaining work is UI consumption cleanup and contract hardening if the branch reveals gaps.
 - **R10 — agent-interaction-provider:** hoist projection state to app scope, add bottom Bar/Pane in `AppChrome`, add surface -> provider context publishing, add bounded `localStorage` Phase A rehydrate.
-- **R11 — ingestion-source-vocabulary-adapter:** add a read-only backend adapter that maps current recap-ingest status/artifacts to `IngestionSourceBundle`.
 - **R9 — integration verification and dogfood:** prove the whole system after R10/R11/R5/R6/R7/R8 converge.
 
-Recommended migration: **lift-then-replace**.
+Recommended migration remains **lift-then-replace**.
 
 1. Lift projection state behind the existing right drawer with minimal UI change.
 2. Replace the drawer with the bottom Agent Interaction Bar/Pane.
@@ -70,12 +74,12 @@ Recommended migration: **lift-then-replace**.
 
 ## Next Concrete Work
 
-Before implementation, write a scoped handoff/PR slice for one of:
+Before implementation, write a scoped handoff/PR slice for:
 
-1. **R11 first:** backend `IngestionSourceBundle` adapter and tests. This gives Agent Interaction the correct consumer contract before UI consumes ingestion proof.
-2. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
+1. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
+2. **Hermes runtime boundary spike:** keep the current in-process plugin call only as a local proof; decide whether the next slice runs Hermes as a separate agent/runtime and has it call `dungeon_context_lookup`, `dungeon_manifest_index`, and `dungeon_get_document` as tools.
 
-Recommended sequence: **R11 then R10 lift step**, unless the UI container migration needs to lead for mechanical reasons.
+Recommended sequence: finish the current branch review, then split R10 provider work from Hermes runtime-boundary work if both remain in scope.
 
 ## Verification Targets
 

@@ -151,6 +151,7 @@ class LiveQueryRequest(BaseModel):
     campaign_id: str
     session: int = Field(ge=1)
     mode: Literal["live"] = "live"
+    query_backend: Literal["live", "hermes"] = "live"
     text: str = Field(min_length=1)
     manifest_path: str | None = None
 
@@ -773,10 +774,15 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
         )
     try:
         return process_live_query(
-            body.text, base=base, request_manifest_path=body.manifest_path
+            body.text,
+            base=base,
+            request_manifest_path=body.manifest_path,
+            query_backend=body.query_backend,
         )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/state")

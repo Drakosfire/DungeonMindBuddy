@@ -8,6 +8,7 @@ import type {
   ProjectionWriteResult,
   ProjectionTarget,
   LiveQueryResponse,
+  LiveQueryBackend,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -24,6 +25,7 @@ import type {
   SaveCurrentCombatRequest,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
+  IngestionSourceBundle,
   ResolvedRollResponse,
   SurfaceLayout,
   ListStatblockDraftsResponse,
@@ -124,6 +126,15 @@ export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
 }
 
+export async function getSourceBundle(
+  scope = "campaign-ingested",
+  campaignId?: string,
+): Promise<IngestionSourceBundle> {
+  const query = new URLSearchParams({ scope });
+  if (campaignId) query.set("campaign_id", campaignId);
+  return apiFetch<IngestionSourceBundle>(`/api/live/source-bundle?${query.toString()}`);
+}
+
 export async function getArtifact(
   target: Pick<ProjectionTarget, "target_type" | "target_id">,
 ): Promise<ArtifactReadResponse> {
@@ -155,6 +166,7 @@ export async function postLiveQuery(
   text: string,
   campaignId: string,
   session: number,
+  queryBackend: LiveQueryBackend = "live",
 ): Promise<LiveQueryResponse> {
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
@@ -162,6 +174,7 @@ export async function postLiveQuery(
       campaign_id: campaignId,
       session,
       mode: "live",
+      query_backend: queryBackend,
       text,
       manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
     }),

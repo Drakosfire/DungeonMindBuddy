@@ -316,7 +316,14 @@ export interface LiveContextPacket {
   claims?: Array<Record<string, unknown>>;
   planning_implications?: string[];
   capability_status?: Record<string, unknown>;
+  query_signals?: {
+    asks_for_last_or_final?: boolean;
+    asks_for_play_event?: boolean;
+    session_numbers?: number[];
+  };
 }
+
+export type LiveQueryBackend = "live" | "hermes";
 
 export interface LiveQueryResponse {
   schema?: string;
@@ -921,4 +928,77 @@ export interface StatblockWorkbenchCommandResponse {
   diagnostics: string[];
   available_actions: StatblockWorkbenchAction[];
   error?: Record<string, unknown> | null;
+}
+
+export interface OpaqueLocator {
+  locatorId: string;
+  scheme: "corpus_path" | "artifact_path" | "impact_proof" | "unknown";
+  value: string;
+  anchor?: string | null;
+}
+
+export interface SourceArtifact {
+  artifactId: string;
+  kind: string;
+  layer: string;
+  label: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sessionNumber?: number | null;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  primaryLocator: OpaqueLocator;
+  relatedLocators: OpaqueLocator[];
+  displaySummary?: string | null;
+  metadata: Record<string, string | number | boolean | null>;
+  producedBy?: string | null;
+  producedAt?: string | null;
+}
+
+export interface SourceAnchor {
+  anchorId: string;
+  artifactId: string;
+  label: string;
+  anchorKind: string;
+  locator: OpaqueLocator;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface SourceUnit {
+  unitId: string;
+  artifactId: string;
+  anchorId: string;
+  unitKind: string;
+  label: string;
+  displaySummary?: string | null;
+  fields: Record<string, string | number | boolean | null>;
+  sourceAnchor: SourceAnchor;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  provenance: Array<Record<string, unknown>>;
+  diagnostics: Record<string, unknown>;
+}
+
+export interface IngestionSourceBundle {
+  schema_version: "dmb_ingestion_source_bundle_v1";
+  bundle_id: string;
+  scope: string;
+  generated_at?: string | null;
+  corpus_root: string;
+  artifacts: SourceArtifact[];
+  anchors: SourceAnchor[];
+  units: SourceUnit[];
+  coverage: Record<string, unknown>;
+  diagnostics: string[];
 }
