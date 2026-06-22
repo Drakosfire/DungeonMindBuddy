@@ -147,6 +147,17 @@ def test_query_can_route_through_hermes_backend(
     assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
+    trace = body.get("agent_trace")
+    assert isinstance(trace, dict)
+    assert trace["backend"] == "hermes"
+    assert trace["runtime"] == "in_process"
+    assert trace["mode"] == "hermes_context_lookup"
+    assert trace["status"] == "ok"
+    assert trace["elapsed_ms"] >= 0
+    assert trace["context_summary"]["admitted_count"] >= 0
+    assert trace["context_summary"]["context_payload_kind"] == "manifest_evidence_excerpts"
+    assert trace["context_summary"]["total_excerpt_token_estimate"] >= 0
+    assert trace["usage"]["available"] is False
     assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
     assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
 
@@ -186,7 +197,25 @@ def test_query_can_route_through_hermes_cli_backend(
     assert body["mode"] == "hermes_cli_oneshot"
     assert body["answer"] == "Hermes loop answer"
     assert body["provenance"]["runtime"] == "cli"
-    assert body["context_packet"] is None
+    assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
+    assert body["diagnostics"]["preflight_context_lookup"]["success"] is True
+    trace = body.get("agent_trace")
+    assert isinstance(trace, dict)
+    assert trace["runtime"] == "cli"
+    assert trace["backend"] == "hermes"
+    assert trace["mode"] == "hermes_cli_oneshot"
+    assert trace["status"] == "ok"
+    assert trace["provider"] == "custom"
+    assert trace["model"] == "gpt-5.4-mini"
+    assert trace["elapsed_ms"] >= 0
+    assert trace["command_summary"]
+    assert "oneshot" in trace["command_summary"]
+    assert "Retrieved evidence excerpts:" in trace["prompt_preview"]
+    assert trace["context_summary"]["admitted_count"] >= 0
+    assert trace["context_summary"]["context_payload_kind"] == "manifest_evidence_excerpts"
+    assert trace["context_summary"]["total_excerpt_token_estimate"] >= 0
+    assert trace["steps"][0]["name"] == "dungeon_context_lookup"
+    assert trace["usage"]["available"] is False
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""

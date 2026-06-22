@@ -2,12 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockPlanView, mockSourceBundle } from "../test/fixtures";
+import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it("renders nav, toolbar, edit bar, and canvas regions", () => {
@@ -151,6 +152,109 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "hermes" });
   });
 
+  it("shows agent trace panel for Hermes CLI answers without context packet", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "CLI synthesized answer for operator.",
+            classification: { latency_mode: "context_lookup", event_type: "context_question" },
+            mode: "hermes_cli_oneshot",
+            status: "ok",
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: { hermes_toolset: "dungeonbuddy" },
+            provenance: { backend: "hermes", runtime: "cli" },
+            citations: [],
+            context_packet: null,
+            agent_trace: mockHermesCliTrace,
+          }),
+      } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("CLI synthesized answer for operator.")).toBeInTheDocument();
+    expect(screen.getByText(/3100 ms/)).toBeInTheDocument();
+    expect(screen.getByText(/Prompt sent to Hermes/)).toBeInTheDocument();
+    expect(screen.queryByText("No context packet returned for this query.")).not.toBeInTheDocument();
+  });
+
+  it("persists bounded conversation metadata and supports clear history", async () => {
+    const user = userEvent.setup();
+    const makeQueryResponse = (answer: string, traceId: string) => ({
+      answer,
+      classification: { latency_mode: "context_lookup", event_type: "context_question" },
+      mode: "hermes_cli_oneshot",
+      status: "ok",
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: { backend: "hermes", runtime: "cli" },
+      citations: [],
+      context_packet: null,
+      agent_trace: {
+        ...mockHermesCliTrace,
+        trace_id: traceId,
+      },
+    });
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(makeQueryResponse("First answer", "trace-one")),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(makeQueryResponse("Second answer", "trace-two")),
+      } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+
+    await user.type(screen.getByLabelText("Question"), "First question?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("First answer")).toBeInTheDocument();
+    expect(screen.getByText("Conversation (1)")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Question"), "Second question?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    expect(screen.getByText("Conversation (2)")).toBeInTheDocument();
+
+    const stored = localStorage.getItem("plan-agent-turns-v1:longmont-c2");
+    expect(stored).toBeTruthy();
+    const parsed = JSON.parse(String(stored)) as Array<{ question: string; answer: string }>;
+    expect(parsed.length).toBe(2);
+    expect(parsed[0].question).toBe("Second question?");
+    expect(parsed[0].answer).toBe("Second answer");
+    expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
+
+    await user.click(screen.getByRole("button", { name: "Clear history" }));
+    expect(screen.queryByText("Conversation (2)")).not.toBeInTheDocument();
+    expect(localStorage.getItem("plan-agent-turns-v1:longmont-c2")).toBe("[]");
+  });
+
   it("shows weak context verdict for metadata-only admitted evidence", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
@@ -194,10 +298,10 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByText("Preliminary verdict · Weak context")).toBeInTheDocument();
     expect(screen.getByText(/operational metadata/i)).toBeInTheDocument();
-    expect(screen.getByText("Review selected source text (1)")).toBeInTheDocument();
+    expect(screen.getByText("Retrieved text (1)")).toBeInTheDocument();
   });
 
-  it("shows broad recap routes in suggested source reads", async () => {
+  it("shows broad recap routes in retrieved text", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
@@ -244,7 +348,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect(await screen.findByText("Suggested source reads")).toBeInTheDocument();
+    expect(await screen.findByText("Retrieved text (2)")).toBeInTheDocument();
     expect(screen.getAllByText(/Session 21 - Drake Nest Mirathorn Call.md/).length).toBeGreaterThan(0);
     expect(screen.getByText("Preliminary verdict · Weak context")).toBeInTheDocument();
   });

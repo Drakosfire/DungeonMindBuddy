@@ -1,4 +1,9 @@
-import type { LiveContextEvidenceRef, LiveContextRejectedRef, LiveQueryResponse } from "../../api/types";
+import type {
+  AgentInteractionAdmittedContextItem,
+  LiveContextEvidenceRef,
+  LiveContextRejectedRef,
+  LiveQueryResponse,
+} from "../../api/types";
 
 export type EvidenceQualityTier = "strong" | "okay" | "weak" | "debug";
 
@@ -42,6 +47,7 @@ export interface ContextSufficiencyVerdict {
 export interface PacketReview {
   quality: EvidenceQualitySummary;
   campaignTextExcerpts: string[];
+  admittedContextItems: AgentInteractionAdmittedContextItem[];
   weakItems: ClassifiedEvidence[];
   rejectedSummary: string[];
   suggestedRoutes: string[];
@@ -451,6 +457,16 @@ export function buildPacketReview(answer: LiveQueryResponse): PacketReview | nul
     .filter((text): text is string => Boolean(text))
     .slice(0, asksForLastOrFinal ? 3 : 6);
 
+  const admittedContextItems = admitted
+    .map((evidence) => ({
+      path: evidence.path,
+      source_role: evidence.source_role,
+      authority: evidence.authority,
+      line_start: evidence.line_start ?? null,
+      line_end: evidence.line_end ?? null,
+      text_excerpt: evidence.text_excerpt?.trim() ?? "",
+    }));
+
   const suggestedRoutes = filterRoutesToTargetSession(
     preferCanonOverNormalized(
       sourceReviewWorklist
@@ -464,6 +480,7 @@ export function buildPacketReview(answer: LiveQueryResponse): PacketReview | nul
   return {
     quality,
     campaignTextExcerpts,
+    admittedContextItems,
     weakItems: [...quality.weak, ...quality.debug],
     rejectedSummary: summarizeRejected(packet.rejected_evidence ?? []),
     suggestedRoutes,

@@ -910,4 +910,4 @@ def register(ctx: Any) -> None:
 
     skill_path = Path(__file__).parent / "skills" / "dungeonbuddy-corpus-qa" / "SKILL.md"
     if skill_path.exists():
-        ctx.register_skill("dungeonbuddy:corpus-qa", skill_path)
+        ctx.register_skill("corpus-qa", skill_path)

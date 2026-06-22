@@ -325,6 +325,90 @@ export interface LiveContextPacket {
 
 export type LiveQueryBackend = "live" | "hermes";
 
+export interface AgentInteractionTraceUsage {
+  available: boolean;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+}
+
+export interface AgentInteractionTraceStep {
+  name: string;
+  summary: string;
+}
+
+export interface AgentInteractionTraceArtifactRef {
+  kind: string;
+  path: string;
+  label?: string | null;
+}
+
+export interface AgentInteractionContextSummary {
+  admitted_count?: number;
+  rejected_count?: number;
+  admitted_excerpt_char_count?: number;
+  admitted_excerpt_token_estimate?: number;
+  rejected_excerpt_char_count?: number;
+  rejected_excerpt_token_estimate?: number;
+  total_excerpt_char_count?: number;
+  total_excerpt_token_estimate?: number;
+  context_payload_kind?: string | null;
+  manifest_path?: string | null;
+  answerable_now?: boolean | null;
+  intent_class?: string | null;
+  suggested_route_count?: number;
+  verdict?: string | null;
+}
+
+export interface AgentInteractionAdmittedContextItem {
+  path?: string;
+  source_role?: string;
+  authority?: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  text_excerpt: string;
+}
+
+export interface AgentInteractionTrace {
+  trace_id: string;
+  runtime: string;
+  backend: string;
+  mode: string;
+  provider?: string | null;
+  model?: string | null;
+  started_at: string;
+  completed_at: string;
+  elapsed_ms: number;
+  status: string;
+  toolset?: string | null;
+  command_summary?: string | null;
+  prompt_preview?: string | null;
+  prompt_char_count?: number | null;
+  prompt_token_estimate?: number | null;
+  usage: AgentInteractionTraceUsage;
+  steps: AgentInteractionTraceStep[];
+  context_summary: AgentInteractionContextSummary;
+  artifact_refs: AgentInteractionTraceArtifactRef[];
+  warnings: string[];
+}
+
+export interface AgentInteractionTurnMeta {
+  id: string;
+  question: string;
+  answer: string;
+  backend: LiveQueryBackend;
+  model: string | null;
+  status: string;
+  askedAt: string;
+  traceId: string | null;
+  admittedCount: number | null;
+  rejectedCount: number | null;
+  runtime: string | null;
+  elapsedMs: number | null;
+  provider: string | null;
+  stepCount: number | null;
+}
+
 export interface LiveQueryResponse {
   schema?: string;
   query_id?: string;
@@ -342,6 +426,7 @@ export interface LiveQueryResponse {
   context_packet?: LiveContextPacket | null;
   warnings?: string[];
   mutations?: unknown[];
+  agent_trace?: AgentInteractionTrace | null;
 }
 
 export interface LiveEvent {

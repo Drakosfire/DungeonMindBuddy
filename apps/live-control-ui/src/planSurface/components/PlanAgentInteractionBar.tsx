@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { getSourceBundle, postLiveQuery } from "../../api/liveApi";
 import type {
+  AgentInteractionTurnMeta,
   IngestionSourceBundle,
   LiveQueryBackend,
   LiveQueryResponse,
@@ -9,13 +10,25 @@ import type {
   SourceUnit,
 } from "../../api/types";
 
+import {
+  AGENT_TURN_HISTORY_CAP,
+  loadTurnHistory,
+  persistTurnHistory,
+  turnMetaFromResponse,
+} from "./agentInteractionHistory";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
+import { TraceDetailsPanel } from "./TraceDetailsPanel";
 
 interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
+}
+
+interface AgentTurn {
+  meta: AgentInteractionTurnMeta;
+  response: LiveQueryResponse | null;
 }
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
@@ -51,8 +64,7 @@ function unitsForSession(bundle: IngestionSourceBundle, session: number): Source
 function representativeUnits(bundle: IngestionSourceBundle, activeSession: number): SourceUnit[] {
   const activeSessionUnits = unitsForSession(bundle, activeSession);
   const fallbackUnits = bundle.units.filter((unit) => unit.evidenceRole !== "diagnostic_only");
-  return (activeSessionUnits.length ? activeSessionUnits : fallbackUnits)
-    .slice(0, 8);
+  return (activeSessionUnits.length ? activeSessionUnits : fallbackUnits).slice(0, 8);
 }
 
 function sessionNumbers(bundle: IngestionSourceBundle): number[] {
@@ -77,7 +89,23 @@ export function PlanAgentInteractionBar({
   const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("live");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<LiveQueryResponse | null>(null);
+  const [turns, setTurns] = useState<AgentTurn[]>([]);
+  const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const history = loadTurnHistory(planView.campaign_id);
+    if (history.length) {
+      setTurns(history.map((meta) => ({ meta, response: null })));
+      setActiveTurnId(history[0].id);
+    }
+  }, [planView.campaign_id]);
+
+  const activeTurn = useMemo(
+    () => turns.find((turn) => turn.meta.id === activeTurnId) ?? turns[0] ?? null,
+    [turns, activeTurnId],
+  );
+  const answer = activeTurn?.response ?? null;
+  const packetReview = answer ? buildPacketReview(answer) : null;
 
   async function openPane() {
     setOpen(true);
@@ -102,6 +130,13 @@ export function PlanAgentInteractionBar({
     await openPane();
   }
 
+  function clearHistory() {
+    setTurns([]);
+    setActiveTurnId(null);
+    persistTurnHistory(planView.campaign_id, []);
+    setAskStatus("idle");
+  }
+
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = question.trim();
@@ -115,7 +150,13 @@ export function PlanAgentInteractionBar({
         planView.session,
         queryBackend,
       );
-      setAnswer(response);
+      const meta = turnMetaFromResponse(trimmed, response, queryBackend);
+      const nextTurn: AgentTurn = { meta, response };
+      const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
+      setTurns(nextTurns);
+      setActiveTurnId(meta.id);
+      persistTurnHistory(planView.campaign_id, nextTurns.map((turn) => turn.meta));
+      setQuestion("");
       setAskStatus("answered");
     } catch (loadError) {
       setAskStatus("error");
@@ -134,7 +175,6 @@ export function PlanAgentInteractionBar({
   const missingStages = REQUIRED_INGEST_STAGES.filter((stage) => !activeStageKinds.has(stage));
   const activeSessionComplete = bundle ? missingStages.length === 0 : false;
   const latestSessions = bundle ? sessionNumbers(bundle).slice(0, 5) : [];
-  const packetReview = answer ? buildPacketReview(answer) : null;
 
   return (
     <section
@@ -167,7 +207,7 @@ export function PlanAgentInteractionBar({
                 <h3>Ask ingested corpus</h3>
                 <p>
                   Ask first. Results show admitted campaign text, a preliminary sufficiency verdict,
-                  and suggested source reads before advanced metadata.
+                  agent trace metadata, and suggested source reads before advanced metadata.
                 </p>
                 <fieldset className="plan-agent-backend-picker">
                   <legend>Query backend</legend>
@@ -207,19 +247,69 @@ export function PlanAgentInteractionBar({
                 {askStatus === "error" ? (
                   <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
                 ) : null}
-                {answer && packetReview ? (
+
+                {turns.length ? (
+                  <section className="plan-agent-history" aria-label="Conversation history">
+                    <div className="plan-agent-history-header">
+                      <h4>Conversation ({turns.length})</h4>
+                      <button type="button" className="plan-agent-history-clear" onClick={clearHistory}>
+                        Clear history
+                      </button>
+                    </div>
+                    <ul className="plan-agent-history-list">
+                      {turns.map((turn) => (
+                        <li key={turn.meta.id}>
+                          <button
+                            type="button"
+                            className="plan-agent-history-item"
+                            data-active={turn.meta.id === activeTurnId}
+                            onClick={() => setActiveTurnId(turn.meta.id)}
+                          >
+                            <strong>{turn.meta.question}</strong>
+                            <span>
+                              {turn.meta.backend} · {turn.meta.status}
+                              {turn.meta.elapsedMs != null ? ` · ${turn.meta.elapsedMs}ms` : ""}
+                              {turn.meta.admittedCount != null
+                                ? ` · admitted ${turn.meta.admittedCount}`
+                                : ""}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {answer ? (
                   <div className="plan-agent-answer">
-                    <ContextSufficiencyPanel review={packetReview} />
+                    {answer.agent_trace ? (
+                      <TraceDetailsPanel
+                        trace={answer.agent_trace}
+                        answer={packetReview ? null : answer.answer}
+                      />
+                    ) : null}
+                    {packetReview ? (
+                      <ContextSufficiencyPanel review={packetReview} />
+                    ) : null}
+                    {packetReview && answer.agent_trace?.runtime === "cli" ? (
+                      <div className="plan-agent-trace-answer">
+                        <h5>Answer</h5>
+                        <p>{answer.answer}</p>
+                      </div>
+                    ) : null}
+                    {!packetReview && !answer.agent_trace ? (
+                      <p className="plan-agent-muted">No trace or context packet returned.</p>
+                    ) : null}
                     {answer.citations?.length ? (
                       <p className="plan-agent-muted plan-agent-citation-count">
                         Citations returned: {answer.citations.length}
                       </p>
                     ) : null}
                   </div>
-                ) : answer ? (
+                ) : activeTurn && !activeTurn.response ? (
                   <div className="plan-agent-answer">
-                    <p className="plan-agent-muted">No context packet returned for this query.</p>
-                    <p>{answer.answer}</p>
+                    <p className="plan-agent-muted">Stored turn metadata (reload trace by re-asking).</p>
+                    <p>{activeTurn.meta.answer}</p>
                   </div>
                 ) : null}
               </form>
