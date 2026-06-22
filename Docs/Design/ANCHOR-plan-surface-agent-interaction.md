@@ -2,7 +2,7 @@
 
 **Status:** Active anchor  
 **Created:** 2026-06-21  
-**Scope:** `/plan` surface, app-level Agent Interaction Bar/Pane, recap-ingestion proof consumption, source-vocabulary adapter
+**Scope:** Plan / Play / Build surfaces, app-level Agent Interaction Bar/Pane, recap-ingestion proof consumption, source-vocabulary adapter
 
 ## Current State
 
@@ -12,7 +12,7 @@ The workstream has a committed vertical slice for `/plan` recap ingestion in the
 - Current implementation still has surface-local projection state and a transitional right-side Tools drawer.
 - The ingestion workflow can run through the UI and expose proof/impact metadata.
 - The latest committed checkpoint is `588f7ab feat(plan): add recap ingest toolbar workflow`.
-- Local working tree currently has uncommitted design updates in this workstream; review `git status --short` before dispatching implementation work.
+- Tier-1 plan-doc cleanup landed in `45d1e37 docs(plans): archive completed handoffs to 2026-06-22 batch`.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
@@ -25,6 +25,7 @@ Read in this order:
 3. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`
 4. `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md`
 5. `Docs/Plans/HANDOFF-ontology-taxonomy-plan-surface-consumer-alignment.md`
+6. `Docs/Design/DESIGN-play-mode-runbook-product-direction.md`
 
 Related backlog item to keep in view:
 
@@ -36,10 +37,13 @@ Related backlog item to keep in view:
 2. **Agent Interaction is app/user scoped.** `AgentInteractionProvider` belongs above routes/surfaces, alongside or inside `AppChrome`, not inside `/plan`.
 3. **The durable interaction affordance is bottom-aligned.** The target is a persistent bottom Agent Interaction Bar plus expandable Agent Interaction Pane. The right-side `/plan` Tools drawer is transitional implementation state.
 4. **Projection stays singular.** One projection registry and one adaptive container serve both tool launches and reference-chip/content projections. The Agent Interaction layer hoists that container above surfaces; it does not create a second projection path.
-5. **Surfaces publish context; they do not own continuity.** `/plan`, `/surface`, and future surfaces publish ambient context and projection availability into the provider.
+5. **Surfaces publish context; they do not own continuity.** `/plan`, the future React `/play`, and later `/build` publish ambient context and projection availability into the provider.
 6. **The provider stores pointers only.** It may persist pane state, active projection, recent runs, notifications, and proof pointers. It must not store corpus bodies, normalized recap text, statblock content, or graph internals.
 7. **Recap-ingestion proof flows through the source-vocabulary contract.** Agent Interaction consumes `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`) from `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`, not raw `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or `corpus_impact` semantics.
 8. **Taxonomy/ontology remains the derived-semantics owner.** It can later produce or enrich the same `SourceUnit` envelope; the Agent Interaction consumer should not change shape when graph-backed retrieval arrives.
+9. **Combat folds into Play.** Combat is not a route-level surface. The existing static command-board combat tracker and React combat/live-control modules become Play projections around the focused beat.
+10. **Build stays named but nebulous.** Do not design Build until Plan and Play dogfood produce concrete durable world-object authoring pressure.
+11. **Surfaces are the priority and the retrieval exercise.** Surface dogfood should keep pulling on retrieval through source chips, statblocks, roll tables, ingest proof, and focused-beat context instead of treating retrieval as a separate precondition for UI progress.
 
 ## Current Ladder
 
@@ -74,8 +78,9 @@ Before implementation, write a scoped handoff/PR slice for one of:
 
 1. **R11 first:** backend `IngestionSourceBundle` adapter and tests. This gives Agent Interaction the correct consumer contract before UI consumes ingestion proof.
 2. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
+3. **React Play migration slice:** fold combat/runbook/live-control behavior into a `/play` surface after R10 gives projections a shared host. The first Play slice should preserve the useful combat dogfood behavior while proving the focused-beat return target.
 
-Recommended sequence: **R11 then R10 lift step**, unless the UI container migration needs to lead for mechanical reasons.
+Recommended sequence: **R11 then R10 lift step**, unless the UI container migration needs to lead for mechanical reasons. React `/play` follows as the first second-surface proof; Build waits.
 
 ## Verification Targets
 

@@ -1,6 +1,6 @@
 # Design: Command Board Surfaces — Plan, Play, Build
 
-**Status:** Direction record after North Gate Tiptap dogfood
+**Status:** Direction record after North Gate Tiptap dogfood; re-anchored 2026-06-22 for React Play surface consolidation
 **Scope:** Command Board surfaces — Plan anchor pane, Play runbook UX, Build (named but not yet designed)
 **Related:** runbook roadmap, Runbook Lantern anchor, PRs #135–#148, `Docs/Plans/HANDOFF-plan-mode-command-board-jumpstart.md`
 
@@ -20,14 +20,16 @@ The Command Board projects the same campaign memory through **three named surfac
 
 Plan replaces the older **Prep Mode** vocabulary. Play and Build are peers in the model, not afterthoughts.
 
-**Build is not in scope for design or implementation yet.** It is still first-class in the product model so Plan and Play do not paint it into a corner.
+**2026-06-22 consolidation decision:** Command Board is now the surface family, not a separate product lane. Combat folds into the React **Play** surface plan rather than remaining a static Command Board page or a standalone `combat` surface. The current static Mireward command board and `/surface` modules are migration evidence: useful behavior to preserve, not final routing architecture.
+
+**Build is not in scope for design or implementation yet.** It is still first-class in the product model so Plan and Play do not paint it into a corner, but it should stay nebulous until dogfood pressure names concrete durable object authoring needs.
 
 ### Surfaces teach each other
 
 Each surface we design is both a **consumer** and a **writer** of lessons about the others:
 
 - **Plan** consumes Build's world objects (hubs, statblocks, roll tables) and writes session scope: descriptor, ingest status, runbook target, operational seeds.
-- **Play** consumes Plan's runbook and committed prep; writes back operational friction (rules hovers, spawn templates, beat navigation gaps).
+- **Play** consumes Plan's runbook and committed prep; writes back operational friction (rules hovers, combat cockpit needs, spawn templates, beat navigation gaps).
 - **Build** (future) will consume Play/Plan friction — the objects and depth levels the GM kept reaching for — and write durable corpus artifacts.
 
 Every Plan or Play design decision should be checked against: **what does this imply for the other two surfaces?** Record the answer in design docs or dogfood notes so Build inherits requirements from evidence, not guesses.
@@ -134,6 +136,8 @@ Play is the table surface. It supports:
 Play should hide plumbing until the GM intentionally asks for it. The GM should be able to inspect detail, use a tool, or make a narrow correction without leaving the current runbook moment.
 
 Play is narrower than Plan: combat, beat navigation, rules hovers, spawn actions — operational cockpit, not world construction.
+
+Combat is a Play concern. The initiative barrel, HP/AC visibility, dead bucket, generated combatants, statblock drilldowns, terrain pressure, and import/export survival belong in `/play` as projected tools and focused panels around the current beat. They should not create a fourth `combat` surface, and they should not keep the static Mireward page alive as the product shell.
 
 ### Build surface (named, not yet designed)
 

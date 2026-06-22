@@ -4,7 +4,9 @@
 
 `/plan` becomes the first intentional configured surface, not an alias to `/surface` or a random session-specific static page. It should show a clear context header such as **Plan · Longmont C2 · preparing Session 24 · ingesting Session 23**, with the context derived from a stable Plan session descriptor rather than whatever `DUNGEONMIND_LIVE_SESSION_DIR` happens to point at.
 
-The durable abstraction is **Surface**, not Bar. A surface expresses a work mode such as `plan`, `build`, `combat`, or `play`; each surface config composes independent regions instead of making every region pretend to be the same generic bar.
+The durable abstraction is **Surface**, not Bar. A surface expresses one of the named work modes **Plan**, **Play**, or **Build**; each surface config composes independent regions instead of making every region pretend to be the same generic bar. Combat is no longer a fourth surface. It folds into the React **Play** surface as operational cockpit projections: initiative, HP, statblock drilldowns, generated combatants, terrain pressure, and related table tools.
+
+**Priority decision (2026-06-22):** Surface work is the product priority, and it should exercise retrieval rather than wait for a separate retrieval-only milestone. Plan proves ingest and planning-context retrieval; Play proves table-facing retrieval through reference chips, statblocks, roll tables, combat rows, and focused-beat overlays. Build remains named but intentionally nebulous until Plan and Play dogfood show which durable world-object authoring surfaces are actually needed.
 
 `/plan` does not own tool, edit, or nav internals. It supplies a `SurfaceConfig` to a reusable `SurfaceShell`:
 
@@ -53,10 +55,10 @@ flowchart TB
   app --> agentPane["Agent Interaction Pane expandable bottom tray"]
 
   agentProvider --> routePlan["/plan route"]
-  agentProvider --> futureRoutes["Future routes build combat play"]
+  agentProvider --> futureRoutes["Future routes play build"]
 
   routePlan --> planSurfaceConfig["SurfaceConfig id plan"]
-  futureRoutes --> futureSurfaceConfigs["SurfaceConfig id build combat play"]
+  futureRoutes --> futureSurfaceConfigs["SurfaceConfig id play build"]
 
   planSurfaceConfig --> surfaceShell["SurfaceShell composition"]
   futureSurfaceConfigs --> surfaceShell
@@ -130,7 +132,7 @@ flowchart TB
 
 ### Interpretation
 
-- **SurfaceConfig** is the top-level product abstraction. It can express `plan`, `build`, `combat`, or `play` without copying shell layout.
+- **SurfaceConfig** is the top-level product abstraction. It can express `plan`, `play`, or eventually `build` without copying shell layout. Combat belongs inside `play` as configured projections and operational state, not as its own route-level surface.
 - **SurfaceCanvas** is the object of work. For `/plan`, it is the editable Tiptap/Markdown board.
 - **ToolBar** projects configured workflow components; it does not hardcode ingestion/statblock as page-specific branches.
 - **EditBar** edits the selected canvas/document/block; it does not launch prep workflows.
@@ -178,7 +180,7 @@ AppChrome
 | Surface | Published context |
 |---|---|
 | `/plan` | campaign, prep session, ingest session, selected canvas block/reference |
-| `/surface` | live session, combat state, active event/job |
+| future `/play` (migrating from `/surface`) | live session, focused beat, combat state, active event/job |
 | editor surfaces | selected document/reference |
 | future project surfaces | project id, corpus root, active artifact |
 
@@ -249,7 +251,7 @@ Retain the config heart: styling is loaded through config, not hardcoded per sur
 11. Mount recap ingestion as a configured ToolBar workflow using the existing `IngestionModule` logic and `/api/live/recap-ingest` operations. Keep terminal commands visible as fallback.
 12. Mount statblock generation as a configured ToolBar workflow by reusing the existing `StatblockWorkbenchModule` / statblock workbench API flow.
 13. Build content surfaces only for kinds with a real resolver/index today (`npc`, `location`, `statblock`, `roll-table`). Do not pre-build item/map/creation surfaces; the registry stays open for them.
-14. Treat the static Mireward toolbox changes as dogfood-only or transitional. The durable product direction is `/plan`, not burying Plan tools inside `/live-play` static pages.
+14. Treat the static Mireward toolbox and current `/surface` module shell as dogfood-only or transitional. The durable product direction is React surfaces: `/plan` first, then `/play` absorbing combat/runbook/live-control modules through the same SurfaceShell + Agent Interaction projection model.
 
 ## Delivery: branch ladder and agent PR stories
 
