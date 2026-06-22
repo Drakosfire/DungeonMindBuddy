@@ -140,6 +140,16 @@ uv run python -m evals.graph_memory_layer.report_projection_readiness
 
 The report is diagnostic only: missing fields are reported instead of invented, display summaries are not evidence, and full source text/raw ingestion internals are not printed.
 
+## Recap-Ingestion Source-Family Gate
+
+Validate the recap-ingestion source-family gate with the no-runtime gate validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_family_gate
+```
+
+Validates the recap-ingestion source-family gate. This gate decides which current recap-ingestion outputs may later be materialized as source artifacts, anchors, and units. It does not materialize those artifacts, implement adapters, touch `/plan`, scan corpus files, or change runtime behavior.
+
 ## Surface Vocabulary Boundary
 
 Validate the surface vocabulary boundary manifest with the no-runtime boundary validator:
