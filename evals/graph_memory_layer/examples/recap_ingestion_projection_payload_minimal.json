@@ -1,0 +1,206 @@
+{
+    "created_by": "recap_ingestion_projection_payload_fixture_v0",
+    "diagnostics": {
+        "absolute_paths_included": false,
+        "agent_interaction_payload": false,
+        "display_summary_is_evidence": false,
+        "plan_payload": false,
+        "production_adapter_payload": false,
+        "raw_text_included": false,
+        "runtime_payload": false
+    },
+    "fixture_id": "example:recap-ingestion-projection-payload:minimal",
+    "payload_units": [
+        {
+            "admitted_artifact_id": "normalized_recap_markdown",
+            "artifact_kind": "normalized_recap",
+            "display_label": "normalized_recap explicit input",
+            "display_summary": "Synthetic normalized recap source artifact.",
+            "payload_unit_id": "projection-unit:normalized_recap_markdown:770bb489a1ddb74b",
+            "projection_kind": "source_reference",
+            "provenance": {
+                "created_by": "recap_ingestion_source_artifact_materializer_v0",
+                "input_mode": "explicit_paths_only",
+                "source_ref_id": "source-ref:normalized_recap_markdown:770bb489a1ddb74b"
+            },
+            "safety": {
+                "absolute_path_included": false,
+                "adapter_payload": false,
+                "agent_interaction_payload": false,
+                "display_summary_is_evidence": false,
+                "plan_payload": false,
+                "raw_text_included": false,
+                "runtime_payload": false
+            },
+            "semantic_state": {
+                "authority_state": "system_derived",
+                "canon_state": "played_canon",
+                "evidence_role": "source_evidence",
+                "lifecycle_state": "ingested",
+                "visibility_state": "gm_private"
+            },
+            "source_handle": {
+                "handle_id": "opaque-source-handle:770bb489a1ddb74b",
+                "scheme": "explicit-input",
+                "value": "explicit-input://recap-ingestion/normalized_recap_markdown/opaque-770bb489a1ddb74b"
+            },
+            "source_ref_id": "source-ref:normalized_recap_markdown:770bb489a1ddb74b",
+            "source_unit_id": "source-unit:normalized_recap_markdown:bc9161b2ac860290"
+        },
+        {
+            "admitted_artifact_id": "breadcrumbed_recap_markdown",
+            "artifact_kind": "breadcrumbed_recap",
+            "display_label": "breadcrumbed_recap explicit input",
+            "display_summary": "Synthetic breadcrumbed recap navigation artifact.",
+            "payload_unit_id": "projection-unit:breadcrumbed_recap_markdown:012f60df66abb7f0",
+            "projection_kind": "source_reference",
+            "provenance": {
+                "created_by": "recap_ingestion_source_artifact_materializer_v0",
+                "input_mode": "explicit_paths_only",
+                "source_ref_id": "source-ref:breadcrumbed_recap_markdown:012f60df66abb7f0"
+            },
+            "safety": {
+                "absolute_path_included": false,
+                "adapter_payload": false,
+                "agent_interaction_payload": false,
+                "display_summary_is_evidence": false,
+                "plan_payload": false,
+                "raw_text_included": false,
+                "runtime_payload": false
+            },
+            "semantic_state": {
+                "authority_state": "system_derived",
+                "canon_state": "played_canon",
+                "evidence_role": "navigation_hint",
+                "lifecycle_state": "indexed",
+                "visibility_state": "gm_private"
+            },
+            "source_handle": {
+                "handle_id": "opaque-source-handle:012f60df66abb7f0",
+                "scheme": "explicit-input",
+                "value": "explicit-input://recap-ingestion/breadcrumbed_recap_markdown/opaque-012f60df66abb7f0"
+            },
+            "source_ref_id": "source-ref:breadcrumbed_recap_markdown:012f60df66abb7f0",
+            "source_unit_id": "source-unit:breadcrumbed_recap_markdown:988edce640ce2a13"
+        },
+        {
+            "admitted_artifact_id": "frontmatter_seed_markdown",
+            "artifact_kind": "frontmatter_seed",
+            "display_label": "frontmatter_seed explicit input",
+            "display_summary": "Synthetic frontmatter seed diagnostic artifact.",
+            "payload_unit_id": "projection-unit:frontmatter_seed_markdown:129fae1f02d5bd12",
+            "projection_kind": "source_reference",
+            "provenance": {
+                "created_by": "recap_ingestion_source_artifact_materializer_v0",
+                "input_mode": "explicit_paths_only",
+                "source_ref_id": "source-ref:frontmatter_seed_markdown:129fae1f02d5bd12"
+            },
+            "safety": {
+                "absolute_path_included": false,
+                "adapter_payload": false,
+                "agent_interaction_payload": false,
+                "display_summary_is_evidence": false,
+                "plan_payload": false,
+                "raw_text_included": false,
+                "runtime_payload": false
+            },
+            "semantic_state": {
+                "authority_state": "system_derived",
+                "canon_state": "planning_scaffold",
+                "evidence_role": "not_evidence",
+                "lifecycle_state": "candidate",
+                "visibility_state": "internal_diagnostic"
+            },
+            "source_handle": {
+                "handle_id": "opaque-source-handle:129fae1f02d5bd12",
+                "scheme": "explicit-input",
+                "value": "explicit-input://recap-ingestion/frontmatter_seed_markdown/opaque-129fae1f02d5bd12"
+            },
+            "source_ref_id": "source-ref:frontmatter_seed_markdown:129fae1f02d5bd12",
+            "source_unit_id": "source-unit:frontmatter_seed_markdown:c1162243f1e6105d"
+        },
+        {
+            "admitted_artifact_id": "session_memory_jsonl_meta",
+            "artifact_kind": "session_memory_meta",
+            "display_label": "session_memory_meta explicit input",
+            "display_summary": "Synthetic session memory metadata diagnostic artifact.",
+            "payload_unit_id": "projection-unit:session_memory_jsonl_meta:039ff53a711231c4",
+            "projection_kind": "source_reference",
+            "provenance": {
+                "created_by": "recap_ingestion_source_artifact_materializer_v0",
+                "input_mode": "explicit_paths_only",
+                "source_ref_id": "source-ref:session_memory_jsonl_meta:039ff53a711231c4"
+            },
+            "safety": {
+                "absolute_path_included": false,
+                "adapter_payload": false,
+                "agent_interaction_payload": false,
+                "display_summary_is_evidence": false,
+                "plan_payload": false,
+                "raw_text_included": false,
+                "runtime_payload": false
+            },
+            "semantic_state": {
+                "authority_state": "system_derived",
+                "canon_state": "candidate_extraction",
+                "evidence_role": "diagnostic_only",
+                "lifecycle_state": "candidate",
+                "visibility_state": "internal_diagnostic"
+            },
+            "source_handle": {
+                "handle_id": "opaque-source-handle:039ff53a711231c4",
+                "scheme": "explicit-input",
+                "value": "explicit-input://recap-ingestion/session_memory_jsonl_meta/opaque-039ff53a711231c4"
+            },
+            "source_ref_id": "source-ref:session_memory_jsonl_meta:039ff53a711231c4",
+            "source_unit_id": "source-unit:session_memory_jsonl_meta:6dd2bf781d77ca29"
+        },
+        {
+            "admitted_artifact_id": "corpus_impact_proof",
+            "artifact_kind": "corpus_impact_proof",
+            "display_label": "corpus_impact_proof explicit input",
+            "display_summary": "Synthetic corpus impact proof diagnostic artifact.",
+            "payload_unit_id": "projection-unit:corpus_impact_proof:1d470dfdbc4a31d0",
+            "projection_kind": "source_reference",
+            "provenance": {
+                "created_by": "recap_ingestion_source_artifact_materializer_v0",
+                "input_mode": "explicit_paths_only",
+                "source_ref_id": "source-ref:corpus_impact_proof:1d470dfdbc4a31d0"
+            },
+            "safety": {
+                "absolute_path_included": false,
+                "adapter_payload": false,
+                "agent_interaction_payload": false,
+                "display_summary_is_evidence": false,
+                "plan_payload": false,
+                "raw_text_included": false,
+                "runtime_payload": false
+            },
+            "semantic_state": {
+                "authority_state": "diagnostic",
+                "canon_state": "diagnostic_only",
+                "evidence_role": "diagnostic_only",
+                "lifecycle_state": "diagnostic",
+                "visibility_state": "internal_diagnostic"
+            },
+            "source_handle": {
+                "handle_id": "opaque-source-handle:1d470dfdbc4a31d0",
+                "scheme": "explicit-input",
+                "value": "explicit-input://recap-ingestion/corpus_impact_proof/opaque-1d470dfdbc4a31d0"
+            },
+            "source_ref_id": "source-ref:corpus_impact_proof:1d470dfdbc4a31d0",
+            "source_unit_id": "source-unit:corpus_impact_proof:b717c046dbc0059d"
+        }
+    ],
+    "projection_mode": "diagnostic_fixture_only",
+    "projection_status": "fixture_ready",
+    "schema": "dmb_recap_ingestion_projection_payload_fixture_v0",
+    "source": {
+        "materializer_schema": "dmb_recap_ingestion_source_artifact_materialization_v0",
+        "readiness_schema": "dmb_recap_ingestion_projection_readiness_v0",
+        "requires_provenance_source_ref_linkage": true,
+        "requires_source_ref_id": true
+    },
+    "source_family": "recap_ingestion_source_artifacts",
+    "version": "0.1"
+}

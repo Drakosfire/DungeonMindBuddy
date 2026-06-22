@@ -231,3 +231,12 @@ uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifa
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_source_artifact_materializer_report
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_readiness
 ```
+
+## Recap-Ingestion Projection Payload Fixture
+
+Validates and reports a diagnostic projection payload fixture over hardened recap-ingestion source artifact materializer output. This fixture proves a bounded surface-safe shape for future adapter design. It is not a production adapter, `/plan` payload, Agent Interaction payload, retrieval result, or runtime UI payload.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_recap_ingestion_projection_payload_fixture
+uv run python -m evals.graph_memory_layer.report_recap_ingestion_projection_payload_fixture
+```
