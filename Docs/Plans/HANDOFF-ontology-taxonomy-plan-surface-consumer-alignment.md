@@ -18,6 +18,8 @@ The `/plan` workstream is no longer only a route scaffold. It is becoming one GM
 
 Canon decision (2026-06-21): the durable consumer is the app-level **Agent Interaction Bar/Pane**, owned by `AgentInteractionProvider`, not a `/plan` sub-state. `/plan` publishes context and projection registrations into that provider. The provider owns user/session continuity across surfaces/projects: active conversation/thread pointers, pane state, active projection, recent tool runs, notifications, and proof-trail pointers.
 
+Source-vocabulary contract (2026-06-21): `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` defines the minimal shared source vocabulary for recap-ingestion consumers. Current ingestion should emit/read-adapt `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`), and taxonomy/ontology should later produce or enrich the same envelope rather than making Agent Interaction depend on graph internals.
+
 The ontology ladder is still correctly isolated. It owns derived semantics, controlled vocabulary, graph model, validation, reports, and later shadow retrieval. It must not be pulled prematurely into UI implementation or production retrieval. But its design should now know what kind of consumer is coming so it does not mature in a vacuum.
 
 The desired outcome is early alignment, not coupling. `/plan` should keep reading through adapters; ontology should keep producing diagnostic, source-grounded structures. The alignment work is to make sure those two shapes will meet cleanly when shadow retrieval becomes consumable.
@@ -38,6 +40,7 @@ Ownership boundary:
 - `AgentInteractionProvider` owns user interaction continuity and stores pointers/summaries, not canonical corpus payloads.
 - `/plan` publishes ambient context: campaign id, prep/live/ingest sessions, selected canvas block/reference, and available projections.
 - Ontology/graph outputs should target adapters that can feed app-level projections, not route-specific drawer state.
+- Recap-ingestion proof/memory outputs reach Agent Interaction through `IngestionSourceBundle`, not raw `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or `corpus_impact` semantics.
 
 Today, `/plan` resolves chips through live-derived corpus indexes:
 
@@ -60,12 +63,13 @@ Current files to read before changing ontology design:
 
 1. `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`
 2. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`
-3. `/home/drakosfire/.cursor/plans/plan-surface-toolbox_5034ad28.plan.md`
-4. `apps/live-control-ui/src/planSurface/derivedViews/derivedViewsAdapter.ts`
-5. `apps/live-control-ui/src/planSurface/reference/referenceResolver.ts`
-6. `apps/live-control-ui/src/chrome/AppChrome.tsx`
-7. `apps/live-control-ui/src/planSurface/projection/AdaptiveProjectionContainer.tsx`
-8. `apps/live-control-ui/src/planSurface/projection/projectionRegistry.tsx`
+3. `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
+4. `/home/drakosfire/.cursor/plans/plan-surface-toolbox_5034ad28.plan.md`
+5. `apps/live-control-ui/src/planSurface/derivedViews/derivedViewsAdapter.ts`
+6. `apps/live-control-ui/src/planSurface/reference/referenceResolver.ts`
+7. `apps/live-control-ui/src/chrome/AppChrome.tsx`
+8. `apps/live-control-ui/src/planSurface/projection/AdaptiveProjectionContainer.tsx`
+9. `apps/live-control-ui/src/planSurface/projection/projectionRegistry.tsx`
 
 Important current contract:
 
@@ -91,6 +95,8 @@ Use these as design review prompts before adding new graph-memory rungs.
 6. **Depth control:** Reference chips are navigation handles into deeper context. What bounded expansion shape prevents high-degree hubs from flooding the drawer? What measurements tell us expansion is useful rather than noisy?
 
 7. **Write interaction:** Recap ingestion and statblock promotion produce new corpus/session-memory artifacts. Does graph materialization consume these as source artifacts after the writer path completes, or does it imply a second write path? It must not mutate canonical corpus. `AgentInteractionProvider` can remember proof pointers and tool-run summaries, but writes still go through explicit project/corpus APIs.
+
+7a. **Ingestion source-vocabulary adapter:** Does current recap ingestion map normalized recap, breadcrumbed recap, frontmatter seed, session-memory JSONL/meta, and `corpus_impact` into `IngestionSourceBundle` without mislabeling diagnostic/proof metadata as narrative evidence? This is the near-term contract the graph should be able to enrich later.
 
 8. **Generated statblocks:** Statblock generation has draft, accepted-to-combat, promoted-to-corpus, and indexed states. Which of these are graph candidates, which are corpus truth, and which must remain local/browser state?
 

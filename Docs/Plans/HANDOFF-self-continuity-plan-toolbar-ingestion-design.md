@@ -40,6 +40,7 @@ The design must make it possible to dogfood this end-to-end goal:
 - `AgentInteractionProvider` is app/user scoped, not `/plan` scoped. It belongs above surfaces, alongside or inside `AppChrome`.
 - Surfaces publish context and available projections into the agent layer; they do not own conversation state, pane state, proof trail state, or cross-project continuity.
 - The Agent Interaction Bar is intended to live across surfaces and projects. `/plan` is the first consumer, not the owner.
+- Recap-ingestion proof/memory data must cross into Agent Interaction through `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`: `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`), not raw ingestion internals.
 - Ingestion must feel like one guided workflow with human review gates, not a random row of peer buttons.
 - The UI must reduce distraction. If the user cannot focus or tell whether something worked, the design has failed.
 - The terminal path must remain available, but it should be secondary/collapsible. The UI is the primary dogfood path.
@@ -118,6 +119,7 @@ Current React ingestion workflow:
 - `apps/live-control-ui/src/modules/IngestionStatusPanel.tsx`
 - `apps/live-control-ui/src/modules/IngestionModule.test.tsx`
 - `apps/live-control-ui/src/api/types.ts`
+- `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
 
 Backend ingestion API:
 
@@ -208,6 +210,8 @@ This provider owns the user's agent interaction state across surfaces/projects:
 
 It should store pointers, summaries, and UI state. It must not become a second corpus store and must not bypass explicit backend write flows.
 
+For recap ingestion, those pointers/summaries are supplied by the source-vocabulary adapter. Agent Interaction consumes `IngestionSourceBundle`; `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, and `corpus_impact` stay production artifacts behind the adapter.
+
 ### Surface Boundary
 
 Surfaces contribute context and projection registrations:
@@ -256,16 +260,17 @@ This is important. The user’s goal is not just to see "ready"; it is to prove 
 
 Candidate proof affordances:
 
-- show materialized session-memory record count and artifact path,
-- show generated/breadcrumbed files with open/preview links,
-- surface entity references discovered from the recap,
+- show `IngestionSourceBundle` artifacts/anchors/units for the normalized recap, breadcrumbed recap, frontmatter seed, session-memory recordset, and corpus-impact proof,
+- show materialized session-memory record count and artifact locators,
+- show generated/breadcrumbed files with open/preview links through opaque locators,
+- surface entity/reference anchors discovered from the recap,
 - let the user click an entity/reference and open the same projection surface used by reference chips,
 - expose an "Ask/inspect what changed" UI if such a safe endpoint exists,
 - at minimum, provide an inspectable artifact list with statuses and links.
 
-In the bottom bar, this should become a durable notification/proof affordance: e.g. `C2S23 ready - 7 memory records - View proof`. Expanding it opens the corpus-impact proof projection and preserves that proof pointer even if the user navigates away from `/plan`.
+In the bottom bar, this should become a durable notification/proof affordance: e.g. `C2S23 ready - 7 memory records - View proof`. Expanding it opens an ingestion proof projection backed by `IngestionSourceBundle` and preserves that proof pointer even if the user navigates away from `/plan`.
 
-If the current backend does not expose enough proof metadata, design the UI state first and then identify the smallest backend/API addition needed.
+If the current backend does not expose enough proof metadata, the smallest backend/API addition is the read-only ingestion source-vocabulary adapter defined in `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`.
 
 ## 9. Known Backend / Pipeline Operations
 
@@ -282,8 +287,10 @@ Relevant implementation paths:
 
 - `apps/live_control_server/routes/recap_ingest.py`
 - `src/live_play/recap_ingest_pipeline.py`
+- `src/live_play/*` or equivalent new adapter module for `build_ingestion_source_bundle(...)`
 - `apps/live-control-ui/src/modules/IngestionModule.tsx`
 - `apps/live-control-ui/src/api/types.ts`
+- `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
 
 Important recent backend behavior:
 

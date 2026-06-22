@@ -14,6 +14,8 @@ Canon decision (2026-06-21): **Agent interaction is not a `/plan` sub-state.** `
 
 The old right-side `/plan` Tools drawer is implementation state only. The target pattern is a persistent bottom **Agent Interaction Bar** plus expandable **Agent Interaction Pane**. The pane renders registered projections such as chat/ask, recap ingestion, statblock workbench, reference inspectors, and corpus-impact proof views. `/plan` contributes planning context and plan-specific projections; the bar remains a user/app-level affordance.
 
+Source-vocabulary boundary: recap ingestion proof/memory projections must go through `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`. The backend read adapter emits `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`) from current recap-ingest status/artifacts. Agent Interaction consumes that bundle; future taxonomy/ontology graph-backed retrieval may later produce or enrich the same `SourceUnit` envelope.
+
 Composition target:
 
 ```text
@@ -60,13 +62,14 @@ Stacked PR branches:
 | R7 | statblock-tool-mount | R2 |
 | R5 | reference-projection | R2, L1, L2, L3 |
 | R10 | agent-interaction-provider | R2, R5, R6, R7 |
-| R9 | integration-verification | R5, R6, R7, R8, R10 |
+| R11 | ingestion-source-vocabulary-adapter | R2, R6 |
+| R9 | integration-verification | R5, R6, R7, R8, R10, R11 |
 
 ## Defensible Rubric (every PR)
 
 - **Testing:** unit + seam test at owning boundary; §7 command named in handoff.
 - **Security:** two-phase writer + allowlist for corpus writes; validate `refId` before path use; no secrets/PII in artifacts.
-- **Simplicity:** one app-level agent interaction provider, one projection registry, one edit capability, one resolver, one theme; resolve kinds, don't declare enums.
+- **Simplicity:** one app-level agent interaction provider, one projection registry, one edit capability, one resolver, one source-vocabulary contract, one theme; resolve kinds, don't declare enums.
 - **Composability:** leaf modules usable without shell; typed contracts; allowlist-scoped diffs.
 
 ## Handoffs
