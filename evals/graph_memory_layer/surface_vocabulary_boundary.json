@@ -1,0 +1,51 @@
+{
+  "version": "0.1",
+  "status": "surface_vocabulary_boundary_v0",
+  "workstream": "graph_memory_ontology_taxonomy_ladder",
+  "decision": "share_semantic_envelope_preserve_surface_vocabulary",
+  "purpose": "Define which terms are globally shared, ontology-owned, surface-owned, contested, or forbidden to collapse before graph memory is consumed by DungeonMindBuddy surfaces.",
+  "shared_semantic_envelope": [
+    {"id": "source_artifact", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "The source object or artifact from which source anchors and units derive."},
+    {"id": "source_anchor", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "A stable locator to the source-backed unit or span."},
+    {"id": "source_unit", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "The projection-safe source-backed unit returned to surfaces."},
+    {"id": "source_ref", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "A citation/reference handle for source-backed claims and anchors."},
+    {"id": "provenance", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Trace of how graph output is grounded."},
+    {"id": "evidence_role", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Prevents display summaries or diagnostics from being treated as source evidence."},
+    {"id": "authority_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Indicates whether a record is canonical, candidate, diagnostic, generated, or otherwise authority-limited."},
+    {"id": "visibility_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Preserves privacy and player/DM-facing visibility boundaries."},
+    {"id": "lifecycle_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Prevents prep, rumor, generated candidate, diagnostic-only records, and played truth from collapsing into known fact."},
+    {"id": "canon_state", "required_for_graph_surface_payload": true, "surface_may_rename": false, "notes": "Prevents played canon, planning scaffold, generated candidate, candidate extraction, diagnostic-only metadata, and reference-only tools from collapsing into one surface blob."},
+    {"id": "validation_issue", "required_for_graph_surface_payload": false, "surface_may_rename": false, "notes": "A structured warning/error explaining why a graph-derived payload is blocked, degraded, or diagnostic-only."},
+    {"id": "source_backed_claim", "required_for_graph_surface_payload": false, "surface_may_rename": false, "notes": "A claim that must have source refs and an evidence role."},
+    {"id": "display_summary", "required_for_graph_surface_payload": false, "surface_may_rename": true, "notes": "A display/navigation aid that may be shared as a field name but is never evidence."},
+    {"id": "diagnostic_record", "required_for_graph_surface_payload": false, "surface_may_rename": false, "notes": "A diagnostic-only record that cannot be shown as canon."}
+  ],
+  "ontology_owned_terms": [
+    "source_kind", "source_layer", "entity_kind", "relationship_predicate_family", "route_kind", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "validation_severity", "graph_candidate_state", "promotion_state"
+  ],
+  "surface_owned_terms": [
+    "npc_chip", "location_chip", "statblock_projection", "roll_table_projection", "planning_canvas", "drawer_section", "tool_workflow", "edit_unlock", "combat_local_accept", "recap_ingestion_result", "statblock_generation_result", "reference_chip", "projection_card"
+  ],
+  "contested_terms": [
+    {"id": "statblock", "why_ambiguous": "It can name source content, generated output, combat-local state, promoted corpus content, or a visible UI card.", "graph_memory_meaning": "May be a source artifact, generated candidate, combat-local acceptance, promoted corpus record, or indexed content.", "surface_meaning": "A visible statblock projection or workflow output.", "boundary_rule": "Keep statblock as a surface projection kind; require lifecycle/provenance/source refs for graph-derived statblock payloads.", "detection": "Report statblock-like payloads missing lifecycle, authority, evidence role, or source refs."},
+    {"id": "summary", "why_ambiguous": "It can be a display convenience, a generated digest, or be mistaken for source evidence.", "graph_memory_meaning": "A derived display/navigation aid that is not evidence.", "surface_meaning": "Short prose shown in a drawer, chip preview, or planning card.", "boundary_rule": "Summaries may be displayed but must not be treated as source evidence.", "detection": "Flag summary text used with evidence_role=source_evidence without source refs."},
+    {"id": "route", "why_ambiguous": "It can refer to taxonomy relationships, corpus/source navigation, UI routes, or reference-resolution paths.", "graph_memory_meaning": "A taxonomy/relationship/navigation concept that may connect entities, source units, or corpus locations.", "surface_meaning": "A UI navigation/ref resolution concept.", "boundary_rule": "Do not collapse graph route semantics and UI navigation routes; adapter may map between them explicitly.", "detection": "Report route payloads that lack source-family, relation type, or provenance."},
+    {"id": "source", "why_ambiguous": "It can mean corpus file, recap record, graph provenance, UI citation label, or user-entered content.", "graph_memory_meaning": "The artifact and provenance trail grounding a claim or candidate.", "surface_meaning": "A human-readable citation, drawer link, or origin label.", "boundary_rule": "Expose source labels only with source refs/anchors and provenance metadata.", "detection": "Flag source labels without source_ref or source_anchor."},
+    {"id": "anchor", "why_ambiguous": "It can be a stable source locator, a UI scroll target, or a reference chip target.", "graph_memory_meaning": "A stable locator to a source-backed unit or span.", "surface_meaning": "A navigation target or display affordance.", "boundary_rule": "UI anchors may point at source anchors, but must not redefine source-anchor stability.", "detection": "Flag graph-derived payloads with UI-only anchors and no source_anchor."},
+    {"id": "canon", "why_ambiguous": "It can mean promoted campaign truth, displayed accepted content, or user-visible convenience.", "graph_memory_meaning": "An authority/lifecycle state backed by provenance and promotion rules.", "surface_meaning": "A label implying content is official, accepted, or safe to use.", "boundary_rule": "Canon labels require authority_state and lifecycle_state that explicitly permit them.", "detection": "Flag canon display without authority_state, lifecycle_state, and provenance."},
+    {"id": "draft", "why_ambiguous": "It can be writer workflow state, generated candidate state, or UI edit state.", "graph_memory_meaning": "Lifecycle/authority-limited candidate content.", "surface_meaning": "Editable or not-yet-final UI content.", "boundary_rule": "Draft UI state must not imply graph candidate promotion or demotion.", "detection": "Flag draft records with promoted/canonical authority unless provenance explains promotion."},
+    {"id": "accepted", "why_ambiguous": "It can mean combat-local acceptance, user confirmation, promoted corpus truth, or validation acceptance.", "graph_memory_meaning": "A lifecycle transition whose scope must be explicit.", "surface_meaning": "A workflow action or local display state.", "boundary_rule": "Accepted must state scope: combat-local, session-local, corpus-promoted, or diagnostic.", "detection": "Flag accepted payloads missing lifecycle_state and promotion_state/scope."},
+    {"id": "generated", "why_ambiguous": "It can mean LLM output, deterministic projection, materialized graph record, or user-generated note.", "graph_memory_meaning": "A provenance fact requiring generator/source distinction and authority limits.", "surface_meaning": "Tool output ready for review or display.", "boundary_rule": "Generated content remains authority-limited until source/provenance/lifecycle permit promotion.", "detection": "Flag generated claims shown as source-backed evidence without source refs."},
+    {"id": "promotion", "why_ambiguous": "It can mean taxonomy promotion, corpus writeback, UI accept action, or candidate validation.", "graph_memory_meaning": "A governed transition into a higher authority or lifecycle state.", "surface_meaning": "An affordance or workflow completion step.", "boundary_rule": "Promotion must remain ontology-owned and auditable; UI actions may request but not redefine it.", "detection": "Flag promotion-like actions without promotion_state and provenance."},
+    {"id": "index", "why_ambiguous": "It can mean retrieval index, corpus table of contents, UI list, or source ordering.", "graph_memory_meaning": "A derived navigation/retrieval structure with provenance and scope.", "surface_meaning": "A list, lookup, or drawer section organization.", "boundary_rule": "Indexes are not evidence; indexed content still needs source refs and evidence roles.", "detection": "Flag indexed summaries treated as source evidence."}
+  ],
+  "forbidden_collapses": [
+    {"id": "summary_as_source_evidence", "description": "Display summaries must not be treated as source evidence."},
+    {"id": "lifecycle_as_known_fact", "description": "Generated candidates, rumors, prep, diagnostic-only records, and played truth must not collapse into a generic known-fact state."},
+    {"id": "ui_ref_type_as_taxonomy_owner", "description": "Surface ref types such as npc, location, statblock, and roll-table must not become ontology ownership."},
+    {"id": "surface_projection_as_corpus_truth", "description": "Projection payloads must not be treated as promoted corpus truth unless lifecycle/provenance says so."}
+  ],
+  "future_payload_required_fields": [
+    "adapter_key", "ref_id", "label", "source_anchor", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "canon_state", "provenance"
+  ]
+}
