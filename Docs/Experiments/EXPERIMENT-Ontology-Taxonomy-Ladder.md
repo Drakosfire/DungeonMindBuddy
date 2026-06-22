@@ -133,6 +133,24 @@ Report:
 
 This proves shape compatibility only. It requires `source_anchor`, `source_ref`, `provenance`, `evidence_role`, `authority_state`, `visibility_state`, `lifecycle_state`, and `canon_state`. It does not implement `/plan`, Agent Interaction, adapters, graph retrieval, shadow retrieval, or production behavior.
 
+### Projection-Readiness Report v0
+
+After proving one static projection-safe source-unit fixture, the ladder reports whether materialized session-memory source-unit records are projection-ready.
+
+Validator:
+
+`uv run python -m evals.graph_memory_layer.validate_projection_readiness_report`
+
+Report CLI:
+
+`uv run python -m evals.graph_memory_layer.report_projection_readiness`
+
+Human-readable report:
+
+`Docs/Reports/GRAPH-MEMORY-PROJECTION-READINESS-REPORT.md`
+
+This measures readiness only. It does not implement adapters, `/plan`, Agent Interaction, graph retrieval, shadow retrieval, corpus scanning, corpus mutation, or production behavior.
+
 | Concern | Owned by `/plan` | Owned by ontology ladder | Adapter contract |
 |---|---|---|---|
 | Projection UI | Yes | No | Receives projection-ready source units |
