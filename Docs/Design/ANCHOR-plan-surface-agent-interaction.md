@@ -2,13 +2,13 @@
 
 **Status:** Active anchor  
 **Updated:** 2026-06-22  
-**Scope:** `/plan` surface, toolbar/projection flow, Agent Interaction Bar/Pane, source-vocabulary adapter, Hermes-backed ask flow, and future app-level Agent Interaction provider.
+**Scope:** `/plan` surface, toolbar/projection flow, Agent Interaction Bar/Pane, source-vocabulary adapter, Hermes-backed ask flow, graph-memory preview awareness, and future app-level Agent Interaction provider.
 
 ---
 
 ## 1. One-Sentence Anchor
 
-The `/plan` Agent Interaction work is about turning DungeonBuddy's planning surface into a calm, inspectable GM workspace where a toolbar, canvas, projections, source-backed answers, and agent traces cooperate without turning the surface into a hidden knowledge store, raw retrieval dump, or unreviewed mutation layer.
+The `/plan` Agent Interaction work is about turning DungeonBuddy's planning surface into a calm, inspectable GM workspace where a toolbar, canvas, projections, source-backed answers, agent traces, and future graph-memory previews cooperate without turning the surface into a hidden knowledge store, raw retrieval dump, or unreviewed mutation layer.
 
 Short form:
 
@@ -16,8 +16,9 @@ Short form:
 /plan is the workshop surface.
 Agent Interaction is the inspectable assistant layer.
 SourceBundle is the evidence vocabulary.
+Graph previews are proposed memory diffs, not truth.
 Hermes is a possible runtime, not canon.
-The corpus and live packet remain the evidence authorities.
+The corpus, live packet, and approved graph memory remain bounded evidence authorities.
 ```
 
 ---
@@ -31,12 +32,13 @@ calm toolbar
 busy but understandable canvas
 projection layer for focused tools/details
 agent interaction layer for questions, traces, and guided next steps
+graph memory preview as trust surface, not diagnostics dashboard
 reviewed write boundaries for durable changes
 ```
 
 The `/plan` surface is the first place all of these pressures collide.
 
-Before this work, `/plan` had useful surface-local mechanics: a configured surface, a canvas, a transitional right-side Tools drawer, and projection affordances. The missing piece was a durable place for the GM to ask questions, inspect grounding, and let an agent help without losing trust in the evidence path.
+Before this work, `/plan` had useful surface-local mechanics: a configured surface, a canvas, a transitional right-side Tools drawer, and projection affordances. The missing piece was a durable place for the GM to ask questions, inspect grounding, evaluate proposed memory, and let an agent help without losing trust in the evidence path.
 
 This workstream gives that missing piece a shape.
 
@@ -74,7 +76,7 @@ Do not land this branch as one PR.
 Use it as the working branch to slice reviewable PRs.
 ```
 
-The branch proves useful product behavior, but the landing strategy must preserve separation between evidence vocabulary, agent runtime, UI surface, and generated artifacts.
+The branch proves useful product behavior, but the landing strategy must preserve separation between evidence vocabulary, agent runtime, UI surface, graph-memory preview, and generated artifacts.
 
 ---
 
@@ -84,13 +86,14 @@ Read in this order when picking the workstream back up:
 
 1. `Docs/Design/ANCHOR-plan-surface-agent-interaction.md` — this anchor.
 2. `Docs/Design/ROADMAP-plan-surface-agent-interaction.md` — landing roadmap and PR sequence.
-3. `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` — surface/toolbox architecture.
-4. `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` — SourceArtifact / SourceAnchor / SourceUnit boundary.
-5. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md` — rung tracking.
-6. `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md` — prior toolbar / ingestion plan.
-7. `Docs/Plans/HANDOFF-ontology-taxonomy-plan-surface-consumer-alignment.md` — alignment with graph-memory vocabulary.
-8. `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md` — Hermes spike continuity, if present on the branch.
-9. `.hermes.md` — Hermes memory/canon rules.
+3. `Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md` — graph-memory preview UX design handoff.
+4. `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` — surface/toolbox architecture.
+5. `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` — SourceArtifact / SourceAnchor / SourceUnit boundary.
+6. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md` — rung tracking.
+7. `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md` — prior toolbar / ingestion plan.
+8. `Docs/Plans/HANDOFF-ontology-taxonomy-plan-surface-consumer-alignment.md` — alignment with graph-memory vocabulary.
+9. `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md` — Hermes spike continuity, if present on the branch.
+10. `.hermes.md` — Hermes memory/canon rules.
 
 Related backlog idea:
 
@@ -207,21 +210,48 @@ hermes backend = preflight retrieval + Hermes synthesis + trace telemetry
 
 Hermes may eventually provide multi-turn conversation and tool loops. It must not become campaign canon or bypass DungeonBuddy's evidence/corpus boundaries.
 
+### 5.8 Graph Memory Preview
+
+Graph memory preview is the future GM trust surface for recap-derived memory.
+
+It should present extraction as:
+
+```txt
+proposed memory diff
+candidate graph
+source-backed preview
+approval/defer/reject workflow
+```
+
+It must not present extraction as truth.
+
+The graph preview will eventually connect to Agent Interaction through graph/entity/evidence chips, query result cards, and source deeplinks. But the first graph UX milestone is not graph-backed chat; it is GM trust evaluation:
+
+```txt
+Did the system understand my recap?
+What did it extract?
+What is uncertain?
+Where did each claim come from?
+What should be written, ignored, or deferred?
+```
+
 ---
 
 ## 6. Canon Decisions
 
 1. **Surface remains the top-level work abstraction.** `SurfaceConfig` composes Nav, Tool, Edit, Canvas, Projection, and Agent Interaction affordances.
-2. **`/plan` is the workshop, not the whole product.** The plan surface is where preparation, retrieval, arrangement, and tool-assisted thinking converge.
+2. **`/plan` is the workshop, not the whole product.** The plan surface is where preparation, retrieval, arrangement, graph-memory preview, and tool-assisted thinking converge.
 3. **Agent Interaction is app/user scoped in the target architecture.** The branch may prove it inside `/plan`, but the durable shape is app-level provider + bottom bar/pane.
 4. **The bottom bar is the durable interaction affordance.** The right-side Tools drawer is transitional surface-local implementation state.
 5. **Projection stays singular.** Agent Interaction should not create a second projection path.
-6. **Surfaces publish context; they do not own continuity.** Surface context helps the agent know where the GM is working, but continuity belongs to DungeonBuddy's corpus/live/session stores.
-7. **The provider stores pointers and bounded summaries only.** It must not store corpus bodies, normalized recap bodies, statblock content, graph internals, or raw retrieval payloads.
+6. **Surfaces publish context; they do not own continuity.** Surface context helps the agent know where the GM is working, but continuity belongs to DungeonBuddy's corpus/live/session/approved graph-memory stores.
+7. **The provider stores pointers and bounded summaries only.** It must not store corpus bodies, normalized recap bodies, statblock content, graph internals, raw retrieval payloads, or candidate graph payloads.
 8. **`IngestionSourceBundle` is the adapter vocabulary for recap-ingestion proof.** Agent Interaction consumes SourceArtifact / SourceAnchor / SourceUnit, not raw `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or corpus-impact internals.
 9. **Hermes must receive preflight evidence, not blind trust.** If Hermes synthesizes, the UI still needs retrieval/admission diagnostics.
 10. **Hermes memory is not campaign canon.** Conversation memory may exist as thread continuity, but campaign facts must be retrieved from DungeonBuddy evidence.
-11. **The current branch is a quarry, not a single PR.** Slice it before merge.
+11. **Graph preview is candidate memory, not canon.** Candidate nodes, relationships, summaries, aliases, and unresolved threads require GM review before any write/promotion semantics.
+12. **Source evidence is the trust layer.** Every meaningful graph candidate should expose evidence refs that can open source material and, eventually, highlight spans.
+13. **The current branch is a quarry, not a single PR.** Slice it before merge.
 
 ---
 
@@ -252,6 +282,7 @@ session_memory_jsonl bodies
 statblock markdown/content
 live operational state snapshots
 ontology graph internals
+candidate graph preview payloads
 Hermes raw session logs
 ```
 
@@ -264,6 +295,9 @@ prompt preview in local/dev mode
 source bundle locators
 coverage diagnostics
 artifact references
+graph preview candidates
+evidence snippets
+source span metadata
 warnings
 ```
 
@@ -275,6 +309,8 @@ absolute local filesystem paths
 Hermes session/log paths
 large retrieved excerpt payloads
 raw corpus routes exposed as product labels
+candidate graph extraction presented as canon
+opaque source_ref_id displayed as primary label
 ```
 
 ---
@@ -338,6 +374,27 @@ bounded turn summaries, no retrieved evidence bodies
 
 Avoid saying “metadata-only” if answer summaries are persisted.
 
+### Graph memory recap preview
+
+Graph preview should become the GM-facing proof of backend graph extraction value.
+
+The first useful preview is not a physics graph. It is a trust workflow:
+
+```txt
+Timeline / Beat View
+Graph View
+Selected Item Detail
+Evidence Drawer
+Proposed Write Diff
+Ignored / Deferred Drawer
+```
+
+The preview should default to:
+
+```txt
+Preview only. Nothing has been written to graph memory yet.
+```
+
 ---
 
 ## 9. Invariants
@@ -351,10 +408,12 @@ Do not duplicate projection paths.
 Do not duplicate statblock generation logic.
 Do not remove terminal fallback paths for ingestion.
 Do not create surface-owned corpus category enums.
-Do not build alias resolution, identity merge, relationship inference, or graph traversal here.
+Do not build alias resolution, identity merge, relationship inference, or graph traversal inside Agent Interaction.
 Do not store corpus content in provider/localStorage persistence.
+Do not store candidate graph previews in provider/localStorage persistence.
 Do not bypass corpus writer safety or two-phase commit.
 Do not treat Hermes memory as canon.
+Do not treat candidate graph extraction as canon.
 Do not land generated pytest live workspace artifacts.
 Do not land the current broad branch as one PR.
 ```
@@ -373,13 +432,14 @@ evals/c2_live_prep/live/_pytest/**
 
 2. Confirm whether generated manifest/library updates are required for the slice.
 3. Keep docs updates with the slice they support, or split them into a docs-only PR.
-4. Avoid bundling source-bundle adapter, Hermes runtime, and UI proof into one review.
+4. Avoid bundling source-bundle adapter, Hermes runtime, UI proof, and graph-memory preview work into one review.
 5. State whether the slice is:
 
 ```txt
 source-vocabulary adapter
 backend agent runtime
 /plan UI consumer
+graph-memory preview design
 docs/roadmap
 ```
 
@@ -421,6 +481,15 @@ cd apps/live-control-ui && npm test -- --run src/planSurface/PlanSurfaceShell.te
 uv run pytest tests/test_manifest_context_query.py tests/test_planning_corpus_manifest.py -q
 ```
 
+### Graph preview UX design
+
+Docs-only until explicitly authorized:
+
+```txt
+No runtime tests required.
+Review against GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md.
+```
+
 ---
 
 ## 12. Recommended Landing Shape
@@ -433,9 +502,13 @@ PR B — Hermes live-query backend + trace
 PR C — plan-scoped Agent Interaction bar proof
 PR D — docs / self-continuity cleanup
 PR E — app-level provider hoist
+PR F — Hermes session continuity spike
+PR G — graph memory recap preview UX design
 ```
 
 The first merge should be the source bundle adapter unless the operator explicitly prioritizes UI dogfood first.
+
+Graph preview UX should remain docs/design until the backend has a meaningful candidate graph preview contract.
 
 ---
 
@@ -445,14 +518,15 @@ When resuming this work:
 
 1. Read this file.
 2. Read `Docs/Design/ROADMAP-plan-surface-agent-interaction.md`.
-3. Compare the working branch against `main`.
-4. Remove pytest workspace artifacts before PR slicing.
-5. Pick exactly one slice from the roadmap.
-6. Write or update the slice handoff/allowlist before implementation.
-7. Do not expand the slice midstream because adjacent code is nearby.
+3. Read `Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md` if graph-memory preview or Agent Interaction graph chips are relevant.
+4. Compare the working branch against `main`.
+5. Remove pytest workspace artifacts before PR slicing.
+6. Pick exactly one slice from the roadmap.
+7. Write or update the slice handoff/allowlist before implementation.
+8. Do not expand the slice midstream because adjacent code is nearby.
 
 The question to ask before each change:
 
 ```txt
-Does this make /plan more inspectable and trustworthy without turning Agent Interaction into the database, the corpus, or hidden canon?
+Does this make /plan more inspectable and trustworthy without turning Agent Interaction into the database, the corpus, the graph store, or hidden canon?
 ```
