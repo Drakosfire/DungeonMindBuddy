@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { getSourceBundle, postLiveQuery } from "../../api/liveApi";
+import { getSourceBundle, postCitationSource, postLiveQuery } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
+  CitationSourceResponse,
   AgentInteractionTurn,
   IngestionSourceBundle,
   LiveQueryBackend,
-  LiveContextEvidenceRef,
-  LiveQueryCitation,
   LiveQueryResponse,
   PlanViewProjection,
   SourceUnit,
@@ -30,6 +29,7 @@ interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
+  readCitationSource?: typeof postCitationSource;
 }
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
@@ -42,6 +42,8 @@ interface EvidenceCard {
   sourceRole: string;
   authority: string;
   lineLabel: string;
+  lineStart: number | null;
+  lineEnd: number | null;
   textExcerpt: string | null;
 }
 
@@ -64,6 +66,8 @@ function evidenceCardsFromAnswer(answer: LiveQueryResponse): EvidenceCard[] {
       sourceRole: item.source_role,
       authority: item.authority,
       lineLabel: lineLabel(item.line_start, item.line_end),
+      lineStart: item.line_start ?? null,
+      lineEnd: item.line_end ?? null,
       textExcerpt: item.text_excerpt ?? null,
     });
   }
@@ -76,29 +80,26 @@ function evidenceCardsFromAnswer(answer: LiveQueryResponse): EvidenceCard[] {
       sourceRole: citation.source_role,
       authority: citation.authority,
       lineLabel: lineLabel(citation.line_start, citation.line_end),
+      lineStart: citation.line_start ?? null,
+      lineEnd: citation.line_end ?? null,
       textExcerpt: null,
     });
   }
   return Array.from(cards.values());
 }
 
-function evidenceMatchesCitation(item: LiveContextEvidenceRef, citation: LiveQueryCitation): boolean {
-  if (item.evidence_id && item.evidence_id === citation.evidence_id) return true;
-  return item.path === citation.path;
-}
-
-function currentSourceForAnswer(answer: LiveQueryResponse): LiveContextEvidenceRef | null {
-  const admitted = answer.context_packet?.admitted_evidence ?? [];
-  if (!admitted.length) return null;
-  const firstCitation = answer.citations?.[0];
-  if (firstCitation) {
-    return admitted.find((item) => evidenceMatchesCitation(item, firstCitation)) ?? admitted[0];
-  }
-  return admitted[0];
-}
-
-function highlightedEvidenceText(source: LiveContextEvidenceRef): string {
-  return source.text_excerpt?.trim() || "No in-pane source excerpt returned for this citation yet.";
+function renderSourceWithHighlight(source: CitationSourceResponse) {
+  const excerpt = source.highlight.text_excerpt?.trim();
+  if (!excerpt) return source.content;
+  const index = source.content.indexOf(excerpt);
+  if (index < 0) return source.content;
+  return (
+    <>
+      {source.content.slice(0, index)}
+      <mark>{excerpt}</mark>
+      {source.content.slice(index + excerpt.length)}
+    </>
+  );
 }
 
 const REQUIRED_INGEST_STAGES = [
@@ -147,6 +148,7 @@ export function PlanAgentInteractionBar({
   planView,
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
+  readCitationSource = postCitationSource,
 }: PlanAgentInteractionBarProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -160,6 +162,10 @@ export function PlanAgentInteractionBar({
   const [turns, setTurns] = useState<AgentInteractionTurn[]>([]);
   const [turnResponses, setTurnResponses] = useState<Record<string, LiveQueryResponse>>({});
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
+  const [selectedCitationKey, setSelectedCitationKey] = useState<string | null>(null);
+  const [sourceStatus, setSourceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [sourceResponse, setSourceResponse] = useState<CitationSourceResponse | null>(null);
 
   useEffect(() => {
     const storedThread = loadAgentThread(planView.campaign_id, "plan");
@@ -190,7 +196,6 @@ export function PlanAgentInteractionBar({
   } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
-  const currentSource = answer ? currentSourceForAnswer(answer) : null;
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
 
@@ -223,6 +228,26 @@ export function PlanAgentInteractionBar({
     setTurns([]);
     setActiveTurnId(null);
     setAskStatus("idle");
+  }
+
+  async function openCitationSource(card: EvidenceCard) {
+    setSelectedCitationKey(citationKey(card.path, card.evidenceId));
+    setSourceStatus("loading");
+    setSourceError(null);
+    setSourceResponse(null);
+    try {
+      const response = await readCitationSource({
+        path: card.path,
+        line_start: card.lineStart,
+        line_end: card.lineEnd,
+        text_excerpt: card.textExcerpt,
+      });
+      setSourceResponse(response);
+      setSourceStatus("ready");
+    } catch (loadError) {
+      setSourceStatus("error");
+      setSourceError(loadError instanceof Error ? loadError.message : "Unable to read citation source");
+    }
   }
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
@@ -268,6 +293,10 @@ export function PlanAgentInteractionBar({
       setThread(nextThread);
       setTurns(nextTurns);
       setActiveTurnId(nextTurn.turnId);
+      setSelectedCitationKey(null);
+      setSourceStatus("idle");
+      setSourceError(null);
+      setSourceResponse(null);
       setTurnResponses((previous) => ({ ...previous, [nextTurn.turnId]: response }));
       persistAgentThread(nextThread);
       setQuestion("");
@@ -384,7 +413,13 @@ export function PlanAgentInteractionBar({
                             type="button"
                             className="plan-agent-history-item"
                             data-active={turn.turnId === activeTurnId}
-                            onClick={() => setActiveTurnId(turn.turnId)}
+                            onClick={() => {
+                              setActiveTurnId(turn.turnId);
+                              setSelectedCitationKey(null);
+                              setSourceStatus("idle");
+                              setSourceError(null);
+                              setSourceResponse(null);
+                            }}
                           >
                             <strong>{turn.question}</strong>
                             <span>
@@ -420,24 +455,31 @@ export function PlanAgentInteractionBar({
                         <h4>Citation card</h4>
                         <ul>
                           {citationCards.map((card) => (
-                            <li key={`${card.path}-${card.evidenceId}`}>
+                            <li key={`${card.path}-${card.evidenceId}`} data-selected={selectedCitationKey === citationKey(card.path, card.evidenceId)}>
                               <strong>{card.evidenceId}</strong>
                               <span>{card.sourceRole} · {card.authority} · {card.lineLabel}</span>
                               <code>{card.path}</code>
                               {card.textExcerpt ? <p>{card.textExcerpt}</p> : null}
+                              <button type="button" onClick={() => void openCitationSource(card)}>
+                                Open source
+                              </button>
                             </li>
                           ))}
                         </ul>
                       </section>
                     ) : null}
-                    {currentSource ? (
+                    {sourceStatus !== "idle" ? (
                       <section className="plan-agent-source-reader" aria-label="Current source reader">
                         <div>
                           <p className="plan-surface-kicker">Current source reader</p>
-                          <h4>{currentSource.source_role} · {lineLabel(currentSource.line_start, currentSource.line_end)}</h4>
-                          <code>{currentSource.path}</code>
+                          <h4>{sourceStatus === "loading" ? "Loading source…" : sourceResponse?.path ?? "Source unavailable"}</h4>
+                          {sourceResponse ? <code>{sourceResponse.path}</code> : null}
                         </div>
-                        <pre><mark>{highlightedEvidenceText(currentSource)}</mark></pre>
+                        {sourceStatus === "loading" ? <p className="plan-agent-muted">Reading current source content…</p> : null}
+                        {sourceStatus === "error" ? <p className="plan-agent-error">{sourceError ?? "Unable to read citation source."}</p> : null}
+                        {sourceResponse ? (
+                          <pre>{renderSourceWithHighlight(sourceResponse)}</pre>
+                        ) : null}
                       </section>
                     ) : null}
                     {packetReview ? (

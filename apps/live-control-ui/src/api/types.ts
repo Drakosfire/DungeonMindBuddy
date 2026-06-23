@@ -455,6 +455,29 @@ export interface AgentInteractionTurnMeta {
   stepCount: number | null;
 }
 
+
+export interface CitationSourceRequest {
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  text_excerpt?: string | null;
+}
+
+export interface CitationSourceResponse {
+  schema_version: "dmb_citation_source_v1";
+  path: string;
+  content_type: "text/markdown" | "text/plain";
+  content: string;
+  truncated: boolean;
+  highlight: {
+    line_start: number | null;
+    line_end: number | null;
+    text_excerpt: string | null;
+    match_source: "line_range" | "excerpt_search" | "none";
+  };
+  diagnostics: string[];
+}
+
 export interface LiveQueryResponse {
   schema?: string;
   query_id?: string;

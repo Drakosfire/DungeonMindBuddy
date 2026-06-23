@@ -72,16 +72,37 @@ describe("PlanSurfaceShell", () => {
             next_suggestions: [],
             diagnostics: [],
             provenance: {},
-            citations: [{ evidence_id: "e1", path: "x", line_start: null, line_end: null }],
+            citations: [{ evidence_id: "e1", path: "corpus/test/session.md", line_start: 2, line_end: 2, source_role: "play_recap", authority: "canon_play" }],
             context_packet: {
               admitted_evidence: [{
-                path: "x",
+                evidence_id: "e1",
+                path: "corpus/test/session.md",
                 source_role: "play_recap",
                 authority: "canon_play",
-                text_excerpt: "Session 22 added the Lysandro gate reveal.",
+                line_start: 2,
+                line_end: 2,
+                text_excerpt: "Stale packet excerpt should not be the reader body.",
               }],
               rejected_evidence: [{ reason_code: "authority_mismatch", evidence: { path: "y" } }],
             },
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_citation_source_v1",
+            path: "corpus/test/session.md",
+            content_type: "text/markdown",
+            content: "# Session file\nCurrent source content has the Lysandro gate reveal.\nMore notes.",
+            truncated: false,
+            highlight: {
+              line_start: 2,
+              line_end: 2,
+              text_excerpt: "Current source content has the Lysandro gate reveal.",
+              match_source: "line_range",
+            },
+            diagnostics: ["read-only source lookup", "no events or jobs written"],
           }),
       } as Response);
 
@@ -97,14 +118,25 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
-    expect(screen.getAllByText("Session 22 added the Lysandro gate reveal.").length).toBeGreaterThan(0);
     expect(screen.getByRole("region", { name: "Agent answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
     expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Citation cards" })).toHaveTextContent("play_recap · canon_play");
-    expect(screen.getByRole("region", { name: "Current source reader" })).toHaveTextContent("Session 22 added the Lysandro gate reveal.");
+    expect(screen.queryByRole("region", { name: "Current source reader" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open source" }));
+
+    const sourceReader = await screen.findByRole("region", { name: "Current source reader" });
+    expect(sourceReader).toHaveTextContent("Current source content has the Lysandro gate reveal.");
+    expect(sourceReader).not.toHaveTextContent("Stale packet excerpt should not be the reader body.");
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
+    expect(storedThreadId).toBeTruthy();
+    expect(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "").not.toContain("Current source content has the Lysandro gate reveal.");
     expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "live" });
+    const sourceCall = vi.mocked(globalThis.fetch).mock.calls[2];
+    expect(String(sourceCall[0])).toContain("/api/live/citation-source");
+    expect(JSON.parse(String(sourceCall[1]?.body))).toMatchObject({ path: "corpus/test/session.md", line_start: 2, line_end: 2 });
   });
 
   it("can route the Agent Interaction drawer through Hermes tools", async () => {

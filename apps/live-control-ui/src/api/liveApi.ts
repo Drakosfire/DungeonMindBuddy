@@ -7,6 +7,8 @@ import type {
   ProjectionCommand,
   ProjectionWriteResult,
   ProjectionTarget,
+  CitationSourceRequest,
+  CitationSourceResponse,
   LiveQueryResponse,
   LiveQueryBackend,
   LiveQueryOptions,
@@ -160,6 +162,15 @@ export async function postCommand(command: ProjectionCommand): Promise<Projectio
   return apiFetch<ProjectionWriteResult>("/api/live/commands", {
     method: "POST",
     body: JSON.stringify(command),
+  });
+}
+
+export async function postCitationSource(
+  request: CitationSourceRequest,
+): Promise<CitationSourceResponse> {
+  return apiFetch<CitationSourceResponse>("/api/live/citation-source", {
+    method: "POST",
+    body: JSON.stringify(request),
   });
 }
 

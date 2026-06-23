@@ -1175,3 +1175,18 @@ body.plan-toolbox-open {
   color: var(--fg, #e8eaef);
   padding: 0.08rem 0.18rem;
 }
+
+.plan-agent-citation-cards li[data-selected="true"] {
+  border-color: rgba(250, 204, 21, 0.8);
+  background: rgba(250, 204, 21, 0.1);
+}
+
+.plan-agent-citation-cards button {
+  justify-self: start;
+  border: 1px solid rgba(122, 162, 247, 0.65);
+  border-radius: 999px;
+  background: rgba(122, 162, 247, 0.16);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+}

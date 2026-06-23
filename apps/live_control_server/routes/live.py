@@ -8,6 +8,12 @@ from pydantic import BaseModel, Field
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.live_agent_loop import process_live_query
+from apps.live_control_server.services.citation_source_reader import (
+    CitationSourceError,
+    CitationSourceRequest,
+    CitationSourceResponse,
+    read_citation_source,
+)
 from apps.live_control_server.session_store import (
     complete_job,
     events_since,
@@ -209,6 +215,21 @@ def _target_from_session(
         status_code=404, detail=f"unknown target id for roll_table: {target_id}"
     )
 
+
+
+
+@router.post(
+    "/citation-source",
+    response_model=CitationSourceResponse,
+)
+def post_citation_source(body: CitationSourceRequest) -> dict[str, Any]:
+    try:
+        response = read_citation_source(repo_root(), body)
+    except CitationSourceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="citation source read failed") from exc
+    return response.model_dump(mode="json")
 
 @router.get(
     "/source-bundle",
