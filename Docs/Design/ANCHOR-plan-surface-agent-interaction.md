@@ -13,6 +13,7 @@ The workstream has a committed vertical slice for `/plan` recap ingestion in the
 - The ingestion workflow can run through the UI and expose proof/impact metadata.
 - The latest committed checkpoint is `588f7ab feat(plan): add recap ingest toolbar workflow`.
 - Tier-1 plan-doc cleanup landed in `45d1e37 docs(plans): archive completed handoffs to 2026-06-22 batch`.
+- **Conversational Hermes / Agent Interaction** (threads, citations, tool parity) is a parallel track on branch `cursor/hermes-agent-interaction-bar` (~`eac1b8f` spike). Re-anchor at `Docs/Design/ANCHOR-agent-interaction-hermes.md` + `Docs/Design/UX-STORIES-agent-interaction-hermes.md`; engineering handoff at `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
