@@ -1,7 +1,7 @@
 # Ontology & Taxonomy Ladder Workstream
 
 Version: 0.11
-Status: active operational anchor — post-source-span-evidence-resolver checkpoint
+Status: active operational anchor — post-candidate-graph-preview-ir checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
@@ -35,20 +35,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 21. Recap-Ingestion Projection Payload Fixture v0
 22. Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0
 23. Source Span Evidence Resolver Contract v0
+24. Candidate Graph Preview IR v0
 
 The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, then dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Candidate Graph Preview IR v0**.
+The next checkpoint is **Rich Recap Dogfood Fixture v0**.
 
-That next PR should define the preview-only candidate graph object model before adapter or `/plan` shadow work.
+The workstream now has a preview-only candidate graph object model with nodes, edges, beats, proposed writes, ignored/deferred items, semantic states, diagnostics, and evidence refs compatible with the source-span evidence resolver. The next backend rung should supply a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Candidate Graph Preview IR v0`.
+The next technical checkpoint is `Rich Recap Dogfood Fixture v0`.
 
-That PR should define candidate nodes, edges, session beats, evidence refs, proposed writes, ignored/deferred items, semantic states, and diagnostics before adapter or `/plan` shadow work.
+Candidate Graph Preview IR v0 is complete. The next PR should add richer dogfood recap inputs for later gold candidate graph pairing before adapter or `/plan` shadow work.
 
 It must continue to block:
 
@@ -804,3 +805,11 @@ Human-readable guide:
 `evals/graph_memory_layer/SESSION-MEMORY-MATERIALIZER.md`
 
 This materializer consumes only explicit session-memory JSONL sentence/source-unit records. The default validator uses a tiny synthetic fixture. It emits candidate/internal/diagnostic source-document and source-unit graph records with provenance and source refs. It does not scan corpus files, parse Markdown/Tiptap output, read manifests, infer entities, resolve aliases, emit promoted facts, call LLMs, or affect production retrieval.
+
+
+## Candidate Graph Preview IR v0
+
+The workstream now has a preview-only candidate graph object model with nodes, edges, beats, proposed writes, ignored/deferred items, semantic states, diagnostics, and evidence refs compatible with the source-span evidence resolver. The next backend rung should supply a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph.
+
+Next backend PR: Rich Recap Dogfood Fixture v0.
+Current checkpoint: post-candidate-graph-preview-ir checkpoint.

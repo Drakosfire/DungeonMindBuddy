@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-source-span-evidence-resolver checkpoint
+Status: active current anchor — post-candidate-graph-preview-ir checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -139,26 +139,20 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend PR:
 
 ```text
-graph-memory: add candidate graph preview IR v0
+graph-memory: add rich recap dogfood fixture v0
 ```
 
 Mission:
 
-Define a preview-only Candidate Graph Preview IR v0 that can attach resolvable evidence refs to candidate nodes, edges, beats, proposed writes, ignored items, and deferred items.
+Add a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph. The workstream now has a preview-only candidate graph object model with nodes, edges, beats, proposed writes, ignored/deferred items, semantic states, diagnostics, and evidence refs compatible with the source-span evidence resolver. The next backend rung should supply a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph.
 
-Why this comes next:
+Completed rung:
 
-The source span evidence resolver contract now proves that source refs can resolve into bounded evidence objects. Candidate graph preview IR can therefore require evidence-backed graph candidates without implementing extraction, approval, retrieval, runtime routes, `/plan`, or Agent Interaction.
+```text
+Candidate Graph Preview IR v0
+```
 
-Required capabilities:
-
-- candidate nodes, edges, beats, and proposed writes can carry evidence refs
-- preview records remain inspectable before any write or promotion
-- ignored and deferred items are explicit
-- semantic state and diagnostics remain visible
-- no entity extraction, relationship inference, fact promotion, or canon promotion occurs in production
-
-No LLM extraction in this PR.
+No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added by the next fixture PR.
 
 ## Immediate Next Frontend/Design PR
 

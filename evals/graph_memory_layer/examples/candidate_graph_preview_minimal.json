@@ -1,0 +1,500 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "preview:redacted-lantern-archive:minimal",
+  "campaign_id": "campaign:redacted-lantern",
+  "session_id": "dogfood-session-17",
+  "source_artifact_ids": [
+    "source-artifact:normalized_recap_markdown:dogfood",
+    "source-artifact:breadcrumbed_recap_markdown:dogfood"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:party",
+      "label": "The party",
+      "node_type": "group",
+      "description": "The adventuring group in the recap.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "party return evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high"
+    },
+    {
+      "node_id": "node:sealed-archive",
+      "label": "Sealed archive",
+      "node_type": "location",
+      "description": "Archive revisited under a pause in hostilities.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "sealed archive evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high"
+    },
+    {
+      "node_id": "node:courier",
+      "label": "Unnamed courier",
+      "node_type": "unknown_important",
+      "description": "Unnamed but important courier who delivered a warning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "courier evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:breadcrumb-warning",
+          "label": "breadcrumb courier evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "Unnamed-but-important node; identity not resolved."
+      ]
+    },
+    {
+      "node_id": "node:unsigned-warning",
+      "label": "Unsigned warning",
+      "node_type": "warning",
+      "description": "A warning delivered without an identified author.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "unsigned warning evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:breadcrumb-warning",
+          "label": "breadcrumb warning evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high"
+    },
+    {
+      "node_id": "node:prior-notes",
+      "label": "Previous watch notes",
+      "node_type": "clue",
+      "description": "Notes used to compare against the warning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "prior notes evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium"
+    },
+    {
+      "node_id": "node:unresolved-motive",
+      "label": "Courier motive unresolved",
+      "node_type": "thread",
+      "description": "The courier's motive remains unresolved and is not promoted as fact.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:breadcrumb-warning",
+          "label": "unresolved motive breadcrumb evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [
+        "Unresolved thread; defer interpretation."
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:party-returned-to-archive",
+      "from_node_id": "node:party",
+      "to_node_id": "node:sealed-archive",
+      "label": "returned to",
+      "relationship_type": "returned_to",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "return relationship evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high"
+    },
+    {
+      "edge_id": "edge:courier-delivered-warning",
+      "from_node_id": "node:courier",
+      "to_node_id": "node:unsigned-warning",
+      "label": "delivered",
+      "relationship_type": "delivered",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "delivery relationship evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high"
+    },
+    {
+      "edge_id": "edge:party-compared-warning-notes",
+      "from_node_id": "node:party",
+      "to_node_id": "node:prior-notes",
+      "label": "compared the warning against",
+      "relationship_type": "compared_against",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "comparison relationship evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium"
+    },
+    {
+      "edge_id": "edge:unresolved-motive-concerns-courier",
+      "from_node_id": "node:unresolved-motive",
+      "to_node_id": "node:courier",
+      "label": "concerns",
+      "relationship_type": "concerns",
+      "semantic_state": {
+        "canon_state": "candidate_extraction",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:breadcrumb-warning",
+          "label": "motive concern evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low"
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:archive-return",
+      "order": 1,
+      "title": "Archive return",
+      "summary": "The party returned to the sealed archive.",
+      "involved_node_ids": [
+        "node:party",
+        "node:sealed-archive"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "archive return beat evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": []
+    },
+    {
+      "beat_id": "beat:warning-delivered",
+      "order": 2,
+      "title": "Warning delivered",
+      "summary": "A courier delivered an unsigned warning.",
+      "involved_node_ids": [
+        "node:courier",
+        "node:unsigned-warning"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "warning delivered beat evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:unresolved-motive"
+      ]
+    },
+    {
+      "beat_id": "beat:warning-compared",
+      "order": 3,
+      "title": "Warning compared",
+      "summary": "The group compared the warning against prior notes.",
+      "involved_node_ids": [
+        "node:party",
+        "node:unsigned-warning",
+        "node:prior-notes"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "warning compared beat evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:unresolved-motive"
+      ]
+    }
+  ],
+  "proposed_writes": [
+    {
+      "write_id": "write:create-party",
+      "write_type": "create_node",
+      "target_id": "node:party",
+      "label": "Create party node",
+      "reason": "Represent the group as a candidate node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "party write evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-warning",
+      "write_type": "create_node",
+      "target_id": "node:unsigned-warning",
+      "label": "Create unsigned warning node",
+      "reason": "Represent the delivered warning as a candidate warning.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "warning write evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-delivery-edge",
+      "write_type": "create_edge",
+      "target_id": "edge:courier-delivered-warning",
+      "label": "Create courier delivery edge",
+      "reason": "Represent the delivery relationship as pending write intent.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "delivery write evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignored_items": [
+    {
+      "item_id": "ignored:archive-key-uncertain",
+      "label": "Archive key remains uncertain",
+      "reason": "Do not promote as fact because the fixture does not establish key ownership or use.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:archive-return",
+          "label": "archive-key navigation evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": [
+        "Ignored item is inspectable but not a fact."
+      ]
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:warning-author",
+      "label": "Warning author unknown",
+      "reason": "The warning is unsigned; authorship should wait for later evidence.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+          "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+          "source_anchor_id": "anchor:warning-and-notes",
+          "label": "warning author deferral evidence",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Check later recap evidence for the warning author.",
+      "warnings": [
+        "Deferred item is not promoted to canon."
+      ]
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 3
+  }
+}

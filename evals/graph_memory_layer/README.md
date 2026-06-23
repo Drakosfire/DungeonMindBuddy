@@ -257,3 +257,12 @@ The source span evidence resolver fixture validates that source refs can resolve
 uv run python -m evals.graph_memory_layer.validate_source_span_resolver_fixture
 uv run python -m evals.graph_memory_layer.report_source_span_resolver_fixture
 ```
+
+## Candidate Graph Preview IR v0
+
+The candidate graph preview IR fixture validates a preview-only object model for recap-derived graph candidates. Candidate nodes, edges, session beats, proposed writes, ignored items, and deferred items carry evidence refs compatible with the source span evidence resolver. This is an IR and fixture contract only; it does not perform extraction, approval, graph writes, query execution, `/plan` integration, Agent Interaction integration, corpus scanning, corpus mutation, or production behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_candidate_graph_preview_ir
+uv run python -m evals.graph_memory_layer.report_candidate_graph_preview_ir
+```
