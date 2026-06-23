@@ -4,6 +4,7 @@ import type {
   AgentInteractionTurn,
   AgentInteractionTurnMeta,
   LiveQueryBackend,
+  AgentInteractionTrace,
   LiveQueryResponse,
 } from "../../api/types";
 
@@ -63,6 +64,45 @@ function contextSummaryFromResponse(response: LiveQueryResponse): AgentInteracti
   return {
     admitted_count: response.context_packet.admitted_evidence?.length ?? 0,
     rejected_count: response.context_packet.rejected_evidence?.length ?? 0,
+  };
+}
+
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+export function safeTraceForPersistence(
+  trace: AgentInteractionTrace | null | undefined,
+): AgentInteractionTrace | null {
+  if (!trace) return null;
+  return {
+    trace_id: trace.trace_id,
+    runtime: trace.runtime,
+    backend: trace.backend,
+    mode: trace.mode,
+    provider: trace.provider ?? null,
+    model: trace.model ?? null,
+    started_at: trace.started_at,
+    completed_at: trace.completed_at,
+    elapsed_ms: trace.elapsed_ms,
+    status: trace.status,
+    toolset: trace.toolset ?? null,
+    command_summary: trace.command_summary ?? null,
+    prompt_preview: undefined,
+    prompt_char_count: trace.prompt_char_count ?? null,
+    prompt_token_estimate: trace.prompt_token_estimate ?? null,
+    usage: trace.usage,
+    steps: (trace.steps ?? []).slice(0, 12).map((step) => ({
+      name: step.name,
+      summary: step.name,
+    })),
+    context_summary: trace.context_summary,
+    artifact_refs: (trace.artifact_refs ?? []).map((ref) => ({
+      kind: ref.kind,
+      label: ref.label,
+      path: ref.path && !isAbsolutePath(ref.path) ? ref.path : "",
+    })),
+    warnings: trace.warnings ?? [],
   };
 }
 
@@ -133,7 +173,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
       ...turn,
       contextSummary: turn.contextSummary,
       citations: turn.citations ?? [],
-      trace: turn.trace ?? null,
+      trace: safeTraceForPersistence(turn.trace),
       warnings: turn.warnings ?? [],
     })),
   };

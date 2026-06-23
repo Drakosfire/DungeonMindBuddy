@@ -121,6 +121,8 @@ def test_context_question_does_not_resolve_roll(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["classification"]["latency_mode"] == "context_lookup"
+    assert body["agent_thread_id"].startswith("agent-thread-")
+    assert body["turn_id"].startswith("agent-turn-")
     assert "Hail dent" not in body["answer"]
 
 

@@ -389,7 +389,11 @@ def process_live_query(
             session=int(packet["session"]),
             request_manifest_path=request_manifest_path,
         )
-        return context_result.response
+        return _with_conversation_fields(
+            context_result.response,
+            agent_thread_id=resolved_agent_thread_id,
+            turn_id=resolved_turn_id,
+        )
 
     result: LiveTurnResult = handle_live_turn(
         packet,
