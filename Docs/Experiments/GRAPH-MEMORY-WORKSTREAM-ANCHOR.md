@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-rich-recap-dogfood-fixture checkpoint
+Status: active current anchor — post-session-23-raw-recap-ingest-fixture checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -50,9 +50,9 @@ explicit recap artifacts
 → human dogfood evaluation
 ```
 
-The latest practical finding is that the current dogfood proved wrapper and safety survival, but did **not** prove GM-facing value.
+The latest practical finding is that Graph Memory now has a deterministic Session 23 raw-to-normalized recap fixture using the existing recap-ingest helper spine. The fixture preserves paragraph/source-line provenance and validates source-span seed refs without LLMs, graph extraction, corpus writes, or runtime integration.
 
-The workstream now has a contract proving that source refs can resolve to bounded source evidence objects with openability and highlightability flags. This enables the next candidate graph preview IR rung, because candidate nodes, edges, beats, and proposed writes can now require resolvable evidence refs.
+The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
 The current reports count payload units and readiness states. Those are useful developer diagnostics, but they are not the product surface. The next product artifact must let the GM inspect whether the recap was understood.
 
@@ -66,7 +66,8 @@ Recent completed rungs:
 4. Recap-Ingestion Dogfood Evaluation Report v0, captured as design guidance
 5. Source Span Evidence Resolver Contract v0
 6. Candidate Graph Preview IR v0
-7. Rich Recap Dogfood Fixture v0
+7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
+8. Session 23 Raw Recap Ingest Fixture v0
 
 The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
 
@@ -125,14 +126,15 @@ The team needs these foundations before any runtime or `/plan` integration:
 1. Source Span / Evidence Resolver Contract
 2. Candidate Graph Preview IR
 3. Rich Recap Dogfood Fixture
-4. Hand-authored Candidate Graph Gold Fixture
-5. Multi-pass Extraction Contract
-6. Eval-only LLM Extractor Harness
-7. Preview Graph UX Design Spec
-8. Static Preview Graph UI Prototype
-9. Query Vocabulary Fixture
-10. Agent Interaction Chip Payload Contract
-11. Preview Approval / Write Intent Contract
+4. Session 23 Raw Recap Ingest Fixture
+5. Session 23 Hand-authored Candidate Graph Gold Fixture
+6. Multi-pass Extraction Contract
+7. Eval-only LLM Extractor Harness
+8. Preview Graph UX Design Spec
+9. Static Preview Graph UI Prototype
+10. Query Vocabulary Fixture
+11. Agent Interaction Chip Payload Contract
+12. Preview Approval / Write Intent Contract
 
 Runtime/shadow experiments should come only after those contracts exist.
 
@@ -141,17 +143,18 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend PR:
 
 ```text
-graph-memory: add hand-authored candidate graph gold fixture v0
+graph-memory: add session 23 hand-authored candidate graph gold fixture v0
 ```
 
 Mission:
 
-Add a hand-authored gold candidate graph preview for the rich recap dogfood fixture, using Candidate Graph Preview IR v0 and Source Span Evidence Resolver Contract v0. The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output.
+Add a hand-authored gold candidate graph preview for Session 23, using Candidate Graph Preview IR v0, Source Span Evidence Resolver Contract v0, and the Session 23 raw-to-normalized recap ingest fixture. The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture, while Session 23 is now the first real campaign source fixture for graph-memory gold evaluation. This fixture does not contain extracted graph output.
 
 Completed rung:
 
 ```text
 Rich Recap Dogfood Fixture v0
+Session 23 Raw Recap Ingest Fixture v0
 ```
 
 No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added by the next gold fixture PR.
@@ -309,18 +312,20 @@ Until explicitly gated in later PRs, do not implement:
 
 Recommended sequence:
 
-1. Source Span Evidence Resolver Contract v0
-2. Candidate Graph Preview IR v0
-3. Rich Recap Dogfood Fixture v0
-4. Hand-Authored Candidate Graph Gold Fixture v0
-5. Multi-Pass Extraction Contract v0
-6. Eval-Only LLM Extractor Harness v0
-7. Preview Graph UX Design Spec v0
-8. Static Preview Graph UI Prototype v0
-9. Query Vocabulary Fixture v0
-10. Agent Interaction Chip Payload Contract v0
-11. Preview Approval / Write Intent Contract v0
-12. Shadow runtime experiments, only after explicit gates
+1. Source Span Evidence Resolver Contract v0 — done
+2. Candidate Graph Preview IR v0 — done
+3. Rich Recap Dogfood Fixture v0 — done, synthetic/control fixture
+4. Session 23 Raw Recap Ingest Fixture v0 — done
+5. Session 23 Hand-Authored Candidate Graph Gold Fixture v0 — next
+6. Multi-Pass Extraction Contract v0
+7. Eval-Only LLM Extractor Harness v0
+8. Candidate Graph Comparison / Scoring v0
+9. Preview Graph UX Design Spec v0
+10. Static Preview Graph UI Prototype v0
+11. Query Vocabulary Fixture v0
+12. Agent Interaction Chip Payload Contract v0
+13. Preview Approval / Write Intent Contract v0
+14. Shadow runtime experiments only after explicit gates
 
 ## Success Bar
 
@@ -343,19 +348,20 @@ If the work only produces more tables that say `ready`, it is not enough.
 
 We are building toward a preview-only, evidence-backed candidate graph that turns a real recap into inspectable, approvable, queryable graph memory for future Agent Interaction — without allowing the graph to affect runtime, `/plan`, retrieval, corpus, or canon until later gates explicitly permit it.
 
-## Post-Rich-Recap-Dogfood-Fixture Checkpoint
+## Post-Session-23-Raw-Recap-Ingest-Fixture Checkpoint
 
-Current checkpoint: post-rich-recap-dogfood-fixture checkpoint.
+Current checkpoint: post-session-23-raw-recap-ingest-fixture checkpoint.
 
 Completed recent rungs:
 
 5. Source Span Evidence Resolver Contract v0
 6. Candidate Graph Preview IR v0
-7. Rich Recap Dogfood Fixture v0
+7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
+8. Session 23 Raw Recap Ingest Fixture v0
 
-The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output. The next backend rung should add a hand-authored gold candidate graph preview for this rich recap, using the Candidate Graph Preview IR and Source Span Evidence Resolver contracts.
+The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend PR: Hand-Authored Candidate Graph Gold Fixture v0.
+Next backend PR: graph-memory: add session 23 hand-authored candidate graph gold fixture v0.
 
 ## post-session-23-raw-recap-ingest-fixture checkpoint
 
