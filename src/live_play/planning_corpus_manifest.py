@@ -413,6 +413,8 @@ def build_planning_corpus_manifest(
                 route, exists = _route_and_exists(
                     repo / source_path, repo=repo, fallback=repo
                 )
+                if route in roll_routes:
+                    continue
                 roll_routes.add(route)
                 title = table.get("title") or table.get("table_id") or "roll table"
                 entries.append(

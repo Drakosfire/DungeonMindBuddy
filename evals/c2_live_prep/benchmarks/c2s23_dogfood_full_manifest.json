@@ -7,7 +7,7 @@
     22,
     23
   ],
-  "generated_at": "2026-06-02T16:07:16Z",
+  "generated_at": "2026-06-22T03:51:17Z",
   "entries": [
     {
       "source_id": "fresh_recap-s23-session-23-recap-md",
@@ -22,7 +22,9 @@
       "allowed_uses": [
         "planning_input"
       ],
-      "forbidden_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
       "notes": "Fresh recap bootstrapped into the workspace; planning input until ingested."
     },
     {
@@ -1099,52 +1101,61 @@
       "notes": "Played recap of what happened; canonical play memory."
     },
     {
-      "source_id": "play_recap-s23-breadcrumbed-session-23-uningested-breadcrumbed-md",
+      "source_id": "play_recap-s23-breadcrumbed-session-23-session-23-mireward-breadcrumbed-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         23
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - (uningested).breadcrumbed.md",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - session-23-mireward.breadcrumbed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
       ],
-      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory."
     },
     {
-      "source_id": "play_recap-s23-normalized-session-23-uningested-md",
+      "source_id": "play_recap-s23-normalized-session-23-session-23-mireward-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         23
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - (uningested).md",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - session-23-mireward.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
       ],
-      "notes": "Normalized recap; canonical play memory. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Normalized recap; canonical play memory."
     },
     {
-      "source_id": "play_recap-s23-session-recaps-session-23-uningested-md",
+      "source_id": "play_recap-s23-session-recaps-session-23-session-23-mireward-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         23
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - (uningested).md",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - session-23-mireward.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
       ],
-      "notes": "Played recap of what happened; canonical play memory. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Played recap of what happened; canonical play memory."
     },
     {
       "source_id": "prep_scaffold-s21-session-prep-session-21-brainstorming-dump-md",
@@ -1432,6 +1443,25 @@
       "notes": "GM prep scaffold; planning intent, not a played fact."
     },
     {
+      "source_id": "roll_table-s23-tiptap-north-gate-session-runbook-md",
+      "source_role": "roll_table",
+      "authority": "reference_tool",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "table_use",
+        "table_patch"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Prep roll table (Mireward Reach respite events d8); a tool, not a played fact."
+    },
+    {
       "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-json",
       "source_role": "session_memory",
       "authority": "derived_memory",
@@ -1508,36 +1538,42 @@
       "notes": "Retrieval records derived from the recap."
     },
     {
-      "source_id": "session_memory-s23-session-memory-session-23-uningested-records-meta-json",
+      "source_id": "session_memory-s23-session-memory-session-23-session-23-mireward-records-meta-json",
       "source_role": "session_memory",
       "authority": "derived_memory",
       "session_scope": [
         23
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.json",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
       ],
-      "notes": "Retrieval-record metadata derived from the recap. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Retrieval-record metadata derived from the recap."
     },
     {
-      "source_id": "session_memory-s23-session-memory-session-23-uningested-records-meta-jsonl",
+      "source_id": "session_memory-s23-session-memory-session-23-session-23-mireward-records-meta-jsonl",
       "source_role": "session_memory",
       "authority": "derived_memory",
       "session_scope": [
         23
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.jsonl",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
       ],
-      "notes": "Retrieval records derived from the recap. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Retrieval records derived from the recap."
     },
     {
       "source_id": "table_notes-s21-ingest-staging-session-21-raw-notes-md",
@@ -1566,6 +1602,25 @@
         22
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Pre-canonical table notes; provenance only now that the recap exists."
+    },
+    {
+      "source_id": "table_notes-s23-ingest-staging-session-23-raw-notes-md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_23_raw_notes.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -1675,6 +1730,50 @@
         23
       ],
       "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/Threnn-of-Second-Bloom.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-brin-holloway-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-brin-holloway-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -1939,6 +2038,50 @@
         23
       ],
       "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-delwen-rast-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-delwen-rast-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -2269,6 +2412,94 @@
         23
       ],
       "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-lysandro-ironveil-lysandro-ironveil-character-dossier-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-lysandro-ironveil-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-maera-vell-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-maera-vell-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -2832,6 +3063,182 @@
       "notes": "Elderwyld world-layer reference; not play proof."
     },
     {
+      "source_id": "world_evidence-s21-nera-coalstep-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-nera-coalstep-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-orin-vell-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-orin-vell-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-orric-tane-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-orric-tane-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-private-hester-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-private-hester-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
       "source_id": "world_evidence-s21-roads-mireward-reach-road-d100-encounter-table-md",
       "source_role": "world_evidence",
       "authority": "reference_tool",
@@ -2929,6 +3336,50 @@
         23
       ],
       "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-salla-vey-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-salla-vey-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -3250,6 +3701,50 @@
       "notes": "Elderwyld world-layer reference; not play proof."
     },
     {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-aberrant-meat-wing-statblock-cr1-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-corrupted-meat-golem-statblock-cr3-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
       "source_id": "world_evidence-s21-statblocks-and-tokens-dustwalker-md",
       "source_role": "world_evidence",
       "authority": "reference_tool",
@@ -3259,6 +3754,160 @@
         23
       ],
       "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-fleshborn-hybrid-statblock-cr3-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-latch-harrow-statblock-cr8-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-meat-worm-statblock-cr-half-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-sewer-meat-creature-statblock-cr3-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-shephards-flock-cultist-statblock-cr1-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-tripod-null-calf-statblock-cr5-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [

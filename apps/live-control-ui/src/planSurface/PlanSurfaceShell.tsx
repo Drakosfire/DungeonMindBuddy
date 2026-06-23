@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
+import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
 import { PlanEditBar } from "./components/PlanEditBar";
 import { PlanNavBar } from "./components/PlanNavBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
@@ -45,6 +46,7 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
             <AdaptiveProjectionContainer config={config} />
             <PlanEditBar editorTools={editorTools} />
           </div>
+          <PlanAgentInteractionBar planView={planView} />
         </div>
       </ProjectionProvider>
     </EditCapabilityProvider>

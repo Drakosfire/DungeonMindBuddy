@@ -4,9 +4,10 @@
   "planning_session": 23,
   "source_sessions": [
     21,
-    22
+    22,
+    23
   ],
-  "generated_at": "2026-05-31T02:26:27Z",
+  "generated_at": "2026-06-22T03:51:17Z",
   "entries": [
     {
       "source_id": "fresh_recap-s23-session-23-recap-md",
@@ -21,7 +22,9 @@
       "allowed_uses": [
         "planning_input"
       ],
-      "forbidden_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
       "notes": "Fresh recap bootstrapped into the workspace; planning input until ingested."
     },
     {
@@ -438,6 +441,63 @@
       "notes": "Played recap of what happened; canonical play memory."
     },
     {
+      "source_id": "play_recap-s23-breadcrumbed-session-23-session-23-mireward-breadcrumbed-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - session-23-mireward.breadcrumbed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s23-normalized-session-23-session-23-mireward-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - session-23-mireward.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Normalized recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s23-session-recaps-session-23-session-23-mireward-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - session-23-mireward.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Played recap of what happened; canonical play memory."
+    },
+    {
       "source_id": "prep_scaffold-s21-session-prep-session-21-brainstorming-dump-md",
       "source_role": "prep_scaffold",
       "authority": "planning_scaffold",
@@ -723,6 +783,25 @@
       "notes": "GM prep scaffold; planning intent, not a played fact."
     },
     {
+      "source_id": "roll_table-s23-tiptap-north-gate-session-runbook-md",
+      "source_role": "roll_table",
+      "authority": "reference_tool",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "table_use",
+        "table_patch"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Prep roll table (Mireward Reach respite events d8); a tool, not a played fact."
+    },
+    {
       "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-json",
       "source_role": "session_memory",
       "authority": "derived_memory",
@@ -799,6 +878,44 @@
       "notes": "Retrieval records derived from the recap."
     },
     {
+      "source_id": "session_memory-s23-session-memory-session-23-session-23-mireward-records-meta-json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval-record metadata derived from the recap."
+    },
+    {
+      "source_id": "session_memory-s23-session-memory-session-23-session-23-mireward-records-meta-jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - session-23-mireward.records_meta.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval records derived from the recap."
+    },
+    {
       "source_id": "table_notes-s21-ingest-staging-session-21-raw-notes-md",
       "source_role": "table_notes",
       "authority": "pre_canonical_evidence",
@@ -825,6 +942,25 @@
         22
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Pre-canonical table notes; provenance only now that the recap exists."
+    },
+    {
+      "source_id": "table_notes-s23-ingest-staging-session-23-raw-notes-md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_23_raw_notes.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [

@@ -13,7 +13,7 @@ Start here to re-anchor or jumpstart an agent on **conversational Hermes prep** 
 
 **What it is:** A bottom **Agent Interaction** surface on `/plan` where the GM preps at the desk (before session) and reviews after (ingestion). **Hermes** is the target default backing agent: multi-turn conversation, full operator tool access, corpus-grounded prose answers with in-pane citations. **Manifest retrieval** (`dungeon_context_lookup`) remains the evidence layer; corpus is canon, not Hermes memory.
 
-**What works today (spike, branch `cursor/hermes-agent-interaction-bar` ~`eac1b8f`):**
+**What works today (on `main`, commits through `eac1b8f`):**
 
 - Ask field + backend route (`live` | `hermes`) via `POST /api/live/query`
 - Hermes CLI one-shot with **preflight retrieval** (context packet always returned)

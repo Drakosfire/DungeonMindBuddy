@@ -6,14 +6,19 @@
 
 ## Current State
 
-The workstream has a committed vertical slice for `/plan` recap ingestion in the React surface:
+The workstream has a committed vertical slice for `/plan` recap ingestion and the first
+read-only source-vocabulary adapter:
 
 - `/plan` exists as the first intentional configured surface.
 - Current implementation still has surface-local projection state and a transitional right-side Tools drawer.
 - The ingestion workflow can run through the UI and expose proof/impact metadata.
-- The latest committed checkpoint is `588f7ab feat(plan): add recap ingest toolbar workflow`.
+- The latest committed checkpoint includes `eac1b8f feat(plan): add Hermes trace telemetry` on `main`.
+- `cb0c953 feat(live): add ingestion source bundle` landed R11's backend adapter:
+  `IngestionSourceBundle` maps ingested corpus artifacts into `SourceArtifact -> SourceAnchor -> SourceUnit`
+  without embedding corpus bodies.
+- Hermes CLI one-shot + preflight retrieval + Agent Interaction trace UI are on `main` (spike).
 - Tier-1 plan-doc cleanup landed in `45d1e37 docs(plans): archive completed handoffs to 2026-06-22 batch`.
-- **Conversational Hermes / Agent Interaction** (threads, citations, tool parity) is a parallel track on branch `cursor/hermes-agent-interaction-bar` (~`eac1b8f` spike). Re-anchor at `Docs/Design/ANCHOR-agent-interaction-hermes.md` + `Docs/Design/UX-STORIES-agent-interaction-hermes.md`; engineering handoff at `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`.
+- **Next conversational Hermes UX** (threads, citations, tool parity): `Docs/Design/ANCHOR-agent-interaction-hermes.md` + `Docs/Design/UX-STORIES-agent-interaction-hermes.md`.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
@@ -52,11 +57,11 @@ The active rung map lives in `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`.
 
 Important rungs for the next phase:
 
+- **R11 — ingestion-source-vocabulary-adapter:** backend adapter is landed in `cb0c953`; remaining work is UI consumption cleanup and contract hardening if the branch reveals gaps.
 - **R10 — agent-interaction-provider:** hoist projection state to app scope, add bottom Bar/Pane in `AppChrome`, add surface -> provider context publishing, add bounded `localStorage` Phase A rehydrate.
-- **R11 — ingestion-source-vocabulary-adapter:** add a read-only backend adapter that maps current recap-ingest status/artifacts to `IngestionSourceBundle`.
 - **R9 — integration verification and dogfood:** prove the whole system after R10/R11/R5/R6/R7/R8 converge.
 
-Recommended migration: **lift-then-replace**.
+Recommended migration remains **lift-then-replace**.
 
 1. Lift projection state behind the existing right drawer with minimal UI change.
 2. Replace the drawer with the bottom Agent Interaction Bar/Pane.
@@ -77,11 +82,11 @@ Recommended migration: **lift-then-replace**.
 
 Before implementation, write a scoped handoff/PR slice for one of:
 
-1. **R11 first:** backend `IngestionSourceBundle` adapter and tests. This gives Agent Interaction the correct consumer contract before UI consumes ingestion proof.
+1. **P0 Hermes conversation (see `ANCHOR-agent-interaction-hermes.md`):** Hermes session continuity, full thread persist, parallel thread shell, trace toggle, in-pane citation reader.
 2. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
-3. **React Play migration slice:** fold combat/runbook/live-control behavior into a `/play` surface after R10 gives projections a shared host. The first Play slice should preserve the useful combat dogfood behavior while proving the focused-beat return target.
+3. **React Play migration slice:** fold combat/runbook/live-control behavior into a `/play` surface after R10 gives projections a shared host.
 
-Recommended sequence: **R11 then R10 lift step**, unless the UI container migration needs to lead for mechanical reasons. React `/play` follows as the first second-surface proof; Build waits.
+Recommended sequence: **P0 Hermes conversation**, then **R10 lift step**, unless bar placement must lead for mechanical reasons. React `/play` follows as the first second-surface proof; Build waits.
 
 ## Verification Targets
 

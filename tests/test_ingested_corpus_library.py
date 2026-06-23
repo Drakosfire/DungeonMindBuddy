@@ -24,6 +24,7 @@ def test_c2_has_normalized_and_breadcrumb_memory_sessions() -> None:
     assert tiers[1] == "normalized_only"
     assert tiers[20] == "breadcrumb_memory"
     assert tiers[22] == "full_with_staging"
+    assert tiers[23] == "full_with_staging"
 
 
 def test_committed_artifact_matches_schema() -> None:
@@ -31,10 +32,10 @@ def test_committed_artifact_matches_schema() -> None:
     lib = json.loads(ARTIFACT.read_text(encoding="utf-8"))
     assert lib["schema"] == SCHEMA_ID
     assert lib["summary"]["total_corpus_md_files"] >= 300
-    assert lib["retrieval_activation"]["c2s23_planning_manifest"]["entry_count"] == 43
+    assert lib["retrieval_activation"]["c2s23_planning_manifest"]["entry_count"] == 50
     dogfood = lib["retrieval_activation"]["c2s23_dogfood_full_manifest"]
     assert dogfood["exists"] is True
-    assert dogfood["entry_count"] >= 160
+    assert dogfood["entry_count"] >= 200
     assert lib["retrieval_activation"]["ingest_routes_in_dogfood_full_manifest"] > lib[
         "retrieval_activation"
     ]["ingest_routes_in_c2s23_manifest"]

@@ -29,6 +29,7 @@ from src.live_play.projections import (
 )
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -150,6 +151,7 @@ class LiveQueryRequest(BaseModel):
     campaign_id: str
     session: int = Field(ge=1)
     mode: Literal["live"] = "live"
+    query_backend: Literal["live", "hermes"] = "live"
     text: str = Field(min_length=1)
     manifest_path: str | None = None
 
@@ -203,6 +205,25 @@ def _target_from_session(
     raise HTTPException(
         status_code=404, detail=f"unknown target id for roll_table: {target_id}"
     )
+
+
+@router.get(
+    "/source-bundle",
+    response_model=IngestionSourceBundle,
+)
+def get_ingestion_source_bundle(
+    scope: str = Query(default="campaign-ingested", min_length=1),
+    campaign_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    try:
+        response = build_ingestion_source_bundle(
+            root=repo_root(),
+            scope=scope,
+            campaign_id=campaign_id,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="source bundle build failed") from exc
+    return response.model_dump(mode="json")
 
 
 @router.get(
@@ -753,10 +774,15 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
         )
     try:
         return process_live_query(
-            body.text, base=base, request_manifest_path=body.manifest_path
+            body.text,
+            base=base,
+            request_manifest_path=body.manifest_path,
+            query_backend=body.query_backend,
         )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/state")
