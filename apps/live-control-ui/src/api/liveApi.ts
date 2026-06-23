@@ -9,6 +9,7 @@ import type {
   ProjectionTarget,
   LiveQueryResponse,
   LiveQueryBackend,
+  LiveQueryOptions,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -167,6 +168,7 @@ export async function postLiveQuery(
   campaignId: string,
   session: number,
   queryBackend: LiveQueryBackend = "live",
+  options: LiveQueryOptions = {},
 ): Promise<LiveQueryResponse> {
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
@@ -177,6 +179,9 @@ export async function postLiveQuery(
       query_backend: queryBackend,
       text,
       manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+      agent_thread_id: options.agentThreadId ?? null,
+      hermes_session_id: options.hermesSessionId ?? null,
+      trace_requested: options.traceRequested ?? null,
     }),
   });
 }

@@ -42,6 +42,27 @@ def _new_trace_id(prefix: str = "agent-trace") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
+def _new_agent_thread_id() -> str:
+    return f"agent-thread-{uuid.uuid4().hex[:12]}"
+
+
+def _new_turn_id() -> str:
+    return f"agent-turn-{uuid.uuid4().hex[:12]}"
+
+
+def _with_conversation_fields(
+    response: dict[str, Any],
+    *,
+    agent_thread_id: str | None,
+    turn_id: str | None,
+    hermes_session: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    response["agent_thread_id"] = agent_thread_id
+    response["turn_id"] = turn_id
+    response["hermes_session"] = hermes_session
+    return response
+
+
 def _estimate_token_count(text: str) -> int:
     stripped = text.strip()
     if not stripped:
@@ -335,16 +356,25 @@ def process_live_query(
     root: Path | None = None,
     request_manifest_path: str | None = None,
     query_backend: str = "live",
+    agent_thread_id: str | None = None,
+    hermes_session_id: str | None = None,
+    trace_requested: bool | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
+    resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
+    resolved_turn_id = _new_turn_id()
     repo = root or repo_root()
     packet, _layout, _events, _jobs = load_session(session_base)
 
     if query_backend == "hermes":
-        return _process_hermes_context_query(
+        return run_hermes_conversation(
             text,
             packet=packet,
             request_manifest_path=request_manifest_path,
+            agent_thread_id=resolved_agent_thread_id,
+            turn_id=resolved_turn_id,
+            hermes_session_id=hermes_session_id,
+            trace_requested=trace_requested,
         )
     if query_backend not in LIVE_QUERY_BACKENDS:
         raise ValueError(f"unsupported query backend: {query_backend}")
@@ -372,7 +402,7 @@ def process_live_query(
     append_events_and_jobs(session_base, result.events_to_write, result.jobs_to_queue)
     refresh_current_state(session_base)
 
-    return {
+    response = {
         "schema": "dmb_live_query_response_v1",
         "query_id": f"live-query-{uuid.uuid4().hex[:12]}",
         "session": int(packet["session"]),
@@ -390,6 +420,7 @@ def process_live_query(
         "warnings": [],
         "mutations": [],
     }
+    return _with_conversation_fields(response, agent_thread_id=resolved_agent_thread_id, turn_id=resolved_turn_id)
 
 
 def _citations_from_context_packet(context_packet: dict[str, Any]) -> list[dict[str, Any]]:
@@ -408,17 +439,51 @@ def _citations_from_context_packet(context_packet: dict[str, Any]) -> list[dict[
     return citations
 
 
+def run_hermes_conversation(
+    text: str,
+    *,
+    packet: dict[str, Any],
+    request_manifest_path: str | None,
+    agent_thread_id: str | None,
+    turn_id: str | None,
+    hermes_session_id: str | None = None,
+    trace_requested: bool | None = None,
+) -> dict[str, Any]:
+    response = _process_hermes_context_query(
+        text,
+        packet=packet,
+        request_manifest_path=request_manifest_path,
+        hermes_session_id=hermes_session_id,
+    )
+    hermes_session = None
+    if hermes_session_id:
+        hermes_session = {
+            "sessionId": hermes_session_id,
+            "title": None,
+            "runtime": (
+                response.get("agent_trace", {}).get("runtime", "unknown")
+                if isinstance(response.get("agent_trace"), dict)
+                else "unknown"
+            ),
+            "createdAt": None,
+            "updatedAt": _utc_now_z(),
+        }
+    return _with_conversation_fields(response, agent_thread_id=agent_thread_id, turn_id=turn_id, hermes_session=hermes_session)
+
+
 def _process_hermes_context_query(
     text: str,
     *,
     packet: dict[str, Any],
     request_manifest_path: str | None,
+    hermes_session_id: str | None = None,
 ) -> dict[str, Any]:
     if os.getenv(HERMES_CLI_MODE_ENV, "").strip().lower() == "cli":
         return _process_hermes_cli_query(
             text,
             packet=packet,
             request_manifest_path=request_manifest_path,
+            hermes_session_id=hermes_session_id,
         )
 
     from integrations.hermes.plugins.dungeonbuddy import handle_dungeon_context_lookup
@@ -566,6 +631,7 @@ def _process_hermes_cli_query(
     *,
     packet: dict[str, Any],
     request_manifest_path: str | None,
+    hermes_session_id: str | None = None,
 ) -> dict[str, Any]:
     query_id = f"hermes-cli-query-{uuid.uuid4().hex[:12]}"
     trace_id = _new_trace_id("hermes-cli-trace")
@@ -611,6 +677,12 @@ def _process_hermes_cli_query(
         sufficiency_summary=sufficiency_summary,
     )
     prompt_context = _prompt_context_from_packet(context_packet)
+
+    resume_warnings: list[str] = []
+    if hermes_session_id:
+        resume_warnings.append(
+            "Hermes CLI resume was requested, but non-interactive resume mechanics are not verified in this build; using one-shot fallback without --resume."
+        )
 
     prompt = (
         "Use the DungeonBuddy corpus tools to answer the operator question. "
@@ -687,7 +759,7 @@ def _process_hermes_cli_query(
             artifact_warnings=artifact_warnings,
         )
 
-    warnings: list[str] = []
+    warnings: list[str] = list(resume_warnings)
     if not lookup_data.get("success"):
         warnings.append(str(lookup_data.get("error") or "Preflight dungeon_context_lookup failed."))
     if not context_packet:

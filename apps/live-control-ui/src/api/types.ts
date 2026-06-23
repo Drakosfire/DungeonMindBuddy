@@ -392,6 +392,52 @@ export interface AgentInteractionTrace {
   warnings: string[];
 }
 
+
+export interface HermesSessionHandle {
+  sessionId: string;
+  title?: string | null;
+  runtime: "cli" | "api" | "in_process" | "unknown" | string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface AgentInteractionTurn {
+  turnId: string;
+  askedAt: string;
+  completedAt?: string | null;
+  question: string;
+  answer: string;
+  backend: LiveQueryBackend;
+  status: "ok" | "error" | "partial" | string;
+  contextSummary?: AgentInteractionContextSummary;
+  citations?: LiveQueryCitation[];
+  trace?: AgentInteractionTrace | null;
+  warnings?: string[];
+}
+
+export interface AgentInteractionThread {
+  threadId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  campaignId: string;
+  session?: number | null;
+  surfaceId: "plan" | "play" | "build" | string;
+  activeBackend: LiveQueryBackend;
+  hermesSession?: HermesSessionHandle | null;
+  turns: AgentInteractionTurn[];
+  uiState?: {
+    traceVisible: boolean;
+    scrollAnchorTurnId?: string | null;
+  };
+}
+
+export interface LiveQueryOptions {
+  agentThreadId?: string | null;
+  hermesSessionId?: string | null;
+  traceRequested?: boolean | null;
+}
+
 export interface AgentInteractionTurnMeta {
   id: string;
   question: string;
@@ -427,6 +473,9 @@ export interface LiveQueryResponse {
   warnings?: string[];
   mutations?: unknown[];
   agent_trace?: AgentInteractionTrace | null;
+  agent_thread_id?: string | null;
+  turn_id?: string | null;
+  hermes_session?: HermesSessionHandle | null;
 }
 
 export interface LiveEvent {

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { getSourceBundle, postLiveQuery } from "../../api/liveApi";
 import type {
-  AgentInteractionTurnMeta,
+  AgentInteractionThread,
+  AgentInteractionTurn,
   IngestionSourceBundle,
   LiveQueryBackend,
   LiveQueryResponse,
@@ -12,9 +13,12 @@ import type {
 
 import {
   AGENT_TURN_HISTORY_CAP,
-  loadTurnHistory,
-  persistTurnHistory,
-  turnMetaFromResponse,
+  clearAgentThread,
+  createAgentInteractionThread,
+  loadAgentThread,
+  persistAgentThread,
+  threadTitleFromQuestion,
+  turnFromResponse,
 } from "./agentInteractionHistory";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
@@ -24,11 +28,6 @@ interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
-}
-
-interface AgentTurn {
-  meta: AgentInteractionTurnMeta;
-  response: LiveQueryResponse | null;
 }
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
@@ -89,23 +88,41 @@ export function PlanAgentInteractionBar({
   const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("live");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
-  const [turns, setTurns] = useState<AgentTurn[]>([]);
+  const [thread, setThread] = useState<AgentInteractionThread | null>(null);
+  const [turns, setTurns] = useState<AgentInteractionTurn[]>([]);
+  const [turnResponses, setTurnResponses] = useState<Record<string, LiveQueryResponse>>({});
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
 
   useEffect(() => {
-    const history = loadTurnHistory(planView.campaign_id);
-    if (history.length) {
-      setTurns(history.map((meta) => ({ meta, response: null })));
-      setActiveTurnId(history[0].id);
+    const storedThread = loadAgentThread(planView.campaign_id, "plan");
+    if (storedThread) {
+      setThread(storedThread);
+      setTurns(storedThread.turns);
+      setActiveTurnId(storedThread.uiState?.scrollAnchorTurnId ?? storedThread.turns[0]?.turnId ?? null);
     }
   }, [planView.campaign_id]);
 
   const activeTurn = useMemo(
-    () => turns.find((turn) => turn.meta.id === activeTurnId) ?? turns[0] ?? null,
+    () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
     [turns, activeTurnId],
   );
-  const answer = activeTurn?.response ?? null;
+  const answer = activeTurn ? (turnResponses[activeTurn.turnId] ?? ({
+    answer: activeTurn.answer,
+    status: activeTurn.status,
+    citations: activeTurn.citations ?? [],
+    warnings: activeTurn.warnings ?? [],
+    agent_trace: activeTurn.trace ?? null,
+    context_packet: null,
+    classification: {} as never,
+    events_written: [],
+    jobs_queued: [],
+    next_suggestions: [],
+    diagnostics: {},
+    provenance: {},
+  } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
+  const threadTitle = thread?.title ?? "New prep thread";
+  const traceVisible = thread?.uiState?.traceVisible ?? false;
 
   async function openPane() {
     setOpen(true);
@@ -131,9 +148,10 @@ export function PlanAgentInteractionBar({
   }
 
   function clearHistory() {
+    if (thread) clearAgentThread(thread);
+    setThread(null);
     setTurns([]);
     setActiveTurnId(null);
-    persistTurnHistory(planView.campaign_id, []);
     setAskStatus("idle");
   }
 
@@ -144,18 +162,44 @@ export function PlanAgentInteractionBar({
     setAskStatus("asking");
     setAskError(null);
     try {
+      const currentThread = thread ?? createAgentInteractionThread(
+        planView.campaign_id,
+        planView.session,
+        "plan",
+        queryBackend,
+        threadTitleFromQuestion(trimmed),
+      );
       const response = await askCorpus(
         trimmed,
         planView.campaign_id,
         planView.session,
         queryBackend,
+        {
+          agentThreadId: currentThread.threadId,
+          hermesSessionId: currentThread.hermesSession?.sessionId ?? null,
+          traceRequested: currentThread.uiState?.traceVisible ?? false,
+        },
       );
-      const meta = turnMetaFromResponse(trimmed, response, queryBackend);
-      const nextTurn: AgentTurn = { meta, response };
+      const nextTurn = turnFromResponse(trimmed, response, queryBackend);
       const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
+      const nextThread: AgentInteractionThread = {
+        ...currentThread,
+        threadId: response.agent_thread_id ?? currentThread.threadId,
+        title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(trimmed),
+        updatedAt: new Date().toISOString(),
+        activeBackend: queryBackend,
+        hermesSession: response.hermes_session ?? currentThread.hermesSession ?? null,
+        turns: nextTurns,
+        uiState: {
+          traceVisible: currentThread.uiState?.traceVisible ?? false,
+          scrollAnchorTurnId: nextTurn.turnId,
+        },
+      };
+      setThread(nextThread);
       setTurns(nextTurns);
-      setActiveTurnId(meta.id);
-      persistTurnHistory(planView.campaign_id, nextTurns.map((turn) => turn.meta));
+      setActiveTurnId(nextTurn.turnId);
+      setTurnResponses((previous) => ({ ...previous, [nextTurn.turnId]: response }));
+      persistAgentThread(nextThread);
       setQuestion("");
       setAskStatus("answered");
     } catch (loadError) {
@@ -185,8 +229,9 @@ export function PlanAgentInteractionBar({
         <div className="plan-agent-pane" role="complementary" aria-label="Agent Interaction drawer">
           <header className="plan-agent-pane-header">
             <div>
-              <p className="plan-surface-kicker">Mock proof surface</p>
-              <h2>Ingested corpus interaction proof</h2>
+              <p className="plan-surface-kicker">Agent Interaction</p>
+              <h2>{threadTitle}</h2>
+              <p>Ingested corpus interaction proof</p>
               <p>
                 This local `/plan` pane consumes the future Agent Interaction contract before the
                 global provider is built.
@@ -252,25 +297,31 @@ export function PlanAgentInteractionBar({
                   <section className="plan-agent-history" aria-label="Conversation history">
                     <div className="plan-agent-history-header">
                       <h4>Conversation ({turns.length})</h4>
+                      <button type="button" onClick={() => {
+                        const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
+                        const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
+                        setThread(nextThread);
+                        persistAgentThread(nextThread);
+                      }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
                       <button type="button" className="plan-agent-history-clear" onClick={clearHistory}>
                         Clear history
                       </button>
                     </div>
                     <ul className="plan-agent-history-list">
                       {turns.map((turn) => (
-                        <li key={turn.meta.id}>
+                        <li key={turn.turnId}>
                           <button
                             type="button"
                             className="plan-agent-history-item"
-                            data-active={turn.meta.id === activeTurnId}
-                            onClick={() => setActiveTurnId(turn.meta.id)}
+                            data-active={turn.turnId === activeTurnId}
+                            onClick={() => setActiveTurnId(turn.turnId)}
                           >
-                            <strong>{turn.meta.question}</strong>
+                            <strong>{turn.question}</strong>
                             <span>
-                              {turn.meta.backend} · {turn.meta.status}
-                              {turn.meta.elapsedMs != null ? ` · ${turn.meta.elapsedMs}ms` : ""}
-                              {turn.meta.admittedCount != null
-                                ? ` · admitted ${turn.meta.admittedCount}`
+                              {turn.backend} · {turn.status}
+                              {turn.trace?.elapsed_ms != null ? ` · ${turn.trace.elapsed_ms}ms` : ""}
+                              {turn.contextSummary?.admitted_count != null
+                                ? ` · admitted ${turn.contextSummary.admitted_count}`
                                 : ""}
                             </span>
                           </button>
@@ -282,7 +333,7 @@ export function PlanAgentInteractionBar({
 
                 {answer ? (
                   <div className="plan-agent-answer">
-                    {answer.agent_trace ? (
+                    {answer.agent_trace && traceVisible ? (
                       <TraceDetailsPanel
                         trace={answer.agent_trace}
                         answer={packetReview ? null : answer.answer}
@@ -290,12 +341,6 @@ export function PlanAgentInteractionBar({
                     ) : null}
                     {packetReview ? (
                       <ContextSufficiencyPanel review={packetReview} />
-                    ) : null}
-                    {packetReview && answer.agent_trace?.runtime === "cli" ? (
-                      <div className="plan-agent-trace-answer">
-                        <h5>Answer</h5>
-                        <p>{answer.answer}</p>
-                      </div>
                     ) : null}
                     {!packetReview && !answer.agent_trace ? (
                       <p className="plan-agent-muted">No trace or context packet returned.</p>
@@ -306,10 +351,10 @@ export function PlanAgentInteractionBar({
                       </p>
                     ) : null}
                   </div>
-                ) : activeTurn && !activeTurn.response ? (
+                ) : activeTurn ? (
                   <div className="plan-agent-answer">
-                    <p className="plan-agent-muted">Stored turn metadata (reload trace by re-asking).</p>
-                    <p>{activeTurn.meta.answer}</p>
+                    <p className="plan-agent-muted">Stored turn from this Agent Interaction thread.</p>
+                    <p>{activeTurn.answer}</p>
                   </div>
                 ) : null}
               </form>
@@ -389,11 +434,7 @@ export function PlanAgentInteractionBar({
       <div className="plan-agent-bar">
         <div>
           <p className="plan-surface-kicker">Agent Interaction</p>
-          <strong>Plan context · ingested corpus proof</strong>
-          <span>
-            Placeholder bar for the future app-level pane. Current scope: `/plan` proof and ask
-            dogfood.
-          </span>
+          <strong>Agent Interaction · {threadTitle}</strong>
         </div>
         <button type="button" onClick={toggleDrawer} aria-expanded={open}>
           {open ? "Close drawer" : "Open drawer"}
