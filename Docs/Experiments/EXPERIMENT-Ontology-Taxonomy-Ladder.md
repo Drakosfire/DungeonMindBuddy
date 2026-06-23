@@ -38,8 +38,9 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 24. Candidate Graph Preview IR v0
 25. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
 26. Session 23 Raw Recap Ingest Fixture v0
+27. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
 
-The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, then dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries.
+The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries, and define a hand-authored Session 23 Candidate Graph Preview gold fixture for future extractor comparison.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
@@ -826,6 +827,7 @@ Completed recent rungs:
 6. Candidate Graph Preview IR v0
 7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
 8. Session 23 Raw Recap Ingest Fixture v0
+9. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 

@@ -35,6 +35,16 @@ SOURCE_ARTIFACT_ID = "source-artifact:session-23-normalized-recap"
 SOURCE_REF_ID = "source-ref:session-23-normalized-recap"
 
 
+HIGH_RISK_EVIDENCE_AUDIT: tuple[dict[str, str], ...] = (
+    {"object_id": "node:lysandro", "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message", "expected_phrase": "Lysandra is surprised to see her father"},
+    {"object_id": "node:lysandro", "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate", "expected_phrase": "Lysandro"},
+    {"object_id": "edge:lysandra-recognizes-lysandro", "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message", "expected_phrase": "Lysandra is surprised to see her father"},
+    {"object_id": "edge:lysandra-recognizes-lysandro", "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate", "expected_phrase": "Lysandro"},
+    {"object_id": "node:heroes-party", "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message", "expected_phrase": "group of heroes"},
+    {"object_id": "node:thread-remaining-approaching-horde", "source_anchor_id": "anchor:s23-first-wave-enemy-reveal", "expected_phrase": "group of terrifying creatures"},
+)
+
+
 def gold_fixture_dir() -> Path:
     return repo_root() / GOLD_FIXTURE_REL
 
@@ -142,3 +152,24 @@ def gold_graph_to_serializable() -> dict[str, Any]:
 
 def resolved_to_serializable(resolved: tuple[ResolvedEvidence, ...]) -> list[dict[str, Any]]:
     return [asdict(r) for r in resolved]
+
+
+def _object_evidence_refs(preview: CandidateGraphPreview, object_id: str) -> tuple[EvidenceRef, ...]:
+    for seq in (preview.nodes, preview.edges, preview.beats, preview.proposed_writes, preview.ignored_items, preview.deferred_items):
+        for obj in seq:
+            current_id = getattr(obj, "node_id", getattr(obj, "edge_id", getattr(obj, "beat_id", getattr(obj, "write_id", getattr(obj, "item_id", None)))))
+            if current_id == object_id:
+                return obj.evidence_refs
+    raise ValueError(f"unknown gold object for evidence audit: {object_id}")
+
+
+def validate_high_risk_evidence_audit(preview: CandidateGraphPreview | None = None) -> None:
+    preview = preview or parse_gold_candidate_graph()
+    resolved_by_anchor = {r.source_anchor_id: r.preview_snippet for r in resolve_source_span_seed_refs()}
+    for row in HIGH_RISK_EVIDENCE_AUDIT:
+        refs = _object_evidence_refs(preview, row["object_id"])
+        if not any(ref.source_anchor_id == row["source_anchor_id"] for ref in refs):
+            raise ValueError(f"{row['object_id']} missing audited anchor {row['source_anchor_id']}")
+        snippet = resolved_by_anchor.get(row["source_anchor_id"], "")
+        if row["expected_phrase"].lower() not in snippet.lower():
+            raise ValueError(f"audited phrase not found for {row['object_id']}: {row['expected_phrase']}")

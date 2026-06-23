@@ -41,7 +41,7 @@
       "node_id": "node:lysandro",
       "label": "Lysandro",
       "node_type": "character",
-      "description": "Lysandra’s father, organizing town guards after the Edge warning.",
+      "description": "Lysandra’s father at Mireward; the wall span supports the father relationship, and the inn debate span separately grounds the name Lysandro in this Session 23 source surface.",
       "importance": "high",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -55,7 +55,16 @@
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
           "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
-          "label": "Lysandro",
+          "label": "Lysandra recognizes her father",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Lysandro named in inn debate",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true
@@ -63,7 +72,9 @@
       ],
       "proposed_action": "create",
       "confidence": "high",
-      "warnings": []
+      "warnings": [
+        "Name and father relationship are grounded by separate Session 23 source spans."
+      ]
     },
     {
       "node_id": "node:orik-tane",
@@ -346,10 +357,10 @@
       "warnings": []
     },
     {
-      "node_id": "node:questionable-company",
-      "label": "Questionable Company",
+      "node_id": "node:heroes-party",
+      "label": "Heroes / party",
       "node_type": "group",
-      "description": "The heroes/party responding to Mireward and Edge during Session 23.",
+      "description": "The group of heroes / party responding to Mireward and Edge during Session 23; canonical party-name binding is intentionally deferred.",
       "importance": "high",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -362,8 +373,8 @@
         {
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
-          "source_anchor_id": "anchor:s23-edge-warning-read",
-          "label": "Questionable Company",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "group of heroes enters Mireward",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true
@@ -371,7 +382,9 @@
       ],
       "proposed_action": "create",
       "confidence": "high",
-      "warnings": []
+      "warnings": [
+        "Canonical party-name binding is not claimed from the Session 23 recap source surface."
+      ]
     },
     {
       "node_id": "node:edge-refugees",
@@ -1158,10 +1171,10 @@
       "warnings": []
     },
     {
-      "node_id": "node:thread-monster-second-wave",
-      "label": "Thread: monster second wave",
+      "node_id": "node:thread-remaining-approaching-horde",
+      "label": "Thread: remaining approaching horde",
       "node_type": "thread",
-      "description": "Whether more meat monsters remain behind the initial attacking wave.",
+      "description": "Whether the larger approaching creature group behind the revealed first wave remains an ongoing threat.",
       "importance": "medium",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -1175,7 +1188,7 @@
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
           "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
-          "label": "Thread: monster second wave",
+          "label": "first revealed creature group",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true
@@ -1191,7 +1204,7 @@
       "edge_id": "edge:lysandra-recognizes-lysandro",
       "from_node_id": "node:lysandra",
       "to_node_id": "node:lysandro",
-      "label": "recognizes her father on the wall",
+      "label": "recognizes her father at the wall; Lysandro is separately named in the inn span",
       "relationship_type": "recognizes",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -1205,7 +1218,16 @@
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
           "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
-          "label": "recognizes her father on the wall",
+          "label": "Lysandra recognizes her father",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Lysandro named in inn debate",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true
@@ -1213,7 +1235,9 @@
       ],
       "proposed_action": "create",
       "confidence": "high",
-      "warnings": []
+      "warnings": [
+        "Relationship and name are grounded by separate Session 23 spans."
+      ]
     },
     {
       "edge_id": "edge:lysandro-relays-edge-message",
@@ -1274,8 +1298,8 @@
     {
       "edge_id": "edge:lysandra-reads-message-to-party",
       "from_node_id": "node:lysandra",
-      "to_node_id": "node:questionable-company",
-      "label": "reads the message to the heroes",
+      "to_node_id": "node:heroes-party",
+      "label": "reads the message to the heroes / party",
       "relationship_type": "reads_to",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -1638,7 +1662,7 @@
     {
       "edge_id": "edge:lysandra-uses-commanding-shout",
       "from_node_id": "node:lysandra",
-      "to_node_id": "node:questionable-company",
+      "to_node_id": "node:heroes-party",
       "label": "uses Commanding Shout to order more attacks",
       "relationship_type": "commands_attack",
       "semantic_state": {
@@ -1837,9 +1861,9 @@
       "beat_id": "beat:arrival-at-mireward-wall",
       "order": 1,
       "title": "Arrival at the Mireward wall",
-      "summary": "The heroes enter Mireward as Lysandra recognizes Lysandro organizing improvised guards after the Edge warning.",
+      "summary": "The heroes enter Mireward as Lysandra recognizes her father; the gold fixture separately grounds the Lysandro name from the inn debate span.",
       "involved_node_ids": [
-        "node:questionable-company",
+        "node:heroes-party",
         "node:mireward-reach",
         "node:lysandra",
         "node:lysandro",
@@ -1850,7 +1874,16 @@
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
           "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
-          "label": "Arrival at the Mireward wall",
+          "label": "Arrival and father relationship",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Lysandro named in inn debate",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true
@@ -2032,7 +2065,7 @@
         }
       ],
       "unresolved_thread_node_ids": [
-        "node:thread-monster-second-wave"
+        "node:thread-remaining-approaching-horde"
       ],
       "proposed_action": "create",
       "warnings": []
@@ -2272,7 +2305,16 @@
           "source_ref_id": "source-ref:session-23-normalized-recap",
           "source_artifact_id": "source-artifact:session-23-normalized-recap",
           "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
-          "label": "Lysandro",
+          "label": "Lysandra recognizes her father",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Lysandro named in inn debate",
           "evidence_role": "source_evidence",
           "can_open_source": true,
           "can_highlight_span": true

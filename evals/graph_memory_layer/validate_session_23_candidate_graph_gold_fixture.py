@@ -19,7 +19,7 @@ def main() -> None:
     labels=' '.join(n.label for n in p.nodes).lower(); print('- named nodes: ready')
     _assert(sum(n.node_type=='unknown_important' for n in p.nodes)>=4,'unnamed-important'); print('- unnamed-important nodes: ready')
     _assert(sum(n.node_type in {'thread','mystery'} and n.node_id.startswith('node:thread') for n in p.nodes)>=3,'threads'); print('- unresolved thread nodes: ready')
-    node_ids={n.node_id for n in p.nodes}; _assert(any(n.node_type=='group' and 'company' in n.label.lower() for n in p.nodes),'party group'); _assert(any('refugee' in n.label.lower() for n in p.nodes),'refugees'); _assert(any('wave' in n.label.lower() or 'meat' in n.label.lower() for n in p.nodes),'threat')
+    node_ids={n.node_id for n in p.nodes}; _assert(any(n.node_type=='group' and ('party' in n.label.lower() or 'heroes' in n.label.lower()) for n in p.nodes),'party group'); _assert(any('refugee' in n.label.lower() for n in p.nodes),'refugees'); _assert(any('wave' in n.label.lower() or 'meat' in n.label.lower() for n in p.nodes),'threat')
     _assert(all(e.from_node_id in node_ids and e.to_node_id in node_ids for e in p.edges),'edge endpoints'); print('- edges: ready')
     _assert(all(n in node_ids for b in p.beats for n in b.involved_node_ids+b.unresolved_thread_node_ids),'beat nodes'); print('- session beats: ready')
     targets=node_ids|{e.edge_id for e in p.edges}|{b.beat_id for b in p.beats}|{i.item_id for i in p.ignored_items}|{d.item_id for d in p.deferred_items}
@@ -28,7 +28,7 @@ def main() -> None:
     _assert(all(getattr(o,'semantic_state',None).lifecycle_state!='promoted' for o in list(p.nodes)+list(p.edges)),'promoted lifecycle')
     _assert(all(getattr(o,'proposed_action','create') not in COMMITTED_ACTIONS for o in list(p.nodes)+list(p.edges)+list(p.beats)),'committed action'); print('- semantic states: ready')
     print('- graph integrity: ready')
-    refs=collect_gold_evidence_refs(p); anchors=valid_source_anchor_ids(); _assert(all(refs),'refs'); _assert(all(r.source_anchor_id in anchors for r in refs),'unknown anchors'); print('- evidence refs: ready')
+    refs=collect_gold_evidence_refs(p); anchors=valid_source_anchor_ids(); _assert(all(refs),'refs'); _assert(all(r.source_anchor_id in anchors for r in refs),'unknown anchors'); validate_high_risk_evidence_audit(p); print('- evidence refs: ready')
     resolved=resolve_gold_evidence_refs(); _assert(all(not x.warnings for x in resolved),'resolver warnings'); _assert(len(resolved)==len(refs),'resolved count')
     _assert(all(x.can_open_source for x in resolved),'open'); print('- source evidence openability: ready')
     _assert(all(x.can_highlight_span for x in resolved),'highlight'); print('- source evidence highlightability: ready')

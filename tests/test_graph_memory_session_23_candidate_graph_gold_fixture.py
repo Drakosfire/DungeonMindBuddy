@@ -26,7 +26,7 @@ def test_parse_schema_and_shape():
     assert sum(n.node_type in {'thread','mystery'} and n.node_id.startswith('node:thread') for n in p.nodes)>=3
     assert sum(n.node_type=='unknown_important' for n in p.nodes)>=4
     labels=' '.join(n.label.lower() for n in p.nodes)
-    for term in ['questionable company','edge refugees','mireward guard','mireward townspeople','first meat wave','mireward reach','edge','north gate','inn','south gate']:
+    for term in ['heroes / party','edge refugees','mireward guard','mireward townspeople','first meat wave','mireward reach','edge','north gate','inn','south gate']:
         assert term in labels
 
 
@@ -44,6 +44,7 @@ def test_integrity_and_evidence():
     assert all(getattr(o,'evidence_refs') for seq in (p.nodes,p.edges,p.beats,p.proposed_writes,p.ignored_items,p.deferred_items) for o in seq)
     anchors=valid_source_anchor_ids(); assert all(r.source_artifact_id==SOURCE_ARTIFACT_ID and r.source_ref_id==SOURCE_REF_ID and r.source_anchor_id in anchors for r in refs)
     resolved=resolve_gold_evidence_refs(); assert len(resolved)==len(refs); assert all(not r.warnings for r in resolved)
+    validate_high_risk_evidence_audit(p)
     assert all(r.can_open_source and r.can_highlight_span for r in resolved)
     assert all(r.preview_snippet.strip() and not r.preview_snippet.strip().startswith('#') for r in resolved)
     text=json.dumps(load_gold_candidate_graph_dict()); assert load_expected_normalized_recap() not in text and load_raw_recap() not in text
@@ -57,10 +58,11 @@ def test_semantics_content_and_boundaries():
     assert all(getattr(o,'proposed_action','create') not in COMMITTED_ACTIONS for o in list(p.nodes)+list(p.edges)+list(p.beats))
     d=p.diagnostics; assert d.preview_only and not any([d.extraction_performed,d.llm_used,d.runtime_connected,d.plan_connected,d.agent_interaction_connected,d.corpus_scanned,d.corpus_mutated,d.facts_promoted,d.canon_promoted])
     text=json.dumps(load_gold_candidate_graph_dict(), ensure_ascii=False).lower()
-    for term in ['lysandra','lysandro','orik tane','brin holloway','stafl','ephanna','karsemine','bonogo','thrin','baergrom','caelynn','ogonob','mireward reach','edge','north gate','south gate','edge refugees','first meat wave','tripod meat monsters','flying meatwings','hunger of hadar','commanding shout','hunter’s mark','lightning bolt cliffhanger']:
+    for term in ['heroes / party','lysandra','lysandro','orik tane','brin holloway','stafl','ephanna','karsemine','bonogo','thrin','baergrom','caelynn','ogonob','mireward reach','edge','north gate','south gate','edge refugees','first meat wave','tripod meat monsters','flying meatwings','hunger of hadar','commanding shout','hunter’s mark','lightning bolt cliffhanger']:
         assert term.lower() in text
     for forbidden in ['llm_response','extraction_output','runtime_payload','plan_payload','agent_interaction_payload','query_execution','corpus_mutation','graph_write_result','"approved"','"promoted"','/workspace/']:
         assert forbidden not in text
+    assert 'questionable company' not in text and 'second wave' not in text and 'thread-monster-second-wave' not in text
 
 
 def test_cli_report_and_validator():
