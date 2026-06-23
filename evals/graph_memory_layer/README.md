@@ -275,3 +275,14 @@ The rich recap dogfood fixture provides a larger explicit recap-ingestion source
 uv run python -m evals.graph_memory_layer.validate_rich_recap_dogfood_fixture
 uv run python -m evals.graph_memory_layer.report_rich_recap_dogfood_fixture
 ```
+
+### Session 23 recap ingest fixture
+
+The Session 23 recap ingest fixture bridges the saved raw Session 23 recap into the existing recap-ingest helper path for Graph Memory. It mechanically assembles a normalized recap, validates frontmatter/session metadata, records paragraph/source-line provenance, and validates source-span seed refs. It does not call an LLM, run the live planner, write corpus files, extract graph candidates, produce a gold graph, connect `/plan`, connect Agent Interaction, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_session_23_recap_ingest_fixture
+uv run python -m evals.graph_memory_layer.report_session_23_recap_ingest_fixture
+```

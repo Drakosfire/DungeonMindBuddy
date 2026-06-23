@@ -828,3 +828,13 @@ Completed recent rungs:
 The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output. The next backend rung should add a hand-authored gold candidate graph preview for this rich recap, using the Candidate Graph Preview IR and Source Span Evidence Resolver contracts.
 
 Next backend PR: Hand-Authored Candidate Graph Gold Fixture v0.
+
+## post-session-23-raw-recap-ingest-fixture checkpoint
+
+Completed rung: Session 23 Raw Recap Ingest Fixture v0.
+
+The workstream now has a deterministic Session 23 raw-to-normalized recap fixture using the existing recap-ingest helper spine. The fixture preserves paragraph/source-line provenance and validates source-span seed refs without LLMs, graph extraction, corpus writes, or runtime integration. The next backend rung should hand-author the expected Session 23 Candidate Graph Preview gold fixture against this normalized/source-span surface.
+
+The Redacted Lantern Archive rich recap remains useful as a synthetic control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
+
+Next backend PR: Session 23 Hand-Authored Candidate Graph Gold Fixture v0.
