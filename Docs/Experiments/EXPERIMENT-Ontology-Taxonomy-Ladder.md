@@ -813,3 +813,17 @@ The workstream now has a preview-only candidate graph object model with nodes, e
 
 Next backend PR: Rich Recap Dogfood Fixture v0.
 Current checkpoint: post-candidate-graph-preview-ir checkpoint.
+
+## Post-Rich-Recap-Dogfood-Fixture Checkpoint
+
+Current checkpoint: post-rich-recap-dogfood-fixture checkpoint.
+
+Completed recent rungs:
+
+5. Source Span Evidence Resolver Contract v0
+6. Candidate Graph Preview IR v0
+7. Rich Recap Dogfood Fixture v0
+
+The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output. The next backend rung should add a hand-authored gold candidate graph preview for this rich recap, using the Candidate Graph Preview IR and Source Span Evidence Resolver contracts.
+
+Next backend PR: Hand-Authored Candidate Graph Gold Fixture v0.

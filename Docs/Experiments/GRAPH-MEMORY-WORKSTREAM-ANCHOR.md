@@ -340,3 +340,17 @@ If the work only produces more tables that say `ready`, it is not enough.
 ## Current Anchor In One Sentence
 
 We are building toward a preview-only, evidence-backed candidate graph that turns a real recap into inspectable, approvable, queryable graph memory for future Agent Interaction — without allowing the graph to affect runtime, `/plan`, retrieval, corpus, or canon until later gates explicitly permit it.
+
+## Post-Rich-Recap-Dogfood-Fixture Checkpoint
+
+Current checkpoint: post-rich-recap-dogfood-fixture checkpoint.
+
+Completed recent rungs:
+
+5. Source Span Evidence Resolver Contract v0
+6. Candidate Graph Preview IR v0
+7. Rich Recap Dogfood Fixture v0
+
+The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output. The next backend rung should add a hand-authored gold candidate graph preview for this rich recap, using the Candidate Graph Preview IR and Source Span Evidence Resolver contracts.
+
+Next backend PR: Hand-Authored Candidate Graph Gold Fixture v0.
