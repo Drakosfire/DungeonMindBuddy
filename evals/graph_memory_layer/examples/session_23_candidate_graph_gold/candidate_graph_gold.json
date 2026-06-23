@@ -1,0 +1,2690 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:s23:mireward-gate-battle:gold-v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "source_artifact_ids": [
+    "source-artifact:session-23-normalized-recap"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Ally from Mireward who recognizes her father, explains the Mirathorn mission, and uses Commanding Shout.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Lysandra",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:lysandro",
+      "label": "Lysandro",
+      "node_type": "character",
+      "description": "Lysandra’s father, organizing town guards after the Edge warning.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Lysandro",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:orik-tane",
+      "label": "Orik Tane",
+      "node_type": "character",
+      "description": "Mayor of Mireward Reach who commands the inn crowd during the threat debate.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Orik Tane",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:brin-holloway",
+      "label": "Brin Holloway",
+      "node_type": "character",
+      "description": "Cook from Edge who leads roughly fifty refugees to Mireward Reach.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Brin Holloway",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:stafl",
+      "label": "Stafl",
+      "node_type": "character",
+      "description": "Party member who flies to the north gate, scouts, routes refugees, and inspires Karsemine.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "Stafl",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:ephanna",
+      "label": "Ephanna",
+      "node_type": "character",
+      "description": "Party member who demands eye checks, casts Hunger of Hadar, Eldritch Blast, and summons Ogonob.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "Ephanna",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:karsemine",
+      "label": "Karsemine",
+      "node_type": "character",
+      "description": "Party member who senses ground rumbling, casts Spike Growth, and learns fire weakness with Hunter’s Mark. Her Hunter’s Mark reveals the fire weakness.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "Karsemine",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:bonogo",
+      "label": "Bonogo",
+      "node_type": "character",
+      "description": "Party member who deploys ball bearings, attacks flying monsters, and is affected by the charm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "Bonogo",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thrin",
+      "label": "Thrin",
+      "node_type": "character",
+      "description": "Party member who readies ranged attacks and kills a small meat monster.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-hunger-of-hadar-and-readied-attacks",
+          "label": "Thrin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:baergrom",
+      "label": "Baergrom",
+      "node_type": "character",
+      "description": "Party member using a crossbow during the wall battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-lysdandra-commanding-shout",
+          "label": "Baergrom",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:caelynn",
+      "label": "Caelynn",
+      "node_type": "character",
+      "description": "Spellcaster hit by a thrown meatwing before unleashing the lightning-bolt cliffhanger.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Caelynn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:ogonob",
+      "label": "Ogonob",
+      "node_type": "character",
+      "description": "Ephanna’s summoned ally who leaps over the wall to attack a small summoned meat monster.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "Ogonob",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:questionable-company",
+      "label": "Questionable Company",
+      "node_type": "group",
+      "description": "The heroes/party responding to Mireward and Edge during Session 23.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Questionable Company",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:edge-refugees",
+      "label": "Edge refugees",
+      "node_type": "group",
+      "description": "Survivors from Edge led by Brin Holloway toward Mireward Reach.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Edge refugees",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:mireward-guards",
+      "label": "Mireward guards",
+      "node_type": "faction",
+      "description": "Improvised guards being instructed how to operate the gate.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Mireward guards",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:mireward-townspeople",
+      "label": "Mireward townspeople",
+      "node_type": "group",
+      "description": "Crowd debating the Edge warning inside the inn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Mireward townspeople",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:meat-flank-attackers",
+      "label": "Meat flank attackers",
+      "node_type": "group",
+      "description": "Threatening horde approaching from the north and around Spike Growth.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "Meat flank attackers",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:mireward-reach",
+      "label": "Mireward Reach",
+      "node_type": "location",
+      "description": "Town receiving warnings and facing a north-gate meat-monster assault.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Mireward Reach",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:edge",
+      "label": "Edge",
+      "node_type": "location",
+      "description": "Town to the north reportedly besieged and overrun by meat monsters.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Edge",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:north-gate",
+      "label": "North gate",
+      "node_type": "location",
+      "description": "Mireward gate where the alarm, refugees, and first wave converge.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "North gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:north-wall",
+      "label": "North wall",
+      "node_type": "location",
+      "description": "Wall position where the party forms its defense.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "North wall",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:inn-common-room",
+      "label": "Inn common room",
+      "node_type": "location",
+      "description": "Packed meeting room where Orik Tane and the townspeople debate the warning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Inn common room",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:south-gate",
+      "label": "South gate",
+      "node_type": "location",
+      "description": "Refugee holding point selected while the town remains unsecured.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "South gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:road-to-north-gate",
+      "label": "Road to the north gate",
+      "node_type": "location",
+      "description": "Approach road lit by Stafl and shaped by Spike Growth and Hunger of Hadar.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "Road to the north gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:first-meat-wave",
+      "label": "First meat wave",
+      "node_type": "event",
+      "description": "Initial mixed group of meat creatures attacking Mireward’s north wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "First meat wave",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:tripod-meat-monsters",
+      "label": "Tripod meat monsters",
+      "node_type": "unknown_important",
+      "description": "Huge bulbous meat creatures that launch body parts that become smaller monsters.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-tripod-body-launch",
+          "label": "Tripod meat monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:flying-meatwings",
+      "label": "Flying meatwings",
+      "node_type": "unknown_important",
+      "description": "Flying meat creatures that attack the wall and later cast a charm effect.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "Flying meatwings",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:meat-hybrid-monsters",
+      "label": "Meat hybrid monsters",
+      "node_type": "unknown_important",
+      "description": "Disgusting hybrid creatures advancing with the first meat wave.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-lysdandra-commanding-shout",
+          "label": "Meat hybrid monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:sewer-monsters",
+      "label": "Sewer monsters",
+      "node_type": "unknown_important",
+      "description": "Creatures resembling sewer monsters previously fought in Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "Sewer monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:golem-like-creature",
+      "label": "Golem-like creature",
+      "node_type": "unknown_important",
+      "description": "Slow lone creature advancing through Hunger of Hadar toward the wall.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "Golem-like creature",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:small-summoned-meat-monsters",
+      "label": "Small summoned meat monsters",
+      "node_type": "unknown_important",
+      "description": "Small monsters created when tripod body parts land near the wall.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-tripod-body-launch",
+          "label": "Small summoned meat monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:edge-warning-message",
+      "label": "Edge warning message",
+      "node_type": "warning",
+      "description": "Dire message reporting Edge under siege by horrific monsters.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Edge warning message",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:eye-check-protocol",
+      "label": "Eye-check protocol",
+      "node_type": "clue",
+      "description": "Screening plan requiring refugees to show their eyes before entry.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "Eye-check protocol",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:south-gate-refugee-routing",
+      "label": "South-gate refugee routing",
+      "node_type": "event",
+      "description": "Stafl’s plan to send refugees around the wall to wait at the south gate.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "South-gate refugee routing",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:monster-eye-changes",
+      "label": "Monster eye changes",
+      "node_type": "clue",
+      "description": "Warning sign connecting Edge monsters to Mirathorn-style changes to people’s eyes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Monster eye changes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:caelynn-lightning-bolt-cliffhanger",
+      "label": "Caelynn lightning bolt cliffhanger",
+      "node_type": "event",
+      "description": "Caelynn’s lightning bolt ends the recap on the question of whether Mireward can hold.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Caelynn lightning bolt cliffhanger",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:mireward-overrun-question",
+      "label": "Mireward overrun question",
+      "node_type": "mystery",
+      "description": "Open question whether the first wave will overrun Mireward Reach.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Mireward overrun question",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thread-edge-survivors-safety",
+      "label": "Thread: Edge survivors safety",
+      "node_type": "thread",
+      "description": "Whether the Edge refugees can be kept safe without endangering Mireward.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Thread: Edge survivors safety",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thread-help-edge-or-defend-mireward",
+      "label": "Thread: help Edge or defend Mireward",
+      "node_type": "thread",
+      "description": "Choice between going north to help Edge or staying to defend Mireward.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Thread: help Edge or defend Mireward",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thread-first-wave-outcome",
+      "label": "Thread: first wave outcome",
+      "node_type": "thread",
+      "description": "Outcome of the first meat-wave battle remains unresolved at the lightning-bolt cliffhanger.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Thread: first wave outcome",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thread-mireward-overrun-risk",
+      "label": "Thread: Mireward overrun risk",
+      "node_type": "thread",
+      "description": "Risk that Mireward Reach will be overrun if the first wave is not stopped.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Thread: Mireward overrun risk",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:thread-monster-second-wave",
+      "label": "Thread: monster second wave",
+      "node_type": "thread",
+      "description": "Whether more meat monsters remain behind the initial attacking wave.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "Thread: monster second wave",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:lysandra-recognizes-lysandro",
+      "from_node_id": "node:lysandra",
+      "to_node_id": "node:lysandro",
+      "label": "recognizes her father on the wall",
+      "relationship_type": "recognizes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "recognizes her father on the wall",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandro-relays-edge-message",
+      "from_node_id": "node:lysandro",
+      "to_node_id": "node:edge-warning-message",
+      "label": "relays the warning message from Edge",
+      "relationship_type": "relays_message",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "relays the warning message from Edge",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:edge-message-warns-of-siege",
+      "from_node_id": "node:edge-warning-message",
+      "to_node_id": "node:edge",
+      "label": "warns that Edge is under siege",
+      "relationship_type": "warns_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "warns that Edge is under siege",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-reads-message-to-party",
+      "from_node_id": "node:lysandra",
+      "to_node_id": "node:questionable-company",
+      "label": "reads the message to the heroes",
+      "relationship_type": "reads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "reads the message to the heroes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:message-resembles-mirathorn-monsters",
+      "from_node_id": "node:edge-warning-message",
+      "to_node_id": "node:monster-eye-changes",
+      "label": "resembles prior monsters and eye changes",
+      "relationship_type": "resembles_prior_threat",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "resembles prior monsters and eye changes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:orik-tane-commands-inn-room",
+      "from_node_id": "node:orik-tane",
+      "to_node_id": "node:inn-common-room",
+      "label": "commands the packed inn room",
+      "relationship_type": "commands_room",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "commands the packed inn room",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-explains-mirathorn-mission",
+      "from_node_id": "node:lysandra",
+      "to_node_id": "node:mireward-townspeople",
+      "label": "explains the Mirathorn mission and prior monster fight",
+      "relationship_type": "explains_mission",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "explains the Mirathorn mission and prior monster fight",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:boy-warns-shadows-at-north-gate",
+      "from_node_id": "node:mireward-townspeople",
+      "to_node_id": "node:north-gate",
+      "label": "receive warning that shadows are coming to the north gate",
+      "relationship_type": "warns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "receive warning that shadows are coming to the north gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stafl-scouts-from-north-gate",
+      "from_node_id": "node:stafl",
+      "to_node_id": "node:road-to-north-gate",
+      "label": "scouts the shadowed road from the north gate",
+      "relationship_type": "scouts",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "scouts the shadowed road from the north gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:brin-leads-edge-refugees",
+      "from_node_id": "node:brin-holloway",
+      "to_node_id": "node:edge-refugees",
+      "label": "leads the Edge refugee group",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "leads the Edge refugee group",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ephanna-demands-eye-checks",
+      "from_node_id": "node:ephanna",
+      "to_node_id": "node:eye-check-protocol",
+      "label": "requires refugees to show their eyes before entering",
+      "relationship_type": "requires_screening",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "requires refugees to show their eyes before entering",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stafl-routes-refugees-to-south-gate",
+      "from_node_id": "node:stafl",
+      "to_node_id": "node:south-gate",
+      "label": "routes refugees to wait at the south gate",
+      "relationship_type": "routes_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "routes refugees to wait at the south gate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:karsemine-detects-ground-rumble",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:first-meat-wave",
+      "label": "detects the approaching rumble of the wave",
+      "relationship_type": "detects",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "detects the approaching rumble of the wave",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:karsemine-casts-spike-growth",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:road-to-north-gate",
+      "label": "casts Spike Growth on the approach road",
+      "relationship_type": "casts",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "casts Spike Growth on the approach road",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ephanna-casts-hunger-of-hadar",
+      "from_node_id": "node:ephanna",
+      "to_node_id": "node:first-meat-wave",
+      "label": "casts Hunger of Hadar in the monsters path",
+      "relationship_type": "casts",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-hunger-of-hadar-and-readied-attacks",
+          "label": "casts Hunger of Hadar in the monsters path",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tripods-launch-body-parts",
+      "from_node_id": "node:tripod-meat-monsters",
+      "to_node_id": "node:small-summoned-meat-monsters",
+      "label": "launch body parts that become smaller monsters",
+      "relationship_type": "launches",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-tripod-body-launch",
+          "label": "launch body parts that become smaller monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-uses-commanding-shout",
+      "from_node_id": "node:lysandra",
+      "to_node_id": "node:questionable-company",
+      "label": "uses Commanding Shout to order more attacks",
+      "relationship_type": "commands_attack",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-lysdandra-commanding-shout",
+          "label": "uses Commanding Shout to order more attacks",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:karsemine-identifies-fire-weakness",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:tripod-meat-monsters",
+      "label": "identifies poison resistance and fire weakness",
+      "relationship_type": "identifies_weakness",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "identifies poison resistance and fire weakness",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ephanna-summons-ogonob",
+      "from_node_id": "node:ephanna",
+      "to_node_id": "node:ogonob",
+      "label": "summons Ogonob over the wall",
+      "relationship_type": "summons",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "summons Ogonob over the wall",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:meatwings-charm-bonogo-and-ephanna",
+      "from_node_id": "node:flying-meatwings",
+      "to_node_id": "node:bonogo",
+      "label": "charms Bonogo and Ephanna away from attacking",
+      "relationship_type": "charms",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "charms Bonogo and Ephanna away from attacking",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stafl-inspires-karsemine",
+      "from_node_id": "node:stafl",
+      "to_node_id": "node:karsemine",
+      "label": "casts Bardic Inspiration on Karsemine",
+      "relationship_type": "inspires",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "casts Bardic Inspiration on Karsemine",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:caelynn-unleashes-lightning-bolt",
+      "from_node_id": "node:caelynn",
+      "to_node_id": "node:caelynn-lightning-bolt-cliffhanger",
+      "label": "unleashes the lightning-bolt cliffhanger",
+      "relationship_type": "attacks_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "unleashes the lightning-bolt cliffhanger",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lightning-bolt-targets-meat-wave",
+      "from_node_id": "node:caelynn-lightning-bolt-cliffhanger",
+      "to_node_id": "node:first-meat-wave",
+      "label": "targets the attackers with massive lightning damage",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "targets the attackers with massive lightning damage",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:arrival-at-mireward-wall",
+      "order": 1,
+      "title": "Arrival at the Mireward wall",
+      "summary": "The heroes enter Mireward as Lysandra recognizes Lysandro organizing improvised guards after the Edge warning.",
+      "involved_node_ids": [
+        "node:questionable-company",
+        "node:mireward-reach",
+        "node:lysandra",
+        "node:lysandro",
+        "node:mireward-guards"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Arrival at the Mireward wall",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:edge-warning-message-read",
+      "order": 2,
+      "title": "Edge warning message read",
+      "summary": "Lysandra reads the Edge message and connects it to Mirathorn monsters and eye changes.",
+      "involved_node_ids": [
+        "node:lysandra",
+        "node:edge-warning-message",
+        "node:edge",
+        "node:monster-eye-changes",
+        "node:thread-help-edge-or-defend-mireward"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Edge warning message read",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:thread-help-edge-or-defend-mireward"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:orik-tane-inn-debate",
+      "order": 3,
+      "title": "Orik Tane inn debate",
+      "summary": "At the inn, Orik Tane commands a fearful debate over whether Edge is truly threatened.",
+      "involved_node_ids": [
+        "node:orik-tane",
+        "node:inn-common-room",
+        "node:mireward-townspeople",
+        "node:lysandra"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Orik Tane inn debate",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:north-gate-alarm",
+      "order": 4,
+      "title": "North gate alarm",
+      "summary": "A terrified boy reports shadows from the Reach, and Stafl flies to scout the north gate road.",
+      "involved_node_ids": [
+        "node:stafl",
+        "node:north-gate",
+        "node:road-to-north-gate",
+        "node:mireward-townspeople"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "North gate alarm",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:edge-refugees-arrive",
+      "order": 5,
+      "title": "Edge refugees arrive",
+      "summary": "Brin Holloway leads roughly fifty Edge survivors to the gate while Ephanna demands eye checks.",
+      "involved_node_ids": [
+        "node:brin-holloway",
+        "node:edge-refugees",
+        "node:ephanna",
+        "node:eye-check-protocol",
+        "node:thread-edge-survivors-safety"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Edge refugees arrive",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "Edge refugees arrive",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:thread-edge-survivors-safety"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:eye-check-and-south-gate-plan",
+      "order": 6,
+      "title": "Eye checks and south-gate plan",
+      "summary": "Stafl sends survivors to the south gate while the party sets defenses along the north wall.",
+      "involved_node_ids": [
+        "node:stafl",
+        "node:south-gate",
+        "node:south-gate-refugee-routing",
+        "node:north-wall",
+        "node:karsemine",
+        "node:bonogo"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-south-gate-routing",
+          "label": "Eye checks and south-gate plan",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:first-wave-enemy-reveal",
+      "order": 7,
+      "title": "First wave enemy reveal",
+      "summary": "The first wave resolves into tripods, meatwings, hybrids, sewer monsters, and a golem-like creature.",
+      "involved_node_ids": [
+        "node:first-meat-wave",
+        "node:tripod-meat-monsters",
+        "node:flying-meatwings",
+        "node:meat-hybrid-monsters",
+        "node:sewer-monsters",
+        "node:golem-like-creature"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "First wave enemy reveal",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:thread-monster-second-wave"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:hunger-of-hadar-and-readied-attacks",
+      "order": 8,
+      "title": "Hunger of Hadar and readied attacks",
+      "summary": "Ephanna drops Hunger of Hadar while the party readies attacks as monsters enter range.",
+      "involved_node_ids": [
+        "node:ephanna",
+        "node:first-meat-wave",
+        "node:bonogo",
+        "node:thrin",
+        "node:baergrom",
+        "node:karsemine"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:tripod-body-launch",
+      "order": 9,
+      "title": "Tripod body launch",
+      "summary": "Tripods rip off body parts and launch them toward the wall, creating small summoned meat monsters.",
+      "involved_node_ids": [
+        "node:tripod-meat-monsters",
+        "node:small-summoned-meat-monsters",
+        "node:north-wall"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-tripod-body-launch",
+          "label": "Tripod body launch",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:lysandra-commanding-shout",
+      "order": 10,
+      "title": "Lysandra Commanding Shout",
+      "summary": "Lysandra orders Karsemine, Bonogo, and Baergrom into another volley against flying monsters.",
+      "involved_node_ids": [
+        "node:lysandra",
+        "node:karsemine",
+        "node:bonogo",
+        "node:baergrom",
+        "node:flying-meatwings"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-lysdandra-commanding-shout",
+          "label": "Lysandra Commanding Shout",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:karsemine-learns-fire-weakness",
+      "order": 11,
+      "title": "Karsemine learns fire weakness",
+      "summary": "Karsemine uses Hunter’s Mark to discover the tripod creatures resist poison and are weak to fire.",
+      "involved_node_ids": [
+        "node:karsemine",
+        "node:tripod-meat-monsters"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "Karsemine learns fire weakness",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:caelynn-hit-and-lysandra-counterattack",
+      "order": 12,
+      "title": "Caelynn hit and Lysandra counterattack",
+      "summary": "A thrown monster hits Caelynn and becomes a meatwing, creating openings for Karsemine and Lysandra.",
+      "involved_node_ids": [
+        "node:caelynn",
+        "node:lysandra",
+        "node:karsemine",
+        "node:flying-meatwings"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-hit-and-lysdandra-wall-leap",
+          "label": "Caelynn hit and Lysandra counterattack",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:meatwing-charm",
+      "order": 13,
+      "title": "Meatwing charm",
+      "summary": "Remaining meatwings cast a charm that makes Bonogo and Ephanna stop feeling compelled to attack them.",
+      "involved_node_ids": [
+        "node:flying-meatwings",
+        "node:bonogo",
+        "node:ephanna"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "Meatwing charm",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:caelynn-lightning-bolt-cliffhanger",
+      "order": 14,
+      "title": "Caelynn lightning-bolt cliffhanger",
+      "summary": "Caelynn unleashes lightning through the attackers, ending on whether it is enough to save Mireward.",
+      "involved_node_ids": [
+        "node:caelynn",
+        "node:caelynn-lightning-bolt-cliffhanger",
+        "node:first-meat-wave",
+        "node:mireward-overrun-question"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Caelynn lightning-bolt cliffhanger",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:thread-first-wave-outcome",
+        "node:thread-mireward-overrun-risk"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [
+    {
+      "write_id": "write:create-mireward-reach",
+      "write_type": "create_node",
+      "target_id": "node:mireward-reach",
+      "label": "Create Mireward Reach",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Mireward Reach",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-edge",
+      "write_type": "create_node",
+      "target_id": "node:edge",
+      "label": "Create Edge",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Edge",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-lysandro",
+      "write_type": "create_node",
+      "target_id": "node:lysandro",
+      "label": "Create Lysandro",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-wall-arrival-lysandro-message",
+          "label": "Lysandro",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-orik-tane",
+      "write_type": "create_node",
+      "target_id": "node:orik-tane",
+      "label": "Create Orik Tane",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "Orik Tane",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-brin-holloway",
+      "write_type": "create_node",
+      "target_id": "node:brin-holloway",
+      "label": "Create Brin Holloway",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Brin Holloway",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-edge-refugees",
+      "write_type": "create_node",
+      "target_id": "node:edge-refugees",
+      "label": "Create Edge refugees",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-brin-holloway-refugees",
+          "label": "Edge refugees",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-edge-warning-message",
+      "write_type": "create_node",
+      "target_id": "node:edge-warning-message",
+      "label": "Create Edge warning message",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Edge warning message",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-eye-check-protocol",
+      "write_type": "create_node",
+      "target_id": "node:eye-check-protocol",
+      "label": "Create Eye-check protocol",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "Eye-check protocol",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-first-meat-wave",
+      "write_type": "create_node",
+      "target_id": "node:first-meat-wave",
+      "label": "Create First meat wave",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "First meat wave",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-tripod-meat-monsters",
+      "write_type": "create_node",
+      "target_id": "node:tripod-meat-monsters",
+      "label": "Create Tripod meat monsters",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-tripod-body-launch",
+          "label": "Tripod meat monsters",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-thread-help-edge-or-defend-mireward",
+      "write_type": "create_node",
+      "target_id": "node:thread-help-edge-or-defend-mireward",
+      "label": "Create Thread: help Edge or defend Mireward",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Thread: help Edge or defend Mireward",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-thread-first-wave-outcome",
+      "write_type": "create_node",
+      "target_id": "node:thread-first-wave-outcome",
+      "label": "Create Thread: first wave outcome",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Thread: first wave outcome",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-thread-mireward-overrun-risk",
+      "write_type": "create_node",
+      "target_id": "node:thread-mireward-overrun-risk",
+      "label": "Create Thread: Mireward overrun risk",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Thread: Mireward overrun risk",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-caelynn-lightning-bolt-cliffhanger",
+      "write_type": "create_node",
+      "target_id": "node:caelynn-lightning-bolt-cliffhanger",
+      "label": "Create Caelynn lightning bolt cliffhanger",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Caelynn lightning bolt cliffhanger",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-flying-meatwings",
+      "write_type": "create_node",
+      "target_id": "node:flying-meatwings",
+      "label": "Create Flying meatwings",
+      "reason": "Candidate graph memory should track this Session 23 concept with source evidence while remaining pending.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-meatwing-charm",
+          "label": "Flying meatwings",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignored_items": [
+    {
+      "item_id": "ignored:exact-shadow-count",
+      "label": "Exact shadow count",
+      "reason": "The recap gives an uncertain range of twenty to one hundred shadows; do not promote an exact enemy count.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-boy-warning-north-gate",
+          "label": "uncertain shadow count",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:experienced-adventurers-identities",
+      "label": "Experienced adventurers identities",
+      "reason": "The recap says six experienced adventurers entered, but does not establish their names in this source span; do not infer unsupported identities.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-mayor-orik-tane-inn-debate",
+          "label": "unnamed experienced adventurers",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:exact-mechanical-stats",
+      "label": "Exact mechanical statblocks",
+      "reason": "The recap describes creature behavior and weakness/resistance clues but not full statblock mechanics for graph memory.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-karsemine-hunters-mark-weakness",
+          "label": "weakness and resistance only",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:help-edge-or-defend-mireward",
+      "label": "Help Edge or defend Mireward",
+      "reason": "The source raises the choice but the alarm interrupts before a durable strategic answer is established.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Help Edge or defend Mireward",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:edge-refugee-contamination-risk",
+      "label": "Edge refugee contamination risk",
+      "reason": "Eye checks are required, but the recap does not resolve whether all refugees are safe.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-eye-check-protocol",
+          "label": "Edge refugee contamination risk",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:first-wave-outcome",
+      "label": "Outcome of the first meat-wave battle",
+      "reason": "The recap ends on Caelynn’s lightning-bolt cliffhanger and asks whether it turns the tide.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Outcome of the first meat-wave battle",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:mireward-overrun-risk",
+      "label": "Mireward overrun risk",
+      "reason": "The final line leaves Mireward’s survival unresolved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-caelynn-lightning-bolt-cliffhanger",
+          "label": "Mireward overrun risk",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:monster-eye-changes-source",
+      "label": "Source of monster eye changes",
+      "reason": "The recap links eye changes to prior threats but does not explain the source.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-edge-warning-read",
+          "label": "Source of monster eye changes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:golem-like-creature-identity",
+      "label": "Golem-like creature identity",
+      "reason": "The creature is described as golem-like but no canonical identity is established.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-23-normalized-recap",
+          "source_artifact_id": "source-artifact:session-23-normalized-recap",
+          "source_anchor_id": "anchor:s23-first-wave-enemy-reveal",
+          "label": "Golem-like creature identity",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve in later Session 23/24 recap or combat resolution notes; wait for explicit table confirmation before promoting.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}
