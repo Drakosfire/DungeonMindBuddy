@@ -2,8 +2,10 @@
 
 **Status:** Active roadmap  
 **Created:** 2026-06-22  
+**Updated:** 2026-06-22  
 **Branch under design:** `cursor/cloud-agent-1782137144843-h0ddf`  
-**Related anchor:** `Docs/Design/ANCHOR-plan-surface-agent-interaction.md`
+**Related anchor:** `Docs/Design/ANCHOR-plan-surface-agent-interaction.md`  
+**Related graph UX:** `Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md`
 
 ---
 
@@ -20,14 +22,16 @@ Land the vocabulary first.
 Land the inspectable backend second.
 Land the /plan UI consumer third.
 Hoist to app-level provider only after the plan-scoped proof is stable.
+Prepare graph-memory preview UX as a trust surface, but do not implement it until backend contracts exist.
 ```
 
-This prevents three common failures:
+This prevents four common failures:
 
 ```txt
 1. UI depending on raw ingestion internals.
 2. Hermes becoming a black-box answer generator.
 3. The plan-scoped proof hardening into the final app-wide architecture.
+4. Candidate graph extraction being presented as canon or generic graph-database UI.
 ```
 
 ---
@@ -40,6 +44,8 @@ The current branch is ahead of `main` and includes multiple conceptual slices.
 
 ```txt
 Docs/Design/ANCHOR-plan-surface-agent-interaction.md
+Docs/Design/ROADMAP-plan-surface-agent-interaction.md
+Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md
 Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md
 ```
 
@@ -81,6 +87,14 @@ apps/live-control-ui/src/test/fixtures.ts
 apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx
 apps/live-control-ui/src/planSurface/components/contextSufficiencyLadder.test.ts
 ```
+
+### Graph memory preview design
+
+```txt
+Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md
+```
+
+This is design-only. It should not pull graph-preview routes, React components, graph visualization libraries, approval endpoints, or query executors into the current Agent Interaction implementation slices.
 
 ### Must not land accidentally
 
@@ -126,6 +140,16 @@ PlanSurfaceShell
 ```
 
 That proof should land before the app-level provider hoist, but the PR titles and docs must be honest that it is still plan-scoped.
+
+Graph memory preview is adjacent to this target. It will eventually feed Agent Interaction with graph/entity/evidence chips and graph query result cards, but the first graph UX milestone is:
+
+```txt
+Recap-derived candidate graph preview
+→ GM trust evaluation
+→ approve / defer / reject proposed writes
+```
+
+Do not treat graph preview as generic graph database UI or as a hidden dependency of the immediate Agent Interaction bar PRs.
 
 ---
 
@@ -395,6 +419,7 @@ remove existing projection paths
 store retrieved evidence bodies in localStorage
 create a second projection registry
 turn Agent Interaction into corpus write UI
+add graph preview UI yet
 ```
 
 ### Acceptance criteria
@@ -487,6 +512,7 @@ single shared projection container usage
 Hermes multi-turn sessions
 full memory policy implementation
 new source resolvers
+graph preview UI
 generic tool orchestration
 corpus writes
 ```
@@ -537,6 +563,79 @@ No use of Hermes answer without retrievable evidence for factual campaign claims
 
 ---
 
+## PR G — Graph Memory Recap Preview UX Design
+
+**Suggested branch:** `docs/graph-memory-recap-preview-ux`  
+**Suggested title:** `docs(graph-memory): design recap memory preview UX`
+
+### Goal
+
+Capture the frontend/product design for a recap-derived graph preview before implementation.
+
+This is a graph-memory trust-surface design slice, not an Agent Interaction code slice.
+
+### Scope
+
+```txt
+Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md
+optional wireframe notes
+cross-links from Agent Interaction anchor/roadmap
+```
+
+### Product contract
+
+The preview must help the GM answer:
+
+```txt
+Did the system understand my recap?
+What did it extract?
+What is uncertain?
+Where did each claim come from?
+What should be approved, deferred, rejected, or ignored?
+```
+
+### Required design concepts
+
+```txt
+Candidate graph preview
+Timeline / beat view
+Graph view
+Selected node / edge detail
+Evidence drawer
+Proposed write diff
+Ignored / deferred material
+State-chip vocabulary
+Source deeplinks
+Future Agent Interaction graph/entity/evidence chips
+```
+
+### Hard boundaries
+
+Do not implement:
+
+```txt
+React components
+graph visualization library
+API calls
+live-control routes
+graph query executor
+graph write approval mechanics
+Agent Interaction changes
+```
+
+### Acceptance criteria
+
+```txt
+- Design frames graph preview as proposed memory diff, not truth.
+- Candidate vs canon visual separation is explicit.
+- Evidence/source-ref behavior is one-click inspectable.
+- Timeline/beat view is considered primary or at least first-class.
+- Generic graph database viewer is explicitly rejected.
+- Future backend contracts are listed but not implemented.
+```
+
+---
+
 ## 5. Recommended Immediate Next Move
 
 Given the current broad branch, do this first:
@@ -545,6 +644,7 @@ Given the current broad branch, do this first:
 1. Remove evals/c2_live_prep/live/_pytest/** changes.
 2. Open PR A for Source Bundle Adapter.
 3. Keep Hermes and UI changes on the working branch until PR A lands.
+4. Keep graph preview UX as docs/design only unless explicitly authorized.
 ```
 
 Rationale:
@@ -553,6 +653,7 @@ Rationale:
 The source bundle is the contract everything else should consume.
 If that adapter is clean, Hermes and UI can depend on a stable vocabulary.
 If UI lands first, it may accidentally encode ingestion-library internals.
+If graph preview UI lands too early, it may overfit diagnostic payloads instead of meaningful candidate graph contracts.
 ```
 
 ---
@@ -586,6 +687,19 @@ What does the GM need in the bottom bar vs pane?
 
 Do not immediately implement fixes unless they are safety or data-boundary bugs.
 
+After graph-memory backend produces meaningful candidate graph previews, run a separate graph preview dogfood:
+
+```txt
+1. Open Recap Memory Preview.
+2. Confirm preview-only warning is visible.
+3. Inspect timeline/beat view first.
+4. Select a node and edge.
+5. Open evidence for each.
+6. Confirm source material opens with relevant span/context.
+7. Confirm candidate/canon/diagnostic distinctions are obvious.
+8. Approve/defer/reject only in simulated or explicitly reviewed mode.
+```
+
 ---
 
 ## 7. Future Product Questions
@@ -601,6 +715,10 @@ How do projection tools and agent tools share the same target model?
 Can an agent suggest a projection without opening it automatically?
 When does an agent action require explicit confirmation?
 How are source reads displayed without flooding the pane?
+How will graph/entity/evidence chips appear in Agent Interaction answers?
+How does a graph preview avoid looking like truth before approval?
+Is timeline/beat view more useful than graph canvas for first comprehension?
+What backend source-ref contract is required for source highlighting?
 ```
 
 ---
@@ -612,14 +730,17 @@ This roadmap does not authorize:
 ```txt
 unreviewed corpus writes
 Hermes memory as canon
-production graph inference
+candidate graph extraction as canon
+production graph inference in Agent Interaction
 identity merging
 alias resolution
-relationship extraction
+relationship extraction inside /plan UI
 app-wide provider before plan-scoped dogfood
 a second projection stack
 localStorage evidence-body persistence
+localStorage graph-preview payload persistence
 pytest workspace artifact commits
+generic graph database viewer UI
 ```
 
 ---
@@ -634,9 +755,11 @@ Are generated pytest workspace artifacts absent?
 Does the PR title match the actual scope?
 Does the PR keep evidence/canon boundaries explicit?
 Does localStorage avoid source bodies and context packets?
+Does localStorage avoid candidate graph preview payloads?
 Does Hermes remain inspectable, not black-box?
 Does UI copy avoid overclaiming multi-turn/session memory?
 Are absolute paths hidden, relativized, or explicitly dev-only?
+Are graph candidates visually distinct from canon?
 Are tests proving no live/corpus mutation when the slice is read-only?
 ```
 
@@ -653,6 +776,7 @@ Scope: plan-scoped UI proof
 Scope: docs/continuity
 Scope: provider hoist
 Scope: Hermes session continuity spike
+Scope: graph-memory preview UX design
 ```
 
-This keeps future agents from treating all Agent Interaction work as one blob.
+This keeps future agents from treating all Agent Interaction and graph-memory work as one blob.
