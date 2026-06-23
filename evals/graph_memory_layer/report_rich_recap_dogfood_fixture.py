@@ -25,9 +25,10 @@ def main() -> int:
         values = declared.get(declared_key, [])
         print(f"| {key} | {len(values)} | {minimum} |")
     print("\n## Source Span Coverage\n")
-    print("| Ref | Artifact | Label | Evidence Role | Can Open | Can Highlight |\n|---|---|---|---|---|---|")
+    print("| Ref | Artifact | Label | Evidence Role | Can Open | Can Highlight | Snippet Preview |\n|---|---|---|---|---|---|---|")
     for item in resolved:
-        print(f"| {item.source_ref_id} | {item.source_artifact_id} | {item.label} | {item.evidence_role} | {item.can_open_source} | {item.can_highlight_span} |")
+        snippet = item.preview_snippet.replace("|", "\\|").replace("\n", " ")
+        print(f"| {item.source_ref_id} | {item.source_artifact_id} | {item.label} | {item.evidence_role} | {item.can_open_source} | {item.can_highlight_span} | {snippet} |")
     print("\n## Boundary Statement\n")
     print("This is a rich recap source fixture only.")
     print("It does not extract entities.")

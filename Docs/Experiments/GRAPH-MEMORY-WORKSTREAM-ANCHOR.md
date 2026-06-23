@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-candidate-graph-preview-ir checkpoint
+Status: active current anchor — post-rich-recap-dogfood-fixture checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -65,6 +65,8 @@ Recent completed rungs:
 3. Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0
 4. Recap-Ingestion Dogfood Evaluation Report v0, captured as design guidance
 5. Source Span Evidence Resolver Contract v0
+6. Candidate Graph Preview IR v0
+7. Rich Recap Dogfood Fixture v0
 
 The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
 
@@ -139,20 +141,20 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend PR:
 
 ```text
-graph-memory: add rich recap dogfood fixture v0
+graph-memory: add hand-authored candidate graph gold fixture v0
 ```
 
 Mission:
 
-Add a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph. The workstream now has a preview-only candidate graph object model with nodes, edges, beats, proposed writes, ignored/deferred items, semantic states, diagnostics, and evidence refs compatible with the source-span evidence resolver. The next backend rung should supply a richer recap dogfood fixture that can later be paired with a hand-authored gold candidate graph.
+Add a hand-authored gold candidate graph preview for the rich recap dogfood fixture, using Candidate Graph Preview IR v0 and Source Span Evidence Resolver Contract v0. The workstream now has a richer recap source fixture with explicit recap-ingestion artifacts, declared richness requirements, and resolvable source span coverage. This fixture does not contain extracted graph output.
 
 Completed rung:
 
 ```text
-Candidate Graph Preview IR v0
+Rich Recap Dogfood Fixture v0
 ```
 
-No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added by the next fixture PR.
+No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added by the next gold fixture PR.
 
 ## Immediate Next Frontend/Design PR
 

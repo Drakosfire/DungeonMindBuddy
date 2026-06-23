@@ -92,6 +92,13 @@ def test_source_span_refs_resolve_and_cover_required_categories() -> None:
     resolved = resolve_many_source_span_refs(refs, text_artifacts=text_artifacts, structured_artifacts=structured_artifacts)
     assert all(r.can_open_source for r in resolved)
     assert all(r.can_highlight_span for r in resolved)
+    by_anchor = {item.source_anchor_id: item for item in resolved}
+    for raw_ref in refs_raw:
+        if raw_ref.get("evidence_role") == "source_evidence" and raw_ref.get("start_line") is not None:
+            snippet = by_anchor[raw_ref["source_anchor_id"]].preview_snippet
+            assert not snippet.lstrip().startswith("#")
+            if raw_ref.get("expected_phrase"):
+                assert raw_ref["expected_phrase"] in snippet
     assert all(len(r.preview_snippet) <= DEFAULT_SNIPPET_MAX_CHARS for r in resolved)
     assert all(r.surrounding_context is None or len(r.surrounding_context) <= DEFAULT_CONTEXT_MAX_CHARS for r in resolved)
     labels = "\n".join(r["label"].lower() for r in refs_raw)

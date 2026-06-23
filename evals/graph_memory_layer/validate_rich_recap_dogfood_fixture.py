@@ -72,6 +72,16 @@ def validate_fixture() -> None:
     resolved = resolve_many_source_span_refs(refs, text_artifacts=text_artifacts, structured_artifacts=structured_artifacts)
     _require(all(r.can_open_source for r in resolved), "all refs must open source")
     _require(all(r.can_highlight_span for r in resolved), "all refs must highlight")
+    by_anchor = {item.source_anchor_id: item for item in resolved}
+    for raw_ref in refs_raw:
+        if not isinstance(raw_ref, dict) or raw_ref.get("evidence_role") != "source_evidence" or raw_ref.get("start_line") is None:
+            continue
+        resolved_ref = by_anchor.get(str(raw_ref.get("source_anchor_id")))
+        _require(resolved_ref is not None, "resolved source-evidence ref missing")
+        _require(not resolved_ref.preview_snippet.lstrip().startswith("#"), f"source-evidence ref resolves only to a markdown heading: {resolved_ref.source_anchor_id}")
+        expected_phrase = raw_ref.get("expected_phrase")
+        if expected_phrase:
+            _require(str(expected_phrase) in resolved_ref.preview_snippet, f"expected phrase missing from source-evidence snippet: {expected_phrase}")
     _require(all(len(r.preview_snippet) <= DEFAULT_SNIPPET_MAX_CHARS for r in resolved), "snippet exceeds cap")
     _require(all(r.surrounding_context is None or len(r.surrounding_context) <= DEFAULT_CONTEXT_MAX_CHARS for r in resolved), "context exceeds cap")
     labels = "\n".join(str(r.get("label", "")) for r in refs_raw if isinstance(r, dict)).lower()

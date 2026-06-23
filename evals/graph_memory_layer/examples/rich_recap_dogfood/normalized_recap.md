@@ -4,6 +4,8 @@
 
 This recap is a fictional, manually curated source fixture for graph-memory dogfood. The Questionable Company returned to Mireward after the archive fire scare, carrying only table-known notes: an unsigned warning, a mud-stained map scrap, and conflicting memories about a black-lacquer archive key. The session focused on the Sealed Lantern Archive and the surrounding watch posts rather than on combat. It should be treated as source material only, not as extracted graph output.
 
+
+
 ## Arrival / Return
 
 Lysandra Vale led Merrin Ash and the rest of the Questionable Company through the North Gate Watchroom just before dusk. Captain Orric of the Mireward Guard allowed the group inside after Sister Halven vouched that they had previously returned a cracked lantern seal to the Lantern Archivists. Orric was irritated with Merrin because Merrin had ignored prior watch notes during the last visit, but he still gave Lysandra one hour to inspect the Sealed Lantern Archive. The archive return was tense but not hostile: the temporary truce between Orric and Lysandra held because both believed the missing page might explain the false bell signal.
@@ -14,7 +16,7 @@ At the archive threshold, Lysandra found an unsigned warning tucked beneath a de
 
 ## The Archive Search
 
-Inside the Sealed Lantern Archive, the group searched the central stacks, then the West Stair, then the Flooded Scriptorium. A cracked lantern seal on the lower landing matched the seal Halven said was returned, except this one had a fresh split through the wax. Merrin discovered a black-lacquer archive key in a drawer marked for obsolete catalog tags. The key may be genuine, planted, copied, or misremembered from the earlier visit; its identity and importance should be deferred. The mud-stained map scrap pointed toward the canal exit below the Flooded Scriptorium, but the map had no signature and no date.
+Inside the Sealed Lantern Archive, Merrin discovered a black-lacquer archive key before the group searched the central stacks, the West Stair, and the Flooded Scriptorium. A cracked lantern seal on the lower landing matched the seal Halven said was returned, except this one had a fresh split through the wax. The key may be genuine, planted, copied, or misremembered from the earlier visit; its identity and importance should be deferred. The mud-stained map scrap pointed toward the canal exit below the Flooded Scriptorium, but the map had no signature and no date.
 
 ## Conflicting Testimony
 
