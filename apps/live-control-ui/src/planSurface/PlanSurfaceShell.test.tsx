@@ -98,8 +98,10 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Session 22 added the Lysandro gate reveal.").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Raw synthesized answer should not be the primary result.")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Agent answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
     expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Citation cards" })).toHaveTextContent("play_recap · canon_play");
+    expect(screen.getByRole("region", { name: "Current source reader" })).toHaveTextContent("Session 22 added the Lysandro gate reveal.");
     expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "live" });

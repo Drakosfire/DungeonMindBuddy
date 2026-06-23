@@ -6,6 +6,8 @@ import type {
   AgentInteractionTurn,
   IngestionSourceBundle,
   LiveQueryBackend,
+  LiveContextEvidenceRef,
+  LiveQueryCitation,
   LiveQueryResponse,
   PlanViewProjection,
   SourceUnit,
@@ -32,6 +34,72 @@ interface PlanAgentInteractionBarProps {
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
 type AskStatus = "idle" | "asking" | "answered" | "error";
+
+
+interface EvidenceCard {
+  evidenceId: string;
+  path: string;
+  sourceRole: string;
+  authority: string;
+  lineLabel: string;
+  textExcerpt: string | null;
+}
+
+function citationKey(path: string, evidenceId: string | null | undefined): string {
+  return `${path}::${evidenceId ?? "unknown"}`;
+}
+
+function lineLabel(lineStart?: number | null, lineEnd?: number | null): string {
+  if (lineStart == null && lineEnd == null) return "lines n/a";
+  if (lineStart != null && lineEnd != null && lineStart !== lineEnd) return `lines ${lineStart}-${lineEnd}`;
+  return `line ${lineStart ?? lineEnd}`;
+}
+
+function evidenceCardsFromAnswer(answer: LiveQueryResponse): EvidenceCard[] {
+  const cards = new Map<string, EvidenceCard>();
+  for (const item of answer.context_packet?.admitted_evidence ?? []) {
+    cards.set(citationKey(item.path, item.evidence_id), {
+      evidenceId: item.evidence_id ?? item.unit_id ?? "admitted evidence",
+      path: item.path,
+      sourceRole: item.source_role,
+      authority: item.authority,
+      lineLabel: lineLabel(item.line_start, item.line_end),
+      textExcerpt: item.text_excerpt ?? null,
+    });
+  }
+  for (const citation of answer.citations ?? []) {
+    const key = citationKey(citation.path, citation.evidence_id);
+    if (cards.has(key)) continue;
+    cards.set(key, {
+      evidenceId: citation.evidence_id,
+      path: citation.path,
+      sourceRole: citation.source_role,
+      authority: citation.authority,
+      lineLabel: lineLabel(citation.line_start, citation.line_end),
+      textExcerpt: null,
+    });
+  }
+  return Array.from(cards.values());
+}
+
+function evidenceMatchesCitation(item: LiveContextEvidenceRef, citation: LiveQueryCitation): boolean {
+  if (item.evidence_id && item.evidence_id === citation.evidence_id) return true;
+  return item.path === citation.path;
+}
+
+function currentSourceForAnswer(answer: LiveQueryResponse): LiveContextEvidenceRef | null {
+  const admitted = answer.context_packet?.admitted_evidence ?? [];
+  if (!admitted.length) return null;
+  const firstCitation = answer.citations?.[0];
+  if (firstCitation) {
+    return admitted.find((item) => evidenceMatchesCitation(item, firstCitation)) ?? admitted[0];
+  }
+  return admitted[0];
+}
+
+function highlightedEvidenceText(source: LiveContextEvidenceRef): string {
+  return source.text_excerpt?.trim() || "No in-pane source excerpt returned for this citation yet.";
+}
 
 const REQUIRED_INGEST_STAGES = [
   "canon_recap",
@@ -121,6 +189,8 @@ export function PlanAgentInteractionBar({
     provenance: {},
   } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
+  const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
+  const currentSource = answer ? currentSourceForAnswer(answer) : null;
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
 
@@ -338,6 +408,37 @@ export function PlanAgentInteractionBar({
                         trace={answer.agent_trace}
                         answer={packetReview ? null : answer.answer}
                       />
+                    ) : null}
+                    {!(answer.agent_trace && traceVisible && !packetReview) ? (
+                      <section className="plan-agent-answer-card" aria-label="Agent answer">
+                        <p className="plan-surface-kicker">Answer</p>
+                        <p>{answer.answer}</p>
+                      </section>
+                    ) : null}
+                    {citationCards.length ? (
+                      <section className="plan-agent-citation-cards" aria-label="Citation cards">
+                        <h4>Citation card</h4>
+                        <ul>
+                          {citationCards.map((card) => (
+                            <li key={`${card.path}-${card.evidenceId}`}>
+                              <strong>{card.evidenceId}</strong>
+                              <span>{card.sourceRole} · {card.authority} · {card.lineLabel}</span>
+                              <code>{card.path}</code>
+                              {card.textExcerpt ? <p>{card.textExcerpt}</p> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
+                    {currentSource ? (
+                      <section className="plan-agent-source-reader" aria-label="Current source reader">
+                        <div>
+                          <p className="plan-surface-kicker">Current source reader</p>
+                          <h4>{currentSource.source_role} · {lineLabel(currentSource.line_start, currentSource.line_end)}</h4>
+                          <code>{currentSource.path}</code>
+                        </div>
+                        <pre><mark>{highlightedEvidenceText(currentSource)}</mark></pre>
+                      </section>
                     ) : null}
                     {packetReview ? (
                       <ContextSufficiencyPanel review={packetReview} />
