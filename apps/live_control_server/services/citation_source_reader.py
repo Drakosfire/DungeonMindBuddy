@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 MAX_SOURCE_BYTES = 200_000
 ALLOWED_SOURCE_ROOTS = ("corpus", "Docs", "evals")
+ALLOWED_SOURCE_EXTENSIONS = frozenset({".md", ".markdown", ".txt", ".json", ".jsonl"})
 
 
 class CitationSourceRequest(BaseModel):
@@ -50,6 +51,8 @@ def _validate_relative_source_path(path: str) -> PurePosixPath:
         raise CitationSourceError("citation source path cannot contain traversal")
     if not rel.parts or rel.parts[0] not in ALLOWED_SOURCE_ROOTS:
         raise CitationSourceError("citation source path is outside allowed source roots")
+    if rel.suffix.lower() not in ALLOWED_SOURCE_EXTENSIONS:
+        raise CitationSourceError("citation source file type is not supported")
     return rel
 
 
