@@ -12,6 +12,11 @@ from jsonschema import Draft202012Validator
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.schema_validation import LiveRowValidationError, validate_before_append
+from apps.live_control_server.services.citation_source_reader import (
+    CitationSourceRequest,
+    MAX_SOURCE_BYTES,
+    read_citation_source,
+)
 from apps.live_control_server.session_store import events_since
 from src.live_play.live_store import append_jsonl, load_json, write_json
 
@@ -474,6 +479,7 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/capabilities",
         "/api/live/commands",
         "/api/live/recap-ingest",
+        "/api/live/citation-source",
     }
     assert required <= paths
 
@@ -495,6 +501,7 @@ def test_citation_source_reads_current_source_without_events_or_jobs(
     body = response.json()
     assert body["schema_version"] == "dmb_citation_source_v1"
     assert body["path"].startswith("corpus/")
+    assert not Path(body["path"]).is_absolute()
     assert "# Session 22 Recap" in body["content"]
     assert body["highlight"]["match_source"] == "line_range"
     assert "The group turns their focus" in body["highlight"]["text_excerpt"]
@@ -519,3 +526,40 @@ def test_citation_source_rejects_unsafe_paths(client: TestClient, unsafe_path: s
     )
 
     assert response.status_code == 422
+
+
+def test_citation_source_rejects_unsupported_file_type_under_allowed_root(client: TestClient) -> None:
+    response = client.post(
+        "/api/live/citation-source",
+        json={"path": "evals/planner_slice/batch_eval.py"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "citation source file type is not supported"
+
+
+def test_citation_source_missing_valid_path_returns_404(client: TestClient) -> None:
+    response = client.post(
+        "/api/live/citation-source",
+        json={"path": "Docs/does-not-exist.md"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "citation source not found"
+
+
+def test_citation_source_truncates_oversized_allowed_file(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    source = root / "Docs" / "oversized.txt"
+    source.parent.mkdir(parents=True)
+    source.write_text("a" * (MAX_SOURCE_BYTES + 1), encoding="utf-8")
+
+    response = read_citation_source(
+        root,
+        CitationSourceRequest(path="Docs/oversized.txt"),
+    )
+
+    assert response.path == "Docs/oversized.txt"
+    assert response.truncated is True
+    assert len(response.content.encode("utf-8")) == MAX_SOURCE_BYTES
+    assert f"source truncated to {MAX_SOURCE_BYTES} bytes" in response.diagnostics
