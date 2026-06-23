@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor
+Status: active current anchor — post-source-span-evidence-resolver checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -52,6 +52,8 @@ explicit recap artifacts
 
 The latest practical finding is that the current dogfood proved wrapper and safety survival, but did **not** prove GM-facing value.
 
+The workstream now has a contract proving that source refs can resolve to bounded source evidence objects with openability and highlightability flags. This enables the next candidate graph preview IR rung, because candidate nodes, edges, beats, and proposed writes can now require resolvable evidence refs.
+
 The current reports count payload units and readiness states. Those are useful developer diagnostics, but they are not the product surface. The next product artifact must let the GM inspect whether the recap was understood.
 
 ## Completed Recent Rungs
@@ -62,6 +64,7 @@ Recent completed rungs:
 2. Recap-Ingestion Projection Payload Fixture v0
 3. Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0
 4. Recap-Ingestion Dogfood Evaluation Report v0, captured as design guidance
+5. Source Span Evidence Resolver Contract v0
 
 The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
 
@@ -136,35 +139,24 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend PR:
 
 ```text
-graph-memory: add source span evidence resolver contract v0
+graph-memory: add candidate graph preview IR v0
 ```
 
 Mission:
 
-Define and validate the source-span / evidence-resolver contract needed for recap-derived candidate graph previews.
+Define a preview-only Candidate Graph Preview IR v0 that can attach resolvable evidence refs to candidate nodes, edges, beats, proposed writes, ignored items, and deferred items.
 
-Why this comes first:
+Why this comes next:
 
-The frontend trust surface depends on resolvable evidence. A preview graph without source-span resolution is a pretty but untrustworthy graph.
+The source span evidence resolver contract now proves that source refs can resolve into bounded evidence objects. Candidate graph preview IR can therefore require evidence-backed graph candidates without implementing extraction, approval, retrieval, runtime routes, `/plan`, or Agent Interaction.
 
 Required capabilities:
 
-- every evidence ref can resolve to a bounded source snippet or structured field
-- source refs remain opaque by default
-- line/field highlighting is represented
-- full raw source does not leak by default
-- missing or unresolvable source refs become visible errors
-- frontend can rely on `canOpenSource` and `canHighlightSpan`
-
-Likely files:
-
-```text
-Docs/Design/GRAPH-MEMORY-SOURCE-SPAN-EVIDENCE-RESOLVER.md
-src/graph_memory/source_span.py
-evals/graph_memory_layer/examples/source_span_resolver_fixture.json
-evals/graph_memory_layer/validate_source_span_resolver_fixture.py
-tests/test_graph_memory_source_span_resolver.py
-```
+- candidate nodes, edges, beats, and proposed writes can carry evidence refs
+- preview records remain inspectable before any write or promotion
+- ignored and deferred items are explicit
+- semantic state and diagnostics remain visible
+- no entity extraction, relationship inference, fact promotion, or canon promotion occurs in production
 
 No LLM extraction in this PR.
 

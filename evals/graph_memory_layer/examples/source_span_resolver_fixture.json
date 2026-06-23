@@ -1,0 +1,71 @@
+{
+  "schema": "dmb_source_span_evidence_resolver_fixture_v0",
+  "version": "0.1",
+  "fixture_id": "example:source-span-resolver:minimal",
+  "source_family": "recap_ingestion_source_artifacts",
+  "text_artifacts": [
+    {
+      "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+      "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+      "artifact_kind": "normalized_recap",
+      "label": "Normalized recap: Redacted Lantern Archive",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "text": "# Dogfood Session Recap: Redacted Lantern Archive\n\n## Session frame\n- Campaign arc: [redacted-arc]\n- Session marker: dogfood-session-17\n\n## Normalized recap\nThe party returned to a sealed archive after negotiating a pause in hostilities.\nA courier delivered an unsigned warning.\nThe group compared it against notes from the previous watch.\nThe courier's motive remains unresolved and should not be promoted as fact."
+    },
+    {
+      "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood",
+      "source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood",
+      "artifact_kind": "breadcrumbed_recap",
+      "label": "Breadcrumbed recap: Redacted Lantern Archive",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "text": "# Breadcrumbed Recap\n\n## [beat:archive-return]\nTags: recap, archive, return\nThe party returned to the sealed archive under a temporary truce.\n\n## [beat:warning]\nTags: recap, courier, warning\nA courier delivered an unsigned warning near the west stair.\n\n## [thread:unresolved-motive]\nTags: recap, unresolved-thread\nThe courier's motive remains unresolved."
+    }
+  ],
+  "structured_artifacts": [
+    {
+      "source_artifact_id": "source-artifact:session_memory_jsonl_meta:dogfood",
+      "source_ref_id": "source-ref:session_memory_jsonl_meta:dogfood",
+      "artifact_kind": "session_memory_meta",
+      "label": "Session memory meta diagnostic",
+      "evidence_role": "diagnostic_only",
+      "visibility_state": "internal_diagnostic",
+      "data": {
+        "fixture": "source-span-resolver-v0",
+        "line_count": 18,
+        "chunking": {
+          "sentence_units": 12,
+          "speaker_labels_redacted": true
+        }
+      }
+    },
+    {
+      "source_artifact_id": "source-artifact:corpus_impact_proof:dogfood",
+      "source_ref_id": "source-ref:corpus_impact_proof:dogfood",
+      "artifact_kind": "corpus_impact_proof",
+      "label": "Corpus impact proof diagnostic",
+      "evidence_role": "diagnostic_only",
+      "visibility_state": "internal_diagnostic",
+      "data": {
+        "proof_kind": "no_corpus_mutation_diagnostic",
+        "assertions": {
+          "no_directory_scan": true,
+          "no_corpus_mutation": true
+        }
+      }
+    }
+  ],
+  "source_span_refs": [
+    {"source_ref_id": "source-ref:normalized_recap_markdown:dogfood", "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood", "source_anchor_id": "anchor:archive-return", "artifact_kind": "normalized_recap", "label": "archive return evidence", "evidence_role": "source_evidence", "visibility_state": "gm_private", "start_line": 8, "end_line": 8},
+    {"source_ref_id": "source-ref:normalized_recap_markdown:dogfood", "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood", "source_anchor_id": "anchor:warning-and-notes", "artifact_kind": "normalized_recap", "label": "warning and prior notes evidence", "evidence_role": "source_evidence", "visibility_state": "gm_private", "start_line": 9, "end_line": 10},
+    {"source_ref_id": "source-ref:breadcrumbed_recap_markdown:dogfood", "source_artifact_id": "source-artifact:breadcrumbed_recap_markdown:dogfood", "source_anchor_id": "anchor:breadcrumb-warning", "artifact_kind": "breadcrumbed_recap", "label": "breadcrumb warning evidence", "evidence_role": "source_evidence", "visibility_state": "gm_private", "start_line": 9, "end_line": 9},
+    {"source_ref_id": "source-ref:session_memory_jsonl_meta:dogfood", "source_artifact_id": "source-artifact:session_memory_jsonl_meta:dogfood", "artifact_kind": "session_memory_meta", "label": "fixture marker", "evidence_role": "diagnostic_only", "visibility_state": "internal_diagnostic", "structured_path": "fixture"},
+    {"source_ref_id": "source-ref:session_memory_jsonl_meta:dogfood", "source_artifact_id": "source-artifact:session_memory_jsonl_meta:dogfood", "artifact_kind": "session_memory_meta", "label": "sentence unit count", "evidence_role": "diagnostic_only", "visibility_state": "internal_diagnostic", "structured_path": "chunking.sentence_units"},
+    {"source_ref_id": "source-ref:missing:dogfood", "source_artifact_id": "source-artifact:missing:dogfood", "artifact_kind": "normalized_recap", "label": "missing artifact", "evidence_role": "source_evidence", "visibility_state": "gm_private", "start_line": 1, "end_line": 1},
+    {"source_ref_id": "source-ref:normalized_recap_markdown:dogfood", "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood", "artifact_kind": "normalized_recap", "label": "out of range span", "evidence_role": "source_evidence", "visibility_state": "gm_private", "start_line": 99, "end_line": 100},
+    {"source_ref_id": "source-ref:session_memory_jsonl_meta:dogfood", "source_artifact_id": "source-artifact:session_memory_jsonl_meta:dogfood", "artifact_kind": "session_memory_meta", "label": "missing structured field", "evidence_role": "diagnostic_only", "visibility_state": "internal_diagnostic", "structured_path": "chunking.missing_field"}
+  ],
+  "expected": {"total_refs": 8, "resolved_refs": 5, "unresolved_refs": 3, "highlightable_refs": 5, "structured_refs": 3, "text_span_refs": 5},
+  "diagnostics": {"full_raw_source_included_in_resolved_output": false, "absolute_paths_included": false, "runtime_required": false, "corpus_scan_required": false, "llm_required": false}
+}
