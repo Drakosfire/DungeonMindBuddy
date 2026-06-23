@@ -1,0 +1,21 @@
+{
+  "schema": "dmb_rich_recap_dogfood_requirements_v0",
+  "version": "0.1",
+  "fixture_id": "dogfood:rich-recap:redacted-lantern-archive:v0",
+  "minimum_requirements": {"named_entities": 4, "locations": 2, "groups_or_factions": 1, "items_or_clues": 1, "session_beats": 5, "named_entity_relationship_opportunities": 2, "unnamed_important_relationship_opportunities": 2, "unresolved_threads": 2, "ignored_or_not_promoted_details": 1, "deferred_or_uncertain_details": 1, "ambiguities_or_contradictions": 1, "gm_private_or_spoiler_sensitive_details": 1},
+  "declared_contents": {
+    "named_entities": ["Lysandra Vale", "Merrin Ash", "Captain Orric", "Sister Halven", "The Ash-Marked Courier"],
+    "locations": ["The Sealed Lantern Archive", "West Stair", "The Flooded Scriptorium", "The North Gate Watchroom"],
+    "groups_or_factions": ["The Questionable Company", "The Lantern Archivists", "The Mireward Guard", "The Shepherd's Choir"],
+    "items_or_clues": ["unsigned warning", "black-lacquer archive key", "prior watch notes", "cracked lantern seal", "mud-stained map scrap"],
+    "session_beats": ["return through North Gate Watchroom", "temporary truce permits archive inspection", "unsigned warning is found", "archive search reveals multiple clues", "conflicting testimony about the courier", "false bell signal creates ambiguity"],
+    "named_entity_relationship_opportunities": ["Sister Halven vouched for Lysandra Vale and the Questionable Company", "Captain Orric distrusts Merrin Ash over prior watch notes", "Merrin Ash accuses Captain Orric of staging the signal"],
+    "unnamed_important_concepts": ["the courier's unresolved motive", "the warning's unknown author", "the archive return", "the temporary truce", "the missing page", "the false bell signal"],
+    "unnamed_important_relationship_opportunities": ["the temporary truce enables the archive return", "the missing page may explain the false bell signal", "the warning's unknown author may relate to the courier's unresolved motive"],
+    "unresolved_threads": ["who sent the unsigned warning", "why the courier used the west stair", "whether the archive key is genuine", "whether the bell signal came from inside the town"],
+    "ignored_or_not_promoted_details": ["player joke about ghost paperwork"],
+    "deferred_or_uncertain_details": ["the black-lacquer archive key may be real, planted, copied, or misremembered"],
+    "ambiguities_or_contradictions": ["Orric places the bell above the roofline while Halven hears it below the Flooded Scriptorium"],
+    "gm_private_or_spoiler_sensitive_details": ["unnamed child sighting of the Ash-Marked Courier near the canal exit"]
+  }
+}

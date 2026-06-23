@@ -1,0 +1,15 @@
+{
+  "schema": "dmb_rich_recap_dogfood_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "dogfood:rich-recap:redacted-lantern-archive:v0",
+  "source_family": "recap_ingestion_source_artifacts",
+  "input_mode": "explicit_paths_only",
+  "artifact_inputs": [
+    {"admitted_artifact_id": "normalized_recap_markdown", "relative_path": "normalized_recap.md"},
+    {"admitted_artifact_id": "breadcrumbed_recap_markdown", "relative_path": "breadcrumbed_recap.md"},
+    {"admitted_artifact_id": "frontmatter_seed_markdown", "relative_path": "frontmatter_seed.md"},
+    {"admitted_artifact_id": "session_memory_jsonl_meta", "relative_path": "session_memory_meta.json"},
+    {"admitted_artifact_id": "corpus_impact_proof", "relative_path": "corpus_impact_proof.json"}
+  ],
+  "diagnostics": {"manually_curated_fixture": true, "real_derived_or_realistic": true, "corpus_scan_required": false, "runtime_required": false, "production_behavior": false, "llm_required": false, "graph_extraction_performed": false}
+}

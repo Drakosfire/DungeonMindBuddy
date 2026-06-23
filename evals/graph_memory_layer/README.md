@@ -266,3 +266,12 @@ The candidate graph preview IR fixture validates a preview-only object model for
 uv run python -m evals.graph_memory_layer.validate_candidate_graph_preview_ir
 uv run python -m evals.graph_memory_layer.report_candidate_graph_preview_ir
 ```
+
+## Rich Recap Dogfood Fixture v0
+
+The rich recap dogfood fixture provides a larger explicit recap-ingestion source bundle for future candidate graph preview and gold graph work. It validates that the fixture is explicit-path-only, materially richer than the minimal dogfood, projection-ready as source material, and covered by resolvable source span refs. It does not perform extraction, generate a candidate graph, create a gold graph, write graph memory, connect `/plan`, connect Agent Interaction, scan corpus files, mutate corpus files, or change production behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_rich_recap_dogfood_fixture
+uv run python -m evals.graph_memory_layer.report_rich_recap_dogfood_fixture
+```

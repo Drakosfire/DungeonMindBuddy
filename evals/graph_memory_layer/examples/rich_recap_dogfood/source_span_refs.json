@@ -1,0 +1,151 @@
+{
+  "schema": "dmb_rich_recap_source_span_refs_v0",
+  "version": "0.1",
+  "fixture_id": "dogfood:rich-recap:redacted-lantern-archive:v0",
+  "source_span_refs": [
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:arrival",
+      "artifact_kind": "normalized_recap",
+      "label": "arrival and archive return evidence",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 11,
+      "end_line": 11,
+      "expected_phrase": "Lysandra Vale led"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:warning",
+      "artifact_kind": "normalized_recap",
+      "label": "unsigned warning and unknown author",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 15,
+      "end_line": 15,
+      "expected_phrase": "unsigned warning"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:search",
+      "artifact_kind": "normalized_recap",
+      "label": "archive search clue bundle",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 19,
+      "end_line": 19,
+      "expected_phrase": "black-lacquer archive key"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:testimony",
+      "artifact_kind": "normalized_recap",
+      "label": "conflicting courier testimony",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 23,
+      "end_line": 23,
+      "expected_phrase": "Ash-Marked Courier"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:bell",
+      "artifact_kind": "normalized_recap",
+      "label": "false bell ambiguity",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 27,
+      "end_line": 27,
+      "expected_phrase": "bell sounded twice"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:private",
+      "artifact_kind": "normalized_recap",
+      "label": "GM-private child sighting",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 31,
+      "end_line": 31,
+      "expected_phrase": "GM-private"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:open",
+      "artifact_kind": "normalized_recap",
+      "label": "open unresolved threads",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 35,
+      "end_line": 35,
+      "expected_phrase": "Open threads"
+    },
+    {
+      "source_ref_id": "source-ref:rich-normalized-recap",
+      "source_artifact_id": "source-artifact:rich-normalized-recap",
+      "source_anchor_id": "anchor:noise",
+      "artifact_kind": "normalized_recap",
+      "label": "ignored table noise",
+      "evidence_role": "source_evidence",
+      "visibility_state": "gm_private",
+      "start_line": 39,
+      "end_line": 39,
+      "expected_phrase": "Do not promote"
+    },
+    {
+      "source_ref_id": "source-ref:rich-breadcrumbed-recap",
+      "source_artifact_id": "source-artifact:rich-breadcrumbed-recap",
+      "source_anchor_id": "anchor:crumb-warning",
+      "artifact_kind": "breadcrumbed_recap",
+      "label": "breadcrumb warning thread",
+      "evidence_role": "navigation_hint",
+      "visibility_state": "gm_private",
+      "start_line": 6,
+      "end_line": 6
+    },
+    {
+      "source_ref_id": "source-ref:rich-breadcrumbed-recap",
+      "source_artifact_id": "source-artifact:rich-breadcrumbed-recap",
+      "source_anchor_id": "anchor:crumb-open",
+      "artifact_kind": "breadcrumbed_recap",
+      "label": "breadcrumb open threads",
+      "evidence_role": "navigation_hint",
+      "visibility_state": "gm_private",
+      "start_line": 13,
+      "end_line": 13
+    },
+    {
+      "source_ref_id": "source-ref:rich-session-memory-meta",
+      "source_artifact_id": "source-artifact:rich-session-memory-meta",
+      "source_anchor_id": "anchor:meta-counts",
+      "artifact_kind": "session_memory_meta",
+      "label": "declared source counts",
+      "evidence_role": "diagnostic_only",
+      "visibility_state": "internal_diagnostic",
+      "structured_path": "declared_source_counts"
+    },
+    {
+      "source_ref_id": "source-ref:rich-corpus-impact-proof",
+      "source_artifact_id": "source-artifact:rich-corpus-impact-proof",
+      "source_anchor_id": "anchor:impact-boundary",
+      "artifact_kind": "corpus_impact_proof",
+      "label": "corpus impact boundary",
+      "evidence_role": "diagnostic_only",
+      "visibility_state": "internal_diagnostic",
+      "structured_path": "impact"
+    }
+  ],
+  "expected": {
+    "total_refs": 12,
+    "text_span_refs_min": 8,
+    "structured_refs_min": 2,
+    "all_valid_refs_resolve": true
+  }
+}
