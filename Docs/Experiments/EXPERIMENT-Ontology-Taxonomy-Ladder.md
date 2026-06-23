@@ -1,12 +1,14 @@
 # Ontology & Taxonomy Ladder Workstream
 
 Version: 0.11
-Status: active operational anchor — post-recap-ingestion-explicit-real-artifact-dogfood checkpoint
+Status: active operational anchor — post-source-span-evidence-resolver checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
 
 ## Current Checkpoint
+
+The workstream now has a contract proving that source refs can resolve to bounded source evidence objects with openability and highlightability flags. This enables the next candidate graph preview IR rung, because candidate nodes, edges, beats, and proposed writes can now require resolvable evidence refs.
 
 The ladder has completed the safe foundation, first gated real-structure rungs, consumer-boundary rungs, and recap-ingestion source-family/materializer shape proofs and diagnostics:
 
@@ -32,20 +34,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 20. Recap-Ingestion Source Ref / Provenance Linkage Hardening v0
 21. Recap-Ingestion Projection Payload Fixture v0
 22. Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0
+23. Source Span Evidence Resolver Contract v0
 
 The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, then dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **Recap-Ingestion Dogfood Evaluation Report v0**.
+The next checkpoint is **Candidate Graph Preview IR v0**.
 
-That next PR should analyze usefulness and failure modes from this dogfood run before adapter or `/plan` shadow work.
+That next PR should define the preview-only candidate graph object model before adapter or `/plan` shadow work.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `Recap-Ingestion Dogfood Evaluation Report v0`.
+The next technical checkpoint is `Candidate Graph Preview IR v0`.
 
-That PR should analyze what the explicit real-artifact dogfood run reveals: what survived, what was noisy, what was useless, and what must change before adapter or `/plan` shadow work.
+That PR should define candidate nodes, edges, session beats, evidence refs, proposed writes, ignored/deferred items, semantic states, and diagnostics before adapter or `/plan` shadow work.
 
 It must continue to block:
 

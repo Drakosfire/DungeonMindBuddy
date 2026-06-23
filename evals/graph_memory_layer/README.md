@@ -249,3 +249,11 @@ Validates and reports the first explicit real-artifact dogfood fixture for recap
 uv run python -m evals.graph_memory_layer.validate_recap_ingestion_explicit_real_artifact_dogfood
 uv run python -m evals.graph_memory_layer.report_recap_ingestion_explicit_real_artifact_dogfood
 ```
+## Source Span Evidence Resolver Fixture
+
+The source span evidence resolver fixture validates that source refs can resolve to bounded snippets or structured fields suitable for future graph preview evidence drawers. It does not perform extraction, graph retrieval, `/plan` integration, Agent Interaction integration, corpus scanning, corpus mutation, or production behavior.
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_source_span_resolver_fixture
+uv run python -m evals.graph_memory_layer.report_source_span_resolver_fixture
+```
