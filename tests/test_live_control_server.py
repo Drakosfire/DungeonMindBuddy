@@ -476,3 +476,46 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/recap-ingest",
     }
     assert required <= paths
+
+
+def test_citation_source_reads_current_source_without_events_or_jobs(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    response = client.post(
+        "/api/live/citation-source",
+        json={
+            "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+            "line_start": 14,
+            "line_end": 14,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_citation_source_v1"
+    assert body["path"].startswith("corpus/")
+    assert "# Session 22 Recap" in body["content"]
+    assert body["highlight"]["match_source"] == "line_range"
+    assert "The group turns their focus" in body["highlight"]["text_excerpt"]
+    assert body["diagnostics"] == ["read-only source lookup", "no events or jobs written"]
+    assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
+    assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
+
+
+@pytest.mark.parametrize(
+    "unsafe_path",
+    [
+        "/etc/passwd",
+        "../README.md",
+        "corpus/../README.md",
+        "README.md",
+    ],
+)
+def test_citation_source_rejects_unsafe_paths(client: TestClient, unsafe_path: str) -> None:
+    response = client.post(
+        "/api/live/citation-source",
+        json={"path": unsafe_path},
+    )
+
+    assert response.status_code == 422
