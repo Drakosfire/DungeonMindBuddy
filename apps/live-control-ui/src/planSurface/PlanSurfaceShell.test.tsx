@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
+import { activeThreadStorageKey, threadStorageKey } from "./components/agentInteractionHistory";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
 describe("PlanSurfaceShell", () => {
@@ -210,6 +211,8 @@ describe("PlanSurfaceShell", () => {
       agent_trace: {
         ...mockHermesCliTrace,
         trace_id: traceId,
+        prompt_preview: "Retrieved evidence excerpts: secret corpus text_excerpt body",
+        artifact_refs: [{ kind: "hermes_session", path: "/tmp/hermes/sessions/session.json", label: "session" }],
       },
     });
 
@@ -249,6 +252,16 @@ describe("PlanSurfaceShell", () => {
     expect(parsed[0].question).toBe("Second question?");
     expect(parsed[0].answer).toBe("Second answer");
     expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
+
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    expect(activeThreadId).toBeTruthy();
+    const storedThread = localStorage.getItem(threadStorageKey("longmont-c2", String(activeThreadId)));
+    expect(storedThread).toBeTruthy();
+    expect(storedThread).not.toMatch(/context_packet/);
+    expect(storedThread).not.toMatch(/text_excerpt/);
+    expect(storedThread).not.toMatch(/prompt_preview/);
+    expect(storedThread).not.toMatch(/Retrieved evidence excerpts/);
+    expect(storedThread).not.toMatch(/\/tmp\/hermes/);
 
     await user.click(screen.getByRole("button", { name: "Clear history" }));
     expect(screen.queryByText("Conversation (2)")).not.toBeInTheDocument();

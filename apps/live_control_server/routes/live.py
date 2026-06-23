@@ -154,6 +154,9 @@ class LiveQueryRequest(BaseModel):
     query_backend: Literal["live", "hermes"] = "live"
     text: str = Field(min_length=1)
     manifest_path: str | None = None
+    agent_thread_id: str | None = None
+    hermes_session_id: str | None = None
+    trace_requested: bool | None = None
 
 
 class ResolveRollRequest(BaseModel):
@@ -778,6 +781,9 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             base=base,
             request_manifest_path=body.manifest_path,
             query_backend=body.query_backend,
+            agent_thread_id=body.agent_thread_id,
+            hermes_session_id=body.hermes_session_id,
+            trace_requested=body.trace_requested,
         )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
