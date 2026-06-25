@@ -386,7 +386,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Lysandra",
           "node_type": "character"
         },
@@ -412,7 +412,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "separate_span_binding",
           "label": "Lysandro",
           "node_type": "character"
         },
@@ -429,7 +429,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Orik Tane",
           "node_type": "character"
         },
@@ -446,7 +446,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Brin Holloway",
           "node_type": "character"
         },
@@ -463,7 +463,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Stafl",
           "node_type": "character"
         },
@@ -480,7 +480,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Ephanna",
           "node_type": "character"
         },
@@ -497,7 +497,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Karsemine",
           "node_type": "character"
         },
@@ -514,7 +514,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Caelynn",
           "node_type": "character"
         },
@@ -531,7 +531,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "canonical_alias_deferred",
           "label": "Heroes / party",
           "node_type": "group"
         },
@@ -548,7 +548,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Edge refugees",
           "node_type": "group"
         },
@@ -565,7 +565,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Mireward Reach",
           "node_type": "location"
         },
@@ -582,7 +582,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "Edge",
           "node_type": "location"
         },
@@ -599,7 +599,7 @@
               "source_ref_id": "source-ref:session-23-normalized-recap"
             }
           ],
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "label": "North gate",
           "node_type": "location"
         },
@@ -607,7 +607,7 @@
           "candidate_id": "node:inn-common-room",
           "label": "Inn common room",
           "node_type": "location",
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -624,7 +624,7 @@
           "candidate_id": "node:mireward-townspeople",
           "label": "Mireward townspeople",
           "node_type": "group",
-          "identity_policy": "explicit_session_surface_only",
+          "identity_policy": "directly_named",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -656,7 +656,7 @@
       "candidates": [
         {
           "candidate_id": "node:first-meat-wave",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_event",
           "evidence_refs": [
             {
               "can_highlight_span": true,
@@ -673,7 +673,7 @@
         },
         {
           "candidate_id": "node:tripod-meat-monsters",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "can_highlight_span": true,
@@ -690,7 +690,7 @@
         },
         {
           "candidate_id": "node:eye-check-protocol",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_protocol",
           "evidence_refs": [
             {
               "can_highlight_span": true,
@@ -707,7 +707,7 @@
         },
         {
           "candidate_id": "node:caelynn-lightning-bolt-cliffhanger",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_event",
           "evidence_refs": [
             {
               "can_highlight_span": true,
@@ -724,7 +724,7 @@
         },
         {
           "candidate_id": "node:thread-remaining-approaching-horde",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "can_highlight_span": true,
@@ -743,7 +743,7 @@
           "candidate_id": "node:edge-warning-message",
           "label": "Edge warning message",
           "node_type": "warning",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_event",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -760,7 +760,7 @@
           "candidate_id": "node:flying-meatwings",
           "label": "Flying meatwings",
           "node_type": "unknown_important",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -777,7 +777,7 @@
           "candidate_id": "node:golem-like-creature",
           "label": "Golem-like creature",
           "node_type": "unknown_important",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -794,7 +794,7 @@
           "candidate_id": "node:meat-hybrid-monsters",
           "label": "Meat hybrid monsters",
           "node_type": "unknown_important",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -811,7 +811,7 @@
           "candidate_id": "node:mireward-guards",
           "label": "Mireward guards",
           "node_type": "faction",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_named_group",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -828,7 +828,7 @@
           "candidate_id": "node:mireward-overrun-question",
           "label": "Mireward overrun question",
           "node_type": "mystery",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -845,7 +845,7 @@
           "candidate_id": "node:monster-eye-changes",
           "label": "Monster eye changes",
           "node_type": "clue",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_clue",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -862,7 +862,7 @@
           "candidate_id": "node:sewer-monsters",
           "label": "Sewer monsters",
           "node_type": "unknown_important",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -879,7 +879,7 @@
           "candidate_id": "node:small-summoned-meat-monsters",
           "label": "Small summoned meat monsters",
           "node_type": "unknown_important",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_threat",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -896,7 +896,7 @@
           "candidate_id": "node:thread-edge-survivors-safety",
           "label": "Thread: Edge survivors safety",
           "node_type": "thread",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -913,7 +913,7 @@
           "candidate_id": "node:thread-first-wave-outcome",
           "label": "Thread: first wave outcome",
           "node_type": "thread",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -930,7 +930,7 @@
           "candidate_id": "node:thread-help-edge-or-defend-mireward",
           "label": "Thread: help Edge or defend Mireward",
           "node_type": "thread",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",
@@ -947,7 +947,7 @@
           "candidate_id": "node:thread-mireward-overrun-risk",
           "label": "Thread: Mireward overrun risk",
           "node_type": "thread",
-          "concept_policy": "unnamed_important_only_if_session_salient",
+          "concept_policy": "source_described_thread",
           "evidence_refs": [
             {
               "source_ref_id": "source-ref:session-23-normalized-recap",

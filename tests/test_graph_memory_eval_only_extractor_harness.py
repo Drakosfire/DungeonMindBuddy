@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 import sys
@@ -30,6 +31,28 @@ def test_candidate_bundle_shape_and_pass_outputs():
     h.validate_candidate_pass_outputs(b)
     assert list(b["passes"]) == h.contract.PASS_ORDER
     assert b["generation_mode"] == "static_fixture"
+    assert {c["identity_policy"] for c in b["passes"]["named_entity_candidate_extraction"]["candidates"]} <= h.allowed_identity_policies()
+    assert {c["concept_policy"] for c in b["passes"]["unnamed_important_concept_extraction"]["candidates"]} <= h.allowed_concept_policies()
+
+
+def test_candidate_pass_outputs_reject_unknown_policy_values():
+    b = copy.deepcopy(h.load_candidate_bundle())
+    b["passes"]["named_entity_candidate_extraction"]["candidates"][0]["identity_policy"] = "explicit_session_surface_only"
+    try:
+        h.validate_candidate_pass_outputs(b)
+    except ValueError as exc:
+        assert "unknown policy" in str(exc)
+    else:
+        raise AssertionError("unknown identity policy was accepted")
+
+    b = copy.deepcopy(h.load_candidate_bundle())
+    b["passes"]["unnamed_important_concept_extraction"]["candidates"][0]["concept_policy"] = "unnamed_important_only_if_session_salient"
+    try:
+        h.validate_candidate_pass_outputs(b)
+    except ValueError as exc:
+        assert "unknown policy" in str(exc)
+    else:
+        raise AssertionError("unknown concept policy was accepted")
 
 
 def test_candidate_graph_preview_is_safe_and_pending():
@@ -45,6 +68,10 @@ def test_candidate_graph_preview_is_safe_and_pending():
 def test_candidate_evidence_resolves_and_high_risk_audit_passes():
     b = h.load_candidate_bundle()
     h.validate_candidate_evidence(b)
+    g = h.parse_candidate_graph(b)
+    present = {getattr(o, "node_id", getattr(o, "edge_id", None)) for seq in (g.nodes, g.edges) for o in seq}
+    audited = {row["object_id"] for row in h.HIGH_RISK_EVIDENCE_AUDIT}
+    assert audited <= present
     h.validate_candidate_high_risk_audit(b)
     text = json.dumps(b)
     for needle in ["Questionable Company", "second wave", "thread-monster-second-wave", "resolved battle outcome", "approved write", "promoted lifecycle"]:

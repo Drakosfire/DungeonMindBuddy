@@ -101,8 +101,22 @@ def _evidence_refs_from(obj: Any) -> list[dict[str, Any]]:
         for v in obj: refs.extend(_evidence_refs_from(v))
     return refs
 
+def _pass_output_contract(pass_id: str) -> Mapping[str, Any]:
+    fixture = contract.load_session_23_contract_fixture()
+    for row in fixture["passes"]:
+        if row["pass_id"] == pass_id:
+            return row["output_contract"]
+    raise ValueError(f"unknown contract pass: {pass_id}")
+
+def allowed_identity_policies() -> set[str]:
+    return set(_pass_output_contract("named_entity_candidate_extraction")["identity_policies"])
+
+def allowed_concept_policies() -> set[str]:
+    return set(_pass_output_contract("unnamed_important_concept_extraction")["allowed_concept_policies"])
+
 def validate_candidate_pass_outputs(bundle: Mapping[str, Any]) -> None:
     p=bundle["passes"]; anchors=valid_source_anchor_ids()
+    identity_policies = allowed_identity_policies(); concept_policies = allowed_concept_policies()
     _assert(len(p["source_span_selection"].get("selected_spans",[]))>=8, "not enough selected spans")
     for s in p["source_span_selection"]["selected_spans"]: _assert(s["source_anchor_id"] in anchors and s.get("evidence_refs"), "bad selected span")
     _assert(len(p["session_beat_extraction"].get("beat_candidates",[]))>=5, "not enough beats")
@@ -110,8 +124,10 @@ def validate_candidate_pass_outputs(bundle: Mapping[str, Any]) -> None:
     _assert(len(p["unnamed_important_concept_extraction"].get("candidates",[]))>=6, "not enough concept candidates")
     _assert(len(p["relationship_edge_proposal"].get("relationship_candidates",[]))>=6, "not enough relation candidates")
     _assert(len(p["ignored_deferred_detection"].get("ignored_items",[]))>=2 and len(p["ignored_deferred_detection"].get("deferred_items",[]))>=3, "missing ignored/deferred")
-    for cnd in p["named_entity_candidate_extraction"]["candidates"]: _assert(cnd.get("identity_policy") and cnd.get("evidence_refs"), "named candidate missing policy/evidence")
-    for cnd in p["unnamed_important_concept_extraction"]["candidates"]: _assert(cnd.get("concept_policy") and cnd.get("evidence_refs"), "concept candidate missing policy/evidence")
+    for cnd in p["named_entity_candidate_extraction"]["candidates"]:
+        _assert(cnd.get("identity_policy") in identity_policies and cnd.get("evidence_refs"), f"named candidate missing/unknown policy or evidence: {cnd.get('candidate_id')}")
+    for cnd in p["unnamed_important_concept_extraction"]["candidates"]:
+        _assert(cnd.get("concept_policy") in concept_policies and cnd.get("evidence_refs"), f"concept candidate missing/unknown policy or evidence: {cnd.get('candidate_id')}")
     aligned={e["object_id"] for e in p["evidence_alignment"].get("alignment_entries",[])}
     for seq in ("nodes","edges","beats","proposed_writes","ignored_items","deferred_items"):
         for o in bundle["assembled_candidate_graph"][seq]:
