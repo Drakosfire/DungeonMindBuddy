@@ -299,3 +299,18 @@ Commands:
 uv run python -m evals.graph_memory_layer.validate_session_23_candidate_graph_gold_fixture
 uv run python -m evals.graph_memory_layer.report_session_23_candidate_graph_gold_fixture
 ```
+
+### Multi-pass extraction contract
+
+The multi-pass extraction contract defines the pass structure, intermediate output schemas, evidence-alignment rules, candidate graph assembly expectations, and gold comparison report shape for future graph-memory extraction.
+
+It targets the Session 23 normalized recap/source-span fixture and the Session 23 hand-authored Candidate Graph Preview gold fixture.
+
+This is contract-only. It does not call an LLM, execute extraction, write graph memory, approve writes, execute queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_multi_pass_extraction_contract
+uv run python -m evals.graph_memory_layer.report_multi_pass_extraction_contract
+```

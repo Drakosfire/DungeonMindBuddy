@@ -1,0 +1,48 @@
+{
+  "schema": "dmb_graph_memory_multi_pass_extraction_contract_v0",
+  "version": "0.1",
+  "contract_id": "graph-memory:multi-pass-extraction-contract:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "target_gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "source_fixture_id": "graph-memory:session-23-recap-ingest:v0",
+  "input_mode": "explicit_fixture_dependency",
+  "execution_mode": "contract_only",
+  "pass_order": [
+    "source_span_selection",
+    "session_beat_extraction",
+    "named_entity_candidate_extraction",
+    "unnamed_important_concept_extraction",
+    "relationship_edge_proposal",
+    "ignored_deferred_detection",
+    "evidence_alignment",
+    "candidate_graph_assembly",
+    "gold_comparison_report"
+  ],
+  "allowed_output_schemas": [
+    "dmb_extraction_source_span_selection_v0",
+    "dmb_extraction_session_beats_v0",
+    "dmb_extraction_named_entity_candidates_v0",
+    "dmb_extraction_unnamed_important_candidates_v0",
+    "dmb_extraction_relationship_edge_candidates_v0",
+    "dmb_extraction_ignored_deferred_candidates_v0",
+    "dmb_extraction_evidence_alignment_v0",
+    "dmb_candidate_graph_preview_v0",
+    "dmb_candidate_graph_gold_comparison_report_v0"
+  ],
+  "diagnostics": {
+    "contract_only": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

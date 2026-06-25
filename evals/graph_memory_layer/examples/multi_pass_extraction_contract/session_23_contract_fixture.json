@@ -1,0 +1,552 @@
+{
+  "schema": "dmb_session_23_multi_pass_extraction_contract_fixture_v0",
+  "version": "0.1",
+  "contract_id": "graph-memory:multi-pass-extraction-contract:v0",
+  "fixture_id": "graph-memory:multi-pass-extraction-contract:session-23:v0",
+  "source_fixture": {
+    "fixture_id": "graph-memory:session-23-recap-ingest:v0",
+    "normalized_recap_path": "evals/graph_memory_layer/examples/session_23_recap_ingest/expected_normalized_recap.md",
+    "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_23_recap_ingest/source_span_seed_refs.json"
+  },
+  "gold_fixture": {
+    "fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+    "candidate_graph_gold_path": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json"
+  },
+  "passes": [
+    {
+      "pass_id": "source_span_selection",
+      "schema": "dmb_extraction_source_span_selection_v0",
+      "purpose": "Identify which source spans are candidates for extraction and preserve their source_ref/source_anchor/source_artifact identity.",
+      "input_contract": {
+        "depends_on_previous_passes": []
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_source_span_selection_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "source_fixture_id",
+          "selected_source_spans",
+          "discarded_source_spans",
+          "diagnostics"
+        ],
+        "selected_span_required_fields": [
+          "source_ref_id",
+          "source_artifact_id",
+          "source_anchor_id",
+          "evidence_role",
+          "selection_reason",
+          "can_open_source",
+          "can_highlight_span"
+        ]
+      },
+      "hard_gates": [
+        "all selected spans must come from known source_span_seed_refs",
+        "all source_evidence spans must be openable",
+        "all source_evidence spans must be highlightable",
+        "no invented source_anchor_id",
+        "no raw source text body copied into output",
+        "no absolute path"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "raw source text body",
+        "absolute path",
+        "invented source_anchor_id"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "session_beat_extraction",
+      "schema": "dmb_extraction_session_beats_v0",
+      "purpose": "Extract ordered session beats from selected evidence spans.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_session_beats_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "beats",
+          "diagnostics"
+        ],
+        "beat_candidate_required_fields": [
+          "candidate_id",
+          "order",
+          "title",
+          "summary",
+          "source_anchor_ids",
+          "evidence_refs",
+          "confidence",
+          "warnings"
+        ]
+      },
+      "hard_gates": [
+        "beat order must be positive",
+        "beat order must be unique",
+        "beat evidence refs required",
+        "beat evidence must resolve",
+        "no beat may claim outcome beyond source",
+        "no cliffhanger may be resolved unless source resolves it"
+      ],
+      "soft_quality_signals": [
+        "captures wall arrival",
+        "captures Edge warning",
+        "captures Orik Tane inn debate",
+        "captures north-gate alarm",
+        "captures refugees and eye checks",
+        "captures south-gate routing",
+        "captures first wave reveal",
+        "captures tactical spell setup",
+        "captures tripod body launch",
+        "captures Commanding Shout",
+        "captures Hunter\u2019s Mark fire weakness",
+        "captures meatwing charm",
+        "captures Caelynn lightning-bolt cliffhanger"
+      ],
+      "forbidden_outputs": [
+        "resolved battle outcome",
+        "cliffhanger resolution"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "named_entity_candidate_extraction",
+      "schema": "dmb_extraction_named_entity_candidates_v0",
+      "purpose": "Extract named character/location/group/item candidates directly supported by source text.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_named_entity_candidates_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "candidates",
+          "diagnostics"
+        ],
+        "candidate_required_fields": [
+          "candidate_id",
+          "label",
+          "node_type",
+          "description",
+          "source_anchor_ids",
+          "evidence_refs",
+          "confidence",
+          "warnings",
+          "identity_policy"
+        ],
+        "identity_policies": [
+          "directly_named",
+          "role_only",
+          "separate_span_binding",
+          "deferred_identity",
+          "canonical_alias_deferred"
+        ],
+        "high_risk_rules": [
+          "If a name and role/relationship are grounded by separate spans, output must mark identity_policy as separate_span_binding and preserve both evidence refs.",
+          "Lysandro separate-span binding must preserve name and father-relationship evidence."
+        ]
+      },
+      "hard_gates": [
+        "no named entity without source evidence",
+        "no canonical party-name binding from Session 23 recap alone",
+        "no alias merge",
+        "no identity merge",
+        "no imported campaign identity unless declared as dependency"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "canonical party-name binding without context dependency",
+        "alias merge",
+        "identity merge"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "unnamed_important_concept_extraction",
+      "schema": "dmb_extraction_unnamed_important_candidates_v0",
+      "purpose": "Extract important concepts that are not clean named entities but matter to GM memory.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_unnamed_important_candidates_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "candidates",
+          "diagnostics"
+        ],
+        "candidate_required_fields": [
+          "candidate_id",
+          "label",
+          "node_type",
+          "description",
+          "source_anchor_ids",
+          "evidence_refs",
+          "confidence",
+          "concept_policy",
+          "warnings"
+        ],
+        "allowed_concept_policies": [
+          "source_named_group",
+          "source_described_threat",
+          "source_described_event",
+          "source_described_protocol",
+          "source_described_thread",
+          "source_described_clue"
+        ],
+        "required_session_23_concepts": [
+          "first meat wave",
+          "tripod meat monsters",
+          "flying meatwings",
+          "meat hybrid monsters",
+          "sewer monsters",
+          "golem-like creature",
+          "small summoned meat monsters",
+          "edge warning message",
+          "eye-check protocol",
+          "south-gate refugee routing",
+          "monster eye changes",
+          "Caelynn lightning bolt cliffhanger",
+          "Mireward overrun question",
+          "remaining approaching horde"
+        ]
+      },
+      "hard_gates": [
+        "no statblock inference",
+        "no exact enemy count promotion",
+        "no second-wave wording unless source says second wave",
+        "no generated lore",
+        "no prep-only concepts unless admitted by source dependency"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "second-wave wording",
+        "statblock inference",
+        "generated lore"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "relationship_edge_proposal",
+      "schema": "dmb_extraction_relationship_edge_candidates_v0",
+      "purpose": "Propose relationship edges between candidate nodes using source-grounded evidence.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "source_span_selection"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_relationship_edge_candidates_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "edges",
+          "diagnostics"
+        ],
+        "edge_candidate_required_fields": [
+          "candidate_id",
+          "from_candidate_id",
+          "to_candidate_id",
+          "label",
+          "relationship_type",
+          "source_anchor_ids",
+          "evidence_refs",
+          "confidence",
+          "warnings"
+        ],
+        "allowed_relationship_types": [
+          "recognizes",
+          "relays_message",
+          "warns_of",
+          "reads_to",
+          "resembles_prior_threat",
+          "commands_room",
+          "explains_mission",
+          "warns",
+          "scouts",
+          "leads",
+          "requires_screening",
+          "routes_to",
+          "detects",
+          "casts",
+          "launches",
+          "commands_attack",
+          "identifies_weakness",
+          "summons",
+          "charms",
+          "inspires",
+          "attacks_with",
+          "threatens"
+        ]
+      },
+      "hard_gates": [
+        "edge endpoints must exist",
+        "edge evidence required",
+        "relationship must be directly supported by source or clearly marked separate_span_binding",
+        "no relationship inference from campaign memory",
+        "no unsupported identity/alias merge",
+        "no future outcome edge"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "unsupported relation inference",
+        "future outcome edge"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "ignored_deferred_detection",
+      "schema": "dmb_extraction_ignored_deferred_candidates_v0",
+      "purpose": "Separate unsupported, noisy, ambiguous, or unresolved material from candidate facts.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "source_span_selection",
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_ignored_deferred_candidates_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "ignored_items",
+          "deferred_items",
+          "diagnostics"
+        ],
+        "required_ignored_items": [
+          "exact shadow count",
+          "unnamed experienced adventurer identities",
+          "exact mechanical statblocks"
+        ],
+        "required_deferred_items": [
+          "help Edge or defend Mireward",
+          "Edge refugee contamination risk",
+          "first-wave outcome",
+          "Mireward overrun risk",
+          "monster eye changes source",
+          "golem-like creature identity",
+          "canonical party-name binding"
+        ]
+      },
+      "hard_gates": [
+        "do not promote exact uncertain count",
+        "do not invent unnamed adventurer identities",
+        "do not infer full statblocks",
+        "do not resolve cliffhanger outcome",
+        "do not bind canonical party name from this source alone"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "cliffhanger resolution",
+        "canonical party-name binding",
+        "exact uncertain count"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "evidence_alignment",
+      "schema": "dmb_extraction_evidence_alignment_v0",
+      "purpose": "Attach resolver-compatible evidence refs to all candidate objects and audit high-risk claims.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "relationship_edge_proposal",
+          "ignored_deferred_detection"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_extraction_evidence_alignment_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "aligned_objects",
+          "unresolved_objects",
+          "high_risk_evidence_audit",
+          "diagnostics"
+        ],
+        "high_risk_evidence_audit": [
+          "Lysandro name + father relationship",
+          "Lysandra recognizes Lysandro edge",
+          "heroes / party vs canonical party-name binding",
+          "remaining approaching horde vs unsupported second-wave wording"
+        ]
+      },
+      "hard_gates": [
+        "every candidate object must have evidence refs",
+        "every source evidence ref must resolve",
+        "every source evidence ref must open",
+        "every source evidence ref must highlight",
+        "no heading-only snippets",
+        "no unknown source_anchor_id",
+        "no full source text leakage",
+        "high-risk audit must pass"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "unknown source_anchor_id",
+        "unresolved evidence ref",
+        "unhighlightable source evidence",
+        "heading-only evidence"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "candidate_graph_assembly",
+      "schema": "dmb_candidate_graph_preview_v0",
+      "purpose": "Assemble validated pass outputs into Candidate Graph Preview IR v0.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "relationship_edge_proposal",
+          "ignored_deferred_detection",
+          "evidence_alignment"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_candidate_graph_preview_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "status",
+          "diagnostics",
+          "nodes",
+          "edges",
+          "beats",
+          "proposed_writes",
+          "ignored_items",
+          "deferred_items"
+        ]
+      },
+      "hard_gates": [
+        "must parse as CandidateGraphPreview",
+        "must validate with validate_candidate_graph_preview",
+        "status must be preview",
+        "diagnostics.preview_only must be true",
+        "all proposed writes pending",
+        "no promoted lifecycle",
+        "no committed proposed_action",
+        "edge endpoints exist",
+        "beat nodes exist",
+        "write targets exist",
+        "ignored/deferred items preserved"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "promoted lifecycle",
+        "approved writes",
+        "committed proposed_action"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    },
+    {
+      "pass_id": "gold_comparison_report",
+      "schema": "dmb_candidate_graph_gold_comparison_report_v0",
+      "purpose": "Compare future assembled candidate graph output against the hand-authored Session 23 gold fixture.",
+      "input_contract": {
+        "depends_on_previous_passes": [
+          "candidate_graph_assembly",
+          "evidence_alignment"
+        ]
+      },
+      "output_contract": {
+        "schema": "dmb_candidate_graph_gold_comparison_report_v0",
+        "required_future_output_fields": [
+          "schema",
+          "version",
+          "contract_id",
+          "scores",
+          "issues",
+          "hard_failures",
+          "soft_misses",
+          "diagnostics"
+        ],
+        "score_dimensions": [
+          "node_recall",
+          "node_precision_proxy",
+          "edge_recall",
+          "edge_precision_proxy",
+          "beat_recall",
+          "beat_order_similarity",
+          "proposed_write_recall",
+          "ignored_item_recall",
+          "deferred_item_recall",
+          "evidence_alignment_score",
+          "high_risk_audit_score",
+          "safety_gate_score"
+        ]
+      },
+      "hard_gates": [
+        "comparison target must be Session 23 gold fixture",
+        "comparison mode must be contract-defined",
+        "no live/model output required by this PR"
+      ],
+      "soft_quality_signals": [],
+      "forbidden_outputs": [
+        "live comparison output",
+        "model output payload"
+      ],
+      "allowed_dependencies": [
+        "session_23_recap_ingest_fixture",
+        "session_23_candidate_graph_gold_fixture"
+      ],
+      "notes": []
+    }
+  ]
+}

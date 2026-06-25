@@ -1,0 +1,159 @@
+{
+  "schema": "dmb_session_23_gold_comparison_contract_v0",
+  "version": "0.1",
+  "contract_id": "graph-memory:multi-pass-extraction-contract:v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "comparison_mode": "contract_defined_no_execution",
+  "matching_policy": {
+    "node_match_keys": [
+      "node_id",
+      "label_normalized",
+      "node_type"
+    ],
+    "edge_match_keys": [
+      "from_node_id",
+      "to_node_id",
+      "relationship_type"
+    ],
+    "beat_match_keys": [
+      "order",
+      "title_normalized"
+    ],
+    "write_match_keys": [
+      "target_id",
+      "write_type"
+    ],
+    "ignored_match_keys": [
+      "label_normalized"
+    ],
+    "deferred_match_keys": [
+      "label_normalized"
+    ]
+  },
+  "hard_gates": [
+    {
+      "issue_category": "dangerous_diagnostic_flag",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "promoted_lifecycle_forbidden",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "approved_write_forbidden",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "unknown_evidence_anchor",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "unresolved_evidence_ref",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "source_leakage",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "runtime_leakage",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "corpus_mutation",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    },
+    {
+      "issue_category": "llm_execution_required",
+      "reason": "hard failure blocks trustworthy extraction evaluation"
+    }
+  ],
+  "soft_scores": [
+    {
+      "dimension": "node_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "node_precision_proxy",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "edge_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "edge_precision_proxy",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "beat_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "beat_order_similarity",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "proposed_write_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "ignored_item_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "deferred_item_recall",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "evidence_alignment_score",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "high_risk_audit_score",
+      "type": "contract_score"
+    },
+    {
+      "dimension": "safety_gate_score",
+      "type": "contract_score"
+    }
+  ],
+  "issue_categories": [
+    "missing_required_node",
+    "extra_unsupported_node",
+    "missing_required_edge",
+    "extra_unsupported_edge",
+    "missing_required_beat",
+    "beat_order_mismatch",
+    "missing_evidence_ref",
+    "unknown_evidence_anchor",
+    "unresolved_evidence_ref",
+    "unhighlightable_source_evidence",
+    "unsupported_identity_binding",
+    "unsupported_alias_binding",
+    "unsupported_second_wave_claim",
+    "unsupported_outcome_resolution",
+    "promoted_lifecycle_forbidden",
+    "approved_write_forbidden",
+    "dangerous_diagnostic_flag",
+    "source_leakage",
+    "runtime_leakage"
+  ],
+  "hard_failure_categories": [
+    "dangerous_diagnostic_flag",
+    "promoted_lifecycle_forbidden",
+    "approved_write_forbidden",
+    "unknown_evidence_anchor",
+    "unresolved_evidence_ref",
+    "source_leakage",
+    "runtime_leakage",
+    "corpus_mutation",
+    "llm_execution_required"
+  ],
+  "soft_miss_categories": [
+    "missing_optional_node",
+    "missing_optional_edge",
+    "low_importance_label_mismatch",
+    "summary_wording_difference"
+  ]
+}
