@@ -1,0 +1,31 @@
+{
+  "schema": "dmb_graph_memory_query_vocabulary_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:query-vocabulary-fixture:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "execution_mode": "static_query_vocabulary_fixture",
+  "source_static_preview_prototype_id": "graph-memory:static-preview-graph-ui-prototype:session-23:v0",
+  "source_report_fixture_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "query_vocabulary_path": "evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_vocabulary_fixture.json",
+  "report_path": "evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_vocabulary_report.md",
+  "diagnostics": {
+    "static_query_vocabulary_fixture": true,
+    "query_execution_required": false,
+    "graph_retrieval_required": false,
+    "graph_traversal_required": false,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "runtime_ui_required": false,
+    "api_required": false,
+    "approval_persistence_required": false,
+    "graph_write_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

@@ -372,3 +372,24 @@ Prototype artifact:
 ```text
 evals/graph_memory_layer/examples/static_preview_graph_ui_prototype/session_23_preview_graph_ui_prototype.html
 ```
+
+### Query vocabulary fixture
+
+The query vocabulary fixture defines safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. It provides example GM questions, evidence requirements, expected answer shapes, high-risk query behavior, proposed-write query behavior, unknown/deferred behavior, and Agent Interaction readiness boundaries.
+
+This is a static vocabulary fixture. It does not execute graph retrieval, execute graph queries, call an LLM, write graph memory, approve writes, persist review state, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_query_vocabulary_fixture
+uv run python -m evals.graph_memory_layer.report_query_vocabulary_fixture
+```
+
+Primary artifacts:
+
+```text
+evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_vocabulary_fixture.json
+evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_vocabulary_report.md
+Docs/Design/GRAPH-MEMORY-QUERY-VOCABULARY-FIXTURE.md
+```
