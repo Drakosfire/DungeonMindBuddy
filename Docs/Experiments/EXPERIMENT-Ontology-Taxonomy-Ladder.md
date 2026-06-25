@@ -862,3 +862,15 @@ The workstream now has a contract-only multi-pass extraction specification targe
 The next backend rung should add an eval-only extractor harness fixture that can accept future extractor output in the contract-defined shape. It should still not require live LLM execution in CI unless explicitly gated.
 
 Still blocked: production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes.
+
+## Eval-Only Extractor Harness Fixture v0
+
+Completed rung: Eval-Only Extractor Harness Fixture v0.
+
+Current checkpoint: post-eval-only-extractor-harness-fixture checkpoint.
+
+The workstream now has an eval-only extractor harness fixture that loads static, contract-shaped candidate output, validates it against the Multi-Pass Extraction Contract v0, resolves evidence refs, runs high-risk claim audit, parses Candidate Graph Preview IR, and compares the output against the Session 23 hand-authored gold fixture without executing an extractor or requiring live LLM calls in CI.
+
+Next backend PR: `graph-memory: add static extractor output comparison report v0`.
+
+Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.

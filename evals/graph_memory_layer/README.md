@@ -314,3 +314,16 @@ Commands:
 uv run python -m evals.graph_memory_layer.validate_multi_pass_extraction_contract
 uv run python -m evals.graph_memory_layer.report_multi_pass_extraction_contract
 ```
+
+### Eval-only extractor harness fixture
+
+The eval-only extractor harness fixture loads a static, checked-in candidate output bundle shaped by the Multi-Pass Extraction Contract v0, validates the candidate pass outputs, parses the assembled Candidate Graph Preview, resolves evidence refs, audits high-risk claims, and compares the candidate graph against the Session 23 hand-authored gold fixture.
+
+This is not a live extractor. It does not call an LLM, generate output from recap text, write graph memory, approve writes, execute graph queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_eval_only_extractor_harness
+uv run python -m evals.graph_memory_layer.report_eval_only_extractor_harness
+```

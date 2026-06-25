@@ -401,3 +401,13 @@ The workstream now has a hand-authored Candidate Graph Preview gold fixture for 
 No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added until later explicit gates.
 
 Recommended next backend PR: graph-memory: add eval-only extractor harness fixture v0.
+
+## Eval-Only Extractor Harness Fixture v0
+
+Status: completed at the post-eval-only-extractor-harness-fixture checkpoint.
+
+The workstream now has an eval-only extractor harness fixture that loads static, contract-shaped candidate output, validates it against the Multi-Pass Extraction Contract v0, resolves evidence refs, runs high-risk claim audit, parses Candidate Graph Preview IR, and compares the output against the Session 23 hand-authored gold fixture without executing an extractor or requiring live LLM calls in CI.
+
+Recommended next backend PR: `graph-memory: add static extractor output comparison report v0`.
+
+Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
