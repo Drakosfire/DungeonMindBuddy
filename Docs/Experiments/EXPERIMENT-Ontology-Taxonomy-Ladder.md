@@ -1,7 +1,7 @@
 # Ontology & Taxonomy Ladder Workstream
 
-Version: 0.12
-Status: active operational anchor — post-static-preview-graph-ui-prototype checkpoint
+Version: 0.13
+Status: active operational anchor — post-query-vocabulary-fixture checkpoint
 Workstream: Graph Memory / Ontology / Taxonomy
 Branch model: isolated ladder branch family
 Relationship to other work: separate from Tiptap / Markdown backend workstream
@@ -44,20 +44,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 30. Static Extractor Output Comparison Report v0
 31. Preview Graph UX Design Spec v0
 32. Static Preview Graph UI Prototype v0
+33. Query Vocabulary Fixture v0
 
 The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries, and define a hand-authored Session 23 Candidate Graph Preview gold fixture for future extractor comparison.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The current checkpoint is **post-static-preview-graph-ui-prototype checkpoint**.
+The current checkpoint is **post-query-vocabulary-fixture checkpoint**.
 
-The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
+The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. The fixture covers example GM questions, evidence requirements, answer shape expectations, high-risk query behavior, proposed-write query behavior, unknown/deferred answer behavior, and Agent Interaction readiness boundaries without executing queries, retrieving graph memory, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
 
 ## Next Technical Checkpoint
 
 The next technical checkpoint is `post-query-vocabulary-fixture checkpoint`.
 
-Static Preview Graph UI Prototype v0 is complete. The next PR should add a query vocabulary fixture before adapter, `/plan` shadow work, Agent Interaction integration, runtime graph retrieval, or gated live extraction.
+Query Vocabulary Fixture v0 is complete. The next PR should add an Agent Interaction chip payload contract before adapter, `/plan` shadow work, Agent Interaction integration, runtime graph retrieval, or gated live extraction.
 
 It must continue to block:
 
@@ -916,3 +917,11 @@ Completed rung: Static Preview Graph UI Prototype v0.
 The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
 
 Recommended next backend/design PR: `graph-memory: add query vocabulary fixture v0`.
+
+## Query Vocabulary Fixture v0
+
+Completed rung: Query Vocabulary Fixture v0.
+
+The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. The fixture covers example GM questions, evidence requirements, answer shape expectations, high-risk query behavior, proposed-write query behavior, unknown/deferred answer behavior, and Agent Interaction readiness boundaries without executing queries, retrieving graph memory, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
+
+Recommended next PR: `graph-memory: add agent interaction chip payload contract v0`.

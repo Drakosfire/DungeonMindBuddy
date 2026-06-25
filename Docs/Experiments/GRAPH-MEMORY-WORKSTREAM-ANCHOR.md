@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-static-preview-graph-ui-prototype checkpoint
+Status: active current anchor — post-query-vocabulary-fixture checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -150,12 +150,12 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend/design PR:
 
 ```text
-graph-memory: add query vocabulary fixture v0
+graph-memory: add agent interaction chip payload contract v0
 ```
 
 Mission:
 
-Define a safe query vocabulary fixture before runtime graph retrieval or Agent Interaction integration.
+Define static Agent Interaction chip payload shapes without connecting Agent Interaction runtime.
 
 Completed rung:
 
@@ -168,11 +168,12 @@ Eval-Only Extractor Harness Fixture v0
 Static Extractor Output Comparison Report v0
 Preview Graph UX Design Spec v0
 Static Preview Graph UI Prototype v0
+Query Vocabulary Fixture v0
 ```
 
-The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
+The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. The fixture covers example GM questions, evidence requirements, answer shape expectations, high-risk query behavior, proposed-write query behavior, unknown/deferred answer behavior, and Agent Interaction readiness boundaries without executing queries, retrieving graph memory, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
 
-Still blocked: live LLM extraction, production extraction, graph writes, approval persistence, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
+Still blocked: live LLM extraction, production extraction, graph retrieval, query execution, graph writes, approval persistence, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
 
 ## Immediate Next Frontend/Design PR
 
@@ -412,7 +413,7 @@ The workstream now has a hand-authored Candidate Graph Preview gold fixture for 
 
 The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
 
-Still blocked: live LLM extraction, production extraction, graph writes, approval persistence, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
+Still blocked: live LLM extraction, production extraction, graph retrieval, query execution, graph writes, approval persistence, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
 
 Recommended next backend PR: graph-memory: add static extractor output comparison report v0.
 
@@ -455,4 +456,4 @@ Completed rung: Static Preview Graph UI Prototype v0.
 
 The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
 
-Recommended next backend/design PR: `graph-memory: add query vocabulary fixture v0`.
+Recommended next backend/design PR: `graph-memory: add agent interaction chip payload contract v0`.
