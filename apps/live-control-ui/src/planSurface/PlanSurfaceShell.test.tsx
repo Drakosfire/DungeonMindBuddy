@@ -461,6 +461,52 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", originalThreadId ?? "")) ?? "{}").uiState.newThreadSuggestionDismissed).toBe(true);
   });
 
+  it("shows the suggestion again after dismissing then clearing history", async () => {
+    const user = userEvent.setup();
+    const responses = Array.from({ length: AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS * 2 }, (_, index) => ({
+      ok: true,
+      text: async () => JSON.stringify({
+        answer: `Clear reset answer ${index + 1}`,
+        classification: {},
+        events_written: [],
+        jobs_queued: [],
+        next_suggestions: [],
+        diagnostics: [],
+        provenance: {},
+        citations: [],
+        context_packet: null,
+      }),
+    } as Response));
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+
+    for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
+      fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
+      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      expect(await screen.findByText(`Clear reset answer ${index}`)).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole("button", { name: "Keep going" }));
+    expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear history" }));
+    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
+
+    for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
+      fireEvent.change(screen.getByLabelText("Question"), { target: { value: `After clear ${index}?` } });
+      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      expect(await screen.findByText(`Clear reset answer ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS + index}`)).toBeInTheDocument();
+    }
+
+    expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
+      `This thread has ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS} turns. Start a new prep thread for a fresh topic?`,
+    );
+  });
+
   it("starts an empty active thread only when the long-thread suggestion is accepted", async () => {
     const user = userEvent.setup();
     const responses = Array.from({ length: AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS }, (_, index) => ({

@@ -265,7 +265,17 @@ export function PlanAgentInteractionBar({
   function clearHistory() {
     if (thread) {
       clearAgentThread(thread);
-      const nextThread = { ...thread, turns: [], updatedAt: new Date().toISOString(), uiState: { ...thread.uiState, scrollAnchorTurnId: null, traceVisible } };
+      const nextThread = {
+        ...thread,
+        turns: [],
+        updatedAt: new Date().toISOString(),
+        uiState: {
+          ...thread.uiState,
+          scrollAnchorTurnId: null,
+          traceVisible,
+          newThreadSuggestionDismissed: false,
+        },
+      };
       setThread(nextThread);
       refreshThreadSummaries();
     }
