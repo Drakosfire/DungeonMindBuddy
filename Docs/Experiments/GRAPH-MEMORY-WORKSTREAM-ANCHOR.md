@@ -324,7 +324,7 @@ Recommended sequence:
 5. Session 23 Hand-Authored Candidate Graph Gold Fixture v0 — done
 6. Multi-Pass Extraction Contract v0
 7. Eval-Only Extractor Harness Fixture v0 — done
-8. Static Extractor Output Comparison Report v0
+8. Static Extractor Output Comparison Report v0 — done
 9. Preview Graph UX Design Spec v0
 10. Static Preview Graph UI Prototype v0
 11. Query Vocabulary Fixture v0
@@ -367,7 +367,7 @@ Completed recent rungs:
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend PR: graph-memory: add static extractor output comparison report v0.
+Next backend/design PR: graph-memory: add preview graph UX design spec v0.
 
 ## post-multi-pass-extraction-contract checkpoint
 
@@ -411,5 +411,17 @@ Status: completed at the post-eval-only-extractor-harness-fixture checkpoint.
 The workstream now has an eval-only extractor harness fixture that loads static, contract-shaped candidate output, validates it against the Multi-Pass Extraction Contract v0, resolves evidence refs, runs high-risk claim audit, parses Candidate Graph Preview IR, and compares the output against the Session 23 hand-authored gold fixture without executing an extractor or requiring live LLM calls in CI.
 
 Recommended next backend PR: `graph-memory: add static extractor output comparison report v0`.
+
+Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
+
+## Static Extractor Output Comparison Report v0
+
+Completed rung: Static Extractor Output Comparison Report v0.
+
+Current checkpoint: post-static-extractor-output-comparison-report checkpoint.
+
+The workstream now has a static extractor output comparison report fixture that turns eval-only candidate-vs-gold comparison into a stable reviewer artifact. It groups hard failures, soft misses, score bands, missing gold coverage, evidence health, high-risk audit status, proposed write safety, and GM preview readiness without executing an extractor or requiring live LLM calls in CI.
+
+Next backend/design PR: graph-memory: add preview graph UX design spec v0.
 
 Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.

@@ -327,3 +327,16 @@ Commands:
 uv run python -m evals.graph_memory_layer.validate_eval_only_extractor_harness
 uv run python -m evals.graph_memory_layer.report_eval_only_extractor_harness
 ```
+
+### Static extractor output comparison report
+
+The static extractor output comparison report fixture turns the eval-only harness’s candidate-vs-gold comparison into a stable, reviewer-facing report. It groups hard failures, soft misses, missing gold coverage, score bands, evidence health, high-risk audit status, proposed write safety, and GM preview readiness.
+
+This is a static report fixture. It does not call an LLM, execute extraction, generate output from recap text, write graph memory, approve writes, execute graph queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_static_extractor_output_comparison_report
+uv run python -m evals.graph_memory_layer.report_static_extractor_output_comparison_report
+```

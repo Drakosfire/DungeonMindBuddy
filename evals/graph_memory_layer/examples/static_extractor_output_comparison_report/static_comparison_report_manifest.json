@@ -1,0 +1,30 @@
+{
+  "schema": "dmb_static_extractor_output_comparison_report_manifest_v0",
+  "version": "0.1",
+  "report_fixture_id": "graph-memory:static-extractor-output-comparison-report:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "execution_mode": "static_report_fixture",
+  "source_harness_id": "graph-memory:eval-only-extractor-harness:v0",
+  "contract_id": "graph-memory:multi-pass-extraction-contract:v0",
+  "candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "input_report_path": "evals/graph_memory_layer/examples/eval_only_extractor_harness/session_23_expected_comparison_report.sample.json",
+  "output_report_json_path": "evals/graph_memory_layer/examples/static_extractor_output_comparison_report/session_23_static_comparison_report.json",
+  "output_report_markdown_path": "evals/graph_memory_layer/examples/static_extractor_output_comparison_report/session_23_static_comparison_report.md",
+  "diagnostics": {
+    "static_report_fixture": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

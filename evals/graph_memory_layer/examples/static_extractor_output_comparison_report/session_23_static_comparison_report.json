@@ -1,0 +1,852 @@
+{
+  "schema": "dmb_static_extractor_output_comparison_report_v0",
+  "version": "0.1",
+  "report_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "source_report_id": "graph-memory:eval-only-comparison-report:session-23:sample-v0",
+  "candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "verdict": {
+    "status": "safe_but_incomplete",
+    "merge_gate": "pass",
+    "reviewer_summary": "The sample candidate output has no hard failures and passes evidence/high-risk/safety gates, but misses substantial Session 23 gold coverage.",
+    "blocking_issue_count": 0,
+    "soft_issue_count": 45,
+    "recommended_next_action": "Use this report shape to inspect future static or gated extractor outputs before live extraction is admitted."
+  },
+  "score_summary": {
+    "overall_safety": {
+      "score": 1.0,
+      "band": "pass",
+      "components": {
+        "safety_gate_score": 1.0,
+        "evidence_alignment_score": 1.0,
+        "high_risk_audit_score": 1.0
+      }
+    },
+    "coverage": {
+      "node_recall": {
+        "score": 0.7857,
+        "band": "good"
+      },
+      "edge_recall": {
+        "score": 0.3478,
+        "band": "weak"
+      },
+      "beat_recall": {
+        "score": 0.4286,
+        "band": "partial"
+      },
+      "proposed_write_recall": {
+        "score": 0.4,
+        "band": "partial"
+      },
+      "ignored_item_recall": {
+        "score": 0.6667,
+        "band": "partial"
+      },
+      "deferred_item_recall": {
+        "score": 0.5,
+        "band": "partial"
+      }
+    },
+    "precision_proxy": {
+      "node_precision_proxy": {
+        "score": 1.0,
+        "band": "pass"
+      },
+      "edge_precision_proxy": {
+        "score": 1.0,
+        "band": "pass"
+      }
+    }
+  },
+  "coverage_summary": {
+    "nodes": {
+      "gold_total": 42,
+      "candidate_total": 33,
+      "matched": 33,
+      "missing": 9,
+      "extra": 0,
+      "recall": 0.7857,
+      "precision_proxy": 1.0
+    },
+    "edges": {
+      "gold_total": 23,
+      "candidate_total": 8,
+      "matched": 8,
+      "missing": 15,
+      "extra": 0,
+      "recall": 0.3478,
+      "precision_proxy": 1.0
+    },
+    "beats": {
+      "gold_total": 14,
+      "candidate_total": 6,
+      "matched": 6,
+      "missing": 8,
+      "extra": 0,
+      "recall": 0.4286,
+      "precision_proxy": 1.0
+    },
+    "proposed_writes": {
+      "gold_total": 15,
+      "candidate_total": 6,
+      "matched": 6,
+      "missing": 9,
+      "extra": 0,
+      "recall": 0.4,
+      "precision_proxy": 1.0
+    },
+    "ignored_items": {
+      "gold_total": 3,
+      "candidate_total": 2,
+      "matched": 2,
+      "missing": 1,
+      "extra": 0,
+      "recall": 0.6667,
+      "precision_proxy": 1.0
+    },
+    "deferred_items": {
+      "gold_total": 6,
+      "candidate_total": 3,
+      "matched": 3,
+      "missing": 3,
+      "extra": 0,
+      "recall": 0.5,
+      "precision_proxy": 1.0
+    }
+  },
+  "hard_failure_summary": {
+    "total": 0,
+    "by_issue": {},
+    "blocking": false,
+    "reviewer_note": "No hard safety failures were found in the static sample candidate output."
+  },
+  "soft_miss_summary": {
+    "total": 45,
+    "by_issue": {
+      "missing_deferred_item": {
+        "count": 3,
+        "items": [
+          {
+            "id": "deferred:edge-refugee-contamination-risk",
+            "label": "Edge refugee contamination risk"
+          },
+          {
+            "id": "deferred:golem-like-creature-identity",
+            "label": "Golem-like creature identity"
+          },
+          {
+            "id": "deferred:monster-eye-changes-source",
+            "label": "Source of monster eye changes"
+          }
+        ]
+      },
+      "missing_ignored_item": {
+        "count": 1,
+        "items": [
+          {
+            "id": "ignored:experienced-adventurers-identities",
+            "label": "Experienced adventurers identities"
+          }
+        ]
+      },
+      "missing_proposed_write": {
+        "count": 9,
+        "items": [
+          {
+            "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+            "label": "Create Caelynn lightning bolt cliffhanger"
+          },
+          {
+            "id": "write:create-edge-refugees",
+            "label": "Create Edge refugees"
+          },
+          {
+            "id": "write:create-edge-warning-message",
+            "label": "Create Edge warning message"
+          },
+          {
+            "id": "write:create-first-meat-wave",
+            "label": "Create First meat wave"
+          },
+          {
+            "id": "write:create-flying-meatwings",
+            "label": "Create Flying meatwings"
+          },
+          {
+            "id": "write:create-thread-first-wave-outcome",
+            "label": "Create Thread: first wave outcome"
+          },
+          {
+            "id": "write:create-thread-help-edge-or-defend-mireward",
+            "label": "Create Thread: help Edge or defend Mireward"
+          },
+          {
+            "id": "write:create-thread-mireward-overrun-risk",
+            "label": "Create Thread: Mireward overrun risk"
+          },
+          {
+            "id": "write:create-tripod-meat-monsters",
+            "label": "Create Tripod meat monsters"
+          }
+        ]
+      },
+      "missing_required_beat": {
+        "count": 8,
+        "items": [
+          {
+            "id": "beat:caelynn-hit-and-lysandra-counterattack",
+            "label": "Caelynn hit and Lysandra counterattack"
+          },
+          {
+            "id": "beat:eye-check-and-south-gate-plan",
+            "label": "Eye checks and south-gate plan"
+          },
+          {
+            "id": "beat:hunger-of-hadar-and-readied-attacks",
+            "label": "Hunger of Hadar and readied attacks"
+          },
+          {
+            "id": "beat:karsemine-learns-fire-weakness",
+            "label": "Karsemine learns fire weakness"
+          },
+          {
+            "id": "beat:lysandra-commanding-shout",
+            "label": "Lysandra Commanding Shout"
+          },
+          {
+            "id": "beat:meatwing-charm",
+            "label": "Meatwing charm"
+          },
+          {
+            "id": "beat:north-gate-alarm",
+            "label": "North gate alarm"
+          },
+          {
+            "id": "beat:tripod-body-launch",
+            "label": "Tripod body launch"
+          }
+        ]
+      },
+      "missing_required_edge": {
+        "count": 15,
+        "items": [
+          {
+            "id": "edge:boy-warns-shadows-at-north-gate",
+            "label": "receive warning that shadows are coming to the north gate"
+          },
+          {
+            "id": "edge:caelynn-unleashes-lightning-bolt",
+            "label": "unleashes the lightning-bolt cliffhanger"
+          },
+          {
+            "id": "edge:ephanna-casts-hunger-of-hadar",
+            "label": "casts Hunger of Hadar in the monsters path"
+          },
+          {
+            "id": "edge:ephanna-summons-ogonob",
+            "label": "summons Ogonob over the wall"
+          },
+          {
+            "id": "edge:karsemine-casts-spike-growth",
+            "label": "casts Spike Growth on the approach road"
+          },
+          {
+            "id": "edge:karsemine-identifies-fire-weakness",
+            "label": "identifies poison resistance and fire weakness"
+          },
+          {
+            "id": "edge:lightning-bolt-targets-meat-wave",
+            "label": "targets the attackers with massive lightning damage"
+          },
+          {
+            "id": "edge:lysandra-explains-mirathorn-mission",
+            "label": "explains the Mirathorn mission and prior monster fight"
+          },
+          {
+            "id": "edge:lysandra-reads-message-to-party",
+            "label": "reads the message to the heroes / party"
+          },
+          {
+            "id": "edge:lysandra-uses-commanding-shout",
+            "label": "uses Commanding Shout to order more attacks"
+          },
+          {
+            "id": "edge:meatwings-charm-bonogo-and-ephanna",
+            "label": "charms Bonogo and Ephanna away from attacking"
+          },
+          {
+            "id": "edge:message-resembles-mirathorn-monsters",
+            "label": "resembles prior monsters and eye changes"
+          },
+          {
+            "id": "edge:stafl-inspires-karsemine",
+            "label": "casts Bardic Inspiration on Karsemine"
+          },
+          {
+            "id": "edge:stafl-routes-refugees-to-south-gate",
+            "label": "routes refugees to wait at the south gate"
+          },
+          {
+            "id": "edge:stafl-scouts-from-north-gate",
+            "label": "scouts the shadowed road from the north gate"
+          }
+        ]
+      },
+      "missing_required_node": {
+        "count": 9,
+        "items": [
+          {
+            "id": "node:baergrom",
+            "label": "Baergrom"
+          },
+          {
+            "id": "node:bonogo",
+            "label": "Bonogo"
+          },
+          {
+            "id": "node:meat-flank-attackers",
+            "label": "Meat flank attackers"
+          },
+          {
+            "id": "node:north-wall",
+            "label": "North wall"
+          },
+          {
+            "id": "node:ogonob",
+            "label": "Ogonob"
+          },
+          {
+            "id": "node:road-to-north-gate",
+            "label": "Road to the north gate"
+          },
+          {
+            "id": "node:south-gate",
+            "label": "South gate"
+          },
+          {
+            "id": "node:south-gate-refugee-routing",
+            "label": "South-gate refugee routing"
+          },
+          {
+            "id": "node:thrin",
+            "label": "Thrin"
+          }
+        ]
+      }
+    }
+  },
+  "missing_gold_coverage": {
+    "by_type": {
+      "nodes": [
+        {
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "id": "node:thrin",
+          "label": "Thrin"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:boy-warns-shadows-at-north-gate",
+          "label": "receive warning that shadows are coming to the north gate"
+        },
+        {
+          "id": "edge:caelynn-unleashes-lightning-bolt",
+          "label": "unleashes the lightning-bolt cliffhanger"
+        },
+        {
+          "id": "edge:ephanna-casts-hunger-of-hadar",
+          "label": "casts Hunger of Hadar in the monsters path"
+        },
+        {
+          "id": "edge:ephanna-summons-ogonob",
+          "label": "summons Ogonob over the wall"
+        },
+        {
+          "id": "edge:karsemine-casts-spike-growth",
+          "label": "casts Spike Growth on the approach road"
+        },
+        {
+          "id": "edge:karsemine-identifies-fire-weakness",
+          "label": "identifies poison resistance and fire weakness"
+        },
+        {
+          "id": "edge:lightning-bolt-targets-meat-wave",
+          "label": "targets the attackers with massive lightning damage"
+        },
+        {
+          "id": "edge:lysandra-explains-mirathorn-mission",
+          "label": "explains the Mirathorn mission and prior monster fight"
+        },
+        {
+          "id": "edge:lysandra-reads-message-to-party",
+          "label": "reads the message to the heroes / party"
+        },
+        {
+          "id": "edge:lysandra-uses-commanding-shout",
+          "label": "uses Commanding Shout to order more attacks"
+        },
+        {
+          "id": "edge:meatwings-charm-bonogo-and-ephanna",
+          "label": "charms Bonogo and Ephanna away from attacking"
+        },
+        {
+          "id": "edge:message-resembles-mirathorn-monsters",
+          "label": "resembles prior monsters and eye changes"
+        },
+        {
+          "id": "edge:stafl-inspires-karsemine",
+          "label": "casts Bardic Inspiration on Karsemine"
+        },
+        {
+          "id": "edge:stafl-routes-refugees-to-south-gate",
+          "label": "routes refugees to wait at the south gate"
+        },
+        {
+          "id": "edge:stafl-scouts-from-north-gate",
+          "label": "scouts the shadowed road from the north gate"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        }
+      ],
+      "proposed_writes": [
+        {
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        }
+      ],
+      "ignored_items": [
+        {
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ],
+      "deferred_items": [
+        {
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ]
+    },
+    "by_review_priority": {
+      "critical": [],
+      "important": [
+        {
+          "type": "edges",
+          "id": "edge:boy-warns-shadows-at-north-gate",
+          "label": "receive warning that shadows are coming to the north gate"
+        },
+        {
+          "type": "edges",
+          "id": "edge:caelynn-unleashes-lightning-bolt",
+          "label": "unleashes the lightning-bolt cliffhanger"
+        },
+        {
+          "type": "edges",
+          "id": "edge:ephanna-casts-hunger-of-hadar",
+          "label": "casts Hunger of Hadar in the monsters path"
+        },
+        {
+          "type": "edges",
+          "id": "edge:ephanna-summons-ogonob",
+          "label": "summons Ogonob over the wall"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-casts-spike-growth",
+          "label": "casts Spike Growth on the approach road"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-identifies-fire-weakness",
+          "label": "identifies poison resistance and fire weakness"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lightning-bolt-targets-meat-wave",
+          "label": "targets the attackers with massive lightning damage"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-explains-mirathorn-mission",
+          "label": "explains the Mirathorn mission and prior monster fight"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-reads-message-to-party",
+          "label": "reads the message to the heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-uses-commanding-shout",
+          "label": "uses Commanding Shout to order more attacks"
+        },
+        {
+          "type": "edges",
+          "id": "edge:meatwings-charm-bonogo-and-ephanna",
+          "label": "charms Bonogo and Ephanna away from attacking"
+        },
+        {
+          "type": "edges",
+          "id": "edge:message-resembles-mirathorn-monsters",
+          "label": "resembles prior monsters and eye changes"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-inspires-karsemine",
+          "label": "casts Bardic Inspiration on Karsemine"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-routes-refugees-to-south-gate",
+          "label": "routes refugees to wait at the south gate"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-scouts-from-north-gate",
+          "label": "scouts the shadowed road from the north gate"
+        },
+        {
+          "type": "beats",
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "type": "beats",
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "type": "beats",
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "type": "beats",
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "type": "beats",
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "type": "beats",
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ],
+      "nice_to_have": [
+        {
+          "type": "nodes",
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "type": "nodes",
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "type": "nodes",
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "type": "nodes",
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "type": "nodes",
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "type": "nodes",
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "type": "nodes",
+          "id": "node:thrin",
+          "label": "Thrin"
+        },
+        {
+          "type": "ignored_items",
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ]
+    }
+  },
+  "extra_candidate_coverage": {
+    "by_type": {
+      "nodes": [],
+      "edges": [],
+      "beats": [],
+      "proposed_writes": [],
+      "ignored_items": [],
+      "deferred_items": []
+    },
+    "total": 0
+  },
+  "evidence_health": {
+    "evidence_alignment_score": 1.0,
+    "total_evidence_refs": 206,
+    "resolved_evidence_refs": 206,
+    "openable_evidence_refs": 206,
+    "highlightable_evidence_refs": 206,
+    "warning_count": 0,
+    "unknown_anchor_count": 0,
+    "heading_only_count": 0,
+    "source_leakage_detected": false,
+    "summary": "All candidate evidence refs resolve, open, and highlight against the Session 23 source-span fixture."
+  },
+  "high_risk_audit_summary": {
+    "score": 1.0,
+    "status": "pass",
+    "audited_object_count": 4,
+    "audited_objects": [
+      "edge:lysandra-recognizes-lysandro",
+      "node:heroes-party",
+      "node:lysandro",
+      "node:thread-remaining-approaching-horde"
+    ],
+    "forbidden_claims_absent": [
+      "Questionable Company",
+      "second wave",
+      "thread-monster-second-wave",
+      "resolved battle outcome",
+      "exact shadow count as fact",
+      "approved write",
+      "promoted lifecycle"
+    ],
+    "summary": "High-risk claims are present where expected and pass source-grounding audit."
+  },
+  "proposed_write_summary": {
+    "candidate_total": 6,
+    "matched_gold_total": 6,
+    "missing_gold_total": 9,
+    "approved_count": 0,
+    "pending_count": 6,
+    "promoted_count": 0,
+    "unsafe_status_count": 0,
+    "summary": "All candidate proposed writes remain pending; the sample omits several gold proposed writes."
+  },
+  "gm_preview_readiness": {
+    "status": "not_ready_for_gm_preview",
+    "reason": "The static sample is safe but misses too many Session 23 edges, beats, proposed writes, and deferred items to be useful as a GM-facing preview.",
+    "safe_to_inspect": true,
+    "safe_to_write": false,
+    "sufficient_coverage_for_preview": false,
+    "recommended_improvements": [
+      "Improve edge recall before GM preview.",
+      "Improve beat recall before GM preview.",
+      "Add missing deferred items and proposed writes.",
+      "Preserve current evidence and high-risk audit safety gates."
+    ]
+  },
+  "diagnostics": {
+    "static_report_fixture": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}
