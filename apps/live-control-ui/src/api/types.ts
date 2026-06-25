@@ -429,6 +429,7 @@ export interface AgentInteractionThread {
   uiState?: {
     traceVisible: boolean;
     scrollAnchorTurnId?: string | null;
+    newThreadSuggestionDismissed?: boolean;
   };
 }
 

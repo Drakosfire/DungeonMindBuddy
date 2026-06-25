@@ -11,6 +11,7 @@ import type {
 } from "../../api/types";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
+export const AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS = 6;
 export const AGENT_THREAD_STORAGE_PREFIX = "agent-interaction-thread-v1";
 export const AGENT_ACTIVE_THREAD_STORAGE_PREFIX = "agent-interaction-active-thread-v1";
 export const AGENT_THREAD_INDEX_STORAGE_PREFIX = "agent-interaction-thread-index-v1";
@@ -60,7 +61,7 @@ export function createAgentInteractionThread(
     activeBackend: backend,
     hermesSession: null,
     turns: [],
-    uiState: { traceVisible: true, scrollAnchorTurnId: null },
+    uiState: { traceVisible: true, scrollAnchorTurnId: null, newThreadSuggestionDismissed: false },
   };
 }
 
@@ -337,7 +338,12 @@ export function clearAgentThread(thread: AgentInteractionThread): void {
     ...thread,
     updatedAt: new Date().toISOString(),
     turns: [],
-    uiState: { ...thread.uiState, scrollAnchorTurnId: null, traceVisible: thread.uiState?.traceVisible ?? false },
+    uiState: {
+      ...thread.uiState,
+      scrollAnchorTurnId: null,
+      traceVisible: thread.uiState?.traceVisible ?? false,
+      newThreadSuggestionDismissed: false,
+    },
   };
   persistAgentThread(cleared);
   localStorage.setItem(historyStorageKey(thread.campaignId), "[]");
