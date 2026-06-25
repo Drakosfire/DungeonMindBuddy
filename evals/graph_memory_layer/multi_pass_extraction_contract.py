@@ -34,6 +34,17 @@ ALLOWED_OUTPUT_SCHEMAS = ["dmb_extraction_source_span_selection_v0","dmb_extract
 ISSUE_CATEGORIES = "missing_required_node extra_unsupported_node missing_required_edge extra_unsupported_edge missing_required_beat beat_order_mismatch missing_evidence_ref unknown_evidence_anchor unresolved_evidence_ref unhighlightable_source_evidence unsupported_identity_binding unsupported_alias_binding unsupported_second_wave_claim unsupported_outcome_resolution promoted_lifecycle_forbidden approved_write_forbidden dangerous_diagnostic_flag source_leakage runtime_leakage".split()
 HARD_FAILURE_CATEGORIES = "dangerous_diagnostic_flag promoted_lifecycle_forbidden approved_write_forbidden unknown_evidence_anchor unresolved_evidence_ref source_leakage runtime_leakage corpus_mutation llm_execution_required".split()
 SOFT_MISS_CATEGORIES = "missing_optional_node missing_optional_edge low_importance_label_mismatch summary_wording_difference".split()
+EXPECTED_PASS_DEPENDENCIES = {
+    "source_span_selection": [],
+    "session_beat_extraction": ["source_span_selection"],
+    "named_entity_candidate_extraction": ["source_span_selection"],
+    "unnamed_important_concept_extraction": ["source_span_selection"],
+    "relationship_edge_proposal": ["named_entity_candidate_extraction", "unnamed_important_concept_extraction", "source_span_selection"],
+    "ignored_deferred_detection": ["source_span_selection", "session_beat_extraction", "named_entity_candidate_extraction", "unnamed_important_concept_extraction"],
+    "evidence_alignment": ["session_beat_extraction", "named_entity_candidate_extraction", "unnamed_important_concept_extraction", "relationship_edge_proposal", "ignored_deferred_detection"],
+    "candidate_graph_assembly": ["session_beat_extraction", "named_entity_candidate_extraction", "unnamed_important_concept_extraction", "relationship_edge_proposal", "ignored_deferred_detection", "evidence_alignment"],
+    "gold_comparison_report": ["candidate_graph_assembly", "evidence_alignment"],
+}
 
 
 def repo_root() -> Path:
@@ -89,6 +100,14 @@ def validate_pass_contracts(fixture: Mapping[str, Any]) -> None:
         _assert(p.get("schema") == ALLOWED_OUTPUT_SCHEMAS[i], f"wrong schema for {p.get('pass_id')}")
         for key in ("purpose","input_contract","output_contract","hard_gates","soft_quality_signals","forbidden_outputs","allowed_dependencies"):
             _assert(key in p and p[key] not in (None, ""), f"{p.get('pass_id')} missing {key}")
+        deps = p.get("input_contract", {}).get("depends_on_previous_passes")
+        _assert(deps == EXPECTED_PASS_DEPENDENCIES[p["pass_id"]], f"wrong dependencies for {p['pass_id']}")
+        earlier = set(PASS_ORDER[:i])
+        _assert(set(deps) <= earlier, f"dependency must reference earlier pass for {p['pass_id']}")
+        if i == 0:
+            _assert(deps == [], "only source span selection may have no dependencies")
+        else:
+            _assert(deps, f"later pass has empty dependencies: {p['pass_id']}")
 
 def validate_session_23_outline(outline: Mapping[str, Any]) -> None:
     _assert(outline.get("schema") == "dmb_session_23_expected_pass_outline_v0", "wrong outline schema")

@@ -39,21 +39,21 @@ The ladder has completed the safe foundation, first gated real-structure rungs, 
 25. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
 26. Session 23 Raw Recap Ingest Fixture v0
 27. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
-10. Multi-Pass Extraction Contract v0
+28. Multi-Pass Extraction Contract v0
 
 The project can now define graph vocabulary, represent graph records, validate graph records, reject unsafe graph bundles, materialize a tiny synthetic fixture, report materialized output, gate a first real source family, materialize explicit session-memory JSONL sentence/source-unit records into diagnostic candidate GraphBundles, define surface-safe shared source vocabulary, separate ontology-owned semantics from surface-owned interaction vocabulary, measure projection-readiness, gate recap-ingestion artifacts, prove a synthetic `SourceArtifact -> SourceAnchor -> SourceUnit` fixture for each gate-admitted recap-ingestion artifact family, decide that a future materializer may be implemented only under a strict explicit-input contract, implement the first real explicit-input recap-ingestion source artifact materializer, render richer diagnostic materializer reports, and evaluate projection-readiness over materialized recap-ingestion artifacts then harden stable source_ref_id coverage and explicit provenance-to-source-ref linkage so the default diagnostic fixture is source-ref/provenance ready, dogfood the explicit-input materializer/projection-payload chain against one manually selected real-derived artifact bundle while preserving safety boundaries, and define a hand-authored Session 23 Candidate Graph Preview gold fixture for future extractor comparison.
 
 The default validator still uses tiny synthetic fixtures for baseline paths. No broad campaign/corpus materialization has begun; no graph output influences `/plan` or live retrieval yet; no LLM extraction, alias/entity/relationship inference, graph traversal, or corpus mutation has happened; and no production retrieval behavior has changed.
 
-The next checkpoint is **graph-memory: add multi-pass extraction contract v0**.
+The next checkpoint is **graph-memory: add eval-only extractor harness fixture v0**.
 
 The workstream now has a deterministic Session 23 raw-to-normalized recap fixture using the existing recap-ingest helper spine. The fixture preserves paragraph/source-line provenance and validates source-span seed refs without LLMs, graph extraction, corpus writes, or runtime integration. The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation. The workstream now has a hand-authored Candidate Graph Preview gold fixture for Session 23. This gold fixture defines what a good future extractor should produce from the mechanically normalized Session 23 recap/source-span surface. The next backend rung should add an eval-only extractor harness fixture that can accept future extractor output in the contract-defined shape. It should still not require live LLM execution in CI unless explicitly gated.
 
 ## Next Technical Checkpoint
 
-The next technical checkpoint is `graph-memory: add multi-pass extraction contract v0`.
+The next technical checkpoint is `graph-memory: add eval-only extractor harness fixture v0`.
 
-Session 23 Hand-Authored Candidate Graph Gold Fixture v0 is complete. The next PR should add the multi-pass extraction contract v0 before adapter or `/plan` shadow work.
+Multi-Pass Extraction Contract v0 is complete. The next PR should add an eval-only extractor harness fixture before adapter or `/plan` shadow work.
 
 It must continue to block:
 
@@ -815,7 +815,7 @@ This materializer consumes only explicit session-memory JSONL sentence/source-un
 
 Candidate Graph Preview IR v0 is complete and is now paired with a richer source fixture for future graph-preview dogfood.
 
-Next backend PR: graph-memory: add multi-pass extraction contract v0.
+Next backend PR: graph-memory: add eval-only extractor harness fixture v0.
 Current checkpoint: post-multi-pass-extraction-contract checkpoint.
 
 ## Post-Session-23-Raw-Recap-Ingest-Fixture Checkpoint
@@ -832,7 +832,7 @@ Completed recent rungs:
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend PR: graph-memory: add multi-pass extraction contract v0.
+Next backend PR: graph-memory: add eval-only extractor harness fixture v0.
 
 ## post-multi-pass-extraction-contract checkpoint
 
@@ -842,7 +842,7 @@ The workstream now has a deterministic Session 23 raw-to-normalized recap fixtur
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend PR: graph-memory: add multi-pass extraction contract v0.
+Next backend PR: graph-memory: add eval-only extractor harness fixture v0.
 
 ## post-multi-pass-extraction-contract checkpoint
 
@@ -852,7 +852,7 @@ The workstream now has a hand-authored Candidate Graph Preview gold fixture for 
 
 No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added until later explicit gates.
 
-Recommended next backend PR: graph-memory: add multi-pass extraction contract v0.
+Recommended next backend PR: graph-memory: add eval-only extractor harness fixture v0.
 
 
 ## Multi-Pass Extraction Contract v0

@@ -66,7 +66,9 @@
       "schema": "dmb_extraction_session_beats_v0",
       "purpose": "Extract ordered session beats from selected evidence spans.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_session_beats_v0",
@@ -126,7 +128,9 @@
       "schema": "dmb_extraction_named_entity_candidates_v0",
       "purpose": "Extract named character/location/group/item candidates directly supported by source text.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_named_entity_candidates_v0",
@@ -184,7 +188,9 @@
       "schema": "dmb_extraction_unnamed_important_candidates_v0",
       "purpose": "Extract important concepts that are not clean named entities but matter to GM memory.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "source_span_selection"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_unnamed_important_candidates_v0",
@@ -255,7 +261,11 @@
       "schema": "dmb_extraction_relationship_edge_candidates_v0",
       "purpose": "Propose relationship edges between candidate nodes using source-grounded evidence.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "source_span_selection"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_relationship_edge_candidates_v0",
@@ -326,7 +336,12 @@
       "schema": "dmb_extraction_ignored_deferred_candidates_v0",
       "purpose": "Separate unsupported, noisy, ambiguous, or unresolved material from candidate facts.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "source_span_selection",
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_ignored_deferred_candidates_v0",
@@ -377,7 +392,13 @@
       "schema": "dmb_extraction_evidence_alignment_v0",
       "purpose": "Attach resolver-compatible evidence refs to all candidate objects and audit high-risk claims.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "relationship_edge_proposal",
+          "ignored_deferred_detection"
+        ]
       },
       "output_contract": {
         "schema": "dmb_extraction_evidence_alignment_v0",
@@ -425,7 +446,14 @@
       "schema": "dmb_candidate_graph_preview_v0",
       "purpose": "Assemble validated pass outputs into Candidate Graph Preview IR v0.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "session_beat_extraction",
+          "named_entity_candidate_extraction",
+          "unnamed_important_concept_extraction",
+          "relationship_edge_proposal",
+          "ignored_deferred_detection",
+          "evidence_alignment"
+        ]
       },
       "output_contract": {
         "schema": "dmb_candidate_graph_preview_v0",
@@ -472,7 +500,10 @@
       "schema": "dmb_candidate_graph_gold_comparison_report_v0",
       "purpose": "Compare future assembled candidate graph output against the hand-authored Session 23 gold fixture.",
       "input_contract": {
-        "depends_on_previous_passes": []
+        "depends_on_previous_passes": [
+          "candidate_graph_assembly",
+          "evidence_alignment"
+        ]
       },
       "output_contract": {
         "schema": "dmb_candidate_graph_gold_comparison_report_v0",

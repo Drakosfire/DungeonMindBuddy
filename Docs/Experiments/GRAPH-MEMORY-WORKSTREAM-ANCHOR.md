@@ -69,7 +69,7 @@ Recent completed rungs:
 7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
 8. Session 23 Raw Recap Ingest Fixture v0
 9. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
-10. Multi-Pass Extraction Contract v0
+28. Multi-Pass Extraction Contract v0
 
 The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
 
@@ -145,7 +145,7 @@ Runtime/shadow experiments should come only after those contracts exist.
 Recommended next backend PR:
 
 ```text
-graph-memory: add multi-pass extraction contract v0
+graph-memory: add eval-only extractor harness fixture v0
 ```
 
 Mission:
@@ -365,7 +365,7 @@ Completed recent rungs:
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend PR: graph-memory: add multi-pass extraction contract v0.
+Next backend PR: graph-memory: add eval-only extractor harness fixture v0.
 
 ## post-multi-pass-extraction-contract checkpoint
 
@@ -400,4 +400,4 @@ The workstream now has a hand-authored Candidate Graph Preview gold fixture for 
 
 No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added until later explicit gates.
 
-Recommended next backend PR: graph-memory: add multi-pass extraction contract v0.
+Recommended next backend PR: graph-memory: add eval-only extractor harness fixture v0.

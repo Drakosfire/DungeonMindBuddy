@@ -36,6 +36,11 @@ def test_pass_contracts():
         assert p['purpose'] and p['input_contract'] is not None and p['output_contract']
         assert p['hard_gates'] and 'forbidden_outputs' in p and 'allowed_dependencies' in p
         assert p['schema'] in c.ALLOWED_OUTPUT_SCHEMAS
+        deps = p['input_contract']['depends_on_previous_passes']
+        assert deps == c.EXPECTED_PASS_DEPENDENCIES[p['pass_id']]
+        index = c.PASS_ORDER.index(p['pass_id'])
+        assert set(deps) <= set(c.PASS_ORDER[:index])
+        assert (index == 0 and deps == []) or (index > 0 and deps)
         assert 'actual_extractor_output' not in text(p)
 
 
