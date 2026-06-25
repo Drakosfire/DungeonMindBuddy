@@ -328,6 +328,19 @@ uv run python -m evals.graph_memory_layer.validate_eval_only_extractor_harness
 uv run python -m evals.graph_memory_layer.report_eval_only_extractor_harness
 ```
 
+
+### Preview graph UX design spec
+
+The Preview Graph UX Design Spec defines how future GM-facing screens should present candidate graph memory, evidence health, high-risk audit status, missing coverage, proposed writes, and review intent controls.
+
+This is a design-only rung. It does not implement runtime UI, execute extraction, write graph memory, approve writes, execute queries, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change production behavior.
+
+Primary docs:
+
+- `Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-DESIGN-SPEC.md`
+- `Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-WIREFRAME.md`
+- `Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-COMPONENT-CONTRACT.md`
+
 ### Static extractor output comparison report
 
 The static extractor output comparison report fixture turns the eval-only harness’s candidate-vs-gold comparison into a stable, reviewer-facing report. It groups hard failures, soft misses, missing gold coverage, score bands, evidence health, high-risk audit status, proposed write safety, and GM preview readiness.

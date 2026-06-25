@@ -1,7 +1,7 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-eval-only-extractor-harness-fixture checkpoint
+Status: active current anchor — post-preview-graph-ux-design-spec checkpoint
 Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
 Branch: `experiment/ontology-taxonomy-ladder`
 
@@ -144,15 +144,15 @@ Runtime/shadow experiments should come only after those contracts exist.
 
 ## Immediate Next Backend PR
 
-Recommended next backend PR:
+Recommended next backend/design PR:
 
 ```text
-graph-memory: add static extractor output comparison report v0
+graph-memory: add static preview graph UI prototype v0
 ```
 
 Mission:
 
-Harden the static extractor output comparison report so candidate-vs-gold scoring is stable and human-readable before any live extractor gate.
+Create a static preview graph UI prototype from checked-in fixture/report data so the GM inspection flow can be reviewed visually before runtime integration.
 
 Completed rung:
 
@@ -160,6 +160,10 @@ Completed rung:
 Rich Recap Dogfood Fixture v0
 Session 23 Raw Recap Ingest Fixture v0
 Session 23 Hand-Authored Candidate Graph Gold Fixture v0
+Multi-Pass Extraction Contract v0
+Eval-Only Extractor Harness Fixture v0
+Static Extractor Output Comparison Report v0
+Preview Graph UX Design Spec v0
 ```
 
 No extraction, graph writes, approval, query execution, `/plan` integration, Agent Interaction integration, fact promotion, or canon promotion should be added until later explicit gates.
@@ -325,7 +329,7 @@ Recommended sequence:
 6. Multi-Pass Extraction Contract v0
 7. Eval-Only Extractor Harness Fixture v0 — done
 8. Static Extractor Output Comparison Report v0 — done
-9. Preview Graph UX Design Spec v0
+9. Preview Graph UX Design Spec v0 — done
 10. Static Preview Graph UI Prototype v0
 11. Query Vocabulary Fixture v0
 12. Agent Interaction Chip Payload Contract v0
@@ -367,7 +371,7 @@ Completed recent rungs:
 
 The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
 
-Next backend/design PR: graph-memory: add preview graph UX design spec v0.
+Next backend/design PR: graph-memory: add static preview graph UI prototype v0.
 
 ## post-multi-pass-extraction-contract checkpoint
 
@@ -387,7 +391,7 @@ Revised workstream sequence:
 6. Multi-Pass Extraction Contract v0
 7. Eval-Only Extractor Harness Fixture v0 — done
 8. Static Extractor Output Comparison Report v0
-9. Preview Graph UX Design Spec v0
+9. Preview Graph UX Design Spec v0 — done
 10. Static Preview Graph UI Prototype v0
 11. Query Vocabulary Fixture v0
 12. Agent Interaction Chip Payload Contract v0
@@ -422,6 +426,17 @@ Current checkpoint: post-static-extractor-output-comparison-report checkpoint.
 
 The workstream now has a static extractor output comparison report fixture that turns eval-only candidate-vs-gold comparison into a stable reviewer artifact. It groups hard failures, soft misses, score bands, missing gold coverage, evidence health, high-risk audit status, proposed write safety, and GM preview readiness without executing an extractor or requiring live LLM calls in CI.
 
-Next backend/design PR: graph-memory: add preview graph UX design spec v0.
+Next backend/design PR: graph-memory: add static preview graph UI prototype v0.
 
 Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
+
+
+## Preview Graph UX Design Spec v0
+
+Completed rung: Preview Graph UX Design Spec v0.
+
+The workstream now has a Preview Graph UX Design Spec defining how a GM should inspect candidate graph memory before anything becomes durable campaign memory. The design covers summary state, safety gates, evidence health, high-risk audit display, missing coverage, candidate detail, proposed writes, and future approve/reject/defer intent controls without implementing runtime UI or approval behavior.
+
+Still blocked: live LLM extraction, production extraction, graph writes, approval persistence, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
+
+Recommended next backend/design PR: `graph-memory: add static preview graph UI prototype v0`.
