@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { getSourceBundle, postCitationSource, postLiveQuery } from "../../api/liveApi";
 import type {
+  AgentInteractionThreadSummary,
   AgentInteractionThread,
   CitationSourceResponse,
   AgentInteractionTurn,
@@ -16,8 +17,13 @@ import {
   AGENT_TURN_HISTORY_CAP,
   clearAgentThread,
   createAgentInteractionThread,
+  deleteAgentThread,
+  listAgentThreads,
   loadAgentThread,
+  loadAgentThreadById,
   persistAgentThread,
+  renameAgentThread,
+  setActiveAgentThread,
   threadTitleFromQuestion,
   turnFromResponse,
 } from "./agentInteractionHistory";
@@ -166,13 +172,19 @@ export function PlanAgentInteractionBar({
   const [sourceStatus, setSourceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceResponse, setSourceResponse] = useState<CitationSourceResponse | null>(null);
+  const [threadSummaries, setThreadSummaries] = useState<AgentInteractionThreadSummary[]>([]);
+  const [threadSwitcherOpen, setThreadSwitcherOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   useEffect(() => {
     const storedThread = loadAgentThread(planView.campaign_id, "plan");
+    setThreadSummaries(listAgentThreads(planView.campaign_id, "plan"));
     if (storedThread) {
       setThread(storedThread);
       setTurns(storedThread.turns);
       setActiveTurnId(storedThread.uiState?.scrollAnchorTurnId ?? storedThread.turns[0]?.turnId ?? null);
+      setQueryBackend(storedThread.activeBackend);
     }
   }, [planView.campaign_id]);
 
@@ -199,6 +211,27 @@ export function PlanAgentInteractionBar({
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
 
+  function resetSourceReader() {
+    setSelectedCitationKey(null);
+    setSourceStatus("idle");
+    setSourceError(null);
+    setSourceResponse(null);
+  }
+
+  function refreshThreadSummaries() {
+    setThreadSummaries(listAgentThreads(planView.campaign_id, "plan"));
+  }
+
+  function activateThread(nextThread: AgentInteractionThread | null) {
+    setThread(nextThread);
+    setTurns(nextThread?.turns ?? []);
+    setActiveTurnId(nextThread?.uiState?.scrollAnchorTurnId ?? nextThread?.turns[0]?.turnId ?? null);
+    if (nextThread) setQueryBackend(nextThread.activeBackend);
+    resetSourceReader();
+    setTurnResponses({});
+    setAskStatus("idle");
+  }
+
   async function openPane() {
     setOpen(true);
     if (bundle || status === "loading") return;
@@ -223,11 +256,55 @@ export function PlanAgentInteractionBar({
   }
 
   function clearHistory() {
-    if (thread) clearAgentThread(thread);
-    setThread(null);
+    if (thread) {
+      clearAgentThread(thread);
+      const nextThread = { ...thread, turns: [], updatedAt: new Date().toISOString(), uiState: { ...thread.uiState, scrollAnchorTurnId: null, traceVisible } };
+      setThread(nextThread);
+      refreshThreadSummaries();
+    }
     setTurns([]);
     setActiveTurnId(null);
     setAskStatus("idle");
+    resetSourceReader();
+  }
+
+  function createNewThread() {
+    const nextThread = createAgentInteractionThread(
+      planView.campaign_id,
+      planView.session,
+      "plan",
+      queryBackend,
+    );
+    persistAgentThread(nextThread);
+    setActiveAgentThread(planView.campaign_id, "plan", nextThread.threadId);
+    activateThread(nextThread);
+    refreshThreadSummaries();
+    setThreadSwitcherOpen(false);
+  }
+
+  function switchThread(threadId: string) {
+    const nextThread = loadAgentThreadById(planView.campaign_id, threadId);
+    if (!nextThread) return;
+    setActiveAgentThread(planView.campaign_id, "plan", threadId);
+    activateThread(nextThread);
+    refreshThreadSummaries();
+  }
+
+  function saveRename() {
+    const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
+    const nextThread = renameAgentThread(baseThread, titleDraft);
+    setThread(nextThread);
+    refreshThreadSummaries();
+    setRenaming(false);
+  }
+
+  function deleteThread(threadId: string) {
+    const doomed = loadAgentThreadById(planView.campaign_id, threadId);
+    if (!doomed) return;
+    deleteAgentThread(doomed);
+    const nextActive = loadAgentThread(planView.campaign_id, "plan");
+    activateThread(nextActive);
+    refreshThreadSummaries();
   }
 
   async function openCitationSource(card: EvidenceCard) {
@@ -293,12 +370,10 @@ export function PlanAgentInteractionBar({
       setThread(nextThread);
       setTurns(nextTurns);
       setActiveTurnId(nextTurn.turnId);
-      setSelectedCitationKey(null);
-      setSourceStatus("idle");
-      setSourceError(null);
-      setSourceResponse(null);
+      resetSourceReader();
       setTurnResponses((previous) => ({ ...previous, [nextTurn.turnId]: response }));
       persistAgentThread(nextThread);
+      refreshThreadSummaries();
       setQuestion("");
       setAskStatus("answered");
     } catch (loadError) {
@@ -329,17 +404,60 @@ export function PlanAgentInteractionBar({
           <header className="plan-agent-pane-header">
             <div>
               <p className="plan-surface-kicker">Agent Interaction</p>
-              <h2>{threadTitle}</h2>
+              {renaming ? (
+                <div className="plan-agent-title-editor">
+                  <label>
+                    <span>Thread title</span>
+                    <input value={titleDraft} onChange={(event) => setTitleDraft(event.currentTarget.value)} />
+                  </label>
+                  <button type="button" onClick={saveRename}>Save title</button>
+                  <button type="button" onClick={() => setRenaming(false)}>Cancel</button>
+                </div>
+              ) : (
+                <h2>{threadTitle}</h2>
+              )}
               <p>Ingested corpus interaction proof</p>
               <p>
                 This local `/plan` pane consumes the future Agent Interaction contract before the
                 global provider is built.
               </p>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close Agent Interaction drawer">
-              Close
-            </button>
+            <div className="plan-agent-pane-actions">
+              <button type="button" onClick={() => {
+                setTitleDraft(threadTitle);
+                setRenaming(true);
+              }}>
+                Rename
+              </button>
+              <button type="button" onClick={createNewThread}>New thread</button>
+              <button type="button" onClick={() => setThreadSwitcherOpen((value) => !value)}>Threads</button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close Agent Interaction drawer">
+                Close
+              </button>
+            </div>
           </header>
+          {threadSwitcherOpen ? (
+            <section className="plan-agent-thread-switcher" aria-label="Agent Interaction threads">
+              <h3>Prep threads</h3>
+              {threadSummaries.length ? (
+                <ul>
+                  {threadSummaries.map((summary) => (
+                    <li key={summary.threadId} data-active={summary.threadId === thread?.threadId}>
+                      <button type="button" onClick={() => switchThread(summary.threadId)}>
+                        <strong>{summary.title}</strong>
+                        <span>{summary.turnCount} turns · {summary.activeBackend} · updated {new Date(summary.updatedAt).toLocaleString()}</span>
+                      </button>
+                      <button type="button" onClick={() => deleteThread(summary.threadId)} aria-label={`Delete ${summary.title}`}>
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="plan-agent-muted">No saved prep threads yet.</p>
+              )}
+            </section>
+          ) : null}
 
           {status === "loading" ? <p className="plan-agent-muted">Loading source bundle…</p> : null}
           {status === "error" ? (
@@ -415,10 +533,14 @@ export function PlanAgentInteractionBar({
                             data-active={turn.turnId === activeTurnId}
                             onClick={() => {
                               setActiveTurnId(turn.turnId);
-                              setSelectedCitationKey(null);
-                              setSourceStatus("idle");
-                              setSourceError(null);
-                              setSourceResponse(null);
+                              resetSourceReader();
+                              if (thread) {
+                                persistAgentThread({
+                                  ...thread,
+                                  uiState: { ...thread.uiState, scrollAnchorTurnId: turn.turnId, traceVisible },
+                                });
+                                refreshThreadSummaries();
+                              }
                             }}
                           >
                             <strong>{turn.question}</strong>

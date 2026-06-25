@@ -1,5 +1,7 @@
 import type {
   AgentInteractionContextSummary,
+  AgentInteractionThreadIndex,
+  AgentInteractionThreadSummary,
   AgentInteractionThread,
   AgentInteractionTurn,
   AgentInteractionTurnMeta,
@@ -11,6 +13,7 @@ import type {
 export const AGENT_TURN_HISTORY_CAP = 20;
 export const AGENT_THREAD_STORAGE_PREFIX = "agent-interaction-thread-v1";
 export const AGENT_ACTIVE_THREAD_STORAGE_PREFIX = "agent-interaction-active-thread-v1";
+export const AGENT_THREAD_INDEX_STORAGE_PREFIX = "agent-interaction-thread-index-v1";
 
 export function activeThreadStorageKey(campaignId: string, surfaceId = "plan"): string {
   return `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:${campaignId}:${surfaceId}`;
@@ -18,6 +21,10 @@ export function activeThreadStorageKey(campaignId: string, surfaceId = "plan"): 
 
 export function threadStorageKey(campaignId: string, threadId: string): string {
   return `${AGENT_THREAD_STORAGE_PREFIX}:${campaignId}:${threadId}`;
+}
+
+export function threadIndexStorageKey(campaignId: string, surfaceId = "plan"): string {
+  return `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:${campaignId}:${surfaceId}`;
 }
 
 export function historyStorageKey(campaignId: string): string {
@@ -54,6 +61,28 @@ export function createAgentInteractionThread(
     hermesSession: null,
     turns: [],
     uiState: { traceVisible: true, scrollAnchorTurnId: null },
+  };
+}
+
+function emptyThreadIndex(campaignId: string, surfaceId = "plan"): AgentInteractionThreadIndex {
+  return {
+    schema: "agent_interaction_thread_index_v1",
+    campaignId,
+    surfaceId,
+    activeThreadId: null,
+    threads: [],
+  };
+}
+
+function summarizeThread(thread: AgentInteractionThread): AgentInteractionThreadSummary {
+  return {
+    threadId: thread.threadId,
+    title: thread.title || "New prep thread",
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    turnCount: thread.turns.length,
+    activeBackend: thread.activeBackend,
+    hermesSessionId: thread.hermesSession?.sessionId ?? null,
   };
 }
 
@@ -154,7 +183,9 @@ export function turnMetaFromResponse(
 
 export function loadAgentThread(campaignId: string, surfaceId = "plan"): AgentInteractionThread | null {
   try {
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId));
+    const index = loadAgentThreadIndex(campaignId, surfaceId);
+    const activeThreadId =
+      index.activeThreadId ?? localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId));
     if (!activeThreadId) return null;
     const raw = localStorage.getItem(threadStorageKey(campaignId, activeThreadId));
     if (!raw) return null;
@@ -164,6 +195,106 @@ export function loadAgentThread(campaignId: string, surfaceId = "plan"): AgentIn
   } catch {
     return null;
   }
+}
+
+export function loadAgentThreadById(campaignId: string, threadId: string): AgentInteractionThread | null {
+  try {
+    const raw = localStorage.getItem(threadStorageKey(campaignId, threadId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AgentInteractionThread;
+    if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
+    return { ...parsed, turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP) };
+  } catch {
+    return null;
+  }
+}
+
+export function loadAgentThreadIndex(campaignId: string, surfaceId = "plan"): AgentInteractionThreadIndex {
+  const key = threadIndexStorageKey(campaignId, surfaceId);
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AgentInteractionThreadIndex;
+      if (
+        parsed?.schema === "agent_interaction_thread_index_v1" &&
+        parsed.campaignId === campaignId &&
+        parsed.surfaceId === surfaceId &&
+        Array.isArray(parsed.threads)
+      ) {
+        return {
+          ...parsed,
+          activeThreadId: parsed.activeThreadId ?? null,
+          threads: parsed.threads.filter((summary) => Boolean(summary.threadId && summary.title)),
+        };
+      }
+      return emptyThreadIndex(campaignId, surfaceId);
+    }
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId));
+    if (!activeThreadId) return emptyThreadIndex(campaignId, surfaceId);
+    const activeThread = loadAgentThreadById(campaignId, activeThreadId);
+    if (!activeThread) return emptyThreadIndex(campaignId, surfaceId);
+    const migrated = {
+      ...emptyThreadIndex(campaignId, surfaceId),
+      activeThreadId: activeThread.threadId,
+      threads: [summarizeThread(activeThread)],
+    };
+    persistAgentThreadIndex(migrated);
+    return migrated;
+  } catch {
+    return emptyThreadIndex(campaignId, surfaceId);
+  }
+}
+
+export function persistAgentThreadIndex(index: AgentInteractionThreadIndex): void {
+  const bounded: AgentInteractionThreadIndex = {
+    ...index,
+    threads: index.threads
+      .map((summary) => ({
+        threadId: summary.threadId,
+        title: summary.title || "New prep thread",
+        createdAt: summary.createdAt,
+        updatedAt: summary.updatedAt,
+        turnCount: summary.turnCount,
+        activeBackend: summary.activeBackend,
+        hermesSessionId: summary.hermesSessionId ?? null,
+      }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+  };
+  localStorage.setItem(threadIndexStorageKey(index.campaignId, index.surfaceId), JSON.stringify(bounded));
+}
+
+export function upsertThreadInIndex(thread: AgentInteractionThread): void {
+  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId);
+  const summary = summarizeThread(thread);
+  const threads = [summary, ...index.threads.filter((item) => item.threadId !== thread.threadId)];
+  persistAgentThreadIndex({ ...index, activeThreadId: thread.threadId, threads });
+}
+
+export function listAgentThreads(campaignId: string, surfaceId = "plan"): AgentInteractionThreadSummary[] {
+  return loadAgentThreadIndex(campaignId, surfaceId).threads;
+}
+
+export function setActiveAgentThread(campaignId: string, surfaceId: string, threadId: string | null): void {
+  const index = loadAgentThreadIndex(campaignId, surfaceId);
+  persistAgentThreadIndex({ ...index, activeThreadId: threadId });
+  if (threadId) localStorage.setItem(activeThreadStorageKey(campaignId, surfaceId), threadId);
+  else localStorage.removeItem(activeThreadStorageKey(campaignId, surfaceId));
+}
+
+export function renameAgentThread(thread: AgentInteractionThread, title: string): AgentInteractionThread {
+  const trimmed = title.trim() || "New prep thread";
+  const nextThread = { ...thread, title: trimmed, updatedAt: new Date().toISOString() };
+  persistAgentThread(nextThread);
+  return nextThread;
+}
+
+export function deleteAgentThread(thread: AgentInteractionThread): void {
+  localStorage.removeItem(threadStorageKey(thread.campaignId, thread.threadId));
+  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId);
+  const remaining = index.threads.filter((item) => item.threadId !== thread.threadId);
+  const nextActive = index.activeThreadId === thread.threadId ? remaining[0]?.threadId ?? null : index.activeThreadId;
+  persistAgentThreadIndex({ ...index, activeThreadId: nextActive, threads: remaining });
+  setActiveAgentThread(thread.campaignId, thread.surfaceId, nextActive);
 }
 
 export function persistAgentThread(thread: AgentInteractionThread): void {
@@ -179,6 +310,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
   };
   localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);
   localStorage.setItem(threadStorageKey(thread.campaignId, thread.threadId), JSON.stringify(bounded));
+  upsertThreadInIndex(bounded);
   localStorage.setItem(
     historyStorageKey(thread.campaignId),
     JSON.stringify(bounded.turns.map((turn) => ({
@@ -201,8 +333,13 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
 }
 
 export function clearAgentThread(thread: AgentInteractionThread): void {
-  localStorage.removeItem(threadStorageKey(thread.campaignId, thread.threadId));
-  localStorage.removeItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId));
+  const cleared: AgentInteractionThread = {
+    ...thread,
+    updatedAt: new Date().toISOString(),
+    turns: [],
+    uiState: { ...thread.uiState, scrollAnchorTurnId: null, traceVisible: thread.uiState?.traceVisible ?? false },
+  };
+  persistAgentThread(cleared);
   localStorage.setItem(historyStorageKey(thread.campaignId), "[]");
 }
 
