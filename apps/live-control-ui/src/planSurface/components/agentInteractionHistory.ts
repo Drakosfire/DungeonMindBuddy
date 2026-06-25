@@ -8,6 +8,9 @@ import type {
   LiveQueryBackend,
   AgentInteractionTrace,
   LiveQueryResponse,
+  LiveQueryCitation,
+  AgentEvidenceSnapshot,
+  CitationFreshnessStatus,
 } from "../../api/types";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
@@ -136,6 +139,44 @@ export function safeTraceForPersistence(
   };
 }
 
+
+export function buildEvidenceSnapshots(
+  citations: LiveQueryCitation[] | null | undefined,
+  capturedAt = new Date().toISOString(),
+): AgentEvidenceSnapshot[] {
+  return (citations ?? []).filter((citation) => citation.path && !isAbsolutePath(citation.path)).map((citation) => {
+    const locator = [
+      citation.path,
+      citation.line_start ?? "",
+      citation.line_end ?? "",
+      citation.evidence_id,
+      citation.source_role,
+      citation.authority,
+    ].join("\n");
+    return {
+      schema: "dmb_agent_evidence_snapshot_v1",
+      evidence_id: citation.evidence_id,
+      path: citation.path,
+      line_start: citation.line_start ?? null,
+      line_end: citation.line_end ?? null,
+      source_role: citation.source_role ?? null,
+      authority: citation.authority ?? null,
+      fingerprint: `locator-v1:${btoa(unescape(encodeURIComponent(locator)))}`,
+      fingerprint_algorithm: "sha256:locator-v1",
+      captured_at: capturedAt,
+    };
+  });
+}
+
+const freshnessRank: Record<CitationFreshnessStatus, number> = { current: 0, unknown: 1, unavailable: 2, changed: 3 };
+
+export function worstCorpusFreshnessStatus(statuses: CitationFreshnessStatus[]): CitationFreshnessStatus {
+  return statuses.reduce<CitationFreshnessStatus>(
+    (worst, status) => (freshnessRank[status] > freshnessRank[worst] ? status : worst),
+    "current",
+  );
+}
+
 export function turnFromResponse(
   question: string,
   response: LiveQueryResponse,
@@ -155,6 +196,8 @@ export function turnFromResponse(
     trace: response.agent_trace ?? null,
     warnings: response.warnings ?? response.agent_trace?.warnings ?? [],
     retrievalFreshness: response.retrieval_freshness ?? null,
+    evidenceSnapshots: buildEvidenceSnapshots(response.citations ?? [], now),
+    corpusFreshness: null,
   };
 }
 
@@ -309,6 +352,8 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
       trace: safeTraceForPersistence(turn.trace),
       warnings: turn.warnings ?? [],
       retrievalFreshness: turn.retrievalFreshness ?? null,
+      evidenceSnapshots: turn.evidenceSnapshots ?? [],
+      corpusFreshness: turn.corpusFreshness ?? null,
     })),
   };
   localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);
