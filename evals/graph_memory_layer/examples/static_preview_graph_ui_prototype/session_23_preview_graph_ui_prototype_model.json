@@ -1,0 +1,1275 @@
+{
+  "schema": "dmb_static_preview_graph_ui_prototype_model_v0",
+  "version": "0.1",
+  "prototype_id": "graph-memory:static-preview-graph-ui-prototype:session-23:v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "source_report_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "summary": {
+    "title": "Session 23 Memory Preview",
+    "status": "safe_but_incomplete",
+    "status_label": "Safe but incomplete",
+    "gm_preview_readiness": "not_ready_for_gm_preview",
+    "gm_preview_label": "Not ready",
+    "merge_gate": "pass",
+    "hard_failures": 0,
+    "soft_misses": 45,
+    "recommendation": "Safe to inspect. Do not approve in bulk."
+  },
+  "safety_gate": {
+    "safety_score": 1.0,
+    "evidence_alignment_score": 1.0,
+    "high_risk_audit_score": 1.0,
+    "safety": "Pass",
+    "evidence": "Pass",
+    "high_risk_audit": "Pass"
+  },
+  "coverage_cards": [
+    {
+      "key": "nodes",
+      "label": "Nodes",
+      "candidate": 33,
+      "gold": 42,
+      "matched": 33,
+      "missing": 9,
+      "recall": 0.7857,
+      "band": "good"
+    },
+    {
+      "key": "edges",
+      "label": "Edges",
+      "candidate": 8,
+      "gold": 23,
+      "matched": 8,
+      "missing": 15,
+      "recall": 0.3478,
+      "band": "weak"
+    },
+    {
+      "key": "beats",
+      "label": "Beats",
+      "candidate": 6,
+      "gold": 14,
+      "matched": 6,
+      "missing": 8,
+      "recall": 0.4286,
+      "band": "partial"
+    },
+    {
+      "key": "proposed_writes",
+      "label": "Proposed Writes",
+      "candidate": 6,
+      "gold": 15,
+      "matched": 6,
+      "missing": 9,
+      "recall": 0.4,
+      "band": "partial"
+    },
+    {
+      "key": "ignored_items",
+      "label": "Ignored Items",
+      "candidate": 2,
+      "gold": 3,
+      "matched": 2,
+      "missing": 1,
+      "recall": 0.6667,
+      "band": "partial"
+    },
+    {
+      "key": "deferred_items",
+      "label": "Deferred Items",
+      "candidate": 3,
+      "gold": 6,
+      "matched": 3,
+      "missing": 3,
+      "recall": 0.5,
+      "band": "partial"
+    }
+  ],
+  "evidence_health": {
+    "evidence_alignment_score": 1.0,
+    "total_evidence_refs": 206,
+    "resolved_evidence_refs": 206,
+    "openable_evidence_refs": 206,
+    "highlightable_evidence_refs": 206,
+    "warning_count": 0,
+    "unknown_anchor_count": 0,
+    "heading_only_count": 0,
+    "source_leakage_detected": false,
+    "summary": "All candidate evidence refs resolve, open, and highlight against the Session 23 source-span fixture."
+  },
+  "high_risk_audit": {
+    "score": 1.0,
+    "status": "pass",
+    "audited_object_count": 4,
+    "audited_objects": [
+      "edge:lysandra-recognizes-lysandro",
+      "node:heroes-party",
+      "node:lysandro",
+      "node:thread-remaining-approaching-horde"
+    ],
+    "forbidden_claims_absent": [
+      "Questionable Company",
+      "second wave",
+      "thread-monster-second-wave",
+      "resolved battle outcome",
+      "exact shadow count as fact",
+      "approved write",
+      "promoted lifecycle"
+    ],
+    "summary": "High-risk claims are present where expected and pass source-grounding audit.",
+    "review_note": "Audit passed, but high-risk claims should still be reviewed carefully."
+  },
+  "candidate_explorer": {
+    "Nodes": [
+      {
+        "group": "Nodes",
+        "id": "node:lysandra",
+        "label": "Lysandra",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:lysandro",
+        "label": "Lysandro",
+        "type": "character",
+        "evidence_count": 2,
+        "risk_warning_state": "high-risk audit item; warning",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:orik-tane",
+        "label": "Orik Tane",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:brin-holloway",
+        "label": "Brin Holloway",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:stafl",
+        "label": "Stafl",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:ephanna",
+        "label": "Ephanna",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:karsemine",
+        "label": "Karsemine",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:caelynn",
+        "label": "Caelynn",
+        "type": "character",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:heroes-party",
+        "label": "Heroes / party",
+        "type": "group",
+        "evidence_count": 1,
+        "risk_warning_state": "high-risk audit item; warning",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:edge-refugees",
+        "label": "Edge refugees",
+        "type": "group",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:mireward-reach",
+        "label": "Mireward Reach",
+        "type": "location",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:edge",
+        "label": "Edge",
+        "type": "location",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:north-gate",
+        "label": "North gate",
+        "type": "location",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:first-meat-wave",
+        "label": "First meat wave",
+        "type": "event",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:tripod-meat-monsters",
+        "label": "Tripod meat monsters",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:eye-check-protocol",
+        "label": "Eye-check protocol",
+        "type": "clue",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "pending",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:caelynn-lightning-bolt-cliffhanger",
+        "label": "Caelynn lightning bolt cliffhanger",
+        "type": "event",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:thread-remaining-approaching-horde",
+        "label": "Thread: remaining approaching horde",
+        "type": "thread",
+        "evidence_count": 1,
+        "risk_warning_state": "high-risk audit item",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:edge-warning-message",
+        "label": "Edge warning message",
+        "type": "warning",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:flying-meatwings",
+        "label": "Flying meatwings",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:golem-like-creature",
+        "label": "Golem-like creature",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:inn-common-room",
+        "label": "Inn common room",
+        "type": "location",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:meat-hybrid-monsters",
+        "label": "Meat hybrid monsters",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:mireward-guards",
+        "label": "Mireward guards",
+        "type": "faction",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:mireward-overrun-question",
+        "label": "Mireward overrun question",
+        "type": "mystery",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:mireward-townspeople",
+        "label": "Mireward townspeople",
+        "type": "group",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:monster-eye-changes",
+        "label": "Monster eye changes",
+        "type": "clue",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:sewer-monsters",
+        "label": "Sewer monsters",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:small-summoned-meat-monsters",
+        "label": "Small summoned meat monsters",
+        "type": "unknown_important",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:thread-edge-survivors-safety",
+        "label": "Thread: Edge survivors safety",
+        "type": "thread",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:thread-first-wave-outcome",
+        "label": "Thread: first wave outcome",
+        "type": "thread",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:thread-help-edge-or-defend-mireward",
+        "label": "Thread: help Edge or defend Mireward",
+        "type": "thread",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Nodes",
+        "id": "node:thread-mireward-overrun-risk",
+        "label": "Thread: Mireward overrun risk",
+        "type": "thread",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      }
+    ],
+    "Edges": [
+      {
+        "group": "Edges",
+        "id": "edge:lysandra-recognizes-lysandro",
+        "label": "recognizes her father at the wall; Lysandro is separately named in the inn span",
+        "type": "recognizes",
+        "evidence_count": 2,
+        "risk_warning_state": "high-risk audit item; warning",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:lysandro-relays-edge-message",
+        "label": "relays the warning message from Edge",
+        "type": "relays_message",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:edge-message-warns-of-siege",
+        "label": "warns that Edge is under siege",
+        "type": "warns_of",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:orik-tane-commands-inn-room",
+        "label": "commands the packed inn room",
+        "type": "commands_room",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:brin-leads-edge-refugees",
+        "label": "leads the Edge refugee group",
+        "type": "leads",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:ephanna-demands-eye-checks",
+        "label": "requires refugees to show their eyes before entering",
+        "type": "requires_screening",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:karsemine-detects-ground-rumble",
+        "label": "detects the approaching rumble of the wave",
+        "type": "detects",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Edges",
+        "id": "edge:tripods-launch-body-parts",
+        "label": "launch body parts that become smaller monsters",
+        "type": "launches",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      }
+    ],
+    "Beats": [
+      {
+        "group": "Beats",
+        "id": "beat:arrival-at-mireward-wall",
+        "label": "Arrival at the Mireward wall",
+        "type": "Beat",
+        "evidence_count": 2,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Beats",
+        "id": "beat:edge-warning-message-read",
+        "label": "Edge warning message read",
+        "type": "Beat",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Beats",
+        "id": "beat:orik-tane-inn-debate",
+        "label": "Orik Tane inn debate",
+        "type": "Beat",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Beats",
+        "id": "beat:edge-refugees-arrive",
+        "label": "Edge refugees arrive",
+        "type": "Beat",
+        "evidence_count": 2,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Beats",
+        "id": "beat:first-wave-enemy-reveal",
+        "label": "First wave enemy reveal",
+        "type": "Beat",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Beats",
+        "id": "beat:caelynn-lightning-bolt-cliffhanger",
+        "label": "Caelynn lightning-bolt cliffhanger",
+        "type": "Beat",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      }
+    ],
+    "Ignored": [
+      {
+        "group": "Ignored",
+        "id": "ignored:exact-shadow-count",
+        "label": "Exact shadow count",
+        "type": "Ignored",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Ignored",
+        "id": "ignored:exact-mechanical-stats",
+        "label": "Exact mechanical statblocks",
+        "type": "Ignored",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      }
+    ],
+    "Deferred": [
+      {
+        "group": "Deferred",
+        "id": "deferred:help-edge-or-defend-mireward",
+        "label": "Help Edge or defend Mireward",
+        "type": "Deferred",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Deferred",
+        "id": "deferred:first-wave-outcome",
+        "label": "Outcome of the first meat-wave battle",
+        "type": "Deferred",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      },
+      {
+        "group": "Deferred",
+        "id": "deferred:mireward-overrun-risk",
+        "label": "Mireward overrun risk",
+        "type": "Deferred",
+        "evidence_count": 1,
+        "risk_warning_state": "none",
+        "proposed_write_state": "none",
+        "review_state": "disabled in static prototype"
+      }
+    ]
+  },
+  "candidate_detail_examples": [
+    {
+      "id": "node:lysandro",
+      "type": "character",
+      "label": "Lysandro",
+      "description": "Lysandra\u2019s father at Mireward; the wall span supports the father relationship, and the inn debate span separately grounds the name Lysandro in this Session 23 source surface.",
+      "evidence_summary": [
+        "Lysandra recognizes her father",
+        "Lysandro named in inn debate"
+      ],
+      "evidence_count": 2,
+      "risk_flags": "high-risk audit item; warning",
+      "related_candidate_ids": [
+        "node:lysandro"
+      ],
+      "proposed_write_implication": "pending",
+      "disabled_review_controls": [
+        "Approve disabled",
+        "Reject disabled",
+        "Defer disabled",
+        "Needs more evidence disabled",
+        "Campaign context required disabled"
+      ],
+      "disabled_reason": "Design-only prototype; no approval persistence exists; GM preview readiness is not_ready_for_gm_preview."
+    },
+    {
+      "id": "edge:lysandra-recognizes-lysandro",
+      "type": "recognizes",
+      "label": "recognizes her father at the wall; Lysandro is separately named in the inn span",
+      "description": "recognizes her father at the wall; Lysandro is separately named in the inn span",
+      "evidence_summary": [
+        "Lysandra recognizes her father",
+        "Lysandro named in inn debate"
+      ],
+      "evidence_count": 2,
+      "risk_flags": "high-risk audit item; warning",
+      "related_candidate_ids": [
+        "node:lysandra",
+        "node:lysandro"
+      ],
+      "proposed_write_implication": "no direct proposed write",
+      "disabled_review_controls": [
+        "Approve disabled",
+        "Reject disabled",
+        "Defer disabled",
+        "Needs more evidence disabled",
+        "Campaign context required disabled"
+      ],
+      "disabled_reason": "Design-only prototype; no approval persistence exists; GM preview readiness is not_ready_for_gm_preview."
+    },
+    {
+      "id": "node:thread-remaining-approaching-horde",
+      "type": "thread",
+      "label": "Thread: remaining approaching horde",
+      "description": "Whether the larger approaching creature group behind the revealed first wave remains an ongoing threat.",
+      "evidence_summary": [
+        "first revealed creature group"
+      ],
+      "evidence_count": 1,
+      "risk_flags": "high-risk audit item",
+      "related_candidate_ids": [
+        "node:thread-remaining-approaching-horde"
+      ],
+      "proposed_write_implication": "no direct proposed write",
+      "disabled_review_controls": [
+        "Approve disabled",
+        "Reject disabled",
+        "Defer disabled",
+        "Needs more evidence disabled",
+        "Campaign context required disabled"
+      ],
+      "disabled_reason": "Design-only prototype; no approval persistence exists; GM preview readiness is not_ready_for_gm_preview."
+    }
+  ],
+  "proposed_writes": {
+    "summary": {
+      "candidate_total": 6,
+      "matched_gold_total": 6,
+      "missing_gold_total": 9,
+      "approved_count": 0,
+      "pending_count": 6,
+      "promoted_count": 0,
+      "unsafe_status_count": 0,
+      "summary": "All candidate proposed writes remain pending; the sample omits several gold proposed writes."
+    },
+    "approval_copy": "Approval controls are disabled. This static prototype does not persist review state or write graph memory.",
+    "items": [
+      {
+        "write_id": "write:create-mireward-reach",
+        "write_type": "create_node",
+        "target_id": "node:mireward-reach",
+        "label": "Create Mireward Reach",
+        "status": "pending",
+        "evidence_count": 1,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      },
+      {
+        "write_id": "write:create-edge",
+        "write_type": "create_node",
+        "target_id": "node:edge",
+        "label": "Create Edge",
+        "status": "pending",
+        "evidence_count": 1,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      },
+      {
+        "write_id": "write:create-lysandro",
+        "write_type": "create_node",
+        "target_id": "node:lysandro",
+        "label": "Create Lysandro",
+        "status": "pending",
+        "evidence_count": 2,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      },
+      {
+        "write_id": "write:create-orik-tane",
+        "write_type": "create_node",
+        "target_id": "node:orik-tane",
+        "label": "Create Orik Tane",
+        "status": "pending",
+        "evidence_count": 1,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      },
+      {
+        "write_id": "write:create-brin-holloway",
+        "write_type": "create_node",
+        "target_id": "node:brin-holloway",
+        "label": "Create Brin Holloway",
+        "status": "pending",
+        "evidence_count": 1,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      },
+      {
+        "write_id": "write:create-eye-check-protocol",
+        "write_type": "create_node",
+        "target_id": "node:eye-check-protocol",
+        "label": "Create Eye-check protocol",
+        "status": "pending",
+        "evidence_count": 1,
+        "risk_flags": "none",
+        "approval_eligibility": "not eligible in static prototype",
+        "disabled_reason": "Design-only prototype; no approval persistence exists."
+      }
+    ]
+  },
+  "missing_coverage": {
+    "message": "This sample is safe to inspect but not ready for GM preview because edge and beat coverage are weak.",
+    "by_type": {
+      "nodes": [
+        {
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "id": "node:thrin",
+          "label": "Thrin"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:boy-warns-shadows-at-north-gate",
+          "label": "receive warning that shadows are coming to the north gate"
+        },
+        {
+          "id": "edge:caelynn-unleashes-lightning-bolt",
+          "label": "unleashes the lightning-bolt cliffhanger"
+        },
+        {
+          "id": "edge:ephanna-casts-hunger-of-hadar",
+          "label": "casts Hunger of Hadar in the monsters path"
+        },
+        {
+          "id": "edge:ephanna-summons-ogonob",
+          "label": "summons Ogonob over the wall"
+        },
+        {
+          "id": "edge:karsemine-casts-spike-growth",
+          "label": "casts Spike Growth on the approach road"
+        },
+        {
+          "id": "edge:karsemine-identifies-fire-weakness",
+          "label": "identifies poison resistance and fire weakness"
+        },
+        {
+          "id": "edge:lightning-bolt-targets-meat-wave",
+          "label": "targets the attackers with massive lightning damage"
+        },
+        {
+          "id": "edge:lysandra-explains-mirathorn-mission",
+          "label": "explains the Mirathorn mission and prior monster fight"
+        },
+        {
+          "id": "edge:lysandra-reads-message-to-party",
+          "label": "reads the message to the heroes / party"
+        },
+        {
+          "id": "edge:lysandra-uses-commanding-shout",
+          "label": "uses Commanding Shout to order more attacks"
+        },
+        {
+          "id": "edge:meatwings-charm-bonogo-and-ephanna",
+          "label": "charms Bonogo and Ephanna away from attacking"
+        },
+        {
+          "id": "edge:message-resembles-mirathorn-monsters",
+          "label": "resembles prior monsters and eye changes"
+        },
+        {
+          "id": "edge:stafl-inspires-karsemine",
+          "label": "casts Bardic Inspiration on Karsemine"
+        },
+        {
+          "id": "edge:stafl-routes-refugees-to-south-gate",
+          "label": "routes refugees to wait at the south gate"
+        },
+        {
+          "id": "edge:stafl-scouts-from-north-gate",
+          "label": "scouts the shadowed road from the north gate"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        }
+      ],
+      "proposed_writes": [
+        {
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        }
+      ],
+      "ignored_items": [
+        {
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ],
+      "deferred_items": [
+        {
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ]
+    },
+    "by_review_priority": {
+      "critical": [],
+      "important": [
+        {
+          "type": "edges",
+          "id": "edge:boy-warns-shadows-at-north-gate",
+          "label": "receive warning that shadows are coming to the north gate"
+        },
+        {
+          "type": "edges",
+          "id": "edge:caelynn-unleashes-lightning-bolt",
+          "label": "unleashes the lightning-bolt cliffhanger"
+        },
+        {
+          "type": "edges",
+          "id": "edge:ephanna-casts-hunger-of-hadar",
+          "label": "casts Hunger of Hadar in the monsters path"
+        },
+        {
+          "type": "edges",
+          "id": "edge:ephanna-summons-ogonob",
+          "label": "summons Ogonob over the wall"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-casts-spike-growth",
+          "label": "casts Spike Growth on the approach road"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-identifies-fire-weakness",
+          "label": "identifies poison resistance and fire weakness"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lightning-bolt-targets-meat-wave",
+          "label": "targets the attackers with massive lightning damage"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-explains-mirathorn-mission",
+          "label": "explains the Mirathorn mission and prior monster fight"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-reads-message-to-party",
+          "label": "reads the message to the heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-uses-commanding-shout",
+          "label": "uses Commanding Shout to order more attacks"
+        },
+        {
+          "type": "edges",
+          "id": "edge:meatwings-charm-bonogo-and-ephanna",
+          "label": "charms Bonogo and Ephanna away from attacking"
+        },
+        {
+          "type": "edges",
+          "id": "edge:message-resembles-mirathorn-monsters",
+          "label": "resembles prior monsters and eye changes"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-inspires-karsemine",
+          "label": "casts Bardic Inspiration on Karsemine"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-routes-refugees-to-south-gate",
+          "label": "routes refugees to wait at the south gate"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-scouts-from-north-gate",
+          "label": "scouts the shadowed road from the north gate"
+        },
+        {
+          "type": "beats",
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "type": "beats",
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "type": "beats",
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "type": "beats",
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "type": "beats",
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "type": "beats",
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ],
+      "nice_to_have": [
+        {
+          "type": "nodes",
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "type": "nodes",
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "type": "nodes",
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "type": "nodes",
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "type": "nodes",
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "type": "nodes",
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "type": "nodes",
+          "id": "node:thrin",
+          "label": "Thrin"
+        },
+        {
+          "type": "ignored_items",
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ]
+    }
+  },
+  "hard_failures": {
+    "total": 0,
+    "by_issue": {},
+    "blocking": false,
+    "reviewer_note": "No hard safety failures were found in the static sample candidate output.",
+    "empty_state": "No hard failures.",
+    "if_present": "If hard failures exist, approval-like controls remain disabled and the affected object must be inspected, rejected, or deferred."
+  },
+  "disabled_review_controls": {
+    "controls": [
+      "Approve disabled",
+      "Reject disabled",
+      "Defer disabled",
+      "Needs more evidence disabled",
+      "Campaign context required disabled"
+    ],
+    "reasons": [
+      "Design-only prototype.",
+      "No approval persistence exists.",
+      "GM preview readiness is not_ready_for_gm_preview.",
+      "High-risk claims require future explicit review."
+    ]
+  },
+  "boundary_statement": {
+    "banner": [
+      "Static fixture prototype.",
+      "No runtime UI.",
+      "No approval.",
+      "No graph writes.",
+      "No LLM.",
+      "No extractor.",
+      "No /plan.",
+      "No Agent Interaction."
+    ],
+    "statement": "Candidate graph output is not truth. It is an evidence-backed proposal for future GM review."
+  }
+}

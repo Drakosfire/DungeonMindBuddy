@@ -353,3 +353,22 @@ Commands:
 uv run python -m evals.graph_memory_layer.validate_static_extractor_output_comparison_report
 uv run python -m evals.graph_memory_layer.report_static_extractor_output_comparison_report
 ```
+
+### Static preview graph UI prototype
+
+The static preview graph UI prototype renders the Preview Graph UX Design Spec into a deterministic HTML artifact using checked-in fixture/report data only. It lets reviewers inspect the proposed GM-facing preview flow before runtime UI integration.
+
+This is not production UI. It does not call an LLM, execute extraction, generate output from recap text, write graph memory, approve writes, persist review state, execute graph queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_static_preview_graph_ui_prototype
+uv run python -m evals.graph_memory_layer.report_static_preview_graph_ui_prototype
+```
+
+Prototype artifact:
+
+```text
+evals/graph_memory_layer/examples/static_preview_graph_ui_prototype/session_23_preview_graph_ui_prototype.html
+```
