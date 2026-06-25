@@ -286,3 +286,16 @@ Commands:
 uv run python -m evals.graph_memory_layer.validate_session_23_recap_ingest_fixture
 uv run python -m evals.graph_memory_layer.report_session_23_recap_ingest_fixture
 ```
+
+### Session 23 candidate graph gold fixture
+
+The Session 23 candidate graph gold fixture is a hand-authored Candidate Graph Preview for the mechanically normalized Session 23 recap. It defines what a good future extractor should produce, including named entities, unnamed-important concepts, relationship edges, ordered session beats, unresolved threads, ignored/deferred items, proposed write intent, semantic states, diagnostics, and source evidence refs.
+
+It is not extractor output and does not call an LLM, run the live planner, write graph memory, approve writes, execute queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_session_23_candidate_graph_gold_fixture
+uv run python -m evals.graph_memory_layer.report_session_23_candidate_graph_gold_fixture
+```
