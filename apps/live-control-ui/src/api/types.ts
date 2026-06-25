@@ -426,7 +426,7 @@ export interface AgentEvidenceSnapshot {
   source_role?: string | null;
   authority?: string | null;
   fingerprint: string;
-  fingerprint_algorithm: "sha256:locator-v1" | "sha256:source-lines-v1";
+  fingerprint_algorithm: "sha256:locator-v1" | "sha256:source-lines-v1" | "locator-v1";
   captured_at: string;
 }
 
@@ -526,7 +526,7 @@ export interface CitationFreshnessRequest {
   line_start?: number | null;
   line_end?: number | null;
   expected_fingerprint?: string | null;
-  fingerprint_algorithm?: "sha256:source-lines-v1" | "sha256:locator-v1" | null;
+  fingerprint_algorithm?: "sha256:source-lines-v1" | "sha256:locator-v1" | "locator-v1" | null;
 }
 
 export interface CitationFreshnessResponse {
@@ -578,6 +578,7 @@ export interface LiveQueryResponse {
   turn_id?: string | null;
   hermes_session?: HermesSessionHandle | null;
   retrieval_freshness?: RetrievalFreshnessDecision | null;
+  evidence_snapshots?: AgentEvidenceSnapshot[];
 }
 
 export interface LiveEvent {

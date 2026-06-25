@@ -364,7 +364,7 @@ export function PlanAgentInteractionBar({
           line_start: snapshot.line_start ?? null,
           line_end: snapshot.line_end ?? null,
           expected_fingerprint: snapshot.fingerprint_algorithm === "sha256:source-lines-v1" ? snapshot.fingerprint : null,
-          fingerprint_algorithm: snapshot.fingerprint_algorithm,
+          fingerprint_algorithm: snapshot.fingerprint_algorithm === "sha256:source-lines-v1" ? snapshot.fingerprint_algorithm : null,
         }));
       }
       const rank = { current: 0, unknown: 1, unavailable: 2, changed: 3 } as const;

@@ -14,7 +14,7 @@ from apps.live_control_server.services.citation_source_reader import (
 )
 
 MAX_FRESHNESS_BYTES = 200_000
-FingerprintAlgorithm = Literal["sha256:source-lines-v1", "sha256:locator-v1"]
+FingerprintAlgorithm = Literal["sha256:source-lines-v1", "sha256:locator-v1", "locator-v1"]
 FreshnessStatus = Literal["current", "changed", "unknown", "unavailable"]
 
 
@@ -37,6 +37,60 @@ class CitationFreshnessResponse(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
+
+
+def _locator_fingerprint(citation: dict[str, object]) -> str:
+    locator = "\n".join(
+        [
+            str(citation.get("path") or ""),
+            str(citation.get("line_start") or ""),
+            str(citation.get("line_end") or ""),
+            str(citation.get("evidence_id") or ""),
+            str(citation.get("source_role") or ""),
+            str(citation.get("authority") or ""),
+        ]
+    )
+    return _sha256(locator)
+
+
+def build_evidence_snapshots(root: Path, citations: list[dict[str, object]]) -> list[dict[str, object]]:
+    captured_at = _checked_at()
+    snapshots: list[dict[str, object]] = []
+    for citation in citations:
+        path = str(citation.get("path") or "").strip()
+        if not path:
+            continue
+        line_start = citation.get("line_start") if isinstance(citation.get("line_start"), int) else None
+        line_end = citation.get("line_end") if isinstance(citation.get("line_end"), int) else None
+        algorithm: FingerprintAlgorithm = "sha256:locator-v1"
+        fingerprint = _locator_fingerprint(citation)
+        if line_start is not None or line_end is not None:
+            try:
+                rel = _validate_relative_source_path(path)
+                source_path = _resolve_under_repo(root, rel)
+                text, _, _ = _bounded_text(source_path)
+                if text is not None:
+                    selected, _ = _selected_lines(text, line_start, line_end)
+                    fingerprint = _sha256(selected)
+                    algorithm = "sha256:source-lines-v1"
+                    path = rel.as_posix()
+            except (CitationSourceError, OSError):
+                algorithm = "sha256:locator-v1"
+        snapshots.append(
+            {
+                "schema": "dmb_agent_evidence_snapshot_v1",
+                "evidence_id": str(citation.get("evidence_id") or ""),
+                "path": path,
+                "line_start": line_start,
+                "line_end": line_end,
+                "source_role": str(citation.get("source_role") or "") or None,
+                "authority": str(citation.get("authority") or "") or None,
+                "fingerprint": fingerprint,
+                "fingerprint_algorithm": algorithm,
+                "captured_at": captured_at,
+            }
+        )
+    return snapshots
 
 def _checked_at() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

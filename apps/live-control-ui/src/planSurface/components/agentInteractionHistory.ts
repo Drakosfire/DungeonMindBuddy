@@ -162,7 +162,7 @@ export function buildEvidenceSnapshots(
       source_role: citation.source_role ?? null,
       authority: citation.authority ?? null,
       fingerprint: `locator-v1:${btoa(unescape(encodeURIComponent(locator)))}`,
-      fingerprint_algorithm: "sha256:locator-v1",
+      fingerprint_algorithm: "locator-v1",
       captured_at: capturedAt,
     };
   });
@@ -196,7 +196,7 @@ export function turnFromResponse(
     trace: response.agent_trace ?? null,
     warnings: response.warnings ?? response.agent_trace?.warnings ?? [],
     retrievalFreshness: response.retrieval_freshness ?? null,
-    evidenceSnapshots: buildEvidenceSnapshots(response.citations ?? [], now),
+    evidenceSnapshots: response.evidence_snapshots ?? buildEvidenceSnapshots(response.citations ?? [], now),
     corpusFreshness: null,
   };
 }

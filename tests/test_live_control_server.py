@@ -157,6 +157,10 @@ def test_query_can_route_through_hermes_backend(
     assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
     assert body["retrieval_freshness"]["schema"] == "dmb_retrieval_freshness_decision_v1"
     assert body["retrieval_freshness"]["decision"] == "fresh_retrieval"
+    assert body["evidence_snapshots"]
+    assert body["evidence_snapshots"][0]["schema"] == "dmb_agent_evidence_snapshot_v1"
+    assert body["evidence_snapshots"][0]["fingerprint_algorithm"] == "sha256:source-lines-v1"
+    assert "text_excerpt" not in json.dumps(body["evidence_snapshots"])
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     trace = body.get("agent_trace")

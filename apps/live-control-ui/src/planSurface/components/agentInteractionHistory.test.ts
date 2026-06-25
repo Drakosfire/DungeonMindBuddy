@@ -181,7 +181,7 @@ describe("agentInteractionHistory", () => {
       path: "corpus/test.md",
       line_start: 2,
       line_end: 3,
-      fingerprint_algorithm: "sha256:locator-v1",
+      fingerprint_algorithm: "locator-v1",
       captured_at: "2026-06-22T00:00:00.000Z",
     });
     expect(JSON.stringify(snapshots)).not.toContain("text_excerpt");
