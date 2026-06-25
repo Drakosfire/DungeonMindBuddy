@@ -154,6 +154,7 @@ export function turnFromResponse(
     citations: response.citations ?? [],
     trace: response.agent_trace ?? null,
     warnings: response.warnings ?? response.agent_trace?.warnings ?? [],
+    retrievalFreshness: response.retrieval_freshness ?? null,
   };
 }
 
@@ -307,6 +308,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
       citations: turn.citations ?? [],
       trace: safeTraceForPersistence(turn.trace),
       warnings: turn.warnings ?? [],
+      retrievalFreshness: turn.retrievalFreshness ?? null,
     })),
   };
   localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);

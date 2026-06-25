@@ -98,6 +98,53 @@ def _usage_from_fields(
     }
 
 
+def build_retrieval_freshness_decision(
+    *,
+    context_packet: dict[str, Any] | None,
+    hermes_session_id: str | None,
+    agent_thread_id: str | None,
+    prior_turn_count: int | None = None,
+    status: str = "ok",
+) -> dict[str, Any]:
+    packet = context_packet or {}
+    admitted_evidence_count = len(list(packet.get("admitted_evidence") or []))
+    rejected_evidence_count = len(list(packet.get("rejected_evidence") or []))
+    known_prior_turn_count = prior_turn_count if isinstance(prior_turn_count, int) and prior_turn_count >= 0 else 0
+    has_thread_basis = bool(hermes_session_id) or known_prior_turn_count > 0
+    used_fresh_retrieval = admitted_evidence_count > 0
+    used_thread_context = has_thread_basis and status != "error"
+    warnings: list[str] = []
+
+    if used_fresh_retrieval and used_thread_context:
+        decision = "blended"
+        reason = "Fresh corpus evidence was admitted, and an active Hermes session/thread handle was reused."
+    elif used_fresh_retrieval:
+        decision = "fresh_retrieval"
+        reason = "Fresh corpus evidence was admitted for this turn; no reliable prior-turn basis was available server-side."
+    elif used_thread_context:
+        decision = "thread_context"
+        reason = "The active Hermes session/thread handle was reused, but no fresh corpus evidence was admitted for this turn."
+        warnings.append("No fresh corpus evidence was admitted for this turn.")
+    else:
+        decision = "insufficient_grounding"
+        reason = "No admitted corpus evidence and no reliable thread/session basis were available for this turn."
+        warnings.append("No admitted corpus evidence or reliable thread basis was available; answer may be under-grounded.")
+
+    if hermes_session_id and prior_turn_count is None:
+        reason += " Hermes session handle was reused, but server-side turn count is not available in this slice."
+
+    return {
+        "schema": "dmb_retrieval_freshness_decision_v1",
+        "decision": decision,
+        "used_fresh_retrieval": used_fresh_retrieval,
+        "used_thread_context": used_thread_context,
+        "admitted_evidence_count": admitted_evidence_count,
+        "rejected_evidence_count": rejected_evidence_count,
+        "prior_turn_count": known_prior_turn_count,
+        "reason": reason,
+        "warnings": warnings,
+    }
+
 def _context_summary_from_packet(
     context_packet: dict[str, Any] | None,
     *,
@@ -389,8 +436,15 @@ def process_live_query(
             session=int(packet["session"]),
             request_manifest_path=request_manifest_path,
         )
+        response = dict(context_result.response)
+        response["retrieval_freshness"] = build_retrieval_freshness_decision(
+            context_packet=response.get("context_packet") if isinstance(response.get("context_packet"), dict) else None,
+            hermes_session_id=hermes_session_id,
+            agent_thread_id=resolved_agent_thread_id,
+            status=str(response.get("status") or "ok"),
+        )
         return _with_conversation_fields(
-            context_result.response,
+            response,
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
         )
@@ -617,6 +671,12 @@ def _process_hermes_context_query(
         "warnings": [],
         "mutations": [],
         "agent_trace": agent_trace,
+        "retrieval_freshness": build_retrieval_freshness_decision(
+            context_packet=context_packet,
+            hermes_session_id=hermes_session_id,
+            agent_thread_id=None,
+            status="ok",
+        ),
     }
 
 
@@ -845,6 +905,12 @@ def _process_hermes_cli_query(
         "warnings": warnings,
         "mutations": [],
         "agent_trace": agent_trace,
+        "retrieval_freshness": build_retrieval_freshness_decision(
+            context_packet=context_packet or None,
+            hermes_session_id=hermes_session_id,
+            agent_thread_id=None,
+            status="ok",
+        ),
     }
 
 
