@@ -8,6 +8,7 @@ import {
   createAgentInteractionThread,
   threadIndexStorageKey,
   threadStorageKey,
+  AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
@@ -416,6 +417,111 @@ describe("PlanSurfaceShell", () => {
     expect(indexJson).not.toContain("Answer for thread A");
     const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
     expect(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "").not.toContain("Thread A source body");
+  });
+
+
+  it("suggests a new thread at the turn threshold and lets the GM dismiss it", async () => {
+    const user = userEvent.setup();
+    const responses = Array.from({ length: AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS }, (_, index) => ({
+      ok: true,
+      text: async () => JSON.stringify({
+        answer: `Answer ${index + 1}`,
+        classification: {},
+        events_written: [],
+        jobs_queued: [],
+        next_suggestions: [],
+        diagnostics: [],
+        provenance: {},
+        citations: [],
+        context_packet: null,
+      }),
+    } as Response));
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    const fetchMock = vi.mocked(globalThis.fetch);
+    responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+
+    for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
+      await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
+      await user.click(screen.getByRole("button", { name: "Ask" }));
+      expect(await screen.findByText(`Answer ${index}`)).toBeInTheDocument();
+    }
+
+    expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
+      `This thread has ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS} turns. Start a new prep thread for a fresh topic?`,
+    );
+    const originalThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    await user.click(screen.getByRole("button", { name: "Keep going" }));
+    expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
+    expect(localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"))).toBe(originalThreadId);
+    expect(JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", originalThreadId ?? "")) ?? "{}").uiState.newThreadSuggestionDismissed).toBe(true);
+  });
+
+  it("starts an empty active thread only when the long-thread suggestion is accepted", async () => {
+    const user = userEvent.setup();
+    const responses = Array.from({ length: AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS }, (_, index) => ({
+      ok: true,
+      text: async () => JSON.stringify({ answer: `Long answer ${index + 1}`, classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }),
+    } as Response));
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+    expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
+
+    for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
+      await user.type(screen.getByLabelText("Question"), `Long question ${index}?`);
+      await user.click(screen.getByRole("button", { name: "Ask" }));
+      expect(await screen.findByText(`Long answer ${index}`)).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole("button", { name: "Start new thread" }));
+    expect(screen.getByText("Agent Interaction · New prep thread")).toBeInTheDocument();
+    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
+    expect(activeThread.title).toBe("New prep thread");
+    expect(activeThread.turns).toEqual([]);
+  });
+
+  it("restores active thread and thread list after remount", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ answer: "Answer for restore A", classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }) } as Response)
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ answer: "Answer for restore B", classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }) } as Response)
+      .mockResolvedValue({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+
+    const rendered = render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+    await user.type(screen.getByLabelText("Question"), "Restore thread A?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "New thread" }));
+    await user.type(screen.getByLabelText("Question"), "Restore thread B?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Answer for restore B")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Threads" }));
+    await user.click(screen.getAllByRole("button", { name: /Restore thread A\?/i })[0]);
+    expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
+
+    rendered.unmount();
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Threads" }));
+    const switcher = screen.getByRole("region", { name: "Agent Interaction threads" });
+    expect(switcher).toHaveTextContent("Restore thread A?");
+    expect(switcher).toHaveTextContent("Restore thread B?");
+    expect(screen.getByText("Agent Interaction · Restore thread A?")).toBeInTheDocument();
   });
 
   it("ignores corrupt thread index localStorage", async () => {

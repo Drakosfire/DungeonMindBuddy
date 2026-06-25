@@ -14,6 +14,7 @@ import type {
 } from "../../api/types";
 
 import {
+  AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
   AGENT_TURN_HISTORY_CAP,
   clearAgentThread,
   createAgentInteractionThread,
@@ -210,6 +211,12 @@ export function PlanAgentInteractionBar({
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
+  const showNewThreadSuggestion = Boolean(
+    thread &&
+      turns.length > 0 &&
+      turns.length >= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS &&
+      !thread.uiState?.newThreadSuggestionDismissed,
+  );
 
   function resetSourceReader() {
     setSelectedCitationKey(null);
@@ -280,6 +287,22 @@ export function PlanAgentInteractionBar({
     activateThread(nextThread);
     refreshThreadSummaries();
     setThreadSwitcherOpen(false);
+  }
+
+  function dismissNewThreadSuggestion() {
+    if (!thread) return;
+    const nextThread: AgentInteractionThread = {
+      ...thread,
+      updatedAt: new Date().toISOString(),
+      uiState: {
+        traceVisible,
+        scrollAnchorTurnId: thread.uiState?.scrollAnchorTurnId ?? activeTurnId,
+        newThreadSuggestionDismissed: true,
+      },
+    };
+    setThread(nextThread);
+    persistAgentThread(nextThread);
+    refreshThreadSummaries();
   }
 
   function switchThread(threadId: string) {
@@ -365,6 +388,7 @@ export function PlanAgentInteractionBar({
         uiState: {
           traceVisible: currentThread.uiState?.traceVisible ?? false,
           scrollAnchorTurnId: nextTurn.turnId,
+          newThreadSuggestionDismissed: currentThread.uiState?.newThreadSuggestionDismissed ?? false,
         },
       };
       setThread(nextThread);
@@ -465,6 +489,20 @@ export function PlanAgentInteractionBar({
           ) : null}
           {bundle ? (
             <div className="plan-agent-content">
+              {showNewThreadSuggestion ? (
+                <section className="plan-agent-thread-suggestion" aria-label="Thread getting long">
+                  <div>
+                    <p className="plan-surface-kicker">Thread getting long</p>
+                    <p>
+                      This thread has {turns.length} turns. Start a new prep thread for a fresh topic?
+                    </p>
+                  </div>
+                  <div>
+                    <button type="button" onClick={createNewThread}>Start new thread</button>
+                    <button type="button" onClick={dismissNewThreadSuggestion}>Keep going</button>
+                  </div>
+                </section>
+              ) : null}
               <form className="plan-agent-ask" onSubmit={submitQuestion}>
                 <h3>Ask ingested corpus</h3>
                 <p>

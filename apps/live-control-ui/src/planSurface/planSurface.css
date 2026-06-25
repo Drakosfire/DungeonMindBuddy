@@ -386,6 +386,35 @@
   gap: 0.9rem;
 }
 
+.plan-agent-thread-suggestion {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid rgba(250, 204, 21, 0.38);
+  border-radius: 12px;
+  background: rgba(250, 204, 21, 0.08);
+  padding: 0.75rem;
+}
+
+.plan-agent-thread-suggestion p {
+  margin: 0;
+}
+
+.plan-agent-thread-suggestion > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.plan-agent-thread-suggestion button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+}
+
 .plan-agent-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
