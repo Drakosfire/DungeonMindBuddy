@@ -31,6 +31,7 @@ import {
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
 import { TraceDetailsPanel } from "./TraceDetailsPanel";
+import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 
 interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
@@ -206,6 +207,7 @@ export function PlanAgentInteractionBar({
     next_suggestions: [],
     diagnostics: {},
     provenance: {},
+    retrieval_freshness: activeTurn.retrievalFreshness ?? null,
   } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
@@ -620,6 +622,7 @@ export function PlanAgentInteractionBar({
                         <p>{answer.answer}</p>
                       </section>
                     ) : null}
+                    <RetrievalFreshnessPanel decision={answer.retrieval_freshness} />
                     {citationCards.length ? (
                       <section className="plan-agent-citation-cards" aria-label="Citation cards">
                         <h4>Citation card</h4>

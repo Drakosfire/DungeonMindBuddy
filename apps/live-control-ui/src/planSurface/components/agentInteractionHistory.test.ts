@@ -35,6 +35,17 @@ function makeThread(title = "Inn prep", updatedAt = "2026-06-22T00:00:00.000Z"):
       citations: [{ evidence_id: "e1", path: "corpus/test.md", line_start: 1, line_end: 1, source_role: "play_recap", authority: "canon_play" }],
       trace: { trace_id: `trace-${title}`, prompt_preview: "secret prompt", artifact_refs: [{ kind: "file", label: "artifact", path: "/tmp/secret.json" }] } as AgentInteractionTrace,
       warnings: [],
+      retrievalFreshness: {
+        schema: "dmb_retrieval_freshness_decision_v1",
+        decision: "fresh_retrieval",
+        used_fresh_retrieval: true,
+        used_thread_context: false,
+        admitted_evidence_count: 1,
+        rejected_evidence_count: 0,
+        prior_turn_count: 0,
+        reason: "Fresh corpus evidence was admitted for this turn.",
+        warnings: [],
+      },
     }],
     uiState: { traceVisible: true, scrollAnchorTurnId: `${title}-turn` },
   };
@@ -135,6 +146,19 @@ describe("agentInteractionHistory", () => {
 
     deleteAgentThread(older);
     expect(loadAgentThreadIndex("longmont-c2", "plan").activeThreadId).toBeNull();
+  });
+
+  it("persists retrieval freshness as lightweight turn metadata only", () => {
+    const thread = makeThread("Freshness prep");
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    expect(stored).toContain("dmb_retrieval_freshness_decision_v1");
+    expect(stored).toContain("fresh_retrieval");
+    expect(stored).not.toContain("context_packet");
+    expect(stored).not.toContain("text_excerpt");
+    expect(stored).not.toContain("prompt_preview");
+    expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].retrievalFreshness?.decision).toBe("fresh_retrieval");
   });
 
   it("safeTraceForPersistence strips prompt_preview and absolute artifact paths", () => {

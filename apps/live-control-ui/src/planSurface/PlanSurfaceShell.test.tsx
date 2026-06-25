@@ -79,6 +79,17 @@ describe("PlanSurfaceShell", () => {
             diagnostics: [],
             provenance: {},
             citations: [{ evidence_id: "e1", path: "corpus/test/session.md", line_start: 2, line_end: 2, source_role: "play_recap", authority: "canon_play" }],
+            retrieval_freshness: {
+              schema: "dmb_retrieval_freshness_decision_v1",
+              decision: "fresh_retrieval",
+              used_fresh_retrieval: true,
+              used_thread_context: false,
+              admitted_evidence_count: 1,
+              rejected_evidence_count: 1,
+              prior_turn_count: 0,
+              reason: "Fresh corpus evidence was admitted for this turn.",
+              warnings: [],
+            },
             context_packet: {
               admitted_evidence: [{
                 evidence_id: "e1",
@@ -124,6 +135,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
+    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
     expect(screen.getByRole("region", { name: "Agent answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
     expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Citation cards" })).toHaveTextContent("play_recap · canon_play");
@@ -137,6 +149,9 @@ describe("PlanSurfaceShell", () => {
     const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
     expect(storedThreadId).toBeTruthy();
     expect(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "").not.toContain("Current source content has the Lysandro gate reveal.");
+    expect(screen.getByRole("region", { name: "Retrieval freshness" })).toBeInTheDocument();
+    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
+    expect(screen.getByText("Fresh corpus evidence was admitted for this turn.")).toBeInTheDocument();
     expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "live" });
@@ -165,6 +180,17 @@ describe("PlanSurfaceShell", () => {
             diagnostics: { hermes_tool: "dungeon_context_lookup" },
             provenance: { backend: "hermes" },
             citations: [],
+            retrieval_freshness: {
+              schema: "dmb_retrieval_freshness_decision_v1",
+              decision: "blended",
+              used_fresh_retrieval: true,
+              used_thread_context: true,
+              admitted_evidence_count: 1,
+              rejected_evidence_count: 0,
+              prior_turn_count: 0,
+              reason: "Fresh corpus evidence was admitted, and an active Hermes session/thread handle was reused.",
+              warnings: [],
+            },
             context_packet: {
               schema: "dmb_enriched_planning_context_packet_v1",
               question_id: "hermes-test",
@@ -189,6 +215,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
+    expect(screen.getAllByText("Blended").length).toBeGreaterThan(0);
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "hermes" });
   });

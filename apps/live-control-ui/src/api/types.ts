@@ -369,6 +369,20 @@ export interface AgentInteractionAdmittedContextItem {
   text_excerpt: string;
 }
 
+export type RetrievalFreshnessDecisionKind = "fresh_retrieval" | "thread_context" | "blended" | "insufficient_grounding";
+
+export interface RetrievalFreshnessDecision {
+  schema: "dmb_retrieval_freshness_decision_v1";
+  decision: RetrievalFreshnessDecisionKind;
+  used_fresh_retrieval: boolean;
+  used_thread_context: boolean;
+  admitted_evidence_count: number;
+  rejected_evidence_count: number;
+  prior_turn_count: number;
+  reason: string;
+  warnings: string[];
+}
+
 export interface AgentInteractionTrace {
   trace_id: string;
   runtime: string;
@@ -413,6 +427,7 @@ export interface AgentInteractionTurn {
   citations?: LiveQueryCitation[];
   trace?: AgentInteractionTrace | null;
   warnings?: string[];
+  retrievalFreshness?: RetrievalFreshnessDecision | null;
 }
 
 export interface AgentInteractionThread {
@@ -518,6 +533,7 @@ export interface LiveQueryResponse {
   agent_thread_id?: string | null;
   turn_id?: string | null;
   hermes_session?: HermesSessionHandle | null;
+  retrieval_freshness?: RetrievalFreshnessDecision | null;
 }
 
 export interface LiveEvent {

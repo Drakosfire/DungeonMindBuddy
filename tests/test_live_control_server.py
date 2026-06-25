@@ -128,6 +128,9 @@ def test_context_question_does_not_resolve_roll(client: TestClient) -> None:
     assert body["classification"]["latency_mode"] == "context_lookup"
     assert body["agent_thread_id"].startswith("agent-thread-")
     assert body["turn_id"].startswith("agent-turn-")
+    assert body["retrieval_freshness"]["schema"] == "dmb_retrieval_freshness_decision_v1"
+    assert body["retrieval_freshness"]["decision"] in {"fresh_retrieval", "insufficient_grounding"}
+    assert "text_excerpt" not in json.dumps(body["retrieval_freshness"])
     assert "Hail dent" not in body["answer"]
 
 
@@ -152,6 +155,8 @@ def test_query_can_route_through_hermes_backend(
     assert body["provenance"]["backend"] == "hermes"
     assert body["diagnostics"]["hermes_tool"] == "dungeon_context_lookup"
     assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
+    assert body["retrieval_freshness"]["schema"] == "dmb_retrieval_freshness_decision_v1"
+    assert body["retrieval_freshness"]["decision"] == "fresh_retrieval"
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     trace = body.get("agent_trace")
@@ -563,3 +568,51 @@ def test_citation_source_truncates_oversized_allowed_file(tmp_path: Path) -> Non
     assert response.truncated is True
     assert len(response.content.encode("utf-8")) == MAX_SOURCE_BYTES
     assert f"source truncated to {MAX_SOURCE_BYTES} bytes" in response.diagnostics
+
+
+def test_retrieval_freshness_builder_states_are_lightweight() -> None:
+    from apps.live_control_server.services.live_agent_loop import build_retrieval_freshness_decision
+
+    packet = {
+        "admitted_evidence": [{"text_excerpt": "secret excerpt", "path": "corpus/example.md"}],
+        "rejected_evidence": [{"evidence": {"text_excerpt": "rejected excerpt"}}],
+    }
+    fresh = build_retrieval_freshness_decision(
+        context_packet=packet,
+        hermes_session_id=None,
+        agent_thread_id="agent-thread-test",
+    )
+    assert fresh["schema"] == "dmb_retrieval_freshness_decision_v1"
+    assert fresh["decision"] == "fresh_retrieval"
+    assert fresh["used_fresh_retrieval"] is True
+    assert fresh["used_thread_context"] is False
+    assert fresh["admitted_evidence_count"] == 1
+    assert fresh["rejected_evidence_count"] == 1
+    serialized = json.dumps(fresh)
+    assert "secret excerpt" not in serialized
+    assert "rejected excerpt" not in serialized
+    assert "prompt" not in serialized
+
+    blended = build_retrieval_freshness_decision(
+        context_packet=packet,
+        hermes_session_id="hermes-session-test",
+        agent_thread_id="agent-thread-test",
+    )
+    assert blended["decision"] == "blended"
+    assert blended["used_thread_context"] is True
+
+    thread_only = build_retrieval_freshness_decision(
+        context_packet={"admitted_evidence": [], "rejected_evidence": []},
+        hermes_session_id="hermes-session-test",
+        agent_thread_id="agent-thread-test",
+    )
+    assert thread_only["decision"] == "thread_context"
+    assert thread_only["warnings"]
+
+    insufficient = build_retrieval_freshness_decision(
+        context_packet={"admitted_evidence": [], "rejected_evidence": []},
+        hermes_session_id=None,
+        agent_thread_id="agent-thread-test",
+    )
+    assert insufficient["decision"] == "insufficient_grounding"
+    assert insufficient["warnings"]
