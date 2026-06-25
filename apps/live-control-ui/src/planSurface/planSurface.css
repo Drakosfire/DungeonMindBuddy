@@ -294,6 +294,93 @@
   margin-bottom: 0.35rem;
 }
 
+.plan-agent-pane-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.plan-agent-title-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.45rem;
+}
+
+.plan-agent-title-editor label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.plan-agent-title-editor span {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.plan-agent-title-editor input {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+}
+
+.plan-agent-thread-switcher {
+  margin-bottom: 0.9rem;
+  border: 1px solid rgba(122, 162, 247, 0.34);
+  border-radius: 12px;
+  background: rgba(12, 14, 20, 0.66);
+  padding: 0.75rem;
+}
+
+.plan-agent-thread-switcher h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.plan-agent-thread-switcher ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-agent-thread-switcher li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.plan-agent-thread-switcher li > button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+}
+
+.plan-agent-thread-switcher li[data-active="true"] > button:first-child {
+  border-color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.plan-agent-thread-switcher strong,
+.plan-agent-thread-switcher span {
+  display: block;
+}
+
+.plan-agent-thread-switcher span {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.76rem;
+}
+
 .plan-agent-content {
   display: grid;
   gap: 0.9rem;

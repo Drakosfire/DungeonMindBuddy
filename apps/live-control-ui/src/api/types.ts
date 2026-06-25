@@ -432,6 +432,24 @@ export interface AgentInteractionThread {
   };
 }
 
+export interface AgentInteractionThreadSummary {
+  threadId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  turnCount: number;
+  activeBackend: LiveQueryBackend;
+  hermesSessionId?: string | null;
+}
+
+export interface AgentInteractionThreadIndex {
+  schema: "agent_interaction_thread_index_v1";
+  campaignId: string;
+  surfaceId: string;
+  activeThreadId: string | null;
+  threads: AgentInteractionThreadSummary[];
+}
+
 export interface LiveQueryOptions {
   agentThreadId?: string | null;
   hermesSessionId?: string | null;

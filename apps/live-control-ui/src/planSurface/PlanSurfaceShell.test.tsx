@@ -3,7 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
-import { activeThreadStorageKey, threadStorageKey } from "./components/agentInteractionHistory";
+import {
+  activeThreadStorageKey,
+  createAgentInteractionThread,
+  threadIndexStorageKey,
+  threadStorageKey,
+} from "./components/agentInteractionHistory";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
 describe("PlanSurfaceShell", () => {
@@ -300,6 +305,132 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Clear history" }));
     expect(screen.queryByText("Conversation (2)")).not.toBeInTheDocument();
     expect(localStorage.getItem("plan-agent-turns-v1:longmont-c2")).toBe("[]");
+  });
+
+  it("migrates existing active threads into the switcher and renames the active thread", async () => {
+    const user = userEvent.setup();
+    const existingThread = {
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Session 24 inn prep"),
+      turns: [{
+        turnId: "turn-existing",
+        askedAt: "2026-06-22T00:00:00.000Z",
+        completedAt: "2026-06-22T00:00:01.000Z",
+        question: "What do we know about the inn?",
+        answer: "The inn has Mireward rumors.",
+        backend: "hermes" as const,
+        status: "ok",
+        contextSummary: { admitted_count: 1, rejected_count: 0 },
+        citations: [],
+        trace: null,
+        warnings: [],
+      }],
+      uiState: { traceVisible: true, scrollAnchorTurnId: "turn-existing" },
+    };
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), existingThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", existingThread.threadId), JSON.stringify(existingThread));
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Session 24 inn prep");
+    expect(screen.getByText("The inn has Mireward rumors.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Threads" }));
+    const switcher = screen.getByRole("region", { name: "Agent Interaction threads" });
+    expect(switcher).toHaveTextContent("Session 24 inn prep");
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Session 24 inn prep");
+
+    await user.click(screen.getByRole("button", { name: "Rename" }));
+    await user.clear(screen.getByLabelText("Thread title"));
+    await user.type(screen.getByLabelText("Thread title"), "Mireward inn prep");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+
+    expect(screen.getAllByText("Mireward inn prep").length).toBeGreaterThan(0);
+    expect(screen.getByText("Agent Interaction · Mireward inn prep")).toBeInTheDocument();
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Mireward inn prep");
+  });
+
+  it("keeps questions isolated across named threads and resets source reader when switching", async () => {
+    const user = userEvent.setup();
+    const queryResponse = (answer: string, evidenceId: string) => ({
+      answer,
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: [],
+      provenance: {},
+      citations: [{ evidence_id: evidenceId, path: `corpus/test/${evidenceId}.md`, line_start: 1, line_end: 1, source_role: "play_recap", authority: "canon_play" }],
+      context_packet: {
+        admitted_evidence: [{ evidence_id: evidenceId, path: `corpus/test/${evidenceId}.md`, source_role: "play_recap", authority: "canon_play", line_start: 1, line_end: 1 }],
+        rejected_evidence: [],
+      },
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread A", "a")) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema_version: "dmb_citation_source_v1",
+          path: "corpus/test/a.md",
+          content_type: "text/markdown",
+          content: "Thread A source body",
+          truncated: false,
+          highlight: { line_start: 1, line_end: 1, text_excerpt: "Thread A source body", match_source: "line_range" },
+          diagnostics: [],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread B", "b")) } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+    await user.type(screen.getByLabelText("Question"), "Thread A question?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open source" }));
+    expect(await screen.findByRole("region", { name: "Current source reader" })).toHaveTextContent("Thread A source body");
+
+    await user.click(screen.getByRole("button", { name: "New thread" }));
+    expect(screen.queryByText("Answer for thread A")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Current source reader" })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "Thread B question?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText("Answer for thread B")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Threads" }));
+    await user.click(screen.getAllByRole("button", { name: /Thread A question/i })[0]);
+    expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
+    expect(screen.queryByText("Answer for thread B")).not.toBeInTheDocument();
+
+    const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan")) ?? "";
+    expect(indexJson).toContain("Thread A question?");
+    expect(indexJson).toContain("Thread B question?");
+    expect(indexJson).not.toContain("Answer for thread A");
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    expect(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "").not.toContain("Thread A source body");
+  });
+
+  it("ignores corrupt thread index localStorage", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(threadIndexStorageKey("longmont-c2", "plan"), "{not-json");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Ingested corpus interaction proof");
+    await user.click(screen.getByRole("button", { name: "Threads" }));
+    expect(screen.getByText("No saved prep threads yet.")).toBeInTheDocument();
   });
 
   it("shows weak context verdict for metadata-only admitted evidence", async () => {
