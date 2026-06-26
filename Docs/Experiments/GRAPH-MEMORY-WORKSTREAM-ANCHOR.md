@@ -481,3 +481,8 @@ Completed rung: Static Preview Graph UI Prototype v0.
 The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
 
 Historical next backend/design PR at that checkpoint: `graph-memory: add query vocabulary fixture v0`.
+
+## Live Extractor Prompt/Harness v0
+
+Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-shot model-ready prompts from PR189 source-spanned recap bundles and validate manually supplied candidate graph output. Next rung: gated manual live LLM dogfood run / candidate output review packet against the Session 23 benchmark. Still blocked: graph writes, approval persistence, query execution, runtime retrieval, /plan, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
+

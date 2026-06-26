@@ -944,3 +944,8 @@ The workstream has re-anchored from static Agent Interaction planning toward fir
 Recommended next PR: graph-memory: add live extractor prompt pack v0.
 
 Still blocked: live LLM extraction, production extraction, candidate graph generation from live recap, graph retrieval, query execution, graph writes, approval persistence, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, production frontend routing.
+
+## Live Extractor Prompt/Harness v0
+
+Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-shot model-ready prompts from PR189 source-spanned recap bundles and validate manually supplied candidate graph output. Next rung: gated manual live LLM dogfood run / candidate output review packet against the Session 23 benchmark. Still blocked: graph writes, approval persistence, query execution, runtime retrieval, /plan, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
+
