@@ -1,0 +1,239 @@
+{
+  "page_fingerprint": "bf0c2a4158432eef1438ca9faacd8ef08b61b2cdf3a7bdb58c89b9aec6bf0724",
+  "content_hash": "b7878f363601121c67b46adab8a731ac0fd96336746e7c896a16a73260bee879",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 91,
+    "children": [
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Threnn-of-Second-Bloom",
+        "source_line_start": 1,
+        "source_line_end": 2,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Medium, humanoid (half-elf), chaotic neutral",
+            "source_line_start": 4,
+            "source_line_end": 5
+          },
+          {
+            "node_type": "image_ref",
+            "level": 0,
+            "text": "![](images/0.jpg)",
+            "source_line_start": 6,
+            "source_line_end": 7
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Threnn-of-Second-Bloom is a half-elf from the Branchbound lineage, marked by their canopy-born heritage. With a slim frame and bark-like scar tissue, they embody the forest's impermanence while struggling to let go of attachments. Threnn's reflective amber eyes and moss-dyed leathers blend them seamlessly into their woodland home, but their refusal to move on from the overdue-to-be-abandoned Second Bloom has marked them as a defector. Though they are quiet and observant, their commitment to protection and discomfort with authority make them a complex figure, driven by a fear of unfinished business rather than mortality itself.",
+            "source_line_start": 11,
+            "source_line_end": 12
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Armor Class : 15",
+            "source_line_start": 14,
+            "source_line_end": 15
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Hit Points: 44 Hit Dice : 5d10+10",
+            "source_line_start": 17,
+            "source_line_end": 18
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Speed: walk 35 ft., fly null ft., swim null ft., climb 35 ft., burrow null ft.\nSaving Throws : dex 6, wis 5",
+            "source_line_start": 20,
+            "source_line_end": 22
+          },
+          {
+            "node_type": "table",
+            "level": 0,
+            "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>10</td><td>16</td><td>14</td><td>11</td><td>15</td><td>9</td></tr><tr><td>(+0)</td><td>(+3)</td><td>(+2)</td><td>(+0)</td><td>(+2)</td><td>(-1)</td></tr></table>",
+            "source_line_start": 24,
+            "source_line_end": 25
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Skills : stealth 6, perception 5, survival 5, athletics 2",
+            "source_line_start": 27,
+            "source_line_end": 28
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Damage Resistances : —",
+            "source_line_start": 30,
+            "source_line_end": 31
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Damage Immunities : —",
+            "source_line_start": 33,
+            "source_line_end": 34
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Condition Immunities : —",
+            "source_line_start": 36,
+            "source_line_end": 37
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Senses : darkvision 60, passive_perception 15",
+            "source_line_start": 39,
+            "source_line_end": 40
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Languages : Common, Elvish, Sylvan",
+            "source_line_start": 42,
+            "source_line_end": 43
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Challenge Rating : 3 (700 XP)",
+            "source_line_start": 45,
+            "source_line_end": 46
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 48,
+        "source_line_end": 49
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Multitattack",
+        "source_line_start": 51,
+        "source_line_end": 52,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Threnn makes two attacks with their leafblade shortsword or longbow.",
+            "source_line_start": 54,
+            "source_line_end": 55
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Leafblade Shortsword",
+        "source_line_start": 57,
+        "source_line_end": 58,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) slashing damage. Once per turn, if attacking a creature adjacent to foliage, roots, or natural terrain, deal an additional 2 (1d4) damage. Damage: 1d6+4 Range: Melee",
+            "source_line_start": 60,
+            "source_line_end": 61
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Longbow",
+        "source_line_start": 63,
+        "source_line_end": 64,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Ranged Weapon Attack: +6 to hit, range 150/600 ft., one target. Hit: 7 (1d8 + 3) piercing damage. If attacking from partial or full concealment, the first hit each combat has advantage. Damage: 1d8+3 Range: Range 150/600",
+            "source_line_start": 66,
+            "source_line_end": 67
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "BONUS ACTIONS",
+        "source_line_start": 69,
+        "source_line_end": 70
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Canopy Step",
+        "source_line_start": 72,
+        "source_line_end": 73,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Threnn moves up to 20 ft without provoking opportunity attacks, provided they start or end adjacent to natural terrain, roots, or trees. Recharge 4–6. Recharge 4–6",
+            "source_line_start": 75,
+            "source_line_end": 76
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "TRAITS",
+        "source_line_start": 78,
+        "source_line_end": 79
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Root-Sense",
+        "source_line_start": 81,
+        "source_line_end": 82,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Threnn has advantage on Perception checks to detect movement through natural terrain and cannot be surprised by creatures moving through plants, roots, or canopy.",
+            "source_line_start": 84,
+            "source_line_end": 85
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Witness Seed (Passive)",
+        "source_line_start": 87,
+        "source_line_end": 88,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Threnn is affected by the Witness Seed at all times. Effects are detailed in The Witness Seed Document.",
+            "source_line_start": 90,
+            "source_line_end": 91
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 31,
+  "table_count": 1
+}

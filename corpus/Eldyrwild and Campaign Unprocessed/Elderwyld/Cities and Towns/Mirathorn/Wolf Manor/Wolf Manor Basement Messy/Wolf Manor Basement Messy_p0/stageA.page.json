@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "bcb8d8a95bd244d386888270e85591d9c0e6db62515ec2f0a2700b273b68e107",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf Manor Basement Messy.pdf",
+  "page_index": 0,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "\n## BASEMENT\n\n![](images/0.jpg)\n",
+  "inference_elapsed_sec": 1.685,
+  "content_hash": "e21eb79f2ed9aad66fd6e5de3ef108c3f4597fbd9b431d334a7aa704f40b7c3c",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

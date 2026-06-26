@@ -132,7 +132,7 @@ execution_state:
       ``scripts/rebuild_breadcrumb_from_session_memory.py`` import canonical ``src`` modules; added
       ``tests/test_session_memory_canonical_location.py``. Verified: ``materialize_session_memory.py --all-blessed --check`` OK;
       ``cohort_baseline_run --check`` OK; pytest slices (capture/smoke/natural/session_memory_query/breadcrumb harness) green.
-      Handoff: ``Docs/Plans/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost **$0**.
+      Handoff: ``Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost **$0**.
     - >-
       PR #22 is MERGED to main (merge commit 64b7546dbf72bed6feb911408c7f28cec2d008fd, 2026-05-13T16:43:34Z): `breadcrumb_query_run.py` query-text-gated compact route-equivalence aliases for ranking (no manifest-wide injection; gold-free); structural-token guard + `test_compact_aliases_for_route_id_blocks_structural_segments`; refreshed committed `cohort_baseline_*`, `cohort_l3_ab_delta_*`, `cohort_l3_ab_question_delta_*` + eval README; thirteen-path §4 allowlist; §7 green on head `1de5524e08b2f3b697794c6162a3b7a37e957c86` (`test_breadcrumb_query_run_lexicon_records_jsonl` **20**; `test_cohort_baseline_run` **29**; manifest `--check`; cohort check trio all manifests). Cost $0. `github-pr-22` judgment + rubric below; `HANDOFF-pr22-equivalence-alias-safety-baseline.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
     - >-
@@ -412,7 +412,7 @@ changelog:
       (``capture``, ``breadcrumb_smoke``, ``breadcrumb_normalize``); eval modules are compatibility shims;
       ``materialize_session_memory.py`` + ``rebuild_breadcrumb_from_session_memory.py`` import from ``src``;
       ``tests/test_session_memory_canonical_location.py`` guards script imports. No retrieval/gold/baseline changes.
-      See ``Docs/Plans/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost $0.
+      See ``Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost $0.
   - at: "2026-05-14T00:00:00Z"
     version: 31
     summary: >-

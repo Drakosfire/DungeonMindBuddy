@@ -1,0 +1,123 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 16,
+      "orphan_count": 12,
+      "orphan_rate": 0.75,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": true,
+      "orphans": [
+        {
+          "unit_id": "6292c58f5c807f23",
+          "unit_type": "prose",
+          "ordering_key": 0,
+          "text_preview": "GLOWBERRY TART GOLEM"
+        },
+        {
+          "unit_id": "8faf40db4e4c7e2a",
+          "unit_type": "prose",
+          "ordering_key": 1,
+          "text_preview": "Medium, Construct, Animated Pastry, Chaotic Neutral"
+        },
+        {
+          "unit_id": "c085a70e3492a88f",
+          "unit_type": "prose",
+          "ordering_key": 2,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "8971a04a21784dba",
+          "unit_type": "prose",
+          "ordering_key": 3,
+          "text_preview": "CRAFTED USING ARCANE-INFUSED FAE FLOUR, GLOWBERRY TART GOLEMS ARE THE WHIMSICAL "
+        },
+        {
+          "unit_id": "c097c8e021973ce4",
+          "unit_type": "prose",
+          "ordering_key": 4,
+          "text_preview": "Armor Class : 12\nHit Points: 60 Hit Dice : 8d8+24\nSpeed: walk : 20"
+        },
+        {
+          "unit_id": "5e01e5cdb76a306a",
+          "unit_type": "table",
+          "ordering_key": 5,
+          "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+        },
+        {
+          "unit_id": "89f2b7538f191f9f",
+          "unit_type": "prose",
+          "ordering_key": 6,
+          "text_preview": "Saving Throws : str : 4, dex : 5, wis : 3"
+        },
+        {
+          "unit_id": "acfaa7997eacd6d3",
+          "unit_type": "prose",
+          "ordering_key": 7,
+          "text_preview": "Skills : perception : 2"
+        },
+        {
+          "unit_id": "6443e02328f53bc5",
+          "unit_type": "prose",
+          "ordering_key": 8,
+          "text_preview": "Resistances :"
+        },
+        {
+          "unit_id": "c38aacc070421878",
+          "unit_type": "prose",
+          "ordering_key": 9,
+          "text_preview": "Senses : darkvision : 60"
+        }
+      ]
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 16,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 1,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 16,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 2,
+      "oversized_count": 0,
+      "undersized_ratio": 0.125,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "c085a70e3492a88f",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "6443e02328f53bc5",
+          "unit_type": "prose",
+          "char_count": 13,
+          "text_preview": "Resistances :"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

@@ -511,6 +511,16 @@ Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 - [x] Add semantic callouts to the fixture sample.
 - [ ] Add Tiptap semantic node parity.
 
+### Semantic callout dogfood coverage
+
+- [x] Add semantic callouts to fixture sample.
+- [x] Add semantic callouts to a real Live Play runbook.
+- [x] Embed the Live Play runbook through the existing `data-md-embed` path.
+- [x] Review first Live Play dogfood pass for page density.
+- [x] Tidy Live Play page so semantic callouts sit in a sparse at-table cockpit instead of a redundant source index.
+- [ ] Review semantic callouts during/after an actual table session.
+- [ ] Add Tiptap semantic node parity.
+
 ### Semantic callout regression coverage
 
 - [x] Add renderer regression tests for canonical semantic callouts.
@@ -618,6 +628,18 @@ Acceptance checks:
 - [ ] Editing chrome is visually distinct from rendered content.
 - [ ] Save target is visible.
 - [ ] Export selected Tiptap range to Markdown remains possible.
+
+### Tiptap bridge spike coverage
+
+- [x] Add isolated Tiptap spike surface.
+- [x] Add `callout` node with `kind` attribute.
+- [x] Render Tiptap callouts with existing `.md-callout-*` classes.
+- [x] Export Tiptap callout nodes to semantic Markdown blockquote syntax.
+- [x] Keep Tiptap JSON as working board state only.
+- [ ] Parse arbitrary Markdown into Tiptap nodes.
+- [x] Save the isolated Tiptap spike state to schema-versioned browser-local storage.
+- [ ] Promote exported Markdown through explicit backend prepare/commit endpoints.
+- [ ] Add canon corpus write flow.
 
 ---
 

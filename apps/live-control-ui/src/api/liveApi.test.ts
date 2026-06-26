@@ -6,6 +6,7 @@ import {
   advanceCombatTurn,
   applyCombatHpDelta,
   commitStatblockCorpusWrite,
+  commitTiptapMarkdownWrite,
   getArtifact,
   getCapabilities,
   getCurrentCombat,
@@ -18,6 +19,7 @@ import {
   postCommand,
   postStatblockWorkbenchCommand,
   prepareStatblockCorpusWrite,
+  prepareTiptapMarkdownWrite,
   previewStatblockCorpusPromotion,
   setCombatActiveTurn,
   sortCombatInitiative,
@@ -317,6 +319,29 @@ describe("liveApi artifact/capability helpers", () => {
     expect(init?.method).toBe("POST");
     expect(init?.headers).toEqual({ "Content-Type": "application/json" });
     expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+  it("posts Tiptap Markdown prepare and commit requests", async () => {
+    const request = {
+      document_id: "doc",
+      title: "Title",
+      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/doc.md",
+      markdown: "# Title",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse({ schema_version: "dmb_tiptap_markdown_write_prepare_v1" }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema_version: "dmb_tiptap_markdown_write_commit_v1" }));
+
+    await prepareTiptapMarkdownWrite(request);
+    await commitTiptapMarkdownWrite({ ...request, writer_confirm_token: "token" });
+
+    expect(String(fetchSpy.mock.calls[0][0])).toBe("/api/live/tiptap/markdown-write/prepare");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual(request);
+    expect(String(fetchSpy.mock.calls[1][0])).toBe("/api/live/tiptap/markdown-write/commit");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body))).toEqual({
+      ...request,
+      writer_confirm_token: "token",
+    });
   });
 
 

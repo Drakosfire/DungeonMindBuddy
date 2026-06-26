@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "c773bf3bf401db930a99ea4fa227d23fcfeee53ccb4a8f2fef2eea1dd867e4b0",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Flora/Moonveil Oysters.pdf",
+  "page_index": 1,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "![](images/0.jpg)\n",
+  "inference_elapsed_sec": 1.261,
+  "content_hash": "78f5383ace831d400aba47ebbee3ebb7a820760cf24e7b256ddfbd2eae2a40a5",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

@@ -22,7 +22,7 @@ Read first:
 
 - `Docs/Plans/HANDOFF-dogfood-readiness-pr114.md`
 - `Docs/Plans/HANDOFF-combat-roster-tracker-pr113.md`
-- `Docs/Plans/HANDOFF-statblock-add-to-combat-pr112.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`
 - `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`
 - `apps/live_control_server/services/combat_state.py`
 - `apps/live-control-ui/package.json`

@@ -1,0 +1,386 @@
+{
+  "unit_count": 16,
+  "units": [
+    {
+      "unit_id": "a529398ada5aef6db76d983589c4f39ecd310e3d20b8962d6cd545d39440c9ad",
+      "unit_type": "prose",
+      "text": "MOONLIT MERINGUES",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "2a3b1465b33ab5eda5bacc7e577970eac513046cdba0de3aafb101586df0052e",
+      "source_line_start": 1,
+      "source_line_end": 2,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "8112a9f3c129dbf44749a00e90db2dcff2e395796203d5131e7a746db96c6290",
+      "unit_type": "prose",
+      "text": "Medium, Construct, Fae, Neutral",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "70f889a50690206de8abf1b6d47c4df245d7d5ff9ce237c0494aebe45799d6e3",
+      "source_line_start": 4,
+      "source_line_end": 5,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "febe3c01d6749c6589d5bbfc6e3ebefd88b1405b8b8e34d8d140bfb7e89ce699",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 6,
+      "source_line_end": 7,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "92eb6caf2c377bddf82c45088da5c1fccfe0218aa71ad79eef24eb42528552dc",
+      "unit_type": "prose",
+      "text": "MOONLIT MERINGUES ARE MAGICAL CONFECTIONS ANIMATED BY ETHEREAL FAE FLOUR, GLOWING WITH A SILVERY LUMINESCENCE. ELEGANTLY STACKED IN A SPIRAL FORMATION, THEY MOVE WITH A SURPRISING GRACE, EXUDING AN AURA OF TRANQUIL MOONLIGHT. THEIR FRAGRANCE IS A BLEND OF FRESH BRIOCHE AND COOL MINT, ALLURING YET SERENE.",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "80661d80341e152ad660849b576f87353d60ffbb9ea554462f51a5c95a34cdb7",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "aac67d5044a5d1e7b56f363362c708fe063e3733d8b5a09bba12361ae30e6130",
+      "unit_type": "prose",
+      "text": "Armor Class : 12",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "3a84aafaba3352b0cd38e471ba1a1310ce00517372fca5b655bb31d7e524b322",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "7147a2dd29ad6fe87e288bc8088704076b84b7cf03fa5fc3bbb76be9c2ee0302",
+      "unit_type": "prose",
+      "text": "Hit Points: 40 Hit Dice : 5d8\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "6cacf633397d233ef9ef9c94f095a43ec130b87c2a48a5cf7649f841b35b3ea6",
+      "source_line_start": 17,
+      "source_line_end": 19,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "45f8dbb9a06029b01c50d7cd8bbc0f03effa6894522d0fd2f55282bf18d8b449",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>8</td><td>14</td><td>12</td><td>10</td><td>10</td><td>14</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "1e6898eb3545e6705eac62cda635f0a29164d3528c812c240208e39793f94693",
+      "source_line_start": 21,
+      "source_line_end": 22,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "4a0ddfcb4b0f130bedb9ecc86094bc4cddb3c24198fe9d7b7edbfc72fd72b45e",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 0, dex : 4, wis : 1",
+      "structural_path": [],
+      "ordering_key": 7,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "78f35d32c716cfce660af4d3eb6ad3743c0fefdc7840705b682fd58b8dd28e1b",
+      "source_line_start": 24,
+      "source_line_end": 25,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "e0bdd2eda7af214705ea5834c9420cd179abbb1ce68ae315c569ec22828b1a40",
+      "unit_type": "prose",
+      "text": "Skills : perception : 3",
+      "structural_path": [],
+      "ordering_key": 8,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "06d0c95305b8fab62d617790eb88a39a1b347645832d1bde617aff3584f2e723",
+      "source_line_start": 27,
+      "source_line_end": 28,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "ad1c8330474e007b2a38349329307f07ab0a6e029469c0adef43acedaf752e2c",
+      "unit_type": "prose",
+      "text": "Resistances :",
+      "structural_path": [],
+      "ordering_key": 9,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+      "source_line_start": 30,
+      "source_line_end": 31,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "4046cbcc7b2ef00b046e2d97dcdd60c8d1c8ad0869e87fdaa793c76f2f80a059",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60",
+      "structural_path": [],
+      "ordering_key": 10,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+      "source_line_start": 33,
+      "source_line_end": 34,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "3e7768cc42bb6be8cf7ef86cb931590cfa1a56cb0bbf3a3892b95b0bf67d8f43",
+      "unit_type": "prose",
+      "text": "Languages : Common, Sylvan",
+      "structural_path": [],
+      "ordering_key": 11,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "c3fe1c4fbd473b59c5ae26b176542f96a08ddd7ad71facd968fa66072a801c46",
+      "source_line_start": 36,
+      "source_line_end": 37,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "3391ea458e1d3a3144d7eb0a4aaed068e97de536902ee599540f87d8c4b53a2d",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 2 (450)",
+      "structural_path": [],
+      "ordering_key": 12,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "0c52f07130c7ae73e5a2dbe304214e8930b7f03d8e63b184b6f7dd01a781b548",
+      "source_line_start": 39,
+      "source_line_end": 40,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "bf78a7cdfa5a494866cc8defd3c6e034f4dac3add62b1381293556a3a10029cd",
+      "unit_type": "prose",
+      "text": "ACTIONS — Whispering Frost : 'The Moonlit Meringues exhale a chilling breath infused with frostmint. Each creature in a 15-foot cone must succeed on a DC 13 Constitution saving throw or take 10 (3d6) cold damage and have their speed reduced by 10 feet until the start of the Meringue's next turn.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "0554f5b7d3fb3b736bc4c081b099e0d0b865847028f3b3ecbe7e510028c9163b",
+      "source_line_start": 42,
+      "source_line_end": 46,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "65b4603c6449a78b76c20e723298a0beafedc60e43a274cbb21181d479db0a14",
+      "unit_type": "prose",
+      "text": "LEGENDARY ACTIONS — The Moonlit Meringues can take 1 legendary action, choosing from the options below. Only one legendary action can be used at a time and only at the end of another creature's turn. The Moonlit Meringues regains spent legendary actions at the start of its turn.",
+      "structural_path": [
+        "LEGENDARY ACTIONS"
+      ],
+      "ordering_key": 14,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "6f4fe8b12e1c62416db2ada4334e8bf6b45ffa0fc5045df4dc7998f633c9a346",
+      "source_line_start": 48,
+      "source_line_end": 52,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "007c3d000106d66ab917122539e8462929c28ab4dfbebd2004d64a1c97657dd0",
+      "unit_type": "prose",
+      "text": "Gravity Tumble : ‘The Moonlit Meringues collapse into a pile and then reform, instantly moving up to 20 feet without provoking opportunity attacks. All creatures within 5 feet of the new location must succeed on a DC 13 Dexterity saving throw or take 5 (1d10) bludgeoning damage from the impact of the reverberating confection.’",
+      "structural_path": [
+        "LEGENDARY ACTIONS"
+      ],
+      "ordering_key": 15,
+      "page_fingerprint": "86c1c27f9b6551e657a1097df0926b153d3644c5de7859fc0e6ac78e7b350723",
+      "content_hash": "62b7452a07d476cfbdb4c48237d31e51d988f430b5401f64548a853c302e8960",
+      "source_line_start": 54,
+      "source_line_end": 55,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "orphan_count": 13,
+        "orphan_rate": 0.8125,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "a529398ada5aef6d",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "MOONLIT MERINGUES"
+          },
+          {
+            "unit_id": "8112a9f3c129dbf4",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "Medium, Construct, Fae, Neutral"
+          },
+          {
+            "unit_id": "febe3c01d6749c65",
+            "unit_type": "prose",
+            "ordering_key": 2,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "92eb6caf2c377bdd",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "MOONLIT MERINGUES ARE MAGICAL CONFECTIONS ANIMATED BY ETHEREAL FAE FLOUR, GLOWIN"
+          },
+          {
+            "unit_id": "aac67d5044a5d1e7",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Armor Class : 12"
+          },
+          {
+            "unit_id": "7147a2dd29ad6fe8",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Hit Points: 40 Hit Dice : 5d8\nSpeed: walk : 30"
+          },
+          {
+            "unit_id": "45f8dbb9a06029b0",
+            "unit_type": "table",
+            "ordering_key": 6,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "4a0ddfcb4b0f130b",
+            "unit_type": "prose",
+            "ordering_key": 7,
+            "text_preview": "Saving Throws : str : 0, dex : 4, wis : 1"
+          },
+          {
+            "unit_id": "e0bdd2eda7af2147",
+            "unit_type": "prose",
+            "ordering_key": 8,
+            "text_preview": "Skills : perception : 3"
+          },
+          {
+            "unit_id": "ad1c8330474e007b",
+            "unit_type": "prose",
+            "ordering_key": 9,
+            "text_preview": "Resistances :"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 4,
+        "oversized_count": 0,
+        "undersized_ratio": 0.25,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "a529398ada5aef6d",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "MOONLIT MERINGUES"
+          },
+          {
+            "unit_id": "febe3c01d6749c65",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "aac67d5044a5d1e7",
+            "unit_type": "prose",
+            "char_count": 16,
+            "text_preview": "Armor Class : 12"
+          },
+          {
+            "unit_id": "ad1c8330474e007b",
+            "unit_type": "prose",
+            "char_count": 13,
+            "text_preview": "Resistances :"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

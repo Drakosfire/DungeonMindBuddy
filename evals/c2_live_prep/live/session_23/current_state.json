@@ -10,15 +10,15 @@
     "event_log.jsonl",
     "job_queue.jsonl"
   ],
-  "generated_at": "2026-06-12T14:42:38Z",
+  "generated_at": "2026-06-22T00:02:42Z",
   "now": {
     "day_label": "Session 23",
-    "party_position": "From recap bootstrap",
-    "route_intent": "Review recap and prepare next session",
+    "party_position": "Mireward Reach north wall / north gate",
+    "route_intent": "End the current meat-flank combat, let the town breathe, then hit the walls with a second breach wave.",
     "active_weather": null,
-    "next_suggested_beat": "Silver Raven comms pressure"
+    "next_suggested_beat": "Resolve Caelynn's lightning-bolt moment, then move into first-wave cleanup and named NPC triage."
   },
-  "open_loop_count": 4,
+  "open_loop_count": 5,
   "pending_roll_tables": [],
   "enabled_surface_modules": [
     "chat",

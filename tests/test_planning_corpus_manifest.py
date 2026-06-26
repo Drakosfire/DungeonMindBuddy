@@ -43,7 +43,7 @@ def _build_real() -> dict[str, Any]:
     return build_planning_corpus_manifest(
         campaign_id="longmont-c2",
         planning_session=23,
-        source_sessions=[21, 22],
+        source_sessions=[21, 22, 23],
         corpus_root=CORPUS_ROOT,
         live_workspace_dir=LIVE_WORKSPACE,
     )
@@ -264,6 +264,18 @@ def test_session_22_recap_derivatives_are_materialized() -> None:
     assert all(e["route_exists"] is True for e in s22_recap)
 
 
+def test_session_23_recap_derivatives_are_materialized() -> None:
+    manifest = _build_real()
+    s23_recap = [
+        e
+        for e in manifest["entries"]
+        if e["source_role"] == "play_recap" and e["session_scope"] == [23]
+    ]
+    assert len(s23_recap) == 3
+    assert all(e["route_exists"] is True for e in s23_recap)
+    assert any("session-23-mireward" in e["route"] for e in s23_recap)
+
+
 def test_builder_does_not_raise_on_missing_files(tmp_path: Path) -> None:
     manifest = build_planning_corpus_manifest(
         campaign_id="longmont-c2",
@@ -285,6 +297,14 @@ def test_two_builds_produce_identical_entries() -> None:
     assert first["entries"] == second["entries"]
     ids = [e["source_id"] for e in first["entries"]]
     assert len(ids) == len(set(ids))
+
+
+def test_duplicate_roll_table_routes_are_deduped() -> None:
+    manifest = _build_real()
+    roll_tables = [e for e in manifest["entries"] if e["source_role"] == "roll_table"]
+    routes = [e["route"] for e in roll_tables]
+    assert routes
+    assert len(routes) == len(set(routes))
 
 
 def test_entries_sorted_by_role_session_id() -> None:
@@ -404,9 +424,15 @@ def test_dogfood_full_manifest_validates_and_meets_entry_floor() -> None:
     _validator().validate(manifest)
     assert manifest["schema"] == DOGFOOD_FULL_SCHEMA_ID
     assert len(manifest["entries"]) >= 160
+    s23_recap = [
+        e
+        for e in manifest["entries"]
+        if e["source_role"] == "play_recap" and e["session_scope"] == [23]
+    ]
+    assert len(s23_recap) == 3
+    assert all(e["route_exists"] is True for e in s23_recap)
     missing = [e for e in manifest["entries"] if not e["route_exists"]]
-    assert missing
-    assert all("(uningested)" in e["route"] for e in missing)
+    assert not any("(uningested)" in e["route"] for e in missing)
 
 
 def test_dogfood_full_includes_every_elderwyld_md_once() -> None:

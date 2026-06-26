@@ -20,8 +20,8 @@ Read first:
 - `Docs/Runbooks/RUNBOOK-statblock-combat-dogfood.md`
 - `Docs/Plans/HANDOFF-dogfood-readiness-pr114.md`
 - `Docs/Plans/HANDOFF-combat-roster-tracker-pr113.md`
-- `Docs/Plans/HANDOFF-statblock-add-to-combat-pr112.md`
-- `Docs/Plans/HANDOFF-statblock-view-readonly-pr111.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-view-readonly-pr111.md`
 - `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`
 - `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`
 - the prior editable Command Board research handoff pasted into the chat that begins `HANDOFF — Composable editable Command Board (research + design spike)`.

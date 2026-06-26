@@ -316,6 +316,244 @@ export interface LiveContextPacket {
   claims?: Array<Record<string, unknown>>;
   planning_implications?: string[];
   capability_status?: Record<string, unknown>;
+  query_signals?: {
+    asks_for_last_or_final?: boolean;
+    asks_for_play_event?: boolean;
+    session_numbers?: number[];
+  };
+}
+
+export type LiveQueryBackend = "live" | "hermes";
+
+export interface AgentInteractionTraceUsage {
+  available: boolean;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+}
+
+export interface AgentInteractionTraceStep {
+  name: string;
+  summary: string;
+}
+
+export interface AgentInteractionTraceArtifactRef {
+  kind: string;
+  path: string;
+  label?: string | null;
+}
+
+export interface AgentInteractionContextSummary {
+  admitted_count?: number;
+  rejected_count?: number;
+  admitted_excerpt_char_count?: number;
+  admitted_excerpt_token_estimate?: number;
+  rejected_excerpt_char_count?: number;
+  rejected_excerpt_token_estimate?: number;
+  total_excerpt_char_count?: number;
+  total_excerpt_token_estimate?: number;
+  context_payload_kind?: string | null;
+  manifest_path?: string | null;
+  answerable_now?: boolean | null;
+  intent_class?: string | null;
+  suggested_route_count?: number;
+  verdict?: string | null;
+}
+
+export interface AgentInteractionAdmittedContextItem {
+  path?: string;
+  source_role?: string;
+  authority?: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  text_excerpt: string;
+}
+
+export type RetrievalFreshnessDecisionKind = "fresh_retrieval" | "thread_context" | "blended" | "insufficient_grounding";
+
+export interface RetrievalFreshnessDecision {
+  schema: "dmb_retrieval_freshness_decision_v1";
+  decision: RetrievalFreshnessDecisionKind;
+  used_fresh_retrieval: boolean;
+  used_thread_context: boolean;
+  admitted_evidence_count: number;
+  rejected_evidence_count: number;
+  prior_turn_count: number;
+  reason: string;
+  warnings: string[];
+}
+
+export interface AgentInteractionTrace {
+  trace_id: string;
+  runtime: string;
+  backend: string;
+  mode: string;
+  provider?: string | null;
+  model?: string | null;
+  started_at: string;
+  completed_at: string;
+  elapsed_ms: number;
+  status: string;
+  toolset?: string | null;
+  command_summary?: string | null;
+  prompt_preview?: string | null;
+  prompt_char_count?: number | null;
+  prompt_token_estimate?: number | null;
+  usage: AgentInteractionTraceUsage;
+  steps: AgentInteractionTraceStep[];
+  context_summary: AgentInteractionContextSummary;
+  artifact_refs: AgentInteractionTraceArtifactRef[];
+  warnings: string[];
+}
+
+
+export interface HermesSessionHandle {
+  sessionId: string;
+  title?: string | null;
+  runtime: "cli" | "api" | "in_process" | "unknown" | string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type CitationFreshnessStatus = "current" | "changed" | "unknown" | "unavailable";
+
+export interface AgentEvidenceSnapshot {
+  schema: "dmb_agent_evidence_snapshot_v1";
+  evidence_id: string;
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  source_role?: string | null;
+  authority?: string | null;
+  fingerprint: string;
+  fingerprint_algorithm: "sha256:locator-v1" | "sha256:source-lines-v1" | "locator-v1";
+  captured_at: string;
+}
+
+export interface CitationFreshnessCheckResult {
+  status: CitationFreshnessStatus;
+  checked_at: string;
+  diagnostics: string[];
+  warnings: string[];
+}
+
+export interface AgentInteractionTurn {
+  turnId: string;
+  askedAt: string;
+  completedAt?: string | null;
+  question: string;
+  answer: string;
+  backend: LiveQueryBackend;
+  status: "ok" | "error" | "partial" | string;
+  contextSummary?: AgentInteractionContextSummary;
+  citations?: LiveQueryCitation[];
+  trace?: AgentInteractionTrace | null;
+  warnings?: string[];
+  retrievalFreshness?: RetrievalFreshnessDecision | null;
+  evidenceSnapshots?: AgentEvidenceSnapshot[];
+  corpusFreshness?: CitationFreshnessCheckResult | null;
+}
+
+export interface AgentInteractionThread {
+  threadId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  campaignId: string;
+  session?: number | null;
+  surfaceId: "plan" | "play" | "build" | string;
+  activeBackend: LiveQueryBackend;
+  hermesSession?: HermesSessionHandle | null;
+  turns: AgentInteractionTurn[];
+  uiState?: {
+    traceVisible: boolean;
+    scrollAnchorTurnId?: string | null;
+    newThreadSuggestionDismissed?: boolean;
+  };
+}
+
+export interface AgentInteractionThreadSummary {
+  threadId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  turnCount: number;
+  activeBackend: LiveQueryBackend;
+  hermesSessionId?: string | null;
+}
+
+export interface AgentInteractionThreadIndex {
+  schema: "agent_interaction_thread_index_v1";
+  campaignId: string;
+  surfaceId: string;
+  activeThreadId: string | null;
+  threads: AgentInteractionThreadSummary[];
+}
+
+export interface LiveQueryOptions {
+  agentThreadId?: string | null;
+  hermesSessionId?: string | null;
+  traceRequested?: boolean | null;
+}
+
+export interface AgentInteractionTurnMeta {
+  id: string;
+  question: string;
+  answer: string;
+  backend: LiveQueryBackend;
+  model: string | null;
+  status: string;
+  askedAt: string;
+  traceId: string | null;
+  admittedCount: number | null;
+  rejectedCount: number | null;
+  runtime: string | null;
+  elapsedMs: number | null;
+  provider: string | null;
+  stepCount: number | null;
+}
+
+
+export interface CitationSourceRequest {
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  text_excerpt?: string | null;
+}
+
+export interface CitationFreshnessRequest {
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  expected_fingerprint?: string | null;
+  fingerprint_algorithm?: "sha256:source-lines-v1" | "sha256:locator-v1" | "locator-v1" | null;
+}
+
+export interface CitationFreshnessResponse {
+  schema: "dmb_citation_freshness_v1";
+  path: string;
+  status: CitationFreshnessStatus;
+  current_fingerprint?: string | null;
+  expected_fingerprint?: string | null;
+  fingerprint_algorithm: "sha256:source-lines-v1" | "sha256:locator-v1";
+  checked_at: string;
+  diagnostics: string[];
+  warnings: string[];
+}
+
+export interface CitationSourceResponse {
+  schema_version: "dmb_citation_source_v1";
+  path: string;
+  content_type: "text/markdown" | "text/plain";
+  content: string;
+  truncated: boolean;
+  highlight: {
+    line_start: number | null;
+    line_end: number | null;
+    text_excerpt: string | null;
+    match_source: "line_range" | "excerpt_search" | "none";
+  };
+  diagnostics: string[];
 }
 
 export interface LiveQueryResponse {
@@ -335,6 +573,12 @@ export interface LiveQueryResponse {
   context_packet?: LiveContextPacket | null;
   warnings?: string[];
   mutations?: unknown[];
+  agent_trace?: AgentInteractionTrace | null;
+  agent_thread_id?: string | null;
+  turn_id?: string | null;
+  hermes_session?: HermesSessionHandle | null;
+  retrieval_freshness?: RetrievalFreshnessDecision | null;
+  evidence_snapshots?: AgentEvidenceSnapshot[];
 }
 
 export interface LiveEvent {
@@ -377,8 +621,11 @@ export interface ResolvedRollResponse {
 export type RecapIngestOperation =
   | "stage_preview"
   | "apply_normalize"
+  | "build_frontmatter_seed"
+  | "run_breadcrumb_ingest"
   | "materialize_session_memory"
-  | "inspect_status";
+  | "inspect_status"
+  | "reconcile_normalized_recap";
 
 export interface RecapIngestRequest {
   operation: RecapIngestOperation;
@@ -387,9 +634,19 @@ export interface RecapIngestRequest {
   raw_text?: string;
   slug?: string;
   title?: string;
+  keep_basename?: string;
   force_stage?: boolean;
   force_recap?: boolean;
   check?: boolean;
+}
+
+export interface NormalizedRecapCandidate {
+  basename: string;
+  relpath: string;
+  size_bytes: number;
+  modified_at: string;
+  is_generic: boolean;
+  recommended: boolean;
 }
 
 export interface RecapIngestStatus {
@@ -797,6 +1054,52 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
+export interface TiptapMarkdownWritePrepareRequest {
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  markdown: string;
+}
+
+export interface TiptapMarkdownWritePrepareResponse {
+  schema_version: "dmb_tiptap_markdown_write_prepare_v1";
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  target_display_path: string;
+  file_exists: boolean;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  existing_size_bytes?: number | null;
+  new_size_bytes?: number | null;
+  warnings: string[];
+  diagnostics: string[];
+}
+
+export interface TiptapMarkdownWriteCommitRequest {
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  markdown: string;
+  writer_confirm_token: string;
+}
+
+export interface TiptapMarkdownWriteCommitResponse {
+  schema_version: "dmb_tiptap_markdown_write_commit_v1";
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  target_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  file_fingerprint?: string | null;
+  backup_relpath?: string | null;
+  diagnostics: string[];
+}
+
 
 export interface StatblockRetrievalActivationResponse {
   schema_version: "dmb_statblock_retrieval_activation_v1";
@@ -862,4 +1165,77 @@ export interface StatblockWorkbenchCommandResponse {
   diagnostics: string[];
   available_actions: StatblockWorkbenchAction[];
   error?: Record<string, unknown> | null;
+}
+
+export interface OpaqueLocator {
+  locatorId: string;
+  scheme: "corpus_path" | "artifact_path" | "impact_proof" | "unknown";
+  value: string;
+  anchor?: string | null;
+}
+
+export interface SourceArtifact {
+  artifactId: string;
+  kind: string;
+  layer: string;
+  label: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sessionNumber?: number | null;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  primaryLocator: OpaqueLocator;
+  relatedLocators: OpaqueLocator[];
+  displaySummary?: string | null;
+  metadata: Record<string, string | number | boolean | null>;
+  producedBy?: string | null;
+  producedAt?: string | null;
+}
+
+export interface SourceAnchor {
+  anchorId: string;
+  artifactId: string;
+  label: string;
+  anchorKind: string;
+  locator: OpaqueLocator;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface SourceUnit {
+  unitId: string;
+  artifactId: string;
+  anchorId: string;
+  unitKind: string;
+  label: string;
+  displaySummary?: string | null;
+  fields: Record<string, string | number | boolean | null>;
+  sourceAnchor: SourceAnchor;
+  canonState: string;
+  lifecycleState: string;
+  evidenceRole: string;
+  authorityState: string;
+  visibilityState: string;
+  provenance: Array<Record<string, unknown>>;
+  diagnostics: Record<string, unknown>;
+}
+
+export interface IngestionSourceBundle {
+  schema_version: "dmb_ingestion_source_bundle_v1";
+  bundle_id: string;
+  scope: string;
+  generated_at?: string | null;
+  corpus_root: string;
+  artifacts: SourceArtifact[];
+  anchors: SourceAnchor[];
+  units: SourceUnit[];
+  coverage: Record<string, unknown>;
+  diagnostics: string[];
 }

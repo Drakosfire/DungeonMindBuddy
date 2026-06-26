@@ -18,13 +18,6 @@
     <nav id="site-nav" class="site-nav"></nav>
 
     <h1>North Reach Gate combat tracker</h1>
-    <p class="lead">Initiative and HP workspace for the locked opening fight outside Mireward's North Reach Gate. State persists in this browser via localStorage.</p>
-
-    <div class="callout callout-info">
-      <strong>Locked enemy roster</strong>
-      2x Sewer Meat Creature, 1x Corrupted Meat Golem, 2x Tripod Null-Calf, 2x Fleshborn Hybrid, 10x Aberrant Meatwing.
-      Latch-Harrow remains later-wave pressure. Shared-statblock enemies group into accordions; all-dead groups collapse automatically.
-    </div>
 
     <div class="combat-toolbar">
       <button type="button" data-combat-action="sort-init" class="primary">Sort initiative + save order</button>
@@ -46,17 +39,8 @@
           <p class="muted">Use the arrows to move any entity manually, or sort once initiative values are entered.</p>
         </div>
       </div>
-      <div class="card">
-        <div class="card-hd">Source links</div>
-        <div class="card-bd">
-          <div class="file-row"><span class="label">Threat roster</span><a data-repo="Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md">siege mechanics + threat inventory</a></div>
-          <div class="file-row"><span class="label">Statblock pane</span><a href="statblocks.html">statblocks.html</a></div>
-          <div class="file-row"><span class="label">Generator</span><a href="#" data-open-toolbox="statblock">Command toolbox · Statblock</a></div>
-        </div>
-      </div>
     </div>
 
-    <h2>Initiative Order</h2>
     <div class="combat-table-wrap">
       <table class="combat-table" aria-label="North Reach Gate combat initiative and HP tracker">
         <thead>
@@ -99,8 +83,6 @@
         </tbody>
       </table>
     </div>
-
-    <p class="footer-note">Player and allied NPC HP starts blank by design; enter table-current values once known. Enemy max HP is seeded from the linked statblocks. Turn order is the initiative barrel: use Sort initiative to rebuild from Init values; manual ↑/↓ edits stick until the next sort. Top/Bottom of Round are virtual slots in that barrel and rotate as you advance turns.</p>
   </div>
 
   <div class="combat-floating-controls" aria-label="Floating turn controls">

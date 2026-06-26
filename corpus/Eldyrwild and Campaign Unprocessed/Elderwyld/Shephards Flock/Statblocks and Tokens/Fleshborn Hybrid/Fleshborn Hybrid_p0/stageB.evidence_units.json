@@ -1,0 +1,287 @@
+{
+  "unit_count": 12,
+  "units": [
+    {
+      "unit_id": "abc0d74475d6caa850c1a60692634f98a47ce92dc7cf28a2a87ad59403c670d0",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "111ff704950c68acde46e27e81b580f6fae4e2a621b8ae316a01cc0e270de2f7",
+      "unit_type": "prose",
+      "text": "TERRIFYING AND RELENTLESS SHOCK TROOPS CRAFTED FROM TORTURED FLESH, FLESHBORN HYBRIDS ROAM BATTLEFIELDS WITH A MINDLESS DETERMINATION TO DESTROY. SWATHED IN SINEW AND CONNECTED BY GROTESQUE STAPLES, THESE ABOMINATIONS EMIT A FOUL STENCH OF DECAY AND OOZE. DRIVEN BY PRIMAL INSTINCTS, THEIR RAVENOUS MAWS AND LASHING TENTACLES MAKE THEM FORMIDABLE OPPONENTS.\nArmor Class : 13\nHit Points: 45 Hit Dice : 6d8+18\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "94d42b881f62a711a8ece357506190aad141dfdc61a2be3e79ee07d6b9f64a31",
+      "source_line_start": 5,
+      "source_line_end": 9,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "d6bae635181b84a887f451d6b02720a6c855289cd15c8610d0e2a99066187e05",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>16</td><td>12</td><td>16</td><td>5</td><td>10</td><td>6</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "175ebe0becbef57ccb1dc19254b9049fe30f7754ef2591b636c33d48a8a86596",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0b7f0a9e7ed9a885673d7963cf5fc967ca1a2a9c913042867fab9f8665291b5b",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 0, dex : 0, wis : 0",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "17aa0fdc85b2573c7d73924ee941bc4f2dbc485632e7c502b696f33963627039",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "ad817c4dd493b2be55b0c732daa6a1428b182fdca184bb7232d46fb2e9dcd3fe",
+      "unit_type": "prose",
+      "text": "Skills : perception : 2\nResistances :",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "d6e14f1eb1e11b67695ecb0826d7814fc2c43b8147a0d7161cff59e868c9dedf",
+      "source_line_start": 17,
+      "source_line_end": 19,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "6c469b7a965e60b90ee4b176f32f264dfacc8c130f2b4b13cda024eacdc7d8e5",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60\nLanguages : Understands Abyssal, can't speak",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "e638ea4ad0af539146b66d94a32f178fa061187a082e3c5976d5f3c366132889",
+      "source_line_start": 21,
+      "source_line_end": 23,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "9b51939af316ff670dbf41ba044f0a305de64603a9904ac07895ff2fcb27f6f3",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 3 (700)",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "027d638ae435145218736febc811ec68901eef023aecc95ad98d1da370fc9dfb",
+      "source_line_start": 25,
+      "source_line_end": 26,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "60b186acbcaa4c2427372cde255719b41dfb66ee4c04b22ea7e949982b2f2da3",
+      "unit_type": "prose",
+      "text": "ACTIONS — Claw : The Fleshborn Hybrid makes a melee weapon attack with its claws. +5 to hit, reach 5 ft., one target. Hit: 1d8+3 slashing damage.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 7,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "3e2dbfdf8a1f456caf78a33ec88d62632fb326d52333a1f2afbcdf556b3662b1",
+      "source_line_start": 28,
+      "source_line_end": 32,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "62ce3d43efe3a51d0f02c8d41a0e06d277e860614c20b3383f90ea847cfe8953",
+      "unit_type": "prose",
+      "text": "Bite : The Fleshborn Hybrid makes a melee weapon attack with its bite. +5 to hit, reach 5 ft., one target. Hit: 2d6+3 necrotic damage.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "168a98e93fd2e8a3738c5c314902738d76190f176ea0052747955b0c1ce50229",
+      "source_line_start": 34,
+      "source_line_end": 35,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "2d35f089fc77deb7496ab60e20f638908d265bac802d837c45fdeb6fc1f160b3",
+      "unit_type": "prose",
+      "text": "Flesh Lash (Recharge 5-6) : The Fleshborn Hybrid lashes out with three tongue-tentacles at up to three targets within 15 ft. +5 to hit, reach 15 ft., one target. Hit: 2d6+3 psychic damage. Targets are grappled (escape DC 15).",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "d2351c952a239308f90bedeae47c03f1cc08beca9a1991a9aa8dc7f6a268bcb1",
+      "source_line_start": 37,
+      "source_line_end": 38,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "bf2e0d29688a69665c9c77b95bfe131ab07c16c1a22af6dd847c75ae094f4e16",
+      "unit_type": "prose",
+      "text": "Multiatack : 'The Fleshborn Hybrid makes two attacks: one with its claw and one with its bite.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "cff0b22fa23423ebeb40065e0c634a8eba71d15f0fa2c724d16bf1fe424d0e1e",
+      "source_line_start": 40,
+      "source_line_end": 41,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "7b4be6a50a83438d5059a3f811d66cde57672e7b38abf92948fec9bdb022400e",
+      "unit_type": "prose",
+      "text": "Consume the Weak : 'If the Fleshborn Hybrid is within reach of a grappled, incapacitated, or unconscious creature, it devours the creature's flesh. This attack automatically hits, dealing 4d6 necrotic damage to the target.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "879670f82d33c60245d4c6a3990d5d5dee3d5c48af520e03371f7a86f6772531",
+      "content_hash": "05fd04e9577595b3fcd7d3eb8f325079637f856a123424f2e1fb9b73f37578eb",
+      "source_line_start": 43,
+      "source_line_end": 44,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 12,
+        "orphan_count": 7,
+        "orphan_rate": 0.5833,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "abc0d74475d6caa8",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "111ff704950c68ac",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "TERRIFYING AND RELENTLESS SHOCK TROOPS CRAFTED FROM TORTURED FLESH, FLESHBORN HY"
+          },
+          {
+            "unit_id": "d6bae635181b84a8",
+            "unit_type": "table",
+            "ordering_key": 2,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "0b7f0a9e7ed9a885",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "Saving Throws : str : 0, dex : 0, wis : 0"
+          },
+          {
+            "unit_id": "ad817c4dd493b2be",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Skills : perception : 2\nResistances :"
+          },
+          {
+            "unit_id": "6c469b7a965e60b9",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Senses : darkvision : 60\nLanguages : Understands Abyssal, can't speak"
+          },
+          {
+            "unit_id": "9b51939af316ff67",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Challenge Rating : 3 (700)"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 12,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 12,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 1,
+        "oversized_count": 0,
+        "undersized_ratio": 0.0833,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "abc0d74475d6caa8",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

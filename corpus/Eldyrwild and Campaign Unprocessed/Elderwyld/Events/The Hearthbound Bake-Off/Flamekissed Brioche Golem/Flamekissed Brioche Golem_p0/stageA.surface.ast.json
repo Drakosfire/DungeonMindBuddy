@@ -1,0 +1,154 @@
+{
+  "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+  "content_hash": "842276e60b4a4c5ab79a1e0b97266e40b4983ed98f1452ee3aa9a696243ba810",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 58,
+    "children": [
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Flamekissed Brioche Golem",
+        "source_line_start": 1,
+        "source_line_end": 2
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Medium, Construct, Fae Animated, Neutral",
+        "source_line_start": 4,
+        "source_line_end": 5
+      },
+      {
+        "node_type": "image_ref",
+        "level": 0,
+        "text": "![](images/0.jpg)",
+        "source_line_start": 6,
+        "source_line_end": 7
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "AT THE BASE OF THE PLATTER RESTS THE FLAMEKISSED BRIOCHE Golem, ITS DEEP AMBER CRUSTS GLOWING FAINTLY AS THOUGH STILL WARM FROM DRAGONFIRE OVENS. THE BRIOCHE, WITH RICH BUTTERY FOLDS AND A SUBTLE SMOKINESS, SYMBOLIZES THE STRENGTH OF MIRATHORN—STURDY, ENDURING, AND BUILT TO SUPPORT DREAMS. DUSTINGS OF EMBER ASH ADORN ITS EDGES, GIVING IT THE APPEARANCE OF FRESHLY LAID BRICKS KISSED BY FIRELIGHT. THE AROMA OF TOASTED CINNAMON AND MOLTEN SUGAR WAFTS CONSTANTLY FROM THE CREATURE, EVOKING HEARTH AND HOME.",
+        "source_line_start": 11,
+        "source_line_end": 12
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Armor Class : 11\nHit Points: 22 Hit Dice : 4d8 + 4",
+        "source_line_start": 14,
+        "source_line_end": 16
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Speed: walk : 20",
+        "source_line_start": 18,
+        "source_line_end": 19,
+        "children": [
+          {
+            "node_type": "table",
+            "level": 0,
+            "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>13</td><td>9</td><td>12</td><td>3</td><td>10</td><td>6</td></tr></table>",
+            "source_line_start": 21,
+            "source_line_end": 22
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Saving Throws : str : 3, dex : 0, wis : 2",
+            "source_line_start": 24,
+            "source_line_end": 25
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Skills : perception : 2",
+            "source_line_start": 27,
+            "source_line_end": 28
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Resistances :",
+            "source_line_start": 30,
+            "source_line_end": 31
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Senses : darkvision : 60",
+            "source_line_start": 33,
+            "source_line_end": 34
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Languages : understands the languages of its creator but can't speak",
+            "source_line_start": 36,
+            "source_line_end": 37
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Challenge Rating : 2 (450)",
+            "source_line_start": 39,
+            "source_line_end": 40
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 42,
+        "source_line_end": 43,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Smoky Crust Slam : 'The brioche golem slams its hardened crust into a target. Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) bludgeoning damage. The target must succeed on a DC 11 Strength saving throw or be knocked prone.",
+            "source_line_start": 45,
+            "source_line_end": 46
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Fae Flour Burst : 'The golem releases a burst of enchanted fae flour in a 10-foot radius. Each creature in that area must succeed on a DC 11 Constitution saving throw or be blinded until the end of its next turn by the flour. On a success, creatures are immune to this effect for 24 hours.",
+            "source_line_start": 48,
+            "source_line_end": 49
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "Legendary Actions",
+        "source_line_start": 51,
+        "source_line_end": 52,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "The Flamekissed Brioche Golem can take 1 legendary action, choosing from the options below. Only one legendary action can be used at a time and only at the end of another creature's turn. It regains the spent legendary action at the start of its turn.",
+            "source_line_start": 54,
+            "source_line_end": 55
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Flickering Ember Charm : 'The golem emits a flickering glow from its ember-kissed crusts, attempting to charm one creature within 30 feet that can see the light. The target must succeed on a DC 11 Wisdom saving throw or be charmed by the golem for 1 minute, regarding it with fascination as if captivated by the gentle warmth of a fireplace.'",
+            "source_line_start": 57,
+            "source_line_end": 58
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 20,
+  "table_count": 1
+}

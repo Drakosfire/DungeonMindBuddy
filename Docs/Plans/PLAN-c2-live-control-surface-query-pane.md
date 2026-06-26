@@ -309,6 +309,8 @@ Compare evidence recall, authority discipline, planning usefulness, and friction
 
 - A single pane interaction model scales across future modules.
 - Human and agent interactions share one command architecture.
+- `AgentInteractionProvider` owns user-level interaction continuity above individual surfaces: conversation/thread pointers, pane state, active projection, recent runs, notifications, and proof-trail pointers.
+- Surfaces publish ambient context and available projections into the app-level Agent Interaction Bar/Pane; they do not own cross-project agent state.
 - Projection refreshes are deterministic and explicit.
 - Writes return invalidation and audit information.
 - Session 23 can be planned from bootstrapped live workspace plus correctly activated prior context.

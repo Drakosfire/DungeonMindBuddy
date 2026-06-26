@@ -308,6 +308,450 @@
     });
   }
 
+  const RUNBOOK_REFERENCE_PLACEHOLDER_ACTIONS = {
+    npc: ["Open NPC card", "Pin to session context"],
+    location: ["Open location card", "Show nearby context"],
+    statblock: ["Preview statblock", "Add to encounter"],
+    "roll-table": ["Open roll table", "Roll on table"],
+    citation: ["Open source note", "Copy citation"],
+    combat: ["Launch combat", "Preview encounter seed"],
+  };
+  const RUNBOOK_REFERENCE_INDEX_ENDPOINTS = {
+    npc: "/api/live/npcs/index",
+    location: "/api/live/locations/index",
+    statblock: "/api/live/statblocks/index",
+    "roll-table": "/api/live/roll-tables/index",
+  };
+  const RUNBOOK_REFERENCE_INDEX_SOURCES = {
+    npc: "NPC index",
+    location: "location index",
+    statblock: "statblock index",
+    "roll-table": "roll-table index",
+  };
+  const runbookReferenceIndexCache = {};
+  let runbookReferencePopoverBound = false;
+  let activeRunbookReferenceTrigger = null;
+  let suppressRunbookReferenceFocusOpen = false;
+
+  function runbookReferenceHref(ref) {
+    return "#dmb-" + ref.kind + ":" + ref.type + ":" + ref.id;
+  }
+
+  function runbookReferencePlaceholderActions(ref) {
+    return RUNBOOK_REFERENCE_PLACEHOLDER_ACTIONS[ref.type] || ["Open reference", "Copy ref id"];
+  }
+
+  function readRunbookReferenceChip(trigger) {
+    if (!trigger || !trigger.classList || !trigger.classList.contains("md-ref-chip")) return null;
+    const kind = trigger.getAttribute("data-md-ref-kind");
+    const type = trigger.getAttribute("data-md-ref-type");
+    const id = trigger.getAttribute("data-md-ref-id");
+    if ((kind !== "ref" && kind !== "action") || !type || !id) return null;
+    const ref = {
+      label: (trigger.textContent || "").trim(),
+      kind: kind,
+      type: type,
+      id: id,
+      isAction: kind === "action",
+    };
+    ref.href = runbookReferenceHref(ref);
+    return ref;
+  }
+
+  function ensureRunbookReferencePopover() {
+    let popover = document.getElementById("runbook-ref-popover");
+    if (popover) return popover;
+
+    popover = document.createElement("div");
+    popover.id = "runbook-ref-popover";
+    popover.className = "runbook-ref-popover";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-modal", "false");
+    popover.setAttribute("aria-labelledby", "runbook-ref-popover-title");
+    popover.hidden = true;
+    popover.innerHTML =
+      '<div class="runbook-ref-popover-card">' +
+      '<header class="runbook-ref-popover-header"><div>' +
+      '<p class="runbook-ref-popover-kicker">Reference shell</p>' +
+      '<h2 id="runbook-ref-popover-title"></h2></div>' +
+      '<button type="button" class="runbook-ref-popover-close" aria-label="Close reference details">&times;</button>' +
+      '</header><dl class="runbook-ref-popover-meta"></dl>' +
+      '<div class="runbook-ref-popover-status">Resolver pending. This shell does not fetch canon yet.</div>' +
+      '<div class="runbook-ref-popover-resolution" aria-live="polite"></div>' +
+      '<div class="runbook-ref-popover-actions"></div></div>';
+    document.body.appendChild(popover);
+    popover.querySelector(".runbook-ref-popover-close").addEventListener("click", function () {
+      closeRunbookReferencePopover({ restoreFocus: true });
+    });
+    return popover;
+  }
+
+  function renderRunbookReferencePopoverContent(ref) {
+    const popover = ensureRunbookReferencePopover();
+    popover.querySelector("#runbook-ref-popover-title").textContent = ref.label;
+    const meta = popover.querySelector(".runbook-ref-popover-meta");
+    meta.textContent = "";
+    [
+      ["Kind", ref.kind, false],
+      ["Type", ref.type, false],
+      ["ID", ref.id, true],
+      ["Href", ref.href, true],
+    ].forEach(function (entry) {
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = entry[0];
+      detail.textContent = entry[1];
+      if (entry[2]) detail.className = "mono";
+      row.appendChild(term);
+      row.appendChild(detail);
+      meta.appendChild(row);
+    });
+
+    const actions = popover.querySelector(".runbook-ref-popover-actions");
+    actions.textContent = "";
+    runbookReferencePlaceholderActions(ref).forEach(function (label) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.disabled = true;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+    return popover;
+  }
+
+
+  function normalizeRunbookReferenceKey(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function runbookReferencePathStem(value) {
+    const path = String(value || "").split(/[?#]/)[0];
+    const file = path.split("/").filter(Boolean).pop() || path;
+    return file.replace(/\.[^.]+$/, "");
+  }
+
+  function resetRunbookReferenceIndexCache() {
+    Object.keys(runbookReferenceIndexCache).forEach(function (key) {
+      delete runbookReferenceIndexCache[key];
+    });
+  }
+
+  function fetchRunbookReferenceIndex(type) {
+    if (runbookReferenceIndexCache[type]) return runbookReferenceIndexCache[type];
+    const endpoint = RUNBOOK_REFERENCE_INDEX_ENDPOINTS[type];
+    if (!endpoint) return Promise.resolve(null);
+    runbookReferenceIndexCache[type] = apiGetJson(endpoint).catch(function (err) {
+      delete runbookReferenceIndexCache[type];
+      throw err;
+    });
+    return runbookReferenceIndexCache[type];
+  }
+
+  function itemsForRunbookReferencePayload(type, payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (type === "npc") return payload.npcs || payload.items || [];
+    if (type === "location") return payload.locations || payload.items || [];
+    if (type === "statblock") return payload.statblocks || payload.items || [];
+    if (type === "roll-table") return payload.roll_tables || payload.rollTables || payload.tables || payload.items || [];
+    return [];
+  }
+
+  function addRunbookReferenceCandidate(candidates, value) {
+    const key = normalizeRunbookReferenceKey(value);
+    if (key) candidates.push(key);
+  }
+
+  function candidateKeysForRunbookReferenceItem(type, item) {
+    const candidates = [];
+    if (!item) return candidates;
+    [item.slug, item.index_id, item.title, item.table_id].forEach(function (value) {
+      addRunbookReferenceCandidate(candidates, value);
+    });
+    [item.primary_doc_path, item.hub_path, item.corpus_display_path].forEach(function (path) {
+      const stem = runbookReferencePathStem(path);
+      addRunbookReferenceCandidate(candidates, stem);
+      if (type === "statblock") {
+        const normalizedStem = normalizeRunbookReferenceKey(stem);
+        addRunbookReferenceCandidate(candidates, normalizedStem.replace(/-statblock-cr[-a-z0-9]+$/, ""));
+        addRunbookReferenceCandidate(candidates, normalizedStem.replace(/-statblock$/, ""));
+      }
+    });
+    return candidates;
+  }
+
+  function findRunbookReferenceIndexItem(type, id, payload) {
+    const refKey = normalizeRunbookReferenceKey(id);
+    return itemsForRunbookReferencePayload(type, payload).find(function (item) {
+      const candidates = candidateKeysForRunbookReferenceItem(type, item);
+      if (candidates.indexOf(refKey) !== -1) return true;
+      if (type === "npc" && item && item.index_id) {
+        return normalizeRunbookReferenceKey(item.index_id).endsWith("-" + refKey);
+      }
+      return false;
+    });
+  }
+
+  function resolveRunbookReference(ref) {
+    if (!ref) return Promise.resolve({ status: "unresolved", ref: ref, message: "Missing reference." });
+    if (ref.kind === "action") {
+      return Promise.resolve({
+        status: "unresolved",
+        ref: ref,
+        source: "action-placeholder",
+        message: ref.type === "combat"
+          ? "Combat action placeholder. Launch behavior is intentionally disabled in this PR."
+          : "Action placeholder. Launch behavior is intentionally disabled in this PR.",
+      });
+    }
+    if (ref.type === "citation") {
+      return Promise.resolve({
+        status: "unresolved",
+        ref: ref,
+        source: "citation-placeholder",
+        message: "Citation resolver pending. No citation/source resolver exists yet.",
+      });
+    }
+    return fetchRunbookReferenceIndex(ref.type).then(function (payload) {
+      const item = findRunbookReferenceIndexItem(ref.type, ref.id, payload);
+      if (!item) {
+        return { status: "unresolved", ref: ref, message: "Could not resolve this reference." };
+      }
+      return {
+        status: "resolved",
+        ref: ref,
+        source: ref.type + "-index",
+        item: item,
+        message: "Resolved from " + (RUNBOOK_REFERENCE_INDEX_SOURCES[ref.type] || "live index") + ".",
+      };
+    });
+  }
+
+  function runbookReferenceSourcePath(type, item) {
+    if (!item) return "";
+    if (type === "npc") return item.primary_doc_path || item.dossier_path || item.seed_path || item.hub_path || "";
+    if (type === "location") return item.corpus_display_path || item.hub_path || "";
+    return item.corpus_display_path || "";
+  }
+
+  function appendRunbookReferenceField(list, label, value, className) {
+    if (value === undefined || value === null || value === "") return;
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = String(value);
+    if (className) detail.className = className;
+    row.appendChild(term);
+    row.appendChild(detail);
+    list.appendChild(row);
+  }
+
+  function buildResolvedRunbookReferenceCard(ref, state) {
+    const item = state.item || {};
+    const card = document.createElement("div");
+    card.className = "runbook-ref-resolved-card";
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "runbook-ref-resolved-eyebrow";
+    eyebrow.textContent = "Resolved " + (ref.type === "npc" ? "NPC" : ref.type === "roll-table" ? "Roll Table" : ref.type.charAt(0).toUpperCase() + ref.type.slice(1));
+    const title = document.createElement("h3");
+    title.className = "runbook-ref-resolved-title";
+    title.textContent = item.title || ref.label || ref.id;
+    const fields = document.createElement("dl");
+    fields.className = "runbook-ref-resolved-fields";
+    if (ref.type === "statblock") {
+      appendRunbookReferenceField(fields, "CR", item.challenge_rating);
+      appendRunbookReferenceField(fields, "Creature", item.creature_type);
+      appendRunbookReferenceField(fields, "Role", item.role_tag);
+      appendRunbookReferenceField(fields, "Info", item.info_tag);
+      appendRunbookReferenceField(fields, "Session", item.session || item.source_type);
+    } else if (ref.type === "roll-table") {
+      appendRunbookReferenceField(fields, "Dice", item.dice);
+      appendRunbookReferenceField(fields, "Note", item.table_note);
+      appendRunbookReferenceField(fields, "Section", item.section);
+      appendRunbookReferenceField(fields, "Session", item.session);
+      appendRunbookReferenceField(fields, "Embed", item.embed_start && item.embed_end ? item.embed_start + "–" + item.embed_end : "");
+    } else {
+      appendRunbookReferenceField(fields, "Section", item.section);
+      appendRunbookReferenceField(fields, "Note", item.table_note);
+      appendRunbookReferenceField(fields, "Canon", item.canon_layer);
+      appendRunbookReferenceField(fields, "Embed", item.embed_start && item.embed_end ? item.embed_start + "–" + item.embed_end : "");
+      appendRunbookReferenceField(fields, "Updated", item.updated_at);
+    }
+    appendRunbookReferenceField(fields, "Source", runbookReferenceSourcePath(ref.type, item), "runbook-ref-resolved-path");
+    card.appendChild(eyebrow);
+    card.appendChild(title);
+    card.appendChild(fields);
+    return card;
+  }
+
+  function buildUnresolvedRunbookReferenceCard(ref, state) {
+    const card = document.createElement("div");
+    card.className = state.status === "error" ? "runbook-ref-resolver-error" : "runbook-ref-unresolved";
+    const title = document.createElement("h3");
+    title.textContent = state.source === "action-placeholder" && ref.type === "combat"
+      ? "Combat action placeholder"
+      : state.source === "citation-placeholder"
+        ? "Citation placeholder"
+        : state.status === "error"
+          ? "Resolver unavailable"
+          : "Missing reference";
+    const message = document.createElement("p");
+    message.textContent = state.message || "Could not resolve this reference.";
+    const detail = document.createElement("p");
+    detail.className = "mono";
+    detail.textContent = ref.href + " · Kind: " + ref.kind + " · Type: " + ref.type + " · ID: " + ref.id;
+    card.appendChild(title);
+    card.appendChild(message);
+    card.appendChild(detail);
+    return card;
+  }
+
+  function renderRunbookReferenceResolutionState(popover, state) {
+    const status = popover.querySelector(".runbook-ref-popover-status");
+    const region = popover.querySelector(".runbook-ref-popover-resolution");
+    if (!region) return;
+    region.textContent = "";
+    if (state.status === "loading") {
+      status.textContent = "Loading reference…";
+      return;
+    }
+    status.textContent = state.message || (state.status === "resolved" ? "Reference resolved." : "Could not resolve this reference.");
+    if (state.status === "resolved") region.appendChild(buildResolvedRunbookReferenceCard(state.ref, state));
+    else region.appendChild(buildUnresolvedRunbookReferenceCard(state.ref, state));
+  }
+
+  function positionRunbookReferencePopover(popover, trigger) {
+    const gap = 8;
+    const edge = 12;
+    const triggerRect = trigger.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const width = popoverRect.width || Math.min(360, window.innerWidth - edge * 2);
+    const height = popoverRect.height;
+    const left = Math.min(
+      Math.max(edge, triggerRect.left),
+      Math.max(edge, window.innerWidth - width - edge)
+    );
+    const fitsBelow = triggerRect.bottom + gap + height <= window.innerHeight - edge;
+    const top = fitsBelow
+      ? triggerRect.bottom + gap
+      : Math.max(edge, triggerRect.top - height - gap);
+    popover.style.left = Math.round(left) + "px";
+    popover.style.top = Math.round(top) + "px";
+  }
+
+  function enhanceRunbookReferenceChip(trigger) {
+    if (!readRunbookReferenceChip(trigger)) return false;
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-controls", "runbook-ref-popover");
+    if (trigger !== activeRunbookReferenceTrigger) trigger.setAttribute("aria-expanded", "false");
+    return true;
+  }
+
+  function enhanceRunbookReferenceChips(root) {
+    if (!root || typeof root.querySelectorAll !== "function") return;
+    root
+      .querySelectorAll(".md-ref-chip[data-md-ref-kind][data-md-ref-type][data-md-ref-id]")
+      .forEach(enhanceRunbookReferenceChip);
+  }
+
+  function openRunbookReferencePopover(trigger) {
+    const ref = readRunbookReferenceChip(trigger);
+    if (!ref) return;
+    if (activeRunbookReferenceTrigger && activeRunbookReferenceTrigger !== trigger) {
+      activeRunbookReferenceTrigger.setAttribute("aria-expanded", "false");
+    }
+    enhanceRunbookReferenceChip(trigger);
+    activeRunbookReferenceTrigger = trigger;
+    trigger.setAttribute("aria-expanded", "true");
+    const popover = renderRunbookReferencePopoverContent(ref);
+    popover.hidden = false;
+    positionRunbookReferencePopover(popover, trigger);
+    renderRunbookReferenceResolutionState(popover, { status: "loading", ref: ref });
+    resolveRunbookReference(ref)
+      .then(function (state) {
+        if (activeRunbookReferenceTrigger === trigger) {
+          renderRunbookReferenceResolutionState(popover, state);
+          positionRunbookReferencePopover(popover, trigger);
+        }
+      })
+      .catch(function (err) {
+        if (activeRunbookReferenceTrigger === trigger) {
+          renderRunbookReferenceResolutionState(popover, {
+            status: "error",
+            ref: ref,
+            message: (err && err.message) || "Resolver failed.",
+          });
+          positionRunbookReferencePopover(popover, trigger);
+        }
+      });
+  }
+
+  function closeRunbookReferencePopover(options) {
+    const trigger = activeRunbookReferenceTrigger;
+    const popover = document.getElementById("runbook-ref-popover");
+    if (popover) popover.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    activeRunbookReferenceTrigger = null;
+    if (options && options.restoreFocus && trigger && typeof trigger.focus === "function") {
+      suppressRunbookReferenceFocusOpen = true;
+      trigger.focus();
+      suppressRunbookReferenceFocusOpen = false;
+    }
+  }
+
+  function initRunbookReferencePopoverShell() {
+    ensureRunbookReferencePopover();
+    enhanceRunbookReferenceChips(document);
+    if (runbookReferencePopoverBound) return;
+    runbookReferencePopoverBound = true;
+
+    document.addEventListener("click", function (event) {
+      const target = event.target instanceof Element ? event.target : null;
+      const chip = target && target.closest(".md-ref-chip");
+      if (chip) {
+        if (readRunbookReferenceChip(chip)) openRunbookReferencePopover(chip);
+        else closeRunbookReferencePopover();
+      } else if (!target || !target.closest("#runbook-ref-popover")) {
+        closeRunbookReferencePopover();
+      }
+    });
+    document.addEventListener("focusin", function (event) {
+      if (suppressRunbookReferenceFocusOpen) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const chip = target && target.closest(".md-ref-chip");
+      if (chip) openRunbookReferencePopover(chip);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && activeRunbookReferenceTrigger) {
+        event.preventDefault();
+        closeRunbookReferencePopover({ restoreFocus: true });
+      }
+    });
+    window.addEventListener("resize", function () {
+      const popover = document.getElementById("runbook-ref-popover");
+      if (popover && !popover.hidden && activeRunbookReferenceTrigger) {
+        positionRunbookReferencePopover(popover, activeRunbookReferenceTrigger);
+      }
+    });
+    window.addEventListener(
+      "scroll",
+      function () {
+        const popover = document.getElementById("runbook-ref-popover");
+        if (popover && !popover.hidden && activeRunbookReferenceTrigger) {
+          positionRunbookReferencePopover(popover, activeRunbookReferenceTrigger);
+        }
+      },
+      true
+    );
+  }
+
   function renderMarkdownHtml(markdownText) {
     const markdown = String(markdownText || "");
     if (!window.MirewardMarkdown || typeof window.MirewardMarkdown.render !== "function") {
@@ -1627,6 +2071,7 @@
   }
 
   let toolboxInitialized = false;
+  let ingestionToolboxInitialized = false;
   let statblockDogfoodInitialized = false;
 
   function formatGenerationCostSuffix(generationInfo) {
@@ -1714,6 +2159,9 @@
   function statblockDogfoodPanelHtml() {
     return (
       '<section id="statblock-dogfood" class="prep-toolbox-panel statblock-dogfood" data-tool-panel="statblock">' +
+      '<details class="fold fold-section statblock-toolbox-fold">' +
+      "<summary>Statblock generator</summary>" +
+      '<div class="fold-bd">' +
       '<p class="muted">' +
       "Generate a draft through the local API, preview the full sheet, accept into the browser-local combat tracker, or promote to corpus." +
       "</p>" +
@@ -1729,6 +2177,76 @@
       '<div id="statblock-dogfood-toast" class="statblock-dogfood-toast" hidden role="status" aria-live="polite"></div>' +
       '<span id="statblock-dogfood-status" class="statblock-dogfood-status muted">Ready. Provider is chosen server-side; no corpus write until promoted.</span>' +
       '<div id="statblock-dogfood-output" class="statblock-dogfood-output"></div>' +
+      "</div>" +
+      "</details>" +
+      "</section>"
+    );
+  }
+
+  function ingestionToolboxPanelHtml() {
+    return (
+      '<section id="recap-ingestion-toolbox" class="prep-toolbox-panel recap-ingestion-toolbox" data-tool-panel="ingestion">' +
+      '<div class="recap-ingestion-grid">' +
+      '<div class="recap-ingestion-controls">' +
+      '<p class="muted">Paste raw session notes here, then run the same recap-ingest operations exposed by the FastAPI server. Terminal commands remain valid; this is a UI wrapper over that path.</p>' +
+      '<section class="recap-ingestion-flow-card" aria-label="Recap ingestion workflow progress">' +
+      '<div class="recap-ingestion-flow-copy">' +
+      '<p class="recap-ingestion-flow-kicker">Single workflow with human review gates</p>' +
+      '<strong>Current next action</strong>' +
+      '<p id="recap-ingestion-next-action">Paste raw recap text, then run Stage + Preview.</p>' +
+      "</div>" +
+      '<ol id="recap-ingestion-flow-steps" class="recap-ingestion-flow-steps">' +
+      '<li data-flow-step="source"><span>Source</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="preview"><span>Preview</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="apply"><span>Apply</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="seed"><span>Seed</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="breadcrumb"><span>Breadcrumb</span><strong>Waiting</strong></li>' +
+      '<li data-flow-step="memory"><span>Memory</span><strong>Waiting</strong></li>' +
+      "</ol>" +
+      "</section>" +
+      '<div class="recap-ingestion-source-row">' +
+      '<div class="field">' +
+      '<label for="recap-ingestion-session">Recap/source session</label>' +
+      '<input id="recap-ingestion-session" type="number" min="1" step="1" value="23" />' +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-slug">Slug</label>' +
+      '<input id="recap-ingestion-slug" type="text" value="Mireward Gate Battle" />' +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-title">Title</label>' +
+      '<input id="recap-ingestion-title" type="text" value="Session 23 - Mireward Gate Battle" />' +
+      "</div>" +
+      "</div>" +
+      '<div class="field">' +
+      '<label for="recap-ingestion-raw">Raw recap text</label>' +
+      '<textarea id="recap-ingestion-raw" rows="18" placeholder="Paste raw recap notes here..."></textarea>' +
+      "</div>" +
+      '<div class="recap-ingestion-actions">' +
+      '<button type="button" id="recap-ingestion-stage" class="primary">Stage + Preview</button>' +
+      '<button type="button" id="recap-ingestion-apply">Apply + Normalize</button>' +
+      '<button type="button" id="recap-ingestion-seed">Build Frontmatter Seed</button>' +
+      '<button type="button" id="recap-ingestion-breadcrumb">Run Breadcrumb Ingest</button>' +
+      '<button type="button" id="recap-ingestion-materialize">Materialize Session Memory</button>' +
+      "</div>" +
+      '<div id="recap-ingestion-action-explainer" class="recap-ingestion-action-explainer muted"></div>' +
+      '<div id="recap-ingestion-status" class="recap-ingestion-status muted" role="status" aria-live="polite">Ready. Start with Stage + Preview.</div>' +
+      '<details class="fold fold-section recap-ingestion-terminal">' +
+      "<summary>Terminal path stays available</summary>" +
+      '<div class="fold-bd">' +
+      '<pre><code id="recap-ingestion-terminal-commands"></code></pre>' +
+      "</div>" +
+      "</details>" +
+      '<div id="recap-ingestion-result" class="recap-ingestion-result"></div>' +
+      "</div>" +
+      '<aside class="recap-ingestion-preview" aria-label="Rendered recap markdown preview">' +
+      '<div class="recap-ingestion-preview-header">' +
+      "<strong>Rendered markdown preview</strong>" +
+      '<span class="pill pill-neutral">draft preview</span>' +
+      "</div>" +
+      '<div id="recap-ingestion-rendered" class="md-content md-theme-command recap-ingestion-rendered"></div>' +
+      "</aside>" +
+      "</div>" +
       "</section>"
     );
   }
@@ -1754,9 +2272,11 @@
       '<button type="button" class="prep-toolbox-close" data-toolbox-close="1" aria-label="Close toolbox">×</button>' +
       "</header>" +
       '<nav class="prep-toolbox-nav" aria-label="Toolbox tools">' +
-      '<button type="button" class="prep-toolbox-nav-btn active" data-toolbox-tool="statblock">Statblock</button>' +
+      '<button type="button" class="prep-toolbox-nav-btn active" data-toolbox-tool="ingestion">Ingestion</button>' +
+      '<button type="button" class="prep-toolbox-nav-btn" data-toolbox-tool="statblock">Statblock</button>' +
       "</nav>" +
       '<div class="prep-toolbox-body">' +
+      ingestionToolboxPanelHtml() +
       statblockDogfoodPanelHtml() +
       "</div>" +
       "</aside>";
@@ -1782,6 +2302,11 @@
   }
 
   function setToolboxTool(toolId) {
+    const root = document.getElementById("prep-toolbox");
+    if (root) {
+      root.classList.toggle("tool-ingestion", toolId === "ingestion");
+      root.classList.toggle("tool-statblock", toolId === "statblock");
+    }
     document.querySelectorAll("[data-toolbox-tool]").forEach(function (button) {
       button.classList.toggle("active", button.getAttribute("data-toolbox-tool") === toolId);
     });
@@ -1798,7 +2323,7 @@
 
     const toggle = document.getElementById("prep-toolbox-toggle");
     const savedOpen = get("toolboxOpen", false);
-    const savedTool = get("toolboxTool", "statblock");
+    const savedTool = get("toolboxTool", "ingestion");
     setToolboxTool(savedTool);
     if (savedOpen) setToolboxOpen(true);
 
@@ -1838,7 +2363,339 @@
     toolboxInitialized = true;
     ensureToolboxDrawer();
     wireToolboxControls();
+    initRecapIngestionToolbox();
     initStatblockGeneratorDogfood();
+  }
+
+  function initRecapIngestionToolbox() {
+    if (ingestionToolboxInitialized) return;
+    const root = document.getElementById("recap-ingestion-toolbox");
+    if (!root) return;
+    ingestionToolboxInitialized = true;
+
+    const sessionInput = document.getElementById("recap-ingestion-session");
+    const slugInput = document.getElementById("recap-ingestion-slug");
+    const titleInput = document.getElementById("recap-ingestion-title");
+    const rawInput = document.getElementById("recap-ingestion-raw");
+    const rendered = document.getElementById("recap-ingestion-rendered");
+    const status = document.getElementById("recap-ingestion-status");
+    const resultHost = document.getElementById("recap-ingestion-result");
+    const terminal = document.getElementById("recap-ingestion-terminal-commands");
+    const nextAction = document.getElementById("recap-ingestion-next-action");
+    const flowSteps = document.getElementById("recap-ingestion-flow-steps");
+    const actionExplainer = document.getElementById("recap-ingestion-action-explainer");
+    const buttons = {
+      stage: document.getElementById("recap-ingestion-stage"),
+      apply: document.getElementById("recap-ingestion-apply"),
+      seed: document.getElementById("recap-ingestion-seed"),
+      breadcrumb: document.getElementById("recap-ingestion-breadcrumb"),
+      materialize: document.getElementById("recap-ingestion-materialize"),
+    };
+    let latestStatus = null;
+
+    bindTextarea("recapIngestion.rawText", rawInput, "");
+    if (sessionInput) {
+      sessionInput.value = String(get("recapIngestion.session", Number(sessionInput.value) || 23));
+      sessionInput.addEventListener("input", function () {
+        set("recapIngestion.session", Number(sessionInput.value) || 23);
+        updateTerminalCommands();
+        updateProgress();
+      });
+    }
+    if (slugInput) {
+      slugInput.value = get("recapIngestion.slug", slugInput.value || "");
+      slugInput.addEventListener("input", function () {
+        set("recapIngestion.slug", slugInput.value);
+      });
+    }
+    if (titleInput) {
+      titleInput.value = get("recapIngestion.title", titleInput.value || "");
+      titleInput.addEventListener("input", function () {
+        set("recapIngestion.title", titleInput.value);
+      });
+    }
+
+    function currentSession() {
+      return Math.max(1, Number(sessionInput && sessionInput.value) || 23);
+    }
+
+    function campaignNumber() {
+      return 2;
+    }
+
+    function basePayload(operation) {
+      return {
+        operation: operation,
+        campaign_id: "longmont-c2",
+        session: currentSession(),
+        slug: slugInput && slugInput.value.trim() ? slugInput.value.trim() : undefined,
+        title: titleInput && titleInput.value.trim() ? titleInput.value.trim() : undefined,
+      };
+    }
+
+    function setBusy(isBusy, label) {
+      Object.keys(buttons).forEach(function (key) {
+        if (buttons[key]) buttons[key].disabled = isBusy;
+      });
+      if (status && label) status.textContent = label;
+      if (label && nextAction) nextAction.textContent = label;
+    }
+
+    function setStatusText(message, kind) {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("warn", kind === "warn");
+      status.classList.toggle("saved", kind === "saved");
+    }
+
+    function updateMarkdownPreview() {
+      if (!rendered || !rawInput) return;
+      const raw = rawInput.value || "";
+      rendered.innerHTML = raw.trim()
+        ? renderMarkdownHtml(raw)
+        : '<p class="muted">Paste raw notes to preview rendered markdown here.</p>';
+      wireMarkdownBodyLinks(rendered, "");
+    }
+
+    function updateTerminalCommands() {
+      if (!terminal) return;
+      const session = currentSession();
+      terminal.textContent = [
+        "uv run python scripts/build_recap_frontmatter_seed.py --campaign " + campaignNumber() + " --session " + session,
+        "uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run --ingest-routing-only ...",
+        "uv run python scripts/materialize_session_memory.py --campaign " + campaignNumber() + " --session " + session + " --check",
+      ].join("\n");
+    }
+
+    function hasState(stateName) {
+      return !!(
+        latestStatus &&
+        Array.isArray(latestStatus.states) &&
+        latestStatus.states.indexOf(stateName) !== -1
+      );
+    }
+
+    function hasApplied() {
+      return (
+        hasState("recap_applied") ||
+        hasState("recap_reused") ||
+        hasState("normalized_created") ||
+        hasState("normalized_reused")
+      );
+    }
+
+    function hasUsablePreview() {
+      return hasApplied() || hasState("recap_preview_created") || hasState("staged_raw_notes_reused");
+    }
+
+    function hasFrontmatterSeed() {
+      return hasState("frontmatter_seed_found");
+    }
+
+    function hasBreadcrumb() {
+      return hasState("breadcrumb_found");
+    }
+
+    function hasMaterialized() {
+      return hasState("session_memory_materialized") || hasState("ready_for_planning_activation");
+    }
+
+    function workflowStepState(done, active) {
+      if (done) return "done";
+      if (active) return "active";
+      return "locked";
+    }
+
+    function setFlowStep(stepId, state) {
+      if (!flowSteps) return;
+      const item = flowSteps.querySelector('[data-flow-step="' + stepId + '"]');
+      if (!item) return;
+      item.classList.remove("done", "active", "locked");
+      item.classList.add(state);
+      const label = item.querySelector("strong");
+      if (label) label.textContent = state === "done" ? "Done" : state === "active" ? "Now" : "Waiting";
+    }
+
+    function currentNextAction() {
+      const rawReady = !!(rawInput && rawInput.value.trim());
+      if (!rawReady && !hasUsablePreview()) return "Paste raw recap text, then run Stage + Preview.";
+      if (!hasUsablePreview()) return "Next: Stage + Preview. This prepares a review preview only.";
+      if (!hasApplied()) return "Next: review the preview, then Apply + Normalize.";
+      if (!hasFrontmatterSeed()) return "Next: Build Frontmatter Seed, then review the generated seed.";
+      if (!hasBreadcrumb()) return "Next: after reviewing the seed, Run Breadcrumb Ingest.";
+      if (!hasMaterialized()) return "Next: Materialize Session Memory.";
+      return "Complete: session memory is ready for planning activation.";
+    }
+
+    function updateProgress() {
+      const rawReady = !!(rawInput && rawInput.value.trim());
+      setFlowStep("source", workflowStepState(rawReady || hasUsablePreview(), !rawReady && !hasUsablePreview()));
+      setFlowStep("preview", workflowStepState(hasUsablePreview(), rawReady && !hasUsablePreview()));
+      setFlowStep("apply", workflowStepState(hasApplied(), hasUsablePreview() && !hasApplied()));
+      setFlowStep("seed", workflowStepState(hasFrontmatterSeed(), hasApplied() && !hasFrontmatterSeed()));
+      setFlowStep("breadcrumb", workflowStepState(hasBreadcrumb(), hasFrontmatterSeed() && !hasBreadcrumb()));
+      setFlowStep("memory", workflowStepState(hasMaterialized(), hasBreadcrumb() && !hasMaterialized()));
+      if (nextAction) nextAction.textContent = currentNextAction();
+      if (actionExplainer) {
+        const reasons = [];
+        if (!hasUsablePreview()) reasons.push("Apply waits for Stage + Preview.");
+        else if (!hasApplied()) reasons.push("Seed waits for Apply + Normalize.");
+        else if (!hasFrontmatterSeed()) reasons.push("Breadcrumb waits for the reviewed frontmatter seed.");
+        else if (!hasBreadcrumb()) reasons.push("Materialize waits for breadcrumb_found.");
+        actionExplainer.innerHTML = reasons.map(function (reason) {
+          return "<p>" + escapeHtml(reason) + "</p>";
+        }).join("");
+      }
+    }
+
+    function updateButtons() {
+      if (!latestStatus) {
+        if (buttons.apply) buttons.apply.disabled = true;
+        if (buttons.seed) buttons.seed.disabled = true;
+        if (buttons.breadcrumb) buttons.breadcrumb.disabled = true;
+        if (buttons.materialize) buttons.materialize.disabled = true;
+        updateProgress();
+        return;
+      }
+      if (buttons.apply) {
+        buttons.apply.disabled = !hasUsablePreview();
+      }
+      if (buttons.seed) {
+        buttons.seed.disabled = !hasApplied() || hasFrontmatterSeed();
+      }
+      if (buttons.breadcrumb) {
+        buttons.breadcrumb.disabled = !hasFrontmatterSeed() || hasBreadcrumb();
+      }
+      if (buttons.materialize) {
+        buttons.materialize.disabled = !hasBreadcrumb();
+      }
+      updateProgress();
+    }
+
+    function renderStatus(data) {
+      latestStatus = data;
+      updateButtons();
+      if (!resultHost) return;
+      const states = Array.isArray(data.states) ? data.states : [];
+      const nextActions = Array.isArray(data.next_actions) ? data.next_actions : [];
+      const paths = data.paths || {};
+      const report = data.ingest_report || {};
+      const previewDiff = typeof report.preview_diff === "string" ? report.preview_diff : "";
+      resultHost.innerHTML =
+        '<div class="recap-ingestion-status-card">' +
+        '<h3>Status: <code>' + escapeHtml(data.status || "unknown") + "</code></h3>" +
+        '<div class="table-summary">' +
+        '<span class="pill pill-neutral">states: ' + states.length + "</span>" +
+        (hasState("breadcrumb_found") ? '<span class="pill pill-success">breadcrumb found</span>' : "") +
+        (hasState("frontmatter_seed_found") ? '<span class="pill pill-info">seed found</span>' : "") +
+        "</div>" +
+        '<details class="fold fold-section"><summary>Paths</summary><div class="fold-bd"><ul>' +
+        Object.keys(paths)
+          .map(function (key) {
+            return "<li><strong>" + escapeHtml(key) + ":</strong> <code>" + escapeHtml(paths[key] || "") + "</code></li>";
+          })
+          .join("") +
+        "</ul></div></details>" +
+        '<details class="fold fold-section" open><summary>States</summary><div class="fold-bd"><ul>' +
+        states.map(function (value) { return "<li>" + escapeHtml(value) + "</li>"; }).join("") +
+        "</ul></div></details>" +
+        (nextActions.length
+          ? '<details class="fold fold-section" open><summary>Next actions</summary><div class="fold-bd"><ul>' +
+            nextActions.map(function (value) { return "<li>" + escapeHtml(value) + "</li>"; }).join("") +
+            "</ul></div></details>"
+          : "") +
+        (previewDiff
+          ? '<details class="fold fold-section" open><summary>Canonical preview diff</summary><div class="fold-bd"><pre><code>' +
+            escapeHtml(previewDiff) +
+            "</code></pre></div></details>"
+          : "") +
+        "</div>";
+    }
+
+    function operationStartMessage(operation) {
+      if (operation === "stage_preview") return "Running Stage + Preview...";
+      if (operation === "apply_normalize") return "Applying + normalizing recap...";
+      if (operation === "build_frontmatter_seed") return "Building frontmatter seed for review...";
+      if (operation === "run_breadcrumb_ingest") return "Running breadcrumb ingest...";
+      if (operation === "materialize_session_memory") return "Materializing session memory...";
+      return "Running " + operation + "...";
+    }
+
+    function operationDoneMessage(operation, data) {
+      if (operation === "stage_preview" && hasState("staged_raw_notes_conflict")) {
+        return "Existing staged notes reused for preview. Pasted text was not overwritten.";
+      }
+      if (operation === "build_frontmatter_seed") {
+        if (hasState("frontmatter_seed_built")) return "Frontmatter seed built. Review it before breadcrumb ingest.";
+        if (hasState("frontmatter_seed_reused") || hasState("frontmatter_seed_found")) {
+          return "Frontmatter seed ready. Review it before breadcrumb ingest.";
+        }
+      }
+      if (operation === "run_breadcrumb_ingest" && hasState("breadcrumb_found")) {
+        return "Breadcrumb artifact ready. Next: materialize session memory.";
+      }
+      if (operation === "materialize_session_memory" && hasMaterialized()) {
+        return "Session memory materialized. Ingest is ready for planning activation.";
+      }
+      return "Finished " + operation + ": " + ((data && data.status) || "ok");
+    }
+
+    function operationStatusKind(operation, data) {
+      if (data && data.status === "error") return "warn";
+      if (hasState("staged_raw_notes_conflict")) return "warn";
+      if (
+        operation === "build_frontmatter_seed" ||
+        operation === "run_breadcrumb_ingest" ||
+        operation === "materialize_session_memory"
+      ) {
+        return "saved";
+      }
+      return "saved";
+    }
+
+    function runOperation(operation) {
+      if (isFileProtocol()) {
+        setStatusText("Ingestion needs the Vite dev server so /api can proxy to FastAPI.", "warn");
+        return;
+      }
+      const payload = basePayload(operation);
+      if (operation === "stage_preview") {
+        payload.raw_text = rawInput && rawInput.value ? rawInput.value : "";
+      }
+      if (operation === "materialize_session_memory") {
+        payload.check = true;
+      }
+      setBusy(true, operationStartMessage(operation));
+      apiPostJson("/api/live/recap-ingest", payload)
+        .then(function (data) {
+          renderStatus(data);
+          setStatusText(operationDoneMessage(operation, data), operationStatusKind(operation, data));
+        })
+        .catch(function (err) {
+          setStatusText((err && err.message) || "Ingestion request failed.", "warn");
+        })
+        .finally(function () {
+          setBusy(false);
+          updateButtons();
+        });
+    }
+
+    if (rawInput) {
+      rawInput.addEventListener("input", function () {
+        updateMarkdownPreview();
+        updateProgress();
+      });
+    }
+    if (buttons.stage) buttons.stage.addEventListener("click", function () { runOperation("stage_preview"); });
+    if (buttons.apply) buttons.apply.addEventListener("click", function () { runOperation("apply_normalize"); });
+    if (buttons.seed) buttons.seed.addEventListener("click", function () { runOperation("build_frontmatter_seed"); });
+    if (buttons.breadcrumb) buttons.breadcrumb.addEventListener("click", function () { runOperation("run_breadcrumb_ingest"); });
+    if (buttons.materialize) buttons.materialize.addEventListener("click", function () { runOperation("materialize_session_memory"); });
+
+    updateTerminalCommands();
+    updateMarkdownPreview();
+    updateButtons();
+    updateProgress();
   }
 
   function initStatblockGeneratorDogfood() {
@@ -3756,6 +4613,10 @@
     openMarkdownViewer: openMarkdownViewer,
     openMarkdownFromText: openMarkdownFromText,
     closeMarkdownViewer: closeMarkdownViewer,
+    initRunbookReferencePopoverShell: initRunbookReferencePopoverShell,
+    closeRunbookReferencePopover: closeRunbookReferencePopover,
+    enhanceRunbookReferenceChips: enhanceRunbookReferenceChips,
+    resetRunbookReferenceIndexCache: resetRunbookReferenceIndexCache,
     openToolbox: function (toolId) {
       initToolbox();
       setToolboxOpen(true, toolId || "statblock");
@@ -3764,6 +4625,7 @@
 
   function bootMirewardPrepChrome() {
     initToolbox();
+    initRunbookReferencePopoverShell();
   }
 
   if (document.readyState === "loading") {

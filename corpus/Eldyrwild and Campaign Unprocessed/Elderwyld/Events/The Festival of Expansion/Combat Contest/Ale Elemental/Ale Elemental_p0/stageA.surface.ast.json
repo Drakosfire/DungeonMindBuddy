@@ -1,0 +1,115 @@
+{
+  "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+  "content_hash": "56efff8aab87fdf5d3ece30bde3e684f36958bccf0d406c8c4bf3df1d6afc936",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 45,
+    "children": [
+      {
+        "node_type": "image_ref",
+        "level": 0,
+        "text": "![](images/0.jpg)",
+        "source_line_start": 0,
+        "source_line_end": 1
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "BORN FROM CENTURIES OF TAVERN REVELRY AND ERRANT MAGIC, THE ALE ELEMENTAL LURCHES THROUGH THE WORLD AS A SLOSHING, FOAM-BODIED PRANKSTER. KEGS AND RIVERBANKS QUIVER AT ITS PASSING, AND FEW CAN WITHSTAND THE CHAOS OF ITS FROTHY ERUPTIONS AND INTOXICATING AURA. THOUGH NOT THE MIGHTIEST OF ELEMENTALS, IT LEAVES A TRAIL OF LAUGHTER, CONFUSION, SUDS, AND BRUISED EGOS. MANY AN ADVENTURER HAS SLIPPED, STAGGERED, OR FOUND THEIR VISION CLOUDED BY THE LEGENDARY ALE ELEMENTAL'S UNPREDICTABLE ANTICS.\nArmor Class : 13\nHit Points: 40 Hit Dice : 7d8+7\nSpeed: walk : 30",
+        "source_line_start": 5,
+        "source_line_end": 9
+      },
+      {
+        "node_type": "table",
+        "level": 0,
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>15</td><td>12</td><td>6</td><td>10</td><td>14</td></tr></table>",
+        "source_line_start": 11,
+        "source_line_end": 12
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Saving Throws : str : 2, dex : 2, wis : 0",
+        "source_line_start": 14,
+        "source_line_end": 15
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Skills : perception : 2",
+        "source_line_start": 17,
+        "source_line_end": 18
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Resistances :",
+        "source_line_start": 20,
+        "source_line_end": 21
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Senses : darkvision : 60",
+        "source_line_start": 23,
+        "source_line_end": 24
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Languages : understands Common and Primordial but can't speak",
+        "source_line_start": 26,
+        "source_line_end": 27
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Challenge Rating : 4 (1100)",
+        "source_line_start": 29,
+        "source_line_end": 30
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 32,
+        "source_line_end": 33,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Sudsy Slam : ‘Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6+3) bludgeoning damage and the target must succeed on a DC 13 Dexterity saving throw or fall prone as frothy ale gushes beneath their feet.",
+            "source_line_start": 35,
+            "source_line_end": 36
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Foam Splash (Recharge 5-6) : 'The elemental belches forth a cone of frothy, sticky ale. Each creature in a 15-foot cone must make a DC 13 Dexterity saving throw. On a failure, the creature falls prone and is soaked in ale, gaining disadvantage on Stealth checks for 1 minute. On a success, the creature remains standing but suffers the Stealth penalty.",
+            "source_line_start": 38,
+            "source_line_end": 39
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Drunken Aura : 'A 10-foot aura of intoxicating vapor surrounds the elemental. At the start of each creature's turn in the aura, roll a d4: on a 1 or 2, the creature has disadvantage on attack rolls until the end of their turn",
+            "source_line_start": 41,
+            "source_line_end": 42
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Ale Surge : ‘When the Ale Elemental is hit by a melee attack, it may burst in a spray of ale (no action required). The attacker must succeed on a DC 12 Constitution saving throw or be blinded (beer in the eyes!) until the end of their next turn.",
+            "source_line_start": 44,
+            "source_line_end": 45
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 15,
+  "table_count": 1
+}

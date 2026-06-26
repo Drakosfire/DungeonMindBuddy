@@ -7,7 +7,13 @@ import type {
   ProjectionCommand,
   ProjectionWriteResult,
   ProjectionTarget,
+  CitationSourceRequest,
+  CitationSourceResponse,
+  CitationFreshnessRequest,
+  CitationFreshnessResponse,
   LiveQueryResponse,
+  LiveQueryBackend,
+  LiveQueryOptions,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -24,6 +30,7 @@ import type {
   SaveCurrentCombatRequest,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
+  IngestionSourceBundle,
   ResolvedRollResponse,
   SurfaceLayout,
   ListStatblockDraftsResponse,
@@ -42,6 +49,10 @@ import type {
   StatblockWorkbenchCommandRequest,
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
+  TiptapMarkdownWriteCommitRequest,
+  TiptapMarkdownWriteCommitResponse,
+  TiptapMarkdownWritePrepareRequest,
+  TiptapMarkdownWritePrepareResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -120,6 +131,15 @@ export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
 }
 
+export async function getSourceBundle(
+  scope = "campaign-ingested",
+  campaignId?: string,
+): Promise<IngestionSourceBundle> {
+  const query = new URLSearchParams({ scope });
+  if (campaignId) query.set("campaign_id", campaignId);
+  return apiFetch<IngestionSourceBundle>(`/api/live/source-bundle?${query.toString()}`);
+}
+
 export async function getArtifact(
   target: Pick<ProjectionTarget, "target_type" | "target_id">,
 ): Promise<ArtifactReadResponse> {
@@ -147,10 +167,30 @@ export async function postCommand(command: ProjectionCommand): Promise<Projectio
   });
 }
 
+export async function postCitationSource(
+  request: CitationSourceRequest,
+): Promise<CitationSourceResponse> {
+  return apiFetch<CitationSourceResponse>("/api/live/citation-source", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postCitationFreshness(
+  request: CitationFreshnessRequest,
+): Promise<CitationFreshnessResponse> {
+  return apiFetch<CitationFreshnessResponse>("/api/live/citation-freshness", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
 export async function postLiveQuery(
   text: string,
   campaignId: string,
   session: number,
+  queryBackend: LiveQueryBackend = "live",
+  options: LiveQueryOptions = {},
 ): Promise<LiveQueryResponse> {
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
@@ -158,8 +198,12 @@ export async function postLiveQuery(
       campaign_id: campaignId,
       session,
       mode: "live",
+      query_backend: queryBackend,
       text,
       manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+      agent_thread_id: options.agentThreadId ?? null,
+      hermes_session_id: options.hermesSessionId ?? null,
+      trace_requested: options.traceRequested ?? null,
     }),
   });
 }
@@ -315,6 +359,24 @@ export async function commitStatblockCorpusWrite(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     },
+  );
+}
+
+export async function prepareTiptapMarkdownWrite(
+  request: TiptapMarkdownWritePrepareRequest,
+): Promise<TiptapMarkdownWritePrepareResponse> {
+  return apiFetch<TiptapMarkdownWritePrepareResponse>(
+    "/api/live/tiptap/markdown-write/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitTiptapMarkdownWrite(
+  request: TiptapMarkdownWriteCommitRequest,
+): Promise<TiptapMarkdownWriteCommitResponse> {
+  return apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit",
+    { method: "POST", body: JSON.stringify(request) },
   );
 }
 

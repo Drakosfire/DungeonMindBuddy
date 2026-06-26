@@ -1,0 +1,24 @@
+{
+  "schema": "dmb_combat_encounter_state_v1",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "encounter_id": "api-scratch",
+  "title": "API Scratch",
+  "round": 1,
+  "active_turn_entity_id": null,
+  "round_start_entity_id": null,
+  "queue_model": "circular_barrel_v1",
+  "entities": [],
+  "groups": [],
+  "provenance": [
+    {
+      "source": "live_control_server",
+      "reason": "initialized current combat state from live packet metadata"
+    },
+    {
+      "source": "combat_new_encounter",
+      "unload_backup": "combat/backups/current_combat.20260612T040850Z-1.unload.json"
+    }
+  ],
+  "updated_at": "2026-06-12T04:08:50Z"
+}

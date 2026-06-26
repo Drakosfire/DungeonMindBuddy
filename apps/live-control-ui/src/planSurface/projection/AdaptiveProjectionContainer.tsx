@@ -1,0 +1,105 @@
+import { useEffect } from "react";
+
+import { useProjection, projectionContainerClass } from "./projectionContext";
+import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
+import type { SurfaceConfig } from "../types";
+
+interface AdaptiveProjectionContainerProps {
+  config: SurfaceConfig;
+}
+
+export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
+  const { active, activeResolution, close, expandContent, openTool } = useProjection();
+  const isOpen = Boolean(active);
+  const activeToolId = active?.kind === "tool" ? active.key : null;
+  const firstToolId = config.tools[0]?.id;
+
+  useEffect(() => {
+    document.body.classList.toggle("plan-toolbox-open", isOpen);
+    return () => document.body.classList.remove("plan-toolbox-open");
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [close, isOpen]);
+
+  const containerClass = projectionContainerClass(active?.size);
+  const rootClass = [
+    "plan-toolbox",
+    isOpen ? "open" : "",
+    active?.kind === "tool" ? `tool-${active.key}` : "",
+    active?.kind === "content" ? "tool-reference" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={rootClass}>
+      <button
+        type="button"
+        className="plan-toolbox-toggle"
+        aria-expanded={isOpen}
+        aria-controls="plan-toolbox-drawer"
+        title="Plan toolbox"
+        onClick={() => (isOpen ? close() : firstToolId ? openTool(firstToolId) : undefined)}
+      >
+        Tools
+      </button>
+      <div
+        className="plan-toolbox-backdrop"
+        hidden={!isOpen}
+        onClick={close}
+        aria-hidden="true"
+      />
+      <aside
+        id="plan-toolbox-drawer"
+        className={containerClass}
+        aria-label={active ? `${active.title} projection` : "Plan toolbox"}
+      >
+        <header className="plan-projection-header">
+          <div>
+            <p className="plan-surface-kicker">{active?.kind === "content" ? "Reference" : "Command Board"}</p>
+            <h2>{active?.kind === "content" ? active.title : "Toolbox"}</h2>
+          </div>
+          <div className="plan-projection-header-actions">
+            {active?.kind === "content" && active.glanceOnly ? (
+              <button type="button" onClick={expandContent}>
+                Expand
+              </button>
+            ) : null}
+            <button type="button" onClick={close} aria-label="Close toolbox">
+              ×
+            </button>
+          </div>
+        </header>
+        <nav className="plan-toolbox-nav" aria-label="Toolbox tools">
+          {config.tools.map((tool) => (
+            <button
+              key={tool.id}
+              type="button"
+              className={activeToolId === tool.id ? "active" : undefined}
+              aria-pressed={activeToolId === tool.id}
+              onClick={() => openTool(tool.id)}
+            >
+              {tool.label}
+            </button>
+          ))}
+        </nav>
+        <div className="plan-projection-body">
+          {!active ? null : active.kind === "tool" ? (
+            renderToolProjection(active.key, config.context)
+          ) : activeResolution ? (
+            renderContentProjection(activeResolution)
+          ) : (
+            <p className="plan-projection-empty">Loading reference…</p>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}

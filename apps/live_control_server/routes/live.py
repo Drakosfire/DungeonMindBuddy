@@ -8,6 +8,17 @@ from pydantic import BaseModel, Field
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.live_agent_loop import process_live_query
+from apps.live_control_server.services.citation_source_reader import (
+    CitationSourceError,
+    CitationSourceRequest,
+    CitationSourceResponse,
+    read_citation_source,
+)
+from apps.live_control_server.services.citation_freshness import (
+    CitationFreshnessRequest,
+    CitationFreshnessResponse,
+    check_citation_freshness,
+)
 from apps.live_control_server.session_store import (
     complete_job,
     events_since,
@@ -29,6 +40,17 @@ from src.live_play.projections import (
 )
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
+
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWriteCommitResponse,
+    TiptapMarkdownWriteError,
+    TiptapMarkdownWritePrepareRequest,
+    TiptapMarkdownWritePrepareResponse,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
 
 from apps.live_control_server.services.statblock_corpus_preview import (
     StatblockCorpusPromotionPreviewRequest,
@@ -140,8 +162,12 @@ class LiveQueryRequest(BaseModel):
     campaign_id: str
     session: int = Field(ge=1)
     mode: Literal["live"] = "live"
+    query_backend: Literal["live", "hermes"] = "live"
     text: str = Field(min_length=1)
     manifest_path: str | None = None
+    agent_thread_id: str | None = None
+    hermes_session_id: str | None = None
+    trace_requested: bool | None = None
 
 
 class ResolveRollRequest(BaseModel):
@@ -197,6 +223,52 @@ def _target_from_session(
 
 
 
+@router.post(
+    "/citation-source",
+    response_model=CitationSourceResponse,
+)
+def post_citation_source(body: CitationSourceRequest) -> dict[str, Any]:
+    try:
+        response = read_citation_source(repo_root(), body)
+    except CitationSourceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="citation source read failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/citation-freshness",
+    response_model=CitationFreshnessResponse,
+)
+def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
+    try:
+        response = check_citation_freshness(repo_root(), body)
+    except CitationSourceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="citation freshness check failed") from exc
+    return response.model_dump(mode="json")
+
+@router.get(
+    "/source-bundle",
+    response_model=IngestionSourceBundle,
+)
+def get_ingestion_source_bundle(
+    scope: str = Query(default="campaign-ingested", min_length=1),
+    campaign_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    try:
+        response = build_ingestion_source_bundle(
+            root=repo_root(),
+            scope=scope,
+            campaign_id=campaign_id,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="source bundle build failed") from exc
+    return response.model_dump(mode="json")
+
+
 @router.get(
     "/locations/index",
     response_model=LocationCorpusIndexResponse,
@@ -205,7 +277,9 @@ def get_location_corpus_index() -> dict[str, Any]:
     try:
         response = build_location_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="location corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="location corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -217,7 +291,9 @@ def get_roll_table_corpus_index() -> dict[str, Any]:
     try:
         response = build_roll_table_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="roll table corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="roll table corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -241,7 +317,9 @@ def get_statblock_corpus_index() -> dict[str, Any]:
     try:
         response = build_statblock_corpus_index(root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus index failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus index failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -253,7 +331,9 @@ def get_generated_statblock_view_list() -> dict[str, Any]:
     try:
         response = list_generated_statblocks(base=session_dir(), root=repo_root())
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock list failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock list failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -275,7 +355,9 @@ def get_generated_statblock_view_detail(
     except StatblockViewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock read failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock read failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -379,7 +461,9 @@ class CombatSavesListResponse(BaseModel):
 def get_combat_saves() -> dict[str, Any]:
     base = session_dir()
     return {
-        "saves": [summary.model_dump(mode="json") for summary in list_combat_saves(base)],
+        "saves": [
+            summary.model_dump(mode="json") for summary in list_combat_saves(base)
+        ],
         "backups": list_combat_backups(base),
     }
 
@@ -454,8 +538,11 @@ def post_generated_statblock_combat_add(
     except StatblockViewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="generated statblock combat add failed") from exc
+        raise HTTPException(
+            status_code=500, detail="generated statblock combat add failed"
+        ) from exc
     return response.model_dump(mode="json")
+
 
 @router.get(
     "/statblocks/workbench/sample",
@@ -561,7 +648,9 @@ def post_statblock_workbench_draft_corpus_preview(
     except StatblockDraftNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus preview failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus preview failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -590,7 +679,9 @@ def post_statblock_workbench_draft_corpus_write_prepare(
     except PreviewTokenMismatchError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus write prepare failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus write prepare failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -621,7 +712,9 @@ def post_statblock_workbench_draft_corpus_write_commit(
     except CorpusWriterCommitError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock corpus write commit failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock corpus write commit failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -645,7 +738,9 @@ def post_statblock_workbench_draft_retrieval_activate(
     except StatblockRetrievalActivationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock retrieval activation failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock retrieval activation failed"
+        ) from exc
     return response.model_dump(mode="json")
 
 
@@ -677,7 +772,37 @@ def post_statblock_workbench_draft_retrieval_verify(
     except StatblockRetrievalActivationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="statblock retrieval verification failed") from exc
+        raise HTTPException(
+            status_code=500, detail="statblock retrieval verification failed"
+        ) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/tiptap/markdown-write/prepare",
+    response_model=TiptapMarkdownWritePrepareResponse,
+)
+def post_tiptap_markdown_write_prepare(
+    body: TiptapMarkdownWritePrepareRequest,
+) -> dict[str, Any]:
+    try:
+        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/tiptap/markdown-write/commit",
+    response_model=TiptapMarkdownWriteCommitResponse,
+)
+def post_tiptap_markdown_write_commit(
+    body: TiptapMarkdownWriteCommitRequest,
+) -> dict[str, Any]:
+    try:
+        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
 
 
@@ -692,10 +817,18 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
         )
     try:
         return process_live_query(
-            body.text, base=base, request_manifest_path=body.manifest_path
+            body.text,
+            base=base,
+            request_manifest_path=body.manifest_path,
+            query_backend=body.query_backend,
+            agent_thread_id=body.agent_thread_id,
+            hermes_session_id=body.hermes_session_id,
+            trace_requested=body.trace_requested,
         )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/state")

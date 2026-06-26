@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "a3db2921da9c943de30f168c084d3196bd4d02de716c8e8446fe7c1540c17119",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf Manor Attic Messy.pdf",
+  "page_index": 0,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "![](images/0.jpg)\n\n\n\n\nAttic",
+  "inference_elapsed_sec": 1.681,
+  "content_hash": "26e59fd77254a7d1e97a1a3654a91ecb6b38402d59c9fa70778841fc127c8a75",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

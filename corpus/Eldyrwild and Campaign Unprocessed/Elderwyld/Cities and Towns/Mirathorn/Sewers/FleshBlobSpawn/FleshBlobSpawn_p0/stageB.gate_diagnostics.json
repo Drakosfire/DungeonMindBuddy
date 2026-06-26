@@ -1,0 +1,117 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 11,
+      "orphan_count": 9,
+      "orphan_rate": 0.8182,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": true,
+      "orphans": [
+        {
+          "unit_id": "69586db7c1ab732a",
+          "unit_type": "prose",
+          "ordering_key": 0,
+          "text_preview": "FLESH BLOB SPAWN"
+        },
+        {
+          "unit_id": "28e8cc2892653f4d",
+          "unit_type": "prose",
+          "ordering_key": 1,
+          "text_preview": "Medium, Aberration, Chaotic Evil"
+        },
+        {
+          "unit_id": "3b5a7b787cd740b4",
+          "unit_type": "prose",
+          "ordering_key": 2,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "4ecf2bb6902eb0b1",
+          "unit_type": "prose",
+          "ordering_key": 3,
+          "text_preview": "THE FLESH BLOB SPAWN IS A GROTESQUE OFFSHOOT OF A GREATER KAIJU, A WRITHING MASS"
+        },
+        {
+          "unit_id": "fc16ed424560e52e",
+          "unit_type": "table",
+          "ordering_key": 4,
+          "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+        },
+        {
+          "unit_id": "3ef953698c5d2a19",
+          "unit_type": "prose",
+          "ordering_key": 5,
+          "text_preview": "Saving Throws : str : 4, dex : -1, wis : -1"
+        },
+        {
+          "unit_id": "3888eafd07031033",
+          "unit_type": "prose",
+          "ordering_key": 6,
+          "text_preview": "Skills : perception : 1\nResistances :\nSenses : darkvision : 60"
+        },
+        {
+          "unit_id": "572e4d06672b5712",
+          "unit_type": "prose",
+          "ordering_key": 7,
+          "text_preview": "Languages : Understands Deep Speech but can't speak"
+        },
+        {
+          "unit_id": "bdc6444a248c0fdb",
+          "unit_type": "prose",
+          "ordering_key": 8,
+          "text_preview": "Challenge Rating : 1/2 (100)"
+        }
+      ]
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 11,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 1,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 11,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 2,
+      "oversized_count": 0,
+      "undersized_ratio": 0.1818,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "69586db7c1ab732a",
+          "unit_type": "prose",
+          "char_count": 16,
+          "text_preview": "FLESH BLOB SPAWN"
+        },
+        {
+          "unit_id": "3b5a7b787cd740b4",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "![](images/0.jpg)"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

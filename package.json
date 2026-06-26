@@ -1,0 +1,9 @@
+{
+  "name": "dungeonmindbuddy",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix apps/live-control-ui run dev --",
+    "build": "npm --prefix apps/live-control-ui run build",
+    "test:ui": "npm --prefix apps/live-control-ui run test"
+  }
+}

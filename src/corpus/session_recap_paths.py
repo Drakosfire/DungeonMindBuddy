@@ -42,6 +42,60 @@ PILOT_BLESSED_SESSIONS: tuple[tuple[int, int], ...] = (
     (2, 20),
 )
 
+# Tool-shaped / generic recap tails that must never become a canonical slug or title.
+# Shared by the live ingest route and pipeline so frontend/backend guards stay aligned.
+GENERIC_RECAP_TAILS: frozenset[str] = frozenset(
+    {
+        "",
+        "ingest",
+        "ingestion",
+        "raw recap",
+        "raw recap ingest",
+        "raw recap ingestion",
+        "recap",
+        "recap ingest",
+        "recap ingestion",
+        "session recap",
+    }
+)
+
+
+def recap_tail(text: str | None) -> str:
+    """Normalize a slug/title/basename down to its comparable tail.
+
+    ``"Session 23 - Mireward Gate Battle"`` -> ``"mireward gate battle"``;
+    ``"ingest"`` -> ``"ingest"``; ``None`` -> ``""``.
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return ""
+    m = re.match(r"^Session\s+\d+\s*(?:-\s*)?(.+)$", raw, re.I)
+    if m:
+        raw = m.group(1).strip()
+    return raw.rstrip(":").strip().lower()
+
+
+def is_generic_recap_tail(text: str | None) -> bool:
+    return recap_tail(text) in GENERIC_RECAP_TAILS
+
+
+def normalized_recap_candidates(
+    corpus_root: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> list[Path]:
+    """All ``_normalized/Session N - *.md`` files for a session (excludes ``_archive``)."""
+    norm_dir = corpus_root / session_recaps_prefix(campaign_number) / "_normalized"
+    if not norm_dir.is_dir():
+        return []
+    seen: dict[Path, None] = {}
+    for pattern in (f"Session {session:02d} - *.md", f"Session {session} - *.md"):
+        for path in norm_dir.glob(pattern):
+            if path.is_file():
+                seen.setdefault(path.resolve(), None)
+    return sorted(seen.keys())
+
 
 def campaign_id_from_number(campaign_number: int) -> str:
     if campaign_number not in (1, 2):
@@ -84,9 +138,9 @@ def session_recaps_prefix(campaign_number: int) -> str:
 def normalized_basename_from_disk(corpus_root: Path, *, campaign_number: int, session: int) -> str:
     """Resolve basename from an existing ``_normalized/Session … - <slug>.md`` file."""
     norm_dir = corpus_root / session_recaps_prefix(campaign_number) / "_normalized"
-    candidates = sorted(norm_dir.glob(f"Session {session:02d} - *.md"))
-    if not candidates:
-        candidates = sorted(norm_dir.glob(f"Session {session} - *.md"))
+    candidates = normalized_recap_candidates(
+        corpus_root, campaign_number=campaign_number, session=session
+    )
     if len(candidates) != 1:
         raise FileNotFoundError(
             f"expected exactly one normalized recap for C{campaign_number}S{session} under {norm_dir}"

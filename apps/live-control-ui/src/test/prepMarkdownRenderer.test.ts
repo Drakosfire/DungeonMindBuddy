@@ -64,6 +64,69 @@ describe("prep markdown renderer", () => {
     expect(link?.textContent).toBe("Plan");
   });
 
+  it.each([
+    ["npc", "lysandro-ironveil", "Lysandro Ironveil"],
+    ["location", "north-reach-gate", "North Reach Gate"],
+    ["statblock", "sewer-meat-creature", "Sewer Meat Creature"],
+    ["roll-table", "gate-dilemma-d12", "Gate Dilemma d12"],
+    ["citation", "c2s22-ending", "Session 22 ending"],
+  ])("renders a supported %s reference as an inert typed chip", (type, id, label) => {
+    const host = renderHost(`[${label}](#dmb-ref:${type}:${id})`);
+    const chip = host.querySelector("button.md-ref-chip");
+
+    expect(chip).not.toBeNull();
+    expect(chip?.getAttribute("type")).toBe("button");
+    expect(chip?.classList.contains(`md-ref-chip-${type}`)).toBe(true);
+    expect(chip?.getAttribute("data-md-ref-kind")).toBe("ref");
+    expect(chip?.getAttribute("data-md-ref-type")).toBe(type);
+    expect(chip?.getAttribute("data-md-ref-id")).toBe(id);
+    expect(chip?.textContent).toBe(label);
+    expect(chip?.hasAttribute("data-md-link")).toBe(false);
+    expect(host.querySelector("a")).toBeNull();
+  });
+
+  it("renders combat actions as inert action chips", () => {
+    const host = renderHost("[North Gate Combat](#dmb-action:combat:north-gate-combat)");
+    const chip = host.querySelector("button.md-ref-chip");
+
+    expect(chip).not.toBeNull();
+    expect(chip?.getAttribute("type")).toBe("button");
+    expect(chip?.classList.contains("md-ref-chip-action")).toBe(true);
+    expect(chip?.classList.contains("md-ref-chip-action-combat")).toBe(true);
+    expect(chip?.getAttribute("data-md-ref-kind")).toBe("action");
+    expect(chip?.getAttribute("data-md-ref-type")).toBe("combat");
+    expect(chip?.getAttribute("data-md-ref-id")).toBe("north-gate-combat");
+    expect(chip?.textContent).toBe("North Gate Combat");
+    expect(chip?.hasAttribute("data-md-link")).toBe(false);
+  });
+
+  it.each([
+    "#dmb-ref:monster:bog-thing",
+    "#dmb-ref:npc:BadCaps",
+    "#dmb-ref:npc:-starts-with-dash",
+    "#dmb-action:launch:north-gate-combat",
+    "#dmb-ref:npc",
+    "#dmb-ref::id",
+  ])("falls invalid typed href %s back to an ordinary link", (href) => {
+    const host = renderHost(`[Unsupported](${href})`);
+    const link = host.querySelector("a[data-md-link='1']");
+
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe(href);
+    expect(link?.textContent).toBe("Unsupported");
+    expect(host.querySelector(".md-ref-chip")).toBeNull();
+  });
+
+  it("escapes typed chip labels without creating raw elements or handlers", () => {
+    const host = renderHost("[<img src=x onerror=alert(1)>](#dmb-ref:npc:bad-label)");
+    const chip = host.querySelector("button.md-ref-chip");
+
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("img src=x onerror=alert(1)");
+    expect(host.querySelector("img")).toBeNull();
+    expect(host.querySelector("[onerror]")).toBeNull();
+  });
+
   it("keeps ordinary blockquotes as blockquotes", () => {
     const host = renderHost("> This is a normal blockquote.");
 

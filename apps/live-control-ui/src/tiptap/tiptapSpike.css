@@ -1,0 +1,226 @@
+.tiptap-spike-page {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.tiptap-spike-header,
+.tiptap-spike-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tiptap-spike-header { margin-bottom: 1.25rem; }
+.tiptap-spike-header h1,
+.tiptap-spike-section-heading h2 { margin: 0; }
+.tiptap-spike-header p { max-width: 68ch; }
+
+.tiptap-local-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tiptap-local-actions button {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+}
+
+.tiptap-local-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tiptap-local-state {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+}
+
+.tiptap-local-state > p:first-child { margin-top: 0; }
+.tiptap-local-state dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.tiptap-local-state dl div { min-width: 0; }
+.tiptap-local-state dt {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tiptap-local-state dd { margin: 0.2rem 0 0; }
+.tiptap-copy-message { margin-bottom: 0; color: var(--accent, #7aa2f7); }
+
+.tiptap-spike-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--accent, #a9f0c8);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tiptap-spike-panel,
+.tiptap-spike-note {
+  padding: 1rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: var(--panel, #171b24);
+  box-shadow: var(--shadow, 0 12px 30px rgba(0, 0, 0, 0.2));
+}
+
+.tiptap-spike-editor {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-top: 1rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+}
+
+.tiptap-spike-editor .ProseMirror {
+  min-height: 280px;
+  padding: 1rem;
+  outline: none;
+}
+
+.tiptap-block-boundary-help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+  background: rgba(18, 20, 26, 0.86);
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+}
+.tiptap-block-boundary-help strong { color: var(--fg, #e8eaef); }
+.tiptap-block-boundary-help button {
+  margin-left: auto;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+}
+.tiptap-block-boundary-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.tiptap-block-boundary-local { color: #9aa3b5; }
+.tiptap-block-boundary-draft { color: #7aa2f7; }
+.tiptap-block-boundary-committed { color: #a9f0c8; }
+.tiptap-block-boundary-locked { color: #f4c86b; }
+.tiptap-block-boundary-reference { color: #c4b5fd; }
+.tiptap-block-boundary-operational { color: #fb7185; }
+
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state] {
+  position: relative;
+  outline: 2px solid rgba(122, 162, 247, 0.7);
+  outline-offset: 4px;
+}
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state]::before {
+  content: attr(data-runbook-block-label);
+  position: absolute;
+  z-index: 2;
+  top: -0.85rem;
+  right: 0.35rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: #7aa2f7;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="locked"]::before { color: #f4c86b; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="reference"]::before { color: #c4b5fd; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="operational"]::before { color: #fb7185; }
+.tiptap-spike-editor .ProseMirror [data-runbook-block-state="committed"]::before { color: #a9f0c8; }
+
+.tiptap-spike-editor .md-ref-invalid {
+  color: var(--fg-mute, #9aa3b5);
+  text-decoration: underline dotted;
+  text-decoration-color: rgba(239, 68, 68, 0.7);
+  cursor: help;
+}
+
+.tiptap-spike-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.tiptap-spike-panel pre {
+  max-height: 34rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  overflow: auto;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--text, #e8eaef);
+  white-space: pre-wrap;
+}
+
+.tiptap-spike-note h2 { margin-top: 0; }
+.tiptap-spike-note p { margin-bottom: 0; }
+
+.tiptap-write-panel { margin-bottom: 1rem; }
+.tiptap-write-form { display: grid; gap: 0.5rem; }
+.tiptap-write-form input {
+  padding: 0.6rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--text, #e8eaef);
+}
+.tiptap-write-diff { border-left: 3px solid var(--accent, #7aa2f7) !important; }
+.tiptap-write-warning { color: #f4c86b; }
+.tiptap-write-error { color: #ff7b72; }
+.tiptap-write-success { color: #a9f0c8; }
+.tiptap-write-success dd { overflow-wrap: anywhere; }
+
+@media (max-width: 800px) {
+  .tiptap-spike-header,
+  .tiptap-spike-section-heading { display: block; }
+  .tiptap-local-actions { margin-top: 1rem; }
+  .tiptap-local-state dl { grid-template-columns: 1fr; }
+  .tiptap-spike-grid { grid-template-columns: 1fr; }
+}

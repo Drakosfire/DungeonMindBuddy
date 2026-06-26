@@ -9,10 +9,10 @@
 - `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`
 - `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`
 **Previous handoffs:**
-- `Docs/Plans/HANDOFF-statblock-add-to-combat-pr112.md`
-- `Docs/Plans/HANDOFF-statblock-view-readonly-pr111.md`
-- `Docs/Plans/HANDOFF-statblock-retrieval-activation-pr110.md`
-- `Docs/Plans/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-view-readonly-pr111.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-retrieval-activation-pr110.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-corpus-confirmed-write-pr109.md`
 
 **Mode:** First real combat-control surface. Build a compact Combat Roster / Tracker module over `combat/current_combat.json`. Keep it focused on table operations: roster visibility, HP changes, notes/conditions/defeated state, initiative order, and turn pointer. Do not add generation, corpus writes, planning tasks, or terrain/map systems.
 
@@ -26,7 +26,7 @@ You are implementing Combat Roster / Tracker PR113 in `Drakosfire/DungeonMindBud
 Read first:
 
 - `Docs/Plans/HANDOFF-combat-roster-tracker-pr113.md`
-- `Docs/Plans/HANDOFF-statblock-add-to-combat-pr112.md`
+- `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-statblock-add-to-combat-pr112.md`
 - `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`
 - `apps/live_control_server/services/combat_state.py`
 - `apps/live-control-ui/src/surface/moduleRegistry.tsx`

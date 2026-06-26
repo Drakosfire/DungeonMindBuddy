@@ -1,0 +1,336 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 13,
+    "table_count": 1,
+    "content_hash": "e16b24936add336bbac9aa94e0773e5107c821d97485e4b2b8316d815e15352a",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 813,
+          "ast_content_chars": 813,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 11,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "69586db7c1ab732a026ae21c5962a067e1365f467a04a5a4c11c97684b5aa851",
+        "unit_type": "prose",
+        "text": "FLESH BLOB SPAWN",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "db93e9755d9d819ba4768c4954361dbc89320506ad180b9f87dafdde1c9d94cd",
+        "source_line_start": 1,
+        "source_line_end": 2,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "28e8cc2892653f4d033df2826fada52052c92a613b6043bbd341518f657f3557",
+        "unit_type": "prose",
+        "text": "Medium, Aberration, Chaotic Evil",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "91c3d26a97a439a2d86656005f06216d91fb51ee1a41ceb60cbd39c2b9b5e2c0",
+        "source_line_start": 4,
+        "source_line_end": 5,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3b5a7b787cd740b42d15ab98b1cfd17bce0e1d16345110355dc435aada6fded1",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 6,
+        "source_line_end": 7,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4ecf2bb6902eb0b19f55ffbaec911ea8b739bc812de639a463ad7e46a038675a",
+        "unit_type": "prose",
+        "text": "THE FLESH BLOB SPAWN IS A GROTESQUE OFFSHOOT OF A GREATER KAIJU, A WRITHING MASS OF QUASI-LIVING TISSUE. ITS SLUGGISH MOVEMENTS BELIE ITS DESTRUCTIVE POWER AS IT BUMBLES FORWARD TO BATTER AND BURN ANYTHING IN ITS PATH WITH A TOXIC SPRAY. ADVENTURERS THAT ENCOUNTER ONE SHOULD BE WARY OF ITS TENDENCY TO BURST WITH CAUSTIC ICHOR WHEN STRUCK.\nArmor Class : 12\nHit Points: 18 Hit Dice : 3d8+6\nSpeed: walk : 20",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "d2f39b44f01e72a1d79db5fb7b42ca95404187f11ddf41930aa4933df6ac2b2e",
+        "source_line_start": 11,
+        "source_line_end": 15,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "fc16ed424560e52e6237deea4223ba0db4a0f1008e00f25c547e989fb871bc39",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>8</td><td>14</td><td>3</td><td>6</td><td>3</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "91b81c8e0941e496ba804e733ae053883c5acece8257523bddefcf8858d3a389",
+        "source_line_start": 17,
+        "source_line_end": 18,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3ef953698c5d2a19597677a967cc5ac14cef9b09a3baa3bb7ee76a4ef0cf28bb",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 4, dex : -1, wis : -1",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "6cf207e898853e507f34101810ba1af48653625fac40f757cf05df632cfbf811",
+        "source_line_start": 20,
+        "source_line_end": 21,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3888eafd07031033b910c93156498b19f500d94da06cee8873bae5f453594f61",
+        "unit_type": "prose",
+        "text": "Skills : perception : 1\nResistances :\nSenses : darkvision : 60",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "26efc01fa9bd400235073d20c16e21e748b811ae1c32c4368dfa17900d63e62e",
+        "source_line_start": 23,
+        "source_line_end": 26,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "572e4d06672b571259a82ca4ba5b10dade2d4a07ba188b0f00561e1fb52294d1",
+        "unit_type": "prose",
+        "text": "Languages : Understands Deep Speech but can't speak",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "6d2fc97d22f43639faba00846bb13a8fdda34f11ad60019a5f1ff9c0d92ee92a",
+        "source_line_start": 28,
+        "source_line_end": 29,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "bdc6444a248c0fdb06fc18a7815d5f240c28def47332e1f5e558318d8909c1b0",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 1/2 (100)",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "e4bd801c2dbf04aa7e1c5e3b2778f4540326d40c33d4a5fa7208c849fe3c6d7f",
+        "source_line_start": 31,
+        "source_line_end": 32,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4acfba7eb3a51af7c81a84fdc7eba1176b759ae97cc2434a68f9fcf6f8426313",
+        "unit_type": "prose",
+        "text": "ACTIONS — Slam : ‘Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) bludgeoning damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 9,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "e687551dfc533cb37165ea2464b17c27f69150cf6235eb16f8bc39b062cf0f94",
+        "source_line_start": 34,
+        "source_line_end": 38,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "eab88d210f1d09c08c0199bada96c4cf6fbd90c8a36fa86826fa95aa9153636e",
+        "unit_type": "prose",
+        "text": "Caustic Burst : ‘When the Flesh Blob Spawn takes damage from a melee attack, it sprays acid in a 10ft. cone. Each creature in the area must succeed on a DC 13 Dexterity saving throw or take 7 (2d6) acid damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 10,
+        "page_fingerprint": "616ac17c52ef58d3ca6fc8b33e406935c2401942b74b9fb348d6cfbdd5a547c2",
+        "content_hash": "e2bb627a3e0567c43243f58f7d47bdc0b8666b7278a270c68d338f64dbd01655",
+        "source_line_start": 40,
+        "source_line_end": 41,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 11,
+          "orphan_count": 9,
+          "orphan_rate": 0.8182,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": true,
+          "orphans": [
+            {
+              "unit_id": "69586db7c1ab732a",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "FLESH BLOB SPAWN"
+            },
+            {
+              "unit_id": "28e8cc2892653f4d",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "Medium, Aberration, Chaotic Evil"
+            },
+            {
+              "unit_id": "3b5a7b787cd740b4",
+              "unit_type": "prose",
+              "ordering_key": 2,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "4ecf2bb6902eb0b1",
+              "unit_type": "prose",
+              "ordering_key": 3,
+              "text_preview": "THE FLESH BLOB SPAWN IS A GROTESQUE OFFSHOOT OF A GREATER KAIJU, A WRITHING MASS"
+            },
+            {
+              "unit_id": "fc16ed424560e52e",
+              "unit_type": "table",
+              "ordering_key": 4,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "3ef953698c5d2a19",
+              "unit_type": "prose",
+              "ordering_key": 5,
+              "text_preview": "Saving Throws : str : 4, dex : -1, wis : -1"
+            },
+            {
+              "unit_id": "3888eafd07031033",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Skills : perception : 1\nResistances :\nSenses : darkvision : 60"
+            },
+            {
+              "unit_id": "572e4d06672b5712",
+              "unit_type": "prose",
+              "ordering_key": 7,
+              "text_preview": "Languages : Understands Deep Speech but can't speak"
+            },
+            {
+              "unit_id": "bdc6444a248c0fdb",
+              "unit_type": "prose",
+              "ordering_key": 8,
+              "text_preview": "Challenge Rating : 1/2 (100)"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 11,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 11,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 2,
+          "oversized_count": 0,
+          "undersized_ratio": 0.1818,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "69586db7c1ab732a",
+              "unit_type": "prose",
+              "char_count": 16,
+              "text_preview": "FLESH BLOB SPAWN"
+            },
+            {
+              "unit_id": "3b5a7b787cd740b4",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

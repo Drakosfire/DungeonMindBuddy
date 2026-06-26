@@ -32,6 +32,24 @@ export function IngestionStatusPanel({ result }: IngestionStatusPanelProps) {
       <p>
         <strong>{result.status}</strong>
       </p>
+      {result.status === "breadcrumb_required" ? (
+        <div className="ingestion-boundary-card">
+          <strong>Expected boundary, not a failed job</strong>
+          <p>
+            Canonical and normalized recap files are prepared. Breadcrumb tagging and session
+            memory records are still required before this session is retrieval-ready.
+          </p>
+        </div>
+      ) : null}
+      {result.states.includes("staged_raw_notes_conflict") ? (
+        <div className="ingestion-boundary-card">
+          <strong>Existing staged notes reused</strong>
+          <p>
+            Stage + Preview found staged raw notes already on disk, so it generated the preview
+            from that file and did not overwrite it with the pasted text.
+          </p>
+        </div>
+      ) : null}
       <div className="ingestion-status-columns">
         <div>
           <h5>States</h5>

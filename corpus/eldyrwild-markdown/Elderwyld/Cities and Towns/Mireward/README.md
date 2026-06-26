@@ -1,5 +1,5 @@
 ---
-title: "Mireward — location hub"
+title: "Mireward Reach — location hub"
 document_class: reference
 subject_class: location
 subject_doc_kind: hub_index
@@ -10,12 +10,12 @@ session: 21
 origin_session: 21
 last_updated_session: 23
 source_class: seed_reference
-table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp. S23 authority NPCs now have setting-side hubs under NPCs/."
+table_note: "Hub in build. Table canon display name is Mireward Reach; stable corpus route remains Mireward/ until route migration. S23 authority NPCs now have setting-side hubs under NPCs/."
 ---
 
-# Mireward — Elderwyld (location hub)
+# Mireward Reach — Elderwyld (location hub)
 
-**Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road).
+**Table canon (Session 21, updated S24 dogfood):** The settlement’s table-facing name is **Mireward Reach**. The corpus route and folder remain `Elderwyld/Cities and Towns/Mireward/` until a deliberate route migration happens. Mireward Reach is the **next little town north** on the Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road).
 
 **Build status:** `scaffold` — see **`Mireward_PLACE_BUILD_SCAFFOLD.md`** for brainstorm, knobs, and promotion checklist. Early ideas live there until copied into reference files below.
 
@@ -65,7 +65,7 @@ table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp
 
 ## Working premise (from scaffold — promote to gazetteer when locked)
 
-Last walled town before the fen; **packed with refugees** now, but **built by** retired spears, stink-trades, and folk who wanted **sky not spires** — garrison town (**thin**, not rotten: festival recalled the young, long patrol still out), festival spillover economy, **Lundayell-flavored tolerance** (Orin / Maera — §F2). South misreads north because the **apron still looks fine**. Details: scaffold §A2, §B, §F2, §H.
+Last walled town before the fen; **packed with refugees** now, but **built by** retired spears, stink-trades, and folk who wanted **sky not spires** — garrison town (**thin**, not rotten: festival recalled the young, long patrol still out), festival spillover economy, **Lundayell-flavored tolerance** (Orin / Maera — §F2). South misreads Mireward Reach because the **apron still looks fine**. Details: scaffold §A2, §B, §F2, §H.
 
 ---
 

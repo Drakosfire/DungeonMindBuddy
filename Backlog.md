@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Plan surface dogfood — calm toolbar, busy canvas, branching slide graph — captured 2026-06-20
+
+**Context:** First `/plan` surface dogfood after the Plan Surface Toolbox implementation. User feedback: the toolbar "absolutely popped out," ingestion was easy to spot, and opening ingestion felt great. The markdown render of the raw session recap is fast and nice. The overall look is promising, but the live plan / plan surface is long and busy.
+
+**Insight:** The low-hanging UX work is reducing plan-surface busyness while preserving the successful toolbar projection feel. The ingestion process itself is conceptually one workflow with human review gates, but the current UI presents it as a set of peer buttons; the order, progression, and decision points are not clear. The harder product shape is story junctures: planning/play likely wants a one-direction graph of editable "slides" or beats, traversable in id order but not constrained to linear progression when branching points exist.
+
+**Action:** For the next `/plan` UX pass, dogfood a calmer canvas structure: collapsible or slide-like beat blocks, clear current/next focus, and a one-direction graph model that can represent branch points without forcing play-mode complexity into the first planning surface. Preserve the toolbar projection affordance as a successful pattern. Redesign ingestion as a guided single process with explicit human-check gates, current step, next recommended action, and review/approve moments instead of a flat sequence of unclear buttons.
+
+**Surfaces when:** `/plan` UX polish; dogfooding plan surface; ingestion workflow UX; reducing canvas busyness; designing story beat/juncture handling; planning editable slide/beat graph; distinguishing plan mode from play mode branching.
+
+**Refs:** `apps/live-control-ui/src/planSurface/`, `/home/drakosfire/.cursor/plans/plan-surface-toolbox_5034ad28.plan.md`, transcript `367282dc-5443-4c6a-bc22-58049e016cf9`.
+
 ## [IDEA] Command Board — composable editable prep surface (Notion-class) — captured 2026-06-13
 
 **Context:** C2S23 dogfood on the static Mireward Command Board (`evals/c2_live_prep/mireward-prep/`) proved combat-first drilldowns and corpus-backed index panes. Operator now wants the next major upgrade: fully editable, composable GM workspace — inline edits, drop-in blocks, line editing, media — in the Notion / Confluence / dynamic-markdown-editor class.
@@ -89,7 +101,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Surfaces when:** Moving the demo out of Cursor; designing a live-play server; implementing roll resolver / classifier; creating HANDOFF-pr<N> docs for the next DungeonBuddy product slice; evaluating whether a UI is a product surface or an IDE artifact.
 
-**Refs:** Session 22 transcript `[Session 22 live play](873301f8-c5de-4bee-a629-8c553e0b86b0)`; `Docs/Plans/HANDOFF-s22-live-play-agent.md`; `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; `_ingest_staging/session_22_raw_notes.md`; `Session Prep/session_22/session_22_travel_to_mireward_runbook.md`.
+**Refs:** Session 22 transcript `[Session 22 live play](873301f8-c5de-4bee-a629-8c553e0b86b0)`; `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md`; `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; `_ingest_staging/session_22_raw_notes.md`; `Session Prep/session_22/session_22_travel_to_mireward_runbook.md`.
 
 ## [READY] Session 22 — capture Grobnok callback verbatim (Silver Raven reply) — captured 2026-05-23
 
@@ -135,7 +147,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Surfaces when:** Mid-prep worldbuilding; "what's happening in X while party is away"; long-horizon cult/endgame; live-play agent HANDOFF; any task mixing **runnable S22** with **S25+ arc**.
 
-**Refs:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, `Mirathorn — rockie-talkie comms timeline.md`, `Mirathorn — While You Were Away.md`, `Session Prep/session_22/travel_mirathorn_comms_d100.md`, `Session 21 - brainstorming dump.md`, `Backlog.md` place-build workflow IDEA, `Docs/Plans/HANDOFF-s22-live-play-agent.md`.
+**Refs:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, `Mirathorn — rockie-talkie comms timeline.md`, `Mirathorn — While You Were Away.md`, `Session Prep/session_22/travel_mirathorn_comms_d100.md`, `Session 21 - brainstorming dump.md`, `Backlog.md` place-build workflow IDEA, `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md`.
 
 ## [IDEA] Mireward — Reach folk identity, garrison thin, Orin anchor (scaffold §A2–§F2) — captured 2026-05-23
 

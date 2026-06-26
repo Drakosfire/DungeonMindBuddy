@@ -82,6 +82,8 @@ COMMON_QUERY_TOKENS = frozenset(
         "at",
         "be",
         "by",
+        "change",
+        "end",
         "for",
         "from",
         "happened",
@@ -219,6 +221,28 @@ def _explicit_session_only(question: str, sessions: set[int]) -> bool:
     return bool(re.search(r"\b(session\s*\d{1,2}).*(only|exclusively)\b", lowered))
 
 
+def _asks_for_last_or_final(question: str) -> bool:
+    lowered = question.lower()
+    if any(
+        phrase in lowered
+        for phrase in (
+            "last",
+            "latest",
+            "most recent",
+            "recently",
+            "final",
+            "ending",
+            "end of",
+            "at the end",
+            "close of",
+            "wrap up",
+            "cliffhanger",
+        )
+    ):
+        return True
+    return bool(re.search(r"\bhow did .+ end\b", lowered))
+
+
 def _build_query_features(question: str, *, hints: set[str], sessions: set[int]) -> QueryFeatures:
     lowered = question.lower()
     tokens = _tokenize(question)
@@ -227,9 +251,20 @@ def _build_query_features(question: str, *, hints: set[str], sessions: set[int])
     distinctive_tokens = {t for t in content_tokens if len(t) > 2 or t.isdigit()}
     aliases = _parse_aliases(question)
     title_phrases = _extract_title_phrases(question, sessions)
-    asks_for_last_or_final = any(t in lowered for t in ("last", "latest", "most recent", "recently", "final", "ending"))
+    asks_for_last_or_final = _asks_for_last_or_final(question)
     asks_for_play_event = "play_fact" in hints or any(
-        t in lowered for t in ("what happened", "last thing", "final beat", "last event", "outcome")
+        t in lowered
+        for t in (
+            "what happened",
+            "what change",
+            "what changed",
+            "last thing",
+            "final beat",
+            "last event",
+            "outcome",
+            "end of session",
+            "at the end of",
+        )
     )
     asks_historical_continuity = any(
         t in lowered for t in ("old threads", "earlier sessions", "over time", "historical continuity", "changed over time")
@@ -310,6 +345,11 @@ def infer_intent_hints(question: str) -> set[str]:
             "foreground",
             "background mentions",
             "normal retrieval evidence",
+            "what change",
+            "what changed",
+            "at the end of",
+            "end of session",
+            "how did",
         )
     ):
         hints.add("play_fact")
@@ -326,6 +366,38 @@ def infer_session_numbers(question: str) -> set[int]:
     found = {int(m) for m in re.findall(r"\bsession\s*(\d{1,2})\b", question.lower())}
     found.update(int(m) for m in re.findall(r"\bs(\d{1,2})\b", question.lower()))
     return found
+
+
+def _session_number_from_path(path: str) -> int | None:
+    match = re.search(r"session\s+(\d{1,2})", path, re.I)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _single_session_target(session_numbers: set[int]) -> int | None:
+    if len(session_numbers) == 1:
+        return next(iter(session_numbers))
+    return None
+
+
+def _evidence_session_number(evidence: dict[str, Any]) -> int | None:
+    raw = evidence.get("session_number")
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str) and raw.isdigit():
+        return int(raw)
+    return _session_number_from_path(str(evidence.get("path") or ""))
+
+
+def _session_target_mismatch(query_features: QueryFeatures, evidence: dict[str, Any]) -> bool:
+    target = _single_session_target(query_features.session_numbers)
+    if target is None:
+        return False
+    ev_session = _evidence_session_number(evidence)
+    if ev_session is None:
+        return False
+    return ev_session != target
 
 
 def primary_claim_type(hints: set[str]) -> str:
@@ -679,6 +751,7 @@ def _evidence_from_entry(
     routes: list[str] | None = None,
     evidence_score: float | None = None,
     score_components: dict[str, Any] | None = None,
+    session_number: int | None = None,
 ) -> dict[str, Any]:
     ev = _entry_to_evidence(entry, path_override=path)
     ev["unit_id"] = unit_id
@@ -688,6 +761,8 @@ def _evidence_from_entry(
     ev["text_excerpt"] = text_excerpt
     ev["evidence_score"] = evidence_score
     ev["score_components"] = dict(score_components or {})
+    if session_number is not None:
+        ev["session_number"] = session_number
     if evidence_score is not None and "final_score" not in ev["score_components"]:
         ev["score_components"]["final_score"] = float(evidence_score)
     if routes is not None:
@@ -755,7 +830,16 @@ def _extract_markdown_spans(
         ending_phrase_score = 0.0
         if query_features.asks_for_last_or_final and any(
             marker in body_lc
-            for marker in ("and that is how", "that's when", "finally", "at the end", "met her father")
+            for marker in (
+                "and that is how",
+                "that's when",
+                "finally",
+                "at the end",
+                "met her father",
+                "lightning bolt",
+                "turn the tide",
+                "overrun",
+            )
         ):
             ending_phrase_score += 2.5
         final_score = (
@@ -782,7 +866,10 @@ def _extract_markdown_spans(
             "final_score": final_score,
         }
         scored.append((final_score, s, e, body, components))
-    scored.sort(key=lambda t: (-t[0], t[1]))
+    if query_features.asks_for_last_or_final:
+        scored.sort(key=lambda t: (-t[2], -t[0], t[1]))
+    else:
+        scored.sort(key=lambda t: (-t[0], t[1]))
 
     route = str(entry.get("route") or "")
     out: list[dict[str, Any]] = []
@@ -798,6 +885,40 @@ def _extract_markdown_spans(
                 score_components=components,
             )
         )
+
+    if (
+        not out
+        and str(entry.get("source_role") or "") == "play_recap"
+        and query_features.asks_for_last_or_final
+        and spans
+        and "/_normalized/" not in route
+        and "/_breadcrumbed/" not in route
+    ):
+        s, e, body = spans[-1]
+        body_lc = body.lower()
+        document_position_score = float(e) / float(max(1, len(lines))) * 8.0
+        ending_phrase_score = 2.5 if any(
+            marker in body_lc
+            for marker in ("lightning bolt", "turn the tide", "overrun", "finally", "at the end")
+        ) else 0.0
+        final_score = (entry_score * 0.55) + document_position_score + ending_phrase_score
+        out.append(
+            _evidence_from_entry(
+                entry,
+                path=route,
+                line_start=s,
+                line_end=e,
+                text_excerpt=body[:700],
+                evidence_score=final_score,
+                score_components={
+                    "entry_score": entry_score,
+                    "document_position_score": document_position_score,
+                    "ending_phrase_score": ending_phrase_score,
+                    "final_score": final_score,
+                    "recap_tail_fallback": 1.0,
+                },
+            )
+        )
     return out
 
 
@@ -808,6 +929,8 @@ def _extract_session_memory_units(
     entry_score = float(entry.get("_entry_score") or 0.0)
     entry_components = dict(entry.get("_entry_score_components") or {})
     rows: list[tuple[float, dict[str, Any], dict[str, float], list[str]]] = []
+    max_line_start = 0
+    parsed_rows: list[dict[str, Any]] = []
     for raw in abs_path.read_text(encoding="utf-8").splitlines():
         row = raw.strip()
         if not row:
@@ -818,6 +941,22 @@ def _extract_session_memory_units(
             continue
         excerpt = str(obj.get("lexical_plain") or "").strip()
         if not excerpt:
+            continue
+        parsed_rows.append(obj)
+
+    target_session = _single_session_target(query_features.session_numbers)
+
+    for obj in parsed_rows:
+        unit_session = int(obj["session_number"]) if isinstance(obj.get("session_number"), int) else None
+        if target_session is not None and unit_session is not None and unit_session != target_session:
+            continue
+        line_start = int(obj["line_start"]) if isinstance(obj.get("line_start"), int) else 0
+        max_line_start = max(max_line_start, line_start)
+
+    for obj in parsed_rows:
+        excerpt = str(obj.get("lexical_plain") or "").strip()
+        unit_session = int(obj["session_number"]) if isinstance(obj.get("session_number"), int) else None
+        if target_session is not None and unit_session is not None and unit_session != target_session:
             continue
         tokens = _tokenize(excerpt)
         overlap_score, overlap_components = _token_overlap_score(tokens, query_features)
@@ -838,21 +977,40 @@ def _extract_session_memory_units(
             else:
                 source_recap_alignment_score -= 1.5
         min_overlap = 1.0 if query_features.asks_for_last_or_final else float(MIN_CONTENT_OVERLAP)
-        if overlap_components["query_token_overlap"] < min_overlap and source_recap_alignment_score <= 0.0:
+        if (
+            overlap_components["query_token_overlap"] < min_overlap
+            and source_recap_alignment_score <= 0.0
+            and not query_features.asks_for_last_or_final
+        ):
             continue
         unit_id = str(obj.get("unit_id") or "")
         meta_dampening = -2.5 if query_features.asks_for_play_event and unit_id.startswith("meta-") else 0.0
         line_start = int(obj["line_start"]) if isinstance(obj.get("line_start"), int) else 0
         document_position_score = 0.0
-        if query_features.asks_for_last_or_final:
+        early_position_penalty = 0.0
+        if query_features.asks_for_last_or_final and max_line_start > 0:
+            relative_position = float(line_start) / float(max_line_start)
+            document_position_score = relative_position * 20.0
+            if relative_position < 0.65:
+                early_position_penalty = -12.0
+        elif query_features.asks_for_last_or_final:
             document_position_score = min(8.0, float(max(0, line_start)) / 4.0)
         excerpt_lc = excerpt.lower()
         ending_phrase_score = 0.0
         if query_features.asks_for_last_or_final and any(
             marker in excerpt_lc
-            for marker in ("and that is how", "that's when", "finally", "at the end", "met her father")
+            for marker in (
+                "and that is how",
+                "that's when",
+                "finally",
+                "at the end",
+                "met her father",
+                "lightning bolt",
+                "turn the tide",
+                "overrun",
+            )
         ):
-            ending_phrase_score += 2.5
+            ending_phrase_score += 12.0
         final_score = (
             (entry_score * 0.5)
             + overlap_score
@@ -861,6 +1019,7 @@ def _extract_session_memory_units(
             + meta_dampening
             + (float(entry_components.get("source_role_score", 0.0)) * 0.25)
             + document_position_score
+            + early_position_penalty
             + ending_phrase_score
         )
         components = {
@@ -872,6 +1031,7 @@ def _extract_session_memory_units(
             "source_role_score": float(entry_components.get("source_role_score", 0.0)) * 0.25,
             "meta_dampening": meta_dampening,
             "document_position_score": document_position_score,
+            "early_position_penalty": early_position_penalty,
             "ending_phrase_score": ending_phrase_score,
             "query_token_overlap": overlap_components["query_token_overlap"],
             "distinctive_token_overlap": overlap_components["distinctive_token_overlap"],
@@ -879,7 +1039,10 @@ def _extract_session_memory_units(
             "final_score": final_score,
         }
         rows.append((final_score, obj, components, route_refs))
-    rows.sort(key=lambda t: -t[0])
+    if query_features.asks_for_last_or_final:
+        rows.sort(key=lambda t: (-int(t[1].get("line_start") or 0), -t[0]))
+    else:
+        rows.sort(key=lambda t: -t[0])
 
     out: list[dict[str, Any]] = []
     for score, obj, components, route_refs in rows[: max(1, max_units)]:
@@ -896,6 +1059,7 @@ def _extract_session_memory_units(
                 routes=route_refs,
                 evidence_score=score,
                 score_components=components,
+                session_number=unit_session,
             )
         )
     return out
@@ -950,6 +1114,8 @@ def extract_evidence_units(
         return []
     role = str(entry.get("source_role") or "")
 
+    if role == "session_memory" and route.endswith(".records_meta.json"):
+        return []
     if role == "session_memory" and route.endswith(".jsonl"):
         return _extract_session_memory_units(
             entry, abs_path, query_features, max_units=config.max_units_per_session_memory_source
@@ -1043,12 +1209,19 @@ def _apply_rejected_budget(rejected: list[dict[str, Any]], *, max_total: int) ->
 
 
 def _admission_reason(
-    entry: dict[str, Any], claim_type: str, evidence: dict[str, Any], config: QueryConfig
+    entry: dict[str, Any],
+    claim_type: str,
+    evidence: dict[str, Any],
+    config: QueryConfig,
+    *,
+    query_features: QueryFeatures | None = None,
 ) -> str | None:
     if not bool(entry.get("route_exists")):
         return "route_missing"
     if not bool(entry.get("admissible")):
         return "manifest_not_admissible"
+    if query_features and _session_target_mismatch(query_features, evidence):
+        return "wrong_session_target"
 
     role = str(entry.get("source_role") or "")
     authority = str(entry.get("authority") or "")
@@ -1259,7 +1432,9 @@ def build_context_packet(
         if claim_type != "pipeline_state":
             virtual_reason = "ingest_status_for_non_pipeline_claim"
         else:
-            virtual_reason = _admission_reason(virtual, claim_type, virtual, resolved_config)
+            virtual_reason = _admission_reason(
+                virtual, claim_type, virtual, resolved_config, query_features=query_features
+            )
         if virtual_reason:
             rejected.append({"evidence": virtual, "reason_code": virtual_reason})
         else:
@@ -1290,7 +1465,9 @@ def build_context_packet(
         evidence_units = extracted or [_entry_to_evidence(entry)]
         for evidence in evidence_units:
             retrieved.append(evidence)
-            reason = _admission_reason(entry, claim_type, evidence, resolved_config)
+            reason = _admission_reason(
+                entry, claim_type, evidence, resolved_config, query_features=query_features
+            )
             if reason:
                 rejected.append({"evidence": evidence, "reason_code": reason})
                 continue
@@ -1422,6 +1599,11 @@ def build_context_packet(
             "play_fact_forbidden_authorities": sorted(PLAY_FACT_FORBIDDEN_AUTHORITIES),
         },
         "retrieval_trace": retrieval_trace,
+        "query_signals": {
+            "asks_for_last_or_final": query_features.asks_for_last_or_final,
+            "asks_for_play_event": query_features.asks_for_play_event,
+            "session_numbers": sorted(query_features.session_numbers),
+        },
     }
     if verdict:
         packet["source_excerpt"] = verdict

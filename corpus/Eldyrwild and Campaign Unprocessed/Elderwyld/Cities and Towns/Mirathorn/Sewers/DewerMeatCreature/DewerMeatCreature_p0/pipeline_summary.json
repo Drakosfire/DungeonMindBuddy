@@ -1,0 +1,338 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 14,
+    "table_count": 1,
+    "content_hash": "f46d3e89c873ea1fc04918ba2bae1cc4d4b73696493692c95f3dd27be8c873ee",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 1332,
+          "ast_content_chars": 1332,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 12,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "7cb38fc1c682d7d3c0d9aa7983fdd5423d2ab2d158aa74f9e33c52273c75482f",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1474cf1eee6c3db4585b07ba4bfaa2d43d16cd3db7a64457eafbef95257051b9",
+        "unit_type": "prose",
+        "text": "THE SEWER MEAT THINGS ARE A HORRIFIC AMALGAMATION OF ROTTING FLESH AND CORRUPTED MAGIC. THEY ARE ROUGHLY HUMANOID BUT ARE TWISTED AND GROTESQUE, WITH LIMBS THAT SEEM TO HAVE BEEN CRUDELY STITCHED TOGETHER FROM VARIOUS CREATURES. PATCHES OF THEIR SKIN ARE STRETCHED TAUT, WHILE OTHER AREAS SAG LOOSELY, LEAKING DARK, OILY FLUIDS. THEIR EYES ARE SUNKEN, GLOWING FAINTLY WITH AN UNNATURAL, SICKLY YELLOW LIGHT, AND THEIR MOUTHS STRETCH TOO WIDE, FILLED WITH ROWS OF JAGGED, BROKEN TEETH.",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "0fe2db184b5533e4f533854aa4a26ae3b86ebad7b12be446dd2beddf6c88af0e",
+        "source_line_start": 5,
+        "source_line_end": 6,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4d6302482a4fd3b9c7f6cfee2f3c279d8f71c354d2558fda809e89c132c98c8e",
+        "unit_type": "prose",
+        "text": "Armor Class : 12\nHit Points: 37 Hit Dice : 5d8+15\nSpeed: walk : 20",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "a9701a8b8c242aa5488ba861698b21cdbd16bfa4fb5ba2e41607c8f8a97a6a13",
+        "source_line_start": 8,
+        "source_line_end": 11,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "29f24493032f0b4273b0fd34528c6857dd5b099c59f0f43ae761e35b59924134",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>10</td><td>16</td><td>5</td><td>8</td><td>6</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "35c12b1c1967939a56b3fc427ba1263b8dd52e7306e712516973cb1564635220",
+        "source_line_start": 13,
+        "source_line_end": 14,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "52dc6a3588768c373fb89b7a8ba46b02b1cbeffaa48001118ba8a55895c3e898",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 2, dex : 0, wis : -1",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "3d2b49d7a94c228d31b76d8f87a447f564dbd1bbdcd3c49a1a02bb049d31414c",
+        "source_line_start": 16,
+        "source_line_end": 17,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3f9e71bcba523f96f37cd5a3d4cc8c625dc14b06dc21bd645df155d546fe4073",
+        "unit_type": "prose",
+        "text": "Skills : perception : 0\nResistances :",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "c0d9a8047418e25f4bafe3c899de21be6ae366bf4daf6d448610476a8d328e5c",
+        "source_line_start": 19,
+        "source_line_end": 21,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4bdf3bef653862825c929e93dec03639a39f7060b5f5386d1dd907b51d05dbe9",
+        "unit_type": "prose",
+        "text": "Senses : darkvision : 60\nLanguages :",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "bf95535c38338112621e8f3188564ccb7d919ef75d80456e16df657e14e037a0",
+        "source_line_start": 23,
+        "source_line_end": 25,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "05d67183e8ca6eaa98610ca45d0d1b81f181c99fa09d1ed7078cc4e64cd9e996",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 3 (700)",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "027d638ae435145218736febc811ec68901eef023aecc95ad98d1da370fc9dfb",
+        "source_line_start": 27,
+        "source_line_end": 28,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4865b6f332ac4cc43f82c3f60e19463c66f73e29edb1454e1df403e7edf1718e",
+        "unit_type": "prose",
+        "text": "ACTIONS — Creeping Viscera : ‘Emits a thick, sticky sludge in a 10-foot radius. Creatures in the area must succeed on a DC 14 Dexterity saving throw or have their speed reduced by half until the end of their next turn.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 8,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "d42b942d807edb187f7465a1c99993eaefeca01d3a4fe35702c36f2c986d0849",
+        "source_line_start": 30,
+        "source_line_end": 34,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "92941b4a2ae21d30b50b12a6b7a5b5a6e1135ddeef470657e026c19a41a402c9",
+        "unit_type": "prose",
+        "text": "Necrotic Bite : ‘Melee Attack: +3 to hit, reach 5 ft., one target. Hit: 7 (2d6) necrotic damage. On a critical hit, the creature latches onto the target, dealing 2d6 necrotic damage at the start of each of the target’s turns until dislodged (requires an opposed Strength check).",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 9,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "65de736a6330dc79d6a0a7d1c45198cb7ce9e230e8753ff33449a1854ac82122",
+        "source_line_start": 36,
+        "source_line_end": 37,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1d3fdf39f161a44268443ec7bc0f18f73114579d9c59e0dbf52f83b5aba51a35",
+        "unit_type": "prose",
+        "text": "Flesh Melt : ‘The creature uses its action to merge into the environment, gaining advantage on Stealth checks until the start of its next turn if it hasn’t been attacked.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 10,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "4d0392429d3ac5d41cc0484b2c4e207397d1deb7e188204ba97b8b581665a535",
+        "source_line_start": 39,
+        "source_line_end": 40,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "de9972875d269ddb9349452bb0a1375e464686ad911accf8a4b25b613162f452",
+        "unit_type": "prose",
+        "text": "Reeking Burst : ‘Upon death, the creature explodes in a cloud of necrotic gas. Each creature within 10 feet must succeed on a DC 13 Constitution saving throw or take 3 (1d6) poison damage and become poisoned for 1 minute.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 11,
+        "page_fingerprint": "4c53b49a19be717c1949da9fc8ca16ccb90c8389f445208103c69ffb8f3cfdf2",
+        "content_hash": "33d3a434d0f537bf4f55d866c62c56eb80fc0152a5c0a40e5848c525c33f762a",
+        "source_line_start": 42,
+        "source_line_end": 43,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 12,
+          "orphan_count": 8,
+          "orphan_rate": 0.6667,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": true,
+          "orphans": [
+            {
+              "unit_id": "7cb38fc1c682d7d3",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "1474cf1eee6c3db4",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "THE SEWER MEAT THINGS ARE A HORRIFIC AMALGAMATION OF ROTTING FLESH AND CORRUPTED"
+            },
+            {
+              "unit_id": "4d6302482a4fd3b9",
+              "unit_type": "prose",
+              "ordering_key": 2,
+              "text_preview": "Armor Class : 12\nHit Points: 37 Hit Dice : 5d8+15\nSpeed: walk : 20"
+            },
+            {
+              "unit_id": "29f24493032f0b42",
+              "unit_type": "table",
+              "ordering_key": 3,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "52dc6a3588768c37",
+              "unit_type": "prose",
+              "ordering_key": 4,
+              "text_preview": "Saving Throws : str : 2, dex : 0, wis : -1"
+            },
+            {
+              "unit_id": "3f9e71bcba523f96",
+              "unit_type": "prose",
+              "ordering_key": 5,
+              "text_preview": "Skills : perception : 0\nResistances :"
+            },
+            {
+              "unit_id": "4bdf3bef65386282",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Senses : darkvision : 60\nLanguages :"
+            },
+            {
+              "unit_id": "05d67183e8ca6eaa",
+              "unit_type": "prose",
+              "ordering_key": 7,
+              "text_preview": "Challenge Rating : 3 (700)"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 12,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 12,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 1,
+          "oversized_count": 0,
+          "undersized_ratio": 0.0833,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "7cb38fc1c682d7d3",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

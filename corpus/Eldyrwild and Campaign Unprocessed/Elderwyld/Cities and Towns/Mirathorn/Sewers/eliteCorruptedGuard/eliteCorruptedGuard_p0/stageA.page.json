@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "7ace28033527fc2c4e67567ffb407e2b8985db6aa09f33fc9451a6162a1503a0",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Sewers/eliteCorruptedGuard.pdf",
+  "page_index": 0,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "\nElite Corrupted Guard\n\n\nMedium, Humanoid, Human, Chaotic Evil\n\n![](images/0.jpg)\n\n\n\n\nElite Corrupted Guards were once honorable soldiers, but dark magic has warped their minds and bodies. They now serve their malevolent masters with fervor, their weapons steeped in malevolence. Often found commanding lesser corrupted guards, they are formidable opponents with skill and ruthlessness.\n\n\nArmor Class : 12\nHit Points: 25 Hit Dice : 5d8\nSpeed: walk : 30\n\n\n<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>15</td><td>12</td><td>14</td><td>10</td><td>11</td><td>9</td></tr></table>\n\n\nSaving Throws : str : 4, dex : 3, wis : 2\n\n\nSkills : perception : 3\n\n\nResistances :\n\n\nSenses : darkvision : 60\n\n\nLanguages : Common\n\n\nChallenge Rating : 2 (450)\n\n\n## ACTIONS\n\n\nMultiattack : 'The Elite Corrupted Guard makes two melee attacks.\n\n\nCorrupted Blade : ‘Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d8+3) slashing damage. On a hit, the target must succeed on a DC 12 Constitution saving throw or be poisoned for 1 minute.\n\n\nDark Bolt : ‘Ranged Spell Attack: +4 to hit, range 60 ft., one target. Hit: 7 (2d6) necrotic damage. This attack recharges after a short or long rest.",
+  "inference_elapsed_sec": 13.187,
+  "content_hash": "5481c520bd0b1002b5b87ea003999c0effbd7b830184f7c9c239de3cf20b7b45",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}
