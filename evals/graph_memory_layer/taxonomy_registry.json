@@ -2365,6 +2365,71 @@
             "promoted"
           ],
           "admissibility_notes": "Predicate family only, not ontology IR."
+        },
+        {
+          "id": "kinship",
+          "label": "Kinship",
+          "description": "Relationships about family and blood/marriage ties (parent, sibling, spouse).",
+          "allowed_usage": [
+            "Use to group kinship predicates such as parent_of or sibling_of."
+          ],
+          "disallowed_usage": [
+            "Do not define exact kinship edges in this taxonomy registry."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with kinship."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
+        },
+        {
+          "id": "social_relation",
+          "label": "Social Relation",
+          "description": "Relationships about durable social stance between agents (allied, hostile, rival, trusts).",
+          "allowed_usage": [
+            "Use to group social-stance predicates such as allied_with or hostile_to."
+          ],
+          "disallowed_usage": [
+            "Do not define exact social edges in this taxonomy registry.",
+            "Do not infer stance without source support."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with social_relation."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
+        },
+        {
+          "id": "knowledge",
+          "label": "Knowledge",
+          "description": "Relationships about what an agent knows, has learned, or is aware of.",
+          "allowed_usage": [
+            "Use to group knowledge predicates such as knows_about or learned_of."
+          ],
+          "disallowed_usage": [
+            "Do not define exact knowledge edges in this taxonomy registry.",
+            "Do not promote unsupported knowledge claims as source evidence."
+          ],
+          "examples": [
+            "A future graph-memory report labels a candidate with knowledge."
+          ],
+          "allowed_graph_record_states": [
+            "baseline",
+            "candidate",
+            "validated",
+            "promoted"
+          ],
+          "admissibility_notes": "Predicate family only, not ontology IR."
         }
       ]
     },

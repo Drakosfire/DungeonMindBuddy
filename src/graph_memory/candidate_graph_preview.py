@@ -17,6 +17,19 @@ WRITE_TYPES = {"create_node", "update_node", "create_edge", "attach_fact", "mark
 WRITE_STATUSES = {"pending", "approved", "rejected", "deferred"}
 PREVIEW_STATUSES = {"preview", "approved", "partially_approved", "rejected", "deferred"}
 COMMITTED_ACTIONS = {"promote", "promoted", "commit", "committed", "approve", "approved", "write", "written"}
+# corpus_ref lets an entity node resolve to (or propose) a live corpus index item
+# (npc/location/etc.), so candidate-graph output is consumable by the command-board
+# reference-chip resolver. resolution="resolved" => ref_id should match a live index
+# key; resolution="proposed" => no corpus entity yet (pairs with a proposed_write).
+CORPUS_REF_TYPES = {"npc", "pc", "location", "sublocation", "region", "faction", "creature", "item", "statblock", "roll-table"}
+CORPUS_REF_RESOLUTIONS = {"resolved", "proposed"}
+
+@dataclass(frozen=True)
+class CorpusRef:
+    type: str
+    ref_id: str
+    resolution: str = "resolved"
+    hub_path: str | None = None
 
 @dataclass(frozen=True)
 class EvidenceRef:
@@ -48,6 +61,7 @@ class CandidateNode:
     proposed_action: str
     confidence: str
     warnings: tuple[str, ...] = ()
+    corpus_ref: CorpusRef | None = None
 
 @dataclass(frozen=True)
 class CandidateEdge:
@@ -163,6 +177,7 @@ def semantic_state_from_dict(data: Mapping[str, Any]) -> SemanticState: return S
 def semantic_state_to_dict(state: SemanticState) -> dict[str, Any]: return asdict(state)
 def evidence_ref_from_dict(data: Mapping[str, Any]) -> EvidenceRef: return EvidenceRef(**data)
 def evidence_ref_to_dict(ref: EvidenceRef) -> dict[str, Any]: return asdict(ref)
+def corpus_ref_from_dict(data: Mapping[str, Any] | None) -> CorpusRef | None: return CorpusRef(**data) if data else None
 
 def _refs(items: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...]) -> tuple[EvidenceRef, ...]:
     return tuple(evidence_ref_from_dict(x) for x in items)
@@ -172,7 +187,7 @@ def candidate_graph_preview_from_dict(data: Mapping[str, Any]) -> CandidateGraph
         schema=data["schema"], version=data["version"], preview_id=data["preview_id"],
         campaign_id=data.get("campaign_id"), session_id=data.get("session_id"),
         source_artifact_ids=tuple(data.get("source_artifact_ids", ())), status=data["status"],
-        nodes=tuple(CandidateNode(**{**n, "semantic_state": semantic_state_from_dict(n["semantic_state"]), "evidence_refs": _refs(n.get("evidence_refs", ())), "warnings": tuple(n.get("warnings", ()))}) for n in data.get("nodes", ())),
+        nodes=tuple(CandidateNode(**{**n, "semantic_state": semantic_state_from_dict(n["semantic_state"]), "evidence_refs": _refs(n.get("evidence_refs", ())), "warnings": tuple(n.get("warnings", ())), "corpus_ref": corpus_ref_from_dict(n.get("corpus_ref"))}) for n in data.get("nodes", ())),
         edges=tuple(CandidateEdge(**{**e, "semantic_state": semantic_state_from_dict(e["semantic_state"]), "evidence_refs": _refs(e.get("evidence_refs", ())), "warnings": tuple(e.get("warnings", ()))}) for e in data.get("edges", ())),
         beats=tuple(SessionBeat(**{**b, "involved_node_ids": tuple(b.get("involved_node_ids", ())), "evidence_refs": _refs(b.get("evidence_refs", ())), "unresolved_thread_node_ids": tuple(b.get("unresolved_thread_node_ids", ())), "warnings": tuple(b.get("warnings", ()))}) for b in data.get("beats", ())),
         proposed_writes=tuple(ProposedWrite(**{**w, "evidence_refs": _refs(w.get("evidence_refs", ()))}) for w in data.get("proposed_writes", ())),
@@ -215,6 +230,11 @@ def validate_candidate_graph_preview(preview: CandidateGraphPreview) -> Candidat
         if w.write_type not in WRITE_TYPES: add("invalid_semantic_state","invalid write_type",w.write_id,"write_type")
     for n in preview.nodes:
         if n.node_type not in NODE_TYPES: add("invalid_semantic_state","invalid node_type",n.node_id,"node_type")
+        if n.corpus_ref is not None:
+            cr=n.corpus_ref
+            if cr.type not in CORPUS_REF_TYPES: add("invalid_corpus_ref","invalid corpus_ref type",n.node_id,"corpus_ref.type")
+            if cr.resolution not in CORPUS_REF_RESOLUTIONS: add("invalid_corpus_ref","invalid corpus_ref resolution",n.node_id,"corpus_ref.resolution")
+            if not cr.ref_id: add("invalid_corpus_ref","corpus_ref.ref_id must be non-empty",n.node_id,"corpus_ref.ref_id")
     for obj in list(preview.nodes)+list(preview.edges):
         s=obj.semantic_state
         if s.canon_state not in CANON_STATES or s.lifecycle_state not in LIFECYCLE_STATES or s.evidence_role not in EVIDENCE_ROLES or s.authority_state not in AUTHORITY_STATES or s.visibility_state not in VISIBILITY_STATES: add("invalid_semantic_state","invalid semantic state",getattr(obj,"node_id",getattr(obj,"edge_id",None)),"semantic_state")
