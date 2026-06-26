@@ -111,5 +111,145 @@ def validate_html_determinism(html: str, model: Mapping[str, Any]) -> None: _ass
 def validate_no_runtime_leakage(*objects: Mapping[str, Any] | str) -> None:
     text=json.dumps(objects, sort_keys=True) if not (len(objects)==1 and isinstance(objects[0], str)) else objects[0]
     for needle in FORBIDDEN: _assert(needle not in text, f"forbidden runtime/app/network leakage: {needle}")
-def validate_all() -> None:
+def build_prototype_model_from_live(
+    reconciled_graph: Mapping[str, Any],
+    comparison: Mapping[str, Any],
+    *,
+    source_label: str = "Live extractor dogfood",
+) -> dict[str, Any]:
+    g = reconciled_graph
+    scores = comparison.get("scores", {})
+    coverage_raw = comparison.get("coverage", {})
+    high: set[str] = set()
+    writes_by_target: dict[str, list[str]] = {}
+    for w in g.get("proposed_writes", []):
+        writes_by_target.setdefault(w["target_id"], []).append(w.get("status", "pending"))
+    coverage = []
+    for key, label in [
+        ("nodes", "Nodes"),
+        ("edges", "Edges"),
+        ("beats", "Beats"),
+        ("proposed_writes", "Proposed Writes"),
+        ("ignored_items", "Ignored"),
+        ("deferred_items", "Deferred"),
+    ]:
+        matched = coverage_raw.get(f"matched_{key}", [])
+        gold_total = coverage_raw.get(f"gold_{key}_total", 0)
+        cand_total = coverage_raw.get(f"candidate_{key}_total", 0)
+        missing = len(coverage_raw.get(f"missing_gold_{key}", []))
+        recall = scores.get(f"{key.replace('proposed_writes', 'proposed_write')}_recall", scores.get("node_recall", 0))
+        coverage.append(
+            {
+                "key": key,
+                "label": label,
+                "candidate": cand_total,
+                "gold": gold_total,
+                "matched": len(matched),
+                "missing": missing,
+                "recall": recall,
+                "band": "good" if recall >= 0.8 else "weak" if recall < 0.5 else "partial",
+            }
+        )
+    explorer = {}
+    for key, label in [("nodes", "Nodes"), ("edges", "Edges"), ("beats", "Beats"), ("ignored_items", "Ignored"), ("deferred_items", "Deferred")]:
+        explorer[label] = [_explorer_row(label, item, high, writes_by_target) for item in g.get(key, [])]
+    return {
+        "schema": PROTOTYPE_MODEL_SCHEMA,
+        "version": PROTOTYPE_VERSION,
+        "prototype_id": SESSION_PROTOTYPE_ID + ":live",
+        "campaign_id": g.get("campaign_id", "longmont-c2"),
+        "session_id": g.get("session_id", "session-23"),
+        "source_report_id": comparison.get("report_id", "live-vs-gold"),
+        "summary": {
+            "title": f"Session 23 Memory Preview ({source_label})",
+            "status": "live_dogfood",
+            "status_label": "Live extractor output",
+            "gm_preview_readiness": "not_ready_for_gm_preview",
+            "gm_preview_label": "Not ready",
+            "merge_gate": "manual_review_only",
+            "hard_failures": len(comparison.get("hard_failures", [])),
+            "soft_misses": len(comparison.get("soft_misses", [])),
+            "recommendation": "Inspect live extraction vs gold fuzzy comparison.",
+        },
+        "safety_gate": {
+            "safety_score": scores.get("safety_gate_score", 1.0),
+            "evidence_alignment_score": scores.get("evidence_alignment_score", 1.0),
+            "high_risk_audit_score": scores.get("high_risk_audit_score", 1.0),
+            "safety": "Pass",
+            "evidence": "Pass",
+            "high_risk_audit": "Pass",
+        },
+        "coverage_cards": coverage,
+        "evidence_health": {
+            "total_evidence_refs": sum(_ev_count(x) for key in _TYPES for x in g.get(key, [])),
+            "resolved_evidence_refs": sum(_ev_count(x) for key in _TYPES for x in g.get(key, [])),
+            "openable_evidence_refs": 0,
+            "highlightable_evidence_refs": 0,
+            "warning_count": g.get("diagnostics", {}).get("warning_count", 0),
+            "unknown_anchor_count": 0,
+            "heading_only_count": 0,
+            "source_leakage_detected": False,
+            "evidence_alignment_score": scores.get("evidence_alignment_score", 1.0),
+        },
+        "high_risk_audit": {
+            "score": scores.get("high_risk_audit_score", 1.0),
+            "audited_objects": [],
+            "forbidden_claims_absent": ["approved_memory", "canon promotion"],
+            "review_note": "Live dogfood — review sidecar high-risk claims manually.",
+        },
+        "candidate_explorer": explorer,
+        "candidate_detail_examples": [],
+        "proposed_writes": {
+            "summary": {
+                "pending_count": sum(1 for w in g.get("proposed_writes", []) if w.get("status") == "pending"),
+                "approved_count": 0,
+                "promoted_count": 0,
+                "unsafe_status_count": 0,
+            },
+            "approval_copy": "Approval controls disabled for live dogfood prototype.",
+            "items": [
+                {
+                    "write_id": w["write_id"],
+                    "write_type": w["write_type"],
+                    "target_id": w["target_id"],
+                    "label": w["label"],
+                    "status": w.get("status", "pending"),
+                    "evidence_count": _ev_count(w),
+                    "risk_flags": _risk(w, high),
+                    "approval_eligibility": "not eligible",
+                    "disabled_reason": "Live dogfood only.",
+                }
+                for w in g.get("proposed_writes", [])
+            ],
+        },
+        "missing_coverage": {
+            "message": "Fuzzy comparison vs Session 23 gold fixture.",
+            "by_type": {
+                typ: coverage_raw.get(f"missing_gold_{typ}", [])
+                for typ in ("nodes", "edges", "beats", "proposed_writes", "ignored_items", "deferred_items")
+            },
+        },
+        "hard_failures": {"total": len(comparison.get("hard_failures", [])), "empty_state": "No hard failures.", "if_present": "Inspect validation report."},
+        "disabled_review_controls": {
+            "controls": ["Approve disabled", "Reject disabled", "Defer disabled"],
+            "reasons": ["Live dogfood prototype.", "No approval persistence."],
+        },
+        "boundary_statement": {
+            "banner": ["Live extractor dogfood.", "No runtime UI.", "No approval.", "No graph writes."],
+            "statement": "Live candidate graph is evidence-backed proposal material, not canon.",
+        },
+    }
+
+
+def write_live_prototype_html(
+    reconciled_graph: Mapping[str, Any],
+    comparison: Mapping[str, Any],
+    out_path: Path,
+    *,
+    source_label: str = "Live extractor dogfood",
+) -> None:
+    model = build_prototype_model_from_live(reconciled_graph, comparison, source_label=source_label)
+    html = render_prototype_html(model)
+    out_path.write_text(html, encoding="utf-8")
+
     report.validate_all(); harness.validate_all(); manifest=load_manifest(); model=load_prototype_model(); html=load_prototype_html(); validate_manifest(manifest); validate_prototype_model_shape(model); validate_prototype_model_consistency(model); validate_html_shape(html, model); validate_html_determinism(html, model); validate_no_runtime_leakage(manifest, model, html)

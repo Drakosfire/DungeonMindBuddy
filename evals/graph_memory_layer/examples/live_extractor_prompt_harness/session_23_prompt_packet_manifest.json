@@ -4,19 +4,21 @@
   "mode": "one_shot",
   "out_dir": null,
   "output_contract": {
-    "preview_only": true,
-    "required_sections": [
-      "candidate_nodes",
-      "candidate_edges",
-      "session_beats",
-      "unnamed_important_concepts",
+    "candidate_graph_sections": [
+      "nodes",
+      "edges",
+      "beats",
+      "proposed_writes",
       "ignored_items",
       "deferred_items",
-      "proposed_writes",
-      "high_risk_claims",
       "diagnostics"
     ],
-    "target": "Candidate Graph Preview IR-shaped JSON"
+    "preview_only": true,
+    "required_sections": [
+      "candidate_graph",
+      "review_sidecar"
+    ],
+    "target": "dmb_live_extractor_candidate_envelope_v0"
   },
   "prompt_files": [
     "one_shot_prompt.md"

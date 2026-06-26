@@ -31,5 +31,9 @@
     "agent_interaction_connected": false,
     "runtime_behavior_changed": false,
     "production_behavior_changed": false
-  }
+  },
+  "notes": [
+    "Spelling variants Kasemine/Karsemine/Karesmine and Baergrom/Baergorm are preserved in expected_normalized_recap.md as source truth for alias-deferral benchmarks.",
+    "Lysandro (named once) vs unnamed father on the wall remains the canonical high-risk identity-binding case."
+  ]
 }

@@ -10,5 +10,9 @@
   "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_23_recap_ingest/source_span_seed_refs.json",
   "candidate_graph_gold_path": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json",
   "authoring_mode": "hand_authored_gold",
+  "notes": [
+    "Gold evidence uses source_anchor_id sub-paragraph spans from source_span_seed_refs.json; live dogfood uses spref paragraph spans reconciled via line/char overlap.",
+    "Multiple nodes may share anchor evidence; span-overlap fuzzy matching is the intended live-vs-gold comparator — not exact node_id equality."
+  ],
   "diagnostics": {"manual_gold_fixture": true, "extraction_performed": false, "llm_required": false, "live_planner_required": false, "runtime_required": false, "corpus_scan_required": false, "corpus_mutation_required": false, "graph_write_required": false, "approval_required": false, "query_execution_required": false, "plan_connected": false, "agent_interaction_connected": false, "production_behavior_changed": false}
 }

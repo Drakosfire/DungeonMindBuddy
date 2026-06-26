@@ -2,10 +2,11 @@
   "schema": "dmb_live_extractor_prompt_manifest_v0",
   "version": "0.1",
   "fixture_id": "graph-memory:live-extractor-prompt-harness:v0",
-  "purpose": "Render one-shot and two-shot model-ready prompts from a verified live recap ingest run bundle plus explicit source recap file.",
+  "purpose": "Render one-shot, two-shot, and three-shot model-ready prompts from a verified live recap ingest run bundle plus explicit source recap file.",
   "modes": {
     "one_shot": {"prompt_files": ["one_shot_prompt.md"], "model_calls_required_by_harness": 0},
-    "two_shot": {"prompt_files": ["observation_extraction_prompt.md", "graph_assembly_prompt.md"], "model_calls_required_by_harness": 0}
+    "two_shot": {"prompt_files": ["observation_extraction_prompt.md", "graph_assembly_prompt.md"], "model_calls_required_by_harness": 0},
+    "three_shot": {"prompt_files": ["observation_prompt.md", "relation_prompt.md", "assembly_prompt.md"], "model_calls_required_by_harness": 0}
   },
   "sample_run_bundle": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample",
   "sample_source_recap": "evals/graph_memory_layer/examples/session_23_recap_ingest/expected_normalized_recap.md",
