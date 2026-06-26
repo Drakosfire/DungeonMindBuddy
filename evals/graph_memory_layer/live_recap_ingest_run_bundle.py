@@ -56,7 +56,9 @@ def validate_output_path(out_dir: Path, *, allow_example_output: bool = False) -
     root = repo_root(); target = (root / out_dir if not out_dir.is_absolute() else out_dir).resolve()
     allowed = (root / LIVE_RECAP_RUNS_DIR).resolve()
     examples = (root / LIVE_RECAP_EXAMPLE_DIR).resolve()
-    if not (target == allowed or allowed in target.parents or (allow_example_output and (target == examples or examples in target.parents))):
+    normal_live_child = target != allowed and allowed in target.parents
+    example_child = allow_example_output and target != examples and examples in target.parents
+    if not (normal_live_child or example_child):
         raise BundleValidationError("output_outside_allowed_run_dir")
 
 def read_explicit_recap_input(input_path: Path) -> str:

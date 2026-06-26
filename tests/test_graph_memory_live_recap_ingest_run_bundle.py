@@ -33,6 +33,10 @@ def test_input_output_boundary_rejections(tmp_path):
         corpus.unlink()
     with pytest.raises(l.BundleValidationError, match='output_outside_allowed_run_dir'):
         l.validate_output_path(tmp_path/'out')
+    with pytest.raises(l.BundleValidationError, match='output_outside_allowed_run_dir'):
+        l.validate_output_path(Path(l.LIVE_RECAP_RUNS_DIR))
+    with pytest.raises(l.BundleValidationError, match='output_outside_allowed_run_dir'):
+        l.validate_output_path(Path(l.LIVE_RECAP_EXAMPLE_DIR), allow_example_output=True)
     l.validate_output_path(Path(l.SESSION_23_SAMPLE_DIR), allow_example_output=True)
 
 
@@ -67,6 +71,9 @@ def test_clis_and_temp_run(tmp_path):
     recap.write_text('# Session Test\n\nThe party reached the north gate.\n\nA messenger warned that something was coming.\n')
     before=recap.read_text()
     out=Path(l.LIVE_RECAP_RUNS_DIR)/'pytest_tmp_live_recap'
+    root_reject=subprocess.run([sys.executable,'-m','evals.graph_memory_layer.run_live_recap_ingest','--campaign-id','longmont-c2','--session-id','session-test','--input',str(recap),'--out',l.LIVE_RECAP_RUNS_DIR,'--allow-overwrite'],cwd=root,text=True,capture_output=True)
+    assert root_reject.returncode != 0
+    assert 'output_outside_allowed_run_dir' in root_reject.stderr
     for cmd in [
         [sys.executable,'-m','evals.graph_memory_layer.validate_live_recap_ingest_run_bundle'],
         [sys.executable,'-m','evals.graph_memory_layer.report_live_recap_ingest_run_bundle'],
