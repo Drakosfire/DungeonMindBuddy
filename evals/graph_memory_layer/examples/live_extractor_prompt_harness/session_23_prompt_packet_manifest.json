@@ -1,0 +1,60 @@
+{
+  "campaign_id": "longmont-c2",
+  "fixture_id": "graph-memory:live-extractor-prompt-harness:v0",
+  "mode": "one_shot",
+  "out_dir": null,
+  "output_contract": {
+    "preview_only": true,
+    "required_sections": [
+      "candidate_nodes",
+      "candidate_edges",
+      "session_beats",
+      "unnamed_important_concepts",
+      "ignored_items",
+      "deferred_items",
+      "proposed_writes",
+      "high_risk_claims",
+      "diagnostics"
+    ],
+    "target": "Candidate Graph Preview IR-shaped JSON"
+  },
+  "prompt_files": [
+    "one_shot_prompt.md"
+  ],
+  "run_id": "graph-memory:live-recap-ingest:session-23:sample-v0",
+  "safety": {
+    "agent_interaction_connected": false,
+    "corpus_mutation_allowed": false,
+    "corpus_scan_allowed": false,
+    "graph_writes_allowed": false,
+    "manual_llm_only": true,
+    "no_api_key_required": true,
+    "plan_connected": false,
+    "query_execution_allowed": false,
+    "runtime_connected": false
+  },
+  "schema": "dmb_live_extractor_prompt_packet_manifest_v0",
+  "session_id": "session-23",
+  "source": {
+    "input_line_count": 38,
+    "input_sha256": "afdd17e47b4cc1e8e1d5a7b3128ef6aec7fa83eed372648d502acfcd0395ea16",
+    "source_span_refs": [
+      "spref:session-23:p001",
+      "spref:session-23:p002",
+      "spref:session-23:p003",
+      "spref:session-23:p004",
+      "spref:session-23:p005",
+      "spref:session-23:p006",
+      "spref:session-23:p007",
+      "spref:session-23:p008",
+      "spref:session-23:p009",
+      "spref:session-23:p010",
+      "spref:session-23:p011",
+      "spref:session-23:p012",
+      "spref:session-23:p013",
+      "spref:session-23:p014"
+    ],
+    "source_units": 14
+  },
+  "version": "0.1"
+}

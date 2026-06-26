@@ -418,3 +418,8 @@ Primary artifacts:
 evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/
 Docs/Design/GRAPH-MEMORY-LIVE-RECAP-INGEST-RUN-BUNDLE.md
 ```
+
+## Live Extractor Prompt/Harness v0
+
+Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-shot model-ready prompts from PR189 source-spanned recap bundles and validate manually supplied candidate graph output. Next rung: gated manual live LLM dogfood run / candidate output review packet against the Session 23 benchmark. Still blocked: graph writes, approval persistence, query execution, runtime retrieval, /plan, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
+
