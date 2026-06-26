@@ -252,4 +252,5 @@ def write_live_prototype_html(
     html = render_prototype_html(model)
     out_path.write_text(html, encoding="utf-8")
 
+def validate_all() -> None:
     report.validate_all(); harness.validate_all(); manifest=load_manifest(); model=load_prototype_model(); html=load_prototype_html(); validate_manifest(manifest); validate_prototype_model_shape(model); validate_prototype_model_consistency(model); validate_html_shape(html, model); validate_html_determinism(html, model); validate_no_runtime_leakage(manifest, model, html)
