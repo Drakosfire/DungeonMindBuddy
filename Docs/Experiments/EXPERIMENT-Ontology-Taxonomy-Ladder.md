@@ -928,7 +928,9 @@ The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and def
 
 The workstream has re-anchored from static Agent Interaction planning toward first live recap dogfood. It now has a Live Recap Ingest Run Bundle that takes an explicitly supplied recap file and emits source-spanned dogfood run artifacts without LLM execution, extraction, candidate graph generation, graph writes, query execution, `/plan`, Agent Interaction, corpus scan/mutation, fact promotion, canon promotion, or runtime behavior changes.
 
-Recommended next PR: `graph-memory: add agent interaction chip payload contract v0`.
+Recommended next PR: `graph-memory: add live extractor prompt pack v0`.
+
+The next step is not Agent Interaction, and not more static scaffold for its own sake. It is the first gated LLM candidate-graph extraction path against the decomposed Session 23 benchmark.
 
 
 ## Live Recap Ingest Run Bundle v0
