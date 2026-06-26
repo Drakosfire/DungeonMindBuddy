@@ -8,7 +8,24 @@
 
 ## Design north star
 
-Agent Interaction is the GM's **plan-mode desk companion**: ask campaign questions before session, ingest and review after. Hermes is the default backing agent — conversational, tool-capable, and inspectable when needed. Corpus remains canon; the agent orchestrates retrieval and the same operator tools the UI exposes (statblocks, NPC workflows, tables, etc.), not just Q&A.
+Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `/plan` implementation has proven the interaction model through P3.1, but `/plan` is only the first intentional surface. Corpus remains canon; Hermes long-term memory is future and non-canon; graph/ontology work is sibling infrastructure consumed through source-vocabulary adapters, not owned by Agent Interaction.
+
+---
+
+## Current phase status after local P3.1
+
+| Phase | Story status | Roadmap meaning |
+|-------|--------------|-----------------|
+| **P0 — conversational core** | Satisfied locally / partial target | Thread/turn model, same-thread follow-up, local persistence, trace toggle, and Hermes session seam exist in `/plan`; mature Hermes continuity remains future. |
+| **P1 — citation trust surface** | Satisfied locally / partial target | Citation cards and in-pane source reader exist; cite-or-abstain policy hardening remains future. |
+| **P1.1 — source reader hardening** | Satisfied locally | `/api/live/citation-source` and safe read-only lookup are covered as trust infrastructure. |
+| **P2 — thread management** | Satisfied locally / partial target | Named thread create/rename/switch/delete and long-thread guardrails exist locally; app-level persistence waits for R10/P4. |
+| **P3 — retrieval freshness and source-currentness** | Satisfied locally / partial target | `retrieval_freshness`, `RetrievalFreshnessPanel`, `/api/live/citation-freshness`, `CorpusChangeSignalPanel`, evidence snapshots, and metadata-only source-line hash/status checks exist; automated corpus-change fan-out remains future. |
+| **P4 / R10 — app-level provider lift** | Future / next likely code rung | Move `AgentInteractionProvider` above routes/surfaces while preserving current `/plan` UX. |
+| **P5 — tool parity** | Future | Full operator tools in conversation; all writes remain preview -> GM confirm. |
+| **P6 — Hermes memory integration** | Future | Hermes long-term memory may help continuity/preferences only; campaign facts remain source-grounded corpus canon. |
+
+React `/play` follows R10/P4 as the second-surface proof. Runtime graph retrieval is future adapter work, not a prerequisite for the provider lift. Agent Interaction consumes `SourceArtifact -> SourceAnchor -> SourceUnit` envelopes and must not treat graph summaries as source evidence.
 
 ---
 
@@ -55,6 +72,7 @@ This scenario should eventually pass end-to-end:
 | **S2.3** | **As a GM**, I want the agent to **cite or abstain** on thin claims, **so that** I am not given confident fiction. | Skill/policy: claims tied to evidence ids or paths; missing evidence → explicit uncertainty, not filler. |
 | **S2.4** | **As a GM**, I want the agent to **decide when to re-retrieve** vs lean on thread context, **so that** follow-ups are fast and relevant without stale grounding. | Follow-up after inn question should not re-fetch full inn docs unless the new question requires new sources; **re-retrieve when corpus may have changed** (write/ingest in any thread); decision visible in trace when dogfooding. |
 | **S2.5** | **As a GM**, when I open a citation from an older turn, I want the **corpus doc view inside the Agent Interaction pane** to show **current content**, **so that** I am not misled by a snapshot from before ingestion or a write. | In-pane doc reader reads live file; stale indicator when content changed since turn timestamp; re-ask/refresh affordance. |
+| **S2.6** | **As a GM**, when I inspect an older answer, I want a **compact corpus change signal**, **so that** I can tell whether cited evidence still matches current source state. | Stored answer can show **Current / Changed / Unknown / Unavailable** based on metadata-only source checks through `/api/live/citation-freshness` and `CorpusChangeSignalPanel`. |
 
 ### Epic 3 — Inspectability (dogfood → invisible)
 
@@ -114,15 +132,18 @@ This scenario should eventually pass end-to-end:
 
 ## Recommended build sequence (maps stories → tracks)
 
-| Phase | Stories | Track |
-|-------|---------|-------|
-| **P0 — Conversational core** | S1.2, S1.5, S4.1, S3.3 (partial) | Hermes session continuity, conversation UI, persistence |
-| **P1 — Trust surface** | S2.1, S2.2, S2.3, S3.1 | Citations in prose, cite-or-abstain, dogfood trace |
-| **P2 — Thread management** | S1.3, S1.4, S1.7, S1.8, S5.2 | Parallel arcs, quick switch + resume, live read/write coherence |
-| **P3 — Smart retrieval** | S2.4, S4.3 (session) | Agent decides re-fetch vs thread context |
-| **P4 — App hoist** | S5.1, S5.3 | R10 provider, cross-surface |
-| **P5 — Tool parity** | S6.1–S6.3 | Statblock, NPC, tables via agent |
-| **P6 — Memory integration** | S4.3, S4.4 | Hermes long-term memory policy |
+| Phase | Stories | Current status | Track |
+|-------|---------|----------------|-------|
+| **P0 — Conversational core** | S1.2, S1.5, S4.1, S3.3 (partial) | Satisfied locally / partial target | Local `/plan` thread/turn core; mature Hermes continuity remains future. |
+| **P1 — Trust surface** | S2.1, S2.2, S2.3, S3.1 | Satisfied locally / partial target | Citation cards, source drill-in, trace; cite-or-abstain hardening remains future. |
+| **P1.1 — Source reader hardening** | S2.1, S2.5 | Satisfied locally | Hardened read-only source endpoint and allowlisted lookup. |
+| **P2 — Thread management** | S1.3, S1.4, S1.6, S1.7, S1.8, S5.2 | Satisfied locally / partial target | Named local threads and long-thread guardrails; app-level persistence waits for R10/P4. |
+| **P3 — Smart retrieval and source freshness** | S2.4, S2.5, S2.6, S4.3 (session) | Satisfied locally / partial target | Retrieval freshness and metadata-only corpus change signal; robust re-retrieval policy/fan-out remain future. |
+| **P4 / R10 — App hoist** | S5.1, S5.3 | Future / next likely code rung | App-level `AgentInteractionProvider`, cross-surface continuity. |
+| **P5 — Tool parity** | S6.1–S6.3 | Future | Statblock, NPC, tables, ingestion-adjacent tools via agent; no autonomous writes. |
+| **P6 — Memory integration** | S4.3, S4.4 | Future | Hermes long-term memory policy for non-canon continuity/preferences. |
+
+P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R10/P4 is the next likely code rung, and React `/play` follows as the second-surface proof.
 
 ---
 
@@ -182,7 +203,7 @@ This scenario should eventually pass end-to-end:
 
 ## Interview status
 
-**Complete.** All Round 1–3 UX decisions captured. Next artifact: scoped **P0 implementation handoff** (Hermes session continuity + full thread persist + parallel thread shell + trace toggle + in-pane citation reader).
+**Complete.** All Round 1–3 UX decisions captured, and local `/plan` dogfood has landed through P3.1. Next artifact/code slice should point at **R10/P4 provider lift**, not a new P0 restart.
 
 ---
 

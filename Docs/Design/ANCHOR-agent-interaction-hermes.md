@@ -1,208 +1,187 @@
 # Anchor — Agent Interaction + Hermes
 
-**Status:** Active anchor  
-**Created:** 2026-06-23  
-**Scope:** Plan-mode Agent Interaction bar/pane, Hermes-backed conversation, manifest retrieval, multi-thread UX, operator tool parity  
-**Parent:** `Docs/Design/ANCHOR-plan-surface-agent-interaction.md` (surface ladder, R10/R11, ingestion vocabulary)
+**Status:** Active anchor, re-anchored after local `/plan` P3.1 dogfood
+**Created:** 2026-06-23
+**Re-anchored:** 2026-06-26
+**Scope:** Agent Interaction roadmap, Hermes-backed prep conversation, source-grounded trust surfaces, graph-safe retrieval boundary
+**Parent:** `Docs/Design/ANCHOR-plan-surface-agent-interaction.md` (surface ladder, R10/P4 provider lift, ingestion vocabulary)
 
-Start here to re-anchor or jumpstart an agent on **conversational Hermes prep** — not chat history.
+Start here to re-anchor or jumpstart an agent on **Agent Interaction as DungeonBuddy's GM companion**. This document is intentionally about the product interaction layer, not graph-memory infrastructure.
 
 ---
 
 ## Executive summary
 
-**What it is:** A bottom **Agent Interaction** surface on `/plan` where the GM preps at the desk (before session) and reviews after (ingestion). **Hermes** is the target default backing agent: multi-turn conversation, full operator tool access, corpus-grounded prose answers with in-pane citations. **Manifest retrieval** (`dungeon_context_lookup`) remains the evidence layer; corpus is canon, not Hermes memory.
+Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `/plan` implementation has now dogfooded the conversational ladder through **P3.1**:
 
-**What works today (on `main`, commits through `eac1b8f`):**
+- The GM can ask natural-language campaign questions.
+- Answers are corpus-grounded and can include citation cards.
+- Citations can open a read-only source reader inside the Agent Interaction pane.
+- Prep can happen in named local threads.
+- Same-thread follow-up plumbing and thread context exist.
+- Retrieval freshness is visible through `retrieval_freshness` and `RetrievalFreshnessPanel`.
+- Older cited answers can run metadata-only source-currentness checks through `/api/live/citation-freshness` and `CorpusChangeSignalPanel`.
 
-- Ask field + backend route (`live` | `hermes`) via `POST /api/live/query`
-- Hermes CLI one-shot with **preflight retrieval** (context packet always returned)
-- Inspectable trace: retrieved text, prompt preview, token estimates, steps (partial)
-- Turn metadata in `localStorage` (not full thread bodies on reload)
-- Each Hermes turn = **new** `--oneshot` — no session continuity yet
+The implementation remains **local to `/plan`**. The next likely code rung is **R10 / P4: lift Agent Interaction state ownership into an app-level `AgentInteractionProvider` while preserving the current `/plan` UX**. React `/play` follows R10/P4 as the second-surface proof.
 
-**Where we're going (UX locked — see stories doc):**
-
-| Track | Target |
-|-------|--------|
-| Hermes session continuity | Reuse session across turns, not one-shot per message |
-| Conversation UI | Named threads, 2–3 parallel arcs/day, full persist on reload |
-| Live corpus coherence | Every thread read/write; writes in thread A visible in thread B |
-| Citations | Prose + links → full doc **inside Agent Interaction pane** |
-| Trace | **User toggle** |
-| New thread | **Auto-suggest after N turns** |
-| Tools | All operator tools (statblock, NPC, tables, …); writes **preview → GM confirm only** |
-| R10 | Bar follows across surfaces; collapsed = **thread title only** |
-
-**Not done:** Multi-turn Hermes sessions, parallel thread switcher, in-pane corpus reader, trace toggle, full thread persistence, tool parity beyond retrieval, R10 provider hoist.
+Hermes long-term memory remains **future and non-canon**. Operator tool parity and write-preview flows remain **future**. Runtime graph retrieval remains **out of scope** for this workstream; future graph-backed retrieval must be consumed through source-vocabulary adapters.
 
 ---
 
-## Example user stories (acceptance anchors)
+## Roadmap status
 
-Full catalog: `Docs/Design/UX-STORIES-agent-interaction-hermes.md`
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **P0 — conversational core** | Landed locally | Thread/turn model, same-thread follow-up, local persistence, trace toggle, Hermes session seam. |
+| **P1 — citation trust surface** | Landed locally | Answer-first UI, citation cards, Open source action, in-pane source reader. |
+| **P1.1 — source reader hardening** | Landed locally | Source endpoint OpenAPI/test coverage, allowlist, safe read-only lookup. |
+| **P2.0 — named threads** | Landed locally | Thread index, create/rename/switch/delete, per-thread active state. |
+| **P2.1 — thread quality** | Landed locally | Long-thread suggestion with explicit Start new thread / Keep going and persistence. |
+| **P3.0 — retrieval freshness** | Landed locally | `retrieval_freshness` response object and `RetrievalFreshnessPanel`. |
+| **P3.1 — corpus change signal** | Landed locally | `/api/live/citation-freshness`, `CorpusChangeSignalPanel`, evidence snapshots, metadata-only source-currentness checks. |
+| **P4 / R10 — provider lift** | Future / next likely code rung | Move Agent Interaction state ownership above routes/surfaces while preserving current `/plan` UX. |
+| **P5 — operator tool parity** | Future | Same-thread tool use beyond retrieval; all writes remain preview -> GM confirm. |
+| **P6 — Hermes memory integration** | Future | Hermes long-term memory can help continuity/preferences only; corpus remains canon. |
 
-**Journey — Mireward inn prep**
-
-1. *As a GM*, I ask: *"What is the name of the Inn in Mireward Reach and who owns it, what are its prices and what does it offer?"*  
-   → Prose answer with **corpus-linked facts**; click link → **full rendered doc in Agent Interaction pane**.
-
-2. *As a GM*, I follow up in the **same thread**: *"Does the owner know Lysandra? If so how?"*  
-   → Uses **thread + Hermes session context**; does not blindly re-retrieve inn docs; cites new evidence where needed.
-
-3. *As a GM*, I **reload the browser** → full thread returns (Q/A, links, trace pointers).
-
-4. *As a GM*, I run **ingestion in the same thread**, then ask *"what changed?"* → answer reflects **live canon**.
-
-**Parallel threads + live canon**
-
-5. *As a GM*, I keep **"Inn prep"** and **"S23 ingest"** as two named threads and switch same day → each **resumes scroll/focus**; ingest in one thread → factual ask in the other sees **updated corpus**.
-
-**Trust & control**
-
-6. *As a GM*, I toggle **trace on** during dogfood, **off** when citations feel enough.
-
-7. *As a GM*, when the agent proposes a corpus write → **preview diff only**; nothing commits until I approve.
+There is no active Agent Interaction anchor where P0 is the next slice. P0-P3.1 are already landed locally in `/plan`.
 
 ---
 
-## Path index (read these, not chat)
+## Target app shape
 
-### Design & UX (start here for product intent)
+```text
+AppChrome
+  AgentInteractionProvider
+    Route / Surface
+      PlanSurfaceShell
+      PlaySurfaceShell
+      BuildSurfaceShell (future)
 
-| Path | Role |
-|------|------|
-| `Docs/Design/UX-STORIES-agent-interaction-hermes.md` | **Full user stories**, interview decisions, build phases P0–P6 |
-| `Docs/Design/ANCHOR-plan-surface-agent-interaction.md` | Surface ladder, R10/R11, provider invariants |
-| `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md` | Engineering handoff: spike learnings, env vars, verification |
-| `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md` | Bar/pane ownership, ingestion proof, R10 direction |
-| `.hermes.md` | Hermes policy: corpus canon, memory rules, plugin install |
-
-### Frontend — Agent Interaction (extend, don't redesign)
-
-| Path | Role |
-|------|------|
-| `apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx` | Main bar + pane shell, ask, backend select, turn history |
-| `apps/live-control-ui/src/planSurface/components/TraceDetailsPanel.tsx` | Agent trace (→ add user toggle) |
-| `apps/live-control-ui/src/planSurface/components/ContextSufficiencyPanel.tsx` | Retrieved text / evidence display |
-| `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` | Turn metadata persistence (→ full thread bodies) |
-| `apps/live-control-ui/src/planSurface/components/contextSufficiencyLadder.ts` | Ladder + admitted items for UI |
-| `apps/live-control-ui/src/planSurface/planSurface.css` | `.plan-agent-shell`, `.plan-agent-bar`, `.plan-agent-pane` |
-| `apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx` | Mounts Agent Interaction on `/plan` |
-| `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | UI tests for ask/trace/backends |
-| `apps/live-control-ui/src/api/types.ts` | `AgentInteractionTrace`, `LiveQueryResponse`, thread types |
-| `apps/live-control-ui/src/api/liveApi.ts` | `postLiveQuery`, `query_backend` |
-
-### Backend — query loop & trace
-
-| Path | Role |
-|------|------|
-| `apps/live_control_server/services/live_agent_loop.py` | **`process_live_query`**, Hermes CLI path, preflight, `agent_trace` |
-| `apps/live_control_server/routes/live.py` | `POST /api/live/query`, `query_backend` validation |
-| `src/live_play/manifest_context_query.py` | Manifest retrieval, session scoping, admission |
-| `src/live_play/source_bundle.py` | `IngestionSourceBundle` (ingestion proof in bar) |
-
-### Hermes plugin & runtime
-
-| Path | Role |
-|------|------|
-| `integrations/hermes/plugins/dungeonbuddy/__init__.py` | `dungeon_context_lookup`, manifest tools, legacy lexical fallback |
-| `integrations/hermes/plugins/dungeonbuddy/skills/dungeonbuddy-corpus-qa/SKILL.md` | Agent skill (→ cite-or-abstain hardening) |
-| `scripts/hermes_spike_install_plugin.sh` | Symlink plugin into `$HERMES_HOME` |
-| `.hermes-runtime/` (local, gitignored) | Scoped Hermes home, config, sessions, logs |
-
-### Tests & smoke
-
-| Path | Role |
-|------|------|
-| `tests/test_live_control_server.py` | Hermes CLI routing, trace, context packet assertions |
-| `tests/test_hermes_dungeonbuddy_plugin.py` | Plugin tools without Hermes binary |
-| `tests/test_live_query_manifest_context.py` | Retrieval/session scoping |
-| `evals/hermes_spike/questions.jsonl` | Manual Hermes eval questions |
-
----
-
-## Runtime quick reference
-
-```bash
-# Hermes plugin (once)
-export HERMES_HOME="$PWD/.hermes-runtime"
-export DUNGEONBUDDY_REPO="$PWD"
-export DUNGEONBUDDY_CORPUS_ROOT="$PWD/corpus"
-bash ./scripts/hermes_spike_install_plugin.sh
-
-# Live-control with Hermes CLI backend
-export DUNGEONMIND_LIVE_HERMES_MODE=cli
-export DUNGEONMIND_LIVE_HERMES_PROVIDER=custom
-export DUNGEONMIND_LIVE_HERMES_MODEL=gpt-5.4-mini
-uv run uvicorn apps.live_control_server.main:app --reload --port 8000
-
-# UI
-cd apps/live-control-ui && npm run dev   # http://localhost:5173/plan
+  AgentInteractionBar
+  AgentInteractionPane
 ```
 
-Env vars defined in `live_agent_loop.py`: `DUNGEONMIND_LIVE_HERMES_*`, `HERMES_HOME`.
+Surfaces publish ambient context. The provider owns continuity. Provider persistence stores pointers, summaries, thread metadata, citation locators, evidence snapshots, retrieval decision metadata, and tool-run proof pointers — **not** corpus bodies, normalized recap text, graph internals, raw prompts, or unbounded source excerpts.
 
 ---
 
-## Invariants (do not regress)
+## Trust surfaces to preserve
 
-1. **Corpus is canon** — campaign facts via tools/retrieval, not Hermes long-term memory (`.hermes.md`).
-2. **Preflight retrieval** — Hermes path returns `context_packet` + embeds excerpts in prompt; zero admitted + confident answer = bug.
-3. **No autonomous writes** — preview → explicit GM confirm; benchmark before any loosening.
-4. **Pointers in persistence** — thread storage: Q/A, citation locators, trace ids; not a second corpus store (R10 rule).
-5. **Live reads across threads** — factual answers ground on **current** corpus after ingest/write in any thread.
-6. **UI stays in the bar/pane** — citations and corpus reader inside Agent Interaction chrome; do not take over plan canvas.
-7. **Session scope** — session-number questions must not admit wrong-session recaps (regression-sensitive).
+Current `/plan` trust surfaces include:
 
----
+- Citation cards and the citation source reader.
+- `RetrievalFreshnessPanel` for retrieval-decision metadata.
+- `CorpusChangeSignalPanel` for compact source-currentness status.
+- `GET /api/live/citation-source` for allowlisted read-only source lookup.
+- `POST /api/live/citation-freshness` for metadata-only citation freshness checks.
+- `retrieval_freshness` on live query responses.
+- Evidence snapshots and source-line hashes as metadata-only checks.
 
-## Build sequence (from UX doc)
-
-| Phase | Focus |
-|-------|--------|
-| **P0** | Hermes session id reuse, full thread persist, conversation UI shell, trace toggle |
-| **P1** | In-pane citation reader, cite-or-abstain skill |
-| **P2** | Named parallel threads, quick switch + resume, N-turn auto-suggest |
-| **P3** | Agent decides re-retrieve vs thread context; corpus change signals |
-| **P4** | R10 `AgentInteractionProvider`, cross-surface bar |
-| **P5** | Full operator tool parity via Hermes |
-| **P6** | Hermes memory integration (non-canon layers only) |
-
-**Next slice to implement:** P0 — see `UX-STORIES-agent-interaction-hermes.md` § Interview status.
+These trust surfaces are adapter-compatible with future graph-backed retrieval because they store locators, hashes/status metadata, and retrieval decisions rather than graph internals or source bodies.
 
 ---
 
-## Verification (minimum)
+## Source-vocabulary and graph boundary
 
-```bash
-uv run pytest tests/test_live_control_server.py tests/test_hermes_dungeonbuddy_plugin.py -q
-cd apps/live-control-ui && npm test -- --run src/planSurface/PlanSurfaceShell.test.tsx
-cd apps/live-control-ui && npm run build
+Agent Interaction consumes source-grounded envelopes:
+
+```text
+SourceArtifact -> SourceAnchor -> SourceUnit
 ```
 
-**Behavioral smoke:** `/plan` → Agent Interaction → Hermes backend → ask Session-scoped question → trace shows admitted evidence > 0, `prompt_preview` present.
+Agent Interaction must **not** consume or persist:
+
+- Graph internals.
+- Graph summaries as source evidence.
+- Raw ingestion internals.
+- Corpus bodies.
+- Raw prompts.
+- Unbounded source excerpts.
+
+Graph/ontology work is sibling derived-semantics infrastructure. It may eventually enrich or produce the same `SourceUnit` envelope through adapters, but graph summaries are navigational display material, not source evidence. No production retrieval behavior should depend on graph output until shadow-mode evidence and promotion gates exist.
 
 ---
 
-## Re-anchor procedure
+## User-story anchors
 
-1. Read this anchor (executive summary + invariants).
-2. Run `git status --short --branch` — confirm branch (Hermes work: `cursor/hermes-agent-interaction-bar` or descendant).
-3. Skim `Docs/Design/UX-STORIES-agent-interaction-hermes.md` for story IDs relevant to your slice.
-4. Read only the **path index** files your slice touches.
-5. Re-run verification commands above before claiming done.
-6. For surface-wide context (R10, ingestion vocabulary), read parent `ANCHOR-plan-surface-agent-interaction.md`.
+Full catalog: `Docs/Design/UX-STORIES-agent-interaction-hermes.md`.
 
-**Stale-note discipline:** Re-verify branch tip, "what works today," and any pending PR claims before quoting them in a new handoff.
+1. **Prep Q&A:** satisfied locally in `/plan`; future work hardens Hermes steady-state and cite-or-abstain policy.
+2. **Same-thread follow-up:** partially satisfied locally; future work matures Hermes session continuity and re-retrieval policy.
+3. **Parallel prep arcs:** satisfied locally with named thread operations; app-level persistence/cross-surface continuity waits for R10/P4.
+4. **Citation trust:** satisfied locally with citation cards and hardened source reader; policy hardening remains future.
+5. **Source freshness:** satisfied locally with P3.1 metadata-only checks and Current / Changed / Unknown / Unavailable states.
+6. **Cross-surface continuity:** future; this is the R10/P4 provider lift.
+7. **Graph-safe retrieval:** boundary exists now; graph-backed retrieval adapters remain future.
 
 ---
 
-## Related anchors & handoffs
+## Runtime path index
 
-| Document | When |
-|----------|------|
-| `Docs/Design/UX-STORIES-agent-interaction-hermes.md` | Full stories, Round 1–3 decisions |
-| `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md` | Spike engineering detail, plugin warnings |
-| `Docs/Design/ANCHOR-plan-surface-agent-interaction.md` | R10/R11 ladder, surface architecture |
-| `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` §9 | Hermes vs dogfood retrieval history |
+### Frontend
+
+| Path | Role |
+|------|------|
+| `apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx` | Current `/plan` bar/pane shell, ask flow, history, thread UI, citation actions. |
+| `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` | Local thread/turn persistence. |
+| `apps/live-control-ui/src/planSurface/components/RetrievalFreshnessPanel.tsx` | P3.0 retrieval freshness trust panel. |
+| `apps/live-control-ui/src/planSurface/components/CorpusChangeSignalPanel.tsx` | P3.1 corpus change signal UI. |
+| `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | `/plan` Agent Interaction coverage. |
+| `apps/live-control-ui/src/api/types.ts` | API response and Agent Interaction types. |
+| `apps/live-control-ui/src/api/liveApi.ts` | Live query, citation source, citation freshness API calls. |
+| `apps/live-control-ui/src/planSurface/planSurface.css` | Agent Interaction bar/pane styling. |
+
+### Backend
+
+| Path | Role |
+|------|------|
+| `apps/live_control_server/services/live_agent_loop.py` | Live/Hermes query loop, retrieval metadata, response shaping. |
+| `apps/live_control_server/services/citation_source_reader.py` | Safe read-only citation source lookup. |
+| `apps/live_control_server/services/citation_freshness.py` | Metadata-only source-currentness checks. |
+| `apps/live_control_server/routes/live.py` | `/api/live/query`, `/api/live/citation-source`, `/api/live/citation-freshness`. |
+| `tests/test_live_control_server.py` | Server route and response coverage. |
+| `src/live_play/source_bundle.py` | `SourceArtifact -> SourceAnchor -> SourceUnit` ingestion proof bundle. |
+
+### Hermes/plugin
+
+| Path | Role |
+|------|------|
+| `.hermes.md` | Hermes policy: corpus canon, memory rules, plugin install. |
+| `integrations/hermes/plugins/dungeonbuddy/__init__.py` | DungeonBuddy corpus lookup plugin. |
+| `integrations/hermes/plugins/dungeonbuddy/skills/dungeonbuddy-corpus-qa/SKILL.md` | Corpus Q&A skill; cite-or-abstain hardening target. |
+| `scripts/hermes_spike_install_plugin.sh` | Local Hermes plugin install helper. |
+
+### Graph/ontology surfaces to know but not consume directly
+
+- `src/graph_memory/**`
+- `evals/graph_memory_layer/**`
+- `tests/test_graph_memory_*.py`
+- `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`
+- `Docs/Design/ANCHOR-dungeonBuddy-graph-retrieval.md`
+
+---
+
+## Invariants
+
+1. `/plan` is a consumer, not graph infrastructure.
+2. `AgentInteractionProvider` should eventually live above routes/surfaces in `AppChrome`.
+3. Agent Interaction stores pointers, summaries, thread metadata, citation locators, evidence snapshots, retrieval decision metadata, and tool-run proof pointers.
+4. Agent Interaction must not store corpus bodies, normalized recap text, graph internals, raw prompts, or unbounded source excerpts.
+5. Source vocabulary remains `SourceArtifact -> SourceAnchor -> SourceUnit`.
+6. Ontology/taxonomy owns derived semantics, controlled vocabulary, graph IR, validation, reports, deterministic materialization, and later shadow retrieval.
+7. Graph outputs should eventually enrich or produce the same `SourceUnit` envelope.
+8. Graph summaries are navigational display material, not source evidence.
+9. Corpus markdown/on-disk canonical artifacts remain source of truth until explicit write APIs promote changes.
+10. No production retrieval behavior should depend on graph output until shadow-mode evidence and promotion gates exist.
+11. No autonomous writes: all writes remain preview -> GM confirm.
+
+---
+
+## Verification for docs-only re-anchors
+
+```bash
+rg -n "Next slice to implement|Not done|P0|P1|P2|P3|P4|R10|retrieval_freshness|citation-freshness|CorpusChangeSignal|SourceArtifact|SourceAnchor|SourceUnit|ontology|taxonomy|graph" Docs/Design Docs/Experiments Docs/Plans
+rg -n "AgentInteractionProvider|SourceArtifact|SourceAnchor|SourceUnit|retrieval_freshness|citation-freshness|evidence_snapshots|CorpusChangeSignalPanel" Docs/Design Docs/Experiments Docs/Plans
+```
+
+If only docs changed, no full UI/backend suite is required.

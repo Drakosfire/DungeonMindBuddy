@@ -6,19 +6,18 @@
 
 ## Current State
 
-The workstream has a committed vertical slice for `/plan` recap ingestion and the first
-read-only source-vocabulary adapter:
+The workstream has completed a local `/plan` Agent Interaction dogfood ladder through **P3.1** while keeping state ownership surface-local. `/plan` is still the first intentional surface and the proving ground, but it is not the architectural owner of Agent Interaction continuity.
+
+Current aligned state:
 
 - `/plan` exists as the first intentional configured surface.
-- Current implementation still has surface-local projection state and a transitional right-side Tools drawer.
-- The ingestion workflow can run through the UI and expose proof/impact metadata.
-- The latest committed checkpoint includes `eac1b8f feat(plan): add Hermes trace telemetry` on `main`.
-- `cb0c953 feat(live): add ingestion source bundle` landed R11's backend adapter:
-  `IngestionSourceBundle` maps ingested corpus artifacts into `SourceArtifact -> SourceAnchor -> SourceUnit`
-  without embedding corpus bodies.
-- Hermes CLI one-shot + preflight retrieval + Agent Interaction trace UI are on `main` (spike).
-- Tier-1 plan-doc cleanup landed in `45d1e37 docs(plans): archive completed handoffs to 2026-06-22 batch`.
-- **Next conversational Hermes UX** (threads, citations, tool parity): `Docs/Design/ANCHOR-agent-interaction-hermes.md` + `Docs/Design/UX-STORIES-agent-interaction-hermes.md`.
+- Agent Interaction has been proven locally on `/plan` through P3.1: conversational core, citation trust, source reader hardening, named threads, thread quality guardrails, retrieval freshness, and corpus change signal.
+- Surface-local projection/thread state still exists; the R10 app-level provider lift is **not done**.
+- The current implementation preserves the bottom Agent Interaction Bar/Pane pattern in `/plan`.
+- Recap ingestion proof and source-grounded retrieval boundaries flow through `SourceArtifact -> SourceAnchor -> SourceUnit`.
+- Graph/ontology remains sibling derived-semantics infrastructure; Agent Interaction consumes source-vocabulary envelopes rather than graph internals.
+- **R10 / P4** is the next likely code rung: lift Agent Interaction state ownership above routes/surfaces while preserving the current `/plan` UX.
+- React `/play` follows R10/P4 as the second-surface proof.
 
 This anchor supersedes chat-history reconstruction. Start here, then read the canonical docs below.
 
@@ -46,7 +45,7 @@ Related backlog item to keep in view:
 5. **Surfaces publish context; they do not own continuity.** `/plan`, the future React `/play`, and later `/build` publish ambient context and projection availability into the provider.
 6. **The provider stores pointers only.** It may persist pane state, active projection, recent runs, notifications, and proof pointers. It must not store corpus bodies, normalized recap text, statblock content, or graph internals.
 7. **Recap-ingestion proof flows through the source-vocabulary contract.** Agent Interaction consumes `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`) from `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`, not raw `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or `corpus_impact` semantics.
-8. **Taxonomy/ontology remains the derived-semantics owner.** It can later produce or enrich the same `SourceUnit` envelope; the Agent Interaction consumer should not change shape when graph-backed retrieval arrives.
+8. **Taxonomy/ontology remains the derived-semantics owner.** It can later produce or enrich the same `SourceUnit` envelope; the Agent Interaction consumer should not change shape when graph-backed retrieval arrives. Graph summaries are navigational display material, not source evidence.
 9. **Combat folds into Play.** Combat is not a route-level surface. The existing static command-board combat tracker and React combat/live-control modules become Play projections around the focused beat.
 10. **Build stays named but nebulous.** Do not design Build until Plan and Play dogfood produce concrete durable world-object authoring pressure.
 11. **Surfaces are the priority and the retrieval exercise.** Surface dogfood should keep pulling on retrieval through source chips, statblocks, roll tables, ingest proof, and focused-beat context instead of treating retrieval as a separate precondition for UI progress.
@@ -80,13 +79,13 @@ Recommended migration remains **lift-then-replace**.
 
 ## Next Concrete Work
 
-Before implementation, write a scoped handoff/PR slice for one of:
+P0-P3.1 conversational Agent Interaction work has landed locally in `/plan`; do not restart at P0. The next likely code slice is:
 
-1. **P0 Hermes conversation (see `ANCHOR-agent-interaction-hermes.md`):** Hermes session continuity, full thread persist, parallel thread shell, trace toggle, in-pane citation reader.
-2. **R10 lift step:** app-level `AgentInteractionProvider` that preserves the existing right drawer UI while moving projection state above `/plan`.
-3. **React Play migration slice:** fold combat/runbook/live-control behavior into a `/play` surface after R10 gives projections a shared host.
+1. **R10 / P4 provider lift:** add an app-level `AgentInteractionProvider` above routes/surfaces, preserve the current `/plan` UX, and move continuity ownership out of the surface-local implementation.
+2. **React `/play` second-surface proof:** after R10/P4, fold combat/runbook/live-control behavior into a `/play` surface that publishes context to the shared provider.
+3. **Later work:** operator tool parity, write-preview flows, Hermes non-canon memory integration, and graph-backed retrieval adapters.
 
-Recommended sequence: **P0 Hermes conversation**, then **R10 lift step**, unless bar placement must lead for mechanical reasons. React `/play` follows as the first second-surface proof; Build waits.
+Recommended sequence: **R10/P4 provider lift**, then React `/play` as the first second-surface proof. Build waits. Runtime graph retrieval is not part of this surface PR sequence.
 
 ## Verification Targets
 
