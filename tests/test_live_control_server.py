@@ -134,6 +134,72 @@ def test_context_question_does_not_resolve_roll(client: TestClient) -> None:
     assert "Hail dent" not in body["answer"]
 
 
+
+def test_live_context_lookup_response_includes_source_line_evidence_snapshots(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+    from apps.live_control_server.services import live_agent_loop
+
+    citation_path = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+
+    def fake_context_lookup_turn(**kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            response={
+                "schema": "dmb_live_query_response_v1",
+                "query_id": "live-query-snapshot-test",
+                "session": 22,
+                "mode": "context_lookup",
+                "status": "ok",
+                "answer": "Grounded answer [e1].",
+                "classification": {"latency_mode": "context_lookup", "event_type": "context_question"},
+                "events_written": [],
+                "jobs_queued": [],
+                "next_suggestions": [],
+                "diagnostics": [],
+                "provenance": {},
+                "citations": [{
+                    "evidence_id": "e1",
+                    "path": citation_path,
+                    "line_start": 14,
+                    "line_end": 14,
+                    "source_role": "play_recap",
+                    "authority": "canon_play",
+                }],
+                "context_packet": {
+                    "admitted_evidence": [{"evidence_id": "e1", "text_excerpt": "source text must not persist"}],
+                    "rejected_evidence": [],
+                },
+                "warnings": [],
+                "mutations": [],
+            },
+            events_to_write=[],
+            jobs_to_queue=[],
+        )
+
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "What is Lysandra feeling at the gate?",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["evidence_snapshots"]
+    snapshot = body["evidence_snapshots"][0]
+    assert snapshot["schema"] == "dmb_agent_evidence_snapshot_v1"
+    assert snapshot["fingerprint_algorithm"] == "sha256:source-lines-v1"
+    assert snapshot["path"] == citation_path
+    assert "text_excerpt" not in json.dumps(body["evidence_snapshots"])
+    assert "source text must not persist" not in json.dumps(body["evidence_snapshots"])
+
 def test_query_can_route_through_hermes_backend(
     client: TestClient,
     isolated_session: Path,
@@ -157,6 +223,10 @@ def test_query_can_route_through_hermes_backend(
     assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
     assert body["retrieval_freshness"]["schema"] == "dmb_retrieval_freshness_decision_v1"
     assert body["retrieval_freshness"]["decision"] == "fresh_retrieval"
+    assert body["evidence_snapshots"]
+    assert body["evidence_snapshots"][0]["schema"] == "dmb_agent_evidence_snapshot_v1"
+    assert body["evidence_snapshots"][0]["fingerprint_algorithm"] == "sha256:source-lines-v1"
+    assert "text_excerpt" not in json.dumps(body["evidence_snapshots"])
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     trace = body.get("agent_trace")
@@ -485,6 +555,7 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/commands",
         "/api/live/recap-ingest",
         "/api/live/citation-source",
+        "/api/live/citation-freshness",
     }
     assert required <= paths
 
@@ -569,6 +640,72 @@ def test_citation_source_truncates_oversized_allowed_file(tmp_path: Path) -> Non
     assert len(response.content.encode("utf-8")) == MAX_SOURCE_BYTES
     assert f"source truncated to {MAX_SOURCE_BYTES} bytes" in response.diagnostics
 
+
+
+def test_citation_freshness_line_range_current_changed_and_no_body(client: TestClient, isolated_session: Path) -> None:
+    import hashlib
+
+    path = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    source = Path(path).read_text(encoding="utf-8").splitlines()[13]
+    expected = hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+    response = client.post(
+        "/api/live/citation-freshness",
+        json={
+            "path": path,
+            "line_start": 14,
+            "line_end": 14,
+            "expected_fingerprint": expected,
+            "fingerprint_algorithm": "sha256:source-lines-v1",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema"] == "dmb_citation_freshness_v1"
+    assert body["status"] == "current"
+    assert body["current_fingerprint"] == expected
+    assert "content" not in body
+    assert "text_excerpt" not in json.dumps(body)
+    assert "The group turns their focus" not in json.dumps(body)
+
+    changed = client.post(
+        "/api/live/citation-freshness",
+        json={
+            "path": path,
+            "line_start": 14,
+            "line_end": 14,
+            "expected_fingerprint": "not-the-current-hash",
+            "fingerprint_algorithm": "sha256:source-lines-v1",
+        },
+    )
+    assert changed.status_code == 200
+    assert changed.json()["status"] == "changed"
+    assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
+    assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
+
+
+def test_citation_freshness_missing_source_is_unavailable_without_absolute_path(client: TestClient) -> None:
+    response = client.post("/api/live/citation-freshness", json={"path": "Docs/does-not-exist.md"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "unavailable"
+    assert body["path"] == "Docs/does-not-exist.md"
+    assert str(Path.cwd()) not in json.dumps(body)
+
+
+@pytest.mark.parametrize("unsafe_path", ["/etc/passwd", "../README.md", "corpus/../README.md", "README.md"])
+def test_citation_freshness_rejects_unsafe_paths(client: TestClient, unsafe_path: str) -> None:
+    response = client.post("/api/live/citation-freshness", json={"path": unsafe_path})
+
+    assert response.status_code == 422
+
+
+def test_citation_freshness_rejects_unsupported_extension(client: TestClient) -> None:
+    response = client.post("/api/live/citation-freshness", json={"path": "evals/planner_slice/batch_eval.py"})
+
+    assert response.status_code == 422
 
 def test_retrieval_freshness_builder_states_are_lightweight() -> None:
     from apps.live_control_server.services.live_agent_loop import build_retrieval_freshness_decision

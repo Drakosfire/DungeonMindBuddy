@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentInteractionThread, AgentInteractionTrace } from "../../api/types";
 import {
   activeThreadStorageKey,
+  buildEvidenceSnapshots,
   createAgentInteractionThread,
   deleteAgentThread,
   loadAgentThreadById,
@@ -11,6 +12,7 @@ import {
   persistAgentThreadIndex,
   renameAgentThread,
   safeTraceForPersistence,
+  worstCorpusFreshnessStatus,
   setActiveAgentThread,
   threadIndexStorageKey,
   threadStorageKey,
@@ -159,6 +161,36 @@ describe("agentInteractionHistory", () => {
     expect(stored).not.toContain("text_excerpt");
     expect(stored).not.toContain("prompt_preview");
     expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].retrievalFreshness?.decision).toBe("fresh_retrieval");
+  });
+
+
+  it("buildEvidenceSnapshots stores hashes and metadata without source excerpts", () => {
+    const snapshots = buildEvidenceSnapshots([{
+      evidence_id: "e1",
+      path: "corpus/test.md",
+      line_start: 2,
+      line_end: 3,
+      source_role: "play_recap",
+      authority: "canon_play",
+    }], "2026-06-22T00:00:00.000Z");
+
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({
+      schema: "dmb_agent_evidence_snapshot_v1",
+      evidence_id: "e1",
+      path: "corpus/test.md",
+      line_start: 2,
+      line_end: 3,
+      fingerprint_algorithm: "locator-v1",
+      captured_at: "2026-06-22T00:00:00.000Z",
+    });
+    expect(JSON.stringify(snapshots)).not.toContain("text_excerpt");
+    expect(JSON.stringify(snapshots)).not.toContain("source body");
+  });
+
+  it("worstCorpusFreshnessStatus prioritizes changed over unavailable, unknown, and current", () => {
+    expect(worstCorpusFreshnessStatus(["current", "unknown", "unavailable", "changed"])).toBe("changed");
+    expect(worstCorpusFreshnessStatus(["current", "unknown", "unavailable"])).toBe("unavailable");
   });
 
   it("safeTraceForPersistence strips prompt_preview and absolute artifact paths", () => {

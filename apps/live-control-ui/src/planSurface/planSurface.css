@@ -1347,3 +1347,21 @@ body.plan-toolbox-open {
   border-color: rgba(248, 113, 113, 0.58);
   background: rgba(248, 113, 113, 0.09);
 }
+
+.plan-agent-corpus-signal {
+  align-items: flex-start;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.75rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.85rem;
+}
+
+.plan-agent-corpus-signal[data-status="changed"] {
+  border-color: rgba(248, 113, 113, 0.7);
+}
+
+.plan-agent-corpus-signal[data-status="current"] {
+  border-color: rgba(74, 222, 128, 0.6);
+}

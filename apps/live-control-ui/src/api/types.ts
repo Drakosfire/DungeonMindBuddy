@@ -415,6 +415,28 @@ export interface HermesSessionHandle {
   updatedAt?: string | null;
 }
 
+export type CitationFreshnessStatus = "current" | "changed" | "unknown" | "unavailable";
+
+export interface AgentEvidenceSnapshot {
+  schema: "dmb_agent_evidence_snapshot_v1";
+  evidence_id: string;
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  source_role?: string | null;
+  authority?: string | null;
+  fingerprint: string;
+  fingerprint_algorithm: "sha256:locator-v1" | "sha256:source-lines-v1" | "locator-v1";
+  captured_at: string;
+}
+
+export interface CitationFreshnessCheckResult {
+  status: CitationFreshnessStatus;
+  checked_at: string;
+  diagnostics: string[];
+  warnings: string[];
+}
+
 export interface AgentInteractionTurn {
   turnId: string;
   askedAt: string;
@@ -428,6 +450,8 @@ export interface AgentInteractionTurn {
   trace?: AgentInteractionTrace | null;
   warnings?: string[];
   retrievalFreshness?: RetrievalFreshnessDecision | null;
+  evidenceSnapshots?: AgentEvidenceSnapshot[];
+  corpusFreshness?: CitationFreshnessCheckResult | null;
 }
 
 export interface AgentInteractionThread {
@@ -497,6 +521,26 @@ export interface CitationSourceRequest {
   text_excerpt?: string | null;
 }
 
+export interface CitationFreshnessRequest {
+  path: string;
+  line_start?: number | null;
+  line_end?: number | null;
+  expected_fingerprint?: string | null;
+  fingerprint_algorithm?: "sha256:source-lines-v1" | "sha256:locator-v1" | "locator-v1" | null;
+}
+
+export interface CitationFreshnessResponse {
+  schema: "dmb_citation_freshness_v1";
+  path: string;
+  status: CitationFreshnessStatus;
+  current_fingerprint?: string | null;
+  expected_fingerprint?: string | null;
+  fingerprint_algorithm: "sha256:source-lines-v1" | "sha256:locator-v1";
+  checked_at: string;
+  diagnostics: string[];
+  warnings: string[];
+}
+
 export interface CitationSourceResponse {
   schema_version: "dmb_citation_source_v1";
   path: string;
@@ -534,6 +578,7 @@ export interface LiveQueryResponse {
   turn_id?: string | null;
   hermes_session?: HermesSessionHandle | null;
   retrieval_freshness?: RetrievalFreshnessDecision | null;
+  evidence_snapshots?: AgentEvidenceSnapshot[];
 }
 
 export interface LiveEvent {

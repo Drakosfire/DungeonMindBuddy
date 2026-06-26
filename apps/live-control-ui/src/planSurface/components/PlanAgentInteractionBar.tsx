@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { getSourceBundle, postCitationSource, postLiveQuery } from "../../api/liveApi";
+import { getSourceBundle, postCitationFreshness, postCitationSource, postLiveQuery } from "../../api/liveApi";
 import type {
   AgentInteractionThreadSummary,
   AgentInteractionThread,
+  CitationFreshnessResponse,
   CitationSourceResponse,
   AgentInteractionTurn,
   IngestionSourceBundle,
@@ -32,12 +33,14 @@ import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
 import { TraceDetailsPanel } from "./TraceDetailsPanel";
 import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
+import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
 
 interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
   readCitationSource?: typeof postCitationSource;
+  checkCitationFreshness?: typeof postCitationFreshness;
 }
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
@@ -157,6 +160,7 @@ export function PlanAgentInteractionBar({
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
   readCitationSource = postCitationSource,
+  checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -178,6 +182,7 @@ export function PlanAgentInteractionBar({
   const [threadSwitcherOpen, setThreadSwitcherOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [freshnessChecking, setFreshnessChecking] = useState(false);
 
   useEffect(() => {
     const storedThread = loadAgentThread(planView.campaign_id, "plan");
@@ -213,6 +218,9 @@ export function PlanAgentInteractionBar({
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
+  const corpusFreshness = activeTurn?.corpusFreshness ?? null;
+  const corpusSignalStatus = corpusFreshness?.status ?? (activeTurn?.evidenceSnapshots?.length ? "unknown" : "unknown");
+
   const showNewThreadSuggestion = Boolean(
     thread &&
       turns.length > 0 &&
@@ -340,6 +348,52 @@ export function PlanAgentInteractionBar({
     const nextActive = loadAgentThread(planView.campaign_id, "plan");
     activateThread(nextActive);
     refreshThreadSummaries();
+  }
+
+
+  async function checkCurrentSourceState() {
+    if (!activeTurn) return;
+    const snapshots = activeTurn.evidenceSnapshots ?? [];
+    if (!snapshots.length) return;
+    setFreshnessChecking(true);
+    try {
+      const results: CitationFreshnessResponse[] = [];
+      for (const snapshot of snapshots) {
+        results.push(await checkCitationFreshness({
+          path: snapshot.path,
+          line_start: snapshot.line_start ?? null,
+          line_end: snapshot.line_end ?? null,
+          expected_fingerprint: snapshot.fingerprint_algorithm === "sha256:source-lines-v1" ? snapshot.fingerprint : null,
+          fingerprint_algorithm: snapshot.fingerprint_algorithm === "sha256:source-lines-v1" ? snapshot.fingerprint_algorithm : null,
+        }));
+      }
+      const rank = { current: 0, unknown: 1, unavailable: 2, changed: 3 } as const;
+      const status = results.reduce((worst, result) => rank[result.status] > rank[worst] ? result.status : worst, "current" as CitationFreshnessResponse["status"]);
+      const nextTurns: AgentInteractionTurn[] = turns.map((turn) => turn.turnId === activeTurn.turnId ? {
+        ...turn,
+        corpusFreshness: {
+          status,
+          checked_at: new Date().toISOString(),
+          diagnostics: results.flatMap((result) => result.diagnostics ?? []),
+          warnings: results.flatMap((result) => result.warnings ?? []),
+        },
+      } : turn);
+      setTurns(nextTurns);
+      if (thread) {
+        const nextThread = { ...thread, turns: nextTurns, updatedAt: new Date().toISOString() };
+        setThread(nextThread);
+        persistAgentThread(nextThread);
+        refreshThreadSummaries();
+      }
+    } catch {
+      const nextTurns: AgentInteractionTurn[] = turns.map((turn) => turn.turnId === activeTurn.turnId ? {
+        ...turn,
+        corpusFreshness: { status: "unavailable" as const, checked_at: new Date().toISOString(), diagnostics: [], warnings: ["citation freshness check failed"] },
+      } : turn);
+      setTurns(nextTurns);
+    } finally {
+      setFreshnessChecking(false);
+    }
   }
 
   async function openCitationSource(card: EvidenceCard) {
@@ -623,6 +677,16 @@ export function PlanAgentInteractionBar({
                       </section>
                     ) : null}
                     <RetrievalFreshnessPanel decision={answer.retrieval_freshness} />
+                    {activeTurn ? (
+                      <CorpusChangeSignalPanel
+                        status={corpusSignalStatus}
+                        snapshotCount={activeTurn.evidenceSnapshots?.length ?? 0}
+                        checkedAt={corpusFreshness?.checked_at ?? null}
+                        warnings={corpusFreshness?.warnings ?? []}
+                        checking={freshnessChecking}
+                        onCheck={() => void checkCurrentSourceState()}
+                      />
+                    ) : null}
                     {citationCards.length ? (
                       <section className="plan-agent-citation-cards" aria-label="Citation cards">
                         <h4>Citation card</h4>

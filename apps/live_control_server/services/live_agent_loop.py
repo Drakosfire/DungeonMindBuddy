@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
     load_session,
@@ -443,6 +444,7 @@ def process_live_query(
             agent_thread_id=resolved_agent_thread_id,
             status=str(response.get("status") or "ok"),
         )
+        response = _with_evidence_snapshots(response)
         return _with_conversation_fields(
             response,
             agent_thread_id=resolved_agent_thread_id,
@@ -479,6 +481,12 @@ def process_live_query(
         "mutations": [],
     }
     return _with_conversation_fields(response, agent_thread_id=resolved_agent_thread_id, turn_id=resolved_turn_id)
+
+
+def _with_evidence_snapshots(response: dict[str, Any]) -> dict[str, Any]:
+    citations = response.get("citations") if isinstance(response.get("citations"), list) else []
+    response["evidence_snapshots"] = build_evidence_snapshots(repo_root(), citations)
+    return response
 
 
 def _citations_from_context_packet(context_packet: dict[str, Any]) -> list[dict[str, Any]]:
@@ -642,7 +650,7 @@ def _process_hermes_context_query(
         ] if manifest_path else [],
     )
 
-    return {
+    return _with_evidence_snapshots({
         "schema": "dmb_live_query_response_v1",
         "query_id": str(data.get("question_id") or params["question_id"]),
         "session": int(packet["session"]),
@@ -677,7 +685,7 @@ def _process_hermes_context_query(
             agent_thread_id=None,
             status="ok",
         ),
-    }
+    })
 
 
 def _hermes_cli_timeout_seconds() -> int:
@@ -868,7 +876,7 @@ def _process_hermes_cli_query(
         warnings=warnings,
     )
 
-    return {
+    return _with_evidence_snapshots({
         "schema": "dmb_live_query_response_v1",
         "query_id": query_id,
         "session": int(packet["session"]),
@@ -911,7 +919,7 @@ def _process_hermes_cli_query(
             agent_thread_id=None,
             status="ok",
         ),
-    }
+    })
 
 
 def _hermes_cli_error_response(
@@ -962,7 +970,7 @@ def _hermes_cli_error_response(
         artifact_refs=artifact_refs or [],
         warnings=warnings,
     )
-    return {
+    return _with_evidence_snapshots({
         "schema": "dmb_live_query_response_v1",
         "query_id": query_id,
         "session": int(packet["session"]),
@@ -988,4 +996,4 @@ def _hermes_cli_error_response(
         "warnings": warnings,
         "mutations": [],
         "agent_trace": agent_trace,
-    }
+    })

@@ -9,6 +9,8 @@ import type {
   ProjectionTarget,
   CitationSourceRequest,
   CitationSourceResponse,
+  CitationFreshnessRequest,
+  CitationFreshnessResponse,
   LiveQueryResponse,
   LiveQueryBackend,
   LiveQueryOptions,
@@ -169,6 +171,15 @@ export async function postCitationSource(
   request: CitationSourceRequest,
 ): Promise<CitationSourceResponse> {
   return apiFetch<CitationSourceResponse>("/api/live/citation-source", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postCitationFreshness(
+  request: CitationFreshnessRequest,
+): Promise<CitationFreshnessResponse> {
+  return apiFetch<CitationFreshnessResponse>("/api/live/citation-freshness", {
     method: "POST",
     body: JSON.stringify(request),
   });

@@ -14,6 +14,11 @@ from apps.live_control_server.services.citation_source_reader import (
     CitationSourceResponse,
     read_citation_source,
 )
+from apps.live_control_server.services.citation_freshness import (
+    CitationFreshnessRequest,
+    CitationFreshnessResponse,
+    check_citation_freshness,
+)
 from apps.live_control_server.session_store import (
     complete_job,
     events_since,
@@ -229,6 +234,20 @@ def post_citation_source(body: CitationSourceRequest) -> dict[str, Any]:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail="citation source read failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/citation-freshness",
+    response_model=CitationFreshnessResponse,
+)
+def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
+    try:
+        response = check_citation_freshness(repo_root(), body)
+    except CitationSourceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="citation freshness check failed") from exc
     return response.model_dump(mode="json")
 
 @router.get(

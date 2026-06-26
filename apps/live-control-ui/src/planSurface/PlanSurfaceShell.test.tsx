@@ -160,6 +160,89 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.parse(String(sourceCall[1]?.body))).toMatchObject({ path: "corpus/test/session.md", line_start: 2, line_end: 2 });
   });
 
+
+  it("checks corpus freshness from a stored source-lines snapshot", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          answer: "Stored answer with corpus evidence.",
+          classification: {},
+          events_written: [],
+          jobs_queued: [],
+          next_suggestions: [],
+          diagnostics: [],
+          provenance: {},
+          citations: [{ evidence_id: "e1", path: "corpus/test/session.md", line_start: 2, line_end: 2, source_role: "play_recap", authority: "canon_play" }],
+          evidence_snapshots: [{
+            schema: "dmb_agent_evidence_snapshot_v1",
+            evidence_id: "e1",
+            path: "corpus/test/session.md",
+            line_start: 2,
+            line_end: 2,
+            source_role: "play_recap",
+            authority: "canon_play",
+            fingerprint: "expected-source-lines-hash",
+            fingerprint_algorithm: "sha256:source-lines-v1",
+            captured_at: "2026-06-25T00:00:00Z",
+          }],
+          retrieval_freshness: {
+            schema: "dmb_retrieval_freshness_decision_v1",
+            decision: "fresh_retrieval",
+            used_fresh_retrieval: true,
+            used_thread_context: false,
+            admitted_evidence_count: 1,
+            rejected_evidence_count: 0,
+            prior_turn_count: 0,
+            reason: "Fresh corpus evidence was admitted for this turn.",
+            warnings: [],
+          },
+          context_packet: null,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_citation_freshness_v1",
+          path: "corpus/test/session.md",
+          status: "current",
+          current_fingerprint: "expected-source-lines-hash",
+          expected_fingerprint: "expected-source-lines-hash",
+          fingerprint_algorithm: "sha256:source-lines-v1",
+          checked_at: "2026-06-25T00:01:00Z",
+          diagnostics: ["read-only freshness lookup", "no source content returned"],
+          warnings: [],
+        }),
+      } as Response);
+
+    render(<PlanSurfaceShell planView={mockPlanView} />);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.type(screen.getByLabelText("Question"), "Is this still current?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Unknown");
+    await user.click(screen.getByRole("button", { name: "Check current source state" }));
+
+    expect(await screen.findByText("Corpus signal: Current")).toBeInTheDocument();
+    const freshnessCall = vi.mocked(globalThis.fetch).mock.calls[2];
+    expect(String(freshnessCall[0])).toContain("/api/live/citation-freshness");
+    expect(JSON.parse(String(freshnessCall[1]?.body))).toMatchObject({
+      path: "corpus/test/session.md",
+      expected_fingerprint: "expected-source-lines-hash",
+      fingerprint_algorithm: "sha256:source-lines-v1",
+    });
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
+    const storedThread = localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "";
+    expect(storedThread).toContain("expected-source-lines-hash");
+    expect(storedThread).not.toContain("Current source content has the Lysandro gate reveal.");
+    const indexJson = localStorage.getItem(threadIndexStorageKey(mockPlanView.campaign_id, "plan")) ?? "";
+    expect(indexJson).not.toContain("expected-source-lines-hash");
+    expect(indexJson).not.toContain("corpus/test/session.md");
+  });
+
   it("can route the Agent Interaction drawer through Hermes tools", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
