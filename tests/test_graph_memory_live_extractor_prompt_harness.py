@@ -238,7 +238,7 @@ def test_reconcile_and_live_vs_gold_on_gold_subset():
         allowed_span_refs={"spref:session-23:p001"},
     )
     comparison = compare_live_to_gold(report["reconciled_candidate_graph"])
-    assert comparison["comparison_mode"] == "live_fuzzy_vs_gold"
+    assert comparison["comparison_mode"] == "live_identity_vs_gold"
     assert "node_recall" in comparison["scores"]
 
 
