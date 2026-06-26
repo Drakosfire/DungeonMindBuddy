@@ -1,0 +1,28 @@
+{
+  "boundary": {
+    "agent_interaction_connected": false,
+    "candidate_graph_allowed": false,
+    "corpus_mutation_allowed": false,
+    "corpus_scan_allowed": false,
+    "directory_scan_allowed": false,
+    "explicit_input_only": true,
+    "extractor_execution_allowed": false,
+    "graph_write_allowed": false,
+    "llm_execution_allowed": false,
+    "plan_connected": false,
+    "query_execution_allowed": false
+  },
+  "counts": {
+    "hard_failures": 0,
+    "heading_units": 0,
+    "lines": 38,
+    "paragraph_units": 14,
+    "source_span_refs": 14,
+    "warnings": 0
+  },
+  "hard_failures": [],
+  "schema": "dmb_live_recap_ingest_diagnostics_v0",
+  "status": "ready",
+  "version": "0.1",
+  "warnings": []
+}

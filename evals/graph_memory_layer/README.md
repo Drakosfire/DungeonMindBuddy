@@ -393,3 +393,28 @@ evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_voca
 evals/graph_memory_layer/examples/query_vocabulary_fixture/session_23_query_vocabulary_report.md
 Docs/Design/GRAPH-MEMORY-QUERY-VOCABULARY-FIXTURE.md
 ```
+
+### Live recap ingest run bundle
+
+The live recap ingest run bundle provides the first explicit-input dogfood seam for graph memory. It converts a supplied recap file into source-spanned run artifacts: run manifest, source artifact, source units, source span index, provenance index, diagnostics, and a Markdown report.
+
+This is ingestion only. It does not call an LLM, execute extraction, generate candidate graph memory, write graph memory, approve writes, execute graph retrieval, execute graph queries, scan or mutate corpus files, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+Commands:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_live_recap_ingest_run_bundle
+uv run python -m evals.graph_memory_layer.report_live_recap_ingest_run_bundle
+uv run python -m evals.graph_memory_layer.run_live_recap_ingest \
+  --campaign-id longmont-c2 \
+  --session-id session-23 \
+  --input path/to/recap.md \
+  --out evals/graph_memory_layer/runs/live_recap_ingest/session_23_manual/
+```
+
+Primary artifacts:
+
+```text
+evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/
+Docs/Design/GRAPH-MEMORY-LIVE-RECAP-INGEST-RUN-BUNDLE.md
+```

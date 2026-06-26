@@ -1,0 +1,167 @@
+{
+  "schema": "dmb_live_recap_source_span_index_v0",
+  "source_artifact_id": "source-artifact:longmont-c2:session-23:live-recap-v0",
+  "span_ref_policy": {
+    "heading_addressable": true,
+    "line_addressable": true,
+    "paragraph_addressable": true,
+    "stable_ids": true
+  },
+  "spans": [
+    {
+      "char_end": 264,
+      "char_start": 0,
+      "highlightable": true,
+      "line_end": 12,
+      "line_start": 1,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p001",
+      "source_unit_id": "srcunit:session-23:p001",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 1140,
+      "char_start": 265,
+      "highlightable": true,
+      "line_end": 14,
+      "line_start": 14,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p002",
+      "source_unit_id": "srcunit:session-23:p002",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 1756,
+      "char_start": 1141,
+      "highlightable": true,
+      "line_end": 16,
+      "line_start": 16,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p003",
+      "source_unit_id": "srcunit:session-23:p003",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 2626,
+      "char_start": 1757,
+      "highlightable": true,
+      "line_end": 18,
+      "line_start": 18,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p004",
+      "source_unit_id": "srcunit:session-23:p004",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 3388,
+      "char_start": 2627,
+      "highlightable": true,
+      "line_end": 20,
+      "line_start": 20,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p005",
+      "source_unit_id": "srcunit:session-23:p005",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 4221,
+      "char_start": 3389,
+      "highlightable": true,
+      "line_end": 22,
+      "line_start": 22,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p006",
+      "source_unit_id": "srcunit:session-23:p006",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 5206,
+      "char_start": 4222,
+      "highlightable": true,
+      "line_end": 24,
+      "line_start": 24,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p007",
+      "source_unit_id": "srcunit:session-23:p007",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 5793,
+      "char_start": 5207,
+      "highlightable": true,
+      "line_end": 26,
+      "line_start": 26,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p008",
+      "source_unit_id": "srcunit:session-23:p008",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 6624,
+      "char_start": 5794,
+      "highlightable": true,
+      "line_end": 28,
+      "line_start": 28,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p009",
+      "source_unit_id": "srcunit:session-23:p009",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 7095,
+      "char_start": 6625,
+      "highlightable": true,
+      "line_end": 30,
+      "line_start": 30,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p010",
+      "source_unit_id": "srcunit:session-23:p010",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 7899,
+      "char_start": 7096,
+      "highlightable": true,
+      "line_end": 32,
+      "line_start": 32,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p011",
+      "source_unit_id": "srcunit:session-23:p011",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 8696,
+      "char_start": 7900,
+      "highlightable": true,
+      "line_end": 34,
+      "line_start": 34,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p012",
+      "source_unit_id": "srcunit:session-23:p012",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 9127,
+      "char_start": 8697,
+      "highlightable": true,
+      "line_end": 36,
+      "line_start": 36,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p013",
+      "source_unit_id": "srcunit:session-23:p013",
+      "span_kind": "paragraph"
+    },
+    {
+      "char_end": 9514,
+      "char_start": 9128,
+      "highlightable": true,
+      "line_end": 38,
+      "line_start": 38,
+      "openable": true,
+      "source_span_ref_id": "spref:session-23:p014",
+      "source_unit_id": "srcunit:session-23:p014",
+      "span_kind": "paragraph"
+    }
+  ],
+  "version": "0.1"
+}

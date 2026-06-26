@@ -1,8 +1,8 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-query-vocabulary-fixture checkpoint
-Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
+Status: active current anchor — post-live-recap-ingest-run-bundle checkpoint
+Workstream: Graph Memory / Recap Ingestion / Live Recap Dogfood
 Branch: `experiment/ontology-taxonomy-ladder`
 
 ## Purpose
@@ -74,8 +74,12 @@ Recent completed rungs:
 12. Static Extractor Output Comparison Report v0
 13. Preview Graph UX Design Spec v0
 14. Static Preview Graph UI Prototype v0
+15. Query Vocabulary Fixture v0
+16. Live Recap Ingest Run Bundle v0
 
-The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
+The workstream has re-anchored from static Agent Interaction planning toward first live recap dogfood. It now has a Live Recap Ingest Run Bundle that takes an explicitly supplied recap file and emits source-spanned dogfood run artifacts without LLM execution, extraction, candidate graph generation, graph writes, query execution, `/plan`, Agent Interaction, corpus scan/mutation, fact promotion, canon promotion, or runtime behavior changes.
+
+Recommended next PR: `graph-memory: add live extractor prompt pack v0`.
 
 ## What The Current Dogfood Proved
 
@@ -97,6 +101,20 @@ The current dogfood did not prove:
 - that source refs can resolve to highlightable evidence spans
 - that graph memory can answer useful session-recall questions
 - that Agent Interaction can consume graph results
+- live LLM extraction
+- production extraction
+- candidate graph generation from live recap
+- graph retrieval
+- query execution
+- graph writes
+- approval persistence
+- corpus scan/mutation
+- /plan integration
+- Agent Interaction integration
+- fact promotion
+- canon promotion
+- runtime behavior changes
+- production frontend routing
 - that the current reports are GM-facing value
 
 The dogfood evaluation's central product observation is:
@@ -140,22 +158,27 @@ The team needs these foundations before any runtime or `/plan` integration:
 9. Preview Graph UX Design Spec
 10. Static Preview Graph UI Prototype
 11. Query Vocabulary Fixture
-12. Agent Interaction Chip Payload Contract
-13. Preview Approval / Write Intent Contract
+12. Live Recap Ingest Run Bundle
+13. Live Extractor Prompt Pack
+14. Gated Live Candidate Extraction Harness
+15. Preview Approval / Write Intent Contract
+16. Agent Interaction Chip Payload Contract
 
-Runtime/shadow experiments should come only after those contracts exist.
+Runtime/shadow experiments should come only after the live recap dogfood extraction path exists and remains gated.
 
 ## Immediate Next Backend PR
 
 Recommended next backend/design PR:
 
 ```text
-graph-memory: add agent interaction chip payload contract v0
+graph-memory: add live extractor prompt pack v0
 ```
 
 Mission:
 
-Define static Agent Interaction chip payload shapes without connecting Agent Interaction runtime.
+Define the first one-shot/two-shot live graph candidate extractor prompt and harness contract for the decomposed Session 23 benchmark without executing live extraction in CI, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
+
+This next step is not Agent Interaction, and it is not more static scaffold for its own sake. It is the first gated LLM candidate-graph extraction path against the decomposed Session 23 benchmark.
 
 Completed rung:
 
@@ -169,6 +192,7 @@ Static Extractor Output Comparison Report v0
 Preview Graph UX Design Spec v0
 Static Preview Graph UI Prototype v0
 Query Vocabulary Fixture v0
+Live Recap Ingest Run Bundle v0
 ```
 
 The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. The fixture covers example GM questions, evidence requirements, answer shape expectations, high-risk query behavior, proposed-write query behavior, unknown/deferred answer behavior, and Agent Interaction readiness boundaries without executing queries, retrieving graph memory, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
@@ -456,4 +480,4 @@ Completed rung: Static Preview Graph UI Prototype v0.
 
 The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
 
-Recommended next backend/design PR: `graph-memory: add agent interaction chip payload contract v0`.
+Historical next backend/design PR at that checkpoint: `graph-memory: add query vocabulary fixture v0`.

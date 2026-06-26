@@ -1,0 +1,29 @@
+{
+  "schema": "dmb_live_recap_ingest_fixture_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:live-recap-ingest-run-bundle:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "sample_run_id": "graph-memory:live-recap-ingest:session-23:sample-v0",
+  "sample_run_dir": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample",
+  "execution_mode": "static_example_of_explicit_input_recap_ingest",
+  "source_static_context": {
+    "candidate_graph_preview_ir": "graph-memory:candidate-graph-preview-ir:v0",
+    "source_span_resolver_contract": "graph-memory:source-span-evidence-resolver-contract:v0",
+    "query_vocabulary_fixture": "graph-memory:query-vocabulary-fixture:session-23:v0"
+  },
+  "diagnostics": {
+    "static_example_fixture": true,
+    "live_recap_ingest_runner_present": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "candidate_graph_generated": false,
+    "graph_write_required": false,
+    "query_execution_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

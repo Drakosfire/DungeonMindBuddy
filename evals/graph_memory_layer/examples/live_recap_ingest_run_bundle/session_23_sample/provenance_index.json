@@ -1,0 +1,112 @@
+{
+  "input_provenance": {
+    "input_bytes": 9538,
+    "input_line_count": 38,
+    "input_mode": "explicit_file_path",
+    "input_sha256": "afdd17e47b4cc1e8e1d5a7b3128ef6aec7fa83eed372648d502acfcd0395ea16",
+    "operator_note": null
+  },
+  "schema": "dmb_live_recap_provenance_index_v0",
+  "source_artifact_id": "source-artifact:longmont-c2:session-23:live-recap-v0",
+  "unit_provenance": [
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 12,
+      "line_start": 1,
+      "source_unit_id": "srcunit:session-23:p001",
+      "text_hash": "e8d490f188e912565739792bcc9d76289e20cedb2453a81516f3e18c955631b8"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 14,
+      "line_start": 14,
+      "source_unit_id": "srcunit:session-23:p002",
+      "text_hash": "0784f4f817feb755a860c7f8b4dbf3d01973afaf304673d3d77bc561e69622f4"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 16,
+      "line_start": 16,
+      "source_unit_id": "srcunit:session-23:p003",
+      "text_hash": "5f705a97713f1b9c925fc2709afb066cdf516861082e34b431f6ddab16005774"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 18,
+      "line_start": 18,
+      "source_unit_id": "srcunit:session-23:p004",
+      "text_hash": "ff93475b764d6b362546dd86826ddac4293e0a8b5ac5e37f68560e7f81a29ab0"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 20,
+      "line_start": 20,
+      "source_unit_id": "srcunit:session-23:p005",
+      "text_hash": "2e99222df2613fa6723897df54efc2d64e4cb5b0d922595a65dc49c70f26d4dc"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 22,
+      "line_start": 22,
+      "source_unit_id": "srcunit:session-23:p006",
+      "text_hash": "a9b970ef0627dfbbc24f2ccf40e6d0607d78c6cc928e7a9cde10e9e7ad3aa9d0"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 24,
+      "line_start": 24,
+      "source_unit_id": "srcunit:session-23:p007",
+      "text_hash": "73947a6cc026c3d587bc93fc502622f206e3deddadff0b56542d1117dd2b6d57"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 26,
+      "line_start": 26,
+      "source_unit_id": "srcunit:session-23:p008",
+      "text_hash": "1f445507db7ae631553a7435a154c9adc57e5ec28cc4baee040d6c2e7c46a8c5"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 28,
+      "line_start": 28,
+      "source_unit_id": "srcunit:session-23:p009",
+      "text_hash": "f78e6a294bfd11d8219d95c7e7404d9f911f2f34619042cba656de6ba702307f"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 30,
+      "line_start": 30,
+      "source_unit_id": "srcunit:session-23:p010",
+      "text_hash": "7e152442791e6d6bc01bd88b746d9b415f19a4daabdcf8f4276000dcba965b58"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 32,
+      "line_start": 32,
+      "source_unit_id": "srcunit:session-23:p011",
+      "text_hash": "5efb507b172db62bba24e2ac1e4695d12556a75f1c1210cf0e1071ff89bb95e9"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 34,
+      "line_start": 34,
+      "source_unit_id": "srcunit:session-23:p012",
+      "text_hash": "179bd5d4297a0b415d33c6779308d8344b7a1d0f6be3aebe22ddcd41f53c0826"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 36,
+      "line_start": 36,
+      "source_unit_id": "srcunit:session-23:p013",
+      "text_hash": "084290d70ccc1af5fe8c00ab0cdf8f83a18a7970a52c23ef9275092ce5844eb8"
+    },
+    {
+      "derived_from": "explicit_input_file",
+      "line_end": 38,
+      "line_start": 38,
+      "source_unit_id": "srcunit:session-23:p014",
+      "text_hash": "c969cd827cc073257e4db0ebfa722960ed4585414e6d8bab929d10b014ad9fd2"
+    }
+  ],
+  "version": "0.1"
+}
