@@ -123,23 +123,46 @@ def validate_prompt_packet_manifest(p:Mapping[str,Any])->None:
     _assert(p.get("prompt_files")==PROMPT_FILES[p["mode"]],"bad_packet_files"); _assert(set(REQUIRED_SECTIONS)<=set(p["output_contract"]["required_sections"]),"missing_required_sections")
     for k,v in p.get("safety",{}).items(): _assert(v is (k in {"manual_llm_only","no_api_key_required"}),f"unsafe_packet:{k}")
 
+CANDIDATE_EVIDENCE_SECTIONS=("candidate_nodes","candidate_edges","session_beats","unnamed_important_concepts","ignored_items","deferred_items","proposed_writes","high_risk_claims")
+
+def _candidate_object_id(obj:Mapping[str,Any])->str:
+    for key in ("candidate_id","node_id","edge_id","beat_id","write_id","item_id","claim_id","id"):
+        value=obj.get(key)
+        if value: return str(value)
+    return "<unknown>"
+
+def _extract_source_span_ref_ids(refs:Any, *, section:str, object_id:str)->list[str]:
+    _assert(isinstance(refs,list) and len(refs)>0, f"missing_evidence_refs:{section}:{object_id}")
+    out=[]
+    for ref in refs:
+        if isinstance(ref,dict):
+            value=ref.get("source_span_ref_id")
+        elif isinstance(ref,str):
+            value=ref
+        else:
+            value=None
+        _assert(isinstance(value,str) and value.strip(), f"invalid_evidence_ref:{section}:{object_id}")
+        out.append(value)
+    return out
+
 def validate_candidate_output(candidate:Mapping[str,Any], allowed_span_refs:set[str]|None=None)->dict[str,Any]:
     text=json.dumps(candidate,sort_keys=True)
     for tok in FORBIDDEN_OUTPUT_TOKENS: _assert(tok not in text, f"forbidden_candidate_output:{tok}")
     for section in REQUIRED_SECTIONS: _assert(section in candidate, f"missing_section:{section}")
     classes={s:len(candidate.get(s,[])) for s in REQUIRED_SECTIONS if isinstance(candidate.get(s),list)}
-    if allowed_span_refs:
-        refs=[]
-        def walk(o):
-            if isinstance(o,dict):
-                for r in o.get("evidence_refs",[]):
-                    if isinstance(r,dict) and "source_span_ref_id" in r: refs.append(r["source_span_ref_id"])
-                    elif isinstance(r,str): refs.append(r)
-                for v in o.values(): walk(v)
-            elif isinstance(o,list):
-                for v in o: walk(v)
-        walk(candidate); _assert(all(r in allowed_span_refs for r in refs),"unknown_source_span_ref")
-    return {"candidate_class_counts":classes,"benchmark_comparison_ready":True,"preview_only":True}
+    all_refs=[]
+    for section in CANDIDATE_EVIDENCE_SECTIONS:
+        objects=candidate.get(section)
+        _assert(isinstance(objects,list), f"section_not_list:{section}")
+        for obj in objects:
+            _assert(isinstance(obj,Mapping), f"candidate_object_not_object:{section}")
+            object_id=_candidate_object_id(obj)
+            refs=_extract_source_span_ref_ids(obj.get("evidence_refs"), section=section, object_id=object_id)
+            all_refs.extend(refs)
+    if allowed_span_refs is not None:
+        for ref in all_refs:
+            _assert(ref in allowed_span_refs, f"unknown_source_span_ref:{ref}")
+    return {"candidate_class_counts":classes,"evidence_ref_count":len(all_refs),"benchmark_comparison_ready":True,"preview_only":True}
 
 def validate_all()->None:
     validate_prompt_manifest(load_manifest()); validate_prompt_packet_manifest(load_sample_packet_manifest())

@@ -61,6 +61,34 @@ def test_candidate_output_validator_rejects_promoted_output():
         h.validate_candidate_output(bad, {'spref:session-23:p001'})
 
 
+
+def test_candidate_output_validator_requires_evidence_refs():
+    allowed={'spref:session-23:p001'}
+    for section in h.CANDIDATE_EVIDENCE_SECTIONS:
+        missing={name:[] for name in h.REQUIRED_SECTIONS}
+        missing[section]=[{'candidate_id':'c1'}]
+        with pytest.raises(h.HarnessValidationError, match=f'missing_evidence_refs:{section}:c1'):
+            h.validate_candidate_output(missing, allowed)
+        empty={name:[] for name in h.REQUIRED_SECTIONS}
+        empty[section]=[{'candidate_id':'c1','evidence_refs':[]}]
+        with pytest.raises(h.HarnessValidationError, match=f'missing_evidence_refs:{section}:c1'):
+            h.validate_candidate_output(empty, allowed)
+
+
+def test_candidate_output_validator_rejects_unknown_evidence_refs():
+    bad={section:[] for section in h.REQUIRED_SECTIONS}
+    bad['candidate_nodes']=[{'candidate_id':'c1','evidence_refs':[{'source_span_ref_id':'spref:session-23:missing'}]}]
+    with pytest.raises(h.HarnessValidationError, match='unknown_source_span_ref:spref:session-23:missing'):
+        h.validate_candidate_output(bad, {'spref:session-23:p001'})
+
+
+def test_candidate_output_validator_accepts_evidenced_candidate_objects():
+    good={section:[] for section in h.REQUIRED_SECTIONS}
+    for section in h.CANDIDATE_EVIDENCE_SECTIONS:
+        good[section]=[{'candidate_id':f'{section}:1','evidence_refs':[{'source_span_ref_id':'spref:session-23:p001'}]}]
+    report=h.validate_candidate_output(good, {'spref:session-23:p001'})
+    assert report['evidence_ref_count']==len(h.CANDIDATE_EVIDENCE_SECTIONS)
+
 def test_validation_and_report_clis():
     root=h.repo_root()
     for mod in ['evals.graph_memory_layer.validate_live_extractor_prompt_harness','evals.graph_memory_layer.report_live_extractor_prompt_harness']:
