@@ -134,6 +134,72 @@ def test_context_question_does_not_resolve_roll(client: TestClient) -> None:
     assert "Hail dent" not in body["answer"]
 
 
+
+def test_live_context_lookup_response_includes_source_line_evidence_snapshots(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+    from apps.live_control_server.services import live_agent_loop
+
+    citation_path = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+
+    def fake_context_lookup_turn(**kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            response={
+                "schema": "dmb_live_query_response_v1",
+                "query_id": "live-query-snapshot-test",
+                "session": 22,
+                "mode": "context_lookup",
+                "status": "ok",
+                "answer": "Grounded answer [e1].",
+                "classification": {"latency_mode": "context_lookup", "event_type": "context_question"},
+                "events_written": [],
+                "jobs_queued": [],
+                "next_suggestions": [],
+                "diagnostics": [],
+                "provenance": {},
+                "citations": [{
+                    "evidence_id": "e1",
+                    "path": citation_path,
+                    "line_start": 14,
+                    "line_end": 14,
+                    "source_role": "play_recap",
+                    "authority": "canon_play",
+                }],
+                "context_packet": {
+                    "admitted_evidence": [{"evidence_id": "e1", "text_excerpt": "source text must not persist"}],
+                    "rejected_evidence": [],
+                },
+                "warnings": [],
+                "mutations": [],
+            },
+            events_to_write=[],
+            jobs_to_queue=[],
+        )
+
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "What is Lysandra feeling at the gate?",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["evidence_snapshots"]
+    snapshot = body["evidence_snapshots"][0]
+    assert snapshot["schema"] == "dmb_agent_evidence_snapshot_v1"
+    assert snapshot["fingerprint_algorithm"] == "sha256:source-lines-v1"
+    assert snapshot["path"] == citation_path
+    assert "text_excerpt" not in json.dumps(body["evidence_snapshots"])
+    assert "source text must not persist" not in json.dumps(body["evidence_snapshots"])
+
 def test_query_can_route_through_hermes_backend(
     client: TestClient,
     isolated_session: Path,

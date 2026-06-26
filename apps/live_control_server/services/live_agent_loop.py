@@ -444,6 +444,7 @@ def process_live_query(
             agent_thread_id=resolved_agent_thread_id,
             status=str(response.get("status") or "ok"),
         )
+        response = _with_evidence_snapshots(response)
         return _with_conversation_fields(
             response,
             agent_thread_id=resolved_agent_thread_id,
