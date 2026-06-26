@@ -148,6 +148,33 @@ def test_resolved_corpus_ref_is_decisive():
     assert ir.nodes_match(gold, cand)
 
 
+def test_corpus_ref_splits_distinct_subentities_sharing_a_hub():
+    # A location/collection hub (Mireward) documents many distinct sub-entities,
+    # each with its own ref_id but the SAME hub_path. Keying on hub_path alone
+    # collapses them into one node (silent cross-session corruption); pairing
+    # hub_path with ref_id keeps them distinct.
+    hub = "Elderwyld/Cities and Towns/Mireward/README.md"
+    city = _node("n_mireward", "Mireward", "location",
+                 corpus_ref={"type": "location", "ref_id": "mireward", "hub_path": hub})
+    gate = _node("n_north_gate", "North gate", "location",
+                 corpus_ref={"type": "location", "ref_id": "north_gate", "hub_path": hub})
+    assert ir.canonical_node_key(city) != ir.canonical_node_key(gate)
+    assert not ir.nodes_match(city, gate)
+    result = ir.dedup_nodes([city, gate])
+    assert len(result["kept"]) == 2
+
+
+def test_corpus_ref_merges_same_entity_across_sessions():
+    # The same NPC hub (one entity = one ref_id) must still merge across sessions:
+    # identical hub_path AND ref_id -> identical canonical key -> decisive match.
+    cr = {"type": "npc", "ref_id": "captain_lysandra_ironveil",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"}
+    s22 = _node("node:captain-lysandra", "Lysandra", "character", corpus_ref=dict(cr))
+    s23 = _node("character_lysandra", "Lieutenant Lysandra", "character", corpus_ref=dict(cr))
+    assert ir.canonical_node_key(s22) == ir.canonical_node_key(s23)
+    assert ir.node_match_score(s22, s23) == 1.0
+
+
 def test_best_match_assignment_resolves_mireward_collision():
     gold = [
         _node("node:mireward-reach", "Mireward Reach / Golden Fields", "location"),

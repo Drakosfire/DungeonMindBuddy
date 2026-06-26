@@ -24,6 +24,7 @@ from evals.graph_memory_layer.reconcile_live_candidate import (
     ENVELOPE_SCHEMA,
     ENVELOPE_VERSION,
     DEFAULT_SEMANTIC_STATE,
+    ReconcileError,
     validate_live_candidate_output,
 )
 from evals.graph_memory_layer.session_22_candidate_graph_gold_fixture import (
@@ -37,6 +38,7 @@ from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
     normalized_recap_path,
 )
 from src.graph_memory import identity_resolution as ir
+from src.graph_memory.anchor_quotes import coerce_anchor_quotes
 from src.graph_memory.party_context import build_party_context
 
 STUDY_SCHEMA = "dmb_category_graph_model_study_v0"
@@ -84,9 +86,13 @@ def _prompt_key(pass_name: str) -> str:
     return f"{pass_name}.md"
 
 EVIDENCE_RULE = (
-    "Every positive object MUST include evidence_refs as an array of objects with ONLY: "
-    '{"source_span_ref_id": "<spref from source packet>"}. '
-    "Do not invent anchor ids or line numbers."
+    "Every positive object MUST include evidence_refs as an array of objects with: "
+    '{"source_span_ref_id": "<spref from source packet>", '
+    '"anchor_quotes": ["<verbatim phrase copied from that paragraph>"]}. '
+    "anchor_quotes must be literal substrings from the cited paragraph text block — "
+    "not summaries, not your own node labels, not regex, not invented snippets, "
+    "not line numbers, not anchor ids. Copy exact words from the source packet. "
+    "Multiple quotes are allowed when the entity is named more than once in that paragraph."
 )
 
 
@@ -276,8 +282,8 @@ def _canonical_spref(value: str, allowed_span_refs: set[str]) -> str | None:
     return None
 
 
-def _normalize_evidence_refs(refs: Any, allowed_span_refs: set[str] | None = None) -> list[dict[str, str]]:
-    out: list[dict[str, str]] = []
+def _normalize_evidence_refs(refs: Any, allowed_span_refs: set[str] | None = None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     if not isinstance(refs, list):
         return out
     for ref in refs:
@@ -286,9 +292,17 @@ def _normalize_evidence_refs(refs: Any, allowed_span_refs: set[str] | None = Non
             if allowed_span_refs is not None:
                 canonical = _canonical_spref(spref, allowed_span_refs)
                 if canonical:
-                    out.append({"source_span_ref_id": canonical})
+                    entry: dict[str, Any] = {"source_span_ref_id": canonical}
+                    quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
+                    if quotes:
+                        entry["anchor_quotes"] = quotes
+                    out.append(entry)
             else:
-                out.append({"source_span_ref_id": spref})
+                entry = {"source_span_ref_id": spref}
+                quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
+                if quotes:
+                    entry["anchor_quotes"] = quotes
+                out.append(entry)
     return out
 
 
@@ -684,11 +698,21 @@ def run_category_pipeline(
         source_artifact_id=source_artifact_id,
     )
 
-    validation = validate_live_candidate_output(
-        envelope,
-        run_bundle=s22_run_bundle_dir(),
-        allowed_span_refs=allowed,
-    )
+    try:
+        validation = validate_live_candidate_output(
+            envelope,
+            run_bundle=s22_run_bundle_dir(),
+            allowed_span_refs=allowed,
+        )
+    except ReconcileError as exc:
+        validation = {
+            "schema": ENVELOPE_SCHEMA,
+            "version": ENVELOPE_VERSION,
+            "preview_only": True,
+            "canonical_ir_valid": False,
+            "reconcile_error": str(exc),
+            "benchmark_comparison_ready": False,
+        }
     comparison = compare_to_s22_gold(envelope)
 
     return {

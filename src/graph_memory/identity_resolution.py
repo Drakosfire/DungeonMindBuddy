@@ -258,11 +258,24 @@ def corpus_ref_identity(node: Any) -> tuple[str, str] | None:
     if not cr:
         return None
     hub_path = _get(cr, "hub_path")
-    ref_type = node_type_class(str(_get(cr, "type", "") or ""))
-    if hub_path:
-        return ("hub", str(hub_path).strip().lower())
     ref_id = _get(cr, "ref_id")
-    if ref_id:
+    ref_type = node_type_class(str(_get(cr, "type", "") or ""))
+    # ``ref_id`` is the entity-specific slug; ``hub_path`` is only where the docs
+    # live. A single location/collection hub (e.g. Mireward) is the documentation
+    # home for many distinct sub-entities (North gate, townspeople, the city
+    # itself), each with its own ``ref_id``. Keying on ``hub_path`` alone collapses
+    # all of them into one node — silent cross-session corruption that compounds
+    # per ingested session. Pair ``hub_path`` WITH ``ref_id`` so a multi-entity hub
+    # splits correctly, while a single-entity hub (one NPC = one ref_id, identical
+    # across sessions) still merges. The failure mode degrades to fail-to-merge
+    # (visible duplicate, recoverable) — never false-merge (silent entity loss).
+    hub = str(hub_path).strip().lower() if hub_path else ""
+    ref = str(ref_id).strip().lower() if ref_id else ""
+    if hub and ref:
+        return ("hub", f"{hub}::{ref}")
+    if hub:
+        return ("hub", hub)
+    if ref:
         return (ref_type, normalize_label(str(ref_id).replace("_", " ")))
     return None
 

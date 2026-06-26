@@ -51,7 +51,7 @@ def main() -> None:
     client = OpenAI()
     ensure_s22_run_bundle(allow_overwrite=args.allow_overwrite_bundle)
     verified = verified_s22_source()
-    out_root = args.out_root or artifacts_dir_for_today()
+    out_root = (args.out_root or artifacts_dir_for_today()).resolve()
     out_root.mkdir(parents=True, exist_ok=True)
 
     cohort: list[dict] = []

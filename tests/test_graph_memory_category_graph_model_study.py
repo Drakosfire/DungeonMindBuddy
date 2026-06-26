@@ -32,6 +32,7 @@ def test_render_category_pass_prompts_deterministic():
     assert "edge_pass.md" in a
     joined = "\n".join(a.values())
     assert "source_span_ref_id" in joined
+    assert "anchor_quotes" in joined
     assert "thrin_branchborn" in joined or "Party anchors" in joined
     assert "Do NOT extract player characters" in joined
 
@@ -195,6 +196,27 @@ def test_compare_rescues_spref_divergent_node_over_gold_span():
     report = compare_to_s22_gold(assemble_envelope(consolidated))
     missing = {m["label"] for m in report["coverage"]["missing_gold_nodes"]}
     assert "Delayed puddle reflections" not in missing
+
+
+def test_normalize_evidence_refs_preserves_anchor_quotes():
+    from evals.graph_memory_layer.category_graph_model_study import _normalize_evidence_refs
+
+    allowed = {"spref:session-22:p004"}
+    refs = _normalize_evidence_refs(
+        [
+            {
+                "source_span_ref_id": "session-22:p004",
+                "anchor_quotes": ["the reflections are somewhat delayed", ""],
+            }
+        ],
+        allowed,
+    )
+    assert refs == [
+        {
+            "source_span_ref_id": "spref:session-22:p004",
+            "anchor_quotes": ["the reflections are somewhat delayed"],
+        }
+    ]
 
 
 def test_ensure_s22_run_bundle_writes_files():

@@ -20,6 +20,12 @@ from src.graph_memory.candidate_graph_preview import (
     candidate_graph_preview_from_dict,
     validate_candidate_graph_preview,
 )
+from src.graph_memory.anchor_quotes import (
+    anchor_quote_matches_to_dicts,
+    coerce_anchor_quotes,
+    find_anchor_quote_matches,
+    quote_found_in_paragraph,
+)
 from src.graph_memory.source_span import SourceSpanRef, resolve_many_source_span_refs
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
@@ -127,6 +133,43 @@ def _load_json(path: Path) -> dict[str, Any]:
 def load_span_index(run_bundle: Path) -> dict[str, Any]:
     base = run_bundle if run_bundle.is_absolute() else repo_root() / run_bundle
     return _load_json(base / "source_span_index.json")
+
+
+def _recap_text_for_run_bundle(run_bundle: Path) -> str:
+    base = run_bundle if run_bundle.is_absolute() else repo_root() / run_bundle
+    manifest = _load_json(base / "run_manifest.json")
+    input_rel = str(manifest["source"]["input_path_record"])
+    recap_path = Path(input_rel)
+    if not recap_path.is_absolute():
+        recap_path = repo_root() / recap_path
+    return recap_path.read_text(encoding="utf-8")
+
+
+def _paragraph_text_for_span(recap_text: str, span: Mapping[str, Any]) -> str:
+    lines = recap_text.splitlines()
+    start = int(span["line_start"])
+    end = int(span["line_end"])
+    return "\n".join(lines[start - 1 : end])
+
+
+def _resolve_anchor_quotes_for_ref(
+    ref: Mapping[str, Any],
+    *,
+    paragraph_text: str,
+    entity_label: str | None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Validate model-provided quotes in paragraph; optional label fallback when omitted."""
+    quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
+    if quotes:
+        for q in quotes:
+            if not quote_found_in_paragraph(paragraph_text, q):
+                _assert(False, f"invalid_anchor_quote:not_in_paragraph:{q[:96]}")
+        matches = find_anchor_quote_matches(paragraph_text, quotes)
+        return quotes, anchor_quote_matches_to_dicts(matches)
+    if entity_label and quote_found_in_paragraph(paragraph_text, entity_label):
+        matches = find_anchor_quote_matches(paragraph_text, [entity_label])
+        return [], anchor_quote_matches_to_dicts(matches)
+    return [], []
 
 
 def _source_context_for_bundle(run_bundle: Path) -> tuple[str, str, Any]:
@@ -338,6 +381,7 @@ def upgrade_evidence_ref(
     label: str | None = None,
     source_ref_id: str = DEFAULT_SOURCE_REF_ID,
     source_artifact_id: str = DEFAULT_SOURCE_ARTIFACT_ID,
+    recap_text: str | None = None,
 ) -> dict[str, Any]:
     spref = _spref_from_ref(ref, span_lookup)
     if spref and spref in span_lookup:
@@ -347,6 +391,7 @@ def upgrade_evidence_ref(
         out = {
             "source_ref_id": source_ref_id,
             "source_artifact_id": source_artifact_id,
+            "source_span_ref_id": spref,
             "label": label or spref,
             "evidence_role": "source_evidence",
             "can_open_source": bool(resolved_ev and resolved_ev.can_open_source),
@@ -354,6 +399,20 @@ def upgrade_evidence_ref(
         }
         if resolved_ev and resolved_ev.source_anchor_id:
             out["source_anchor_id"] = resolved_ev.source_anchor_id
+        if recap_text:
+            paragraph = _paragraph_text_for_span(recap_text, sp)
+            if isinstance(ref, Mapping):
+                anchor_quotes, match_dicts = _resolve_anchor_quotes_for_ref(
+                    ref,
+                    paragraph_text=paragraph,
+                    entity_label=label,
+                )
+                if anchor_quotes:
+                    out["anchor_quotes"] = anchor_quotes
+                if match_dicts:
+                    out["anchor_quote_matches"] = match_dicts
+        elif isinstance(ref, Mapping) and coerce_anchor_quotes(ref.get("anchor_quotes")):
+            _assert(False, "invalid_anchor_quote:no_paragraph_text")
         return out
     if isinstance(ref, Mapping) and ref.get("source_ref_id") and ref.get("source_artifact_id"):
         return dict(ref)
@@ -411,6 +470,7 @@ def reconcile_candidate_graph(
         source_artifact_id=source_artifact_id,
         build_source_span_artifacts=build_artifacts,
     )
+    recap_text = _recap_text_for_run_bundle(run_bundle)
 
     def upgrade_refs(refs: list[Any], label: str | None = None) -> list[dict[str, Any]]:
         out = []
@@ -427,6 +487,7 @@ def reconcile_candidate_graph(
                     label=label,
                     source_ref_id=source_ref_id,
                     source_artifact_id=source_artifact_id,
+                    recap_text=recap_text,
                 )
             )
         return out

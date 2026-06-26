@@ -13,6 +13,29 @@ def all_refs(p):
         for o in seq: out.extend(o.evidence_refs)
     return out
 
+def test_evidence_ref_round_trip_anchor_quote_fields():
+    data = {
+        "source_ref_id": "source-ref:normalized_recap_markdown:dogfood",
+        "source_artifact_id": "source-artifact:normalized_recap_markdown:dogfood",
+        "source_span_ref_id": "spref:session-22:p004",
+        "anchor_quotes": ["Grobnok"],
+        "anchor_quote_matches": [
+            {
+                "quote": "Grobnok",
+                "char_start": 10,
+                "char_end": 17,
+                "match_text": "Grobnok",
+            }
+        ],
+        "can_open_source": True,
+        "can_highlight_span": True,
+    }
+    ref = evidence_ref_from_dict(data)
+    assert ref.source_span_ref_id == "spref:session-22:p004"
+    assert ref.anchor_quotes == ("Grobnok",)
+    assert len(ref.anchor_quote_matches) == 1
+    assert evidence_ref_from_dict(evidence_ref_to_dict(ref)) == ref
+
 def test_cli_and_fixture_shape():
     assert subprocess.run([sys.executable,'-m','evals.graph_memory_layer.validate_candidate_graph_preview_ir'],cwd=ROOT).returncode==0
     assert subprocess.run([sys.executable,'-m','evals.graph_memory_layer.report_candidate_graph_preview_ir'],cwd=ROOT,stdout=subprocess.PIPE,text=True).returncode==0

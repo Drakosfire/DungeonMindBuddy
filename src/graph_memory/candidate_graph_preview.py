@@ -32,6 +32,13 @@ class CorpusRef:
     hub_path: str | None = None
 
 @dataclass(frozen=True)
+class AnchorQuoteMatch:
+    quote: str
+    char_start: int
+    char_end: int
+    match_text: str
+
+@dataclass(frozen=True)
 class EvidenceRef:
     source_ref_id: str
     source_artifact_id: str
@@ -40,6 +47,9 @@ class EvidenceRef:
     evidence_role: str = "source_evidence"
     can_open_source: bool = False
     can_highlight_span: bool = False
+    source_span_ref_id: str | None = None
+    anchor_quotes: tuple[str, ...] = ()
+    anchor_quote_matches: tuple[AnchorQuoteMatch, ...] = ()
 
 @dataclass(frozen=True)
 class SemanticState:
@@ -175,7 +185,39 @@ class CandidateGraphPreviewValidationReport:
 
 def semantic_state_from_dict(data: Mapping[str, Any]) -> SemanticState: return SemanticState(**data)
 def semantic_state_to_dict(state: SemanticState) -> dict[str, Any]: return asdict(state)
-def evidence_ref_from_dict(data: Mapping[str, Any]) -> EvidenceRef: return EvidenceRef(**data)
+
+def anchor_quote_match_from_dict(data: Mapping[str, Any]) -> AnchorQuoteMatch:
+    return AnchorQuoteMatch(
+        quote=str(data["quote"]),
+        char_start=int(data["char_start"]),
+        char_end=int(data["char_end"]),
+        match_text=str(data["match_text"]),
+    )
+
+def anchor_quote_match_to_dict(match: AnchorQuoteMatch) -> dict[str, Any]:
+    return asdict(match)
+
+def evidence_ref_from_dict(data: Mapping[str, Any]) -> EvidenceRef:
+    anchor_quotes = tuple(
+        str(x).strip() for x in (data.get("anchor_quotes") or []) if str(x).strip()
+    )
+    raw_matches = data.get("anchor_quote_matches") or []
+    anchor_quote_matches = tuple(
+        anchor_quote_match_from_dict(m) for m in raw_matches if isinstance(m, Mapping)
+    )
+    return EvidenceRef(
+        source_ref_id=str(data["source_ref_id"]),
+        source_artifact_id=str(data["source_artifact_id"]),
+        source_anchor_id=data.get("source_anchor_id"),
+        label=data.get("label"),
+        evidence_role=str(data.get("evidence_role") or "source_evidence"),
+        can_open_source=bool(data.get("can_open_source")),
+        can_highlight_span=bool(data.get("can_highlight_span")),
+        source_span_ref_id=data.get("source_span_ref_id"),
+        anchor_quotes=anchor_quotes,
+        anchor_quote_matches=anchor_quote_matches,
+    )
+
 def evidence_ref_to_dict(ref: EvidenceRef) -> dict[str, Any]: return asdict(ref)
 def corpus_ref_from_dict(data: Mapping[str, Any] | None) -> CorpusRef | None: return CorpusRef(**data) if data else None
 
