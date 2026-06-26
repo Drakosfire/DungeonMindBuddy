@@ -2,7 +2,7 @@
   "schema": "dmb_live_extractor_prompt_manifest_v0",
   "version": "0.1",
   "fixture_id": "graph-memory:live-extractor-prompt-harness:v0",
-  "purpose": "Render one-shot, two-shot, and three-shot model-ready prompts from a verified live recap ingest run bundle plus explicit source recap file.",
+  "purpose": "Render one-shot, two-shot, and three-shot model-ready prompts for preview-only graph construction from verified source-packet artifacts.",
   "modes": {
     "one_shot": {"prompt_files": ["one_shot_prompt.md"], "model_calls_required_by_harness": 0},
     "two_shot": {"prompt_files": ["observation_extraction_prompt.md", "graph_assembly_prompt.md"], "model_calls_required_by_harness": 0},

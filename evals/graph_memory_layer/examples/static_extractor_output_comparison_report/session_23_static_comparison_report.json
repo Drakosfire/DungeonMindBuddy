@@ -12,7 +12,7 @@
     "merge_gate": "pass",
     "reviewer_summary": "The sample candidate output has no hard failures and passes evidence/high-risk/safety gates, but misses substantial Session 23 gold coverage.",
     "blocking_issue_count": 0,
-    "soft_issue_count": 45,
+    "soft_issue_count": 50,
     "recommended_next_action": "Use this report shape to inspect future static or gated extractor outputs before live extraction is admitted."
   },
   "score_summary": {
@@ -31,7 +31,7 @@
         "band": "good"
       },
       "edge_recall": {
-        "score": 0.3478,
+        "score": 0.0952,
         "band": "weak"
       },
       "beat_recall": {
@@ -39,8 +39,8 @@
         "band": "partial"
       },
       "proposed_write_recall": {
-        "score": 0.4,
-        "band": "partial"
+        "score": 0.375,
+        "band": "weak"
       },
       "ignored_item_recall": {
         "score": 0.6667,
@@ -57,8 +57,8 @@
         "band": "pass"
       },
       "edge_precision_proxy": {
-        "score": 1.0,
-        "band": "pass"
+        "score": 0.25,
+        "band": "weak"
       }
     }
   },
@@ -73,13 +73,13 @@
       "precision_proxy": 1.0
     },
     "edges": {
-      "gold_total": 23,
+      "gold_total": 21,
       "candidate_total": 8,
-      "matched": 8,
-      "missing": 15,
-      "extra": 0,
-      "recall": 0.3478,
-      "precision_proxy": 1.0
+      "matched": 2,
+      "missing": 19,
+      "extra": 6,
+      "recall": 0.0952,
+      "precision_proxy": 0.25
     },
     "beats": {
       "gold_total": 14,
@@ -91,12 +91,12 @@
       "precision_proxy": 1.0
     },
     "proposed_writes": {
-      "gold_total": 15,
+      "gold_total": 16,
       "candidate_total": 6,
       "matched": 6,
-      "missing": 9,
+      "missing": 10,
       "extra": 0,
-      "recall": 0.4,
+      "recall": 0.375,
       "precision_proxy": 1.0
     },
     "ignored_items": {
@@ -125,7 +125,7 @@
     "reviewer_note": "No hard safety failures were found in the static sample candidate output."
   },
   "soft_miss_summary": {
-    "total": 45,
+    "total": 50,
     "by_issue": {
       "missing_deferred_item": {
         "count": 3,
@@ -154,7 +154,7 @@
         ]
       },
       "missing_proposed_write": {
-        "count": 9,
+        "count": 10,
         "items": [
           {
             "id": "write:create-caelynn-lightning-bolt-cliffhanger",
@@ -175,6 +175,10 @@
           {
             "id": "write:create-flying-meatwings",
             "label": "Create Flying meatwings"
+          },
+          {
+            "id": "write:create-the-last-dry-bed",
+            "label": "Create The Last Dry Bed inn sublocation"
           },
           {
             "id": "write:create-thread-first-wave-outcome",
@@ -232,67 +236,83 @@
         ]
       },
       "missing_required_edge": {
-        "count": 15,
+        "count": 19,
         "items": [
           {
-            "id": "edge:boy-warns-shadows-at-north-gate",
-            "label": "receive warning that shadows are coming to the north gate"
+            "id": "edge:baergrom-member-of-party",
+            "label": "Baergrom is part of the responding heroes / party"
           },
           {
-            "id": "edge:caelynn-unleashes-lightning-bolt",
-            "label": "unleashes the lightning-bolt cliffhanger"
+            "id": "edge:bonogo-member-of-party",
+            "label": "Bonogo is part of the responding heroes / party"
           },
           {
-            "id": "edge:ephanna-casts-hunger-of-hadar",
-            "label": "casts Hunger of Hadar in the monsters path"
+            "id": "edge:caelynn-member-of-party",
+            "label": "Caelynn is part of the responding heroes / party"
           },
           {
-            "id": "edge:ephanna-summons-ogonob",
-            "label": "summons Ogonob over the wall"
+            "id": "edge:edge-refugees-from-edge",
+            "label": "The refugee group comes from Edge after the town is overrun"
           },
           {
-            "id": "edge:karsemine-casts-spike-growth",
-            "label": "casts Spike Growth on the approach road"
+            "id": "edge:ephanna-member-of-party",
+            "label": "Ephanna is part of the responding heroes / party"
           },
           {
-            "id": "edge:karsemine-identifies-fire-weakness",
-            "label": "identifies poison resistance and fire weakness"
+            "id": "edge:first-wave-threatens-mireward",
+            "label": "The first meat wave threatens Mireward Reach"
           },
           {
-            "id": "edge:lightning-bolt-targets-meat-wave",
-            "label": "targets the attackers with massive lightning damage"
+            "id": "edge:flying-meatwings-part-of-first-wave",
+            "label": "Flying meatwings are part of the first meat wave"
           },
           {
-            "id": "edge:lysandra-explains-mirathorn-mission",
-            "label": "explains the Mirathorn mission and prior monster fight"
+            "id": "edge:karsemine-knows-tripod-fire-weakness",
+            "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
           },
           {
-            "id": "edge:lysandra-reads-message-to-party",
-            "label": "reads the message to the heroes / party"
+            "id": "edge:karsemine-member-of-party",
+            "label": "Karsemine is part of the responding heroes / party"
           },
           {
-            "id": "edge:lysandra-uses-commanding-shout",
-            "label": "uses Commanding Shout to order more attacks"
+            "id": "edge:last-dry-bed-located-in-mireward",
+            "label": "The Last Dry Bed inn common room is in Mireward Reach"
           },
           {
-            "id": "edge:meatwings-charm-bonogo-and-ephanna",
-            "label": "charms Bonogo and Ephanna away from attacking"
+            "id": "edge:lysandra-allied-with-party",
+            "label": "Lysandra acts as an allied commander with the heroes at Mireward"
           },
           {
-            "id": "edge:message-resembles-mirathorn-monsters",
-            "label": "resembles prior monsters and eye changes"
+            "id": "edge:north-gate-located-in-mireward",
+            "label": "The north gate is a Mireward Reach sublocation"
           },
           {
-            "id": "edge:stafl-inspires-karsemine",
-            "label": "casts Bardic Inspiration on Karsemine"
+            "id": "edge:north-wall-located-in-mireward",
+            "label": "The north wall is part of Mireward Reach’s defense surface"
           },
           {
-            "id": "edge:stafl-routes-refugees-to-south-gate",
-            "label": "routes refugees to wait at the south gate"
+            "id": "edge:orik-tane-governs-mireward",
+            "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
           },
           {
-            "id": "edge:stafl-scouts-from-north-gate",
-            "label": "scouts the shadowed road from the north gate"
+            "id": "edge:road-to-north-gate-located-in-mireward",
+            "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+          },
+          {
+            "id": "edge:south-gate-located-in-mireward",
+            "label": "The south gate is a Mireward Reach sublocation"
+          },
+          {
+            "id": "edge:stafl-member-of-party",
+            "label": "Stafl is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:thrin-member-of-party",
+            "label": "Thrin is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:tripod-meat-monsters-part-of-first-wave",
+            "label": "Tripod meat monsters are part of the first meat wave"
           }
         ]
       },
@@ -381,64 +401,80 @@
       ],
       "edges": [
         {
-          "id": "edge:boy-warns-shadows-at-north-gate",
-          "label": "receive warning that shadows are coming to the north gate"
+          "id": "edge:baergrom-member-of-party",
+          "label": "Baergrom is part of the responding heroes / party"
         },
         {
-          "id": "edge:caelynn-unleashes-lightning-bolt",
-          "label": "unleashes the lightning-bolt cliffhanger"
+          "id": "edge:bonogo-member-of-party",
+          "label": "Bonogo is part of the responding heroes / party"
         },
         {
-          "id": "edge:ephanna-casts-hunger-of-hadar",
-          "label": "casts Hunger of Hadar in the monsters path"
+          "id": "edge:caelynn-member-of-party",
+          "label": "Caelynn is part of the responding heroes / party"
         },
         {
-          "id": "edge:ephanna-summons-ogonob",
-          "label": "summons Ogonob over the wall"
+          "id": "edge:edge-refugees-from-edge",
+          "label": "The refugee group comes from Edge after the town is overrun"
         },
         {
-          "id": "edge:karsemine-casts-spike-growth",
-          "label": "casts Spike Growth on the approach road"
+          "id": "edge:ephanna-member-of-party",
+          "label": "Ephanna is part of the responding heroes / party"
         },
         {
-          "id": "edge:karsemine-identifies-fire-weakness",
-          "label": "identifies poison resistance and fire weakness"
+          "id": "edge:first-wave-threatens-mireward",
+          "label": "The first meat wave threatens Mireward Reach"
         },
         {
-          "id": "edge:lightning-bolt-targets-meat-wave",
-          "label": "targets the attackers with massive lightning damage"
+          "id": "edge:flying-meatwings-part-of-first-wave",
+          "label": "Flying meatwings are part of the first meat wave"
         },
         {
-          "id": "edge:lysandra-explains-mirathorn-mission",
-          "label": "explains the Mirathorn mission and prior monster fight"
+          "id": "edge:karsemine-knows-tripod-fire-weakness",
+          "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
         },
         {
-          "id": "edge:lysandra-reads-message-to-party",
-          "label": "reads the message to the heroes / party"
+          "id": "edge:karsemine-member-of-party",
+          "label": "Karsemine is part of the responding heroes / party"
         },
         {
-          "id": "edge:lysandra-uses-commanding-shout",
-          "label": "uses Commanding Shout to order more attacks"
+          "id": "edge:last-dry-bed-located-in-mireward",
+          "label": "The Last Dry Bed inn common room is in Mireward Reach"
         },
         {
-          "id": "edge:meatwings-charm-bonogo-and-ephanna",
-          "label": "charms Bonogo and Ephanna away from attacking"
+          "id": "edge:lysandra-allied-with-party",
+          "label": "Lysandra acts as an allied commander with the heroes at Mireward"
         },
         {
-          "id": "edge:message-resembles-mirathorn-monsters",
-          "label": "resembles prior monsters and eye changes"
+          "id": "edge:north-gate-located-in-mireward",
+          "label": "The north gate is a Mireward Reach sublocation"
         },
         {
-          "id": "edge:stafl-inspires-karsemine",
-          "label": "casts Bardic Inspiration on Karsemine"
+          "id": "edge:north-wall-located-in-mireward",
+          "label": "The north wall is part of Mireward Reach’s defense surface"
         },
         {
-          "id": "edge:stafl-routes-refugees-to-south-gate",
-          "label": "routes refugees to wait at the south gate"
+          "id": "edge:orik-tane-governs-mireward",
+          "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
         },
         {
-          "id": "edge:stafl-scouts-from-north-gate",
-          "label": "scouts the shadowed road from the north gate"
+          "id": "edge:road-to-north-gate-located-in-mireward",
+          "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+        },
+        {
+          "id": "edge:south-gate-located-in-mireward",
+          "label": "The south gate is a Mireward Reach sublocation"
+        },
+        {
+          "id": "edge:stafl-member-of-party",
+          "label": "Stafl is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:thrin-member-of-party",
+          "label": "Thrin is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:tripod-meat-monsters-part-of-first-wave",
+          "label": "Tripod meat monsters are part of the first meat wave"
         }
       ],
       "beats": [
@@ -497,6 +533,10 @@
           "label": "Create Flying meatwings"
         },
         {
+          "id": "write:create-the-last-dry-bed",
+          "label": "Create The Last Dry Bed inn sublocation"
+        },
+        {
           "id": "write:create-thread-first-wave-outcome",
           "label": "Create Thread: first wave outcome"
         },
@@ -539,78 +579,98 @@
       "important": [
         {
           "type": "edges",
-          "id": "edge:boy-warns-shadows-at-north-gate",
-          "label": "receive warning that shadows are coming to the north gate"
+          "id": "edge:baergrom-member-of-party",
+          "label": "Baergrom is part of the responding heroes / party"
         },
         {
           "type": "edges",
-          "id": "edge:caelynn-unleashes-lightning-bolt",
-          "label": "unleashes the lightning-bolt cliffhanger"
+          "id": "edge:bonogo-member-of-party",
+          "label": "Bonogo is part of the responding heroes / party"
         },
         {
           "type": "edges",
-          "id": "edge:ephanna-casts-hunger-of-hadar",
-          "label": "casts Hunger of Hadar in the monsters path"
+          "id": "edge:caelynn-member-of-party",
+          "label": "Caelynn is part of the responding heroes / party"
         },
         {
           "type": "edges",
-          "id": "edge:ephanna-summons-ogonob",
-          "label": "summons Ogonob over the wall"
+          "id": "edge:edge-refugees-from-edge",
+          "label": "The refugee group comes from Edge after the town is overrun"
         },
         {
           "type": "edges",
-          "id": "edge:karsemine-casts-spike-growth",
-          "label": "casts Spike Growth on the approach road"
+          "id": "edge:ephanna-member-of-party",
+          "label": "Ephanna is part of the responding heroes / party"
         },
         {
           "type": "edges",
-          "id": "edge:karsemine-identifies-fire-weakness",
-          "label": "identifies poison resistance and fire weakness"
+          "id": "edge:first-wave-threatens-mireward",
+          "label": "The first meat wave threatens Mireward Reach"
         },
         {
           "type": "edges",
-          "id": "edge:lightning-bolt-targets-meat-wave",
-          "label": "targets the attackers with massive lightning damage"
+          "id": "edge:flying-meatwings-part-of-first-wave",
+          "label": "Flying meatwings are part of the first meat wave"
         },
         {
           "type": "edges",
-          "id": "edge:lysandra-explains-mirathorn-mission",
-          "label": "explains the Mirathorn mission and prior monster fight"
+          "id": "edge:karsemine-knows-tripod-fire-weakness",
+          "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
         },
         {
           "type": "edges",
-          "id": "edge:lysandra-reads-message-to-party",
-          "label": "reads the message to the heroes / party"
+          "id": "edge:karsemine-member-of-party",
+          "label": "Karsemine is part of the responding heroes / party"
         },
         {
           "type": "edges",
-          "id": "edge:lysandra-uses-commanding-shout",
-          "label": "uses Commanding Shout to order more attacks"
+          "id": "edge:last-dry-bed-located-in-mireward",
+          "label": "The Last Dry Bed inn common room is in Mireward Reach"
         },
         {
           "type": "edges",
-          "id": "edge:meatwings-charm-bonogo-and-ephanna",
-          "label": "charms Bonogo and Ephanna away from attacking"
+          "id": "edge:lysandra-allied-with-party",
+          "label": "Lysandra acts as an allied commander with the heroes at Mireward"
         },
         {
           "type": "edges",
-          "id": "edge:message-resembles-mirathorn-monsters",
-          "label": "resembles prior monsters and eye changes"
+          "id": "edge:north-gate-located-in-mireward",
+          "label": "The north gate is a Mireward Reach sublocation"
         },
         {
           "type": "edges",
-          "id": "edge:stafl-inspires-karsemine",
-          "label": "casts Bardic Inspiration on Karsemine"
+          "id": "edge:north-wall-located-in-mireward",
+          "label": "The north wall is part of Mireward Reach’s defense surface"
         },
         {
           "type": "edges",
-          "id": "edge:stafl-routes-refugees-to-south-gate",
-          "label": "routes refugees to wait at the south gate"
+          "id": "edge:orik-tane-governs-mireward",
+          "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
         },
         {
           "type": "edges",
-          "id": "edge:stafl-scouts-from-north-gate",
-          "label": "scouts the shadowed road from the north gate"
+          "id": "edge:road-to-north-gate-located-in-mireward",
+          "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+        },
+        {
+          "type": "edges",
+          "id": "edge:south-gate-located-in-mireward",
+          "label": "The south gate is a Mireward Reach sublocation"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-member-of-party",
+          "label": "Stafl is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:thrin-member-of-party",
+          "label": "Thrin is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:tripod-meat-monsters-part-of-first-wave",
+          "label": "Tripod meat monsters are part of the first meat wave"
         },
         {
           "type": "beats",
@@ -676,6 +736,11 @@
           "type": "proposed_writes",
           "id": "write:create-flying-meatwings",
           "label": "Create Flying meatwings"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-the-last-dry-bed",
+          "label": "Create The Last Dry Bed inn sublocation"
         },
         {
           "type": "proposed_writes",
@@ -770,13 +835,38 @@
   "extra_candidate_coverage": {
     "by_type": {
       "nodes": [],
-      "edges": [],
+      "edges": [
+        {
+          "id": "edge:edge-message-warns-of-siege",
+          "label": "warns that Edge is under siege"
+        },
+        {
+          "id": "edge:ephanna-demands-eye-checks",
+          "label": "requires refugees to show their eyes before entering"
+        },
+        {
+          "id": "edge:karsemine-detects-ground-rumble",
+          "label": "detects the approaching rumble of the wave"
+        },
+        {
+          "id": "edge:lysandro-relays-edge-message",
+          "label": "relays the warning message from Edge"
+        },
+        {
+          "id": "edge:orik-tane-commands-inn-room",
+          "label": "commands the packed inn room"
+        },
+        {
+          "id": "edge:tripods-launch-body-parts",
+          "label": "launch body parts that become smaller monsters"
+        }
+      ],
       "beats": [],
       "proposed_writes": [],
       "ignored_items": [],
       "deferred_items": []
     },
-    "total": 0
+    "total": 6
   },
   "evidence_health": {
     "evidence_alignment_score": 1.0,
@@ -814,7 +904,7 @@
   "proposed_write_summary": {
     "candidate_total": 6,
     "matched_gold_total": 6,
-    "missing_gold_total": 9,
+    "missing_gold_total": 10,
     "approved_count": 0,
     "pending_count": 6,
     "promoted_count": 0,

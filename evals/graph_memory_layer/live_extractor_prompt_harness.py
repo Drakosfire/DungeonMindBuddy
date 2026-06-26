@@ -14,6 +14,8 @@ from evals.graph_memory_layer.reconcile_live_candidate import (
 )
 from src.graph_memory.candidate_graph_preview import (
     CANON_STATES,
+    CORPUS_REF_RESOLUTIONS,
+    CORPUS_REF_TYPES,
     LIFECYCLE_STATES,
     NODE_TYPES,
     WRITE_TYPES,
@@ -147,6 +149,8 @@ def _source_packet_md(rows: list[dict[str, Any]]) -> str:
 def _ir_schema_scaffold() -> str:
     node_types = ", ".join(sorted(NODE_TYPES))
     write_types = ", ".join(sorted(WRITE_TYPES))
+    corpus_ref_types = ", ".join(sorted(CORPUS_REF_TYPES))
+    corpus_ref_resolutions = ", ".join(sorted(CORPUS_REF_RESOLUTIONS))
     return f"""## Output envelope (strict JSON only)
 
 Return one JSON object:
@@ -171,19 +175,29 @@ Do not invent anchor ids, line numbers, or resolver fields.
 
 Unnamed-but-important concepts are `nodes` with `node_type: unknown_important` (not a separate section).
 
+Optional `corpus_ref`:
+- Shape: `{{"type": "<one of: {corpus_ref_types}>", "ref_id": "<stable slug or index id>", "resolution": "<one of: {corpus_ref_resolutions}>", "hub_path": "<optional corpus-relative hub path>"}}`.
+- Use `resolution: "resolved"` ONLY when the prompt supplies a reference index or the source packet itself gives an exact existing corpus id/path. Do not infer resolved corpus ids from memory.
+- Use `resolution: "proposed"` for hub-worthy entities that the source supports but no supplied reference index resolves. Proposed refs should use stable snake_case review slugs.
+- Omit `corpus_ref` when the entity is too transient, generic, or under-specified for corpus resolution.
+
 ### Edge fields
 
 `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, `semantic_state`, `evidence_refs`, `proposed_action`, `confidence`, optional `warnings`.
-Relationship types to consider: origin, role, familial, location, allegiance, combat_trait, attribute, association.
+Edges are for durable structural or semantic relationships, not moment-by-moment prose actions.
+Prefer relationship types such as: `member_of`, `located_in`, `governs`, `parent_of`, `child_of`, `sibling_of`, `leads`, `allied_with`, `opposes`, `serves`, `owns`, `created_by`, `part_of`, `displaced_from`, `threatens`, `knows_about`, `teaches`, `believes`, `worships`, `contains`, `routes_to`, `associated_with`.
+Do not create edges for a single attack, spell cast, movement, dialogue line, or other scene action unless the source frames it as an ongoing relationship or durable fact. Preserve those as beats instead.
 
 ### Beat fields
 
 `beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids`, `evidence_refs`, optional `unresolved_thread_node_ids`, `proposed_action`, optional `warnings`.
-Extract one beat per major scene transition; do not merge beats without recording merge rationale in `diagnostics`.
+Extract beats for source-local events, sections, assertions, table rows, scene transitions, or topic shifts that matter for review. For worldbuilding material, beats may represent major lore sections rather than played session scenes. Do not merge beats without recording merge rationale in `diagnostics`.
 
 ### Proposed write fields
 
 `write_id`, `write_type` (one of: {write_types}), `target_id`, `label`, `reason`, `evidence_refs`, `status` (must be `pending`).
+`target_id` MUST exactly equal an existing `node_id`, `edge_id`, `beat_id`, or `item_id` already present in the candidate graph. Do not invent a separate target id for a proposed write.
+Do not create a `mark_ignored` or `defer` proposed write just because an item appears in `ignored_items` or `deferred_items`; those sections already carry the disposition. Only emit those write types when the target object exists and the extra pending write is materially useful for human review.
 
 ### Ignored / deferred item fields
 
@@ -197,10 +211,11 @@ Extract one beat per major scene transition; do not merge beats without recordin
 def _uncertainty_rules() -> str:
     return """## Uncertainty preservation (mandatory)
 
-- Do not resolve cliffhangers or battle outcomes.
+- Do not resolve cliffhangers, battle outcomes, future plans, world secrets, or ambiguous lore beyond the cited source.
 - Do not bind aliases across spans unless a single cited span explicitly links them.
 - Named-in-span-A / described-in-span-B: if an entity is named in one span and only described in another (e.g. "her father" vs a name elsewhere), keep separate nodes or defer identity — do not merge without multi-span evidence on the binding claim.
 - Do not state exact counts when the source gives a range (e.g. "twenty to one hundred" shadows).
+- Do not turn a rumor, belief, prophecy, prep idea, or boxed text into played canon. Preserve the source's authority posture in labels, descriptions, warnings, or deferred items when needed.
 - Do not promote canon, approve memory, or execute writes."""
 
 
@@ -225,17 +240,20 @@ Proposed writes are pending preview intent only — never approved or persisted.
 
 
 def _exhaustiveness_rules() -> str:
-    return """## Exhaustiveness
+    return """## Graph construction policy
 
-- Extract all directly named characters, locations, factions, and groups.
-- Propose relationship edges for every source-supported link (origin, role, familial, location, allegiance, combat traits).
+- The workflow must be source-material agnostic. Treat recaps, worldbuilding docs, NPC dossiers, item cards, encounter tables, cultural event docs, and prep notes as source packets with evidence spans.
+- Extract hub-worthy named actors, groups, places, objects, events, concepts, threats, mysteries, promises, debts, rumors, and warnings. Do not extract every generic noun.
+- Extract durable relationship edges for source-supported links: roster/member_of, containment/located_in/part_of, governance/leadership, kinship/social ties, ownership, origin, belief/knowledge, threat/opposition, routes, and authored/created relationships.
+- Keep transient actions, tactics, sensory descriptions, and table mechanics as beats, ignored items, or deferred items unless they establish an ongoing fact.
 - Include ignored items (table/mechanical noise) and deferred items (unresolved threads, ambiguous identity, battle outcome).
-- Target completeness over minimalism; cite evidence for every positive claim."""
+- Target review completeness over minimalism; cite evidence for every positive claim."""
 
 
 def safety_instructions() -> str:
     return (
-        "You are producing preview-only graph-memory candidates for manual benchmark review.\n"
+        "You are producing preview-only graph-memory candidates for manual benchmark review from arbitrary campaign source material.\n"
+        "The workflow is source-material agnostic: do not assume the packet is a session recap.\n"
         "Return ONLY valid JSON matching the envelope contract below.\n"
         + _safety_boundary()
     )
@@ -252,16 +270,16 @@ def render_prompts(mode: str, verified: Mapping[str, Any]) -> dict[str, str]:
     common = f"{safety_instructions()}\n\n{scaffold}\n\n{uncertainty}\n\n{high_risk}\n\n{exhaust}\n\n## Source Packet\n\n{src}\n"
 
     if mode == "one_shot":
-        return {"one_shot_prompt.md": f"# Live Graph Memory Extractor — One Shot\n\n{common}"}
+        return {"one_shot_prompt.md": f"# Graph Memory Constructor — One Shot\n\n{common}"}
 
     if mode == "two_shot":
-        obs = f"# Live Graph Memory Extractor — Observation Extraction\n\n{safety_instructions()}\n\n{uncertainty}\n\nExtract observations only as JSON with sections: `observation_beats`, `observation_nodes`, `observation_edges`, `ignored_items`, `deferred_items`. Every observation cites `source_span_ref_id`. Do not assemble final candidate_graph yet.\n\n## Source Packet\n\n{src}\n"
-        assembly = f"# Live Graph Memory Extractor — Graph Assembly\n\n{_safety_boundary()}\n\nUsing the manually supplied observation JSON, assemble the full output envelope (`candidate_graph` + `review_sidecar`).\n\nAssembly rules:\n- Do not add facts absent from observations and their cited spans.\n- Preserve every observation beat and edge unless merged; record any merge in `candidate_graph.diagnostics.warning_count` and `review_sidecar.notes`.\n- Never drop beats or edges silently.\n\n{scaffold}\n\n{high_risk}\n"
+        obs = f"# Graph Memory Constructor — Observation Extraction\n\n{safety_instructions()}\n\n{uncertainty}\n\nExtract observations only as JSON with sections: `observation_beats`, `observation_nodes`, `observation_edges`, `ignored_items`, `deferred_items`. Every observation cites `source_span_ref_id`. Observed edges must be durable relationships, not transient actions. Do not assemble final candidate_graph yet.\n\n## Source Packet\n\n{src}\n"
+        assembly = f"# Graph Memory Constructor — Graph Assembly\n\n{_safety_boundary()}\n\nUsing the manually supplied observation JSON, assemble the full output envelope (`candidate_graph` + `review_sidecar`).\n\nAssembly rules:\n- Do not add facts absent from observations and their cited spans.\n- Preserve every observation beat and durable edge unless merged; record any merge in `candidate_graph.diagnostics.warning_count` and `review_sidecar.notes`.\n- Never drop beats or edges silently.\n- Emit `corpus_ref.resolution=\"resolved\"` only when a supplied reference index or exact source path/id supports it; otherwise use `proposed` or omit `corpus_ref`.\n- Every proposed write `target_id` must reference an object emitted in the same candidate graph. Ignored/deferred sections do not need duplicate proposed writes.\n\n{scaffold}\n\n{high_risk}\n"
         return {"observation_extraction_prompt.md": obs, "graph_assembly_prompt.md": assembly}
 
-    obs = f"# Live Graph Memory Extractor — Observation Pass\n\n{safety_instructions()}\n\n{uncertainty}\n\nPass 1: beats, named entities, unnamed-important concepts (as nodes), ignored/deferred items. JSON sections: `observation_beats`, `observation_nodes`, `ignored_items`, `deferred_items`. Every item cites `source_span_ref_id`.\n\n## Source Packet\n\n{src}\n"
-    rel = f"# Live Graph Memory Extractor — Relation Pass\n\n{_safety_boundary()}\n\n{uncertainty}\n\nPass 2: using manually supplied observation JSON, propose relationship edges only. JSON section: `observation_edges`. Exhaustively extract origin, role, familial, location, allegiance, and combat_trait relationships supported by cited spans. Do not add new entities.\n"
-    assembly = f"# Live Graph Memory Extractor — Assembly Pass\n\n{_safety_boundary()}\n\nPass 3: assemble the full output envelope from observation + relation JSON. No new facts. Preserve all beats and edges from prior passes unless merged with explicit note in `review_sidecar.notes`.\n\n{scaffold}\n\n{high_risk}\n"
+    obs = f"# Graph Memory Constructor — Observation Pass\n\n{safety_instructions()}\n\n{uncertainty}\n\nPass 1: beats, hub-worthy named entities, unnamed-important concepts (as nodes), ignored/deferred items. JSON sections: `observation_beats`, `observation_nodes`, `ignored_items`, `deferred_items`. Every item cites `source_span_ref_id`. This pass is source-material agnostic: do not assume the packet is a session recap.\n\n## Source Packet\n\n{src}\n"
+    rel = f"# Graph Memory Constructor — Relation Pass\n\n{_safety_boundary()}\n\n{uncertainty}\n\nPass 2: using manually supplied observation JSON, propose durable relationship edges only. JSON section: `observation_edges`. Extract structural and semantic relationships such as member_of, located_in, governs, parent_of, leads, part_of, threatens, knows_about, allied_with, owns, worships, created_by, and associated_with when supported by cited spans. Do not add new entities. Put transient actions and combat tactics in beats, ignored items, or deferred items instead of edges.\n"
+    assembly = f"# Graph Memory Constructor — Assembly Pass\n\n{_safety_boundary()}\n\nPass 3: assemble the full output envelope from observation + relation JSON. No new facts. Preserve all beats and durable edges from prior passes unless merged with explicit note in `review_sidecar.notes`. Emit `corpus_ref.resolution=\"resolved\"` only when a supplied reference index or exact source path/id supports it; otherwise use `proposed` or omit `corpus_ref`. Every proposed write `target_id` must reference an object emitted in the same candidate graph. Ignored/deferred sections do not need duplicate proposed writes.\n\n{scaffold}\n\n{high_risk}\n"
     return {"observation_prompt.md": obs, "relation_prompt.md": rel, "assembly_prompt.md": assembly}
 
 
@@ -342,10 +360,10 @@ def write_prompt_packet(mode: str, run_bundle: Path, source_recap: Path, out_dir
     for name, text in prompts.items():
         (target / name).write_text(text, encoding="utf-8")
     (target / "manual_run_notes.md").write_text(
-        "# Manual Live Extractor Notes\n\n"
+        "# Manual Graph Construction Notes\n\n"
         "Paste prompts into a model manually. Save untrusted JSON as `candidate_output.json` "
         "(envelope with `candidate_graph` + `review_sidecar`). Validate with "
-        "`validate_live_extractor_candidate_output` before review. No graph writes or promotion occur here.\n",
+        "`validate_live_extractor_candidate_output` before review. No graph writes, corpus mutation, or canon promotion occur here.\n",
         encoding="utf-8",
     )
     return manifest
@@ -404,6 +422,10 @@ def validate_all() -> None:
             "source_span_ref_id",
             "Do not resolve cliffhangers",
             "Named-in-span-A",
+            "source-material agnostic",
+            "corpus_ref",
+            "durable relationship",
+            "target_id` MUST exactly equal",
             "review_sidecar",
             "dmb_candidate_graph_preview_v0",
             "Forbidden: approve memory",

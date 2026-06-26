@@ -40,7 +40,7 @@ LEGACY_ID_KEYS = {
 }
 
 SEMANTIC_KEYS = ("canon_state", "lifecycle_state", "evidence_role", "authority_state", "visibility_state")
-NODE_KEYS = ("node_id", "label", "node_type", "description", "importance", "semantic_state", "evidence_refs", "proposed_action", "confidence", "warnings")
+NODE_KEYS = ("node_id", "label", "node_type", "description", "importance", "semantic_state", "evidence_refs", "proposed_action", "confidence", "warnings", "corpus_ref")
 EDGE_KEYS = ("edge_id", "from_node_id", "to_node_id", "label", "relationship_type", "semantic_state", "evidence_refs", "proposed_action", "confidence", "warnings")
 
 

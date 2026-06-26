@@ -58,7 +58,7 @@ def test_verdict_scores_and_coverage_match_source_report():
     assert report["score_summary"]["coverage"]["node_recall"]["band"] == "good"
     assert report["score_summary"]["coverage"]["edge_recall"]["band"] == "weak"
     assert report["score_summary"]["coverage"]["beat_recall"]["band"] == "partial"
-    assert report["score_summary"]["coverage"]["proposed_write_recall"]["band"] == "partial"
+    assert report["score_summary"]["coverage"]["proposed_write_recall"]["band"] == "weak"
     for typ in ["nodes", "edges", "beats", "proposed_writes", "ignored_items", "deferred_items"]:
         c = report["coverage_summary"][typ]
         assert c["gold_total"] == comp["coverage"][f"gold_{typ}_total"]

@@ -3,7 +3,7 @@
 - Status: `safe_but_incomplete`
 - Merge gate: `pass`
 - Blocking issues: 0
-- Soft issues: 45
+- Soft issues: 50
 - Summary: The sample candidate output has no hard failures and passes evidence/high-risk/safety gates, but misses substantial Session 23 gold coverage.
 ## Safety Gate
 - Overall safety: 1.0 (`pass`)
@@ -14,22 +14,22 @@
 | Score | Value | Band |
 |---|---:|---|
 | node_recall | 0.7857 | good |
-| edge_recall | 0.3478 | weak |
+| edge_recall | 0.0952 | weak |
 | beat_recall | 0.4286 | partial |
-| proposed_write_recall | 0.4 | partial |
+| proposed_write_recall | 0.375 | weak |
 | ignored_item_recall | 0.6667 | partial |
 | deferred_item_recall | 0.5 | partial |
 | node_precision_proxy | 1.0 | pass |
-| edge_precision_proxy | 1.0 | pass |
+| edge_precision_proxy | 0.25 | weak |
 
 ## Coverage Summary
 
 | Type | Gold | Candidate | Matched | Missing | Extra | Recall | Precision Proxy |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | nodes | 42 | 33 | 33 | 9 | 0 | 0.7857 | 1.0 |
-| edges | 23 | 8 | 8 | 15 | 0 | 0.3478 | 1.0 |
+| edges | 21 | 8 | 2 | 19 | 6 | 0.0952 | 0.25 |
 | beats | 14 | 6 | 6 | 8 | 0 | 0.4286 | 1.0 |
-| proposed_writes | 15 | 6 | 6 | 9 | 0 | 0.4 | 1.0 |
+| proposed_writes | 16 | 6 | 6 | 10 | 0 | 0.375 | 1.0 |
 | ignored_items | 3 | 2 | 2 | 1 | 0 | 0.6667 | 1.0 |
 | deferred_items | 6 | 3 | 3 | 3 | 0 | 0.5 | 1.0 |
 
@@ -38,9 +38,9 @@
 | Type | Missing Count | Example IDs |
 |---|---:|---|
 | nodes | 9 | node:baergrom, node:bonogo, node:meat-flank-attackers, node:north-wall, node:ogonob |
-| edges | 15 | edge:boy-warns-shadows-at-north-gate, edge:caelynn-unleashes-lightning-bolt, edge:ephanna-casts-hunger-of-hadar, edge:ephanna-summons-ogonob, edge:karsemine-casts-spike-growth |
+| edges | 19 | edge:baergrom-member-of-party, edge:bonogo-member-of-party, edge:caelynn-member-of-party, edge:edge-refugees-from-edge, edge:ephanna-member-of-party |
 | beats | 8 | beat:caelynn-hit-and-lysandra-counterattack, beat:eye-check-and-south-gate-plan, beat:hunger-of-hadar-and-readied-attacks, beat:karsemine-learns-fire-weakness, beat:lysandra-commanding-shout |
-| proposed_writes | 9 | write:create-caelynn-lightning-bolt-cliffhanger, write:create-edge-refugees, write:create-edge-warning-message, write:create-first-meat-wave, write:create-flying-meatwings |
+| proposed_writes | 10 | write:create-caelynn-lightning-bolt-cliffhanger, write:create-edge-refugees, write:create-edge-warning-message, write:create-first-meat-wave, write:create-flying-meatwings |
 | ignored_items | 1 | ignored:experienced-adventurers-identities |
 | deferred_items | 3 | deferred:edge-refugee-contamination-risk, deferred:golem-like-creature-identity, deferred:monster-eye-changes-source |
 
@@ -50,9 +50,9 @@
 |---|---:|
 | missing_deferred_item | 3 |
 | missing_ignored_item | 1 |
-| missing_proposed_write | 9 |
+| missing_proposed_write | 10 |
 | missing_required_beat | 8 |
-| missing_required_edge | 15 |
+| missing_required_edge | 19 |
 | missing_required_node | 9 |
 
 ## Hard Failures

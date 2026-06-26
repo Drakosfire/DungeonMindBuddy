@@ -47,11 +47,11 @@ def test_preview_content() -> None:
     assert model["summary"]["gm_preview_readiness"] == "not_ready_for_gm_preview"
     assert "206 / 206" in html
     assert "33 / 42" in html
-    assert "8 / 23" in html
+    assert "8 / 21" in html
     assert "6 / 14" in html
     assert "6 pending" in html
     assert model["hard_failures"]["total"] == 0
-    assert model["summary"]["soft_misses"] == 45
+    assert model["summary"]["soft_misses"] == 50
     assert "Approve disabled" in html
 
 

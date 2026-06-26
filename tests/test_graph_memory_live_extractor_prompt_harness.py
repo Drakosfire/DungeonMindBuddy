@@ -105,6 +105,10 @@ def test_one_two_three_shot_render_deterministically():
         "source_span_ref_id",
         "Do not resolve cliffhangers",
         "Named-in-span-A",
+        "source-material agnostic",
+        "corpus_ref",
+        "durable relationship",
+        "target_id` MUST exactly equal",
         "review_sidecar",
         "dmb_candidate_graph_preview_v0",
         "Forbidden: approve memory",
@@ -199,6 +203,24 @@ def test_candidate_output_validator_rejects_unknown_evidence_refs():
     envelope = _minimal_envelope("spref:session-23:missing")
     with pytest.raises(h.HarnessValidationError, match="unknown_source_span_ref"):
         h.validate_candidate_output(envelope, {"spref:session-23:p001"})
+
+
+def test_candidate_output_reconciliation_preserves_corpus_ref():
+    envelope = _minimal_envelope()
+    envelope["candidate_graph"]["nodes"][0]["corpus_ref"] = {
+        "type": "faction",
+        "ref_id": "test_party",
+        "resolution": "proposed",
+        "hub_path": None,
+    }
+    report = h.validate_candidate_output(envelope, {"spref:session-23:p001"})
+    node = report["reconciled_candidate_graph"]["nodes"][0]
+    assert node["corpus_ref"] == {
+        "type": "faction",
+        "ref_id": "test_party",
+        "resolution": "proposed",
+        "hub_path": None,
+    }
 
 
 def test_candidate_output_validator_accepts_canonical_envelope():
