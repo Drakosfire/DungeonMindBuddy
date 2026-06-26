@@ -49,7 +49,8 @@ NODE_TYPE_CLASS: dict[str, str] = {
     "unknown_important": "thread", "threat": "thread",
     # phenomena / temporal
     "event": "phenomenon", "warning": "phenomenon", "session": "phenomenon",
-    "campaign": "phenomenon",
+    "campaign": "phenomenon", "phenomenon": "phenomenon",
+    "unresolved_phenomenon": "phenomenon",
     # objects
     "item": "object", "statblock": "object", "roll-table": "object", "roll_table": "object",
     # structural
@@ -184,6 +185,69 @@ def evidence_anchor_ids(obj: Any) -> set[str]:
     return anchors
 
 
+def evidence_line_spans(obj: Any) -> set[tuple[int, int]]:
+    """Resolved source line spans ``(start, end)`` carried on evidence refs.
+
+    Parallels :func:`evidence_anchor_ids`: where two independently-authored
+    graphs cite the same source location via *different* addressing schemes —
+    gold via curated ``source_anchor_id``, an autonomous extractor via
+    paragraph ``source_span_ref_id`` — both still resolve to the same line
+    range. Exposing that range lets the matcher use span overlap as the
+    same-entity rescue signal even when anchor strings cannot align.
+    """
+    spans: set[tuple[int, int]] = set()
+    for ref in _get(obj, "evidence_refs", []) or []:
+        start = _get(ref, "source_line_start")
+        end = _get(ref, "source_line_end", start)
+        if start is None:
+            continue
+        try:
+            s, e = int(start), int(end if end is not None else start)
+        except (TypeError, ValueError):
+            continue
+        spans.add((s, e) if s <= e else (e, s))
+    return spans
+
+
+def _line_spans_overlap(a: set[tuple[int, int]], b: set[tuple[int, int]]) -> bool:
+    for (as_, ae) in a:
+        for (bs, be) in b:
+            if as_ <= be and bs <= ae:
+                return True
+    return False
+
+
+def _fold_plural(token: str) -> str:
+    """Light singular/plural fold so storm/storms, puddle/puddles, reflection/
+    reflections collapse. Only trims a trailing 's' on tokens long enough that
+    the fold cannot butcher a genuinely short word (e.g. 'is', 'as')."""
+    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+def _shared_content_tokens(a: str, b: str) -> set[str]:
+    ta = {_fold_plural(t) for t in label_tokens(a)}
+    tb = {_fold_plural(t) for t in label_tokens(b)}
+    return ta & tb
+
+
+def _span_overlap_supported(a: Any, b: Any) -> bool:
+    """Whether a paragraph-level span overlap may grant the same-source boost.
+
+    A paragraph can name several distinct entities, so span overlap alone is not
+    enough: require a substring label relationship or at least two shared content
+    tokens. This blocks the failure where two distinct "...Reach" places in one
+    paragraph pair on the single generic token "reach", while still rescuing
+    multi-token paraphrases ("unseen knocking door" vs "knocking on a door that
+    cannot be found")."""
+    la, lb = str(_get(a, "label", "")), str(_get(b, "label", ""))
+    na, nb = normalize_label(la), normalize_label(lb)
+    if na and nb and (na in nb or nb in na):
+        return True
+    return len(_shared_content_tokens(la, lb)) >= 2
+
+
 def corpus_ref_identity(node: Any) -> tuple[str, str] | None:
     """Return (type_class, normalized_ref) when a node carries a corpus_ref.
 
@@ -239,14 +303,23 @@ def node_match_score(a: Any, b: Any) -> float:
         return 1.0
     lab = _label_similarity(str(_get(a, "label", "")), str(_get(b, "label", "")))
     anchors_overlap = bool(evidence_anchor_ids(a) & evidence_anchor_ids(b))
+    # span overlap is the addressing-scheme-agnostic form of the anchor signal:
+    # gold cites a curated source_anchor_id, an autonomous extractor cites a
+    # paragraph source_span_ref_id, but both resolve to the same line range.
+    spans_overlap = _line_spans_overlap(evidence_line_spans(a), evidence_line_spans(b))
+    # Shared source location rescues semantically-equal nodes whose phrasing
+    # diverges (e.g. "converging hail storm" vs "approaching major storm"). A
+    # curated source_anchor_id pins the exact claim and earns the boost
+    # outright; a paragraph-level span is coarser (one paragraph can name
+    # several distinct entities), so it earns the boost only when the labels
+    # also share a substring or >=2 content tokens — blocking the two-distinct-
+    # "...Reach"-places-in-one-paragraph false pair.
+    same_source = anchors_overlap or (spans_overlap and _span_overlap_supported(a, b))
     score = 0.0
     if class_ok:
         score += 0.15
     score += 0.55 * lab
-    # shared source anchor is a strong same-entity signal within a session; it is
-    # the lever that rescues semantically-equal nodes whose phrasing diverges
-    # (e.g. "converging hail storm" vs "approaching major storm").
-    if anchors_overlap:
+    if same_source:
         score += 0.4
     # a class mismatch caps the score so unrelated kinds do not pair on a
     # coincidental shared token (e.g. character "Frank" vs item "Frank's bottle").

@@ -50,12 +50,14 @@ def test_normalize_label_strips_articles_and_honorifics():
 # Node matching
 # --------------------------------------------------------------------------- #
 
-def _node(nid: str, label: str, ntype: str, corpus_ref=None, anchors=()):
+def _node(nid: str, label: str, ntype: str, corpus_ref=None, anchors=(), spans=()):
     node = {"node_id": nid, "label": label, "node_type": ntype}
     if corpus_ref is not None:
         node["corpus_ref"] = corpus_ref
-    if anchors:
-        node["evidence_refs"] = [{"source_anchor_id": a} for a in anchors]
+    refs = [{"source_anchor_id": a} for a in anchors]
+    refs += [{"source_line_start": s, "source_line_end": e} for (s, e) in spans]
+    if refs:
+        node["evidence_refs"] = refs
     return node
 
 
@@ -82,6 +84,53 @@ def test_shared_anchor_rescues_weak_label_divergence():
     gold = _node("node:storm-hail", "Converging hail storm", "event", anchors=["anchor:s22-storm"])
     cand = _node("warning_major_storm", "approaching major storm", "warning", anchors=["anchor:s22-storm"])
     assert ir.nodes_match(gold, cand)
+
+
+def test_unresolved_phenomenon_maps_to_phenomenon():
+    # the autonomous extractor labels temporal/observed nodes "unresolved_phenomenon";
+    # it must fold to the same class as gold's "event"/"warning" so a storm node
+    # is not class-forked off into an unknown bucket.
+    assert ir.node_type_class("unresolved_phenomenon") == ir.node_type_class("phenomenon") == "phenomenon"
+    assert ir.node_type_class("event") == ir.node_type_class("unresolved_phenomenon")
+
+
+def test_evidence_line_spans_reads_and_normalizes():
+    node = _node("n", "x", "mystery", spans=[(27, 27), (35, 31)])
+    assert ir.evidence_line_spans(node) == {(27, 27), (31, 35)}
+
+
+def test_span_overlap_rescues_divergent_phrasing():
+    # gold cites a curated anchor that resolves to line 23; the extractor cites a
+    # paragraph spref that also resolves to line 23. The addressing schemes differ
+    # (anchor id vs line span) but the source location is the same, and the labels
+    # share >=2 content tokens -> the pair is rescued just like the anchor case.
+    gold = _node("node:delayed-puddles", "Delayed puddle reflections", "mystery", spans=[(23, 23)])
+    cand = _node("clue_puddles", "Roadside puddles show delayed reflections", "clue", spans=[(23, 23)])
+    assert ir.label_similarity(gold["label"], cand["label"]) < 0.6  # label alone is insufficient
+    assert ir.nodes_match(gold, cand)
+
+
+def test_span_overlap_requires_label_support():
+    # Two DISTINCT "...Reach" places named in the same paragraph (overlapping span)
+    # share only the generic token "reach"; span overlap must NOT force-match them.
+    gold = _node("node:mireward-reach", "Mireward Reach / Golden Fields", "location", spans=[(5, 5)])
+    cand = _node("loc_elderwild", "Elderwild Reach", "location", spans=[(5, 5)])
+    assert not ir.nodes_match(gold, cand)
+
+
+def test_span_overlap_folds_plurals_for_label_support():
+    # "storm" vs "storms" and "reflection" vs "reflections" must count as shared
+    # content tokens so plural drift does not starve the span rescue.
+    gold = _node("node:storm", "Converging hail storm", "event", spans=[(31, 31)])
+    cand = _node("phen_storm", "Converging storms create severe weather", "unresolved_phenomenon", spans=[(31, 31)])
+    assert ir.nodes_match(gold, cand)
+
+
+def test_span_overlap_without_overlap_does_not_match():
+    # Same divergent labels but non-overlapping spans -> no rescue.
+    gold = _node("node:delayed-puddles", "Delayed puddle reflections", "mystery", spans=[(23, 23)])
+    cand = _node("clue_puddles", "Roadside puddles show delayed reflections", "clue", spans=[(40, 40)])
+    assert not ir.nodes_match(gold, cand)
 
 
 def test_unrelated_kinds_do_not_match_on_shared_token():

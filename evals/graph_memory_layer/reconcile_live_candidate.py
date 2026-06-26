@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
-    SOURCE_ARTIFACT_ID as NORMALIZED_ARTIFACT_ID,
-    SOURCE_REF_ID as NORMALIZED_SOURCE_REF_ID,
+    SOURCE_ARTIFACT_ID as DEFAULT_SOURCE_ARTIFACT_ID,
+    SOURCE_REF_ID as DEFAULT_SOURCE_REF_ID,
 )
-from evals.graph_memory_layer.session_23_recap_ingest_fixture import build_source_span_artifacts
+from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
+    build_source_span_artifacts as default_build_source_span_artifacts,
+)
 from src.graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
@@ -125,6 +127,22 @@ def _load_json(path: Path) -> dict[str, Any]:
 def load_span_index(run_bundle: Path) -> dict[str, Any]:
     base = run_bundle if run_bundle.is_absolute() else repo_root() / run_bundle
     return _load_json(base / "source_span_index.json")
+
+
+def _source_context_for_bundle(run_bundle: Path) -> tuple[str, str, Any]:
+    """Resolve canonical source_ref / artifact ids and span artifacts for a run bundle session."""
+    base = run_bundle if run_bundle.is_absolute() else repo_root() / run_bundle
+    manifest = _load_json(base / "run_manifest.json")
+    session_id = str(manifest.get("session_id") or "")
+    if session_id == "session-22":
+        from evals.graph_memory_layer.session_22_candidate_graph_gold_fixture import (
+            SOURCE_ARTIFACT_ID,
+            SOURCE_REF_ID,
+        )
+        from evals.graph_memory_layer.session_22_recap_ingest_fixture import build_source_span_artifacts
+
+        return SOURCE_REF_ID, SOURCE_ARTIFACT_ID, build_source_span_artifacts
+    return DEFAULT_SOURCE_REF_ID, DEFAULT_SOURCE_ARTIFACT_ID, default_build_source_span_artifacts
 
 
 def span_ref_lookup(span_index: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -273,7 +291,7 @@ def migrate_legacy_to_candidate_graph(raw: Mapping[str, Any]) -> dict[str, Any]:
         "preview_id": raw.get("preview_id") or "candidate-preview:longmont-c2:session-23:live-extractor",
         "campaign_id": raw.get("campaign_id") or "longmont-c2",
         "session_id": raw.get("session_id") or "session-23",
-        "source_artifact_ids": list(raw.get("source_artifact_ids") or [NORMALIZED_ARTIFACT_ID]),
+        "source_artifact_ids": list(raw.get("source_artifact_ids") or [DEFAULT_SOURCE_ARTIFACT_ID]),
         "status": "preview",
         "nodes": nodes,
         "edges": edges,
@@ -292,7 +310,7 @@ def _normalize_spref(value: str, span_lookup: Mapping[str, Mapping[str, Any]]) -
     candidates = [raw]
     if not raw.startswith("spref:"):
         candidates.append(f"spref:{raw}")
-    if raw.startswith("session-23:p"):
+    if not raw.startswith("spref:") and re.match(r"session-\d+:", raw):
         candidates.append(f"spref:{raw}")
     for cand in candidates:
         if cand in span_lookup:
@@ -318,15 +336,17 @@ def upgrade_evidence_ref(
     span_lookup: Mapping[str, Mapping[str, Any]],
     resolved: Mapping[tuple[str, int, int], Any],
     label: str | None = None,
+    source_ref_id: str = DEFAULT_SOURCE_REF_ID,
+    source_artifact_id: str = DEFAULT_SOURCE_ARTIFACT_ID,
 ) -> dict[str, Any]:
     spref = _spref_from_ref(ref, span_lookup)
     if spref and spref in span_lookup:
         sp = span_lookup[spref]
-        key = (NORMALIZED_SOURCE_REF_ID, sp["line_start"], sp["line_end"])
+        key = (source_ref_id, sp["line_start"], sp["line_end"])
         resolved_ev = resolved.get(key)
         out = {
-            "source_ref_id": NORMALIZED_SOURCE_REF_ID,
-            "source_artifact_id": NORMALIZED_ARTIFACT_ID,
+            "source_ref_id": source_ref_id,
+            "source_artifact_id": source_artifact_id,
             "label": label or spref,
             "evidence_role": "source_evidence",
             "can_open_source": bool(resolved_ev and resolved_ev.can_open_source),
@@ -340,13 +360,19 @@ def upgrade_evidence_ref(
     _assert(False, f"unknown_or_incomplete_evidence_ref:{spref or ref}")
 
 
-def _resolve_span_map(span_lookup: Mapping[str, Mapping[str, Any]]) -> dict[tuple[str, int, int], Any]:
+def _resolve_span_map(
+    span_lookup: Mapping[str, Mapping[str, Any]],
+    *,
+    source_ref_id: str = DEFAULT_SOURCE_REF_ID,
+    source_artifact_id: str = DEFAULT_SOURCE_ARTIFACT_ID,
+    build_source_span_artifacts: Any = default_build_source_span_artifacts,
+) -> dict[tuple[str, int, int], Any]:
     refs = []
     for sp in span_lookup.values():
         refs.append(
             SourceSpanRef(
-                source_ref_id=NORMALIZED_SOURCE_REF_ID,
-                source_artifact_id=NORMALIZED_ARTIFACT_ID,
+                source_ref_id=source_ref_id,
+                source_artifact_id=source_artifact_id,
                 start_line=sp["line_start"],
                 end_line=sp["line_end"],
                 label=sp.get("source_span_ref_id"),
@@ -354,10 +380,16 @@ def _resolve_span_map(span_lookup: Mapping[str, Mapping[str, Any]]) -> dict[tupl
             )
         )
     text, structured = build_source_span_artifacts()
-    resolved_list = resolve_many_source_span_refs(refs, text_artifacts=text, structured_artifacts=structured, snippet_max_chars=240, context_lines=0)
+    resolved_list = resolve_many_source_span_refs(
+        refs,
+        text_artifacts=text,
+        structured_artifacts=structured,
+        snippet_max_chars=240,
+        context_lines=0,
+    )
     out: dict[tuple[str, int, int], Any] = {}
     for sp, ev in zip(span_lookup.values(), resolved_list):
-        out[(NORMALIZED_SOURCE_REF_ID, sp["line_start"], sp["line_end"])] = ev
+        out[(source_ref_id, sp["line_start"], sp["line_end"])] = ev
     return out
 
 
@@ -369,10 +401,16 @@ def reconcile_candidate_graph(
 ) -> dict[str, Any]:
     migrated = migrate_legacy_to_candidate_graph(graph)
     span_lookup = span_ref_lookup(load_span_index(run_bundle))
+    source_ref_id, source_artifact_id, build_artifacts = _source_context_for_bundle(run_bundle)
     if allowed_span_refs is not None:
         for spref in allowed_span_refs:
             _assert(spref in span_lookup, f"unknown_source_span_ref:{spref}")
-    resolved_map = _resolve_span_map(span_lookup)
+    resolved_map = _resolve_span_map(
+        span_lookup,
+        source_ref_id=source_ref_id,
+        source_artifact_id=source_artifact_id,
+        build_source_span_artifacts=build_artifacts,
+    )
 
     def upgrade_refs(refs: list[Any], label: str | None = None) -> list[dict[str, Any]]:
         out = []
@@ -381,7 +419,16 @@ def reconcile_candidate_graph(
             if allowed_span_refs is not None and spref:
                 norm = _normalize_spref(spref, span_lookup) if spref not in allowed_span_refs else spref
                 _assert(norm in allowed_span_refs, f"unknown_source_span_ref:{spref}")
-            out.append(upgrade_evidence_ref(ref, span_lookup=span_lookup, resolved=resolved_map, label=label))
+            out.append(
+                upgrade_evidence_ref(
+                    ref,
+                    span_lookup=span_lookup,
+                    resolved=resolved_map,
+                    label=label,
+                    source_ref_id=source_ref_id,
+                    source_artifact_id=source_artifact_id,
+                )
+            )
         return out
 
     result = json.loads(json.dumps(migrated))

@@ -1,0 +1,59 @@
+{
+  "schema": "dmb_category_graph_model_study_v0",
+  "version": "0.1",
+  "session": 22,
+  "date": "2026-06-26",
+  "models": [
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.3-codex"
+  ],
+  "runs_per_model": 1,
+  "runs": [
+    {
+      "model_id": "gpt-5.4",
+      "run_index": 0,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/session_22_gpt-5-4_run1",
+      "scenario_estimated_cost_usd": 0.136745,
+      "node_recall": 0.92,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": true,
+      "node_precision_proxy": 0.4182
+    },
+    {
+      "model_id": "gpt-5.4-mini",
+      "run_index": 0,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/session_22_gpt-5-4-mini_run1",
+      "scenario_estimated_cost_usd": 0.050299,
+      "node_recall": 0.92,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": true,
+      "node_precision_proxy": 0.434
+    },
+    {
+      "model_id": "gpt-5.3-codex",
+      "run_index": 0,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/session_22_gpt-5-3-codex_run1",
+      "scenario_estimated_cost_usd": 0.121438,
+      "node_recall": 0.84,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": true,
+      "node_precision_proxy": 0.4773
+    }
+  ],
+  "aggregate": {
+    "cost_usd": {
+      "min": 0.050299,
+      "max": 0.136745,
+      "mean": 0.10282733333333334,
+      "sum": 0.30848200000000003
+    },
+    "node_recall": {
+      "min": 0.84,
+      "max": 0.92
+    }
+  }
+}
