@@ -1,8 +1,8 @@
 # Graph Memory Workstream Anchor
 
 Date: 2026-06-22
-Status: active current anchor — post-query-vocabulary-fixture checkpoint
-Workstream: Graph Memory / Recap Ingestion / Candidate Graph Preview / Agent Interaction bridge
+Status: active current anchor — post-live-recap-ingest-run-bundle checkpoint
+Workstream: Graph Memory / Recap Ingestion / Live Recap Dogfood
 Branch: `experiment/ontology-taxonomy-ladder`
 
 ## Purpose
@@ -74,8 +74,12 @@ Recent completed rungs:
 12. Static Extractor Output Comparison Report v0
 13. Preview Graph UX Design Spec v0
 14. Static Preview Graph UI Prototype v0
+15. Query Vocabulary Fixture v0
+16. Live Recap Ingest Run Bundle v0
 
-The dogfood evaluation reframed the workstream: future work should prioritize preview graph trust, evidence resolvability, write intent, queryability, and Agent Interaction chip/deeplink readiness.
+The workstream has re-anchored from static Agent Interaction planning toward first live recap dogfood. It now has a Live Recap Ingest Run Bundle that takes an explicitly supplied recap file and emits source-spanned dogfood run artifacts without LLM execution, extraction, candidate graph generation, graph writes, query execution, `/plan`, Agent Interaction, corpus scan/mutation, fact promotion, canon promotion, or runtime behavior changes.
+
+Recommended next PR: `graph-memory: add live extractor prompt pack v0`.
 
 ## What The Current Dogfood Proved
 
@@ -97,6 +101,20 @@ The current dogfood did not prove:
 - that source refs can resolve to highlightable evidence spans
 - that graph memory can answer useful session-recall questions
 - that Agent Interaction can consume graph results
+- live LLM extraction
+- production extraction
+- candidate graph generation from live recap
+- graph retrieval
+- query execution
+- graph writes
+- approval persistence
+- corpus scan/mutation
+- /plan integration
+- Agent Interaction integration
+- fact promotion
+- canon promotion
+- runtime behavior changes
+- production frontend routing
 - that the current reports are GM-facing value
 
 The dogfood evaluation's central product observation is:

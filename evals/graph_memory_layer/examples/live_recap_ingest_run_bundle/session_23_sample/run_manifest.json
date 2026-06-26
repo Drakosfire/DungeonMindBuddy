@@ -1,0 +1,44 @@
+{
+  "campaign_id": "longmont-c2",
+  "diagnostics": {
+    "agent_interaction_connected": false,
+    "candidate_graph_generated": false,
+    "corpus_mutation_required": false,
+    "corpus_scan_required": false,
+    "extractor_execution_required": false,
+    "graph_retrieval_required": false,
+    "graph_write_required": false,
+    "live_recap_ingest_run": true,
+    "llm_execution_required": false,
+    "plan_connected": false,
+    "production_behavior_changed": false,
+    "query_execution_required": false
+  },
+  "execution_mode": "explicit_input_recap_ingest",
+  "input_policy": {
+    "corpus_mutation_allowed": false,
+    "corpus_scan_allowed": false,
+    "directory_scan_allowed": false,
+    "glob_allowed": false,
+    "input_mode": "explicit_file_path"
+  },
+  "outputs": {
+    "diagnostics_path": "diagnostics.json",
+    "provenance_index_path": "provenance_index.json",
+    "report_path": "recap_ingest_report.md",
+    "source_artifact_path": "source_artifact.json",
+    "source_span_index_path": "source_span_index.json",
+    "source_units_path": "source_units.json"
+  },
+  "run_id": "graph-memory:live-recap-ingest:session-23:sample-v0",
+  "schema": "dmb_live_recap_ingest_run_manifest_v0",
+  "session_id": "session-23",
+  "source": {
+    "input_bytes": 9538,
+    "input_line_count": 38,
+    "input_path_record": "evals/graph_memory_layer/examples/session_23_recap_ingest/expected_normalized_recap.md",
+    "input_sha256": "afdd17e47b4cc1e8e1d5a7b3128ef6aec7fa83eed372648d502acfcd0395ea16",
+    "source_label": "Session 23 Sample"
+  },
+  "version": "0.1"
+}
