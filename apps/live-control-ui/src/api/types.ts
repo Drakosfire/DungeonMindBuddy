@@ -1321,6 +1321,50 @@ export interface GraphPreviewRunsResponse {
   runs: GraphPreviewRunSummary[];
 }
 
+export interface RecapGraphRunRef {
+  run_uri: string;
+  model_id?: string | null;
+  run_index?: number | null;
+  canonical_ir_valid?: boolean | null;
+  scenario_estimated_cost_usd?: number | null;
+  node_recall?: number | null;
+}
+
+export interface RecapArtifactRecord {
+  schema_version: "dmb_recap_artifact_record_v1";
+  artifact_id: string;
+  campaign_id: string;
+  session_id: string;
+  source_artifact_id?: string | null;
+  source_recap_path: string;
+  breadcrumb_seed_path?: string | null;
+  session_memory_records_path?: string | null;
+  run_bundle_uri: string;
+  run_manifest_uri: string;
+  source_span_index_uri: string;
+  provenance_index_uri?: string | null;
+  graph_run_refs: RecapGraphRunRef[];
+  default_graph_run_uri?: string | null;
+  default_projection_mode: string;
+  source_sha256?: string | null;
+  registered_at: string;
+  updated_at: string;
+  registry_source: "scan" | "explicit";
+}
+
+export interface RecapArtifactsListResponse {
+  schema_version: "dmb_recap_artifacts_registry_v1";
+  version: string;
+  records: RecapArtifactRecord[];
+}
+
+export interface RecapGraphQuery {
+  run_dir?: string;
+  artifact_id?: string;
+  campaign_id?: string;
+  session_id?: string;
+}
+
 export interface RecapGraphChip {
   label: string;
   tone: "new" | "recurring" | "evidence" | "warning" | "neutral";

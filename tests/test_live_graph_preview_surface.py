@@ -1,7 +1,6 @@
 """Tests for graph preview surface API."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -15,6 +14,7 @@ from apps.live_control_server.services.graph_preview_surface import (
     build_recap_graph_presentation,
     discover_graph_preview_runs,
 )
+from apps.live_control_server.services.recap_artifacts import sync_recap_artifacts_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
@@ -45,6 +45,16 @@ def test_discover_graph_preview_runs_includes_committed_cohort() -> None:
     runs = discover_graph_preview_runs(repo_root())
     assert runs
     assert any("session_22" in r.run_dir for r in runs)
+
+
+def test_discover_graph_preview_runs_empty_when_session_has_no_graph_runs() -> None:
+    sync_recap_artifacts_registry(repo_root())
+    runs = discover_graph_preview_runs(
+        repo_root(),
+        campaign_id="longmont-c2",
+        session_id="session-21",
+    )
+    assert runs == []
 
 
 def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
@@ -90,12 +100,24 @@ def test_latest_surface_prefers_resolvable_run() -> None:
 
 
 def test_build_recap_graph_presentation_links_node_labels() -> None:
-    payload = build_recap_graph_presentation(repo_root())
+    sync_recap_artifacts_registry(repo_root())
+    payload = build_recap_graph_presentation(
+        repo_root(),
+        campaign_id="longmont-c2",
+        session_id="session-22",
+    )
     assert payload.schema_version == "dmb_recap_graph_presentation_v1"
     assert payload.nodes
     assert payload.links
+    assert not payload.markdown.startswith("---")
     assert "[Lysandro](dmb-node:npc_lysandro)" in payload.markdown
+    assert "[Caelynn](dmb-node:pc_caelynn)" in payload.markdown
+    assert "[Karesmine](dmb-node:pc_karsemine)" in payload.markdown
+    assert "[Mireward](dmb-node:loc_mireward)" in payload.markdown
     assert "npc_lysandro" in payload.nodes
+    assert "pc_caelynn" in payload.nodes
+    assert payload.nodes["pc_caelynn"].role == "pc"
+    assert payload.nodes["loc_mireward"].label == "Mireward Reach"
     assert payload.nodes["npc_lysandro"].role == "npc"
     assert any(chip.label.startswith("S22") for chip in payload.nodes["npc_lysandro"].chips)
 

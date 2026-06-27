@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getGraphPreviewRuns, getRecapGraphPresentation } from "../../api/liveApi";
-import type { GraphPreviewRunSummary, RecapGraphPresentationResponse } from "../../api/types";
+import { getGraphPreviewRuns, getRecapArtifacts, getRecapGraphPresentation } from "../../api/liveApi";
+import type {
+  GraphPreviewRunSummary,
+  RecapArtifactRecord,
+  RecapGraphPresentationResponse,
+} from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
 import { RecapGraphProjection } from "./RecapGraphProjection";
+import {
+  filterNumericRecapArtifactRecords,
+  sortRecapArtifactRecords,
+} from "./recapSessionLabels";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -18,14 +26,53 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const [runs, setRuns] = useState<GraphPreviewRunSummary[]>([]);
   const [selectedRunDir, setSelectedRunDir] = useState("");
   const [pinnedNodeId, setPinnedNodeId] = useState<string | null>(null);
+  const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState(`session-${context.ingestSession}`);
+  const [artifactsReady, setArtifactsReady] = useState(false);
 
-  const loadRun = useCallback(async (runDir?: string) => {
+  useEffect(() => {
+    let cancelled = false;
+    setArtifactsReady(false);
+
+    void getRecapArtifacts(context.campaignId)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
+        setSessionRecords(records);
+        const preferredSessionId = `session-${context.ingestSession}`;
+        const preferred = records.find((record) => record.session_id === preferredSessionId);
+        setSelectedSessionId(preferred?.session_id ?? records.at(-1)?.session_id ?? preferredSessionId);
+        setArtifactsReady(true);
+      })
+      .catch((loadError) => {
+        if (cancelled) {
+          return;
+        }
+        setSessionRecords([]);
+        setSelectedSessionId(`session-${context.ingestSession}`);
+        setError(loadError instanceof Error ? loadError.message : "Failed to load recap sessions");
+        setStatus("error");
+        setArtifactsReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context.campaignId, context.ingestSession]);
+
+  const loadRun = useCallback(async (runDir?: string, sessionId = selectedSessionId) => {
     setStatus("loading");
     setError(null);
     try {
+      const recapQuery = {
+        campaign_id: context.campaignId,
+        session_id: sessionId,
+      };
       const [runList, recap] = await Promise.all([
-        getGraphPreviewRuns(),
-        getRecapGraphPresentation(runDir),
+        getGraphPreviewRuns(recapQuery),
+        getRecapGraphPresentation({ ...recapQuery, run_dir: runDir }),
       ]);
       setRuns(runList.runs);
       setPayload(recap);
@@ -41,11 +88,14 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       setStatus("error");
       setError(loadError instanceof Error ? loadError.message : "Failed to load recap graph");
     }
-  }, []);
+  }, [context.campaignId, selectedSessionId]);
 
   useEffect(() => {
+    if (!artifactsReady) {
+      return;
+    }
     void loadRun();
-  }, [loadRun, context.campaignId, context.ingestSession]);
+  }, [loadRun, artifactsReady]);
 
   if (status === "loading") {
     return <p className="plan-projection-empty">Loading recap graph…</p>;
@@ -64,6 +114,13 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     <RecapGraphProjection
       payload={payload}
       runs={runs}
+      sessionRecords={sessionRecords}
+      selectedSessionId={selectedSessionId}
+      onSelectSession={(sessionId) => {
+        setSelectedSessionId(sessionId);
+        setSelectedRunDir("");
+        void loadRun(undefined, sessionId);
+      }}
       selectedRunDir={selectedRunDir}
       onSelectRun={(runDir) => {
         setSelectedRunDir(runDir);

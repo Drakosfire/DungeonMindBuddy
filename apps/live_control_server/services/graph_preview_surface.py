@@ -3,12 +3,20 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.recap_artifacts import (
+    GraphRunRef,
+    RecapArtifactRecord,
+    RecapArtifactRegistryError,
+    ensure_recap_artifacts_registry,
+    resolve_recap_artifact_record,
+)
 from src.graph_memory.anchor_quotes import (
     anchor_quote_matches_to_dicts,
     coerce_anchor_quotes,
@@ -173,18 +181,56 @@ def _paragraph_text_for_span(recap_text: str, span: Mapping[str, Any]) -> str:
     return "\n".join(lines[start - 1 : end])
 
 
-def _recap_text_for_run_bundle(root: Path, run_bundle: Path) -> tuple[str, str]:
+def _recap_text_for_run_bundle(
+    root: Path,
+    run_bundle: Path,
+    *,
+    source_recap_path: str | None = None,
+) -> tuple[str, str]:
     base = run_bundle if run_bundle.is_absolute() else root / run_bundle
     manifest = _load_json(base / "run_manifest.json")
-    input_rel = str(manifest["source"]["input_path_record"])
+    input_rel = (source_recap_path or str(manifest["source"]["input_path_record"])).replace("\\", "/")
     recap_path = Path(input_rel)
     if not recap_path.is_absolute():
         recap_path = root / recap_path
-    return recap_path.read_text(encoding="utf-8"), input_rel.replace("\\", "/")
+    if not recap_path.is_file():
+        raise GraphPreviewSurfaceError(f"recap source not found: {input_rel}", status_code=404)
+    return recap_path.read_text(encoding="utf-8"), input_rel
 
 
 def _default_run_bundle_dir(root: Path) -> Path:
-    return root / "evals/graph_memory_layer/runs/live_recap_ingest/session_22_category_study"
+    ensure_recap_artifacts_registry(root)
+    record = resolve_recap_artifact_record(root)
+    return root / record.run_bundle_uri
+
+
+def _graph_preview_run_summaries_from_refs(refs: list[GraphRunRef]) -> list[GraphPreviewRunSummary]:
+    return [
+        GraphPreviewRunSummary(
+            run_dir=ref.run_uri,
+            model_id=ref.model_id,
+            run_index=ref.run_index,
+            canonical_ir_valid=ref.canonical_ir_valid,
+            scenario_estimated_cost_usd=ref.scenario_estimated_cost_usd,
+        )
+        for ref in refs
+    ]
+
+
+def _resolve_recap_artifact(
+    root: Path,
+    *,
+    artifact_id: str | None = None,
+    campaign_id: str | None = None,
+    session_id: str | None = None,
+) -> RecapArtifactRecord:
+    ensure_recap_artifacts_registry(root)
+    return resolve_recap_artifact_record(
+        root,
+        artifact_id=artifact_id,
+        campaign_id=campaign_id,
+        session_id=session_id,
+    )
 
 
 def _resolve_run_dir(root: Path, run_dir: str) -> Path:
@@ -222,8 +268,27 @@ def _collect_runs_from_cohort(cohort: Mapping[str, Any]) -> list[GraphPreviewRun
     return rows
 
 
-def discover_graph_preview_runs(root: Path | None = None) -> list[GraphPreviewRunSummary]:
+def discover_graph_preview_runs(
+    root: Path | None = None,
+    *,
+    artifact_id: str | None = None,
+    campaign_id: str | None = None,
+    session_id: str | None = None,
+) -> list[GraphPreviewRunSummary]:
     base = root or repo_root()
+    try:
+        record = _resolve_recap_artifact(
+            base,
+            artifact_id=artifact_id,
+            campaign_id=campaign_id,
+            session_id=session_id,
+        )
+        if record.graph_run_refs:
+            return _graph_preview_run_summaries_from_refs(record.graph_run_refs)
+        return []
+    except RecapArtifactRegistryError:
+        pass
+
     seen: set[str] = set()
     runs: list[GraphPreviewRunSummary] = []
 
@@ -323,6 +388,268 @@ def _markdown_link_text(text: str) -> str:
     return text.replace("\\", "\\\\").replace("]", "\\]")
 
 
+ENTITY_SECTION_ROLES = {
+    "pcs": "pc",
+    "npcs": "npc",
+    "locations": "location",
+    "factions": "faction",
+    "items": "item",
+    "new_hub_candidates": "node",
+}
+
+CANONICAL_LABEL_OVERRIDES = {
+    # The corpus route is still the town hub, but table-facing display should use
+    # the current region name.
+    "mireward": "Mireward Reach",
+}
+
+
+def _strip_yaml_frontmatter_lines(lines: list[str]) -> list[str]:
+    if not lines or lines[0].strip() != "---":
+        return lines
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            return lines[index + 1 :]
+    return lines
+
+
+def _frontmatter_text(markdown: str) -> str:
+    lines = markdown.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return ""
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            return "\n".join(lines[1:index])
+    return ""
+
+
+def _session_from_recap_path(path: str | None) -> int | None:
+    if not path:
+        return None
+    match = re.search(r"Session\s+(\d+)", path)
+    return int(match.group(1)) if match else None
+
+
+def _seed_path_for_recap(root: Path, recap_path: str) -> Path | None:
+    if "/_normalized/" not in recap_path:
+        return None
+    seed_rel = recap_path.replace("/_normalized/", "/_breadcrumbed/").removesuffix(".md")
+    return root / f"{seed_rel}.frontmatter_seed.md"
+
+
+def _label_from_slug(slug: str) -> str:
+    if slug in CANONICAL_LABEL_OVERRIDES:
+        return CANONICAL_LABEL_OVERRIDES[slug]
+    return " ".join(part.capitalize() for part in slug.split("_") if part)
+
+
+def _clean_seed_value(value: str) -> str:
+    return value.strip().strip("'\"")
+
+
+def _parse_inline_aliases(value: str) -> list[str]:
+    raw = value.strip()
+    if not raw.startswith("[") or not raw.endswith("]"):
+        return []
+    return [_clean_seed_value(part) for part in raw[1:-1].split(",") if _clean_seed_value(part)]
+
+
+def _candidate_aliases(label: str, slug: str | None = None, extra_aliases: list[str] | None = None) -> list[str]:
+    aliases: list[str] = []
+    for alias in [label, *(extra_aliases or [])]:
+        cleaned = alias.strip()
+        if cleaned and cleaned not in aliases:
+            aliases.append(cleaned)
+    parts = label.split()
+    if len(parts) > 1 and parts[0] and parts[0][0].isupper() and parts[0] not in aliases:
+        aliases.append(parts[0])
+    if slug == "mireward" and "Mireward" not in aliases:
+        aliases.append("Mireward")
+    return aliases
+
+
+def _parse_seed_entities(seed_markdown: str) -> list[dict[str, Any]]:
+    frontmatter = _frontmatter_text(seed_markdown)
+    entities: list[dict[str, Any]] = []
+    current_section: str | None = None
+    current: dict[str, Any] | None = None
+    collecting_aliases = False
+
+    def flush() -> None:
+        nonlocal current
+        if current and current.get("slug"):
+            entities.append(current)
+        current = None
+
+    for raw_line in frontmatter.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if raw_line.startswith("  ") and not raw_line.startswith("    ") and stripped.endswith(":"):
+            current_section = stripped[:-1]
+            collecting_aliases = False
+            continue
+        if stripped.startswith("- slug:"):
+            flush()
+            slug = _clean_seed_value(stripped.split(":", 1)[1])
+            role = ENTITY_SECTION_ROLES.get(current_section or "", "node")
+            current = {"slug": slug, "role": role, "aliases": []}
+            collecting_aliases = False
+            continue
+        if current is None:
+            continue
+        if stripped.startswith("route:"):
+            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
+            collecting_aliases = False
+            continue
+        if stripped.startswith("proposed_route:"):
+            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
+            collecting_aliases = False
+            continue
+        if stripped.startswith("subject_type:"):
+            current["role"] = _clean_seed_value(stripped.split(":", 1)[1])
+            collecting_aliases = False
+            continue
+        if stripped.startswith("aliases_in_recap:"):
+            current["aliases"].extend(_parse_inline_aliases(stripped.split(":", 1)[1]))
+            collecting_aliases = True
+            continue
+        if collecting_aliases and stripped.startswith("- "):
+            current["aliases"].append(_clean_seed_value(stripped[2:]))
+            continue
+        collecting_aliases = False
+    flush()
+    return entities
+
+
+def _route_seed_nodes(root: Path, recap_path: str | None) -> tuple[dict[str, RecapGraphNode], dict[str, list[str]]]:
+    if not recap_path:
+        return {}, {}
+    seed_path = _seed_path_for_recap(root, recap_path)
+    if seed_path is None or not seed_path.is_file():
+        return {}, {}
+
+    session = _session_from_recap_path(recap_path)
+    nodes: dict[str, RecapGraphNode] = {}
+    aliases_by_node: dict[str, list[str]] = {}
+    for entity in _parse_seed_entities(seed_path.read_text(encoding="utf-8")):
+        slug = str(entity.get("slug") or "").strip()
+        if not slug:
+            continue
+        role = str(entity.get("role") or "node").strip() or "node"
+        object_id = f"{role}_{slug}"
+        label = _label_from_slug(slug)
+        chips = [RecapGraphChip(label="route seed", tone="neutral")]
+        if session is not None:
+            chips.insert(0, RecapGraphChip(label=f"S{session}", tone="evidence", source_session=session))
+        nodes[object_id] = RecapGraphNode(
+            object_id=object_id,
+            label=label,
+            kind=role,
+            role=role,
+            description=f"Routed from {entity.get('route') or 'recap entity_index'}",
+            evidence_count=0,
+            chips=chips,
+        )
+        aliases_by_node[object_id] = _candidate_aliases(
+            label,
+            slug=slug,
+            extra_aliases=[str(alias) for alias in entity.get("aliases") or []],
+        )
+    return nodes, aliases_by_node
+
+
+def _levenshtein_at_most_two(left: str, right: str) -> bool:
+    left = left.lower()
+    right = right.lower()
+    if abs(len(left) - len(right)) > 2:
+        return False
+    previous = list(range(len(right) + 1))
+    for i, left_char in enumerate(left, 1):
+        current = [i]
+        row_min = i
+        for j, right_char in enumerate(right, 1):
+            value = min(
+                previous[j] + 1,
+                current[j - 1] + 1,
+                previous[j - 1] + (left_char != right_char),
+            )
+            current.append(value)
+            row_min = min(row_min, value)
+        if row_min > 2:
+            return False
+        previous = current
+    return previous[-1] <= 2
+
+
+def _span_links_for_nodes(
+    paragraph: str,
+    span_ref_id: str,
+    nodes: Mapping[str, RecapGraphNode],
+    aliases_by_node: Mapping[str, list[str]],
+) -> list[RecapGraphLink]:
+    link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
+    for object_id, aliases in aliases_by_node.items():
+        node = nodes.get(object_id)
+        if not node:
+            continue
+        for alias in sorted(set(aliases), key=len, reverse=True):
+            if not alias or not alias[0].isupper():
+                continue
+            for match in re.finditer(rf"(?<![\w]){re.escape(alias)}(?![\w])", paragraph):
+                link_candidates.append(
+                    (
+                        match.start(),
+                        -(match.end() - match.start()),
+                        0,
+                        RecapGraphLink(
+                            href=f"dmb-node:{object_id}",
+                            object_id=object_id,
+                            label=node.label,
+                            source_span_ref_id=span_ref_id,
+                            char_start=match.start(),
+                            char_end=match.end(),
+                            evidence_ref_ids=[f"mention:{object_id}:{span_ref_id}"],
+                        ),
+                    )
+                )
+        if node.role not in {"pc", "npc"}:
+            continue
+        fuzzy_aliases = [alias for alias in aliases if alias.isalpha() and len(alias) >= 5 and " " not in alias]
+        for word_match in re.finditer(r"\b[A-Z][A-Za-z]{4,}\b", paragraph):
+            word = word_match.group(0)
+            for alias in fuzzy_aliases:
+                if word == alias or word[0].lower() != alias[0].lower():
+                    continue
+                if _levenshtein_at_most_two(word, alias):
+                    link_candidates.append(
+                        (
+                            word_match.start(),
+                            -(word_match.end() - word_match.start()),
+                            1,
+                            RecapGraphLink(
+                                href=f"dmb-node:{object_id}",
+                                object_id=object_id,
+                                label=node.label,
+                                source_span_ref_id=span_ref_id,
+                                char_start=word_match.start(),
+                                char_end=word_match.end(),
+                                evidence_ref_ids=[f"fuzzy-mention:{object_id}:{span_ref_id}"],
+                            ),
+                        )
+                    )
+                    break
+
+    links: list[RecapGraphLink] = []
+    occupied_until = -1
+    for _, _, _, link in sorted(link_candidates, key=lambda item: item[:3]):
+        if link.char_start < occupied_until:
+            continue
+        links.append(link)
+        occupied_until = link.char_end
+    return links
+
+
 def _candidate_node_chips(candidate: GraphPreviewCandidateRow) -> list[RecapGraphChip]:
     sessions = sorted(
         {
@@ -361,51 +688,29 @@ def _insert_markdown_node_links(
     return "".join(chunks)
 
 
-def _recap_graph_links_for_candidates(
+def _recap_graph_nodes_for_candidates(
     candidates: list[GraphPreviewCandidateRow],
-) -> tuple[dict[str, RecapGraphNode], dict[str, list[RecapGraphLink]]]:
+) -> tuple[dict[str, RecapGraphNode], dict[str, list[str]]]:
     nodes: dict[str, RecapGraphNode] = {}
-    links_by_span: dict[str, list[RecapGraphLink]] = {}
-    seen: set[tuple[str, str, int, int]] = set()
+    aliases_by_node: dict[str, list[str]] = {}
 
     for candidate in candidates:
         if candidate.section != "nodes":
             continue
+        role = "npc" if candidate.kind in {"character", "npc", "person"} else candidate.kind
+        label = CANONICAL_LABEL_OVERRIDES.get(candidate.object_id.removeprefix("loc_"), candidate.label)
         nodes[candidate.object_id] = RecapGraphNode(
             object_id=candidate.object_id,
-            label=candidate.label,
+            label=label,
             kind=candidate.kind,
-            role="npc" if candidate.kind in {"character", "npc", "person"} else candidate.kind,
+            role=role,
             description=candidate.description,
             evidence_count=candidate.evidence_count,
             chips=_candidate_node_chips(candidate),
         )
-        for ref_index, ref in enumerate(candidate.evidence_refs):
-            if not ref.source_span_ref_id or not ref.paragraph_text:
-                continue
-            matches = find_anchor_quote_matches(ref.paragraph_text, [candidate.label])
-            for match in matches:
-                key = (
-                    candidate.object_id,
-                    ref.source_span_ref_id,
-                    match.char_start,
-                    match.char_end,
-                )
-                if key in seen:
-                    continue
-                seen.add(key)
-                links_by_span.setdefault(ref.source_span_ref_id, []).append(
-                    RecapGraphLink(
-                        href=f"dmb-node:{candidate.object_id}",
-                        object_id=candidate.object_id,
-                        label=candidate.label,
-                        source_span_ref_id=ref.source_span_ref_id,
-                        char_start=match.char_start,
-                        char_end=match.char_end,
-                        evidence_ref_ids=[ref.source_ref_id or f"{candidate.object_id}:{ref_index}"],
-                    )
-                )
-    return nodes, links_by_span
+        extra_aliases = [candidate.label] if candidate.label != label else []
+        aliases_by_node[candidate.object_id] = _candidate_aliases(label, extra_aliases=extra_aliases)
+    return nodes, aliases_by_node
 
 
 def _enrich_evidence_ref(
@@ -500,6 +805,7 @@ def build_graph_preview_surface(
     run_dir: str,
     *,
     run_bundle_dir: Path | None = None,
+    artifact_record: RecapArtifactRecord | None = None,
 ) -> GraphPreviewSurfaceResponse:
     resolved_run = _resolve_run_dir(root, run_dir)
     rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
@@ -521,13 +827,21 @@ def build_graph_preview_surface(
     if graph is None:
         raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
 
-    bundle = run_bundle_dir or _default_run_bundle_dir(root)
+    bundle = run_bundle_dir
+    if bundle is None and artifact_record is not None:
+        bundle = root / artifact_record.run_bundle_uri
+    if bundle is None:
+        bundle = _default_run_bundle_dir(root)
     if not bundle.is_dir():
         raise GraphPreviewSurfaceError(f"run bundle not found: {bundle}", status_code=404)
 
     span_index = _load_json(bundle / "source_span_index.json")
     span_lookup = {sp["source_span_ref_id"]: sp for sp in span_index.get("spans", [])}
-    recap_text, recap_path = _recap_text_for_run_bundle(root, bundle)
+    recap_text, recap_path = _recap_text_for_run_bundle(
+        root,
+        bundle,
+        source_recap_path=artifact_record.source_recap_path if artifact_record else None,
+    )
 
     candidates = _build_candidates(
         graph,
@@ -574,13 +888,38 @@ def build_graph_preview_surface(
     )
 
 
-def build_latest_graph_preview_surface(root: Path | None = None) -> GraphPreviewSurfaceResponse:
+def build_latest_graph_preview_surface(
+    root: Path | None = None,
+    *,
+    artifact_id: str | None = None,
+    campaign_id: str | None = None,
+    session_id: str | None = None,
+) -> GraphPreviewSurfaceResponse:
     base = root or repo_root()
-    runs = discover_graph_preview_runs(base)
-    picked = _pick_latest_run(base, runs)
-    if picked is None:
-        raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
-    return build_graph_preview_surface(base, picked.run_dir)
+    record = _resolve_recap_artifact(
+        base,
+        artifact_id=artifact_id,
+        campaign_id=campaign_id,
+        session_id=session_id,
+    )
+    runs = discover_graph_preview_runs(
+        base,
+        artifact_id=record.artifact_id,
+        campaign_id=record.campaign_id,
+        session_id=record.session_id,
+    )
+    run_dir = record.default_graph_run_uri
+    if not run_dir:
+        picked = _pick_latest_run(base, runs)
+        if picked is None:
+            raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
+        run_dir = picked.run_dir
+    return build_graph_preview_surface(
+        base,
+        run_dir,
+        run_bundle_dir=base / record.run_bundle_uri,
+        artifact_record=record,
+    )
 
 
 def build_recap_graph_presentation(
@@ -588,34 +927,80 @@ def build_recap_graph_presentation(
     run_dir: str | None = None,
     *,
     run_bundle_dir: Path | None = None,
+    artifact_id: str | None = None,
+    campaign_id: str | None = None,
+    session_id: str | None = None,
 ) -> RecapGraphPresentationResponse:
-    surface = (
-        build_graph_preview_surface(root, run_dir, run_bundle_dir=run_bundle_dir)
-        if run_dir
-        else build_latest_graph_preview_surface(root)
+    record = _resolve_recap_artifact(
+        root,
+        artifact_id=artifact_id,
+        campaign_id=campaign_id,
+        session_id=session_id,
     )
-    bundle = run_bundle_dir or _default_run_bundle_dir(root)
+    bundle = run_bundle_dir or (root / record.run_bundle_uri)
+    selected_run = run_dir or record.default_graph_run_uri
+    if not selected_run:
+        runs = discover_graph_preview_runs(
+            root,
+            artifact_id=record.artifact_id,
+            campaign_id=record.campaign_id,
+            session_id=record.session_id,
+        )
+        picked = _pick_latest_run(root, runs)
+        if picked is None:
+            recap_text, recap_path = _recap_text_for_run_bundle(
+                root,
+                bundle,
+                source_recap_path=record.source_recap_path,
+            )
+            display_lines = _strip_yaml_frontmatter_lines(recap_text.splitlines())
+            return RecapGraphPresentationResponse(
+                run_dir=record.run_bundle_uri,
+                recap_source_path=recap_path,
+                markdown="\n".join(display_lines).strip(),
+                nodes={},
+                links=[],
+            )
+        selected_run = picked.run_dir
+
+    surface = build_graph_preview_surface(
+        root,
+        selected_run,
+        run_bundle_dir=bundle,
+        artifact_record=record,
+    )
     span_index = _load_json(bundle / "source_span_index.json")
     span_lookup = {sp["source_span_ref_id"]: sp for sp in span_index.get("spans", [])}
-    recap_text, _ = _recap_text_for_run_bundle(root, bundle)
-    nodes, links_by_span = _recap_graph_links_for_candidates(surface.candidates)
+    recap_text, _ = _recap_text_for_run_bundle(
+        root,
+        bundle,
+        source_recap_path=record.source_recap_path,
+    )
+    nodes, aliases_by_node = _recap_graph_nodes_for_candidates(surface.candidates)
+    seeded_nodes, seeded_aliases = _route_seed_nodes(root, surface.recap_source_path)
+    for object_id, node in seeded_nodes.items():
+        nodes.setdefault(object_id, node)
+        aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
 
     lines = recap_text.splitlines()
     all_links: list[RecapGraphLink] = []
-    for span_ref_id, span_links in links_by_span.items():
-        span = span_lookup.get(span_ref_id)
-        if not span:
-            continue
+    for span_ref_id, span in span_lookup.items():
         paragraph = _paragraph_text_for_span(recap_text, span)
+        if paragraph.lstrip().startswith("---"):
+            continue
+        span_links = _span_links_for_nodes(paragraph, span_ref_id, nodes, aliases_by_node)
+        if not span_links:
+            continue
         start = int(span["line_start"])
         end = int(span["line_end"])
         lines[start - 1 : end] = [_insert_markdown_node_links(paragraph, span_links)]
         all_links.extend(span_links)
+    display_lines = _strip_yaml_frontmatter_lines(lines)
 
     return RecapGraphPresentationResponse(
         run_dir=surface.run_dir,
         recap_source_path=surface.recap_source_path,
-        markdown="\n".join(lines),
+        markdown="\n".join(display_lines).strip(),
         nodes=nodes,
         links=sorted(all_links, key=lambda link: (link.source_span_ref_id, link.char_start, link.object_id)),
     )

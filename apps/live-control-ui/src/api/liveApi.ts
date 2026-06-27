@@ -55,7 +55,9 @@ import type {
   TiptapMarkdownWritePrepareResponse,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
+  RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
+  RecapGraphQuery,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -134,22 +136,47 @@ export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
 }
 
-export async function getGraphPreviewLatest(
-  runDir?: string,
-): Promise<GraphPreviewSurfaceResponse> {
-  const query = runDir ? `?run_dir=${encodeURIComponent(runDir)}` : "";
-  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${query}`);
+function recapGraphQueryString(query?: RecapGraphQuery): string {
+  if (!query) {
+    return "";
+  }
+  const params = new URLSearchParams();
+  if (query.run_dir) params.set("run_dir", query.run_dir);
+  if (query.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query.session_id) params.set("session_id", query.session_id);
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
 }
 
-export async function getGraphPreviewRuns(): Promise<GraphPreviewRunsResponse> {
-  return apiFetch<GraphPreviewRunsResponse>("/api/live/graph-preview/runs");
+export async function getRecapArtifacts(campaignId?: string): Promise<RecapArtifactsListResponse> {
+  const query = campaignId ? `?campaign_id=${encodeURIComponent(campaignId)}` : "";
+  return apiFetch<RecapArtifactsListResponse>(`/api/live/graph-preview/artifacts${query}`);
+}
+
+export async function getGraphPreviewLatest(
+  runDir?: string,
+  query?: Omit<RecapGraphQuery, "run_dir">,
+): Promise<GraphPreviewSurfaceResponse> {
+  const params = new URLSearchParams();
+  if (runDir) params.set("run_dir", runDir);
+  if (query?.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query?.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query?.session_id) params.set("session_id", query.session_id);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${suffix}`);
+}
+
+export async function getGraphPreviewRuns(query?: RecapGraphQuery): Promise<GraphPreviewRunsResponse> {
+  return apiFetch<GraphPreviewRunsResponse>(`/api/live/graph-preview/runs${recapGraphQueryString(query)}`);
 }
 
 export async function getRecapGraphPresentation(
-  runDir?: string,
+  query?: RecapGraphQuery,
 ): Promise<RecapGraphPresentationResponse> {
-  const query = runDir ? `?run_dir=${encodeURIComponent(runDir)}` : "";
-  return apiFetch<RecapGraphPresentationResponse>(`/api/live/graph-preview/recap${query}`);
+  return apiFetch<RecapGraphPresentationResponse>(
+    `/api/live/graph-preview/recap${recapGraphQueryString(query)}`,
+  );
 }
 
 export async function getSourceBundle(

@@ -16,26 +16,76 @@ from apps.live_control_server.services.graph_preview_surface import (
     discover_graph_preview_runs,
     GraphPreviewSurfaceError,
 )
+from apps.live_control_server.services.recap_artifacts import (
+    RecapArtifactRegistryError,
+    RecapArtifactsListResponse,
+    ensure_recap_artifacts_registry,
+    list_recap_artifact_records,
+)
 
 router = APIRouter(prefix="/api/live/graph-preview", tags=["graph-preview"])
 
 
+@router.get("/artifacts", response_model=RecapArtifactsListResponse)
+def get_recap_artifacts(
+    campaign_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    root = repo_root()
+    ensure_recap_artifacts_registry(root)
+    records = list_recap_artifact_records(root, campaign_id=campaign_id)
+    return RecapArtifactsListResponse(records=records).model_dump(mode="json")
+
+
 @router.get("/runs", response_model=GraphPreviewRunsResponse)
-def get_graph_preview_runs() -> dict[str, Any]:
-    runs = discover_graph_preview_runs(repo_root())
+def get_graph_preview_runs(
+    artifact_id: Annotated[str | None, Query()] = None,
+    campaign_id: Annotated[str | None, Query()] = None,
+    session_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    runs = discover_graph_preview_runs(
+        repo_root(),
+        artifact_id=artifact_id,
+        campaign_id=campaign_id,
+        session_id=session_id,
+    )
     return GraphPreviewRunsResponse(runs=runs).model_dump(mode="json")
 
 
 @router.get("/latest", response_model=GraphPreviewSurfaceResponse)
 def get_graph_preview_latest(
     run_dir: Annotated[str | None, Query()] = None,
+    artifact_id: Annotated[str | None, Query()] = None,
+    campaign_id: Annotated[str | None, Query()] = None,
+    session_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
         if run_dir:
-            response = build_graph_preview_surface(repo_root(), run_dir)
+            root = repo_root()
+            ensure_recap_artifacts_registry(root)
+            record = None
+            if artifact_id or campaign_id or session_id:
+                from apps.live_control_server.services.recap_artifacts import resolve_recap_artifact_record
+
+                record = resolve_recap_artifact_record(
+                    root,
+                    artifact_id=artifact_id,
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                )
+            response = build_graph_preview_surface(
+                root,
+                run_dir,
+                run_bundle_dir=root / record.run_bundle_uri if record else None,
+                artifact_record=record,
+            )
         else:
-            response = build_latest_graph_preview_surface(repo_root())
-    except GraphPreviewSurfaceError as exc:
+            response = build_latest_graph_preview_surface(
+                repo_root(),
+                artifact_id=artifact_id,
+                campaign_id=campaign_id,
+                session_id=session_id,
+            )
+    except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
 
@@ -43,9 +93,18 @@ def get_graph_preview_latest(
 @router.get("/recap", response_model=RecapGraphPresentationResponse)
 def get_recap_graph_presentation(
     run_dir: Annotated[str | None, Query()] = None,
+    artifact_id: Annotated[str | None, Query()] = None,
+    campaign_id: Annotated[str | None, Query()] = None,
+    session_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
-        response = build_recap_graph_presentation(repo_root(), run_dir)
-    except GraphPreviewSurfaceError as exc:
+        response = build_recap_graph_presentation(
+            repo_root(),
+            run_dir,
+            artifact_id=artifact_id,
+            campaign_id=campaign_id,
+            session_id=session_id,
+        )
+    except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")

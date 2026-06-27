@@ -1650,6 +1650,24 @@ body.plan-toolbox-open {
   margin: 0.35rem 0 0;
 }
 
+.recap-reader-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.recap-reader-toolbar .graph-preview-run-picker {
+  min-width: min(100%, 18rem);
+}
+
+.recap-reader-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--fg-muted, #9aa3b5);
+}
+
 .recap-reader-header > span {
   border: 1px solid rgba(122, 162, 247, 0.35);
   border-radius: 999px;
@@ -1726,6 +1744,12 @@ body.plan-toolbox-open {
   border-color: rgba(251, 191, 36, 0.48);
   background: rgba(251, 191, 36, 0.13);
   color: #fde68a;
+}
+
+.recap-node-token.role-pc {
+  border-color: rgba(196, 181, 253, 0.55);
+  background: rgba(139, 92, 246, 0.14);
+  color: #ddd6fe;
 }
 
 .recap-node-token.role-location {

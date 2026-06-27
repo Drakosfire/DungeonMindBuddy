@@ -1,16 +1,21 @@
 import type {
   GraphPreviewRunSummary,
+  RecapArtifactRecord,
   RecapGraphNode,
   RecapGraphPresentationResponse,
 } from "../../api/types";
 import { parseRecapInlineSegments, splitRecapBlocks } from "./recapMarkdown";
+import { recapArtifactSessionLabel } from "./recapSessionLabels";
 
 interface RecapGraphProjectionProps {
   payload: RecapGraphPresentationResponse;
   runs: GraphPreviewRunSummary[];
+  sessionRecords: RecapArtifactRecord[];
+  selectedSessionId: string;
+  onSelectSession: (sessionId: string) => void;
   selectedRunDir: string;
-  pinnedNodeId: string | null;
   onSelectRun: (runDir: string) => void;
+  pinnedNodeId: string | null;
   onPinNode: (objectId: string) => void;
 }
 
@@ -122,9 +127,12 @@ function PinnedNodePanel({ node }: { node?: RecapGraphNode }) {
 export function RecapGraphProjection({
   payload,
   runs,
+  sessionRecords,
+  selectedSessionId,
+  onSelectSession,
   selectedRunDir,
-  pinnedNodeId,
   onSelectRun,
+  pinnedNodeId,
   onPinNode,
 }: RecapGraphProjectionProps) {
   const blocks = splitRecapBlocks(payload.markdown);
@@ -141,19 +149,40 @@ export function RecapGraphProjection({
         <span>{payload.links.length} linked mentions</span>
       </header>
 
-      {runs.length > 1 ? (
-        <label className="graph-preview-run-picker">
-          <span>Run artifact</span>
-          <select value={selectedRunDir} onChange={(event) => onSelectRun(event.target.value)}>
-            {runs.map((run) => (
-              <option key={run.run_dir} value={run.run_dir}>
-                {run.model_id ?? "model"} · {run.run_dir.split("/").slice(-1)[0]}
-                {run.canonical_ir_valid ? " · valid" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+      <div className="recap-reader-toolbar">
+        {sessionRecords.length > 0 ? (
+          <label className="graph-preview-run-picker">
+            <span>Session</span>
+            <select
+              value={selectedSessionId}
+              onChange={(event) => onSelectSession(event.target.value)}
+            >
+              {sessionRecords.map((record) => (
+                <option key={record.artifact_id} value={record.session_id}>
+                  {recapArtifactSessionLabel(record)}
+                  {record.graph_run_refs.length === 0 ? " · recap only" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {runs.length > 1 ? (
+          <label className="graph-preview-run-picker">
+            <span>Graph run</span>
+            <select value={selectedRunDir} onChange={(event) => onSelectRun(event.target.value)}>
+              {runs.map((run) => (
+                <option key={run.run_dir} value={run.run_dir}>
+                  {run.model_id ?? "model"} · {run.run_dir.split("/").slice(-1)[0]}
+                  {run.canonical_ir_valid ? " · valid" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : runs.length === 0 ? (
+          <p className="recap-reader-hint">No graph extraction runs for this session — showing recap text only.</p>
+        ) : null}
+      </div>
 
       <div className="recap-reader-layout">
         <article className="recap-reader-document" aria-label="Graph-linked recap">
