@@ -1,14 +1,14 @@
 # Plan Surface Ladder Tracking
 
-Version: 0.2  
-Status: active implementation on main  
-Workstream: Surfaces / SurfaceConfig / Projection  
-Trunk branch: `experiment/plan-surface-ladder`  
+Version: 0.2
+Status: active implementation on main; Agent Interaction P0-P3.1 dogfooded locally in `/plan`
+Workstream: Surfaces / SurfaceConfig / Projection
+Trunk branch: `experiment/plan-surface-ladder`
 Sibling workstream: `experiment/ontology-taxonomy-ladder` (derived semantics; consume via adapter only)
 
 ## Purpose
 
-Track the Surfaces ladder: `/plan` is the first intentional route composed from `SurfaceConfig` + `SurfaceShell` (NavBar, ToolBar, EditBar, SurfaceCanvas), and React `/play` is the next second-surface proof. Both publish context and projections into the app-level agent interaction layer.
+Track the Surfaces ladder: `/plan` is the first intentional route composed from `SurfaceConfig` + `SurfaceShell` (NavBar, ToolBar, EditBar, SurfaceCanvas). Conversational Agent Interaction P0-P3.1 has been dogfooded locally in `/plan`; R10 remains the rung that hoists Agent Interaction into an app-level provider. React `/play` is the second-surface proof after R10/P4. Both surfaces publish context and projections into the app-level agent interaction layer.
 
 Canon decision (2026-06-22): **Command Board is now the Plan / Play / Build surface family.** Combat folds into React `/play` as operational cockpit projections rather than remaining a separate `combat` surface or static command-board product shell. Build stays named but intentionally undesigned until Plan and Play dogfood produce concrete durable-object authoring requirements.
 
@@ -18,7 +18,7 @@ Canon decision (2026-06-21): **Agent interaction is not a `/plan` sub-state.** `
 
 The old right-side `/plan` Tools drawer is implementation state only. The target pattern is a persistent bottom **Agent Interaction Bar** plus expandable **Agent Interaction Pane**. The pane renders registered projections such as chat/ask, recap ingestion, statblock workbench, reference inspectors, and corpus-impact proof views. `/plan` contributes planning context and plan-specific projections; the bar remains a user/app-level affordance.
 
-Source-vocabulary boundary: recap ingestion proof/memory projections must go through `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`. The backend read adapter emits `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`) from current recap-ingest status/artifacts. Agent Interaction consumes that bundle; future taxonomy/ontology graph-backed retrieval may later produce or enrich the same `SourceUnit` envelope.
+Source-vocabulary boundary: recap ingestion proof/memory projections must go through `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`. The backend read adapter emits `IngestionSourceBundle` (`SourceArtifact` -> `SourceAnchor` -> `SourceUnit`) from current recap-ingest status/artifacts. Agent Interaction consumes that bundle; future taxonomy/ontology graph-backed retrieval may later produce or enrich the same `SourceUnit` envelope through adapters. Graph summaries are navigational display material, not source evidence.
 
 Composition target:
 
@@ -38,8 +38,26 @@ State ownership:
 
 - `AgentInteractionProvider` owns conversation/thread pointers, pane open/minimized state, active projection, recent tool runs, notifications, and proof-trail pointers.
 - Surfaces publish ambient context: campaign/session, selected document block, selected reference, active event/job, corpus root/project id, and available projection registrations.
-- Project/corpus writes remain scoped to explicit tool flows and backend APIs; the provider stores pointers and summaries, not canonical corpus payloads.
+- Project/corpus writes remain scoped to explicit tool flows and backend APIs; the provider stores pointers, summaries, thread metadata, citation locators, evidence snapshots, source-line hashes/status metadata, retrieval decision metadata, and proof pointers — not canonical corpus payloads, raw prompts, graph internals, or graph summaries as evidence.
 - First persistence may be browser-local, but the design target is user-level continuity outside any one project repo.
+
+
+## Agent Interaction local dogfood status
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **P0 — conversational core** | Landed locally | Thread/turn model, same-thread follow-up, local persistence, trace toggle, Hermes session seam. |
+| **P1 — citation trust surface** | Landed locally | Answer-first UI, citation cards, Open source action, in-pane source reader. |
+| **P1.1 — source reader hardening** | Landed locally | Source endpoint OpenAPI/test coverage, allowlist, safe read-only lookup. |
+| **P2.0 — named threads** | Landed locally | Thread index, create/rename/switch/delete, per-thread active state. |
+| **P2.1 — thread quality** | Landed locally | Long-thread suggestion with explicit Start new thread / Keep going and persistence. |
+| **P3.0 — retrieval freshness** | Landed locally | `retrieval_freshness` response object and trust panel. |
+| **P3.1 — corpus change signal** | Landed locally | `/api/live/citation-freshness`, `CorpusChangeSignalPanel`, evidence snapshots, metadata-only source-currentness checks. |
+| **P4 / R10 — provider lift** | Future / next likely code rung | Move Agent Interaction state ownership above routes/surfaces while preserving current `/plan` UX. |
+
+The P3 trust surfaces are adapter-compatible with graph-backed retrieval because they store pointers, citation locators, evidence snapshots, source-line hashes/status metadata, and retrieval decision metadata — not graph internals, corpus bodies, raw prompts, or graph summaries as evidence.
+
+`experiment/ontology-taxonomy-ladder` remains a sibling derived-semantics workstream. Future graph-backed retrieval must be consumed through adapters that emit or enrich source-grounded envelopes; no production retrieval behavior should depend on graph output until shadow-mode evidence and promotion gates exist.
 
 ## Branch Contract
 
@@ -50,6 +68,24 @@ Root experiment branch:
 Stacked PR branches:
 
 `surface-exp/<number>-<short-name>`
+
+## Naming note
+
+This document references two ladder vocabularies:
+
+- **Agent Interaction P-rungs** describe the local `/plan` conversational dogfood ladder:
+  - AI-P0 conversational core
+  - AI-P1 citation trust surface
+  - AI-P1.1 source reader hardening
+  - AI-P2 thread management
+  - AI-P3 retrieval freshness / corpus change signal
+
+- **Surface ladder rungs** describe broader Plan / Play / Build surface architecture:
+  - R10 agent-interaction-provider
+  - R11 ingestion-source-vocabulary-adapter
+  - Surface-P1 react-play-combat-runbook-surface
+
+When writing new handoffs, qualify ambiguous `P1` references as `AI-P1` or `Surface-P1`.
 
 ## Rung Map
 
@@ -67,7 +103,7 @@ Stacked PR branches:
 | R5 | reference-projection | R2, L1, L2, L3 |
 | R10 | agent-interaction-provider | R2, R5, R6, R7 |
 | R11 | ingestion-source-vocabulary-adapter | R2, R6 |
-| P1 | react-play-combat-runbook-surface | R10, R5, R7 |
+| Surface-P1 | react-play-combat-runbook-surface | R10, R5, R7 |
 | R9 | integration-verification | R5, R6, R7, R8, R10, R11 |
 
 ## Defensible Rubric (every PR)
@@ -84,7 +120,7 @@ See `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr*-plan-surface-*.md` for e
 ## Consolidated Roadmap Notes
 
 - `/plan` remains first: reduce canvas busyness, keep the toolbar projection win, and make ingest a guided workflow with review gates.
-- `/play` is the second-surface proof: migrate combat/runbook/live-control behavior into React while preserving focused-beat return semantics. Static Mireward command-board pages and `/surface` modules are migration evidence, not final architecture.
+- `/play` is the second-surface proof after R10/P4: migrate combat/runbook/live-control behavior into React while preserving focused-beat return semantics. Static Mireward command-board pages and `/surface` modules are migration evidence, not final architecture.
 - Build remains a named placeholder. Do not create Build rungs until Plan/Play dogfood names specific durable world-object authoring needs.
 - Retire or demote roadmaps that treat Command Board, Live Control, Combat, and Plan Surface as separate products. They now describe lanes inside this surface ladder.
 
