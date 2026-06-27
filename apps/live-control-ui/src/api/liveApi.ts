@@ -53,6 +53,8 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  GraphPreviewSurfaceResponse,
+  GraphPreviewRunsResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -129,6 +131,17 @@ export async function getJobs(): Promise<LiveJobsResponse> {
 
 export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
+}
+
+export async function getGraphPreviewLatest(
+  runDir?: string,
+): Promise<GraphPreviewSurfaceResponse> {
+  const query = runDir ? `?run_dir=${encodeURIComponent(runDir)}` : "";
+  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${query}`);
+}
+
+export async function getGraphPreviewRuns(): Promise<GraphPreviewRunsResponse> {
+  return apiFetch<GraphPreviewRunsResponse>("/api/live/graph-preview/runs");
 }
 
 export async function getSourceBundle(

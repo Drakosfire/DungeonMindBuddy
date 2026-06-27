@@ -1239,3 +1239,84 @@ export interface IngestionSourceBundle {
   coverage: Record<string, unknown>;
   diagnostics: string[];
 }
+
+export interface GraphPreviewAnchorQuoteMatch {
+  quote: string;
+  char_start: number;
+  char_end: number;
+  match_text: string;
+}
+
+export interface GraphPreviewEvidenceRef {
+  source_ref_id?: string | null;
+  source_artifact_id?: string | null;
+  source_span_ref_id?: string | null;
+  source_anchor_id?: string | null;
+  label?: string | null;
+  evidence_role?: string | null;
+  can_open_source: boolean;
+  can_highlight_span: boolean;
+  anchor_quotes: string[];
+  anchor_quote_matches: GraphPreviewAnchorQuoteMatch[];
+  paragraph_text?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  recap_source_path?: string | null;
+}
+
+export type GraphPreviewCandidateSection =
+  | "nodes"
+  | "edges"
+  | "beats"
+  | "ignored_items"
+  | "deferred_items";
+
+export interface GraphPreviewCandidateRow {
+  section: GraphPreviewCandidateSection;
+  object_id: string;
+  label: string;
+  kind: string;
+  description?: string | null;
+  importance?: string | null;
+  evidence_count: number;
+  evidence_refs: GraphPreviewEvidenceRef[];
+}
+
+export interface GraphPreviewHealth {
+  canonical_ir_valid: boolean;
+  reconcile_error?: string | null;
+  node_count: number;
+  edge_count: number;
+  beat_count: number;
+  ignored_count: number;
+  deferred_count: number;
+  evidence_ref_count: number;
+  resolvable_evidence_ref_count: number;
+  model_id?: string | null;
+  scenario_estimated_cost_usd?: number | null;
+  node_recall?: number | null;
+}
+
+export interface GraphPreviewSurfaceResponse {
+  schema_version: "dmb_graph_preview_surface_v1";
+  version: string;
+  run_dir: string;
+  run_bundle_dir?: string | null;
+  recap_source_path?: string | null;
+  health: GraphPreviewHealth;
+  candidates: GraphPreviewCandidateRow[];
+}
+
+export interface GraphPreviewRunSummary {
+  run_dir: string;
+  model_id?: string | null;
+  run_index?: number | null;
+  canonical_ir_valid?: boolean | null;
+  scenario_estimated_cost_usd?: number | null;
+}
+
+export interface GraphPreviewRunsResponse {
+  schema_version: "dmb_graph_preview_surface_v1";
+  version: string;
+  runs: GraphPreviewRunSummary[];
+}
