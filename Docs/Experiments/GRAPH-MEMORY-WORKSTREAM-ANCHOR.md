@@ -18,6 +18,10 @@ The current union-supergraph design target is in:
 
 `Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md`
 
+The narrow checklist for the next implementation spike is in:
+
+`Docs/Plans/HANDOFF-pr194-union-supergraph-projection-spike-checklist.md`
+
 This file should be updated whenever the workstream meaningfully re-anchors.
 
 ## Current Re-Anchor
