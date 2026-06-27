@@ -1,5 +1,8 @@
 # HANDOFF — Union Supergraph Projection Spike Checklist v0
 
+
+Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
+
 Status: planning checklist
 Workstream: Graph Memory / Union Supergraph / Recap Projection
 Mode: docs-only guardrail for the next implementation spike
@@ -157,10 +160,10 @@ Define a file-backed union supergraph fixture/read model and a validator/report 
 Likely files for that later PR, not this checklist PR:
 
 ```text
-evals/graph_memory_layer/union_supergraph/examples/longmont_c2_minimal_graph.json
-evals/graph_memory_layer/validate_union_supergraph_fixture.py
-evals/graph_memory_layer/report_union_supergraph_fixture.py
-tests/test_union_supergraph_fixture.py
+tests/fixtures/graph_memory/union_supergraph/longmont_c2_minimal_graph.json
+src/graph_memory/union_supergraph/validate.py
+src/graph_memory/union_supergraph/report.py
+tests/test_graph_memory_union_supergraph.py
 ```
 
 ## 7. Acceptance criteria for the next code PR
@@ -207,7 +210,7 @@ apps/live-control-ui/src/planSurface/graphPreview/recapSessionLabels.test.ts
 For the read-model fixture spike, prefer a new focused test such as:
 
 ```text
-tests/test_union_supergraph_fixture.py
+tests/test_graph_memory_union_supergraph.py
 ```
 
 ## 10. Safety boundaries

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from evals.graph_memory_layer.validate_union_supergraph_fixture import (
+from graph_memory.union_supergraph.validate import (
     DEFAULT_FIXTURE_PATH,
     load_fixture,
     validate_union_supergraph_fixture,
