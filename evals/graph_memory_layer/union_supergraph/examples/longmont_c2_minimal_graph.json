@@ -1,0 +1,192 @@
+{
+  "schema": "dmb_union_supergraph_store_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c2",
+  "graph_id": "longmont-c2:union-supergraph",
+  "graph_domains": ["campaign", "worldbuilding"],
+  "source_domains": ["recap", "worldbuilding", "statblock", "session_memory"],
+  "focus_session_id": "session-23",
+  "nodes": {
+    "pc_caelynn": {
+      "node_id": "pc_caelynn",
+      "label": "Caelynn",
+      "kind": "pc",
+      "role": "pc",
+      "description": "Read-model example global PC node; not proof of Session 23 extraction.",
+      "aliases": ["Caelynn"],
+      "source_domains": ["recap", "worldbuilding"],
+      "evidence_ref_ids": [
+        "evidence:session-23:caelynn:recap-mention",
+        "evidence:worldbuilding:caelynn:character-note"
+      ],
+      "state": {
+        "memory_state": "graph_read_model",
+        "canon_state": "not_canon_promotion",
+        "approval_state": "not_approval_write"
+      }
+    },
+    "event_session_23_mireward_gate": {
+      "node_id": "event_session_23_mireward_gate",
+      "label": "Mireward Gate Incident",
+      "kind": "event",
+      "role": "event",
+      "aliases": ["Mireward gate"],
+      "source_domains": ["recap"],
+      "evidence_ref_ids": ["evidence:session-23:caelynn:recap-mention"],
+      "state": {
+        "memory_state": "graph_read_model",
+        "canon_state": "not_canon_promotion",
+        "approval_state": "not_approval_write"
+      }
+    },
+    "loc_mirathorn": {
+      "node_id": "loc_mirathorn",
+      "label": "Mirathorn",
+      "kind": "location",
+      "role": "location",
+      "aliases": ["Mirathorn"],
+      "source_domains": ["worldbuilding"],
+      "evidence_ref_ids": ["evidence:worldbuilding:mirathorn:gazetteer-note"],
+      "state": {
+        "memory_state": "graph_read_model",
+        "canon_state": "not_canon_promotion",
+        "approval_state": "not_approval_write"
+      }
+    }
+  },
+  "edges": {
+    "edge:pc_caelynn:participated_in:event_session_23_mireward_gate": {
+      "edge_id": "edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
+      "source_node_id": "pc_caelynn",
+      "target_node_id": "event_session_23_mireward_gate",
+      "predicate": "participated_in",
+      "label": "participated in",
+      "direction": "outbound",
+      "source_domains": ["recap"],
+      "session_ids": ["session-23"],
+      "evidence_ref_ids": ["evidence:session-23:caelynn:recap-mention"],
+      "state": {
+        "memory_state": "graph_read_model",
+        "canon_state": "not_canon_promotion",
+        "approval_state": "not_approval_write"
+      }
+    },
+    "edge:pc_caelynn:connected_to:loc_mirathorn": {
+      "edge_id": "edge:pc_caelynn:connected_to:loc_mirathorn",
+      "source_node_id": "pc_caelynn",
+      "target_node_id": "loc_mirathorn",
+      "predicate": "connected_to",
+      "label": "connected to",
+      "direction": "outbound",
+      "source_domains": ["worldbuilding"],
+      "session_ids": [],
+      "evidence_ref_ids": ["evidence:worldbuilding:caelynn:character-note"],
+      "state": {
+        "memory_state": "graph_read_model",
+        "canon_state": "not_canon_promotion",
+        "approval_state": "not_approval_write"
+      }
+    }
+  },
+  "evidence": {
+    "evidence:session-23:caelynn:recap-mention": {
+      "evidence_ref_id": "evidence:session-23:caelynn:recap-mention",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-23",
+      "source_domain": "recap",
+      "evidence_role": "focus_session_recap_mention",
+      "session_id": "session-23",
+      "source_span_ref_id": "spref:session-23:p014",
+      "can_open_source": true,
+      "can_highlight_span": true
+    },
+    "evidence:worldbuilding:caelynn:character-note": {
+      "evidence_ref_id": "evidence:worldbuilding:caelynn:character-note",
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:caelynn-note",
+      "source_domain": "worldbuilding",
+      "evidence_role": "character_context",
+      "locator": "worldbuilding/characters/caelynn.md#read-model-example",
+      "can_open_source": true,
+      "can_highlight_span": false
+    },
+    "evidence:worldbuilding:mirathorn:gazetteer-note": {
+      "evidence_ref_id": "evidence:worldbuilding:mirathorn:gazetteer-note",
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:mirathorn-gazetteer",
+      "source_domain": "worldbuilding",
+      "evidence_role": "location_context",
+      "locator": "worldbuilding/locations/mirathorn.md#overview",
+      "can_open_source": true,
+      "can_highlight_span": false
+    }
+  },
+  "source_artifacts": {
+    "artifact:recap:longmont-c2:session-23": {
+      "source_artifact_id": "artifact:recap:longmont-c2:session-23",
+      "source_domain": "recap",
+      "campaign_id": "longmont-c2",
+      "session_id": "session-23",
+      "uri": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/source_artifact.json",
+      "ingest_run_bundle_uri": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/run_manifest.json",
+      "source_span_index_uri": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/source_span_index.json",
+      "provenance_index_uri": "evals/graph_memory_layer/examples/live_recap_ingest_run_bundle/session_23_sample/provenance_index.json",
+      "source_sha256": "read-model-fixture-placeholder"
+    },
+    "artifact:worldbuilding:longmont-c2:caelynn-note": {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:caelynn-note",
+      "source_domain": "worldbuilding",
+      "campaign_id": "longmont-c2",
+      "uri": "fixture://worldbuilding/characters/caelynn.md"
+    },
+    "artifact:worldbuilding:longmont-c2:mirathorn-gazetteer": {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:mirathorn-gazetteer",
+      "source_domain": "worldbuilding",
+      "campaign_id": "longmont-c2",
+      "uri": "fixture://worldbuilding/locations/mirathorn.md"
+    }
+  },
+  "aliases": {
+    "caelynn": "pc_caelynn",
+    "mirathorn": "loc_mirathorn"
+  },
+  "adjacency": {
+    "pc_caelynn": [
+      {
+        "edge_id": "edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
+        "node_id": "event_session_23_mireward_gate",
+        "label": "participated in",
+        "direction": "outbound",
+        "anchored_to_focus_session": true
+      },
+      {
+        "edge_id": "edge:pc_caelynn:connected_to:loc_mirathorn",
+        "node_id": "loc_mirathorn",
+        "label": "connected to",
+        "direction": "outbound",
+        "anchored_to_focus_session": false
+      }
+    ],
+    "event_session_23_mireward_gate": [
+      {
+        "edge_id": "edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
+        "node_id": "pc_caelynn",
+        "label": "participated in",
+        "direction": "inbound",
+        "anchored_to_focus_session": true
+      }
+    ],
+    "loc_mirathorn": [
+      {
+        "edge_id": "edge:pc_caelynn:connected_to:loc_mirathorn",
+        "node_id": "pc_caelynn",
+        "label": "connected to",
+        "direction": "inbound",
+        "anchored_to_focus_session": false
+      }
+    ]
+  },
+  "diagnostics": {
+    "canon_promotion": false,
+    "approved_memory_write": false,
+    "corpus_mutation": false,
+    "production_retrieval": false
+  }
+}
