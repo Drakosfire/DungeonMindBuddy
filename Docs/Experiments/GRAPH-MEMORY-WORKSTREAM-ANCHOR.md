@@ -1,6 +1,9 @@
 # Graph Memory Workstream Anchor
 
 
+
+Architecture roadmap: `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` is the current post-PR196 roadmap. It records that Graph Memory is now organized around a reusable campaign/worldbuilding union supergraph in `src/graph_memory`; evals remain proof machinery, projections are lenses, and runtime apps consume graph-memory contracts rather than owning graph semantics.
+
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
 Date: 2026-06-27
@@ -193,19 +196,17 @@ The next work should move toward that loop. Do not optimize selector or run-pick
 
 ## Recommended Next Design/Backend PR
 
-Recommended next PR:
+Recommended next PR sequence is now owned by:
+
+`Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`
+
+The immediate next implementation should be package cleanup, not graph model expansion:
 
 ```text
-graph-memory: add union supergraph projection contract v0
+graph-memory: normalize src package import layout
 ```
 
-Mission:
-
-```text
-Define and implement the smallest read-model contract that lets /plan recap projection resolve Session 23 pills into global campaign/world graph nodes, with node navigation that can show all of Caelynn while highlighting Session 23-anchored evidence.
-```
-
-This next step is not a hand-authored Session 23 graph snapshot. It is not another prompt harness. It is not Agent Interaction. It is the first concrete bridge from recap projection into a shared graph substrate.
+After that, proceed through union-supergraph typed models, evidence/source-domain contracts, projection contracts, and finally the `/plan` adapter seam. Keep this anchor focused on operational context; use the roadmap for architectural sequencing.
 
 ## Immediate Implementation Shape
 

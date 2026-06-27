@@ -1,6 +1,9 @@
 # Graph Memory Union Supergraph Projection Design v0
 
 
+
+Architecture roadmap: `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` is the current post-PR196 roadmap for the broader supergraph architecture, lifecycle, ownership boundaries, and implementation sequence. This projection design remains the focused recap-projection design target under that roadmap.
+
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
 Date: 2026-06-27
