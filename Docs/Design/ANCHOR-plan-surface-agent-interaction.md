@@ -1,7 +1,7 @@
 # Anchor — Plan Surface Agent Interaction
 
-**Status:** Active anchor  
-**Created:** 2026-06-21  
+**Status:** Active anchor
+**Created:** 2026-06-21
 **Scope:** Plan / Play / Build surfaces, app-level Agent Interaction Bar/Pane, recap-ingestion proof consumption, source-vocabulary adapter
 
 ## Current State
@@ -25,12 +25,16 @@ This anchor supersedes chat-history reconstruction. Start here, then read the ca
 
 Read in this order:
 
-1. `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
-2. `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
-3. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`
-4. `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md`
+1. `Docs/Design/ANCHOR-agent-interaction-hermes.md`
+2. `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
+3. `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
+4. `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md`
 5. `Docs/Plans/HANDOFF-ontology-taxonomy-plan-surface-consumer-alignment.md`
-6. `Docs/Design/DESIGN-play-mode-runbook-product-direction.md`
+6. `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`
+7. `Docs/Design/ANCHOR-dungeonBuddy-graph-retrieval.md`
+8. `Docs/Design/DESIGN-play-mode-runbook-product-direction.md`
+
+Historical/background handoff: `Docs/Plans/HANDOFF-self-continuity-plan-toolbar-ingestion-design.md`. It is useful for implementation context, but the anchors above are the current roadmap authority.
 
 Related backlog item to keep in view:
 
@@ -109,7 +113,9 @@ Additional R10 gate:
 When picking this workstream back up:
 
 1. Read this anchor.
-2. Read the canonical sources listed above.
-3. Run `git status --short --branch`.
-4. Confirm whether local design edits are committed.
-5. Choose the next rung (R11 or R10 lift step) and write the handoff/allowlist before implementation.
+2. Read `Docs/Design/ANCHOR-agent-interaction-hermes.md` for the post-P3.1 Agent Interaction state.
+3. Read `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` before changing proof, citation, freshness, or retrieval display shapes.
+4. Confirm branch and PR state before marking any phase landed.
+5. Default the next code slice to **R10 / P4 provider lift** unless explicitly waived.
+6. Do not restart at P0.
+7. Do not start runtime graph retrieval, graph materialization, LLM extraction, alias merge, corpus writes, operator tool parity, React `/play`, or Hermes long-term memory from this anchor.

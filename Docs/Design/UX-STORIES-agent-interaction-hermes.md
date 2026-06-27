@@ -1,9 +1,9 @@
 # UX Stories — Agent Interaction + Hermes
 
-**Status:** Active design capture  
-**Written:** 2026-06-23  
-**Source:** GM interview (plan-mode prep/review)  
-**Branch context:** `cursor/hermes-agent-interaction-bar` and forward  
+**Status:** Active design capture
+**Written:** 2026-06-23
+**Source:** GM interview (plan-mode prep/review)
+**Branch context:** post-P3.1 Agent Interaction roadmap and forward
 **Related:** `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`, `Docs/Design/ANCHOR-plan-surface-agent-interaction.md`, **`Docs/Design/ANCHOR-agent-interaction-hermes.md`** (re-anchor entry point)
 
 ## Design north star
@@ -95,11 +95,15 @@ This scenario should eventually pass end-to-end:
 
 | Layer | Contents | Canon? | Persist |
 |-------|----------|--------|---------|
-| UI thread | Q/A, titles, citation pointers, trace ids | No (pointers to canon) | Yes, reload |
-| Retrieval proof | Admitted evidence per turn | Evidence only | Per turn in thread |
-| Hermes session | Tool loop state, turn context | No | Session id reuse |
-| Hermes long-term | Preferences, thread continuity helpers | No for campaign facts | Later integration |
-| Corpus | Campaign truth | **Yes** | Corpus tools only |
+| UI thread | Q/A, titles, citation pointers, trace ids, freshness metadata | No — pointers to canon | Yes, local reload now; app/user scope after R10 |
+| Retrieval proof | Admitted evidence per turn, retrieval decision metadata, `retrieval_freshness` | Evidence only when tied to source-grounded units | Per turn in thread |
+| Evidence snapshots / source-currentness metadata | Citation locators, line ranges, source-line hashes, Current / Changed / Unknown / Unavailable status | No — metadata-only check against canon | Per turn; must not store source bodies |
+| Hermes session | Tool loop state, turn context, orchestration continuity | No | Session id reuse / future hardening |
+| Hermes long-term | Preferences and thread-continuity helpers | No for campaign facts | Future only |
+| Corpus | Campaign truth in markdown and promoted canonical artifacts | **Yes** | Corpus tools / explicit write APIs only |
+| Graph memory | Derived semantics, graph IR, validation reports, shadow retrieval outputs | No by itself; source evidence must come through `SourceUnit` envelopes | Ontology/taxonomy workstream; future adapter consumption only |
+
+Agent Interaction may use graph-backed retrieval only when it emits or enriches source-grounded `SourceUnit` envelopes. Graph summaries may help navigation or display, but they are not source evidence for factual claims.
 
 ### Epic 5 — App-level bar (R10) and cross-surface continuity
 
@@ -176,6 +180,7 @@ P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R1
 - Shared corpus change signal (fingerprint, ingest-complete event, or write-commit hook) fan-out to all open threads.
 - Per-thread: Hermes session id, scroll/turn focus, full turn payloads.
 - Agent policy: on corpus change event, bias toward re-retrieval for factual questions; thread context still applies for operator intent ("continue the statblock we were editing").
+- Future graph-backed retrieval must produce or enrich `SourceUnit` envelopes. Graph summaries are navigation/display material, not source evidence.
 
 ---
 
@@ -223,4 +228,5 @@ P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R1
 - **S5.1:** Navigate `/plan` → another surface; same thread title and history visible.
 - **S1.7 / S1.8:** Two named threads active; write/ingest in thread A → ask factual question in thread B → answer reflects new canon.
 - **S2.5:** Open citation on pre-ingest turn after ingest → side pane shows current doc + "source updated" affordance.
+- **S2.6:** Stored turn with evidence snapshots → Check current source state → Current / Changed / Unknown / Unavailable shown without returning or persisting source bodies.
 - **S6.2 / S6.4:** Write tool invoked → preview diff shown → no commit until GM confirms; benchmark rubric exists before ship.

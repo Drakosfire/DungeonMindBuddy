@@ -69,6 +69,24 @@ Stacked PR branches:
 
 `surface-exp/<number>-<short-name>`
 
+## Naming note
+
+This document references two ladder vocabularies:
+
+- **Agent Interaction P-rungs** describe the local `/plan` conversational dogfood ladder:
+  - AI-P0 conversational core
+  - AI-P1 citation trust surface
+  - AI-P1.1 source reader hardening
+  - AI-P2 thread management
+  - AI-P3 retrieval freshness / corpus change signal
+
+- **Surface ladder rungs** describe broader Plan / Play / Build surface architecture:
+  - R10 agent-interaction-provider
+  - R11 ingestion-source-vocabulary-adapter
+  - Surface-P1 react-play-combat-runbook-surface
+
+When writing new handoffs, qualify ambiguous `P1` references as `AI-P1` or `Surface-P1`.
+
 ## Rung Map
 
 | Rung | Slug | Depends on |
@@ -85,7 +103,7 @@ Stacked PR branches:
 | R5 | reference-projection | R2, L1, L2, L3 |
 | R10 | agent-interaction-provider | R2, R5, R6, R7 |
 | R11 | ingestion-source-vocabulary-adapter | R2, R6 |
-| P1 | react-play-combat-runbook-surface | R10, R5, R7 |
+| Surface-P1 | react-play-combat-runbook-surface | R10, R5, R7 |
 | R9 | integration-verification | R5, R6, R7, R8, R10, R11 |
 
 ## Defensible Rubric (every PR)
