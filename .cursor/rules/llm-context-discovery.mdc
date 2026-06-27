@@ -1,6 +1,7 @@
 ---
 description: Corpus context for LLMs is discovered—not provided. Breadcrumbs live in the corpus and system prompt only.
-alwaysApply: true
+globs: src/prompts/**,src/agent/**,evals/**
+alwaysApply: false
 ---
 
 # LLM context — discovery, not provision

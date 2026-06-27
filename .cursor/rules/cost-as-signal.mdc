@@ -1,6 +1,7 @@
 ---
 description: Treat eval/benchmark cost as a signal — surface it, and flag when per-run cost regresses or cumulative spend crosses milestones.
-alwaysApply: true
+globs: evals/**
+alwaysApply: false
 ---
 
 # DungeonMindBuddy — Cost-as-signal

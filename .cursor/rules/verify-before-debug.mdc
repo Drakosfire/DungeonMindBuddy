@@ -1,6 +1,7 @@
 ---
 description: When a benchmark/test fails — investigate data, gold, and prompt before patching code. Tighten contracts; do not loosen rubrics.
-alwaysApply: true
+globs: evals/**,tests/**
+alwaysApply: false
 ---
 
 # Verify before debug

@@ -5,38 +5,10 @@ alwaysApply: true
 
 # No time estimates
 
-This is a personal project. There are no shipping deadlines, no sprints, no stakeholders waiting on a calendar. Time-as-a-decision-axis adds noise without signal.
+This is a personal project with no shipping deadlines, sprints, or stakeholders on a calendar. Time-as-a-decision-axis adds noise without signal, and AI time estimates swing 2–10× in either direction — especially on LLM-behavior work, multi-file refactors, or anything with implicit dependencies.
 
-## What to stop doing
+**Stop:** quoting hours/days/weeks ("1–2 days," "quick win," "just X hours"); ranking options by speed ("cheapest to ship"); justifying corners with "we can do it later." Cost (including time) is **input**, not **verdict** (see `engineering-principles.mdc` Principle 2).
 
-- **Don't include hours / days / weeks in proposals or paths.** Phrases like "1–2 days," "few hours," "this week," "quick win," "just X hours" are anti-patterns when offered as part of a recommendation. They're guesses dressed up as analysis, and AI time estimates in particular are systematically unreliable — observed swings of 2–10× in either direction are common, especially on work that touches LLM behavior, multi-file refactors, or anything with implicit dependencies.
-- **Don't rank options by speed.** "Cheapest to ship" is not a tiebreaker on this project. See `engineering-principles.mdc` Principle 2 — robust and effective over cheap and fast — which already says cost (including time) is **input**, not **verdict**.
-- **Don't justify cutting corners with "we can do it later."** Later has no calendar pressure either. Either it's worth doing well now or it's not worth doing.
+**Instead,** ground proposals in what's measurable: **scope** (files/contracts touched), **dependencies** (what must land first / what it unblocks), **failure modes**, **falsification plan** (what proves it worked vs. didn't), **reversibility**, and **dollar/token cost** for LLM runs (`cost-as-signal.mdc`). Replace "quick fix" with "small in scope (one file, one contract, no dependencies)."
 
-## What to do instead
-
-When proposing work or comparing paths, ground the comparison in things that are actually *measurable* and *informative*:
-
-1. **Scope** — what files / contracts / decisions does this touch?
-2. **Dependencies** — what has to land first? What does this unblock?
-3. **Failure modes** — what could go wrong, and what would tell us it did?
-4. **Falsification plan** — what observation would prove this worked? What would prove it didn't?
-5. **Reversibility** — can we undo this cheaply if it's wrong?
-6. **Cost in dollars / tokens / API calls** when the work involves LLM runs (see `cost-as-signal.mdc`). Dollar cost on benchmark cohorts is real and worth tracking; wall-clock time is not.
-
-If you find yourself wanting to write "this is a quick fix," restate it as: "this is small in scope (one file, one contract, no dependencies)" — which is the actual signal that matters.
-
-## When time IS a legitimate input
-
-A few narrow cases:
-
-- **Test suite latency targets** — `<10s unit suite`, `<2m integration suite` — these are quality bars on the test loop itself, not project estimates. They stay.
-- **Calendar-bound external constraints** — "the live game session is Saturday" — when there's a real external deadline, it's a real input. There usually isn't one.
-- **Subagent / job timeout configuration** — picking a `block_until_ms` for a long-running subagent is a mechanical concern, not a project estimate.
-
-## Anti-patterns
-
-- "Let's pick path A because it's faster" — what's the *robustness* difference?
-- "I estimate this will take ~2 days" — delete this clause; nobody is planning around it and the estimate is probably wrong anyway.
-- "Time-box: 2 days, then re-evaluate" — replace with "scope-box: try the prompt-fix path; re-evaluate if measurement after N=5 shows the dominant failure mode is unchanged."
-- Recommending a path because it lets us "move on to the next thing faster" — the next thing isn't on a clock either.
+**Time IS legitimate** in narrow cases: test-suite latency targets (`<10s` unit, `<2m` integration), real external deadlines ("the live game session is Saturday"), and mechanical timeout config (`block_until_ms`). These stay.

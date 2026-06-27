@@ -1,6 +1,6 @@
 ---
 description: Token-efficient repo navigation using SymDex and RTK. Prefer indexed retrieval and compressed command output before broad file reads or noisy shell output.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Token-efficient repo navigation
