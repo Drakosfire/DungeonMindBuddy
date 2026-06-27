@@ -103,6 +103,36 @@ def test_fixture_without_non_focus_or_non_recap_evidence_fails(fixture: dict) ->
     assert_invalid(payload, "non-recap or non-focus-session")
 
 
+def test_unknown_declared_source_domain_fails(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["source_domains"].append("dream_pickle")
+    assert_invalid(payload, "unknown source_domain dream_pickle")
+
+
+def test_missing_focus_session_id_fails(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload.pop("focus_session_id")
+    assert_invalid(payload, "focus_session_id is required")
+
+
+def test_focus_session_id_mismatch_fails(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["focus_session_id"] = "session-99"
+    assert_invalid(payload, "must match focus_session_id session-99")
+
+
+def test_focus_anchored_adjacency_on_non_focus_edge_fails(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["adjacency"]["pc_caelynn"][1]["anchored_to_focus_session"] = True
+    assert_invalid(payload, "focus-anchored but edge")
+
+
+def test_non_focus_adjacency_on_focus_edge_fails(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["adjacency"]["pc_caelynn"][0]["anchored_to_focus_session"] = False
+    assert_invalid(payload, "is non-focus but edge")
+
+
 def test_unsafe_diagnostics_fail(fixture: dict) -> None:
     payload = copy.deepcopy(fixture)
     payload["diagnostics"]["corpus_mutation"] = True

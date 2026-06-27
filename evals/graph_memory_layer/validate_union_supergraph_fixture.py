@@ -62,7 +62,15 @@ def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]
     artifacts = fixture.get("source_artifacts") if isinstance(fixture.get("source_artifacts"), dict) else {}
     adjacency = fixture.get("adjacency") if isinstance(fixture.get("adjacency"), dict) else {}
     declared_domains = set(_as_list(fixture.get("source_domains")))
-    known_domains = KNOWN_SOURCE_DOMAINS | declared_domains
+    for domain in declared_domains:
+        _require(
+            domain in KNOWN_SOURCE_DOMAINS,
+            errors,
+            f"top-level source_domains contains unknown source_domain {domain}",
+        )
+    known_domains = KNOWN_SOURCE_DOMAINS
+    focus_session_id = fixture.get("focus_session_id")
+    _require(bool(focus_session_id), errors, "top-level focus_session_id is required")
 
     for node_id, node in nodes.items():
         _require(node.get("node_id") == node_id, errors, f"node {node_id} must have matching node_id")
@@ -111,10 +119,33 @@ def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]
             _require(edge_id in edges, errors, f"adjacency {node_id}[{i}] edge_id {edge_id} does not resolve")
             _require(target_id in nodes, errors, f"adjacency {node_id}[{i}] node_id {target_id} does not resolve")
             _require("anchored_to_focus_session" in item, errors, f"adjacency {node_id}[{i}] missing anchored_to_focus_session")
+            edge = edges.get(edge_id, {})
+            edge_session_ids = set(_as_list(edge.get("session_ids")))
+            if item.get("anchored_to_focus_session") is True:
+                _require(
+                    focus_session_id in edge_session_ids,
+                    errors,
+                    f"adjacency {node_id}[{i}] is focus-anchored but edge {edge_id} does not include focus_session_id {focus_session_id}",
+                )
+            if item.get("anchored_to_focus_session") is False:
+                _require(
+                    focus_session_id not in edge_session_ids,
+                    errors,
+                    f"adjacency {node_id}[{i}] is non-focus but edge {edge_id} includes focus_session_id {focus_session_id}",
+                )
 
     _require(any(len(_as_list(node.get("source_domains"))) > 1 for node in nodes.values()), errors, "at least one node must have multiple source domains")
     _require(any(item.get("session_id") for item in evidence.values()), errors, "at least one evidence record must be session-focused")
-    focus_session_id = fixture.get("focus_session_id")
+    _require(
+        any(item.get("session_id") == focus_session_id for item in evidence.values()),
+        errors,
+        f"at least one evidence record must match focus_session_id {focus_session_id}",
+    )
+    _require(
+        any(focus_session_id in _as_list(edge.get("session_ids")) for edge in edges.values()),
+        errors,
+        f"at least one edge must include focus_session_id {focus_session_id}",
+    )
     _require(
         any(item.get("source_domain") != "recap" or item.get("session_id") != focus_session_id for item in evidence.values()),
         errors,
