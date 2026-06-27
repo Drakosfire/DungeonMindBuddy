@@ -1,6 +1,7 @@
 ---
 description: Corpus file naming, hub folder structure, and README conventions for LLM-grounded planning.
-alwaysApply: true
+globs: corpus/**,src/agent/corpus_writer.py
+alwaysApply: false
 ---
 
 # Corpus Layout Conventions

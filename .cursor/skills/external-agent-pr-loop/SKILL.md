@@ -365,7 +365,7 @@ the following in one edit batch:
 - Contract / invariants: `.cursor/rules/external-agent-pr-loop.mdc`
 - Re-anchor act (on-demand, scopes + canonical sources + 5-step checklist):
   `.cursor/rules/anchor.mdc`
-- Sibling rules: `subagent-delegation.mdc`, `two-model-workflow.mdc`,
+- Sibling rules: `subagent-delegation.mdc` (two-model workflow + delegation),
   `dungeonbuddy-git-workflow.mdc`
 - Templates (this skill folder):
   - `templates/HANDOFF.template.md`

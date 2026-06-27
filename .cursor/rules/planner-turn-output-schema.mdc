@@ -1,6 +1,7 @@
 ---
 description: Corpus planner — Responses API assistant text is strict JSON; user_intent + full envelope must not be dropped.
-alwaysApply: true
+globs: src/agent/planner*.py,src/agent/planner_turn_output_schema.py,src/prompts/corpus_session_planner.py
+alwaysApply: false
 ---
 
 # Planner turn output JSON (non-negotiable envelope)

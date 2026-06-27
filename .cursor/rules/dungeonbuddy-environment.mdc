@@ -1,6 +1,7 @@
 ---
 description: DungeonMindBuddy — local secrets and OpenAI; use repo .env files, not manual export.
-alwaysApply: true
+globs: src/**,evals/**,tests/**,scripts/**
+alwaysApply: false
 ---
 
 # DungeonMindBuddy — environment and API keys

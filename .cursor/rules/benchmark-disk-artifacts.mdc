@@ -1,6 +1,7 @@
 ---
 description: Benchmark and eval harnesses must write a default on-disk artifact per run (not stdout-only).
-alwaysApply: true
+globs: evals/**
+alwaysApply: false
 ---
 
 # DungeonMindBuddy — Benchmark disk artifacts

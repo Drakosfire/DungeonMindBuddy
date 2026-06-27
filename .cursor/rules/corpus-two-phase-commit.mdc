@@ -1,6 +1,7 @@
 ---
 description: Operator-driven corpus writes go through preview → commit. Autonomous benchmark and graduated-skill writes use a one-phase loopback surface that preserves the writer's safety properties internally.
-alwaysApply: true
+globs: src/agent/corpus_writer.py,corpus/**
+alwaysApply: false
 ---
 
 # Two-phase commit for corpus writes

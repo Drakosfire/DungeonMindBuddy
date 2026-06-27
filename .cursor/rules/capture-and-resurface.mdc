@@ -5,38 +5,16 @@ alwaysApply: true
 
 # Capture-and-resurface (Backlog ritual)
 
-This repo follows the **`capture-learning`** personal skill (`~/.cursor/skills/capture-learning/SKILL.md`). Read that file for full conventions. This rule is the per-project reinforcement.
+Follows the **`capture-learning`** skill (`~/.cursor/skills/capture-learning/SKILL.md` — read for full conventions). This rule is the always-on reinforcement.
 
-## Four backlog files agents should know about
+**Backlog files** (active holds `IDEA`/`READY`/`DOING`; archive holds terminal `DONE`/`DROPPED`):
+- Per-project: `Backlog.md` / `Backlog-DONE.md` (DMB tooling, corpus threads, refactors).
+- Cross-project: `~/.cursor/learnings/Backlog.md` / `Backlog-DONE.md` (AI-tooling, workflow patterns).
 
-Active vs. archive, per scope:
+When an entry goes terminal, **move the whole block** to the matching `Backlog-DONE.md` in the same write.
 
-- **Per-project active:** `<repo-root>/Backlog.md` (this repo: `Backlog.md`) — DungeonMindBuddy-specific tooling, corpus content threads, refactors. Only `IDEA` / `READY` / `DOING`.
-- **Per-project archive:** `<repo-root>/Backlog-DONE.md` (this repo: `Backlog-DONE.md`) — terminal `DONE` / `DROPPED` entries.
-- **Cross-project active:** `~/.cursor/learnings/Backlog.md` — AI-tooling, workflow patterns, subagent conventions.
-- **Cross-project archive:** `~/.cursor/learnings/Backlog-DONE.md` — terminal entries (created on first archive write).
+**Resurface** before any task that will take **>3 turns or touch >2 files**: skim the active per-project and cross-project `Backlog.md`, match the task against `Surfaces when:` lines in `READY` (and high-confidence `IDEA`) entries, and if 1–3 match, mention inline before starting (`> **From backlog:** *Title* (READY) — reason. Apply, defer, or drop?`). If nothing matches, stay silent — don't surface for tiny tasks.
 
-When a `READY` / `DOING` entry transitions to `DONE` or `DROPPED`, **move the whole block** to the matching `Backlog-DONE.md` in the same write. Do not leave terminal entries in the active file.
+**Capture proactively** when the user makes a side-aside, tooling wish, or out-of-scope meta-observation: append a block to the right Backlog and acknowledge in one line. `IDEA` when raw, `READY` only when confirmed real work.
 
-## Resurface at the start of substantive work
-
-Before starting any task that will take **>3 turns or touch >2 files**, do this:
-
-1. Read this repo's active `Backlog.md` (if it exists). Skip `Backlog-DONE.md` for resurfacing — terminal entries don't drive new work, but consult them on demand if a task explicitly relates to "did we already try this?"
-2. Read the cross-project `~/.cursor/learnings/Backlog.md` (active).
-3. Match the current task against `Surfaces when:` lines in `READY` (and high-confidence `IDEA`) entries.
-4. If 1–3 items match, mention them inline before starting:
-
-   > **From backlog:** *Title* (READY) — short reason it matches. Apply, defer, or drop?
-
-5. If nothing matches, stay silent. Don't surface for tiny tasks.
-
-## Capture proactively
-
-When the user makes a side-aside, expresses a tooling wish, or surfaces a meta-observation that's outside the current task's scope, **append a block to the right Backlog and acknowledge in one line** (e.g. `Captured to Backlog.md as "Mirathorn — what is happening?"`). Don't break flow with a long ack.
-
-Use `IDEA` status when raw, `READY` only when the user confirms it's real work.
-
-## Don't surface during live-play moments
-
-If the user is in an at-the-table flow (rolling dice, asking for a die-result lookup like *"what is 28"*, narrating a roll outcome, or building immediate scene content), **defer all backlog surfacing** until the next planning beat. The skill anti-patterns section has the full list.
+**Don't surface during live-play** (dice rolls, die-result lookups, scene narration) — defer to the next planning beat.

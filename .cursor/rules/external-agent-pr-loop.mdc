@@ -1,6 +1,6 @@
 ---
 description: Invariants (always-on) for the four-stage external-agent PR loop in DungeonMindBuddy. Procedure / runbook lives in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # External-agent PR loop (contract)
@@ -33,6 +33,6 @@ The procedure for each stage — how to actually run `scripts/review_external_pr
 ## References
 
 - **Procedure / runbook (read on demand):** `.cursor/skills/external-agent-pr-loop/SKILL.md`
-- Sibling rules: `subagent-delegation.mdc`, `two-model-workflow.mdc`, `dungeonbuddy-git-workflow.mdc`, `capture-and-resurface.mdc`.
+- Sibling rules: `subagent-delegation.mdc` (two-model workflow + delegation), `dungeonbuddy-git-workflow.mdc`, `capture-and-resurface.mdc`.
 - Cross-project learning: `~/.cursor/learnings/Backlog.md` — `[READY] External-agent PR loop`.
 - Canonical examples: `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-{b,c}-*.md`; `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`external_pull_requests[]`); `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` (Reanchor + Session log).

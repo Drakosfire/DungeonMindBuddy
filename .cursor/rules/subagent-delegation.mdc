@@ -1,17 +1,24 @@
 ---
-description: How to delegate work to subagents (composer-2 sweet spot, file allowlists, no scope creep, diff verification on return).
+description: Two-model workflow + subagent delegation — design with a strong model in conversation, execute mechanical changes with composer-2 via subagents (file allowlists, no scope creep, diff verification on return).
 alwaysApply: true
 ---
 
 # Subagent delegation discipline
 
-Subagents are powerful but lossy: you cannot see their thinking, only their output. Treat every delegation as a contract.
+The productive pattern in this repo: **a strong reasoning model designs and decides with the user; composer-2 (or equivalent) executes mechanical changes via subagents.** Empirically validated 2026-04-20 across the 5-failure sweep. Subagents are powerful but lossy: you cannot see their thinking, only their output. Treat every delegation as a contract.
+
+## The loop
+
+1. **Plan in conversation** with the user using the strongest available model. Investigate, read code, surface trade-offs, get buy-in on the approach. Write the plan down (TodoWrite or a brief).
+2. **Hand off** the now-concrete change to a subagent (`model: composer-2` by default) using the briefing checklist below.
+3. **Verify** the subagent's work yourself: rerun the verification command, read the diff, sanity-check no scope creep.
+4. **Capture learnings** to `Backlog.md` (use `capture-learning` skill) so the next round doesn't re-derive the same insights.
 
 ## When to delegate (vs. do it yourself)
 
-- **Delegate** narrowly-scoped, well-specified mechanical work: a localized bug fix, a single file's prompt edit, a test that needs to be written, a one-off script. Composer-2 is excellent here.
-- **Do it yourself** when the work needs design judgment, cross-file synthesis, or evidence-gathering across the repo. Use the `explore` subagent for read-only reconnaissance instead.
-- **Never delegate** the planning step itself. Plan with a strong model in conversation with the user, then hand the *executed plan* to composer-2. See `two-model-workflow.mdc`.
+- **Delegate to composer-2** when the design is settled and the work is mechanical: a localized bug fix with known line numbers, a single file's prompt edit, a test for known-good behavior, a rename/extract/move with an explicit spec.
+- **Do it yourself / stay in the strong model** when the work needs design judgment, cross-file synthesis (>2 files), or evidence-gathering. Especially: root-cause investigation ("what should we even change?"), prompt files (`src/prompts/*.py` read holistically — a strong model preserves emergent behavior better), and choosing between competing approaches (decide first, delegate after). Use the `explore` subagent for read-only reconnaissance.
+- **Never delegate** the planning step or the decision itself. Composer-2 pattern-matches to *a* fix, not necessarily the right one.
 
 ## How to brief a subagent (mandatory checklist)
 
@@ -20,9 +27,9 @@ Every `Task` prompt MUST include:
 1. **Mission** — one sentence stating the single change to make.
 2. **Files in scope** — explicit allowlist of file paths. Default deny everything else, **even files in the same directory**.
 3. **Files explicitly out of scope** — name them. Especially: `src/prompts/*.py`, `evals/*/gold/*.json`, anything the subagent might "improve while it's there." Round 4 of the 2026-04-20 sweep regressed Scope-B because composer-2 added correct-but-out-of-scope text to `corpus_session_planner.py`.
-4. **Verification command(s)** — the exact pytest invocation, benchmark command, or CLI smoke that proves the fix. The subagent must run it and paste the output.
-5. **Reporting contract** — `git diff --stat` filtered to **only the files it touched** (not `git diff --stat` of the whole worktree, which mixes in your uncommitted work and reads as scope creep).
-6. **Model** — set `model:` explicitly when you need a specific tier. `composer-2` is the default for execution; reach for `claude-4.6-sonnet-medium-thinking` or `gpt-5.4-medium` only when the work needs design judgment a strong model can do faster than you.
+4. **Verification command(s)** — the exact pytest invocation, benchmark command, or CLI smoke that proves the fix. The subagent must run it and paste the output. For stochastic (LLM) behavior, require ≥3 trials (see `verify-before-debug.mdc`).
+5. **Reporting contract** — `git diff --stat` filtered to **only the files it touched** (not the whole worktree, which mixes in your uncommitted work and reads as scope creep).
+6. **Model** — set `model:` explicitly when you need a specific tier. `composer-2` is the default for execution; reach for a strong tier only when the work needs design judgment a strong model can do faster than you.
 
 ## Reviewing the diff (non-negotiable)
 
@@ -33,9 +40,14 @@ Before accepting a subagent's work:
 - Run the verification command yourself once — sandbox network/permissions issues can mask real failures the subagent reports as "passed."
 - If you find scope creep: do not accept-and-fix. Revert the out-of-scope hunks, re-brief, retry. This protects future subagents from learning that scope creep is OK.
 
+## Cost as a signal
+
+Composer-2 is dramatically cheaper than the strong tier; a planned, well-briefed run for a typical fix costs cents. If you're spending dollars because of multiple retries, the brief was under-specified — go back to the planning model rather than re-delegating with marginal tweaks.
+
 ## Anti-patterns
 
 - "While you're in this file, also …" — never. Make it a separate `Task`.
 - Briefing without a verification command — you'll have no ground truth.
 - Accepting a green report without rerunning the command yourself — sandbox false-positives are common.
 - Delegating multi-file refactors without a written plan — composer-2 does not have your context.
+- Using the strong model for what composer-2 should do — it burns budget and your attention; reserve it for design.
