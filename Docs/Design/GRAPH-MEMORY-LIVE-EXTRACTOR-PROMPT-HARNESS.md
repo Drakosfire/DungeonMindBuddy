@@ -2,11 +2,23 @@
 
 ## Current rung
 
-Current rung: **Live Extractor Prompt/Harness v0**.
+Completed rung: **Live Extractor Prompt/Harness v0**.
+
+This document is retained as the prompt-harness design record. It is no longer the active workstream anchor.
+
+Current operational anchor:
+
+`Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md`
+
+Current graph projection design target:
+
+`Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md`
 
 ## Purpose
 
-Render one-shot and two-shot model-ready prompts from PR189 source-spanned recap ingest run bundles and an explicit matching source recap file. The harness then supports validation of manually supplied Candidate Graph Preview IR-shaped JSON for benchmark review.
+Render one-shot and two-shot model-ready prompts from PR189 source-spanned recap ingest run bundles and an explicit matching source recap file. The harness then supports validation of supplied Candidate Graph Preview IR-shaped JSON for benchmark review.
+
+The important current interpretation is that extractor output should be treated as producer input for a larger graph substrate, not as the final `/plan` graph source.
 
 ## Inputs
 
@@ -20,7 +32,7 @@ The run bundle alone is intentionally insufficient because it does not store the
 ## Prompt modes
 
 - `one_shot` renders `one_shot_prompt.md`, which asks the model to emit complete preview-only candidate graph JSON.
-- `two_shot` renders `observation_extraction_prompt.md` and `graph_assembly_prompt.md`; the harness renders prompts only and does not execute model calls.
+- `two_shot` renders `observation_extraction_prompt.md` and `graph_assembly_prompt.md`; the harness renders prompts only and does not require model execution in CI.
 
 ## Candidate output target
 
@@ -28,16 +40,61 @@ The prompt target is Candidate Graph Preview IR-shaped JSON with these sections:
 
 Every positive claim must cite `source_span_ref_id` evidence. The prompt requires uncertainty preservation and treats alias binding, identity binding, inferred relationships, cliffhanger outcomes, uncertain counts, and unsupported canon promotion as high-risk.
 
+## Relationship to the union supergraph
+
+The prompt harness is not the final graph store.
+
+The intended flow is now:
+
+```text
+source artifacts
+→ source-spanned ingest bundles
+→ extractor/materializer outputs
+→ reconciliation into global graph nodes/edges
+→ campaign/worldbuilding union supergraph
+→ session recap projection as a focused lens
+→ global node navigation
+```
+
+Extractor output should help create or update global graph assertions. It should not become a session-local projection graph by default.
+
+The next design target is not a hand-authored Session 23 graph snapshot. The next target is a union supergraph read model where Session 23 recap pills resolve to global nodes such as `pc_caelynn`.
+
 ## Safety boundary
 
-Still blocked: graph writes, approval persistence, query execution, runtime retrieval, `/plan`, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
+Still blocked unless explicitly gated elsewhere:
 
-The harness does not call a live LLM, require API keys, approve proposed writes, persist review state, promote facts, promote canon, query graph memory, or change runtime behavior.
+- canon promotion
+- approved memory writes
+- corpus mutation
+- production retrieval changes
+- Agent Interaction integration
+- opaque identity merging
+- treating candidate output as trusted graph truth
 
-## Manual dogfood workflow
+The harness itself does not approve proposed writes, persist review state, promote facts, promote canon, query graph memory, or change runtime behavior.
 
-Render prompts into the gitignored manual run directory, paste the prompt into a model manually, save untrusted JSON as `candidate_output.json`, and validate it before comparison against Session 23 gold fixtures.
+## Manual / CLI dogfood workflow
+
+The harness can render prompts and validate supplied JSON output. Model execution may happen outside CI or through a gated dogfood CLI, but candidate output remains untrusted until validated and reconciled.
+
+Rendered extractor output should be understood as candidate assertions that may feed the future union supergraph materializer.
 
 ## Next rung
 
-Next rung: **gated manual live LLM dogfood run / candidate output review packet** against the Session 23 benchmark. Agent Interaction remains later, after candidate graph extraction is proven useful and approved/queryable memory contracts exist.
+Next active design/backend rung:
+
+```text
+graph-memory: add union supergraph projection contract v0
+```
+
+The success bar is not “a Session 23 graph exists.”
+
+The success bar is:
+
+```text
+Session 23 Caelynn pill resolves to global pc_caelynn.
+Clicking Caelynn opens all-of-Caelynn graph context.
+Session 23-supported facts/edges are highlighted.
+Navigation can continue across edges from campaign and worldbuilding sources.
+```
