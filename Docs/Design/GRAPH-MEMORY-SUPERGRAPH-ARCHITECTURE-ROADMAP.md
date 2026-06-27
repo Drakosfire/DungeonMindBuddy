@@ -293,6 +293,8 @@ Likely files:
 - `src/graph_memory/union_supergraph/load.py`
 - `tests/test_graph_memory_union_supergraph_model.py`
 
+The union-supergraph read model is represented by typed model and load seams in `src/graph_memory/union_supergraph/model.py` and `src/graph_memory/union_supergraph/load.py`.
+
 ### PR C — Evidence and source-domain module
 
 Title: `graph-memory: add evidence/source-domain contracts v0`
