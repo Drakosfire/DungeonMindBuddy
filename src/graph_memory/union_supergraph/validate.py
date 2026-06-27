@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_FIXTURE_PATH = (
-    Path(__file__).resolve().parent
-    / "union_supergraph/examples/longmont_c2_minimal_graph.json"
+    Path(__file__).resolve().parents[3]
+    / "tests/fixtures/graph_memory/union_supergraph/longmont_c2_minimal_graph.json"
 )
 KNOWN_SOURCE_DOMAINS = {
     "recap",

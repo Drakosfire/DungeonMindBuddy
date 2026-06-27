@@ -6,8 +6,8 @@ import sys
 
 import pytest
 
-from evals.graph_memory_layer.report_union_supergraph_fixture import build_report
-from evals.graph_memory_layer.validate_union_supergraph_fixture import (
+from graph_memory.union_supergraph.report import build_report
+from graph_memory.union_supergraph.validate import (
     DEFAULT_FIXTURE_PATH,
     UnionSupergraphValidationError,
     load_fixture,
@@ -141,7 +141,7 @@ def test_unsafe_diagnostics_fail(fixture: dict) -> None:
 
 def test_report_cli_prints_counts_and_readiness() -> None:
     completed = subprocess.run(
-        [sys.executable, "-m", "evals.graph_memory_layer.report_union_supergraph_fixture"],
+        [sys.executable, "-m", "graph_memory.union_supergraph.report"],
         check=True,
         capture_output=True,
         text=True,

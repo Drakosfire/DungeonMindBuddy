@@ -1,5 +1,8 @@
 # Graph Memory Union Supergraph Projection Design v0
 
+
+Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
+
 Date: 2026-06-27
 Status: design anchor
 Workstream: Graph Memory / Union Supergraph / Recap Projection

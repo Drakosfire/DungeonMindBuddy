@@ -1,5 +1,8 @@
 # Graph Memory Workstream Anchor
 
+
+Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
+
 Date: 2026-06-27
 Status: active current anchor — post-recap-artifact-registry/session-selector checkpoint
 Workstream: Graph Memory / Union Supergraph / Recap Projection
