@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import copy
+import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -140,8 +142,14 @@ def test_unsafe_diagnostics_fail(fixture: dict) -> None:
 
 
 def test_report_cli_prints_counts_and_readiness() -> None:
+    src_path = str(Path(__file__).resolve().parents[1] / "src")
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(filter(None, [src_path, os.environ.get("PYTHONPATH")])),
+    }
     completed = subprocess.run(
         [sys.executable, "-m", "graph_memory.union_supergraph.report"],
+        env=env,
         check=True,
         capture_output=True,
         text=True,
