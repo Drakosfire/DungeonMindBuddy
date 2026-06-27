@@ -12,3 +12,7 @@ This note records the current path boundary for graph-memory work. It is intenti
 ## Current relocation proof
 
 The union supergraph read-model validator and report live under `src/graph_memory/union_supergraph`, while the checked-in minimal contract fixture lives under `tests/fixtures/graph_memory/union_supergraph`. This keeps the durable read-model contract outside evaluation-only space while leaving benchmark and dogfood machinery in `evals/graph_memory_layer`.
+
+## Roadmap pointer
+
+`Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` is the current architecture roadmap for this layout. It treats this file as the short boundary note and records the longer target hierarchy, lifecycle, and PR sequence for graduating reusable contracts into `src/graph_memory`.
