@@ -12,6 +12,7 @@ from apps.live_control_server.main import create_app
 from apps.live_control_server.services.graph_preview_surface import (
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
+    build_recap_graph_presentation,
     discover_graph_preview_runs,
 )
 
@@ -88,6 +89,17 @@ def test_latest_surface_prefers_resolvable_run() -> None:
         assert payload.health.resolvable_evidence_ref_count > 0
 
 
+def test_build_recap_graph_presentation_links_node_labels() -> None:
+    payload = build_recap_graph_presentation(repo_root())
+    assert payload.schema_version == "dmb_recap_graph_presentation_v1"
+    assert payload.nodes
+    assert payload.links
+    assert "[Lysandro](dmb-node:npc_lysandro)" in payload.markdown
+    assert "npc_lysandro" in payload.nodes
+    assert payload.nodes["npc_lysandro"].role == "npc"
+    assert any(chip.label.startswith("S22") for chip in payload.nodes["npc_lysandro"].chips)
+
+
 def test_get_graph_preview_latest(client: TestClient) -> None:
     response = client.get("/api/live/graph-preview/latest")
     assert response.status_code == 200
@@ -115,3 +127,12 @@ def test_get_graph_preview_by_run_dir(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["run_dir"] == VALID_RUN
+
+
+def test_get_recap_graph_presentation(client: TestClient) -> None:
+    response = client.get("/api/live/graph-preview/recap")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_recap_graph_presentation_v1"
+    assert "markdown" in body
+    assert isinstance(body["nodes"], dict)

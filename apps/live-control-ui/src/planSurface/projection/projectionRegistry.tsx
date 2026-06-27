@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { IngestionModule } from "../../modules/IngestionModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
+import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor } from "../types";
 import type { ReferenceResolution } from "../reference/referenceResolver";
 import { resolutionToSourceUnit } from "../derivedViews/derivedViewsAdapter";
@@ -67,6 +68,9 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   }
   if (toolId === "statblock") {
     return <StatblockWorkbenchModule />;
+  }
+  if (toolId === "recap") {
+    return <RecapGraphModule context={context} />;
   }
   if (toolId === "graph-preview") {
     return <GraphPreviewModule context={context} />;

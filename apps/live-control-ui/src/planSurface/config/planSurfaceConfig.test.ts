@@ -18,6 +18,7 @@ describe("planSurfaceConfig", () => {
     expect(config.id).toBe("plan");
     expect(config.tools.map((tool) => tool.id)).toEqual([
       "ingest-recap",
+      "recap",
       "graph-preview",
       "statblock",
     ]);

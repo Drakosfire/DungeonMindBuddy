@@ -35,6 +35,7 @@ export function createPlanSurfaceConfig(planView: PlanViewProjection): SurfaceCo
     context: buildPlanContextFromPlanView(planView),
     tools: [
       { id: "ingest-recap", label: "Ingest Recap", size: "wide" },
+      { id: "recap", label: "Recap", size: "wide" },
       { id: "graph-preview", label: "Graph Preview", size: "wide" },
       { id: "statblock", label: "Statblock", size: "wide" },
     ],

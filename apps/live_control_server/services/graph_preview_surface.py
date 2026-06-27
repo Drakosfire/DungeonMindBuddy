@@ -116,6 +116,42 @@ class GraphPreviewRunsResponse(BaseModel):
     runs: list[GraphPreviewRunSummary] = Field(default_factory=list)
 
 
+class RecapGraphChip(BaseModel):
+    label: str
+    tone: Literal["new", "recurring", "evidence", "warning", "neutral"] = "neutral"
+    source_session: int | None = None
+
+
+class RecapGraphNode(BaseModel):
+    object_id: str
+    label: str
+    kind: str
+    role: str = "node"
+    description: str | None = None
+    evidence_count: int = 0
+    chips: list[RecapGraphChip] = Field(default_factory=list)
+
+
+class RecapGraphLink(BaseModel):
+    href: str
+    object_id: str
+    label: str
+    source_span_ref_id: str
+    char_start: int
+    char_end: int
+    evidence_ref_ids: list[str] = Field(default_factory=list)
+
+
+class RecapGraphPresentationResponse(BaseModel):
+    schema_version: Literal["dmb_recap_graph_presentation_v1"] = "dmb_recap_graph_presentation_v1"
+    version: str = GRAPH_PREVIEW_SURFACE_VERSION
+    run_dir: str
+    recap_source_path: str | None = None
+    markdown: str
+    nodes: dict[str, RecapGraphNode] = Field(default_factory=dict)
+    links: list[RecapGraphLink] = Field(default_factory=list)
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -270,6 +306,106 @@ def _object_kind(section: str, obj: Mapping[str, Any]) -> str:
     if section == "beats":
         return "beat"
     return str(obj.get("item_type") or section.replace("_items", ""))
+
+
+def _session_from_span_ref(span_ref_id: str | None) -> int | None:
+    if not span_ref_id:
+        return None
+    marker = "session-"
+    if marker not in span_ref_id:
+        return None
+    tail = span_ref_id.split(marker, 1)[1]
+    raw = tail.split(":", 1)[0]
+    return int(raw) if raw.isdigit() else None
+
+
+def _markdown_link_text(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("]", "\\]")
+
+
+def _candidate_node_chips(candidate: GraphPreviewCandidateRow) -> list[RecapGraphChip]:
+    sessions = sorted(
+        {
+            session
+            for ref in candidate.evidence_refs
+            for session in [_session_from_span_ref(ref.source_span_ref_id)]
+            if session is not None
+        }
+    )
+    chips = [
+        RecapGraphChip(label=f"S{session}", tone="evidence", source_session=session)
+        for session in sessions
+    ]
+    if candidate.importance:
+        chips.append(RecapGraphChip(label=candidate.importance, tone="neutral"))
+    if candidate.evidence_count:
+        chips.append(RecapGraphChip(label=f"{candidate.evidence_count} evidence", tone="evidence"))
+    return chips
+
+
+def _insert_markdown_node_links(
+    paragraph: str,
+    links: list[RecapGraphLink],
+) -> str:
+    ordered = sorted(links, key=lambda link: (link.char_start, -(link.char_end - link.char_start)))
+    chunks: list[str] = []
+    cursor = 0
+    for link in ordered:
+        if link.char_start < cursor or link.char_start >= link.char_end:
+            continue
+        chunks.append(paragraph[cursor : link.char_start])
+        label = _markdown_link_text(paragraph[link.char_start : link.char_end])
+        chunks.append(f"[{label}]({link.href})")
+        cursor = link.char_end
+    chunks.append(paragraph[cursor:])
+    return "".join(chunks)
+
+
+def _recap_graph_links_for_candidates(
+    candidates: list[GraphPreviewCandidateRow],
+) -> tuple[dict[str, RecapGraphNode], dict[str, list[RecapGraphLink]]]:
+    nodes: dict[str, RecapGraphNode] = {}
+    links_by_span: dict[str, list[RecapGraphLink]] = {}
+    seen: set[tuple[str, str, int, int]] = set()
+
+    for candidate in candidates:
+        if candidate.section != "nodes":
+            continue
+        nodes[candidate.object_id] = RecapGraphNode(
+            object_id=candidate.object_id,
+            label=candidate.label,
+            kind=candidate.kind,
+            role="npc" if candidate.kind in {"character", "npc", "person"} else candidate.kind,
+            description=candidate.description,
+            evidence_count=candidate.evidence_count,
+            chips=_candidate_node_chips(candidate),
+        )
+        for ref_index, ref in enumerate(candidate.evidence_refs):
+            if not ref.source_span_ref_id or not ref.paragraph_text:
+                continue
+            matches = find_anchor_quote_matches(ref.paragraph_text, [candidate.label])
+            for match in matches:
+                key = (
+                    candidate.object_id,
+                    ref.source_span_ref_id,
+                    match.char_start,
+                    match.char_end,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                links_by_span.setdefault(ref.source_span_ref_id, []).append(
+                    RecapGraphLink(
+                        href=f"dmb-node:{candidate.object_id}",
+                        object_id=candidate.object_id,
+                        label=candidate.label,
+                        source_span_ref_id=ref.source_span_ref_id,
+                        char_start=match.char_start,
+                        char_end=match.char_end,
+                        evidence_ref_ids=[ref.source_ref_id or f"{candidate.object_id}:{ref_index}"],
+                    )
+                )
+    return nodes, links_by_span
 
 
 def _enrich_evidence_ref(
@@ -445,3 +581,41 @@ def build_latest_graph_preview_surface(root: Path | None = None) -> GraphPreview
     if picked is None:
         raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
     return build_graph_preview_surface(base, picked.run_dir)
+
+
+def build_recap_graph_presentation(
+    root: Path,
+    run_dir: str | None = None,
+    *,
+    run_bundle_dir: Path | None = None,
+) -> RecapGraphPresentationResponse:
+    surface = (
+        build_graph_preview_surface(root, run_dir, run_bundle_dir=run_bundle_dir)
+        if run_dir
+        else build_latest_graph_preview_surface(root)
+    )
+    bundle = run_bundle_dir or _default_run_bundle_dir(root)
+    span_index = _load_json(bundle / "source_span_index.json")
+    span_lookup = {sp["source_span_ref_id"]: sp for sp in span_index.get("spans", [])}
+    recap_text, _ = _recap_text_for_run_bundle(root, bundle)
+    nodes, links_by_span = _recap_graph_links_for_candidates(surface.candidates)
+
+    lines = recap_text.splitlines()
+    all_links: list[RecapGraphLink] = []
+    for span_ref_id, span_links in links_by_span.items():
+        span = span_lookup.get(span_ref_id)
+        if not span:
+            continue
+        paragraph = _paragraph_text_for_span(recap_text, span)
+        start = int(span["line_start"])
+        end = int(span["line_end"])
+        lines[start - 1 : end] = [_insert_markdown_node_links(paragraph, span_links)]
+        all_links.extend(span_links)
+
+    return RecapGraphPresentationResponse(
+        run_dir=surface.run_dir,
+        recap_source_path=surface.recap_source_path,
+        markdown="\n".join(lines),
+        nodes=nodes,
+        links=sorted(all_links, key=lambda link: (link.source_span_ref_id, link.char_start, link.object_id)),
+    )

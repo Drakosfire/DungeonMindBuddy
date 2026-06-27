@@ -1320,3 +1320,39 @@ export interface GraphPreviewRunsResponse {
   version: string;
   runs: GraphPreviewRunSummary[];
 }
+
+export interface RecapGraphChip {
+  label: string;
+  tone: "new" | "recurring" | "evidence" | "warning" | "neutral";
+  source_session?: number | null;
+}
+
+export interface RecapGraphNode {
+  object_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  description?: string | null;
+  evidence_count: number;
+  chips: RecapGraphChip[];
+}
+
+export interface RecapGraphLink {
+  href: string;
+  object_id: string;
+  label: string;
+  source_span_ref_id: string;
+  char_start: number;
+  char_end: number;
+  evidence_ref_ids: string[];
+}
+
+export interface RecapGraphPresentationResponse {
+  schema_version: "dmb_recap_graph_presentation_v1";
+  version: string;
+  run_dir: string;
+  recap_source_path?: string | null;
+  markdown: string;
+  nodes: Record<string, RecapGraphNode>;
+  links: RecapGraphLink[];
+}

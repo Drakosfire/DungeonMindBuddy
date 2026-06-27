@@ -28,6 +28,8 @@ export function PlanToolBar({ config }: PlanToolBarProps) {
             <small>
               {tool.id === "ingest-recap"
                 ? "Recap workflow"
+                : tool.id === "recap"
+                  ? "Graph-linked reader"
                 : tool.id === "graph-preview"
                   ? "Graph evidence"
                   : "Workbench"}

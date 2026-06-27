@@ -55,6 +55,7 @@ import type {
   TiptapMarkdownWritePrepareResponse,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
+  RecapGraphPresentationResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -142,6 +143,13 @@ export async function getGraphPreviewLatest(
 
 export async function getGraphPreviewRuns(): Promise<GraphPreviewRunsResponse> {
   return apiFetch<GraphPreviewRunsResponse>("/api/live/graph-preview/runs");
+}
+
+export async function getRecapGraphPresentation(
+  runDir?: string,
+): Promise<RecapGraphPresentationResponse> {
+  const query = runDir ? `?run_dir=${encodeURIComponent(runDir)}` : "";
+  return apiFetch<RecapGraphPresentationResponse>(`/api/live/graph-preview/recap${query}`);
 }
 
 export async function getSourceBundle(

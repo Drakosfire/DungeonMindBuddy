@@ -1623,8 +1623,200 @@ body.plan-toolbox-open {
   padding: 0.05rem 0.12rem;
 }
 
+.recap-reader-root {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
+.recap-reader-header {
+  align-items: flex-start;
+  background: rgba(18, 20, 26, 0.72);
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.recap-reader-header h2 {
+  margin: 0.15rem 0 0;
+}
+
+.recap-reader-header p {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.86rem;
+  margin: 0.35rem 0 0;
+}
+
+.recap-reader-header > span {
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  border-radius: 999px;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
+
+.recap-reader-layout {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+  min-height: 0;
+}
+
+.recap-reader-document,
+.recap-node-panel {
+  background: rgba(18, 20, 26, 0.55);
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  max-height: 68vh;
+  overflow: auto;
+  padding: 0.85rem;
+}
+
+.recap-reader-heading {
+  color: var(--accent, #7aa2f7);
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  margin: 0.9rem 0 0.45rem;
+  text-transform: uppercase;
+}
+
+.recap-reader-heading:first-child {
+  margin-top: 0;
+}
+
+.recap-reader-paragraph {
+  color: var(--fg, #e8eaef);
+  font-size: 0.94rem;
+  line-height: 1.72;
+  margin: 0 0 0.78rem;
+}
+
+.recap-node-token-wrap {
+  display: inline-block;
+  position: relative;
+}
+
+.recap-node-token {
+  border: 1px solid rgba(156, 163, 175, 0.35);
+  border-radius: 999px;
+  background: rgba(156, 163, 175, 0.12);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  display: inline;
+  font: inherit;
+  line-height: 1.15;
+  margin: 0 0.04rem;
+  padding: 0.05rem 0.38rem 0.08rem;
+}
+
+.recap-node-token:hover,
+.recap-node-token:focus-visible,
+.recap-node-token.pinned {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+}
+
+.recap-node-token.role-npc,
+.recap-node-token.role-character,
+.recap-node-token.role-person {
+  border-color: rgba(251, 191, 36, 0.48);
+  background: rgba(251, 191, 36, 0.13);
+  color: #fde68a;
+}
+
+.recap-node-token.role-location {
+  border-color: rgba(45, 212, 191, 0.48);
+  background: rgba(45, 212, 191, 0.12);
+  color: #99f6e4;
+}
+
+.recap-node-token.role-faction {
+  border-color: rgba(96, 165, 250, 0.48);
+  background: rgba(96, 165, 250, 0.12);
+  color: #bfdbfe;
+}
+
+.recap-node-token.role-item {
+  border-color: rgba(250, 204, 21, 0.48);
+  background: rgba(250, 204, 21, 0.12);
+  color: #fef08a;
+}
+
+.recap-node-hover-card {
+  background: #111827;
+  border: 1px solid rgba(122, 162, 247, 0.42);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  color: var(--fg, #e8eaef);
+  display: none;
+  gap: 0.18rem;
+  left: 0;
+  min-width: 220px;
+  padding: 0.58rem;
+  position: absolute;
+  top: 1.65rem;
+  z-index: 6;
+}
+
+.recap-node-token-wrap:hover .recap-node-hover-card,
+.recap-node-token-wrap:focus-within .recap-node-hover-card {
+  display: grid;
+}
+
+.recap-node-hover-card > span,
+.recap-node-hover-card small,
+.recap-node-kind {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.recap-node-hover-card small {
+  line-height: 1.35;
+}
+
+.recap-node-chip-row,
+.recap-node-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+}
+
+.recap-node-chip-row em,
+.recap-node-chips li {
+  border: 1px solid rgba(122, 162, 247, 0.32);
+  border-radius: 999px;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.72rem;
+  font-style: normal;
+  padding: 0.16rem 0.42rem;
+}
+
+.recap-node-panel h3 {
+  margin: 0.15rem 0 0;
+}
+
+.recap-node-description {
+  color: var(--fg, #e8eaef);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.recap-node-chips {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
 @media (max-width: 960px) {
   .graph-preview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .recap-reader-layout {
     grid-template-columns: 1fr;
   }
 

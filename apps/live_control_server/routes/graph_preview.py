@@ -9,8 +9,10 @@ from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.graph_preview_surface import (
     GraphPreviewRunsResponse,
     GraphPreviewSurfaceResponse,
+    RecapGraphPresentationResponse,
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
+    build_recap_graph_presentation,
     discover_graph_preview_runs,
     GraphPreviewSurfaceError,
 )
@@ -33,6 +35,17 @@ def get_graph_preview_latest(
             response = build_graph_preview_surface(repo_root(), run_dir)
         else:
             response = build_latest_graph_preview_surface(repo_root())
+    except GraphPreviewSurfaceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/recap", response_model=RecapGraphPresentationResponse)
+def get_recap_graph_presentation(
+    run_dir: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        response = build_recap_graph_presentation(repo_root(), run_dir)
     except GraphPreviewSurfaceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
