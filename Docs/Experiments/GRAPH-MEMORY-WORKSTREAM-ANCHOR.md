@@ -1,9 +1,10 @@
 # Graph Memory Workstream Anchor
 
-Date: 2026-06-22
-Status: active current anchor — post-live-recap-ingest-run-bundle checkpoint
-Workstream: Graph Memory / Recap Ingestion / Live Recap Dogfood
+Date: 2026-06-27
+Status: active current anchor — post-recap-artifact-registry/session-selector checkpoint
+Workstream: Graph Memory / Union Supergraph / Recap Projection
 Branch: `experiment/ontology-taxonomy-ladder`
+Current committed head at re-anchor: `aabdfe4` — `feat(plan): recap artifact registry and session selector`
 
 ## Purpose
 
@@ -13,476 +14,304 @@ The longer historical ladder remains in:
 
 `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`
 
+The current union-supergraph design target is in:
+
+`Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md`
+
 This file should be updated whenever the workstream meaningfully re-anchors.
 
 ## Current Re-Anchor
 
-The workstream has crossed from **source-artifact safety proof** into **recap-to-memory product design**.
+The workstream has crossed from **recap ingestion / selector plumbing** into **global graph projection design**.
 
 The old question was:
 
 ```text
-Can source artifacts safely become projection payloads?
+Can a selected recap artifact render graph-aware pills in /plan?
 ```
 
-That has been answered well enough for now.
+That has been answered well enough for now. Session 22 demonstrates linked recap behavior: hover an entity pill, see a node description, click the pill, and pin the node in the side panel.
 
 The new question is:
 
 ```text
-Can a real recap become an inspectable, evidence-backed candidate graph that a GM trusts enough to approve into memory?
+Can any recap projection resolve its pills into a shared union supergraph, so clicking Caelynn from Session 23 opens all of Caelynn across the campaign/worldbuilding graph while clearly highlighting what is anchored to Session 23?
 ```
 
 Everything next should serve that question.
 
 ## Current State
 
-The ladder has completed the following recap-ingestion path:
+The latest shipped bridge layer is:
 
 ```text
-explicit recap artifacts
-→ source artifact materializer
-→ source refs and provenance
-→ materializer diagnostics
-→ projection-readiness checks
-→ projection payload fixture
-→ one real-derived explicit artifact dogfood bundle
-→ human dogfood evaluation
+recap artifacts
+→ file-backed recap artifact registry
+→ campaign/session selector
+→ optional graph-run selector
+→ /api/live/graph-preview artifacts/runs/latest/recap resolution
+→ /plan recap projection with hover/pin pills
 ```
 
-The latest practical finding is that Graph Memory now has a deterministic Session 23 raw-to-normalized recap fixture using the existing recap-ingest helper spine. The fixture preserves paragraph/source-line provenance and validates source-span seed refs without LLMs, graph extraction, corpus writes, or runtime integration.
+The registry is locator-only. It records source recap paths, ingest run bundle paths, span/provenance paths, and optional graph run refs. It should not be treated as authoritative graph memory.
 
-The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
-
-The current reports count payload units and readiness states. Those are useful developer diagnostics, but they are not the product surface. The next product artifact must let the GM inspect whether the recap was understood.
-
-## Completed Recent Rungs
-
-Recent completed rungs:
-
-1. Recap-Ingestion Source Ref / Provenance Linkage Hardening v0
-2. Recap-Ingestion Projection Payload Fixture v0
-3. Recap-Ingestion Explicit Real-Artifact Dogfood Fixture v0
-4. Recap-Ingestion Dogfood Evaluation Report v0, captured as design guidance
-5. Source Span Evidence Resolver Contract v0
-6. Candidate Graph Preview IR v0
-7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
-8. Session 23 Raw Recap Ingest Fixture v0
-9. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
-10. Multi-Pass Extraction Contract v0
-11. Eval-Only Extractor Harness Fixture v0
-12. Static Extractor Output Comparison Report v0
-13. Preview Graph UX Design Spec v0
-14. Static Preview Graph UI Prototype v0
-15. Query Vocabulary Fixture v0
-16. Live Recap Ingest Run Bundle v0
-
-The workstream has re-anchored from static Agent Interaction planning toward first live recap dogfood. It now has a Live Recap Ingest Run Bundle that takes an explicitly supplied recap file and emits source-spanned dogfood run artifacts without LLM execution, extraction, candidate graph generation, graph writes, query execution, `/plan`, Agent Interaction, corpus scan/mutation, fact promotion, canon promotion, or runtime behavior changes.
-
-Recommended next PR: `graph-memory: add live extractor prompt pack v0`.
-
-## What The Current Dogfood Proved
-
-The current dogfood proved:
-
-- explicit manifest loading can work without directory scanning
-- five admitted recap-ingestion artifact families can survive the pipeline
-- materializer output can preserve source artifacts, anchors, units, source refs, provenance, and semantic state
-- projection-readiness can reach `ready`
-- projection payload shape can be emitted without obvious raw text, absolute path, adapter, `/plan`, Agent Interaction, or runtime leakage
-
-## What The Current Dogfood Did Not Prove
-
-The current dogfood did not prove:
-
-- that a real recap can become a useful graph
-- that graph candidates are understandable to the GM
-- that provenance is actionable in the UI
-- that source refs can resolve to highlightable evidence spans
-- that graph memory can answer useful session-recall questions
-- that Agent Interaction can consume graph results
-- live LLM extraction
-- production extraction
-- candidate graph generation from live recap
-- graph retrieval
-- query execution
-- graph writes
-- approval persistence
-- corpus scan/mutation
-- /plan integration
-- Agent Interaction integration
-- fact promotion
-- canon promotion
-- runtime behavior changes
-- production frontend routing
-- that the current reports are GM-facing value
-
-The dogfood evaluation's central product observation is:
+The current projection can render linked pills if the response contains:
 
 ```text
-Nothing yet as a GM is useful here.
+payload.markdown with dmb-node links
+payload.nodes with matching node records
 ```
 
-That is not a failure. It is the pivot.
+The UI already supports:
+
+```text
+hover pill → node hover card
+click pill → pinned node panel
+session selector → recap/graph context switch
+recap-only fallback → no graph extraction runs
+```
+
+What is missing is not more selector UI. What is missing is the producer-side graph substrate.
+
+## Critical Correction
+
+Do not design the next slice as a hand-authored Session 23 projection snapshot.
+
+The user explicitly wants to move away from hand-authored proof artifacts. The current system has already proven that ingestion/projection can produce pills in the recap render. The next work should move toward the graph that those pills resolve into.
+
+The target graph is not a session graph.
+
+The target graph is a union view over at least:
+
+```text
+Campaign supergraph
++ Worldbuilding supergraph
+= unified campaign/world graph substrate
+```
+
+Recaps, statblocks, worldbuilding docs, NPC dossiers, location notes, faction notes, item notes, session memory, and future artifact types must all be reachable through the same graph substrate.
+
+A recap projection is a scoped lens over that graph, not the graph itself.
+
+## Primary User Story
+
+The primary proof-of-success story is:
+
+```text
+As GM reviewing Session 23,
+when I hover a Caelynn pill,
+I see the Session 23-relevant projection of the global Caelynn node.
+
+When I click Caelynn,
+I enter graph navigation on global pc_caelynn,
+where I can see all known Caelynn facts, edges, and evidence across the campaign/worldbuilding graph,
+with clear markers for which facts/edges are anchored to Session 23
+and which come from other sessions or other corpus artifacts.
+
+From Caelynn, I can keep following edges to adjacent nodes without being restricted to Session 23.
+```
+
+This means the Caelynn pill in Session 23 should resolve to global `pc_caelynn`, not to a Session 23-local Caelynn node.
+
+## Current Data Reality
+
+Known local registry reality after the bridge layer:
+
+```text
+longmont-c2/session-21:
+  recap-only
+  no graph refs
+
+longmont-c2/session-22:
+  recap + graph-run refs from category_graph_model_study
+```
+
+Session 23 does not yet have the required graph-backed projection state.
+
+There may also be local/test registry residue such as `session-test`. Treat `out/registries/recap_artifacts.json` as generated local state, not source-of-truth.
+
+## What The Current Work Proved
+
+The current work proved:
+
+- recap artifacts can be registered by campaign/session
+- /plan can select recap sessions
+- graph preview APIs can resolve by artifact/session/run locator
+- recap-only fallback works when no graph run exists
+- graph-aware markdown links can render as pills
+- pills can show hover-card descriptions
+- pills can pin nodes in the side panel
+- Session 22 can demonstrate linked recap behavior from existing graph/eval artifacts
+
+## What The Current Work Did Not Prove
+
+The current work did not prove:
+
+- that Session 23 can resolve Caelynn into a graph-backed global node
+- that clicked nodes open an all-of-node graph view
+- that graph navigation can follow edges beyond the current session
+- that campaign and worldbuilding facts can coexist in one navigable graph
+- that recaps, statblocks, and worldbuilding docs can all contribute evidence to the same node
+- that Session 23-specific facts can be highlighted without hiding non-Session-23 graph context
+- that category_graph_model_study run dirs are an acceptable long-term graph source
 
 ## New Product Loop
 
 The intended product loop is now:
 
 ```text
-1. GM provides or imports a recap.
-2. System segments the source and preserves resolvable evidence spans.
-3. System performs multi-pass extraction.
-4. System produces a preview-only candidate graph.
-5. GM inspects the graph and evidence.
-6. GM approves, rejects, or defers proposed writes.
-7. Approved graph memory becomes queryable.
-8. Agent Interaction uses evidence-backed graph query results.
-9. Frontend renders markdown chips, deeplinks, hover cards, and source evidence.
+1. Source artifacts enter the system.
+   - recaps
+   - statblocks
+   - worldbuilding docs
+   - NPC/location/faction/item notes
+   - future artifact types
+
+2. Ingestion/extraction produces source-grounded graph assertions.
+
+3. Reconciliation resolves assertions into stable global nodes and edges.
+
+4. A campaign/world union supergraph becomes the graph read substrate.
+
+5. Session recap projection renders a scoped lens into that supergraph.
+
+6. Pills in a recap resolve to global nodes.
+
+7. Clicking a pill opens graph navigation on the global node.
+
+8. The UI distinguishes session-anchored facts/edges from broader campaign/worldbuilding facts/edges.
 ```
 
-The next work should move toward that loop. Do not optimize count reports unless they directly support preview graph trust.
+The next work should move toward that loop. Do not optimize selector or run-picker behavior unless it directly supports global-node graph navigation.
 
-## Required Foundations Before Runtime Work
+## Recommended Next Design/Backend PR
 
-The team needs these foundations before any runtime or `/plan` integration:
-
-1. Source Span / Evidence Resolver Contract
-2. Candidate Graph Preview IR
-3. Rich Recap Dogfood Fixture
-4. Session 23 Raw Recap Ingest Fixture
-5. Session 23 Hand-authored Candidate Graph Gold Fixture
-6. Multi-pass Extraction Contract
-7. Eval-only Extractor Harness Fixture
-8. Static Extractor Output Comparison Report
-9. Preview Graph UX Design Spec
-10. Static Preview Graph UI Prototype
-11. Query Vocabulary Fixture
-12. Live Recap Ingest Run Bundle
-13. Live Extractor Prompt Pack
-14. Gated Live Candidate Extraction Harness
-15. Preview Approval / Write Intent Contract
-16. Agent Interaction Chip Payload Contract
-
-Runtime/shadow experiments should come only after the live recap dogfood extraction path exists and remains gated.
-
-## Immediate Next Backend PR
-
-Recommended next backend/design PR:
+Recommended next PR:
 
 ```text
-graph-memory: add live extractor prompt pack v0
+graph-memory: add union supergraph projection contract v0
 ```
 
 Mission:
 
-Define the first one-shot/two-shot live graph candidate extractor prompt and harness contract for the decomposed Session 23 benchmark without executing live extraction in CI, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
-
-This next step is not Agent Interaction, and it is not more static scaffold for its own sake. It is the first gated LLM candidate-graph extraction path against the decomposed Session 23 benchmark.
-
-Completed rung:
-
 ```text
-Rich Recap Dogfood Fixture v0
-Session 23 Raw Recap Ingest Fixture v0
-Session 23 Hand-Authored Candidate Graph Gold Fixture v0
-Multi-Pass Extraction Contract v0
-Eval-Only Extractor Harness Fixture v0
-Static Extractor Output Comparison Report v0
-Preview Graph UX Design Spec v0
-Static Preview Graph UI Prototype v0
-Query Vocabulary Fixture v0
-Live Recap Ingest Run Bundle v0
+Define and implement the smallest read-model contract that lets /plan recap projection resolve Session 23 pills into global campaign/world graph nodes, with node navigation that can show all of Caelynn while highlighting Session 23-anchored evidence.
 ```
 
-The workstream now has a Query Vocabulary Fixture defining safe, unsafe, and deferred graph-memory query intents before runtime graph retrieval exists. The fixture covers example GM questions, evidence requirements, answer shape expectations, high-risk query behavior, proposed-write query behavior, unknown/deferred answer behavior, and Agent Interaction readiness boundaries without executing queries, retrieving graph memory, writing graph memory, connecting `/plan`, connecting Agent Interaction, or changing runtime behavior.
+This next step is not a hand-authored Session 23 graph snapshot. It is not another prompt harness. It is not Agent Interaction. It is the first concrete bridge from recap projection into a shared graph substrate.
 
-Still blocked: live LLM extraction, production extraction, graph retrieval, query execution, graph writes, approval persistence, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
+## Immediate Implementation Shape
 
-## Immediate Next Frontend/Design PR
+Prefer a file-backed graph substrate for v0, but design it as a graph store/read model, not as a session-local snapshot.
 
-Recommended frontend/design PR:
-
-```text
-frontend-design: add graph memory recap preview UX handoff
-```
-
-Suggested file:
+The v0 store may be JSON files, but it should already model:
 
 ```text
-Docs/Design/GRAPH-MEMORY-RECAP-PREVIEW-UX-HANDOFF.md
+global nodes
+stable node IDs
+aliases
+edges
+edge predicates
+evidence refs
+source artifacts
+source domains
+session focus overlays
+adjacency for navigation
 ```
 
-Mission:
-
-Design the GM trust surface for recap-derived candidate graph previews.
-
-The design should cover:
-
-- graph/timeline split view
-- node detail panel
-- edge detail panel
-- evidence drawer
-- proposed write diff
-- ignored/deferred drawer
-- state chips
-- future Agent Interaction entity/evidence chips
-- visible versus advanced/internal fields
-- backend fields required for v0
-
-Do not implement React components yet unless explicitly requested.
-
-## Candidate Graph Preview Concepts
-
-The candidate graph preview should include:
-
-- named entity nodes
-- unnamed-but-important nodes
-- session beat nodes or beat records
-- relationship edges
-- unresolved thread nodes
-- ignored or deferred items
-- evidence refs on every meaningful node, edge, beat, or fact
-- semantic state envelopes
-- proposed write intent
-
-Important: do not restrict graph memory to named entities. TTRPG memory depends on unnamed important concepts such as warnings, motives, debts, clues, mysteries, promises, unresolved threads, and suspicious events.
-
-## Source Evidence Requirements
-
-`source_ref_id` is a machine key, not a human-facing trust surface.
-
-The UI should not show raw source-ref IDs by default. Its job is to resolve them:
+The read model should support:
 
 ```text
-click evidence
-→ open source recap
-→ scroll to relevant location
-→ highlight exact span or structured field
+open_global_node(node_id, focus_session_id?)
+list_adjacent_nodes(node_id, scope=all, focus_session_id?)
+project_recap_mentions(session_id) -> dmb-node links into global nodes
 ```
 
-The next backend contracts must support that flow.
+## Required Conceptual Boundaries
 
-Every evidence-backed graph candidate must have resolvable evidence. If evidence is missing or unresolvable, the preview must show a warning.
+### Union supergraph
 
-## Preview-Only Write Policy
-
-The first graph-ingestion loop must be preview-only.
-
-Default write policy:
+The navigated graph is the union of campaign and worldbuilding graph knowledge.
 
 ```text
-Recap goes in.
-Candidate graph is generated.
-GM inspects preview.
-Writes happen only after approval.
+Campaign graph:
+  sessions, events, player actions, evolving relationships, unresolved threads, encounters
+
+Worldbuilding graph:
+  locations, factions, NPC dossiers, statblocks, items, cosmology, setting lore, threats
 ```
 
-Approval is not the same as canon promotion. Approval may mean:
+These should not become isolated identity silos. Caelynn, Mireward, Lysandra, Shepherd threats, factions, and locations will naturally straddle both domains.
 
-- store candidate
-- store played canon
-- store unresolved thread
-- store ignored detail
-- store diagnostic restraint
+### Source-domain metadata
 
-Do not collapse all approval into `make canon`.
+Use source metadata to distinguish where a fact/edge came from, not separate stores that duplicate identity.
 
-## Query Vocabulary Target
-
-Graph memory is only valuable if it becomes queryable.
-
-Initial constrained query operations should include:
+Example source domains:
 
 ```text
-list_named_characters(session_id)
-outline_sessions(scope)
-recent_events(limit, scope)
-entity_interactions(entity_id_or_name, filters)
+recap
+statblock
+worldbuilding
+npc_note
+location_note
+faction_note
+item_note
+session_memory
+manual_seed
+future_artifact
 ```
 
-Query results must return evidence, not just answer text.
+### Session focus overlay
 
-Future Agent Interaction should consume structured graph query results and render entity/evidence chips, source deeplinks, and hover cards.
+A session projection is a focus overlay over the global graph.
 
-## Frontend Trust Surface
-
-The frontend should be designed as a GM trust surface, not a generic graph viewer.
-
-The primary user question is:
-
-```text
-Did the system understand my recap, and can I safely approve this memory?
-```
-
-The likely preview layout:
-
-```text
-left: session beat timeline
-center: graph canvas
-right: selected node/edge/evidence drawer
-bottom or tab: proposed write diff and ignored/deferred items
-```
-
-Timeline may be more important than graph canvas for first comprehension because a recap is temporal.
+Session 23 should highlight Session 23-supported facts and edges, but it should not hide the rest of Caelynn.
 
 ## Non-Negotiable Blocks
 
 Until explicitly gated in later PRs, do not implement:
 
-- directory scanning
-- canonical corpus scanning
 - corpus mutation
-- `/plan` integration
-- Agent Interaction integration
-- graph retrieval
-- shadow retrieval
-- runtime UI behavior
-- production adapter
-- entity extraction in production
-- alias resolution
-- identity merge
-- relationship inference into committed graph memory
-- fact promotion
 - canon promotion
-- prompt changes that affect production behavior
-- LLM extraction over campaign text outside eval harnesses
+- approved memory writes
+- Agent Interaction integration
+- production retrieval changes
+- automatic fact promotion
+- opaque identity merging without evidence
+- category_graph_model_study run dirs as the long-term graph source of truth
+- session-local graph snapshots as the primary design target
+- hand-authored Session 23 graph proof as the next success path
 
-## Revised Roadmap From Here
+## Allowed Next Work
 
-Recommended sequence:
+Allowed next work:
 
-1. Source Span Evidence Resolver Contract v0 — done
-2. Candidate Graph Preview IR v0 — done
-3. Rich Recap Dogfood Fixture v0 — done, synthetic/control fixture
-4. Session 23 Raw Recap Ingest Fixture v0 — done
-5. Session 23 Hand-Authored Candidate Graph Gold Fixture v0 — done
-6. Multi-Pass Extraction Contract v0
-7. Eval-Only Extractor Harness Fixture v0 — done
-8. Static Extractor Output Comparison Report v0 — done
-9. Preview Graph UX Design Spec v0 — done
-10. Static Preview Graph UI Prototype v0
-11. Query Vocabulary Fixture v0
-12. Agent Interaction Chip Payload Contract v0
-13. Preview Approval / Write Intent Contract v0
-14. Shadow runtime experiments only after explicit gates
+- define union supergraph read-model schema
+- define source-domain and focus-session metadata
+- define global node view payload
+- define adjacency payload for graph navigation
+- update recap graph API contracts to return global-node/adjacency data
+- connect Session 23 recap pills to global nodes once producer artifacts exist
+- use generated/extractor/materialized artifacts as inputs
+- keep v0 file-backed and inspectable
+- keep tests deterministic
 
 ## Success Bar
 
 The next time this workstream claims progress, the success bar should be human-recognizable:
 
 ```text
-Alan can look at the preview and say:
-
-That is recognizably my recap.
-Those nodes make sense.
-Those relationships are reasonable.
-The unresolved things are correctly not promoted.
-I can click evidence and verify it.
-I can imagine approving this into memory.
+Alan can select Session 23.
+Alan can hover Caelynn and see a useful node description.
+Alan can click Caelynn and open global pc_caelynn.
+Alan can see which Caelynn facts/edges are Session 23-anchored.
+Alan can also see all-of-Caelynn from other sessions/worldbuilding artifacts.
+Alan can follow edges from Caelynn to adjacent nodes without being trapped in the Session 23 recap.
 ```
 
-If the work only produces more tables that say `ready`, it is not enough.
+If the work only produces a session-local graph or another table that says `ready`, it is not enough.
 
 ## Current Anchor In One Sentence
 
-We are building toward a preview-only, evidence-backed candidate graph that turns a real recap into inspectable, approvable, queryable graph memory for future Agent Interaction — without allowing the graph to affect runtime, `/plan`, retrieval, corpus, or canon until later gates explicitly permit it.
-
-## Post-Session-23-Hand-Authored-Candidate-Graph-Gold-Fixture Checkpoint
-
-Current checkpoint: post-multi-pass-extraction-contract checkpoint.
-
-Completed recent rungs:
-
-5. Source Span Evidence Resolver Contract v0
-6. Candidate Graph Preview IR v0
-7. Rich Recap Dogfood Fixture v0 — synthetic/control fixture
-8. Session 23 Raw Recap Ingest Fixture v0
-9. Session 23 Hand-Authored Candidate Graph Gold Fixture v0
-
-The Redacted Lantern Archive rich recap remains useful as a synthetic/control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
-
-Next backend/design PR: graph-memory: add static preview graph UI prototype v0.
-
-## post-multi-pass-extraction-contract checkpoint
-
-Completed rung: Session 23 Raw Recap Ingest Fixture v0.
-
-The workstream now has a deterministic Session 23 raw-to-normalized recap fixture using the existing recap-ingest helper spine. The fixture preserves paragraph/source-line provenance and validates source-span seed refs without LLMs, graph extraction, corpus writes, or runtime integration. The workstream now has a hand-authored Candidate Graph Preview gold fixture for Session 23. This gold fixture defines what a good future extractor should produce from the mechanically normalized Session 23 recap/source-span surface. The next backend rung should harden the static extractor output comparison report before any live extractor gate.
-
-The Redacted Lantern Archive rich recap remains useful as a synthetic control fixture. Session 23 is now the first real campaign source fixture for graph-memory gold evaluation.
-
-Revised workstream sequence:
-
-1. Source Span Evidence Resolver Contract v0 — done
-2. Candidate Graph Preview IR v0 — done
-3. Rich Recap Dogfood Fixture v0 — done, synthetic/control fixture
-4. Session 23 Raw Recap Ingest Fixture v0 — done
-5. Session 23 Hand-Authored Candidate Graph Gold Fixture v0 — done
-6. Multi-Pass Extraction Contract v0
-7. Eval-Only Extractor Harness Fixture v0 — done
-8. Static Extractor Output Comparison Report v0
-9. Preview Graph UX Design Spec v0 — done
-10. Static Preview Graph UI Prototype v0
-11. Query Vocabulary Fixture v0
-12. Agent Interaction Chip Payload Contract v0
-13. Preview Approval / Write Intent Contract v0
-14. Shadow runtime experiments only after explicit gates
-
-## post-multi-pass-extraction-contract checkpoint
-
-Completed rung: Session 23 Hand-Authored Candidate Graph Gold Fixture v0.
-
-The workstream now has a hand-authored Candidate Graph Preview gold fixture for Session 23. This gold fixture defines what a good future extractor should produce from the mechanically normalized Session 23 recap/source-span surface. The next backend rung should harden the static extractor output comparison report before any live extractor gate.
-
-The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
-
-Still blocked: live LLM extraction, production extraction, graph retrieval, query execution, graph writes, approval persistence, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, runtime behavior changes, and production frontend routing.
-
-Recommended next backend PR: graph-memory: add static extractor output comparison report v0.
-
-## Eval-Only Extractor Harness Fixture v0
-
-Status: completed at the post-eval-only-extractor-harness-fixture checkpoint.
-
-The workstream now has an eval-only extractor harness fixture that loads static, contract-shaped candidate output, validates it against the Multi-Pass Extraction Contract v0, resolves evidence refs, runs high-risk claim audit, parses Candidate Graph Preview IR, and compares the output against the Session 23 hand-authored gold fixture without executing an extractor or requiring live LLM calls in CI.
-
-Recommended next backend PR: `graph-memory: add static extractor output comparison report v0`.
-
-Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
-
-## Static Extractor Output Comparison Report v0
-
-Completed rung: Static Extractor Output Comparison Report v0.
-
-Current checkpoint: post-static-extractor-output-comparison-report checkpoint.
-
-The workstream now has a static extractor output comparison report fixture that turns eval-only candidate-vs-gold comparison into a stable reviewer artifact. It groups hard failures, soft misses, score bands, missing gold coverage, evidence health, high-risk audit status, proposed write safety, and GM preview readiness without executing an extractor or requiring live LLM calls in CI.
-
-Next backend/design PR: graph-memory: add static preview graph UI prototype v0.
-
-Still blocked: live LLM extraction, production extraction, graph writes, approval, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
-
-
-## Preview Graph UX Design Spec v0
-
-Completed rung: Preview Graph UX Design Spec v0.
-
-The workstream now has a Preview Graph UX Design Spec defining how a GM should inspect candidate graph memory before anything becomes durable campaign memory. The design covers summary state, safety gates, evidence health, high-risk audit display, missing coverage, candidate detail, proposed writes, and future approve/reject/defer intent controls without implementing runtime UI or approval behavior.
-
-Still blocked: live LLM extraction, production extraction, graph writes, approval persistence, query execution, corpus scan/mutation, /plan integration, Agent Interaction integration, fact promotion, canon promotion, and runtime behavior changes.
-
-Recommended next backend/design PR: `graph-memory: add static preview graph UI prototype v0`.
-
-## Static Preview Graph UI Prototype v0
-
-Completed rung: Static Preview Graph UI Prototype v0.
-
-The workstream now has a static Preview Graph UI prototype that renders the Preview Graph UX Design Spec into a deterministic HTML review artifact using checked-in fixture/report data only. The prototype shows summary state, safety gates, coverage, evidence health, high-risk audit status, candidate explorer examples, candidate detail examples, proposed writes, missing coverage, hard failures, and disabled review controls without implementing production UI, approval persistence, graph writes, query execution, `/plan`, Agent Interaction, or runtime behavior.
-
-Historical next backend/design PR at that checkpoint: `graph-memory: add query vocabulary fixture v0`.
-
-## Live Extractor Prompt/Harness v0
-
-Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-shot model-ready prompts from PR189 source-spanned recap bundles and validate manually supplied candidate graph output. Next rung: gated manual live LLM dogfood run / candidate output review packet against the Session 23 benchmark. Still blocked: graph writes, approval persistence, query execution, runtime retrieval, /plan, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
-
+We are building a shared campaign/worldbuilding union supergraph where recap projections are scoped lenses into global nodes; the next proof is Session 23 Caelynn resolving to all-of-Caelynn graph navigation with Session 23 evidence highlighted, without hand-authoring a local Session 23 graph or promoting anything to canon.
