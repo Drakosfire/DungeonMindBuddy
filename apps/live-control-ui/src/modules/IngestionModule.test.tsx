@@ -567,6 +567,43 @@ describe("IngestionModule", () => {
     expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0);
   });
 
+  it("opens the recap view for generated recap memory", async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, assign },
+      writable: true,
+    });
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({ status: "initialized", states: ["ingest_status_inspected"] });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "raw_text_received",
+          "recap_preview_created",
+          "recap_applied",
+          "frontmatter_seed_found",
+          "breadcrumb_found",
+          "session_memory_materialized",
+          "ready_for_planning_activation",
+        ],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    const openButton = await screen.findByRole("button", { name: "Open Recap View" });
+    expect(screen.getByText(/Recap memory generated\. Open Recap View/)).toBeInTheDocument();
+    await user.click(openButton);
+
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+  });
+
 
   it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
     const user = userEvent.setup();

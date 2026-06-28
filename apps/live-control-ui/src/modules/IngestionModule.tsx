@@ -632,7 +632,7 @@ function buildToastForResult(
   }
 
   if (result.status === "ready_for_planning_activation") {
-    nextSteps.unshift("Ingest complete. Proceed with Session 23 planning.");
+    nextSteps.unshift("Open Recap View to read the recap and inspect graph chips.");
   }
 
   if (frontmatterSeedReady) {
@@ -664,6 +664,8 @@ function buildToastForResult(
       ? "Existing staged raw notes were found, so the preview uses those notes. The pasted text was not written."
       : frontmatterSeedReady
         ? "Frontmatter seed is ready for human review before breadcrumb ingest."
+      : result.status === "ready_for_planning_activation"
+        ? "Recap memory generated. Open Recap View to read the recap and inspect graph chips."
       : result.status === "breadcrumb_required"
       ? "Expected v1 stop: canonical recap and normalized recap are prepared; retrieval activation waits for breadcrumb + session memory."
       : result.errors.length > 0
@@ -1262,7 +1264,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         setToast({
           tone: "success",
           title: "Full ingest complete",
-          detail: "Session memory materialized. The Prove panel now shows artifact metadata returned by the API.",
+          detail: "Recap memory generated. Open Recap View to read the recap and inspect graph chips.",
           nextSteps: [],
         });
         jumpToStep(3);
@@ -1549,6 +1551,12 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     }
   }
 
+  function openRecapView() {
+    if (typeof window !== "undefined") {
+      window.location.assign(`/plan?tool=recap&session=session-${recapSession}`);
+    }
+  }
+
   async function reconcileNormalizedRecap(keepBasename: string) {
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1621,6 +1629,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
+  const canOpenRecapView = hasMaterialized && (state.status === "ready_for_planning_activation" || hasApplied);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -1917,7 +1926,12 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
             <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
           ) : null}
           {state.status === "ready_for_planning_activation" ? (
-            <p className="module-success">Complete: session memory is ready for planning activation.</p>
+            <div className="module-success">
+              <p>Complete: session memory is ready for planning activation.</p>
+              <button type="button" onClick={openRecapView} disabled={!canOpenRecapView}>
+                Open Recap View
+              </button>
+            </div>
           ) : null}
         </section>
 

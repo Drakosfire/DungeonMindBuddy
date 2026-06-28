@@ -8,6 +8,7 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "./GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState } from "./recapGraphNodeRuntime";
+import type { RecapProjectionSource } from "./RecapGraphModule";
 
 interface UnionSupergraphRecapProjectionProps {
   payload: UnionSupergraphProjectionResponse;
@@ -15,6 +16,7 @@ interface UnionSupergraphRecapProjectionProps {
   onSelectSession: (sessionId: string) => void;
   sessionOptions: string[];
   onOpenLegacy?: () => void;
+  projectionSource?: RecapProjectionSource;
 }
 
 function ReadOnlyTiptapRecap({
@@ -60,10 +62,29 @@ export function UnionSupergraphRecapProjection({
   onSelectSession,
   sessionOptions,
   onOpenLegacy,
+  projectionSource = "default-preview-source",
 }: UnionSupergraphRecapProjectionProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
   const activeNodeId = explorerTrail.at(-1) ?? null;
   const activeNode = activeNodeId ? payload.node_views[activeNodeId] : undefined;
+  const sourceCopy = {
+    "latest-graph-ingest": {
+      label: "latest graph-ingest preview",
+      description: "This recap is projected from the latest preview union supergraph for this campaign/session.",
+    },
+    "default-preview-source": {
+      label: "default preview fixture",
+      description: "No latest graph-ingest preview store was available for this session, so this is using the default preview source.",
+    },
+    legacy: {
+      label: "legacy recap preview",
+      description: "This recap is using the legacy recap preview projection.",
+    },
+    unavailable: {
+      label: "no graph projection available",
+      description: "No graph projection is available for this session yet. Generate Recap Memory first, then retry.",
+    },
+  }[projectionSource];
   const projectedMarkdown = payload.markdown
     ?? "# Session recap projection unavailable\n\nThe union-supergraph payload did not include projected recap Markdown.";
 
@@ -103,6 +124,9 @@ export function UnionSupergraphRecapProjection({
           <p>
             Global campaign graph with a Session {payload.focus.focus_session_id?.replace("session-", "") ?? "?"}{" "}
             focus overlay. Hover recap chips for a quick scan; click to expand and crawl suggested connections.
+          </p>
+          <p className="union-supergraph-source-note">
+            Source: {sourceCopy.label}. {sourceCopy.description}
           </p>
         </div>
         <span className="union-supergraph-graph-id">{payload.graph_id ?? "union-supergraph"}</span>
