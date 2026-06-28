@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { getSourceBundle, postCitationFreshness, postCitationSource, postLiveQuery } from "../../api/liveApi";
 import type {
-  AgentInteractionThreadSummary,
   AgentInteractionThread,
   CitationFreshnessResponse,
   CitationSourceResponse,
@@ -17,18 +16,11 @@ import type {
 import {
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
   AGENT_TURN_HISTORY_CAP,
-  clearAgentThread,
   createAgentInteractionThread,
-  deleteAgentThread,
-  listAgentThreads,
-  loadAgentThread,
-  loadAgentThreadById,
-  persistAgentThread,
-  renameAgentThread,
-  setActiveAgentThread,
   threadTitleFromQuestion,
   turnFromResponse,
-} from "./agentInteractionHistory";
+} from "../../agentInteraction/agentInteractionStorage";
+import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
 import { TraceDetailsPanel } from "./TraceDetailsPanel";
@@ -162,7 +154,9 @@ export function PlanAgentInteractionBar({
   readCitationSource = postCitationSource,
   checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
-  const [open, setOpen] = useState(false);
+  const agentInteraction = useAgentInteraction();
+  const open = agentInteraction.paneState.isOpen;
+  const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<IngestionSourceBundle | null>(null);
@@ -170,30 +164,45 @@ export function PlanAgentInteractionBar({
   const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("live");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
-  const [thread, setThread] = useState<AgentInteractionThread | null>(null);
-  const [turns, setTurns] = useState<AgentInteractionTurn[]>([]);
+  const thread = agentInteraction.activeThread;
+  const turns = agentInteraction.turns;
+  const setThread = agentInteraction.updateThread;
+  const setTurns = (nextTurns: AgentInteractionTurn[]) => {
+    if (thread) agentInteraction.updateThread({ ...thread, turns: nextTurns, updatedAt: new Date().toISOString() });
+  };
   const [turnResponses, setTurnResponses] = useState<Record<string, LiveQueryResponse>>({});
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
   const [selectedCitationKey, setSelectedCitationKey] = useState<string | null>(null);
   const [sourceStatus, setSourceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceResponse, setSourceResponse] = useState<CitationSourceResponse | null>(null);
-  const [threadSummaries, setThreadSummaries] = useState<AgentInteractionThreadSummary[]>([]);
+  const threadSummaries = agentInteraction.threadSummaries;
   const [threadSwitcherOpen, setThreadSwitcherOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [freshnessChecking, setFreshnessChecking] = useState(false);
 
   useEffect(() => {
-    const storedThread = loadAgentThread(planView.campaign_id, "plan");
-    setThreadSummaries(listAgentThreads(planView.campaign_id, "plan"));
-    if (storedThread) {
-      setThread(storedThread);
-      setTurns(storedThread.turns);
-      setActiveTurnId(storedThread.uiState?.scrollAnchorTurnId ?? storedThread.turns[0]?.turnId ?? null);
-      setQueryBackend(storedThread.activeBackend);
+    agentInteraction.rehydrateScope({ campaignId: planView.campaign_id, sessionNumber: planView.session, surfaceId: "plan" });
+    agentInteraction.publishSurfaceContext({
+      surfaceId: "plan",
+      label: `Plan · Session ${planView.session}`,
+      campaignId: planView.campaign_id,
+      sessionNumber: planView.session,
+      ambientSummary: `Plan surface for ${planView.campaign_id}, session ${planView.session}`,
+      sourceEnvelope: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [planView.campaign_id, planView.session]);
+
+  useEffect(() => {
+    if (!thread) {
+      setActiveTurnId(null);
+      return;
     }
-  }, [planView.campaign_id]);
+    setActiveTurnId(thread.uiState?.scrollAnchorTurnId ?? thread.turns[0]?.turnId ?? null);
+    setQueryBackend(thread.activeBackend);
+  }, [thread]);
 
   const activeTurn = useMemo(
     () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
@@ -236,12 +245,10 @@ export function PlanAgentInteractionBar({
   }
 
   function refreshThreadSummaries() {
-    setThreadSummaries(listAgentThreads(planView.campaign_id, "plan"));
+    // Provider refreshes summaries when thread state changes.
   }
 
   function activateThread(nextThread: AgentInteractionThread | null) {
-    setThread(nextThread);
-    setTurns(nextThread?.turns ?? []);
     setActiveTurnId(nextThread?.uiState?.scrollAnchorTurnId ?? nextThread?.turns[0]?.turnId ?? null);
     if (nextThread) setQueryBackend(nextThread.activeBackend);
     resetSourceReader();
@@ -274,7 +281,7 @@ export function PlanAgentInteractionBar({
 
   function clearHistory() {
     if (thread) {
-      clearAgentThread(thread);
+      agentInteraction.clearThread();
       const nextThread = {
         ...thread,
         turns: [],
@@ -289,7 +296,6 @@ export function PlanAgentInteractionBar({
       setThread(nextThread);
       refreshThreadSummaries();
     }
-    setTurns([]);
     setActiveTurnId(null);
     setAskStatus("idle");
     resetSourceReader();
@@ -302,10 +308,8 @@ export function PlanAgentInteractionBar({
       "plan",
       queryBackend,
     );
-    persistAgentThread(nextThread);
-    setActiveAgentThread(planView.campaign_id, "plan", nextThread.threadId);
+    agentInteraction.updateThread(nextThread);
     activateThread(nextThread);
-    refreshThreadSummaries();
     setThreadSwitcherOpen(false);
   }
 
@@ -321,33 +325,24 @@ export function PlanAgentInteractionBar({
       },
     };
     setThread(nextThread);
-    persistAgentThread(nextThread);
-    refreshThreadSummaries();
   }
 
   function switchThread(threadId: string) {
-    const nextThread = loadAgentThreadById(planView.campaign_id, threadId);
+    const nextThread = agentInteraction.switchThread(threadId);
     if (!nextThread) return;
-    setActiveAgentThread(planView.campaign_id, "plan", threadId);
     activateThread(nextThread);
-    refreshThreadSummaries();
   }
 
   function saveRename() {
     const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
-    const nextThread = renameAgentThread(baseThread, titleDraft);
-    setThread(nextThread);
-    refreshThreadSummaries();
+    const nextThread = agentInteraction.renameThread(titleDraft) ?? baseThread;
+    activateThread(nextThread);
     setRenaming(false);
   }
 
   function deleteThread(threadId: string) {
-    const doomed = loadAgentThreadById(planView.campaign_id, threadId);
-    if (!doomed) return;
-    deleteAgentThread(doomed);
-    const nextActive = loadAgentThread(planView.campaign_id, "plan");
-    activateThread(nextActive);
-    refreshThreadSummaries();
+    agentInteraction.deleteThread(threadId);
+    activateThread(agentInteraction.activeThread);
   }
 
 
@@ -382,8 +377,6 @@ export function PlanAgentInteractionBar({
       if (thread) {
         const nextThread = { ...thread, turns: nextTurns, updatedAt: new Date().toISOString() };
         setThread(nextThread);
-        persistAgentThread(nextThread);
-        refreshThreadSummaries();
       }
     } catch {
       const nextTurns: AgentInteractionTurn[] = turns.map((turn) => turn.turnId === activeTurn.turnId ? {
@@ -458,12 +451,10 @@ export function PlanAgentInteractionBar({
         },
       };
       setThread(nextThread);
-      setTurns(nextTurns);
       setActiveTurnId(nextTurn.turnId);
       resetSourceReader();
       setTurnResponses((previous) => ({ ...previous, [nextTurn.turnId]: response }));
-      persistAgentThread(nextThread);
-      refreshThreadSummaries();
+      
       setQuestion("");
       setAskStatus("answered");
     } catch (loadError) {
@@ -622,7 +613,6 @@ export function PlanAgentInteractionBar({
                         const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
                         const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
                         setThread(nextThread);
-                        persistAgentThread(nextThread);
                       }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
                       <button type="button" className="plan-agent-history-clear" onClick={clearHistory}>
                         Clear history
@@ -639,11 +629,10 @@ export function PlanAgentInteractionBar({
                               setActiveTurnId(turn.turnId);
                               resetSourceReader();
                               if (thread) {
-                                persistAgentThread({
+                                setThread({
                                   ...thread,
                                   uiState: { ...thread.uiState, scrollAnchorTurnId: turn.turnId, traceVisible },
                                 });
-                                refreshThreadSummaries();
                               }
                             }}
                           >

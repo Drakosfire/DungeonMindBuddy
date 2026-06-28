@@ -10,7 +10,16 @@ import {
   threadStorageKey,
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+
+function renderPlanSurface() {
+  return render(
+    <AgentInteractionProvider>
+      <PlanSurfaceShell planView={mockPlanView} />
+    </AgentInteractionProvider>,
+  );
+}
 
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
@@ -19,7 +28,7 @@ describe("PlanSurfaceShell", () => {
   });
 
   it("renders nav, toolbar, edit bar, and canvas regions", () => {
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     expect(screen.getByRole("navigation", { name: "Plan surface navigation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
@@ -43,7 +52,7 @@ describe("PlanSurfaceShell", () => {
       text: async () => JSON.stringify(mockSourceBundle),
     } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
@@ -123,7 +132,7 @@ describe("PlanSurfaceShell", () => {
           }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -217,7 +226,7 @@ describe("PlanSurfaceShell", () => {
         }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Is this still current?");
@@ -289,7 +298,7 @@ describe("PlanSurfaceShell", () => {
           }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -329,7 +338,7 @@ describe("PlanSurfaceShell", () => {
           }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -380,7 +389,7 @@ describe("PlanSurfaceShell", () => {
         text: async () => JSON.stringify(makeQueryResponse("Second answer", "trace-two")),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -445,7 +454,7 @@ describe("PlanSurfaceShell", () => {
       text: async () => JSON.stringify(mockSourceBundle),
     } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Session 24 inn prep");
@@ -499,7 +508,7 @@ describe("PlanSurfaceShell", () => {
       } as Response)
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread B", "b")) } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -551,7 +560,7 @@ describe("PlanSurfaceShell", () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
 
@@ -591,7 +600,7 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
 
@@ -627,7 +636,7 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
@@ -655,7 +664,7 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ answer: "Answer for restore B", classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }) } as Response)
       .mockResolvedValue({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
 
-    const rendered = render(<PlanSurfaceShell planView={mockPlanView} />);
+    const rendered = renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
@@ -670,7 +679,7 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
 
     rendered.unmount();
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Threads" }));
@@ -688,7 +697,7 @@ describe("PlanSurfaceShell", () => {
       text: async () => JSON.stringify(mockSourceBundle),
     } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
     await user.click(screen.getByRole("button", { name: "Threads" }));
@@ -729,7 +738,7 @@ describe("PlanSurfaceShell", () => {
           }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -781,7 +790,7 @@ describe("PlanSurfaceShell", () => {
           }),
       } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Ingested corpus interaction proof");
@@ -794,7 +803,7 @@ describe("PlanSurfaceShell", () => {
   });
 
   it("applies spike theme tokens at the surface root", () => {
-    const { container } = render(<PlanSurfaceShell planView={mockPlanView} />);
+    const { container } = renderPlanSurface();
     const root = container.querySelector(".plan-surface-root");
     expect(root).toHaveAttribute("data-md-theme", "mireward-runbook");
     expect(root).toHaveStyle({ "--accent": "#7aa2f7" });
@@ -802,7 +811,7 @@ describe("PlanSurfaceShell", () => {
 
   it("opens ingestion projection from the toolbar registry", async () => {
     const user = userEvent.setup();
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
@@ -812,7 +821,7 @@ describe("PlanSurfaceShell", () => {
 
   it("opens statblock projection from the toolbar registry", async () => {
     const user = userEvent.setup();
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Statblock" }));
@@ -833,7 +842,7 @@ describe("PlanSurfaceShell", () => {
       }),
     } as Response);
 
-    render(<PlanSurfaceShell planView={mockPlanView} />);
+    renderPlanSurface();
 
     const canvas = screen.getByTestId("plan-surface-canvas-editor");
     const chip = canvas.querySelector(".md-ref-chip") as HTMLElement;
