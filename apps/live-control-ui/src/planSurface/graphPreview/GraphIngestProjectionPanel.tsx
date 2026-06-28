@@ -1,0 +1,190 @@
+import { useCallback, useEffect, useState } from "react";
+
+import {
+  getLatestGraphIngestRun,
+  getUnionSupergraphProjection,
+  LiveApiError,
+} from "../../api/liveApi";
+import type {
+  GraphIngestRunSummary,
+  UnionSupergraphProjectionResponse,
+} from "../../api/types";
+import type { PlanContextDescriptor } from "../types";
+import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
+
+type LatestRunStatus = "loading" | "ready" | "unavailable" | "warning" | "error";
+type ProjectionLoadStatus = "idle" | "loading" | "ready" | "error";
+
+interface GraphIngestProjectionPanelProps {
+  context: PlanContextDescriptor;
+}
+
+function ingestSessionId(context: PlanContextDescriptor): string {
+  return `session-${context.ingestSession}`;
+}
+
+function friendlyProjectionError(error: unknown): string {
+  if (error instanceof LiveApiError) {
+    if (error.status === 404) return "The latest graph-ingest run disappeared or its projection artifact is missing.";
+    if (error.status === 400) return `The projection API rejected this manifest/store: ${error.message}`;
+    if (error.status >= 500) return `Unexpected backend failure while loading projection: ${error.message}`;
+  }
+  return error instanceof Error ? error.message : "Failed to load union graph projection.";
+}
+
+export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPanelProps) {
+  const sessionId = ingestSessionId(context);
+  const [latestStatus, setLatestStatus] = useState<LatestRunStatus>("loading");
+  const [latestGraphRun, setLatestGraphRun] = useState<GraphIngestRunSummary | null>(null);
+  const [latestGraphRunError, setLatestGraphRunError] = useState<string | null>(null);
+  const [projectionStatus, setProjectionStatus] = useState<ProjectionLoadStatus>("idle");
+  const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [unionProjection, setUnionProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
+
+  const loadLatest = useCallback(async () => {
+    setLatestStatus("loading");
+    setLatestGraphRunError(null);
+    setProjectionStatus("idle");
+    setProjectionError(null);
+    setUnionProjection(null);
+    try {
+      const response = await getLatestGraphIngestRun(context.campaignId, sessionId);
+      setLatestGraphRun(response.run);
+      setLatestStatus(response.run ? "ready" : "unavailable");
+    } catch (error) {
+      setLatestGraphRun(null);
+      if (error instanceof LiveApiError && error.status === 404) {
+        setLatestStatus("unavailable");
+        return;
+      }
+      if (error instanceof LiveApiError && error.status === 422) {
+        setLatestStatus("warning");
+        setLatestGraphRunError(`Invalid graph-ingest configuration: ${error.message}`);
+        return;
+      }
+      setLatestStatus("error");
+      setLatestGraphRunError(error instanceof Error ? error.message : "Failed to load latest graph-ingest run.");
+    }
+  }, [context.campaignId, sessionId]);
+
+  useEffect(() => {
+    void loadLatest();
+  }, [loadLatest]);
+
+  const openUnionGraph = async () => {
+    setProjectionStatus("loading");
+    setProjectionError(null);
+    try {
+      const projection = await getUnionSupergraphProjection({
+        campaignId: context.campaignId,
+        sessionId,
+        useLatestGraphIngest: true,
+      });
+      setUnionProjection(projection);
+      setProjectionStatus("ready");
+    } catch (error) {
+      setProjectionStatus("error");
+      setProjectionError(friendlyProjectionError(error));
+    }
+  };
+
+  return (
+    <section className="graph-ingest-panel" aria-label="Latest Graph-Ingest Projection">
+      <header className="graph-ingest-panel-header">
+        <div>
+          <p className="plan-surface-kicker">Latest Graph-Ingest Projection</p>
+          <h2>Open latest union graph</h2>
+          <p>
+            Looks for the latest preview-union-ready graph-ingest run for {context.campaignId} / {sessionId}.
+          </p>
+        </div>
+        <button type="button" onClick={loadLatest} disabled={latestStatus === "loading"}>
+          Refresh
+        </button>
+      </header>
+
+      {latestStatus === "loading" ? (
+        <p className="graph-ingest-status-row">Loading latest graph-ingest run…</p>
+      ) : null}
+
+      {latestStatus === "unavailable" ? (
+        <div className="graph-ingest-run-card" data-state="unavailable">
+          <strong>Unavailable: no preview_union_store_ready run found</strong>
+          <p>No preview-union-ready graph-ingest run exists for this campaign/session yet.</p>
+          <p>Run the graph preview pipeline/materializer first.</p>
+        </div>
+      ) : null}
+
+      {latestStatus === "warning" || latestStatus === "error" ? (
+        <div className="graph-ingest-run-card" data-state="error" role="alert">
+          <strong>
+            {latestStatus === "warning" ? "Graph-ingest configuration warning" : "Error: API/client failure"}
+          </strong>
+          <p>{latestGraphRunError ?? "Unable to load latest graph-ingest status."}</p>
+        </div>
+      ) : null}
+
+      {latestStatus === "ready" && latestGraphRun ? (
+        <div className="graph-ingest-run-card" data-state="ready">
+          <strong>Ready: latest preview_union_store_ready run found</strong>
+          <dl className="graph-ingest-status-row">
+            <div>
+              <dt>Status</dt>
+              <dd>{latestGraphRun.status}</dd>
+            </div>
+            <div>
+              <dt>Manifest path</dt>
+              <dd>{latestGraphRun.manifest_path}</dd>
+            </div>
+            <div>
+              <dt>Preview union store path</dt>
+              <dd>{latestGraphRun.preview_union_store_path ?? "Not reported"}</dd>
+            </div>
+            <div>
+              <dt>Nodes</dt>
+              <dd>{latestGraphRun.node_count}</dd>
+            </div>
+            <div>
+              <dt>Edges</dt>
+              <dd>{latestGraphRun.edge_count}</dd>
+            </div>
+            <div>
+              <dt>Evidence refs</dt>
+              <dd>{latestGraphRun.evidence_ref_count}</dd>
+            </div>
+          </dl>
+          {latestGraphRun.next_actions.length ? (
+            <div className="graph-ingest-badge-row" aria-label="Next actions">
+              {latestGraphRun.next_actions.map((action) => <span key={action}>{action}</span>)}
+            </div>
+          ) : null}
+          <div className="graph-ingest-projection-actions">
+            <button type="button" onClick={openUnionGraph} disabled={projectionStatus === "loading"}>
+              {projectionStatus === "loading" ? "Opening Union Graph…" : "Open Union Graph"}
+            </button>
+            <button type="button" onClick={loadLatest}>
+              Refresh
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {projectionStatus === "error" ? (
+        <p className="graph-preview-error" role="alert">
+          {projectionError}
+        </p>
+      ) : null}
+
+      {projectionStatus === "ready" && unionProjection ? (
+        <div className="graph-ingest-projection-layout">
+          <UnionSupergraphRecapProjection
+            payload={unionProjection}
+            selectedSessionId={sessionId}
+            onSelectSession={() => undefined}
+            sessionOptions={[sessionId]}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}

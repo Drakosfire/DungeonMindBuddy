@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getGraphPreviewLatest, getGraphPreviewRuns } from "../../api/liveApi";
 import type { GraphPreviewSurfaceResponse, GraphPreviewRunSummary } from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
+import { GraphIngestProjectionPanel } from "./GraphIngestProjectionPanel";
 import { GraphPreviewProjection } from "./GraphPreviewProjection";
 
 type LoadStatus = "loading" | "ready" | "error";
@@ -61,16 +62,19 @@ export function GraphPreviewModule({ context }: GraphPreviewModuleProps) {
   }
 
   return (
-    <GraphPreviewProjection
-      payload={payload}
-      runs={runs}
-      selectedRunDir={selectedRunDir}
-      onSelectRun={(runDir) => {
-        setSelectedRunDir(runDir);
-        void loadRun(runDir);
-      }}
-      selectedCandidateId={selectedCandidateId}
-      onSelectCandidate={setSelectedCandidateId}
-    />
+    <div className="graph-preview-root">
+      <GraphIngestProjectionPanel context={context} />
+      <GraphPreviewProjection
+        payload={payload}
+        runs={runs}
+        selectedRunDir={selectedRunDir}
+        onSelectRun={(runDir) => {
+          setSelectedRunDir(runDir);
+          void loadRun(runDir);
+        }}
+        selectedCandidateId={selectedCandidateId}
+        onSelectCandidate={setSelectedCandidateId}
+      />
+    </div>
   );
 }
