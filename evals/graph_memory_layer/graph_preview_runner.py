@@ -9,6 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from src.graph_memory.extraction.preview_candidate_graph_extractor import (
+    CandidateGraphModelClient,
+    PreviewCandidateGraphExtractionOptions,
+    extract_preview_candidate_graph,
+)
+
 from graph_memory.ingestion import (
     GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
     GRAPH_INGEST_RUN_MANIFEST_VERSION,
@@ -40,6 +46,8 @@ class GraphPreviewRunnerOptions:
     source_domain: str = "recap"
     run_id: str | None = None
     candidate_graph_path: Path | None = None
+    extractor_model_id: str | None = None
+    extractor_client: CandidateGraphModelClient | None = None
 
 
 @dataclass(frozen=True)
@@ -206,6 +214,9 @@ def _write_validation_report(
     warnings: list[str] = []
     if not candidate_graph_path.exists():
         errors.append("candidate graph file does not exist")
+    for field in ("candidate_nodes", "candidate_edges", "session_beats", "evidence_refs"):
+        if not isinstance(candidate_graph.get(field), list):
+            errors.append(f"candidate graph field must be a list: {field}")
     has_candidates = bool(candidate_graph.get("candidate_nodes")) or bool(
         candidate_graph.get("candidate_edges")
     )
@@ -274,10 +285,6 @@ def run_graph_preview_extraction(
         options.gold_path is None or not options.gold_path.exists()
     ):
         raise FileNotFoundError("required_gold mode requires an existing gold_path")
-    if options.allow_llm:
-        raise NotImplementedError(
-            "live LLM category extraction is not wired in this preview runner yet"
-        )
     normalized_recap_path = options.normalized_recap_path
     if not normalized_recap_path.exists():
         raise FileNotFoundError(
@@ -332,6 +339,8 @@ def run_graph_preview_extraction(
     manifest_errors: list[str] = []
     next_actions = ["extract_candidate_graph"]
     candidate_validation_state = GraphIngestStepState.COMPLETE
+    extraction_summary = "Existing candidate graph artifact wrapped for preview ingestion."
+    raw_model_response_path: Path | None = None
 
     if options.candidate_graph_path is not None:
         if not options.candidate_graph_path.exists():
@@ -372,6 +381,73 @@ def run_graph_preview_extraction(
             next_actions = ["fix_candidate_graph"]
             candidate_validation_state = GraphIngestStepState.FAILED
 
+    elif options.allow_llm:
+        model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
+        source_span_id = f"{session_id}:recap:full_text"
+        try:
+            extraction = extract_preview_candidate_graph(
+                PreviewCandidateGraphExtractionOptions(
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                    recap_markdown=recap_text,
+                    source_span_id=source_span_id,
+                    model_id=model_id,
+                ),
+                client=options.extractor_client,
+            )
+            candidate_graph = extraction.candidate_graph
+            candidate_graph_path = output_dir / "candidate_graph.json"
+            write_json(candidate_graph_path, candidate_graph)
+            if extraction.raw_model_response is not None:
+                raw_model_response_path = output_dir / "raw_model_response.txt"
+                raw_model_response_path.write_text(extraction.raw_model_response)
+            validation = _write_validation_report(
+                output_dir=output_dir,
+                campaign_id=campaign_id,
+                session_id=session_id,
+                candidate_graph_path=candidate_graph_path,
+                candidate_graph=candidate_graph,
+            )
+            validation_report_path = validation.path
+            artifacts["candidate_graph"] = _artifact(
+                GraphIngestArtifactKind.CANDIDATE_GRAPH,
+                candidate_graph_path,
+                "dmb_candidate_graph_preview_ir_v0",
+            )
+            artifacts["candidate_validation_report"] = _artifact(
+                GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
+                validation_report_path,
+                "dmb_candidate_graph_validation_report_v0",
+            )
+            if raw_model_response_path is not None:
+                artifacts["raw_model_response"] = _artifact(
+                    GraphIngestArtifactKind.PASS_TELEMETRY,
+                    raw_model_response_path,
+                    "text/plain",
+                )
+            health = _candidate_counts(candidate_graph)
+            health.model_id = model_id
+            candidate_extraction = True
+            extraction_summary = "Candidate graph extracted from normalized recap with preview-only GPT-5 mini extractor."
+            if validation.valid:
+                status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+                health.candidate_graph_valid = True
+                next_actions = ["materialize_preview_union_store"]
+            else:
+                status = GraphIngestRunStatus.FAILED
+                health.candidate_graph_valid = False
+                manifest_errors = validation.errors
+                next_actions = ["fix_candidate_graph"]
+                candidate_validation_state = GraphIngestStepState.FAILED
+        except Exception as exc:
+            status = GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
+            health.candidate_graph_valid = False
+            candidate_extraction = True
+            manifest_errors = [str(exc)]
+            next_actions = ["configure model", "supply candidate_graph_path"]
+            candidate_validation_state = GraphIngestStepState.FAILED
+            extraction_summary = f"Candidate graph extraction blocked: {exc}"
+
     now = _now_iso()
     run_id = (
         options.run_id
@@ -407,7 +483,11 @@ def run_graph_preview_extraction(
                 id="extract_candidate_graph",
                 label="Extract candidate graph",
                 state=GraphIngestStepState.SKIPPED,
-                summary="Skipped because allow_llm is false and no candidate graph fixture was supplied.",
+                summary=(
+                    extraction_summary
+                    if options.allow_llm
+                    else "Skipped because allow_llm is false and no candidate graph fixture was supplied."
+                ),
             )
         )
     else:
@@ -419,8 +499,9 @@ def run_graph_preview_extraction(
                     state=GraphIngestStepState.COMPLETE,
                     started_at=now,
                     completed_at=now,
-                    summary="Existing candidate graph artifact wrapped for preview ingestion.",
-                    artifact_refs=[artifacts["candidate_graph"]],
+                    summary=extraction_summary,
+                    artifact_refs=[artifacts["candidate_graph"]]
+                    + ([artifacts["raw_model_response"]] if "raw_model_response" in artifacts else []),
                 ),
                 GraphIngestStepStatus(
                     id="validate_candidate_graph",

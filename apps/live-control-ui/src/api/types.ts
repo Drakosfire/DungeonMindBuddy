@@ -643,6 +643,9 @@ export interface RecapIngestRequest {
   check?: boolean;
   candidate_graph_path?: string;
   force_graph_run?: boolean;
+  extract_graph?: boolean;
+  graph_model_id?: string | null;
+  materialize_after_extract?: boolean;
 }
 
 export interface RecapGraphPreviewReport {
@@ -655,6 +658,11 @@ export interface RecapGraphPreviewReport {
   node_count?: number;
   edge_count?: number;
   evidence_ref_count?: number;
+  extraction_mode?: string | null;
+  model_id?: string | null;
+  candidate_node_count?: number;
+  candidate_edge_count?: number;
+  candidate_beat_count?: number;
   next_actions?: string[];
   can_open_union_graph?: boolean;
   blocked_reason?: string | null;

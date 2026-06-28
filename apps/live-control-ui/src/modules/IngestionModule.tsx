@@ -709,6 +709,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [forceStage, setForceStage] = useState(false);
   const [forceRecap, setForceRecap] = useState(false);
   const [candidateGraphPath, setCandidateGraphPath] = useState("");
+  const [extractGraphWithMini, setExtractGraphWithMini] = useState(false);
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
@@ -1507,6 +1508,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         campaign_id: campaignId,
         session: recapSession,
         candidate_graph_path: candidateGraphPath.trim() || undefined,
+        extract_graph: extractGraphWithMini,
+        graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
       });
       applyResultAndSyncSlug(result);
       setState(derivePaneStateFromResult(result));
@@ -1529,6 +1532,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         campaign_id: campaignId,
         session: recapSession,
         candidate_graph_path: candidateGraphPath.trim() || undefined,
+        extract_graph: extractGraphWithMini,
+        graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
+        materialize_after_extract: extractGraphWithMini,
       });
       applyResultAndSyncSlug(result);
       if (result.states.includes("preview_union_store_ready")) {
@@ -1825,8 +1831,16 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               onChange={(event) => setCandidateGraphPath(event.target.value)}
               placeholder="out/graph_memory/fixtures/candidate_graph.json"
             />
+            <label className="ingestion-checkbox-row">
+              <input
+                type="checkbox"
+                checked={extractGraphWithMini}
+                onChange={(event) => setExtractGraphWithMini(event.target.checked)}
+              />
+              Extract graph from recap with GPT-5 mini
+            </label>
             <p className="module-muted">
-              Optional preview-only candidate graph artifact. Required for preview union materialization until live graph extraction is wired.
+              Optional preview-only candidate graph artifact. When the GPT-5 mini extraction toggle is enabled, the backend extracts a candidate graph from the normalized recap instead.
             </p>
             <div className="ingestion-actions ingestion-manual-actions">
               <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>

@@ -268,3 +268,71 @@ def test_runner_failed_candidate_validation_does_not_reach_candidate_ready(
         "forbidden lifecycle flag is true: canon_promotion"
         in validation_report["errors"]
     )
+
+
+def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import FixtureCandidateGraphModelClient
+
+    monkeypatch.chdir(tmp_path)
+    source = _copy_recap_to_tmp(tmp_path)
+    raw = json.dumps(
+        {
+            "candidate_nodes": [{"id": "node:bonogo", "kind": "pc", "label": "Bonogo", "evidence_refs": ["ev:1"]}],
+            "candidate_edges": [],
+            "session_beats": [{"id": "beat:1", "summary": "Bonogo found a clue.", "evidence_refs": ["ev:1"]}],
+            "ignored_or_deferred_candidates": [],
+            "source_artifacts": [],
+            "evidence_refs": [{"id": "ev:1", "span_id": "session-24:recap:full_text"}],
+            "diagnostics": {"canon_promotion": True},
+        }
+    )
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/session_24_llm"),
+            allow_llm=True,
+            extractor_client=FixtureCandidateGraphModelClient(raw),
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None and result.candidate_graph_path.exists()
+    assert result.validation_report_path is not None and result.validation_report_path.exists()
+    manifest = _load_manifest(result.manifest_path)
+    assert manifest["health"]["model_id"] == "gpt-5-mini"
+    assert manifest["diagnostics"]["candidate_extraction"] is True
+    graph = json.loads(result.candidate_graph_path.read_text())
+    assert graph["diagnostics"]["canon_promotion"] is False
+
+
+def test_runner_allow_llm_blocked_writes_calm_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class BrokenClient:
+        def extract_candidate_graph(self, prompt: str, *, model_id: str) -> str:
+            raise RuntimeError("model unavailable")
+
+    monkeypatch.chdir(tmp_path)
+    source = _copy_recap_to_tmp(tmp_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/session_24_blocked"),
+            allow_llm=True,
+            extractor_client=BrokenClient(),
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
+    assert result.candidate_graph_path is None
+    manifest = _load_manifest(result.manifest_path)
+    assert manifest["errors"] == ["model unavailable"]
+    assert manifest["next_actions"] == ["configure model", "supply candidate_graph_path"]
