@@ -5,23 +5,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from graph_memory.evidence.source_domain import KNOWN_SOURCE_DOMAINS
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_payload,
 )
 
-KNOWN_SOURCE_DOMAINS = {
-    "recap",
-    "statblock",
-    "worldbuilding",
-    "npc_note",
-    "location_note",
-    "faction_note",
-    "item_note",
-    "session_memory",
-    "manual_seed",
-    "future_artifact",
-}
 REQUIRED_MAPS = ("nodes", "edges", "evidence", "source_artifacts", "adjacency")
 UNSAFE_DIAGNOSTICS = (
     "canon_promotion",

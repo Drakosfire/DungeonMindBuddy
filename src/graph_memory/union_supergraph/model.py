@@ -4,6 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from graph_memory.evidence.evidence_ref import GraphMemoryEvidenceRef
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+
 
 class _UnionSupergraphModel(BaseModel):
     """Base model for the union-supergraph read-model contract."""
@@ -51,26 +54,12 @@ class UnionSupergraphEdge(_UnionSupergraphModel):
     state: dict[str, Any]
 
 
-class UnionSupergraphEvidence(_UnionSupergraphModel):
-    evidence_ref_id: str
-    source_artifact_id: str
-    source_domain: str
-    evidence_role: str
-    can_open_source: bool
-    can_highlight_span: bool
-    session_id: str | None = None
-    source_span_ref_id: str | None = None
-    locator: str | None = None
-    uri: str | None = None
-    source_locator: str | None = None
-    line_ref: str | None = None
+class UnionSupergraphEvidence(GraphMemoryEvidenceRef):
+    """Evidence reference as used by the union-supergraph read model."""
 
 
-class UnionSupergraphSourceArtifact(_UnionSupergraphModel):
-    source_artifact_id: str
-    source_domain: str
-    campaign_id: str
-    uri: str
+class UnionSupergraphSourceArtifact(GraphMemorySourceArtifact):
+    """Source artifact as used by the union-supergraph read model."""
 
 
 class UnionSupergraphAdjacencyItem(_UnionSupergraphModel):
