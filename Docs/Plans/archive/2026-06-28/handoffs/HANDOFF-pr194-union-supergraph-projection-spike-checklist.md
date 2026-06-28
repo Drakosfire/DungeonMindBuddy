@@ -1,5 +1,7 @@
 # HANDOFF — Union Supergraph Projection Spike Checklist v0
 
+> **COMPLETED — 2026-06-28T00:17:49Z.** The follow-on model-contract slice shipped via PR #199 (`eb0649146aa150bc25c21ffc66fffaa8c75dadda`). It adds typed union-supergraph DTO/load seams, preserves graph-level validation/report behavior, extends focused model tests, and records the model/load seam in the supergraph roadmap. Non-blocking follow-ups: decide whether typed node/edge state DTOs should replace `dict[str, Any]`, and add explicit alias-serialization assertions if DTOs become an interchange format. **Archived for historical reference; do not re-dispatch.**
+
 
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
