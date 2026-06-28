@@ -52,6 +52,14 @@ class GraphPreviewRunnerResult:
     status: GraphIngestRunStatus
 
 
+@dataclass(frozen=True)
+class CandidateValidationResult:
+    path: Path
+    valid: bool
+    errors: list[str]
+    warnings: list[str]
+
+
 def compute_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -61,6 +69,7 @@ def compute_sha256(path: Path) -> str:
 
 
 def _repo_root() -> Path:
+    # TODO: add an explicit repo_root option before wiring this runner into runtime/API paths.
     return Path.cwd().resolve()
 
 
@@ -166,6 +175,7 @@ def _write_source_span_bundle(
 
 
 def _candidate_counts(candidate_graph: dict[str, Any]) -> GraphIngestHealth:
+    # Shallow fixture/report counts only. This does not prove source-span resolvability.
     ignored = candidate_graph.get("ignored_or_deferred_candidates", [])
     ignored_count = len(ignored) if isinstance(ignored, list) else 0
     evidence_refs = candidate_graph.get("evidence_refs", [])
@@ -191,7 +201,7 @@ def _write_validation_report(
     session_id: str,
     candidate_graph_path: Path,
     candidate_graph: dict[str, Any],
-) -> Path:
+) -> CandidateValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
     if not candidate_graph_path.exists():
@@ -229,7 +239,12 @@ def _write_validation_report(
     }
     report_path = output_dir / "candidate_validation_report.json"
     write_json(report_path, report)
-    return report_path
+    return CandidateValidationResult(
+        path=report_path,
+        valid=not errors,
+        errors=errors,
+        warnings=warnings,
+    )
 
 
 def _artifact(
@@ -314,6 +329,9 @@ def run_graph_preview_extraction(
     validation_report_path: Path | None = None
     health = GraphIngestHealth()
     candidate_extraction = False
+    manifest_errors: list[str] = []
+    next_actions = ["extract_candidate_graph"]
+    candidate_validation_state = GraphIngestStepState.COMPLETE
 
     if options.candidate_graph_path is not None:
         if not options.candidate_graph_path.exists():
@@ -323,13 +341,14 @@ def run_graph_preview_extraction(
         candidate_graph = json.loads(options.candidate_graph_path.read_text())
         candidate_graph_path = output_dir / "candidate_graph.json"
         write_json(candidate_graph_path, candidate_graph)
-        validation_report_path = _write_validation_report(
+        validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
             session_id=session_id,
             candidate_graph_path=candidate_graph_path,
             candidate_graph=candidate_graph,
         )
+        validation_report_path = validation.path
         artifacts["candidate_graph"] = _artifact(
             GraphIngestArtifactKind.CANDIDATE_GRAPH,
             candidate_graph_path,
@@ -340,9 +359,18 @@ def run_graph_preview_extraction(
             validation_report_path,
             "dmb_candidate_graph_validation_report_v0",
         )
-        status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
         health = _candidate_counts(candidate_graph)
         candidate_extraction = True
+        if validation.valid:
+            status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+            health.candidate_graph_valid = True
+            next_actions = ["materialize_preview_union_store"]
+        else:
+            status = GraphIngestRunStatus.FAILED
+            health.candidate_graph_valid = False
+            manifest_errors = validation.errors
+            next_actions = ["fix_candidate_graph"]
+            candidate_validation_state = GraphIngestStepState.FAILED
 
     now = _now_iso()
     run_id = (
@@ -397,7 +425,7 @@ def run_graph_preview_extraction(
                 GraphIngestStepStatus(
                     id="validate_candidate_graph",
                     label="Validate candidate graph",
-                    state=GraphIngestStepState.COMPLETE,
+                    state=candidate_validation_state,
                     started_at=now,
                     completed_at=now,
                     summary="Shallow candidate graph validation report written.",
@@ -436,10 +464,8 @@ def run_graph_preview_extraction(
         else [
             "gold comparison skipped because gold_path was not supplied or does not exist"
         ],
-        errors=[],
-        next_actions=["extract_candidate_graph"]
-        if candidate_graph_path is None
-        else ["materialize_preview_union_store"],
+        errors=manifest_errors,
+        next_actions=next_actions,
     )
     manifest_path = output_dir / "graph_ingest_run_manifest.json"
     write_json(manifest_path, manifest.model_dump(mode="json", by_alias=True))
