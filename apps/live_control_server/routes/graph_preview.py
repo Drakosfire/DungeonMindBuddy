@@ -1,6 +1,7 @@
 """Graph preview read API for /plan toolbox projection."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -15,6 +16,9 @@ from apps.live_control_server.services.graph_preview_surface import (
     build_recap_graph_presentation,
     discover_graph_preview_runs,
     GraphPreviewSurfaceError,
+)
+from apps.live_control_server.services.union_supergraph_projection_adapter import (
+    build_plan_union_supergraph_projection_payload,
 )
 from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRegistryError,
@@ -88,6 +92,20 @@ def get_graph_preview_latest(
     except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
+
+
+@router.get("/union-supergraph/projection")
+def get_union_supergraph_projection(
+    session_id: Annotated[str, Query()],
+    store_path: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        return build_plan_union_supergraph_projection_payload(
+            session_id=session_id,
+            store_path=Path(store_path) if store_path else None,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/recap", response_model=RecapGraphPresentationResponse)
