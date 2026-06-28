@@ -75,6 +75,28 @@ def test_evidence_model_parses_recap_and_worldbuilding_evidence(
     )
 
 
+def test_adjacency_item_model_exposes_view_relative_direction(
+    store: UnionSupergraphStore,
+) -> None:
+    adjacency = store.adjacency["pc_caelynn"][0]
+
+    assert (
+        adjacency.edge_id
+        == "edge:pc_caelynn:participated_in:event_session_23_mireward_gate"
+    )
+    assert adjacency.node_id == "event_session_23_mireward_gate"
+    assert adjacency.direction == "outbound"
+    assert adjacency.label == "participated in"
+
+
+def test_model_rejects_adjacency_without_direction(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["adjacency"]["pc_caelynn"][0].pop("direction")
+
+    with pytest.raises(ValidationError, match="direction"):
+        parse_union_supergraph_store(payload)
+
+
 def test_diagnostics_model_defaults_or_parses_safety_flags(fixture: dict) -> None:
     store = parse_union_supergraph_store(fixture)
     assert store.diagnostics.corpus_mutation is False

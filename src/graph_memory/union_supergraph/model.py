@@ -65,6 +65,8 @@ class UnionSupergraphSourceArtifact(GraphMemorySourceArtifact):
 class UnionSupergraphAdjacencyItem(_UnionSupergraphModel):
     edge_id: str
     node_id: str
+    direction: str
+    label: str | None = None
     anchored_to_focus_session: bool
 
 
