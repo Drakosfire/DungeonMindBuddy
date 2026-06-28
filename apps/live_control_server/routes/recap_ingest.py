@@ -68,6 +68,9 @@ class RecapIngestRequest(BaseModel):
     check: bool = False
     candidate_graph_path: str | None = None
     force_graph_run: bool = False
+    extract_graph: bool = False
+    graph_model_id: str | None = None
+    materialize_after_extract: bool = False
 
 
 class RecapIngestStatusResponse(BaseModel):
@@ -382,6 +385,11 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                 corpus=corpus,
             )
             normalized = _normalized_recap_graph_path(status, corpus)
+            if body.extract_graph and body.candidate_graph_path:
+                raise HTTPException(
+                    status_code=422,
+                    detail="candidate_graph_path cannot be combined with extract_graph=true",
+                )
             if body.operation == "build_graph_preview_bundle":
                 if not normalized:
                     raise HTTPException(status_code=422, detail="normalized recap missing")
@@ -392,6 +400,8 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     normalized_recap_path=normalized,
                     force_graph_run=body.force_graph_run,
                     candidate_graph_path=body.candidate_graph_path,
+                    extract_graph=body.extract_graph,
+                    graph_model_id=body.graph_model_id,
                 )
             else:
                 graph = materialize_recap_preview_supergraph(
@@ -400,6 +410,8 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     session=body.session,
                     normalized_recap_path=normalized,
                     candidate_graph_path=body.candidate_graph_path,
+                    extract_graph=body.extract_graph or body.materialize_after_extract,
+                    graph_model_id=body.graph_model_id,
                 )
             return _append_graph_status(status, graph)
         if body.operation == "build_frontmatter_seed":

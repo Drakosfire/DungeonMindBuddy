@@ -54,6 +54,8 @@ def build_recap_graph_preview_bundle(
     normalized_recap_path: str,
     force_graph_run: bool = False,
     candidate_graph_path: str | None = None,
+    extract_graph: bool = False,
+    graph_model_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
@@ -69,7 +71,7 @@ def build_recap_graph_preview_bundle(
     desired_statuses = {
         GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
         GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
-    } if candidate else {
+    } if (candidate or extract_graph) else {
         GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value,
         GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
         GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
@@ -87,7 +89,8 @@ def build_recap_graph_preview_bundle(
             normalized_recap_path=normalized,
             output_dir=run_dir,
             source_label=f"{campaign_id} session {session} normalized recap",
-            allow_llm=False,
+            allow_llm=extract_graph,
+            model_id=graph_model_id,
             comparison_mode="none",
             candidate_graph_path=candidate,
         )
@@ -104,6 +107,8 @@ def materialize_recap_preview_supergraph(
     normalized_recap_path: str | None = None,
     manifest_path: str | None = None,
     candidate_graph_path: str | None = None,
+    extract_graph: bool = False,
+    graph_model_id: str | None = None,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
@@ -118,7 +123,22 @@ def materialize_recap_preview_supergraph(
             normalized_recap_path=normalized_recap_path,
             force_graph_run=True,
             candidate_graph_path=candidate_graph_path,
+            extract_graph=extract_graph,
+            graph_model_id=graph_model_id,
         )
+
+    if extract_graph and not candidate_graph_path and normalized_recap_path:
+        existing = discover_graph_ingest_runs(repo, campaign_id=campaign_id, session_id=f"session-{session}")
+        if not existing or existing[0].status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
+            build_recap_graph_preview_bundle(
+                repo_root=repo,
+                campaign_id=campaign_id,
+                session=session,
+                normalized_recap_path=normalized_recap_path,
+                force_graph_run=True,
+                extract_graph=True,
+                graph_model_id=graph_model_id,
+            )
 
     if manifest_path:
         manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
@@ -188,8 +208,17 @@ def _status_from_summary(
         "blocked_reason": None,
         "normalized_recap_path": normalized_recap_path,
     }
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    status["extraction_mode"] = manifest.get("diagnostics", {}).get("extraction_mode")
+    status["model_id"] = manifest.get("health", {}).get("model_id")
+    status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
+    status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)
+    status["candidate_beat_count"] = manifest.get("health", {}).get("beat_count", 0)
     if summary.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value:
-        status["blocked_reason"] = "Graph source bundle ready. Candidate graph extraction is not wired yet."
+        if manifest.get("errors") and manifest.get("diagnostics", {}).get("extraction_mode") == "llm_blocked":
+            status["blocked_reason"] = manifest["errors"][0]
+        else:
+            status["blocked_reason"] = "Graph source bundle ready. Candidate graph extraction has not run yet."
     return status
 
 
