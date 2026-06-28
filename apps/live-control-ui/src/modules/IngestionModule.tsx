@@ -792,7 +792,12 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const hasGraphSourceBundle = hasState(latestResult, "graph_source_bundle_ready");
   const hasPreviewUnionStore = hasState(latestResult, "preview_union_store_ready");
   const canBuildGraphPreview = hasMaterialized && !busy;
-  const canMaterializePreviewSupergraph = hasMaterialized && !busy && Boolean(candidateGraphPath.trim() || graphPreview?.candidate_graph_path || graphPreview?.status === "candidate_validation_ready");
+  const canMaterializePreviewSupergraph = hasMaterialized && !busy && Boolean(
+    extractGraphWithMini ||
+    candidateGraphPath.trim() ||
+    graphPreview?.candidate_graph_path ||
+    graphPreview?.status === "candidate_validation_ready",
+  );
   const workflowSteps = [
     {
       id: "source",
@@ -889,7 +894,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     : !hasMaterialized
       ? "Materialize Preview Supergraph waits for session memory."
       : !canMaterializePreviewSupergraph
-        ? "Candidate graph path is required until live graph extraction is wired."
+        ? "Candidate graph path or GPT-5 mini extraction is required before preview union materialization."
         : null;
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
   const canRunFullIngest =
@@ -1507,7 +1512,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "build_graph_preview_bundle",
         campaign_id: campaignId,
         session: recapSession,
-        candidate_graph_path: candidateGraphPath.trim() || undefined,
+        candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
         graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
       });
@@ -1531,7 +1536,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         operation: "materialize_preview_supergraph",
         campaign_id: campaignId,
         session: recapSession,
-        candidate_graph_path: candidateGraphPath.trim() || undefined,
+        candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
         graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
         materialize_after_extract: extractGraphWithMini,
@@ -1830,12 +1835,17 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               value={candidateGraphPath}
               onChange={(event) => setCandidateGraphPath(event.target.value)}
               placeholder="out/graph_memory/fixtures/candidate_graph.json"
+              disabled={extractGraphWithMini}
             />
             <label className="ingestion-checkbox-row">
               <input
                 type="checkbox"
                 checked={extractGraphWithMini}
-                onChange={(event) => setExtractGraphWithMini(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setExtractGraphWithMini(checked);
+                  if (checked) setCandidateGraphPath("");
+                }}
               />
               Extract graph from recap with GPT-5 mini
             </label>

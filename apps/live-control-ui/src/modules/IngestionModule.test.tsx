@@ -655,6 +655,58 @@ describe("IngestionModule", () => {
     expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction has not run yet.").length).toBeGreaterThan(0);
   });
 
+  it("enables materialize_preview_supergraph with GPT-5 mini extraction and no candidate path", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized"],
+        });
+      }
+      if (body.operation === "materialize_preview_supergraph") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "preview_union_store_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+              can_open_union_graph: true,
+              extraction_mode: "llm",
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+    await user.click(screen.getByLabelText("Extract graph from recap with GPT-5 mini"));
+    expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
+    expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: "materialize_preview_supergraph",
+          session: 22,
+          candidate_graph_path: undefined,
+          extract_graph: true,
+          graph_model_id: "gpt-5-mini",
+          materialize_after_extract: true,
+        }),
+      ),
+    );
+  });
+
   it("submits materialize_preview_supergraph with a candidate graph path", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
@@ -689,7 +741,6 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await user.click(screen.getByLabelText("Extract graph from recap with GPT-5 mini"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
 
@@ -699,9 +750,6 @@ describe("IngestionModule", () => {
           operation: "materialize_preview_supergraph",
           session: 22,
           candidate_graph_path: "out/candidate.json",
-          extract_graph: true,
-          graph_model_id: "gpt-5-mini",
-          materialize_after_extract: true,
         }),
       ),
     );

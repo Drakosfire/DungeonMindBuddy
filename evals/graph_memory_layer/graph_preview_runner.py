@@ -336,6 +336,7 @@ def run_graph_preview_extraction(
     validation_report_path: Path | None = None
     health = GraphIngestHealth()
     candidate_extraction = False
+    extraction_mode = "none"
     manifest_errors: list[str] = []
     next_actions = ["extract_candidate_graph"]
     candidate_validation_state = GraphIngestStepState.COMPLETE
@@ -370,6 +371,7 @@ def run_graph_preview_extraction(
         )
         health = _candidate_counts(candidate_graph)
         candidate_extraction = True
+        extraction_mode = "fixture"
         if validation.valid:
             status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
             health.candidate_graph_valid = True
@@ -428,6 +430,7 @@ def run_graph_preview_extraction(
             health = _candidate_counts(candidate_graph)
             health.model_id = model_id
             candidate_extraction = True
+            extraction_mode = "llm"
             extraction_summary = "Candidate graph extracted from normalized recap with preview-only GPT-5 mini extractor."
             if validation.valid:
                 status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -443,6 +446,8 @@ def run_graph_preview_extraction(
             status = GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
             health.candidate_graph_valid = False
             candidate_extraction = True
+            extraction_mode = "llm_blocked"
+            health.model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
             manifest_errors = [str(exc)]
             next_actions = ["configure model", "supply candidate_graph_path"]
             candidate_validation_state = GraphIngestStepState.FAILED
@@ -537,7 +542,10 @@ def run_graph_preview_extraction(
         steps=steps,
         artifacts=artifacts,
         health=health,
-        diagnostics=GraphIngestDiagnostics(candidate_extraction=candidate_extraction),
+        diagnostics=GraphIngestDiagnostics(
+            candidate_extraction=candidate_extraction,
+            extraction_mode=extraction_mode,
+        ),
         projection=None,
         warnings=[]
         if options.comparison_mode != "gold_if_available"

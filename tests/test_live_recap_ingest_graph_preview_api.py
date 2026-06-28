@@ -81,7 +81,7 @@ def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_en
     assert graph["status"] == "source_span_bundle_ready"
     assert (ROOT / graph["manifest_path"]).is_file()
     assert "graph_source_bundle_ready" in body["states"]
-    assert "Candidate graph extraction is not wired yet" in graph["blocked_reason"]
+    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
 
 
 def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_graph(client_env: tuple[TestClient, Path, Path]) -> None:
@@ -141,3 +141,149 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
     )
 
     assert response.status_code == 422
+
+
+def _live_extraction_payload() -> dict:
+    return {
+        "candidate_nodes": [
+            {"id": "node:mireward-road", "kind": "location", "label": "Mireward Road", "evidence_refs": ["ev:1"]}
+        ],
+        "candidate_edges": [],
+        "session_beats": [
+            {"id": "beat:1", "summary": "The group scouts the Mireward road.", "evidence_refs": ["ev:1"]}
+        ],
+        "ignored_or_deferred_candidates": [],
+        "diagnostics": {
+            "preview_only": True,
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+        "source_artifacts": [],
+        "evidence_refs": [{"id": "ev:1", "span_id": "session-22:recap:full_text"}],
+    }
+
+
+def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+
+    def fake_extract(options, *, client=None):  # noqa: ANN001
+        return PreviewCandidateGraphExtractionResult(
+            candidate_graph=_live_extraction_payload(),
+            raw_model_response="{}",
+            model_id=options.model_id,
+            diagnostics={"extraction_mode": "llm"},
+        )
+
+    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+            "graph_model_id": "gpt-5-mini",
+        },
+    )
+
+    assert response.status_code == 200
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "candidate_validation_ready"
+    assert graph["extraction_mode"] == "llm"
+    assert graph["model_id"] == "gpt-5-mini"
+    assert graph["candidate_node_count"] == 1
+    assert (ROOT / graph["candidate_graph_path"]).is_file()
+
+
+def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+
+    def fake_extract(options, *, client=None):  # noqa: ANN001
+        return PreviewCandidateGraphExtractionResult(
+            candidate_graph=_live_extraction_payload(),
+            raw_model_response="{}",
+            model_id=options.model_id,
+            diagnostics={"extraction_mode": "llm"},
+        )
+
+    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+            "materialize_after_extract": True,
+        },
+    )
+
+    assert response.status_code == 200
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "preview_union_store_ready"
+    assert graph["can_open_union_graph"] is True
+    assert graph["extraction_mode"] == "llm"
+    assert graph["candidate_graph_path"] is not None
+    assert (ROOT / graph["preview_union_store_path"]).is_file()
+
+
+def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+        },
+    )
+
+    assert response.status_code == 200
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "source_span_bundle_ready"
+    assert graph["extraction_mode"] == "llm_blocked"
+    assert "OPENAI_API_KEY is not configured" in graph["blocked_reason"]
+    assert graph["can_open_union_graph"] is False
+
+
+def test_recap_ingest_rejects_candidate_path_with_extract_graph(
+    client_env: tuple[TestClient, Path, Path]
+) -> None:
+    client, _corpus, candidate = client_env
+    _prepare_normalized(client)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
+            "extract_graph": True,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "cannot be combined" in response.json()["detail"]

@@ -209,14 +209,13 @@ def _status_from_summary(
         "normalized_recap_path": normalized_recap_path,
     }
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    status["extraction_mode"] = "llm" if manifest.get("diagnostics", {}).get("candidate_extraction") else ("fixture" if candidate_path else None)
+    status["extraction_mode"] = manifest.get("diagnostics", {}).get("extraction_mode")
     status["model_id"] = manifest.get("health", {}).get("model_id")
     status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
     status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)
     status["candidate_beat_count"] = manifest.get("health", {}).get("beat_count", 0)
     if summary.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value:
-        if manifest.get("errors") and manifest.get("diagnostics", {}).get("candidate_extraction"):
-            status["extraction_mode"] = "llm_blocked"
+        if manifest.get("errors") and manifest.get("diagnostics", {}).get("extraction_mode") == "llm_blocked":
             status["blocked_reason"] = manifest["errors"][0]
         else:
             status["blocked_reason"] = "Graph source bundle ready. Candidate graph extraction has not run yet."

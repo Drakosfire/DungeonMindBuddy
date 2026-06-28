@@ -385,6 +385,11 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                 corpus=corpus,
             )
             normalized = _normalized_recap_graph_path(status, corpus)
+            if body.extract_graph and body.candidate_graph_path:
+                raise HTTPException(
+                    status_code=422,
+                    detail="candidate_graph_path cannot be combined with extract_graph=true",
+                )
             if body.operation == "build_graph_preview_bundle":
                 if not normalized:
                     raise HTTPException(status_code=422, detail="normalized recap missing")
