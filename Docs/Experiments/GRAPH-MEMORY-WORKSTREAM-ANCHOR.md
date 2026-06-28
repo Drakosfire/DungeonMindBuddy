@@ -7,10 +7,10 @@ Architecture roadmap: `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
 Date: 2026-06-27
-Status: active current anchor — post-recap-artifact-registry/session-selector checkpoint
+Status: active current anchor — post-union-supergraph model contract v0 checkpoint
 Workstream: Graph Memory / Union Supergraph / Recap Projection
 Branch: `experiment/ontology-taxonomy-ladder`
-Current committed head at re-anchor: `aabdfe4` — `feat(plan): recap artifact registry and session selector`
+Current committed head at re-anchor: `eb06491` — `graph-memory: add union supergraph model contract v0 (#199)`
 
 ## Purpose
 
@@ -24,9 +24,9 @@ The current union-supergraph design target is in:
 
 `Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md`
 
-The narrow checklist for the next implementation spike is in:
+The narrow checklist for the model-contract implementation spike is archived at:
 
-`Docs/Plans/HANDOFF-pr194-union-supergraph-projection-spike-checklist.md`
+`Docs/Plans/archive/2026-06-28/handoffs/HANDOFF-pr194-union-supergraph-projection-spike-checklist.md`
 
 This file should be updated whenever the workstream meaningfully re-anchors.
 
@@ -64,6 +64,8 @@ recap artifacts
 ```
 
 The registry is locator-only. It records source recap paths, ingest run bundle paths, span/provenance paths, and optional graph run refs. It should not be treated as authoritative graph memory.
+
+The PR #199 model-contract slice is now merged. `src/graph_memory/union_supergraph/model.py` and `src/graph_memory/union_supergraph/load.py` define the typed DTO/load seam for the file-backed union-supergraph fixture, while the validator and report continue to own graph-level policy checks.
 
 The current projection can render linked pills if the response contains:
 
@@ -295,7 +297,8 @@ Until explicitly gated in later PRs, do not implement:
 
 Allowed next work:
 
-- define union supergraph read-model schema
+- extend the union-supergraph model contract into reusable evidence/source-domain modules
+- decide whether typed node/edge state DTOs should replace loose `dict[str, Any]` state fields
 - define source-domain and focus-session metadata
 - define global node view payload
 - define adjacency payload for graph navigation
