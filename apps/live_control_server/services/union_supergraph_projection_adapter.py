@@ -13,18 +13,19 @@ from graph_memory.union_supergraph.load import (
 def build_plan_union_supergraph_projection(
     *,
     session_id: str,
-    store_path: Path = DEFAULT_FIXTURE_PATH,
+    store_path: Path | None = None,
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
-    store = load_union_supergraph_store(store_path)
+    resolved_store_path = store_path or DEFAULT_FIXTURE_PATH
+    store = load_union_supergraph_store(resolved_store_path)
     return build_recap_graph_projection(store, session_id=session_id)
 
 
 def build_plan_union_supergraph_projection_payload(
     *,
     session_id: str,
-    store_path: Path = DEFAULT_FIXTURE_PATH,
+    store_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build a JSON-safe projection payload for future API route integration."""
 
