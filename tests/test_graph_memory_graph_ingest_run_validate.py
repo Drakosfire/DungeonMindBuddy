@@ -125,6 +125,95 @@ def test_diagnostics_preview_only_is_enforced() -> None:
     assert "diagnostics.preview_only must be true" in report["errors"]
 
 
+def test_artifact_preview_only_false_fails_validation() -> None:
+    payload = load_fixture("graph_ingest_run_manifest_ready_for_projection.json")
+    payload["artifacts"]["candidate_graph"]["preview_only"] = False
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is False
+    assert (
+        "artifact must be preview_only: candidate_graph "
+        "evals/graph_memory_layer/runs/graph_ingest/session_24/candidate_graph.json"
+        in report["errors"]
+    )
+
+
+def test_step_artifact_preview_only_false_fails_validation() -> None:
+    payload = load_fixture("graph_ingest_run_manifest_ready_for_projection.json")
+    payload["steps"][3]["artifact_refs"][0]["preview_only"] = False
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is False
+    assert any(
+        error.startswith("artifact must be preview_only: candidate_validation_report")
+        for error in report["errors"]
+    )
+
+
+def test_ready_for_projection_requires_projection_query_preview_store_path() -> None:
+    payload = load_fixture("graph_ingest_run_manifest_ready_for_projection.json")
+    del payload["projection"]["query"]["preview_union_store_path"]
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is False
+    assert (
+        "ready_for_projection requires projection query preview_union_store_path"
+        in report["errors"]
+    )
+
+
+def test_ready_for_projection_requires_projection_endpoint() -> None:
+    payload = load_fixture("graph_ingest_run_manifest_ready_for_projection.json")
+    payload["projection"]["projection_endpoint"] = None
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is False
+    assert (
+        "ready_for_projection requires projection.projection_endpoint"
+        in report["errors"]
+    )
+
+
+def test_ready_for_projection_projection_session_must_match_manifest() -> None:
+    payload = load_fixture("graph_ingest_run_manifest_ready_for_projection.json")
+    payload["projection"]["query"]["session_id"] = "session-99"
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is False
+    assert (
+        "projection query session_id must match manifest session_id" in report["errors"]
+    )
+
+
+def test_failed_manifest_before_source_ready_does_not_require_normalized_recap_sha() -> (
+    None
+):
+    payload = load_fixture("graph_ingest_run_manifest_minimal.json")
+    payload["status"] = "failed"
+    payload["source"].pop("normalized_recap_sha256")
+    payload["artifacts"] = {}
+    payload["steps"] = []
+    payload["errors"] = [
+        "source selection failed before normalized recap was available"
+    ]
+
+    report = validate_graph_ingest_run_manifest(payload)
+
+    assert report["valid"] is True
+    assert (
+        "missing normalized recap SHA for source-ready manifest" not in report["errors"]
+    )
+    assert (
+        "missing normalized recap SHA for source-ready manifest"
+        not in report["warnings"]
+    )
+
+
 def test_unknown_schema_fails_validation() -> None:
     payload = copy.deepcopy(load_fixture("graph_ingest_run_manifest_minimal.json"))
     payload["schema"] = "unknown"

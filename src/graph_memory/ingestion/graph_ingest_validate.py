@@ -19,10 +19,7 @@ FORBIDDEN_DIAGNOSTIC_FLAGS = (
     "corpus_mutation",
     "production_retrieval",
 )
-TERMINAL_STATUSES = {
-    GraphIngestRunStatus.READY_FOR_PROJECTION,
-    GraphIngestRunStatus.FAILED,
-}
+TERMINAL_STATUSES = {GraphIngestRunStatus.READY_FOR_PROJECTION}
 SOURCE_READY_ORDER = {
     GraphIngestRunStatus.NOT_STARTED: 0,
     GraphIngestRunStatus.SOURCE_READY: 1,
@@ -76,11 +73,14 @@ def _collect_path_values(
     return found
 
 
-def _artifact_kinds(manifest: GraphIngestRunManifest) -> list[str]:
-    kinds = {artifact.kind.value for artifact in manifest.artifacts.values()}
+def _iter_artifact_refs(manifest: GraphIngestRunManifest):
+    yield from manifest.artifacts.values()
     for step in manifest.steps:
-        kinds.update(ref.kind.value for ref in step.artifact_refs)
-    return sorted(kinds)
+        yield from step.artifact_refs
+
+
+def _artifact_kinds(manifest: GraphIngestRunManifest) -> list[str]:
+    return sorted({artifact.kind.value for artifact in _iter_artifact_refs(manifest)})
 
 
 def validate_graph_ingest_run_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -118,16 +118,24 @@ def validate_graph_ingest_run_manifest(payload: Mapping[str, Any]) -> dict[str, 
         if manifest.diagnostics.preview_only is not True:
             _error(errors, "diagnostics.preview_only must be true")
 
+        for artifact in _iter_artifact_refs(manifest):
+            if artifact.preview_only is not True:
+                _error(
+                    errors,
+                    f"artifact must be preview_only: {artifact.kind.value} {artifact.uri}",
+                )
+
         status_order = SOURCE_READY_ORDER[manifest.status]
-        if (
-            status_order >= SOURCE_READY_ORDER[GraphIngestRunStatus.SOURCE_READY]
-            and not manifest.source.normalized_recap_sha256
-        ):
-            msg = "missing normalized recap SHA for source-ready manifest"
-            if manifest.status in TERMINAL_STATUSES:
-                _error(errors, msg)
-            else:
-                _warning(warnings, msg)
+        if manifest.status != GraphIngestRunStatus.FAILED:
+            if (
+                status_order >= SOURCE_READY_ORDER[GraphIngestRunStatus.SOURCE_READY]
+                and not manifest.source.normalized_recap_sha256
+            ):
+                msg = "missing normalized recap SHA for source-ready manifest"
+                if manifest.status in TERMINAL_STATUSES:
+                    _error(errors, msg)
+                else:
+                    _warning(warnings, msg)
 
         artifact_kinds = _artifact_kinds(manifest)
         if (
@@ -184,6 +192,22 @@ def validate_graph_ingest_run_manifest(payload: Mapping[str, Any]) -> dict[str, 
                 or manifest.projection.projection_ready is not True
             ):
                 _error(errors, "ready_for_projection requires a projection locator")
+            else:
+                if not manifest.projection.projection_endpoint:
+                    _error(
+                        errors,
+                        "ready_for_projection requires projection.projection_endpoint",
+                    )
+                if manifest.projection.query.get("session_id") != manifest.session_id:
+                    _error(
+                        errors,
+                        "projection query session_id must match manifest session_id",
+                    )
+                if not manifest.projection.query.get("preview_union_store_path"):
+                    _error(
+                        errors,
+                        "ready_for_projection requires projection query preview_union_store_path",
+                    )
     else:
         artifact_kinds = []
 
