@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
 import type {
   GraphProjectionAdjacencyCandidate,
   GraphProjectionEvidenceBadge,
   GraphProjectionNodeView,
+  GraphProjectionSuggestedExpansion,
 } from "../../api/types";
 import {
   adjacencyThreadLabel,
   buildRecapNodePresentation,
+  DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP,
+  expansionPresentationLabel,
+  expansionRankReasonLabel,
   evidencePlanningText,
   fallbackRecapNodePresentation,
   roleClass,
@@ -135,53 +140,142 @@ export function GraphNodeAdjacencyRow({
   );
 }
 
-export function GraphNodeDetailPanel({ node }: { node?: GraphProjectionNodeView }) {
-  if (!node) {
-    return (
-      <aside className="recap-node-panel union-supergraph-node-panel">
-        <p className="plan-projection-empty">
-          Hover a pill for context, or click one to pin its node here.
-        </p>
-      </aside>
-    );
-  }
+function SuggestedExpansionChip({
+  expansion,
+  targetNode,
+  onSelect,
+}: {
+  expansion: GraphProjectionSuggestedExpansion;
+  targetNode?: GraphProjectionNodeView;
+  onSelect: (nodeId: string) => void;
+}) {
+  const targetPresentation = targetNode ? buildRecapNodePresentation(targetNode) : null;
+  const role = targetNode?.role || targetNode?.kind || "node";
+  return (
+    <li className="graph-explorer-expansion-item" data-focus={expansion.anchored_to_focus_session}>
+      <button
+        type="button"
+        className={`graph-explorer-expansion-chip role-${roleClass(role)}`}
+        onClick={() => onSelect(expansion.node_id)}
+      >
+        <span className="graph-explorer-expansion-rank">{expansion.rank}</span>
+        <span className="graph-explorer-expansion-body">
+          <strong>{expansion.label}</strong>
+          <span>{expansionPresentationLabel(expansion)}</span>
+          <em className="graph-explorer-expansion-reason">
+            {expansionRankReasonLabel(expansion.rank_reason)}
+          </em>
+        </span>
+        {targetPresentation?.whyNow ? (
+          <small className="graph-explorer-expansion-why">{targetPresentation.whyNow}</small>
+        ) : null}
+      </button>
+    </li>
+  );
+}
 
+export function GraphNodeExplorer({
+  node,
+  nodeViews,
+  trail,
+  onBack,
+  onClose,
+  onExpand,
+}: {
+  node: GraphProjectionNodeView;
+  nodeViews: Record<string, GraphProjectionNodeView>;
+  trail: string[];
+  onBack: () => void;
+  onClose: () => void;
+  onExpand: (nodeId: string) => void;
+}) {
+  const [showAllExpansions, setShowAllExpansions] = useState(false);
   const presentation = buildRecapNodePresentation(node);
   const focusEvidence = node.evidence_badges.filter((badge) => badge.is_focus_session_evidence);
   const contextEvidence = node.evidence_badges.filter((badge) => !badge.is_focus_session_evidence);
-  const focusAdjacency = node.adjacency.filter((candidate) => candidate.anchored_to_focus_session);
-  const contextAdjacency = node.adjacency.filter((candidate) => !candidate.anchored_to_focus_session);
+  const expansions =
+    node.suggested_expansions?.length
+      ? node.suggested_expansions
+      : node.adjacency.map((candidate, index) => ({
+          ...candidate,
+          rank: index + 1,
+          rank_reason: candidate.anchored_to_focus_session ? "current session" : "connected thread",
+        }));
+  const visibleExpansions = showAllExpansions
+    ? expansions
+    : expansions.slice(0, DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP);
+  const hiddenCount = expansions.length - DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP;
 
   return (
-    <aside className="recap-node-panel union-supergraph-node-panel" aria-label="Global node detail">
-      <p className="plan-surface-kicker">Pinned node</p>
-      <h3>{node.label}</h3>
-      <p className="recap-node-kind">
-        {node.role} · {node.kind}
-        {node.anchored_to_focus_session ? " · in this session" : ""}
-      </p>
-      {presentation.summary ? (
-        <p className="recap-node-description">{presentation.summary}</p>
-      ) : null}
-      {presentation.whyNow ? (
-        <PlanningScanSection title="Why now">
-          <p className="recap-planning-scan-line">{presentation.whyNow}</p>
-        </PlanningScanSection>
-      ) : null}
-      {presentation.knownBefore ? (
-        <PlanningScanSection title="Known before">
-          <p className="recap-planning-scan-line">{presentation.knownBefore}</p>
-        </PlanningScanSection>
-      ) : null}
-      {presentation.planningChips.length ? (
-        <ul className="recap-node-chips" aria-label="Planning posture">
-          {presentation.planningChips.map((chip) => (
-            <li key={`${node.node_id}:${chip.label}`} data-tone={chip.tone}>
-              {chip.label}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+    <aside
+      className="graph-node-explorer union-supergraph-node-panel"
+      aria-label="Graph node explorer"
+    >
+      <header className="graph-explorer-header">
+        <div className="graph-explorer-nav">
+          {trail.length > 1 ? (
+            <button type="button" className="graph-explorer-back" onClick={onBack}>
+              Back
+            </button>
+          ) : null}
+          <button type="button" className="graph-explorer-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        {trail.length > 1 ? (
+          <nav className="graph-explorer-breadcrumb" aria-label="Explorer trail">
+            {trail.map((nodeId, index) => {
+              const trailNode = nodeViews[nodeId];
+              const trailLabel = trailNode?.label ?? nodeId;
+              return (
+                <span key={nodeId}>
+                  {index > 0 ? <span className="graph-explorer-breadcrumb-sep">→</span> : null}
+                  <span
+                    className={
+                      index === trail.length - 1 ? "graph-explorer-breadcrumb-current" : ""
+                    }
+                  >
+                    {trailLabel}
+                  </span>
+                </span>
+              );
+            })}
+          </nav>
+        ) : null}
+      </header>
+
+      <article
+        className={`graph-explorer-expanded-chip role-${roleClass(node.role || node.kind)}`}
+      >
+        <p className="plan-surface-kicker">Expanded chip</p>
+        <h3>{node.label}</h3>
+        <p className="recap-node-kind">
+          {node.role} · {node.kind}
+          {node.anchored_to_focus_session ? " · in this session" : ""}
+        </p>
+        {presentation.summary ? (
+          <p className="recap-node-description">{presentation.summary}</p>
+        ) : null}
+        {presentation.whyNow ? (
+          <PlanningScanSection title="Why now">
+            <p className="recap-planning-scan-line">{presentation.whyNow}</p>
+          </PlanningScanSection>
+        ) : null}
+        {presentation.knownBefore ? (
+          <PlanningScanSection title="Known before">
+            <p className="recap-planning-scan-line">{presentation.knownBefore}</p>
+          </PlanningScanSection>
+        ) : null}
+        {presentation.planningChips.length ? (
+          <ul className="recap-node-chips" aria-label="Planning posture">
+            {presentation.planningChips.map((chip) => (
+              <li key={`${node.node_id}:${chip.label}`} data-tone={chip.tone}>
+                {chip.label}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </article>
 
       {focusEvidence.length ? (
         <section className="union-supergraph-evidence-group" aria-label="Current session evidence">
@@ -205,29 +299,28 @@ export function GraphNodeDetailPanel({ node }: { node?: GraphProjectionNodeView 
         </section>
       ) : null}
 
-      {focusAdjacency.length ? (
-        <section className="union-supergraph-adjacency-group" aria-label="Current session threads">
-          <h4>Connected threads · this session</h4>
-          <ul>
-            {focusAdjacency.map((candidate) => (
-              <li key={candidate.edge_id}>
-                <span className="union-supergraph-adjacency-label">{adjacencyThreadLabel(candidate)}</span>
-              </li>
+      {expansions.length ? (
+        <section className="graph-explorer-expansions" aria-label="Suggested expansions">
+          <h4>Suggested expansions</h4>
+          <ul className="graph-explorer-expansion-list">
+            {visibleExpansions.map((expansion) => (
+              <SuggestedExpansionChip
+                key={expansion.edge_id}
+                expansion={expansion}
+                targetNode={nodeViews[expansion.node_id]}
+                onSelect={onExpand}
+              />
             ))}
           </ul>
-        </section>
-      ) : null}
-
-      {contextAdjacency.length ? (
-        <section className="union-supergraph-adjacency-group" aria-label="Broader context threads">
-          <h4>Connected threads · prior context</h4>
-          <ul>
-            {contextAdjacency.map((candidate) => (
-              <li key={candidate.edge_id}>
-                <span className="union-supergraph-adjacency-label">{adjacencyThreadLabel(candidate)}</span>
-              </li>
-            ))}
-          </ul>
+          {!showAllExpansions && hiddenCount > 0 ? (
+            <button
+              type="button"
+              className="graph-explorer-show-all"
+              onClick={() => setShowAllExpansions(true)}
+            >
+              Show all {expansions.length} connections
+            </button>
+          ) : null}
         </section>
       ) : null}
 

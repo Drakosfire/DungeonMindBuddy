@@ -9,7 +9,7 @@ import { useRecapGraphNodeRuntimeState } from "../../planSurface/graphPreview/re
 import type { GraphNodeReferenceAttrs } from "./GraphNodeReferenceNode";
 
 export function GraphNodeReferenceView({ node }: NodeViewProps) {
-  const { nodeViews, pinnedNodeId, onSelectNode } = useRecapGraphNodeRuntimeState();
+  const { nodeViews, activeNodeId, onSelectNode } = useRecapGraphNodeRuntimeState();
   const attrs = node.attrs as GraphNodeReferenceAttrs;
   const presentation = presentationForNodeId(nodeViews, attrs.nodeId, attrs.label);
 
@@ -18,7 +18,7 @@ export function GraphNodeReferenceView({ node }: NodeViewProps) {
       <GraphNodeToken
         presentation={presentation}
         label={attrs.label || attrs.nodeId}
-        pinned={pinnedNodeId === attrs.nodeId}
+        pinned={activeNodeId === attrs.nodeId}
         onSelect={() => onSelectNode(attrs.nodeId)}
       />
     </NodeViewWrapper>

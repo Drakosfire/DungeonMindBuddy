@@ -11,6 +11,7 @@ from graph_memory.projection.focus_overlay import (
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
+    GraphProjectionSuggestedExpansion,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 
@@ -110,6 +111,8 @@ def build_node_view(
         for item in store.adjacency.get(node_id, [])
     ]
 
+    suggested_expansions = _build_suggested_expansions(store, adjacency)
+
     node_extra = node.model_extra or {}
     description = node_extra.get("description")
     summary = description.strip() if isinstance(description, str) and description.strip() else None
@@ -123,6 +126,7 @@ def build_node_view(
         source_domains=list(node.source_domains),
         evidence_badges=evidence_badges,
         adjacency=adjacency,
+        suggested_expansions=suggested_expansions,
         anchored_to_focus_session=bool(
             set(node.evidence_ref_ids).intersection(focus_evidence_ids)
         )
@@ -254,3 +258,63 @@ def _edge_ids_touching_node(store: UnionSupergraphStore, node_id: str) -> list[s
         for edge_id, edge in store.edges.items()
         if edge.source_node_id == node_id or edge.target_node_id == node_id
     ]
+
+
+def _adjacent_node_degree(store: UnionSupergraphStore, node_id: str) -> int:
+    return len(store.adjacency.get(node_id, []))
+
+
+def _expansion_rank_reason(
+    candidate: GraphProjectionAdjacencyCandidate,
+    adjacent_degree: int,
+) -> str:
+    if candidate.anchored_to_focus_session:
+        return "current session"
+    if len(candidate.evidence_ref_ids) >= 2:
+        return "more evidence"
+    if adjacent_degree >= 3:
+        return "connected hub"
+    return "connected thread"
+
+
+def _expansion_sort_key(
+    store: UnionSupergraphStore,
+    candidate: GraphProjectionAdjacencyCandidate,
+) -> tuple[int, int, int, str]:
+    focus_score = 1 if candidate.anchored_to_focus_session else 0
+    evidence_score = len(candidate.evidence_ref_ids)
+    degree_score = _adjacent_node_degree(store, candidate.node_id)
+    return (
+        -focus_score,
+        -evidence_score,
+        -degree_score,
+        candidate.label.lower(),
+    )
+
+
+def _build_suggested_expansions(
+    store: UnionSupergraphStore,
+    adjacency: list[GraphProjectionAdjacencyCandidate],
+) -> list[GraphProjectionSuggestedExpansion]:
+    ranked = sorted(adjacency, key=lambda item: _expansion_sort_key(store, item))
+    expansions: list[GraphProjectionSuggestedExpansion] = []
+    for index, candidate in enumerate(ranked, start=1):
+        adjacent_degree = _adjacent_node_degree(store, candidate.node_id)
+        expansions.append(
+            GraphProjectionSuggestedExpansion(
+                edge_id=candidate.edge_id,
+                node_id=candidate.node_id,
+                label=candidate.label,
+                kind=candidate.kind,
+                predicate=candidate.predicate,
+                direction=candidate.direction,
+                anchored_to_focus_session=candidate.anchored_to_focus_session,
+                source_domains=list(candidate.source_domains),
+                evidence_ref_ids=list(candidate.evidence_ref_ids),
+                edge_label=candidate.edge_label,
+                session_ids=list(candidate.session_ids),
+                rank=index,
+                rank_reason=_expansion_rank_reason(candidate, adjacent_degree),
+            )
+        )
+    return expansions

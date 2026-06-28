@@ -2,9 +2,11 @@ import type {
   GraphProjectionAdjacencyCandidate,
   GraphProjectionEvidenceBadge,
   GraphProjectionNodeView,
+  GraphProjectionSuggestedExpansion,
   RecapGraphChip,
-  UnionSupergraphProjectionResponse,
 } from "../../api/types";
+
+export const DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP = 5;
 
 export function roleClass(role: string): string {
   return role.toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "node";
@@ -15,6 +17,7 @@ export interface RecapPlanningThreadHint {
   label: string;
   edgeLabel: string;
   anchoredToFocusSession: boolean;
+  rankReason?: string;
 }
 
 export interface RecapNodePresentation {
@@ -54,6 +57,23 @@ export function adjacencyThreadLabel(candidate: GraphProjectionAdjacencyCandidat
   return `${humanizeToken(candidate.predicate)} ${candidate.label}`;
 }
 
+export function expansionPresentationLabel(expansion: GraphProjectionSuggestedExpansion): string {
+  return adjacencyThreadLabel(expansion);
+}
+
+export function expansionRankReasonLabel(rankReason: string): string {
+  switch (rankReason) {
+    case "current session":
+      return "Current session";
+    case "more evidence":
+      return "More evidence";
+    case "connected hub":
+      return "Connected hub";
+    default:
+      return "Connected thread";
+  }
+}
+
 function sessionChipLabel(sessionId: string | null | undefined): string | null {
   if (!sessionId) {
     return null;
@@ -63,12 +83,12 @@ function sessionChipLabel(sessionId: string | null | undefined): string | null {
 }
 
 function buildPlanningChips(node: GraphProjectionNodeView): RecapGraphChip[] {
-  const chips: RecapGraphChip[] = [
-    { label: node.role, tone: "neutral" },
-  ];
+  const chips: RecapGraphChip[] = [{ label: node.role, tone: "neutral" }];
 
   if (node.anchored_to_focus_session) {
-    const focusSession = sessionChipLabel(node.evidence_badges.find((b) => b.is_focus_session_evidence)?.session_id);
+    const focusSession = sessionChipLabel(
+      node.evidence_badges.find((b) => b.is_focus_session_evidence)?.session_id,
+    );
     if (focusSession) {
       chips.push({ label: focusSession, tone: "evidence" });
     }
@@ -83,13 +103,27 @@ function buildPlanningChips(node: GraphProjectionNodeView): RecapGraphChip[] {
   return chips;
 }
 
-function buildThreadHints(node: GraphProjectionNodeView): RecapPlanningThreadHint[] {
-  return node.adjacency.slice(0, 2).map((candidate) => ({
-    nodeId: candidate.node_id,
-    label: candidate.label,
-    edgeLabel: adjacencyThreadLabel(candidate),
-    anchoredToFocusSession: candidate.anchored_to_focus_session,
+function suggestedExpansionsForNode(node: GraphProjectionNodeView): GraphProjectionSuggestedExpansion[] {
+  if (node.suggested_expansions?.length) {
+    return node.suggested_expansions;
+  }
+  return node.adjacency.map((candidate, index) => ({
+    ...candidate,
+    rank: index + 1,
+    rank_reason: candidate.anchored_to_focus_session ? "current session" : "connected thread",
   }));
+}
+
+function buildThreadHints(node: GraphProjectionNodeView): RecapPlanningThreadHint[] {
+  return suggestedExpansionsForNode(node)
+    .slice(0, 2)
+    .map((expansion) => ({
+      nodeId: expansion.node_id,
+      label: expansion.label,
+      edgeLabel: expansionPresentationLabel(expansion),
+      anchoredToFocusSession: expansion.anchored_to_focus_session,
+      rankReason: expansion.rank_reason,
+    }));
 }
 
 export function buildRecapNodePresentation(node: GraphProjectionNodeView): RecapNodePresentation {
@@ -128,18 +162,4 @@ export function fallbackRecapNodePresentation(
     planningChips: [],
     threadHints: [],
   };
-}
-
-export function defaultPinnedNodeId(payload: UnionSupergraphProjectionResponse): string | null {
-  for (const nodeId of payload.focus.focused_node_ids) {
-    if (payload.node_views[nodeId]) {
-      return nodeId;
-    }
-  }
-  const mentionNodeId = payload.mentions[0]?.node_id;
-  if (mentionNodeId && payload.node_views[mentionNodeId]) {
-    return mentionNodeId;
-  }
-  const firstNodeId = Object.keys(payload.node_views)[0];
-  return firstNodeId ?? null;
 }

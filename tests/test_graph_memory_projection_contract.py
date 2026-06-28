@@ -84,6 +84,19 @@ def test_node_view_adjacency_includes_edge_label_and_session_ids(
     assert gate_candidate.session_ids == ["session-23"]
 
 
+def test_node_view_suggested_expansions_are_ranked_focus_first(
+    store: UnionSupergraphStore,
+) -> None:
+    node_view = build_node_view(store, "pc_caelynn", focus_session_id="session-23")
+
+    assert len(node_view.suggested_expansions) == len(node_view.adjacency)
+    assert node_view.suggested_expansions[0].node_id == "event_session_23_mireward_gate"
+    assert node_view.suggested_expansions[0].rank == 1
+    assert node_view.suggested_expansions[0].rank_reason == "current session"
+    assert node_view.suggested_expansions[1].node_id == "loc_mirathorn"
+    assert node_view.suggested_expansions[1].rank == 2
+
+
 def test_node_view_includes_focus_and_non_focus_evidence_badges(
     store: UnionSupergraphStore,
 ) -> None:

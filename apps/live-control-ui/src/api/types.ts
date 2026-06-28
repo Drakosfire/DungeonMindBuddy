@@ -1435,6 +1435,11 @@ export interface GraphProjectionAdjacencyCandidate {
   session_ids?: string[];
 }
 
+export interface GraphProjectionSuggestedExpansion extends GraphProjectionAdjacencyCandidate {
+  rank: number;
+  rank_reason: string;
+}
+
 export interface GraphProjectionNodeView {
   node_id: string;
   label: string;
@@ -1444,6 +1449,7 @@ export interface GraphProjectionNodeView {
   source_domains: string[];
   evidence_badges: GraphProjectionEvidenceBadge[];
   adjacency: GraphProjectionAdjacencyCandidate[];
+  suggested_expansions?: GraphProjectionSuggestedExpansion[];
   anchored_to_focus_session: boolean;
   summary?: string | null;
 }

@@ -6,11 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
-import {
-  GraphNodeAdjacencyRow,
-  GraphNodeDetailPanel,
-} from "./GraphNodePresentation";
-import { defaultPinnedNodeId } from "./recapNodePresentation";
+import { GraphNodeExplorer } from "./GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState } from "./recapGraphNodeRuntime";
 
 interface UnionSupergraphRecapProjectionProps {
@@ -24,12 +20,12 @@ interface UnionSupergraphRecapProjectionProps {
 function ReadOnlyTiptapRecap({
   markdown,
   nodeViews,
-  pinnedNodeId,
+  activeNodeId,
   onSelectNode,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
-  pinnedNodeId: string | null;
+  activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
 }) {
   const content = useMemo(
@@ -48,8 +44,8 @@ function ReadOnlyTiptapRecap({
   }, [content, editor]);
 
   useEffect(() => {
-    setRecapGraphNodeRuntimeState({ nodeViews, pinnedNodeId, onSelectNode });
-  }, [nodeViews, pinnedNodeId, onSelectNode]);
+    setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode });
+  }, [nodeViews, activeNodeId, onSelectNode]);
 
   return (
     <div className="union-supergraph-tiptap-reader">
@@ -65,15 +61,38 @@ export function UnionSupergraphRecapProjection({
   sessionOptions,
   onOpenLegacy,
 }: UnionSupergraphRecapProjectionProps) {
-  const initialPinnedNodeId = useMemo(() => defaultPinnedNodeId(payload), [payload]);
-  const [pinnedNodeId, setPinnedNodeId] = useState<string | null>(initialPinnedNodeId);
-  const pinnedNode = pinnedNodeId ? payload.node_views[pinnedNodeId] : undefined;
+  const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
+  const activeNodeId = explorerTrail.at(-1) ?? null;
+  const activeNode = activeNodeId ? payload.node_views[activeNodeId] : undefined;
   const projectedMarkdown = payload.markdown
     ?? "# Session recap projection unavailable\n\nThe union-supergraph payload did not include projected recap Markdown.";
 
   useEffect(() => {
-    setPinnedNodeId(defaultPinnedNodeId(payload));
+    setExplorerTrail([]);
   }, [payload.session_id]);
+
+  const openExplorer = (nodeId: string) => {
+    setExplorerTrail([nodeId]);
+  };
+
+  const pushExplorer = (nodeId: string) => {
+    setExplorerTrail((trail) => {
+      if (trail.at(-1) === nodeId) {
+        return trail;
+      }
+      return [...trail, nodeId];
+    });
+  };
+
+  const popExplorer = () => {
+    setExplorerTrail((trail) => (trail.length > 1 ? trail.slice(0, -1) : trail));
+  };
+
+  const closeExplorer = () => {
+    setExplorerTrail([]);
+  };
+
+  const explorerOpen = explorerTrail.length > 0;
 
   return (
     <div className="recap-reader-root union-supergraph-recap-root">
@@ -83,7 +102,7 @@ export function UnionSupergraphRecapProjection({
           <h2>Session focus lens</h2>
           <p>
             Global campaign graph with a Session {payload.focus.focus_session_id?.replace("session-", "") ?? "?"}{" "}
-            focus overlay. Hover recap pills for context; click to pin and navigate adjacency.
+            focus overlay. Hover recap chips for a quick scan; click to expand and crawl suggested connections.
           </p>
         </div>
         <span className="union-supergraph-graph-id">{payload.graph_id ?? "union-supergraph"}</span>
@@ -115,34 +134,28 @@ export function UnionSupergraphRecapProjection({
         scope here. {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} projected.
       </p>
 
-      <div className="recap-reader-layout union-supergraph-layout">
+      <div
+        className={`recap-reader-layout union-supergraph-layout${explorerOpen ? " graph-explorer-open" : ""}`}
+      >
         <article className="recap-reader-document union-supergraph-recap-document" aria-label="Projected recap">
           <ReadOnlyTiptapRecap
             markdown={projectedMarkdown}
             nodeViews={payload.node_views}
-            pinnedNodeId={pinnedNodeId}
-            onSelectNode={setPinnedNodeId}
+            activeNodeId={activeNodeId}
+            onSelectNode={openExplorer}
           />
-          {pinnedNode && pinnedNode.adjacency.length ? (
-            <section
-              className="union-supergraph-adjacency-group"
-              aria-label={`Adjacency from ${pinnedNode.label}`}
-            >
-              <h4>Adjacency from {pinnedNode.label}</h4>
-              <ul className="union-supergraph-adjacency-list">
-                {pinnedNode.adjacency.map((candidate) => (
-                  <GraphNodeAdjacencyRow
-                    key={candidate.edge_id}
-                    candidate={candidate}
-                    onSelect={setPinnedNodeId}
-                    selected={pinnedNodeId === candidate.node_id}
-                  />
-                ))}
-              </ul>
-            </section>
-          ) : null}
         </article>
-        <GraphNodeDetailPanel node={pinnedNode} />
+        {explorerOpen && activeNode ? (
+          <GraphNodeExplorer
+            key={activeNodeId}
+            node={activeNode}
+            nodeViews={payload.node_views}
+            trail={explorerTrail}
+            onBack={popExplorer}
+            onClose={closeExplorer}
+            onExpand={pushExplorer}
+          />
+        ) : null}
       </div>
     </div>
   );

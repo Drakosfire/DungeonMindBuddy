@@ -84,6 +84,16 @@ def test_union_supergraph_projection_api_preserves_focus_and_non_focus_adjacency
     assert mirathorn["source_domains"] == ["worldbuilding"]
 
 
+def test_union_supergraph_projection_api_includes_suggested_expansions() -> None:
+    payload = _get_projection_payload()
+    caelynn = payload["node_views"]["pc_caelynn"]
+
+    assert caelynn["suggested_expansions"]
+    assert caelynn["suggested_expansions"][0]["node_id"] == "event_session_23_mireward_gate"
+    assert caelynn["suggested_expansions"][0]["rank_reason"] == "current session"
+    assert caelynn["suggested_expansions"][1]["node_id"] == "loc_mirathorn"
+
+
 def test_union_supergraph_projection_api_preserves_focus_metadata() -> None:
     payload = _get_projection_payload()
 

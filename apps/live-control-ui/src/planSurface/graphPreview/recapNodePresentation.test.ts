@@ -5,7 +5,8 @@ import { session23UnionSupergraphFixture } from "./unionSupergraphFixture";
 import {
   adjacencyThreadLabel,
   buildRecapNodePresentation,
-  defaultPinnedNodeId,
+  expansionPresentationLabel,
+  expansionRankReasonLabel,
   evidencePlanningText,
   roleClass,
 } from "./recapNodePresentation";
@@ -26,18 +27,18 @@ describe("recapNodePresentation", () => {
     expect(presentation.planningChips.some((chip) => chip.label === "pc")).toBe(true);
     expect(presentation.planningChips.some((chip) => chip.label === "S23")).toBe(true);
     expect(presentation.threadHints[0]?.edgeLabel).toBe("participated in Mireward Gate Incident");
+    expect(presentation.threadHints[0]?.rankReason).toBe("current session");
   });
 
-  it("formats evidence and adjacency labels for planning display", () => {
+  it("formats evidence, adjacency, and expansion labels for planning display", () => {
     const node = session23UnionSupergraphFixture.node_views.pc_caelynn as GraphProjectionNodeView;
     const focusBadge = node.evidence_badges[0];
     const adjacency = node.adjacency[1];
+    const expansion = node.suggested_expansions![0];
 
     expect(evidencePlanningText(focusBadge)).toBe("Held the Mireward gate during the incident");
     expect(adjacencyThreadLabel(adjacency)).toBe("connected to Mirathorn");
-  });
-
-  it("defaults pinned node to focused node or first mention", () => {
-    expect(defaultPinnedNodeId(session23UnionSupergraphFixture)).toBe("pc_caelynn");
+    expect(expansionPresentationLabel(expansion)).toBe("participated in Mireward Gate Incident");
+    expect(expansionRankReasonLabel("current session")).toBe("Current session");
   });
 });

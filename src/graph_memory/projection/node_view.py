@@ -23,6 +23,13 @@ class GraphProjectionAdjacencyCandidate(BaseModel):
     session_ids: list[str] = Field(default_factory=list)
 
 
+class GraphProjectionSuggestedExpansion(GraphProjectionAdjacencyCandidate):
+    """Ranked adjacent node recommended for graph crawl / expansion."""
+
+    rank: int = 1
+    rank_reason: str = "connected thread"
+
+
 class GraphProjectionNodeView(BaseModel):
     """Projection-ready view of a global node."""
 
@@ -36,5 +43,8 @@ class GraphProjectionNodeView(BaseModel):
     source_domains: list[str] = Field(default_factory=list)
     evidence_badges: list[GraphProjectionEvidenceBadge] = Field(default_factory=list)
     adjacency: list[GraphProjectionAdjacencyCandidate] = Field(default_factory=list)
+    suggested_expansions: list[GraphProjectionSuggestedExpansion] = Field(
+        default_factory=list
+    )
     anchored_to_focus_session: bool = False
     summary: str | None = None

@@ -4,13 +4,13 @@ import type { GraphProjectionNodeView } from "../../api/types";
 
 export interface RecapGraphNodeRuntimeState {
   nodeViews: Record<string, GraphProjectionNodeView>;
-  pinnedNodeId: string | null;
+  activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
 }
 
 const defaultState: RecapGraphNodeRuntimeState = {
   nodeViews: {},
-  pinnedNodeId: null,
+  activeNodeId: null,
   onSelectNode: () => undefined,
 };
 

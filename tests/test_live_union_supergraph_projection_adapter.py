@@ -103,6 +103,8 @@ def test_adapter_builds_two_session_preview_source() -> None:
     assert projection.markdown
     assert "[Lysandro](dmb-node:character_lysandro)" in projection.markdown
     assert lysandro.anchored_to_focus_session is True
+    assert lysandro.suggested_expansions
+    assert lysandro.suggested_expansions[0].rank == 1
     assert any(
         badge.evidence_ref_id.startswith("evidence:session-22:")
         and not badge.is_focus_session_evidence
