@@ -624,6 +624,9 @@ export type RecapIngestOperation =
   | "build_frontmatter_seed"
   | "run_breadcrumb_ingest"
   | "materialize_session_memory"
+  | "build_graph_preview_bundle"
+  | "materialize_preview_supergraph"
+  | "inspect_graph_preview"
   | "inspect_status"
   | "reconcile_normalized_recap";
 
@@ -638,6 +641,23 @@ export interface RecapIngestRequest {
   force_stage?: boolean;
   force_recap?: boolean;
   check?: boolean;
+  candidate_graph_path?: string;
+  force_graph_run?: boolean;
+}
+
+export interface RecapGraphPreviewReport {
+  status: string;
+  run_dir?: string | null;
+  manifest_path?: string | null;
+  candidate_graph_path?: string | null;
+  preview_union_store_path?: string | null;
+  preview_union_store_valid?: boolean | null;
+  node_count?: number;
+  edge_count?: number;
+  evidence_ref_count?: number;
+  next_actions?: string[];
+  can_open_union_graph?: boolean;
+  blocked_reason?: string | null;
 }
 
 export interface NormalizedRecapCandidate {

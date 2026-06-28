@@ -261,7 +261,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
-    expect(screen.getByRole("button", { name: "Run full ingest" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeDisabled();
     expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
   });
 
@@ -363,7 +363,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
       expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0),
@@ -379,7 +379,7 @@ describe("IngestionModule", () => {
       "materialize_session_memory",
     ]);
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getByText("Complete: session memory is ready for planning activation.")).toBeInTheDocument();
+    expect(screen.getByText("Complete: recap memory is generated. Review the rendered recap and proof artifacts.")).toBeInTheDocument();
     expect(screen.getByText("records: 10")).toBeInTheDocument();
   });
 
@@ -446,7 +446,7 @@ describe("IngestionModule", () => {
     expect(screen.getByText("records: 3")).toBeInTheDocument();
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "build_frontmatter_seed", session: 23 })),
@@ -565,6 +565,99 @@ describe("IngestionModule", () => {
       ),
     );
     expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0);
+  });
+
+
+  it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized"],
+        });
+      }
+      if (body.operation === "build_graph_preview_bundle") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "graph_source_bundle_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "source_span_bundle_ready",
+              manifest_path: "out/graph_memory/runs/longmont-c2/session-22/run/graph_ingest_run_manifest.json",
+              blocked_reason: "Graph source bundle ready. Candidate graph extraction is not wired yet.",
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Build Graph Preview" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ operation: "build_graph_preview_bundle", session: 22 }),
+      ),
+    );
+    expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction is not wired yet.").length).toBeGreaterThan(0);
+  });
+
+  it("submits materialize_preview_supergraph with a candidate graph path", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized"],
+        });
+      }
+      if (body.operation === "materialize_preview_supergraph") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "preview_union_store_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              candidate_graph_path: "out/candidate.json",
+              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+              can_open_union_graph: true,
+              node_count: 2,
+              edge_count: 1,
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: "materialize_preview_supergraph",
+          session: 22,
+          candidate_graph_path: "out/candidate.json",
+        }),
+      ),
+    );
+    expect(screen.getByText("status: preview_union_store_ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Graph Preview" })).toBeEnabled();
   });
 
   it("keeps file replacement controls behind explicit advanced disclosure", async () => {
