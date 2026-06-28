@@ -238,6 +238,50 @@ def test_projection_from_graph_run_manifest_does_not_require_projection_locator(
     assert projection.session_id == "session-24"
 
 
+def test_adapter_rejects_store_with_recap_path_outside_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    _mutate_preview_store_recap_artifact(
+        result.preview_union_store_path,
+        recap_path=str(_existing_path_outside_root(tmp_path)),
+    )
+
+    with pytest.raises(ValueError, match="path is outside repo root"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=result.manifest_path,
+        )
+
+
+def test_adapter_rejects_store_with_ingest_input_path_outside_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    bundle_path = tmp_path / "runs" / "candidate_ready" / "malicious_bundle.json"
+    bundle_path.write_text(
+        json.dumps(
+            {
+                "source": {
+                    "input_path_record": str(_existing_path_outside_root(tmp_path))
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    _mutate_preview_store_recap_artifact(
+        result.preview_union_store_path,
+        recap_path=None,
+        ingest_run_bundle_uri=bundle_path.relative_to(tmp_path).as_posix(),
+    )
+
+    with pytest.raises(ValueError, match="path is outside repo root"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=result.manifest_path,
+        )
+
+
 def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     manifest_path = _candidate_ready_manifest(tmp_path, monkeypatch)
     return materialize_preview_union_store_from_graph_ingest_run(
@@ -267,6 +311,35 @@ def _candidate_ready_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
     return result.manifest_path
+
+
+def _mutate_preview_store_recap_artifact(
+    store_path: Path,
+    *,
+    recap_path: str | None,
+    ingest_run_bundle_uri: str | None = None,
+) -> None:
+    store = json.loads(store_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in store["source_artifacts"].values()
+        if item.get("source_domain") == "recap"
+        and item.get("session_id") == "session-24"
+    )
+    if recap_path is None:
+        artifact.pop("recap_path", None)
+    else:
+        artifact["recap_path"] = recap_path
+    if ingest_run_bundle_uri is not None:
+        artifact["ingest_run_bundle_uri"] = ingest_run_bundle_uri
+    store_path.write_text(json.dumps(store), encoding="utf-8")
+
+
+def _existing_path_outside_root(root: Path) -> Path:
+    candidate = Path("/etc/passwd")
+    if candidate.exists():
+        return candidate
+    return root.parent
 
 
 def _patch_adapter_repo_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:

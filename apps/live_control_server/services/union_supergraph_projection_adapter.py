@@ -174,20 +174,20 @@ def _load_focus_recap_markdown_from_store(
     if recap_artifact is None:
         return None
 
-    root = repo_root()
+    root = repo_root().resolve()
     recap_path = getattr(recap_artifact, "recap_path", None)
     if recap_path:
-        path = Path(str(recap_path).replace("\\", "/"))
-        if not path.is_absolute():
-            path = root / path
+        path = _resolve_repo_contained_path(Path(str(recap_path)), root)
         return _strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
     if not recap_artifact.ingest_run_bundle_uri:
         return None
-    manifest_path = root / recap_artifact.ingest_run_bundle_uri
+    manifest_path = _resolve_repo_contained_path(
+        Path(str(recap_artifact.ingest_run_bundle_uri)), root
+    )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    input_path = Path(str(manifest["source"]["input_path_record"]).replace("\\", "/"))
-    if not input_path.is_absolute():
-        input_path = root / input_path
+    input_path = _resolve_repo_contained_path(
+        Path(str(manifest["source"]["input_path_record"])), root
+    )
     return _strip_yaml_frontmatter(input_path.read_text(encoding="utf-8"))
 
 

@@ -239,6 +239,27 @@ def test_api_rejects_unsafe_graph_run_manifest_path(
     assert "unsafe repo-contained path" in response.json()["detail"]
 
 
+def test_api_rejects_store_with_recap_path_outside_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    _mutate_preview_store_recap_artifact(
+        result.preview_union_store_path,
+        recap_path=str(_existing_path_outside_root(tmp_path)),
+    )
+
+    response = _client().get(
+        "/api/live/graph-preview/union-supergraph/projection",
+        params={
+            "session_id": "session-24",
+            "graph_run_manifest_path": str(result.manifest_path),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "path is outside repo root" in response.json()["detail"]
+
+
 def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(adapter_module, "repo_root", lambda: tmp_path)
@@ -263,3 +284,26 @@ def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     return materialize_preview_union_store_from_graph_ingest_run(
         PreviewUnionMaterializeOptions(manifest_path=runner_result.manifest_path)
     )
+
+
+def _mutate_preview_store_recap_artifact(
+    store_path: Path,
+    *,
+    recap_path: str,
+) -> None:
+    store = json.loads(store_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in store["source_artifacts"].values()
+        if item.get("source_domain") == "recap"
+        and item.get("session_id") == "session-24"
+    )
+    artifact["recap_path"] = recap_path
+    store_path.write_text(json.dumps(store), encoding="utf-8")
+
+
+def _existing_path_outside_root(root: Path) -> Path:
+    candidate = Path("/etc/passwd")
+    if candidate.exists():
+        return candidate
+    return root.parent
