@@ -65,7 +65,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByText(/preparing Session 23 · ingesting Session 21/i)).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Plan tools" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
   });

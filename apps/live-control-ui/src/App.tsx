@@ -11,6 +11,7 @@ import type {
   SurfaceLayout,
   SurfaceModuleDefinition,
 } from "./api/types";
+import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
@@ -226,14 +227,19 @@ function LiveControlApp() {
 
 export function App() {
   const route = currentRoute();
+  let content;
   if (route === "index") {
-    return (
+    content = (
       <AppChrome activeRoute="index">
         <MirewardIndex />
       </AppChrome>
     );
+  } else if (route === "tiptap-callout-spike") {
+    content = <TiptapSpikeRoute />;
+  } else if (route === "plan") {
+    content = <PlanSurfacePage />;
+  } else {
+    content = <LiveControlApp />;
   }
-  if (route === "tiptap-callout-spike") return <TiptapSpikeRoute />;
-  if (route === "plan") return <PlanSurfacePage />;
-  return <LiveControlApp />;
+  return <AgentInteractionProvider>{content}</AgentInteractionProvider>;
 }
