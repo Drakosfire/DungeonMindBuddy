@@ -1,0 +1,69 @@
+{
+  "schema": "dmb_graph_ingest_run_manifest_v0",
+  "version": "0.1",
+  "run_id": "graph-ingest:longmont-c2:session-24:2026-06-28T120000Z",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-24",
+  "status": "ready_for_projection",
+  "created_at": "2026-06-28T12:00:00Z",
+  "updated_at": "2026-06-28T12:05:00Z",
+  "source": {
+    "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+    "source_domain": "recap",
+    "normalized_recap_path": "corpus/longmont-c2/session-24/normalized_recap.md",
+    "normalized_recap_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "source_label": "Session 24 - Example Title",
+    "source_span_bundle_uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/source_spans",
+    "source_span_index_uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/source_span_index.json",
+    "provenance_index_uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/provenance_index.json"
+  },
+  "steps": [
+    {"id": "stage_or_select_source", "label": "Stage or select source", "state": "complete", "artifact_refs": []},
+    {"id": "build_source_span_bundle", "label": "Build source-span bundle", "state": "complete", "artifact_refs": []},
+    {"id": "run_graph_extraction", "label": "Run graph extraction", "state": "complete", "artifact_refs": []},
+    {"id": "validate_candidate_graph", "label": "Validate candidate graph", "state": "complete", "summary": "Candidate graph validated with no promoted lifecycle states.", "artifact_refs": [{"kind": "candidate_validation_report", "uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/candidate_validation_report.json", "schema": "dmb_candidate_validation_report_v0", "sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "exists": true, "preview_only": true}]},
+    {"id": "build_preview_union_store", "label": "Build preview union store", "state": "complete", "artifact_refs": []},
+    {"id": "load_projection", "label": "Load projection", "state": "complete", "artifact_refs": []}
+  ],
+  "artifacts": {
+    "candidate_graph": {"kind": "candidate_graph", "uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/candidate_graph.json", "schema": "dmb_candidate_graph_preview_ir_v0", "sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "exists": true, "preview_only": true},
+    "preview_union_store": {"kind": "preview_union_store", "uri": "evals/graph_memory_layer/runs/graph_ingest/session_24/preview_union_supergraph.json", "schema": "dmb_union_supergraph_store_v0", "sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "exists": true, "preview_only": true}
+  },
+  "health": {
+    "candidate_graph_valid": true,
+    "preview_union_store_valid": true,
+    "node_count": 12,
+    "edge_count": 18,
+    "beat_count": 6,
+    "ignored_count": 2,
+    "deferred_count": 1,
+    "evidence_ref_count": 31,
+    "resolvable_evidence_ref_count": 31,
+    "openable_evidence_ref_count": 31,
+    "highlightable_evidence_ref_count": 28,
+    "model_id": "gpt-5.4-mini",
+    "estimated_cost_usd": 0.14
+  },
+  "diagnostics": {
+    "preview_only": true,
+    "candidate_extraction": true,
+    "preview_import": true,
+    "canon_promotion": false,
+    "approved_memory_write": false,
+    "corpus_mutation": false,
+    "production_retrieval": false,
+    "agent_interaction_connected": false,
+    "runtime_projection_connected": false
+  },
+  "projection": {
+    "projection_ready": true,
+    "projection_endpoint": "/api/live/graph-preview/union-supergraph/projection",
+    "query": {
+      "session_id": "session-24",
+      "preview_union_store_path": "evals/graph_memory_layer/runs/graph_ingest/session_24/preview_union_supergraph.json"
+    }
+  },
+  "warnings": [],
+  "errors": [],
+  "next_actions": ["review_preview_projection"]
+}
