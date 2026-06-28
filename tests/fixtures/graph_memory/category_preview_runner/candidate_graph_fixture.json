@@ -1,0 +1,21 @@
+{
+  "candidate_nodes": [
+    {"id": "node:mira", "kind": "character", "label": "Mira", "evidence_refs": ["ev:1"]}
+  ],
+  "candidate_edges": [],
+  "session_beats": [
+    {"id": "beat:1", "summary": "Mira plans to ask the archivist about the sigil.", "evidence_refs": ["ev:1"]}
+  ],
+  "ignored_or_deferred_candidates": [],
+  "diagnostics": {
+    "preview_only": true,
+    "canon_promotion": false,
+    "approved_memory_write": false,
+    "corpus_mutation": false,
+    "production_retrieval": false
+  },
+  "source_artifacts": [],
+  "evidence_refs": [
+    {"id": "ev:1", "span_id": "session-24:recap:full_text"}
+  ]
+}
