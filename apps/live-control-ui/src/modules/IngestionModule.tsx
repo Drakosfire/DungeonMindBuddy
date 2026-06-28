@@ -823,8 +823,8 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     },
     {
       id: "graph",
-      label: "Graph",
-      state: workflowStepState(hasPreviewUnionStore || hasGraphSourceBundle, hasMaterialized && !hasPreviewUnionStore && !hasGraphSourceBundle),
+      label: "Graph (advanced)",
+      state: workflowStepState(hasPreviewUnionStore || hasGraphSourceBundle, false),
     },
     {
       id: "prove",
@@ -841,13 +841,10 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     if (state.status === "materializing") return "Working: materializing session memory.";
     if (state.status === "building_graph_preview") return "Working: building the graph source-span preview bundle.";
     if (state.status === "materializing_preview_supergraph") return "Working: materializing the preview union supergraph.";
-    if (hasPreviewUnionStore) return "Complete: open the graph projection from Graph Preview.";
-    if (graphPreview?.status === "candidate_validation_ready") return "Next: materialize preview supergraph.";
-    if (hasGraphSourceBundle) return graphPreview?.blocked_reason || "Graph source bundle ready. Candidate graph extraction is not wired yet.";
-    if (hasMaterialized) return "Next: build graph preview bundle.";
+    if (hasMaterialized) return "Complete: recap memory is generated. Review the rendered recap and proof artifacts.";
     if (!validRecapSession) return "Enter a valid recap/source session number.";
     if (!rawTextSatisfied && !hasUsablePreview) return "Paste raw recap text, then continue to preview.";
-    if (!hasUsablePreview) return "Next: click Run full ingest. This stages, writes, breadcrumbs, and materializes in sequence.";
+    if (!hasUsablePreview) return "Next: click Generate Recap Memory. This stages, writes, breadcrumbs, and materializes in sequence.";
     if (!genericGuardPass) return "Session title is required before saving canon.";
     if (!hasApplied) return "Next: review the preview, then click Apply + Normalize.";
     if (!hasFrontmatterSeed) return "Next: click Build Frontmatter Seed, then review the generated seed.";
@@ -904,7 +901,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       : !rawTextSatisfied && !canResumeFromDisk
         ? "Raw recap text is required to start a new ingest."
         : !validRecapSession
-          ? "Run full ingest needs a valid recap/source session."
+          ? "Generate Recap Memory needs a valid recap/source session."
           : !genericGuardPass
             ? "Session title is required. Use a clear table title, like \"Mireward Gate Battle\"."
             : null;
@@ -1586,7 +1583,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         } under _archive. Exactly one normalized recap remains.`,
         nextSteps: result.states.includes("session_memory_materialized")
           ? []
-          : ["Run full ingest to finish proving this session."],
+          : ["Generate Recap Memory to finish proving this session."],
         sticky: true,
       });
     } catch (error) {
@@ -1739,7 +1736,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                   Running full ingest...
                 </>
               ) : (
-                "Run full ingest"
+                "Generate Recap Memory"
               )}
             </button>
           </div>
@@ -1811,7 +1808,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           </details>
 
           <details className="ingestion-advanced-fold">
-            <summary>Graph dogfood controls</summary>
+            <summary>Advanced graph dogfood</summary>
             <label htmlFor="ingestion-candidate-graph-path">Candidate graph path</label>
             <input
               id="ingestion-candidate-graph-path"
@@ -1822,6 +1819,21 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
             <p className="module-muted">
               Optional preview-only candidate graph artifact. Required for preview union materialization until live graph extraction is wired.
             </p>
+            <div className="ingestion-actions ingestion-manual-actions">
+              <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>
+                {isBuildingGraphPreview ? "Building Graph Preview..." : "Build Graph Preview"}
+              </button>
+              <button type="button" onClick={materializePreviewSupergraph} disabled={!canMaterializePreviewSupergraph}>
+                {isMaterializingPreviewSupergraph ? "Materializing Preview Supergraph..." : "Materialize Preview Supergraph"}
+              </button>
+              <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
+                Open Graph Preview
+              </button>
+            </div>
+            <div className="ingestion-action-explainer">
+              {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}
+              {previewSupergraphDisabledReason ? <p>{previewSupergraphDisabledReason}</p> : null}
+            </div>
           </details>
 
           <details className="ingestion-terminal-fold">
@@ -1883,23 +1895,12 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                   "Materialize Session Memory"
                 )}
               </button>
-              <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>
-                {isBuildingGraphPreview ? "Building Graph Preview..." : "Build Graph Preview"}
-              </button>
-              <button type="button" onClick={materializePreviewSupergraph} disabled={!canMaterializePreviewSupergraph}>
-                {isMaterializingPreviewSupergraph ? "Materializing Preview Supergraph..." : "Materialize Preview Supergraph"}
-              </button>
-              <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
-                Open Graph Preview
-              </button>
             </div>
             <div className="ingestion-action-explainer">
               {applyDisabledReason ? <p>{applyDisabledReason}</p> : null}
               {frontmatterDisabledReason ? <p>{frontmatterDisabledReason}</p> : null}
               {breadcrumbDisabledReason ? <p>{breadcrumbDisabledReason}</p> : null}
               {materializeDisabledReason ? <p>{materializeDisabledReason}</p> : null}
-              {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}
-              {previewSupergraphDisabledReason ? <p>{previewSupergraphDisabledReason}</p> : null}
             </div>
             <pre>
               <code>
@@ -1930,6 +1931,11 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               {hasMaterialized ? "ready" : "draft preview"}
             </span>
           </div>
+          {hasMaterialized ? (
+            <p className="module-muted">
+              Rendered recap ready: <code>{latestResult?.paths?.normalized_recap ?? latestResult?.paths?.canonical_recap ?? "recap path not reported"}</code>
+            </p>
+          ) : null}
 
           {hasNormalizedDuplicates ? (
             <div className="ingestion-reconcile-card" role="alert">

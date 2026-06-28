@@ -261,7 +261,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
-    expect(screen.getByRole("button", { name: "Run full ingest" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeDisabled();
     expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
   });
 
@@ -363,7 +363,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
       expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0),
@@ -379,7 +379,7 @@ describe("IngestionModule", () => {
       "materialize_session_memory",
     ]);
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getByText("Complete: session memory is ready for planning activation.")).toBeInTheDocument();
+    expect(screen.getByText("Complete: recap memory is generated. Review the rendered recap and proof artifacts.")).toBeInTheDocument();
     expect(screen.getByText("records: 10")).toBeInTheDocument();
   });
 
@@ -446,7 +446,7 @@ describe("IngestionModule", () => {
     expect(screen.getByText("records: 3")).toBeInTheDocument();
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "build_frontmatter_seed", session: 23 })),
@@ -597,6 +597,7 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Build Graph Preview" }));
 
@@ -641,7 +642,7 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Graph dogfood controls"));
+    await user.click(screen.getByText("Advanced graph dogfood"));
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
