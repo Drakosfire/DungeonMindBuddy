@@ -44,6 +44,9 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
   const loadLatest = useCallback(async () => {
     setLatestStatus("loading");
     setLatestGraphRunError(null);
+    setProjectionStatus("idle");
+    setProjectionError(null);
+    setUnionProjection(null);
     try {
       const response = await getLatestGraphIngestRun(context.campaignId, sessionId);
       setLatestGraphRun(response.run);
@@ -66,9 +69,6 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
 
   useEffect(() => {
     void loadLatest();
-    setProjectionStatus("idle");
-    setProjectionError(null);
-    setUnionProjection(null);
   }, [loadLatest]);
 
   const openUnionGraph = async () => {
