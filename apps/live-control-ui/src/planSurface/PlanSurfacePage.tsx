@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getPlanView } from "../api/liveApi";
 import type { PlanViewProjection } from "../api/types";
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AppChrome } from "../chrome/AppChrome";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
@@ -59,8 +60,10 @@ export function PlanSurfacePage() {
   }
 
   return (
-    <AppChrome activeRoute="plan">
-      <PlanSurfaceShell planView={planView} />
-    </AppChrome>
+    <AgentInteractionProvider>
+      <AppChrome activeRoute="plan">
+        <PlanSurfaceShell planView={planView} />
+      </AppChrome>
+    </AgentInteractionProvider>
   );
 }
