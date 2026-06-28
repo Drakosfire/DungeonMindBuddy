@@ -19,6 +19,10 @@ export type MarkdownImportResult = {
   diagnostics: MarkdownImportDiagnostic[];
 };
 
+export type MarkdownImportOptions = {
+  parseGraphNodeLinks?: boolean;
+};
+
 type TiptapNode = {
   type: string;
   attrs?: Record<string, unknown>;
@@ -27,6 +31,7 @@ type TiptapNode = {
 };
 
 const typedReferencePattern = /\[([^\]]+)\]\(#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_-]*)\)/g;
+const graphNodeReferencePattern = /\[([^\]]+)\]\(dmb-node:([^)]+)\)/g;
 const headingPattern = /^(#{1,3})\s+(.+)$/;
 const bulletListPattern = /^-\s+(.+)$/;
 const orderedListPattern = /^(\d+)[.)]\s+(.+)$/;
@@ -36,23 +41,45 @@ function textNode(text: string): TiptapNode | null {
   return text ? { type: "text", text } : null;
 }
 
-function parseInlineContent(text: string): unknown[] {
+function parseInlineContent(text: string, options: MarkdownImportOptions = {}): unknown[] {
+  const matches = [
+    ...[...text.matchAll(typedReferencePattern)].map((match) => ({
+      match,
+      index: match.index ?? 0,
+      length: match[0].length,
+      kind: "runbook" as const,
+    })),
+    ...(options.parseGraphNodeLinks
+      ? [...text.matchAll(graphNodeReferencePattern)].map((match) => ({
+        match,
+        index: match.index ?? 0,
+        length: match[0].length,
+        kind: "graphNode" as const,
+      }))
+      : []),
+  ].sort((left, right) => left.index - right.index);
+
   const content: unknown[] = [];
   let lastIndex = 0;
 
-  for (const match of text.matchAll(typedReferencePattern)) {
-    const index = match.index ?? 0;
-    const leading = textNode(text.slice(lastIndex, index));
+  for (const item of matches) {
+    if (item.index < lastIndex) continue;
+    const leading = textNode(text.slice(lastIndex, item.index));
     if (leading) content.push(leading);
 
-    const [, label, kind, refType, refId] = match;
-    const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs({ kind, refType, refId, label } as RunbookReferenceAttrs);
-    if (isSupportedRunbookReference(attrs)) {
-      content.push({ type: "runbookReference", attrs });
+    if (item.kind === "graphNode") {
+      const [, label, nodeId] = item.match;
+      content.push({ type: "graphNodeReference", attrs: { nodeId, label } });
     } else {
-      content.push({ type: "text", text: match[0] });
+      const [, label, kind, refType, refId] = item.match;
+      const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs({ kind, refType, refId, label } as RunbookReferenceAttrs);
+      if (isSupportedRunbookReference(attrs)) {
+        content.push({ type: "runbookReference", attrs });
+      } else {
+        content.push({ type: "text", text: item.match[0] });
+      }
     }
-    lastIndex = index + match[0].length;
+    lastIndex = item.index + item.length;
   }
 
   const trailing = textNode(text.slice(lastIndex));
@@ -60,12 +87,12 @@ function parseInlineContent(text: string): unknown[] {
   return content;
 }
 
-function paragraph(text: string): TiptapNode {
-  return { type: "paragraph", content: parseInlineContent(text) };
+function paragraph(text: string, options: MarkdownImportOptions = {}): TiptapNode {
+  return { type: "paragraph", content: parseInlineContent(text, options) };
 }
 
-function listItem(text: string): TiptapNode {
-  return { type: "listItem", content: [paragraph(text)] };
+function listItem(text: string, options: MarkdownImportOptions = {}): TiptapNode {
+  return { type: "listItem", content: [paragraph(text, options)] };
 }
 
 function isBlank(line: string): boolean {
@@ -79,7 +106,7 @@ function isBlockStart(line: string): boolean {
     || orderedListPattern.test(line);
 }
 
-function parseCalloutBody(lines: string[]): unknown[] {
+function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}): unknown[] {
   const content: unknown[] = [];
   let index = 0;
 
@@ -95,7 +122,7 @@ function parseCalloutBody(lines: string[]): unknown[] {
       while (index < lines.length) {
         const item = lines[index].match(bulletListPattern);
         if (!item) break;
-        items.push(listItem(item[1]));
+        items.push(listItem(item[1], options));
         index += 1;
       }
       content.push({ type: "bulletList", content: items });
@@ -109,7 +136,7 @@ function parseCalloutBody(lines: string[]): unknown[] {
       while (index < lines.length) {
         const item = lines[index].match(orderedListPattern);
         if (!item) break;
-        items.push(listItem(item[2]));
+        items.push(listItem(item[2], options));
         index += 1;
       }
       content.push({ type: "orderedList", attrs: { start }, content: items });
@@ -121,13 +148,13 @@ function parseCalloutBody(lines: string[]): unknown[] {
       paragraphLines.push(lines[index]);
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(" ").trim()));
+    content.push(paragraph(paragraphLines.join(" ").trim(), options));
   }
 
   return content.length > 0 ? content : [paragraph("")];
 }
 
-export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
+export function markdownToTiptapDoc(markdown: string, options: MarkdownImportOptions = {}): MarkdownImportResult {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const content: unknown[] = [];
   const diagnostics: MarkdownImportDiagnostic[] = [];
@@ -143,7 +170,7 @@ export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
 
     const heading = line.match(headingPattern);
     if (heading) {
-      content.push({ type: "heading", attrs: { level: heading[1].length }, content: parseInlineContent(heading[2].trim()) });
+      content.push({ type: "heading", attrs: { level: heading[1].length }, content: parseInlineContent(heading[2].trim(), options) });
       index += 1;
       continue;
     }
@@ -160,7 +187,7 @@ export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
       content.push({
         type: "callout",
         attrs: { kind: normalizeCalloutKind(marker), ...(rawLabel.trim() ? { label: rawLabel.trim() } : {}) },
-        content: parseCalloutBody(bodyLines),
+        content: parseCalloutBody(bodyLines, options),
       });
       continue;
     }
@@ -171,7 +198,7 @@ export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
       while (index < lines.length) {
         const item = lines[index].match(bulletListPattern);
         if (!item) break;
-        items.push(listItem(item[1]));
+        items.push(listItem(item[1], options));
         index += 1;
       }
       content.push({ type: "bulletList", content: items });
@@ -185,7 +212,7 @@ export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
       while (index < lines.length) {
         const item = lines[index].match(orderedListPattern);
         if (!item) break;
-        items.push(listItem(item[2]));
+        items.push(listItem(item[2], options));
         index += 1;
       }
       content.push({ type: "orderedList", attrs: { start }, content: items });
@@ -201,7 +228,7 @@ export function markdownToTiptapDoc(markdown: string): MarkdownImportResult {
       paragraphLines.push(lines[index].trim());
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(" ").trim()));
+    content.push(paragraph(paragraphLines.join(" ").trim(), options));
   }
 
   return { doc: { type: "doc", content }, diagnostics };

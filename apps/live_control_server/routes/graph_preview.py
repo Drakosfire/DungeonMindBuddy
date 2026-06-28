@@ -98,13 +98,15 @@ def get_graph_preview_latest(
 def get_union_supergraph_projection(
     session_id: Annotated[str, Query()],
     store_path: Annotated[str | None, Query()] = None,
+    preview_source: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
         return build_plan_union_supergraph_projection_payload(
             session_id=session_id,
             store_path=Path(store_path) if store_path else None,
+            preview_source=preview_source,
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 

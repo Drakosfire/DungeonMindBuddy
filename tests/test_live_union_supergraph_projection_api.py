@@ -20,6 +20,7 @@ def test_union_supergraph_projection_api_returns_session_23_payload() -> None:
         "campaign_id",
         "session_id",
         "graph_id",
+        "markdown",
         "focus",
         "node_views",
         "mentions",
@@ -35,6 +36,16 @@ def test_union_supergraph_projection_api_contains_global_pc_caelynn() -> None:
     assert caelynn["kind"] == "pc"
     assert caelynn["role"] == "pc"
     assert caelynn["anchored_to_focus_session"] is True
+
+
+def test_union_supergraph_projection_api_returns_projected_recap_markdown() -> None:
+    payload = _get_projection_payload()
+
+    assert payload["markdown"]
+    assert not payload["markdown"].lstrip().startswith("---")
+    assert "[Caelynn](dmb-node:pc_caelynn)" in payload["markdown"]
+    assert payload["mentions"]
+    assert any(mention["node_id"] == "pc_caelynn" for mention in payload["mentions"])
 
 
 def test_union_supergraph_projection_api_preserves_focus_and_non_focus_evidence() -> None:

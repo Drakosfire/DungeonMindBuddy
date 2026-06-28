@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from apps.live_control_server.services.union_supergraph_projection_adapter import (
+    TWO_SESSION_PREVIEW_SOURCE,
     build_plan_union_supergraph_projection,
     build_plan_union_supergraph_projection_payload,
 )
@@ -89,6 +90,39 @@ def test_adapter_accepts_explicit_store_path() -> None:
     )
 
     assert projection.node_views["pc_caelynn"].node_id == "pc_caelynn"
+
+
+def test_adapter_builds_two_session_preview_source() -> None:
+    projection = build_plan_union_supergraph_projection(
+        session_id="session-23",
+        preview_source=TWO_SESSION_PREVIEW_SOURCE,
+    )
+    lysandro = projection.node_views["character_lysandro"]
+
+    assert projection.graph_id == "longmont-c2:preview-union-supergraph"
+    assert projection.markdown
+    assert "[Lysandro](dmb-node:character_lysandro)" in projection.markdown
+    assert lysandro.anchored_to_focus_session is True
+    assert any(
+        badge.evidence_ref_id.startswith("evidence:session-22:")
+        and not badge.is_focus_session_evidence
+        for badge in lysandro.evidence_badges
+    )
+    assert any(
+        badge.evidence_ref_id.startswith("evidence:session-23:")
+        and badge.is_focus_session_evidence
+        for badge in lysandro.evidence_badges
+    )
+
+
+def test_adapter_preview_payload_is_json_safe() -> None:
+    payload = build_plan_union_supergraph_projection_payload(
+        session_id="session-23",
+        preview_source=TWO_SESSION_PREVIEW_SOURCE,
+    )
+
+    assert payload["node_views"]["character_lysandro"]["anchored_to_focus_session"] is True
+    assert _is_json_safe(payload)
 
 
 def test_adapter_raises_for_missing_store_path(tmp_path: Path) -> None:

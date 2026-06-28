@@ -1400,3 +1400,63 @@ export interface RecapGraphPresentationResponse {
   nodes: Record<string, RecapGraphNode>;
   links: RecapGraphLink[];
 }
+
+export interface GraphFocusOverlay {
+  focus_session_id?: string | null;
+  focused_evidence_ref_ids: string[];
+  focused_edge_ids: string[];
+  focused_node_ids: string[];
+}
+
+export interface GraphProjectionEvidenceBadge {
+  evidence_ref_id: string;
+  source_artifact_id: string;
+  source_domain: string;
+  evidence_role: string;
+  is_focus_session_evidence: boolean;
+  can_open_source: boolean;
+  can_highlight_span: boolean;
+  label?: string | null;
+}
+
+export interface GraphProjectionAdjacencyCandidate {
+  edge_id: string;
+  node_id: string;
+  label: string;
+  kind: string;
+  predicate: string;
+  direction: string;
+  anchored_to_focus_session: boolean;
+  source_domains: string[];
+  evidence_ref_ids: string[];
+}
+
+export interface GraphProjectionNodeView {
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  aliases: string[];
+  source_domains: string[];
+  evidence_badges: GraphProjectionEvidenceBadge[];
+  adjacency: GraphProjectionAdjacencyCandidate[];
+  anchored_to_focus_session: boolean;
+  summary?: string | null;
+}
+
+export interface UnionSupergraphProjectionResponse {
+  campaign_id: string;
+  session_id: string;
+  graph_id?: string | null;
+  markdown?: string | null;
+  focus: GraphFocusOverlay;
+  node_views: Record<string, GraphProjectionNodeView>;
+  mentions: Array<{
+    mention_id: string;
+    node_id: string;
+    label: string;
+    start_offset?: number | null;
+    end_offset?: number | null;
+    evidence_ref_ids: string[];
+  }>;
+}

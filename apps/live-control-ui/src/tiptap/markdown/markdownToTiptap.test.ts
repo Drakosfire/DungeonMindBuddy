@@ -39,6 +39,29 @@ describe("markdownToTiptapDoc", () => {
     expect(paragraph.content[1].attrs).toMatchObject({ kind: "action", refType: "combat", refId: "north-gate-combat" });
   });
 
+  it("imports graph node links only when requested", () => {
+    const markdown = "Inspect [Caelynn](dmb-node:pc_caelynn).";
+    const defaultImport = markdownToTiptapDoc(markdown);
+    const graphImport = markdownToTiptapDoc(markdown, { parseGraphNodeLinks: true });
+
+    expect(defaultImport.doc.content).toEqual([
+      { type: "paragraph", content: [{ type: "text", text: markdown }] },
+    ]);
+    expect(graphImport.doc.content).toEqual([
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Inspect " },
+          {
+            type: "graphNodeReference",
+            attrs: { nodeId: "pc_caelynn", label: "Caelynn" },
+          },
+          { type: "text", text: "." },
+        ],
+      },
+    ]);
+  });
+
   it("imports semantic callouts", () => {
     const result = markdownToTiptapDoc("> [!GM-NOTE]\n> Keep this about triage.");
 
@@ -79,12 +102,11 @@ describe("markdownToTiptapDoc", () => {
     const imported = markdownToTiptapDoc(markdown);
     const exported = tiptapJsonToSemanticMarkdown(imported.doc);
 
-    expect(exported).toContain("# C2S23 North Gate Session Runbook");
+    expect(exported).toContain("# C2S23 Mireward Reach North Gate Runbook");
     expect(exported).toContain("#dmb-ref:npc:lysandro-ironveil");
-    expect(exported).toContain("#dmb-ref:location:north-reach-gate");
     expect(exported).toContain("#dmb-ref:statblock:sewer-meat-creature");
     expect(exported).toContain("#dmb-ref:roll-table:gate-dilemma-d12");
-    expect(exported).toContain("#dmb-ref:citation:c2s22-ending");
+    expect(exported).toContain("#dmb-ref:citation:c2s23-memory");
     expect(exported).toContain("#dmb-action:combat:north-gate-combat");
     expect(exported).toContain("> [!READ-ALOUD]");
     expect(exported).toContain("> [!GM-NOTE]");

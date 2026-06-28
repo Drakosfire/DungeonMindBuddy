@@ -58,9 +58,13 @@ import type {
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
+  UnionSupergraphProjectionResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+const defaultUnionSupergraphPreviewSource =
+  (import.meta.env.VITE_UNION_SUPERGRAPH_PREVIEW_SOURCE as string | undefined)?.trim() ||
+  "s22-anchor-quote-n3-s23-gold";
 
 /** Repo-relative path passed to POST /api/live/query for context_lookup grounding. */
 export const DEFAULT_PLANNING_MANIFEST_PATH =
@@ -176,6 +180,17 @@ export async function getRecapGraphPresentation(
 ): Promise<RecapGraphPresentationResponse> {
   return apiFetch<RecapGraphPresentationResponse>(
     `/api/live/graph-preview/recap${recapGraphQueryString(query)}`,
+  );
+}
+
+export async function getUnionSupergraphProjection(
+  sessionId: string,
+  previewSource = defaultUnionSupergraphPreviewSource,
+): Promise<UnionSupergraphProjectionResponse> {
+  const params = new URLSearchParams({ session_id: sessionId });
+  if (previewSource) params.set("preview_source", previewSource);
+  return apiFetch<UnionSupergraphProjectionResponse>(
+    `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
   );
 }
 

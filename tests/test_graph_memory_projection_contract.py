@@ -108,6 +108,23 @@ def test_build_recap_graph_projection_returns_backend_neutral_payload(
     assert projection.mentions == []
 
 
+def test_build_recap_graph_projection_projects_markdown_mentions(
+    store: UnionSupergraphStore,
+) -> None:
+    projection = build_recap_graph_projection(
+        store,
+        session_id="session-23",
+        markdown="Caelynn looked toward Mirathorn.",
+    )
+
+    assert "[Caelynn](dmb-node:pc_caelynn)" in (projection.markdown or "")
+    assert "[Mirathorn](dmb-node:loc_mirathorn)" in (projection.markdown or "")
+    assert [mention.node_id for mention in projection.mentions] == [
+        "pc_caelynn",
+        "loc_mirathorn",
+    ]
+
+
 def test_recap_projection_contains_global_pc_caelynn_node_view(
     store: UnionSupergraphStore,
 ) -> None:
