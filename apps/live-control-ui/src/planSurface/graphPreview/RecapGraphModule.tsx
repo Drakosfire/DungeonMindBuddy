@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  LiveApiError,
+  getDefaultUnionSupergraphProjection,
   getGraphPreviewRuns,
   getRecapArtifacts,
   getRecapGraphPresentation,
@@ -22,6 +24,11 @@ import {
 
 type LoadStatus = "loading" | "ready" | "error";
 type RecapMode = "union-supergraph" | "legacy";
+export type RecapProjectionSource =
+  | "latest-graph-ingest"
+  | "default-preview-source"
+  | "legacy"
+  | "unavailable";
 
 interface RecapGraphModuleProps {
   context: PlanContextDescriptor;
@@ -29,43 +36,85 @@ interface RecapGraphModuleProps {
 
 const DOGFOOD_SESSION_OPTIONS = ["session-21", "session-22", "session-23"];
 
-export function RecapGraphModule({ context }: RecapGraphModuleProps) {
-  const defaultSessionId = `session-${context.ingestSession}`;
-  const sessionOptions = useMemo(() => {
-    const options = new Set(DOGFOOD_SESSION_OPTIONS);
-    options.add(defaultSessionId);
-    return [...options].sort((left, right) => {
-      const leftNum = Number.parseInt(left.replace("session-", ""), 10);
-      const rightNum = Number.parseInt(right.replace("session-", ""), 10);
-      return leftNum - rightNum;
-    });
-  }, [defaultSessionId]);
+function requestedSessionFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const session = new URLSearchParams(window.location.search).get("session")?.trim();
+  return session || null;
+}
 
+function isExpectedProjectionMiss(error: unknown): boolean {
+  return error instanceof LiveApiError && (error.status === 400 || error.status === 404);
+}
+
+export function RecapGraphModule({ context }: RecapGraphModuleProps) {
+  const defaultSessionId = requestedSessionFromLocation() ?? `session-${context.ingestSession}`;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<RecapMode>("union-supergraph");
   const [unionPayload, setUnionPayload] = useState<UnionSupergraphProjectionResponse | null>(null);
   const [legacyPayload, setLegacyPayload] = useState<RecapGraphPresentationResponse | null>(null);
+  const [projectionSource, setProjectionSource] = useState<RecapProjectionSource>("unavailable");
   const [runs, setRuns] = useState<GraphPreviewRunSummary[]>([]);
   const [selectedRunDir, setSelectedRunDir] = useState("");
   const [pinnedNodeId, setPinnedNodeId] = useState<string | null>(null);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
 
+  const sessionOptions = useMemo(() => {
+    const options = new Set(sessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
+    options.add(`session-${context.ingestSession}`);
+    options.add(defaultSessionId);
+    sessionRecords.forEach((record) => options.add(record.session_id));
+    return [...options].sort((left, right) => {
+      const leftNum = Number.parseInt(left.replace("session-", ""), 10);
+      const rightNum = Number.parseInt(right.replace("session-", ""), 10);
+      return leftNum - rightNum;
+    });
+  }, [context.ingestSession, defaultSessionId, sessionRecords]);
+
+
   const loadUnionProjection = useCallback(async (sessionId = selectedSessionId) => {
     setStatus("loading");
     setError(null);
+    setPinnedNodeId(null);
     try {
-      const projection = await getUnionSupergraphProjection(sessionId);
+      const projection = await getUnionSupergraphProjection({
+        campaignId: context.campaignId,
+        sessionId,
+        useLatestGraphIngest: true,
+      });
       setUnionPayload(projection);
+      setProjectionSource("latest-graph-ingest");
       setMode("union-supergraph");
       setStatus("ready");
-    } catch (loadError) {
+      return;
+    } catch (latestError) {
+      if (!isExpectedProjectionMiss(latestError)) {
+        setUnionPayload(null);
+        setProjectionSource("unavailable");
+        setError(latestError instanceof Error ? latestError.message : "Failed to load latest graph-ingest projection");
+        setStatus("error");
+        return;
+      }
+    }
+
+    try {
+      const projection = await getDefaultUnionSupergraphProjection(sessionId);
+      setUnionPayload(projection);
+      setProjectionSource("default-preview-source");
+      setMode("union-supergraph");
+      setStatus("ready");
+    } catch (fallbackError) {
       setUnionPayload(null);
-      setError(loadError instanceof Error ? loadError.message : "Failed to load union supergraph projection");
+      setProjectionSource("unavailable");
+      setError(
+        fallbackError instanceof Error
+          ? `No union-supergraph projection is available for ${sessionId}. ${fallbackError.message}`
+          : `No union-supergraph projection is available for ${sessionId}.`,
+      );
       setStatus("error");
     }
-  }, [selectedSessionId]);
+  }, [context.campaignId, selectedSessionId]);
 
   const loadLegacyRun = useCallback(async (runDir?: string, sessionId = selectedSessionId) => {
     setStatus("loading");
@@ -88,6 +137,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         }
         return Object.keys(recap.nodes)[0] ?? null;
       });
+      setProjectionSource("legacy");
       setMode("legacy");
       setStatus("ready");
     } catch (loadError) {
@@ -106,8 +156,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         }
         const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
         setSessionRecords(records);
-        const preferred = records.find((record) => record.session_id === defaultSessionId);
-        setSelectedSessionId(preferred?.session_id ?? defaultSessionId);
+        setSelectedSessionId(defaultSessionId || records[0]?.session_id || `session-${context.ingestSession}`);
       })
       .catch(() => {
         if (!cancelled) {
@@ -136,7 +185,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     return (
       <div className="recap-reader-root">
         <p className="graph-preview-error" role="alert">
-          {error ?? "Union supergraph projection unavailable."}
+          {error ?? `No union-supergraph projection is available for ${selectedSessionId}.`}
         </p>
         <button type="button" onClick={() => void loadUnionProjection(selectedSessionId)}>
           Retry
@@ -157,6 +206,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
           setSelectedSessionId(sessionId);
         }}
         sessionOptions={sessionOptions}
+        projectionSource={projectionSource}
         onOpenLegacy={() => {
           void loadLegacyRun(undefined, selectedSessionId);
         }}

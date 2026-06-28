@@ -5,6 +5,22 @@ import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection
 import { session23UnionSupergraphFixture } from "./unionSupergraphFixture";
 
 describe("UnionSupergraphRecapProjection", () => {
+
+  it("labels the latest graph-ingest projection source", () => {
+    render(
+      <UnionSupergraphRecapProjection
+        payload={session23UnionSupergraphFixture}
+        selectedSessionId="session-23"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-23"]}
+        projectionSource="latest-graph-ingest"
+      />,
+    );
+
+    expect(screen.getByText(/Source: latest graph-ingest preview/i)).toBeInTheDocument();
+    expect(screen.getByText(/latest preview union supergraph/i)).toBeInTheDocument();
+  });
+
   it("renders recap without a default static explorer panel", () => {
     render(
       <UnionSupergraphRecapProjection
