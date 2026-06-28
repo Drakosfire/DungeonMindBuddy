@@ -99,15 +99,25 @@ def get_union_supergraph_projection(
     session_id: Annotated[str, Query()],
     store_path: Annotated[str | None, Query()] = None,
     preview_source: Annotated[str | None, Query()] = None,
+    graph_run_manifest_path: Annotated[str | None, Query()] = None,
+    preview_union_store_path: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
         return build_plan_union_supergraph_projection_payload(
             session_id=session_id,
             store_path=Path(store_path) if store_path else None,
             preview_source=preview_source,
+            graph_run_manifest_path=(
+                Path(graph_run_manifest_path) if graph_run_manifest_path else None
+            ),
+            preview_union_store_path=(
+                Path(preview_union_store_path) if preview_union_store_path else None
+            ),
         )
-    except (FileNotFoundError, ValueError) as exc:
+    except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/recap", response_model=RecapGraphPresentationResponse)

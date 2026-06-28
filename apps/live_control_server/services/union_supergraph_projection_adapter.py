@@ -5,6 +5,15 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root
+from graph_memory.ingestion.graph_ingest_run import (
+    GraphIngestArtifactKind,
+    GraphIngestRunManifest,
+    GraphIngestRunStatus,
+)
+from graph_memory.ingestion.graph_ingest_validate import (
+    FORBIDDEN_DIAGNOSTIC_FLAGS,
+    validate_graph_ingest_run_manifest,
+)
 from graph_memory.projection import RecapGraphProjection, build_recap_graph_projection
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -38,18 +47,110 @@ def build_plan_union_supergraph_projection(
     session_id: str,
     store_path: Path | None = None,
     preview_source: str | None = None,
+    graph_run_manifest_path: Path | None = None,
+    preview_union_store_path: Path | None = None,
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
-    if preview_source:
+    if graph_run_manifest_path is not None:
+        store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
+    elif preview_union_store_path is not None:
+        store = load_preview_union_store(preview_union_store_path)
+    elif store_path is not None:
+        store = load_union_supergraph_store(store_path)
+    elif preview_source:
         store = _build_preview_store(preview_source, focus_session_id=session_id)
-        markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
-        return build_recap_graph_projection(store, session_id=session_id, markdown=markdown)
-
-    resolved_store_path = store_path or DEFAULT_FIXTURE_PATH
-    store = load_union_supergraph_store(resolved_store_path)
+    else:
+        store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
     markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
     return build_recap_graph_projection(store, session_id=session_id, markdown=markdown)
+
+
+def load_preview_union_store_from_graph_run_manifest(
+    graph_run_manifest_path: Path,
+) -> Any:
+    """Load a preview-only union-supergraph store referenced by a graph-ingest manifest."""
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = GraphIngestRunManifest.model_validate(manifest_payload)
+    validation = validate_graph_ingest_run_manifest(manifest_payload)
+    non_path_errors = [
+        error
+        for error in validation["errors"]
+        if not (
+            error.startswith("unsafe repo-relative path at $")
+            and _manifest_path_error_is_repo_contained(error, root)
+        )
+    ]
+    if non_path_errors:
+        raise ValueError("invalid graph-ingest manifest: " + "; ".join(non_path_errors))
+    if manifest.status != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY:
+        raise ValueError(
+            "graph-ingest manifest must be preview_union_store_ready, "
+            f"got {manifest.status.value}"
+        )
+    _reject_forbidden_lifecycle_flags(
+        manifest.diagnostics.model_dump(mode="json"), "manifest diagnostics"
+    )
+
+    artifact = manifest.artifacts.get(GraphIngestArtifactKind.PREVIEW_UNION_STORE.value)
+    if artifact is None:
+        raise ValueError("graph-ingest manifest is missing artifacts.preview_union_store")
+    if artifact.preview_only is not True:
+        raise ValueError("artifacts.preview_union_store must be preview_only")
+    store_path = _resolve_repo_contained_path(Path(artifact.uri), root)
+    return load_preview_union_store(store_path)
+
+
+def _manifest_path_error_is_repo_contained(error: str, root: Path) -> bool:
+    _prefix, _separator, value = error.rpartition(": ")
+    if not value:
+        return False
+    try:
+        _resolve_repo_contained_path(Path(value), root)
+    except (FileNotFoundError, ValueError):
+        return False
+    return True
+
+
+def load_preview_union_store(preview_union_store_path: Path) -> Any:
+    root = repo_root().resolve()
+    store_path = _resolve_repo_contained_path(preview_union_store_path, root)
+    payload = json.loads(store_path.read_text(encoding="utf-8"))
+    diagnostics = payload.get("diagnostics")
+    if not isinstance(diagnostics, dict):
+        raise ValueError("preview union store is missing diagnostics")
+    if diagnostics.get("preview_only") is not True:
+        raise ValueError("preview union store diagnostics.preview_only must be true")
+    _reject_forbidden_lifecycle_flags(diagnostics, "preview union store diagnostics")
+    return parse_union_supergraph_store(payload)
+
+
+def _resolve_repo_contained_path(path: Path, root: Path) -> Path:
+    value = str(path).replace("\\", "/")
+    if value.startswith("file:"):
+        raise ValueError(f"unsafe repo-contained path: {path}")
+    if ".." in Path(value).parts:
+        raise ValueError(f"unsafe repo-contained path: {path}")
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"path is outside repo root: {path}") from exc
+    if not resolved.exists():
+        raise FileNotFoundError(f"path does not exist: {path}")
+    return resolved
+
+
+def _reject_forbidden_lifecycle_flags(diagnostics: dict[str, Any], context: str) -> None:
+    for flag in FORBIDDEN_DIAGNOSTIC_FLAGS:
+        if diagnostics.get(flag) is True:
+            raise ValueError(f"forbidden lifecycle flag is true in {context}: {flag}")
 
 
 def _load_focus_recap_markdown(*, session_id: str, store_path: Path) -> str | None:
@@ -73,20 +174,20 @@ def _load_focus_recap_markdown_from_store(
     if recap_artifact is None:
         return None
 
-    root = repo_root()
+    root = repo_root().resolve()
     recap_path = getattr(recap_artifact, "recap_path", None)
     if recap_path:
-        path = Path(str(recap_path).replace("\\", "/"))
-        if not path.is_absolute():
-            path = root / path
+        path = _resolve_repo_contained_path(Path(str(recap_path)), root)
         return _strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
     if not recap_artifact.ingest_run_bundle_uri:
         return None
-    manifest_path = root / recap_artifact.ingest_run_bundle_uri
+    manifest_path = _resolve_repo_contained_path(
+        Path(str(recap_artifact.ingest_run_bundle_uri)), root
+    )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    input_path = Path(str(manifest["source"]["input_path_record"]).replace("\\", "/"))
-    if not input_path.is_absolute():
-        input_path = root / input_path
+    input_path = _resolve_repo_contained_path(
+        Path(str(manifest["source"]["input_path_record"])), root
+    )
     return _strip_yaml_frontmatter(input_path.read_text(encoding="utf-8"))
 
 
@@ -105,6 +206,8 @@ def build_plan_union_supergraph_projection_payload(
     session_id: str,
     store_path: Path | None = None,
     preview_source: str | None = None,
+    graph_run_manifest_path: Path | None = None,
+    preview_union_store_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build a JSON-safe projection payload for future API route integration."""
 
@@ -112,6 +215,8 @@ def build_plan_union_supergraph_projection_payload(
         session_id=session_id,
         store_path=store_path,
         preview_source=preview_source,
+        graph_run_manifest_path=graph_run_manifest_path,
+        preview_union_store_path=preview_union_store_path,
     )
     return projection.model_dump(mode="json")
 
