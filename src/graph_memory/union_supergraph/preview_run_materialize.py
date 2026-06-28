@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -82,26 +81,28 @@ def materialize_preview_union_store_from_graph_ingest_run(
     output_path = _default_or_safe_output_path(options.output_path, run_dir)
     report_path = output_path.with_name("preview_union_validation_report.json")
 
+    import_input_path = run_dir / "candidate_graph_import_input.json"
+
     try:
-        with tempfile.TemporaryDirectory(
-            prefix="preview-union-materialize-"
-        ) as temp_dir:
-            import_input_path = Path(temp_dir) / "candidate_graph_import_input.json"
-            _write_json(
-                import_input_path,
-                _normalize_candidate_graph_for_import(candidate_graph, manifest),
-            )
-            store_payload = build_preview_union_supergraph(
-                [
-                    CandidateGraphInput(
-                        path=import_input_path,
-                        session_id=manifest.session_id,
-                        recap_path=normalized_recap_path,
-                    )
-                ],
-                focus_session_id=manifest.session_id,
-                graph_id=f"{manifest.campaign_id}:preview-union-supergraph",
-            )
+        _write_json(
+            import_input_path,
+            _normalize_candidate_graph_for_import(candidate_graph, manifest),
+        )
+        store_payload = build_preview_union_supergraph(
+            [
+                CandidateGraphInput(
+                    path=import_input_path,
+                    session_id=manifest.session_id,
+                    recap_path=normalized_recap_path,
+                )
+            ],
+            focus_session_id=manifest.session_id,
+            graph_id=f"{manifest.campaign_id}:preview-union-supergraph",
+        )
+        _rewrite_store_source_artifact_paths(
+            store_payload,
+            repo_root=repo_root,
+        )
         store_payload["campaign_id"] = manifest.campaign_id
         store_payload.setdefault("diagnostics", {})["preview_only"] = True
         _reject_forbidden_diagnostics(
@@ -116,6 +117,7 @@ def materialize_preview_union_store_from_graph_ingest_run(
     except Exception:
         output_path.unlink(missing_ok=True)
         report_path.unlink(missing_ok=True)
+        import_input_path.unlink(missing_ok=True)
         raise
 
     updated_manifest = _updated_manifest(
@@ -292,6 +294,25 @@ def _normalize_evidence_ref(
         "can_highlight_span": ref_map.get("can_highlight_span", True),
         "anchor_quotes": ref_map.get("anchor_quotes", []),
     }
+
+
+def _rewrite_store_source_artifact_paths(
+    store_payload: dict[str, Any], *, repo_root: Path
+) -> None:
+    source_artifacts = store_payload.get("source_artifacts")
+    if not isinstance(source_artifacts, dict):
+        return
+    for artifact in source_artifacts.values():
+        if not isinstance(artifact, dict):
+            continue
+        for key in ("uri", "recap_path"):
+            value = artifact.get(key)
+            if not isinstance(value, str):
+                continue
+            path = Path(value)
+            if not path.is_absolute():
+                continue
+            artifact[key] = _safe_artifact_uri(path, repo_root)
 
 
 def _validation_report(

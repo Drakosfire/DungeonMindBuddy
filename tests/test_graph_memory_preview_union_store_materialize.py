@@ -195,3 +195,25 @@ def test_materializer_does_not_set_ready_for_projection_or_projection_locator(
     assert manifest["status"] == "preview_union_store_ready"
     assert manifest["projection"] is None
     assert manifest["next_actions"] == ["open_projection_preview"]
+
+
+def test_materializer_store_source_artifacts_do_not_reference_temp_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    manifest_path = _candidate_ready_run(tmp_path)
+
+    result = materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(manifest_path=manifest_path)
+    )
+    store = _load_json(result.preview_union_store_path)
+    artifacts = store["source_artifacts"].values()
+    uris = [artifact["uri"] for artifact in artifacts]
+
+    assert all("preview-union-materialize-" not in uri for uri in uris)
+    assert all(Path(uri).is_absolute() is False for uri in uris)
+    for uri in uris:
+        if uri.startswith("fixture://"):
+            continue
+        assert (tmp_path / uri).exists()
+    assert (manifest_path.parent / "candidate_graph_import_input.json").exists()
