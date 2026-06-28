@@ -18,11 +18,10 @@ describe("UnionSupergraphRecapProjection", () => {
     expect(screen.getByText("Session focus lens")).toBeInTheDocument();
     expect(screen.getByText("longmont-c2:union-supergraph")).toBeInTheDocument();
     expect(screen.getAllByText("Caelynn").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("pc_caelynn").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Projected recap")).toHaveTextContent("Session 23 Sample");
   });
 
-  it("distinguishes focus evidence from worldbuilding evidence", () => {
+  it("distinguishes current session from prior context evidence", () => {
     render(
       <UnionSupergraphRecapProjection
         payload={session23UnionSupergraphFixture}
@@ -32,8 +31,8 @@ describe("UnionSupergraphRecapProjection", () => {
       />,
     );
 
-    expect(screen.getAllByText("focus session").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("broader context").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("current session").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("prior context").length).toBeGreaterThan(0);
     expect(screen.getAllByText("recap").length).toBeGreaterThan(0);
     expect(screen.getAllByText("worldbuilding").length).toBeGreaterThan(0);
   });
@@ -51,8 +50,8 @@ describe("UnionSupergraphRecapProjection", () => {
     expect(screen.getByLabelText("Adjacency from Caelynn")).toBeInTheDocument();
     expect(screen.getAllByText("Mireward Gate Incident").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mirathorn").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("participated_in").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("connected_to").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("participated in Mireward Gate Incident").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("connected to Mirathorn").length).toBeGreaterThan(0);
   });
 
   it("pins adjacent nodes when adjacency buttons are clicked", () => {
@@ -112,6 +111,7 @@ describe("UnionSupergraphRecapProjection", () => {
       return pill as HTMLButtonElement;
     });
     expect(caelynnPill).toHaveClass("role-pc");
+    expect(caelynnPill).toHaveClass("session-active");
 
     const mirathornPill = screen
       .getAllByRole("button", { name: "Mirathorn" })
@@ -119,7 +119,7 @@ describe("UnionSupergraphRecapProjection", () => {
     expect(mirathornPill).toHaveClass("role-location");
   });
 
-  it("shows rich hover card content on recap pills", async () => {
+  it("shows GM planning hover card content on recap pills", async () => {
     render(
       <UnionSupergraphRecapProjection
         payload={session23UnionSupergraphFixture}
@@ -138,9 +138,10 @@ describe("UnionSupergraphRecapProjection", () => {
     });
     const hoverCard = caelynnPill.parentElement?.querySelector(".recap-node-hover-card");
     expect(hoverCard).toHaveTextContent("Caelynn");
-    expect(hoverCard).toHaveTextContent("pc");
-    expect(hoverCard).toHaveTextContent("focus evidence");
-    expect(hoverCard).toHaveTextContent("adjacent");
+    expect(hoverCard).toHaveTextContent("Why now");
+    expect(hoverCard).toHaveTextContent("Known before");
+    expect(hoverCard).toHaveTextContent("Held the Mireward gate during the incident");
+    expect(hoverCard).toHaveTextContent("participated in Mireward Gate Incident");
   });
 
   it("calls legacy opener when provided", () => {

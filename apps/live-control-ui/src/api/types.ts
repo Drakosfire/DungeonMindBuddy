@@ -1417,6 +1417,8 @@ export interface GraphProjectionEvidenceBadge {
   can_open_source: boolean;
   can_highlight_span: boolean;
   label?: string | null;
+  session_id?: string | null;
+  source_span_ref_id?: string | null;
 }
 
 export interface GraphProjectionAdjacencyCandidate {
@@ -1429,6 +1431,8 @@ export interface GraphProjectionAdjacencyCandidate {
   anchored_to_focus_session: boolean;
   source_domains: string[];
   evidence_ref_ids: string[];
+  edge_label?: string | null;
+  session_ids?: string[];
 }
 
 export interface GraphProjectionNodeView {

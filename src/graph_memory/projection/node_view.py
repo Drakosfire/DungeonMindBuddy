@@ -19,6 +19,8 @@ class GraphProjectionAdjacencyCandidate(BaseModel):
     anchored_to_focus_session: bool = False
     source_domains: list[str] = Field(default_factory=list)
     evidence_ref_ids: list[str] = Field(default_factory=list)
+    edge_label: str | None = None
+    session_ids: list[str] = Field(default_factory=list)
 
 
 class GraphProjectionNodeView(BaseModel):

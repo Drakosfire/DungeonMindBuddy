@@ -27,3 +27,5 @@ class GraphProjectionEvidenceBadge(BaseModel):
     can_open_source: bool = False
     can_highlight_span: bool = False
     label: str | None = None
+    session_id: str | None = None
+    source_span_ref_id: str | None = None

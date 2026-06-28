@@ -21,7 +21,7 @@ export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse 
       aliases: ["Caelynn"],
       source_domains: ["recap", "worldbuilding"],
       anchored_to_focus_session: true,
-      summary: null,
+      summary: "Read-model example global PC node; not proof of Session 23 extraction.",
       evidence_badges: [
         {
           evidence_ref_id: "evidence:session-23:caelynn:recap-mention",
@@ -31,7 +31,9 @@ export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse 
           is_focus_session_evidence: true,
           can_open_source: true,
           can_highlight_span: true,
-          label: "recap: focus_session_recap_mention",
+          label: "Held the Mireward gate during the incident",
+          session_id: "session-23",
+          source_span_ref_id: "spref:session-23:p014",
         },
         {
           evidence_ref_id: "evidence:worldbuilding:caelynn:character-note",
@@ -41,7 +43,7 @@ export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse 
           is_focus_session_evidence: false,
           can_open_source: true,
           can_highlight_span: false,
-          label: "worldbuilding: character_context",
+          label: "Tied to Mirathorn politics in character notes",
         },
       ],
       adjacency: [
@@ -55,6 +57,8 @@ export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse 
           anchored_to_focus_session: true,
           source_domains: ["recap"],
           evidence_ref_ids: ["evidence:session-23:caelynn:recap-mention"],
+          edge_label: "participated in",
+          session_ids: ["session-23"],
         },
         {
           edge_id: "edge:pc_caelynn:connected_to:loc_mirathorn",
@@ -66,6 +70,8 @@ export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse 
           anchored_to_focus_session: false,
           source_domains: ["worldbuilding"],
           evidence_ref_ids: ["evidence:worldbuilding:caelynn:character-note"],
+          edge_label: "connected to",
+          session_ids: [],
         },
       ],
     },

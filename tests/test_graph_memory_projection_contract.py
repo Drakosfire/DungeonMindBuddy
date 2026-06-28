@@ -50,6 +50,38 @@ def test_build_node_view_returns_global_caelynn_view(
     assert node_view.kind == "pc"
     assert node_view.role == "pc"
     assert node_view.source_domains == ["recap", "worldbuilding"]
+    assert node_view.summary == (
+        "Read-model example global PC node; not proof of Session 23 extraction."
+    )
+
+
+def test_node_view_evidence_badges_include_session_metadata(
+    store: UnionSupergraphStore,
+) -> None:
+    node_view = build_node_view(store, "pc_caelynn", focus_session_id="session-23")
+    recap_badge = next(
+        badge
+        for badge in node_view.evidence_badges
+        if badge.evidence_ref_id == "evidence:session-23:caelynn:recap-mention"
+    )
+
+    assert recap_badge.session_id == "session-23"
+    assert recap_badge.source_span_ref_id == "spref:session-23:p014"
+    assert recap_badge.label == "focus session recap mention"
+
+
+def test_node_view_adjacency_includes_edge_label_and_session_ids(
+    store: UnionSupergraphStore,
+) -> None:
+    node_view = build_node_view(store, "pc_caelynn", focus_session_id="session-23")
+    gate_candidate = next(
+        candidate
+        for candidate in node_view.adjacency
+        if candidate.node_id == "event_session_23_mireward_gate"
+    )
+
+    assert gate_candidate.edge_label == "participated in"
+    assert gate_candidate.session_ids == ["session-23"]
 
 
 def test_node_view_includes_focus_and_non_focus_evidence_badges(

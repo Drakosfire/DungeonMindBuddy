@@ -110,6 +110,10 @@ def build_node_view(
         for item in store.adjacency.get(node_id, [])
     ]
 
+    node_extra = node.model_extra or {}
+    description = node_extra.get("description")
+    summary = description.strip() if isinstance(description, str) and description.strip() else None
+
     return GraphProjectionNodeView(
         node_id=node.node_id,
         label=node.label,
@@ -123,7 +127,7 @@ def build_node_view(
             set(node.evidence_ref_ids).intersection(focus_evidence_ids)
         )
         or any(candidate.anchored_to_focus_session for candidate in adjacency),
-        summary=None,
+        summary=summary,
     )
 
 
@@ -199,6 +203,12 @@ def _build_evidence_badge(
 ) -> GraphProjectionEvidenceBadge:
     evidence = store.evidence[evidence_ref_id]
     source_domain = str(evidence.source_domain)
+    evidence_extra = evidence.model_extra or {}
+    stored_label = evidence_extra.get("label")
+    if isinstance(stored_label, str) and stored_label.strip():
+        badge_label = stored_label.strip()
+    else:
+        badge_label = evidence.evidence_role.replace("_", " ")
     return GraphProjectionEvidenceBadge(
         evidence_ref_id=evidence.evidence_ref_id,
         source_artifact_id=evidence.source_artifact_id,
@@ -207,7 +217,9 @@ def _build_evidence_badge(
         is_focus_session_evidence=evidence.session_id == focus_session_id,
         can_open_source=evidence.can_open_source,
         can_highlight_span=evidence.can_highlight_span,
-        label=f"{source_domain}: {evidence.evidence_role}",
+        label=badge_label,
+        session_id=evidence.session_id,
+        source_span_ref_id=evidence.source_span_ref_id,
     )
 
 
@@ -220,6 +232,7 @@ def _build_adjacency_candidate(
 ) -> GraphProjectionAdjacencyCandidate:
     edge = store.edges[edge_id]
     adjacent_node = store.nodes[adjacent_node_id]
+    edge_label = edge.label.strip() if isinstance(edge.label, str) and edge.label.strip() else None
     return GraphProjectionAdjacencyCandidate(
         edge_id=edge.edge_id,
         node_id=adjacent_node.node_id,
@@ -230,6 +243,8 @@ def _build_adjacency_candidate(
         anchored_to_focus_session=anchored_to_focus_session,
         source_domains=list(edge.source_domains),
         evidence_ref_ids=list(edge.evidence_ref_ids),
+        edge_label=edge_label,
+        session_ids=list(edge.session_ids),
     )
 
 
