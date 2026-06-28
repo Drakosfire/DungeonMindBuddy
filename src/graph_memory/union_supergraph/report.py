@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from graph_memory.union_supergraph.load import DEFAULT_FIXTURE_PATH
 from graph_memory.union_supergraph.validate import (
-    DEFAULT_FIXTURE_PATH,
     load_fixture,
     validate_union_supergraph_fixture,
 )
@@ -13,10 +13,22 @@ from graph_memory.union_supergraph.validate import (
 def build_report(fixture: dict) -> dict:
     validation = validate_union_supergraph_fixture(fixture)
     focus_session_ids = sorted(
-        {item.get("session_id") for item in fixture["evidence"].values() if item.get("session_id")}
+        {
+            item.get("session_id")
+            for item in fixture["evidence"].values()
+            if item.get("session_id")
+        }
     )
-    focus_edges = [edge for edge in fixture["edges"].values() if set(edge.get("session_ids", [])) & set(focus_session_ids)]
-    non_focus_edges = [edge for edge in fixture["edges"].values() if not (set(edge.get("session_ids", [])) & set(focus_session_ids))]
+    focus_edges = [
+        edge
+        for edge in fixture["edges"].values()
+        if set(edge.get("session_ids", [])) & set(focus_session_ids)
+    ]
+    non_focus_edges = [
+        edge
+        for edge in fixture["edges"].values()
+        if not (set(edge.get("session_ids", [])) & set(focus_session_ids))
+    ]
     return {
         "schema": fixture.get("schema"),
         "campaign_id": fixture.get("campaign_id"),
