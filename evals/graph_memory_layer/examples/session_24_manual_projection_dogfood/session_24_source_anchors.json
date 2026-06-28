@@ -1,0 +1,184 @@
+{
+  "schema": "dmb_source_anchor_fixture_v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-24",
+  "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+  "source_artifact_path": "evals/graph_memory_layer/examples/session_24_manual_projection_dogfood/session_24_raw_recap_PLACEHOLDER.md",
+  "source_domain": "recap",
+  "authority_state": "operator_supplied_raw_recap",
+  "normalization_policy": {
+    "allowed": [
+      "remove_discord_reaction_controls",
+      "remove_reply_forward_more_chrome",
+      "remove_duplicate_timestamp_chrome"
+    ],
+    "not_allowed": [
+      "rewrite_recap_prose",
+      "summarize_source",
+      "invent_missing_events",
+      "promote_candidate_graph_to_canon"
+    ]
+  },
+  "anchors": [
+    {
+      "anchor_id": "anchor:s24-hybrid-ogonob-firebolt-first-charm",
+      "order": 10,
+      "label": "Hybrid advance, Ogonob attacked, Karsemine ignites tripod gases, first compulsion continues",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 1, "paragraph_end": 1},
+      "expected_source_text_contains": [
+        "hybrid monsters continue their march toward the wall",
+        "Ogonob inside and lashes out with a tentacle",
+        "Karsemine launches a Firebolt at the tripod monster",
+        "Ephanna and Bonogo both fail to resist the effect of the meatwings",
+        "With two powerful Eldritch Blasts the monster is destroyed",
+        "Ogonob then uses Misty Step"
+      ],
+      "summary": "Hybrids are still advancing; one hybrid hits Ogonob in darkness; Karsemine's Firebolt massively damages and ignites a tripod; Ephanna and Bonogo remain compelled by meatwings; Ephanna kills a hybrid while resisting enough to attack; Ogonob Misty Steps toward a tripod.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-bonogo-panic-sewer-split-baergrom-jam",
+      "order": 20,
+      "label": "Bonogo pins hybrid, Thrin panics, sewer monsters split, Baergrom's crossbow jams",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 2, "paragraph_end": 2},
+      "expected_source_text_contains": [
+        "Bonogo uses his Steady Aim ability",
+        "pinning the creature to the ground",
+        "Thrin tries to steady himself",
+        "giant sewer monsters split up",
+        "Baergrom readies himself",
+        "crossbow, only for it to jam"
+      ],
+      "summary": "Bonogo pins a hybrid with a heavy shot; Thrin panics and misses; sewer monsters split and continue toward the wall; Baergrom's crossbow jams so he switches to a short bow and hits the hybrid.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-tripod-wakes-wide-meatwing-charm",
+      "order": 30,
+      "label": "Tripod attacks Ogonob, sleeping tripod awakened, meatwings charm most of team",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 3, "paragraph_end": 3},
+      "expected_source_text_contains": [
+        "One of the tripod creatures lashes out at Ogonob",
+        "other tripod creature continues to be asleep",
+        "one that goes straight for the sleeping tripod",
+        "awakening the monster",
+        "wafting smell of meat",
+        "enchanting Thrin, Karsemin, Ephanna, Bonogo, Caelynn and Baergrom"
+      ],
+      "summary": "A tripod hits Ogonob and continues toward the wall; the other tripod is awakened by a meatwing sacrificing itself; meatwings emit an aroma that enchants most of the team, compelling them toward the monsters while preventing direct attacks.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-stafl-golem-commanding-shout-caelynn-cleanse",
+      "order": 40,
+      "label": "Stafl tries Enemies Abound, golem reaches wall, Lysandra commands attacks and removes Caelynn charm",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 4, "paragraph_end": 4},
+      "expected_source_text_contains": [
+        "Stafl jumps up from being prone",
+        "casts Enemies Abound on the golem",
+        "golem ignores everything around it and dashes to the wall",
+        "Lysandra recharges her Commanding Shout",
+        "Lysnadra then removes the charm affecting Caelynn",
+        "Caelynn, who then uses a level 2 version of her spell Magic Missile"
+      ],
+      "summary": "Stafl inspires Ephanna and attempts to confuse the golem; the golem ignores it and reaches the wall; Lysandra commands Bonogo, Karsemine, and Baergrom to attack, then removes Caelynn's charm so Caelynn can damage meatwings with Magic Missile.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-wall-damage-golem-fire-weakness",
+      "order": 50,
+      "label": "Hybrid damages wall, Karsemine kills tripod, golem traits revealed and destroyed",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 5, "paragraph_end": 5},
+      "expected_source_text_contains": [
+        "hybrid creatures finally reaches the wall",
+        "slowly chipping away the foundation",
+        "Karsemine again attacks the tripod monster with a Firebolt",
+        "burst into flames and die",
+        "learns it is immune to poison and charm, but weak to fire",
+        "whatever energy was holding the creature together finally collapses"
+      ],
+      "summary": "A hybrid reaches the wall and chips at the foundation; Karsemine kills a tripod with Firebolt; Hunter's Mark reveals the golem is immune to poison and charm but weak to fire; Ephanna, Bonogo, and Thrin contribute to destroying the golem.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill",
+      "order": 60,
+      "label": "Sewer monster climbs wall, sticky gel hazard, Baergrom saves Thrin and enables Bonogo kill",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 6, "paragraph_end": 6},
+      "expected_source_text_contains": [
+        "giant sewer monsters finally reaches the wall",
+        "right in the middle of Lysandra, Thrin and Caelynn",
+        "ooze out a sticky gel",
+        "Baergom uses his Bait and Switch ability",
+        "Commander’s Strike",
+        "Bonogo chooses the sewer monster attacking Ogonob"
+      ],
+      "summary": "One sewer monster climbs onto the wall among Lysandra, Thrin, and Caelynn; another attacks Ogonob in darkness and misses; sticky gel makes escape difficult; Baergrom uses Bait and Switch to move Thrin and Commander’s Strike to direct Bonogo, who kills the sewer monster attacking Ogonob.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-ephanna-impaled-tripod-sleep-final-assault-setup",
+      "order": 70,
+      "label": "Tripod impales Ephanna, Stafl uses Sleep and Luck, Lysandra calls final assault, sewer death poison spray",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 7, "paragraph_end": 7},
+      "expected_source_text_contains": [
+        "tripod creature turns its attention to Ephanna",
+        "launching a massive spike, impaling Ephanna",
+        "Stafl casts Sleep on the monster",
+        "Stafl uses Luck",
+        "Lysandra can see that they have the advantage",
+        "sprays poison on Baergrom, Thrin and herself"
+      ],
+      "summary": "A tripod impales Ephanna and pulls them toward it, disrupting their ability to pinpoint it; Stafl uses Sleep and Luck to disable the tripod; Lysandra calls for a final assault; Karsemine kills a sewer monster, spraying poison on Baergrom, Thrin, and herself.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-hybrid-friendly-fire-coordinated-tripod-kill",
+      "order": 80,
+      "label": "Hybrid wounds Ephanna, Karsemine friendly fire then kills hybrid, coordinated attack kills last tripod",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 8, "paragraph_end": 8},
+      "expected_source_text_contains": [
+        "remaining hybrid moves in to attack Ephanna",
+        "dealing necrotic damage",
+        "hitting Ephanna instead",
+        "landing a killing blow on the monster",
+        "Bonogo readies the team",
+        "Finally Thrin finishes off the writhing creature"
+      ],
+      "summary": "The final hybrid hits Ephanna with necrotic damage; Karsemine accidentally shoots Ephanna, then kills the hybrid; the party coordinates attacks on the sleeping tripod, and Thrin finishes it to end the immediate battle.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-meat-piles-goo-refugee-rest-plan",
+      "order": 90,
+      "label": "Meat piles turn to goo and sink, party splits between watch/rest and refugee plan",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 9, "paragraph_end": 9},
+      "expected_source_text_contains": [
+        "burn as many remaining piles of meat as they can",
+        "remaining piles turn to goo and are sucked into the ground",
+        "full night upon them",
+        "Something needs to be done with the refugees from Edge",
+        "some members need a much needed rest",
+        "Ephanna, Stafl and Baergorm will stand watch"
+      ],
+      "summary": "After the battle, Karsemine and Ephanna attempt to burn remaining meat piles, which turn to goo and sink underground; with night fallen, the party splits: Ephanna, Stafl, and Baergrom stay at the wall for watch and short rest while the others check town and plan for the Edge refugees.",
+      "evidence_role": "source_evidence"
+    },
+    {
+      "anchor_id": "anchor:s24-caelynn-grobnok-rockie-talkie",
+      "order": 100,
+      "label": "Caelynn calls Grobnok, reports Edge and Mireward, pending rockie-talkie bridge",
+      "source_locator": {"type": "paragraph_index", "paragraph_start": 10, "paragraph_end": 10},
+      "expected_source_text_contains": [
+        "Caelynn makes a quick call to Grobnok",
+        "tells him about both Edge and Mireward Reach",
+        "very frustrated",
+        "rockie-talkie connected with Lysandra’s",
+        "this will take some time",
+        "He will call them back the next day"
+      ],
+      "summary": "Caelynn calls Grobnok and reports Edge and Mireward Reach; Grobnok is frustrated at being unable to make a plan and act; she attempts to connect his rockie-talkie with Lysandra’s, but it will take time; he will call back the next day.",
+      "evidence_role": "source_evidence"
+    }
+  ]
+}
