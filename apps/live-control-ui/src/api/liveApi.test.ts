@@ -9,6 +9,9 @@ import {
   commitTiptapMarkdownWrite,
   getArtifact,
   getCapabilities,
+  getGraphIngestRuns,
+  getLatestGraphIngestRun,
+  getUnionSupergraphProjection,
   getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
@@ -78,6 +81,70 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).not.toContain("relative_path");
   });
 
+  it("getGraphIngestRuns builds expected query string", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_graph_ingest_run_registry_v1", version: "1", runs: [] }),
+    );
+
+    await getGraphIngestRuns({
+      campaignId: "c2",
+      sessionId: "session-22",
+      status: "preview_union_store_ready",
+      requirePreviewUnionStore: true,
+    });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toContain("/api/live/graph-preview/graph-ingest/runs?");
+    expect(String(url)).toContain("campaign_id=c2");
+    expect(String(url)).toContain("session_id=session-22");
+    expect(String(url)).toContain("status=preview_union_store_ready");
+    expect(String(url)).toContain("require_preview_union_store=true");
+  });
+
+  it("getLatestGraphIngestRun calls expected endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_graph_ingest_run_registry_v1", version: "1", run: null }),
+    );
+
+    await getLatestGraphIngestRun("c2", "session-22");
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      "/api/live/graph-preview/graph-ingest/latest?campaign_id=c2&session_id=session-22",
+    );
+  });
+
+  it("getUnionSupergraphProjection supports latest graph-ingest mode", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ campaign_id: "c2", session_id: "session-22", focus: {}, node_views: {}, mentions: [] }),
+    );
+
+    await getUnionSupergraphProjection({
+      campaignId: "c2",
+      sessionId: "session-22",
+      useLatestGraphIngest: true,
+    });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toContain("/api/live/graph-preview/union-supergraph/projection?");
+    expect(String(url)).toContain("campaign_id=c2");
+    expect(String(url)).toContain("session_id=session-22");
+    expect(String(url)).toContain("use_latest_graph_ingest=true");
+    expect(String(url)).not.toContain("preview_source=");
+  });
+
+  it("getUnionSupergraphProjection preserves previewSource fallback", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ campaign_id: "c2", session_id: "session-23", focus: {}, node_views: {}, mentions: [] }),
+    );
+
+    await getUnionSupergraphProjection("session-23", "dogfood-preview");
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      "/api/live/graph-preview/union-supergraph/projection?session_id=session-23&preview_source=dogfood-preview",
+    );
+  });
 
   it("getStatblockWorkbenchSample calls expected sample endpoint", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

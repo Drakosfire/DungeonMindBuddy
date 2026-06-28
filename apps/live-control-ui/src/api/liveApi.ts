@@ -55,6 +55,8 @@ import type {
   TiptapMarkdownWritePrepareResponse,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
+  GraphIngestLatestRunResponse,
+  GraphIngestRunsResponse,
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
@@ -96,6 +98,16 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
+export class LiveApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "LiveApiError";
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -118,7 +130,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         detail = parseError.message;
       }
     }
-    throw new Error(detail);
+    throw new LiveApiError(detail, response.status);
   }
   return parseJsonBody<T>(response);
 }
@@ -183,15 +195,74 @@ export async function getRecapGraphPresentation(
   );
 }
 
+export interface GraphIngestRunsQuery {
+  campaignId?: string;
+  sessionId?: string;
+  status?: string;
+  requirePreviewUnionStore?: boolean;
+}
+
+export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Promise<GraphIngestRunsResponse> {
+  const params = new URLSearchParams();
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  if (query.sessionId) params.set("session_id", query.sessionId);
+  if (query.status) params.set("status", query.status);
+  if (query.requirePreviewUnionStore != null) {
+    params.set("require_preview_union_store", String(query.requirePreviewUnionStore));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphIngestRunsResponse>(`/api/live/graph-preview/graph-ingest/runs${suffix}`);
+}
+
+export async function getLatestGraphIngestRun(
+  campaignId: string,
+  sessionId: string,
+): Promise<GraphIngestLatestRunResponse> {
+  const params = new URLSearchParams({ campaign_id: campaignId, session_id: sessionId });
+  return apiFetch<GraphIngestLatestRunResponse>(
+    `/api/live/graph-preview/graph-ingest/latest?${params.toString()}`,
+  );
+}
+
+export interface UnionSupergraphProjectionQuery {
+  sessionId: string;
+  campaignId?: string;
+  previewSource?: string | null;
+  graphRunManifestPath?: string | null;
+  previewUnionStorePath?: string | null;
+  useLatestGraphIngest?: boolean;
+}
+
+export async function getUnionSupergraphProjection(
+  query: UnionSupergraphProjectionQuery,
+): Promise<UnionSupergraphProjectionResponse>;
 export async function getUnionSupergraphProjection(
   sessionId: string,
+  previewSource?: string,
+): Promise<UnionSupergraphProjectionResponse>;
+export async function getUnionSupergraphProjection(
+  queryOrSessionId: UnionSupergraphProjectionQuery | string,
   previewSource = defaultUnionSupergraphPreviewSource,
 ): Promise<UnionSupergraphProjectionResponse> {
-  const params = new URLSearchParams({ session_id: sessionId });
-  if (previewSource) params.set("preview_source", previewSource);
+  const query = typeof queryOrSessionId === "string"
+    ? { sessionId: queryOrSessionId, previewSource }
+    : queryOrSessionId;
+  const params = new URLSearchParams({ session_id: query.sessionId });
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  if (query.useLatestGraphIngest) params.set("use_latest_graph_ingest", "true");
+  if (query.previewSource) params.set("preview_source", query.previewSource);
+  if (query.graphRunManifestPath) params.set("graph_run_manifest_path", query.graphRunManifestPath);
+  if (query.previewUnionStorePath) params.set("preview_union_store_path", query.previewUnionStorePath);
   return apiFetch<UnionSupergraphProjectionResponse>(
     `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
   );
+}
+
+export async function getDefaultUnionSupergraphProjection(
+  sessionId: string,
+  previewSource = defaultUnionSupergraphPreviewSource,
+): Promise<UnionSupergraphProjectionResponse> {
+  return getUnionSupergraphProjection({ sessionId, previewSource });
 }
 
 export async function getSourceBundle(

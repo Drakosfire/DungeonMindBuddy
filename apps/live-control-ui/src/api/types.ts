@@ -1401,6 +1401,34 @@ export interface RecapGraphPresentationResponse {
   links: RecapGraphLink[];
 }
 
+export interface GraphIngestRunSummary {
+  manifest_path: string;
+  run_dir: string;
+  campaign_id: string;
+  session_id: string;
+  status: string;
+  updated_at?: string | null;
+  created_at?: string | null;
+  preview_union_store_path?: string | null;
+  preview_union_store_valid?: boolean | null;
+  node_count: number;
+  edge_count: number;
+  evidence_ref_count: number;
+  next_actions: string[];
+}
+
+export interface GraphIngestRunsResponse {
+  schema_version: "dmb_graph_ingest_run_registry_v1";
+  version: string;
+  runs: GraphIngestRunSummary[];
+}
+
+export interface GraphIngestLatestRunResponse {
+  schema_version: "dmb_graph_ingest_run_registry_v1";
+  version: string;
+  run: GraphIngestRunSummary | null;
+}
+
 export interface GraphFocusOverlay {
   focus_session_id?: string | null;
   focused_evidence_ref_ids: string[];
