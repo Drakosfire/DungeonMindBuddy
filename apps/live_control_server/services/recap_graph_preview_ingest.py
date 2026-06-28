@@ -58,7 +58,7 @@ def build_recap_graph_preview_bundle(
     """Build a preview graph-ingest run from a normalized recap."""
 
     repo = repo_root.resolve()
-    normalized = _resolve_existing_repo_path(repo, normalized_recap_path, field_name="normalized_recap_path")
+    normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
     candidate = (
         _resolve_existing_repo_path(repo, candidate_graph_path, field_name="candidate_graph_path")
         if candidate_graph_path
@@ -230,6 +230,19 @@ def _new_run_dir(repo: Path, campaign_id: str, session: int) -> Path:
     while path.exists():
         suffix += 1
         path = base.with_name(f"{base.name}-{suffix}")
+    return path
+
+
+def _resolve_existing_readable_path(value: str | None, *, field_name: str) -> Path:
+    if not value:
+        raise ValueError(f"{field_name} is required")
+    if value.startswith("file:"):
+        raise ValueError(f"{field_name} must be a filesystem path, not a file URI")
+    path = Path(value).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"{field_name} does not exist: {value}")
+    if not path.is_file():
+        raise ValueError(f"{field_name} must be a file: {value}")
     return path
 
 

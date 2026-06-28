@@ -25,6 +25,7 @@ describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    window.history.pushState({}, "", "/plan");
   });
 
   it("renders nav, toolbar, edit bar, and canvas regions", () => {
@@ -43,6 +44,15 @@ describe("PlanSurfaceShell", () => {
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
     expect(screen.getByText(/Document controls for the selected planning canvas/i)).toBeInTheDocument();
+  });
+
+  it("opens Graph Preview from the tool query parameter", async () => {
+    window.history.pushState({}, "", "/plan?tool=graph-preview");
+    renderPlanSurface();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Graph Preview" })).toHaveAttribute("aria-pressed", "true"),
+    );
   });
 
   it("opens the local Agent Interaction placeholder proof pane", async () => {

@@ -8,11 +8,27 @@ interface AdaptiveProjectionContainerProps {
   config: SurfaceConfig;
 }
 
+function requestedToolFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get("tool");
+  if (fromQuery) return fromQuery;
+  const hash = window.location.hash.replace(/^#/, "");
+  return hash.startsWith("tool=") ? hash.slice("tool=".length) : hash || null;
+}
+
 export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
   const { active, activeResolution, close, expandContent, openTool } = useProjection();
   const isOpen = Boolean(active);
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
+
+  useEffect(() => {
+    const requestedTool = requestedToolFromLocation();
+    if (requestedTool && config.tools.some((tool) => tool.id === requestedTool)) {
+      openTool(requestedTool);
+    }
+  }, [config.tools, openTool]);
 
   useEffect(() => {
     document.body.classList.toggle("plan-toolbox-open", isOpen);

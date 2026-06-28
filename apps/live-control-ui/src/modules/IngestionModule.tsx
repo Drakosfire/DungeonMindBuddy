@@ -1548,7 +1548,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
 
   function openGraphPreview() {
     if (typeof window !== "undefined") {
-      window.location.assign("/plan#graph-preview");
+      window.location.assign("/plan?tool=graph-preview");
     }
   }
 

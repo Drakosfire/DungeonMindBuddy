@@ -24,9 +24,8 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
     monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
 
-    corpus = ROOT / "out/test_recap_ingest_graph_preview/corpus"
+    corpus = tmp_path / "external-corpus"
     graph_runs = ROOT / "out/graph_memory/runs/longmont-c2/session-22"
-    shutil.rmtree(corpus.parent, ignore_errors=True)
     shutil.rmtree(graph_runs, ignore_errors=True)
     campaign = corpus / "Longmont Campaign/Campaign 2"
     (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
@@ -39,7 +38,6 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     try:
         yield TestClient(create_app()), corpus, candidate
     finally:
-        shutil.rmtree(corpus.parent, ignore_errors=True)
         shutil.rmtree(graph_runs, ignore_errors=True)
 
 
