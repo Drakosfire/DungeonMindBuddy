@@ -1,0 +1,26 @@
+export {
+  AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
+  AGENT_TURN_HISTORY_CAP,
+  activeThreadStorageKey,
+  buildEvidenceSnapshots,
+  clearAgentThread,
+  createAgentInteractionThread,
+  deleteAgentThread,
+  historyStorageKey,
+  listAgentThreads,
+  loadAgentThread,
+  loadAgentThreadById,
+  loadAgentThreadIndex,
+  persistAgentThread,
+  persistAgentThreadIndex,
+  renameAgentThread,
+  safeTraceForPersistence,
+  setActiveAgentThread,
+  threadIndexStorageKey,
+  threadStorageKey,
+  threadTitleFromQuestion,
+  turnFromResponse,
+  worstCorpusFreshnessStatus,
+} from "../planSurface/components/agentInteractionHistory";
+
+export const AGENT_INTERACTION_PROVIDER_STORAGE_SCHEMA = "agent_interaction_provider_v1";
