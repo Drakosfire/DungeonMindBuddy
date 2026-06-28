@@ -1,4 +1,5 @@
 """Graph preview read API for /plan toolbox projection."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,6 +8,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.graph_ingest_run_registry import (
+    GraphIngestLatestRunResponse,
+    GraphIngestRunRegistryError,
+    GraphIngestRunsResponse,
+    discover_graph_ingest_runs,
+    resolve_latest_preview_union_graph_ingest_run,
+)
 from apps.live_control_server.services.graph_preview_surface import (
     GraphPreviewRunsResponse,
     GraphPreviewSurfaceResponse,
@@ -68,7 +76,9 @@ def get_graph_preview_latest(
             ensure_recap_artifacts_registry(root)
             record = None
             if artifact_id or campaign_id or session_id:
-                from apps.live_control_server.services.recap_artifacts import resolve_recap_artifact_record
+                from apps.live_control_server.services.recap_artifacts import (
+                    resolve_recap_artifact_record,
+                )
 
                 record = resolve_recap_artifact_record(
                     root,
@@ -94,26 +104,74 @@ def get_graph_preview_latest(
     return response.model_dump(mode="json")
 
 
+@router.get("/graph-ingest/runs", response_model=GraphIngestRunsResponse)
+def get_graph_ingest_runs(
+    campaign_id: Annotated[str | None, Query()] = None,
+    session_id: Annotated[str | None, Query()] = None,
+    status: Annotated[str | None, Query()] = None,
+    require_preview_union_store: Annotated[bool, Query()] = False,
+) -> dict[str, Any]:
+    try:
+        runs = discover_graph_ingest_runs(
+            repo_root(),
+            campaign_id=campaign_id,
+            session_id=session_id,
+            status=status,
+            require_preview_union_store=require_preview_union_store,
+        )
+    except GraphIngestRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return GraphIngestRunsResponse(runs=runs).model_dump(mode="json")
+
+
+@router.get("/graph-ingest/latest", response_model=GraphIngestLatestRunResponse)
+def get_latest_graph_ingest_run(
+    campaign_id: Annotated[str, Query()],
+    session_id: Annotated[str, Query()],
+) -> dict[str, Any]:
+    try:
+        run = resolve_latest_preview_union_graph_ingest_run(
+            repo_root(), campaign_id=campaign_id, session_id=session_id
+        )
+    except GraphIngestRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return GraphIngestLatestRunResponse(run=run).model_dump(mode="json")
+
+
 @router.get("/union-supergraph/projection")
 def get_union_supergraph_projection(
     session_id: Annotated[str, Query()],
+    campaign_id: Annotated[str | None, Query()] = None,
+    use_latest_graph_ingest: Annotated[bool, Query()] = False,
     store_path: Annotated[str | None, Query()] = None,
     preview_source: Annotated[str | None, Query()] = None,
     graph_run_manifest_path: Annotated[str | None, Query()] = None,
     preview_union_store_path: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
+        resolved_manifest_path = graph_run_manifest_path
+        if resolved_manifest_path is None and use_latest_graph_ingest:
+            if campaign_id is None:
+                raise ValueError(
+                    "campaign_id is required when use_latest_graph_ingest=true"
+                )
+            latest = resolve_latest_preview_union_graph_ingest_run(
+                repo_root(), campaign_id=campaign_id, session_id=session_id
+            )
+            resolved_manifest_path = latest.manifest_path
         return build_plan_union_supergraph_projection_payload(
             session_id=session_id,
             store_path=Path(store_path) if store_path else None,
             preview_source=preview_source,
             graph_run_manifest_path=(
-                Path(graph_run_manifest_path) if graph_run_manifest_path else None
+                Path(resolved_manifest_path) if resolved_manifest_path else None
             ),
             preview_union_store_path=(
                 Path(preview_union_store_path) if preview_union_store_path else None
             ),
         )
+    except GraphIngestRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
