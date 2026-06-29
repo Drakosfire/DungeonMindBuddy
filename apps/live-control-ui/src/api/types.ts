@@ -620,6 +620,7 @@ export interface ResolvedRollResponse {
 
 export type RecapIngestOperation =
   | "stage_preview"
+  | "generate_recap_memory"
   | "apply_normalize"
   | "build_frontmatter_seed"
   | "run_breadcrumb_ingest"
@@ -646,6 +647,7 @@ export interface RecapIngestRequest {
   extract_graph?: boolean;
   graph_model_id?: string | null;
   materialize_after_extract?: boolean;
+  include_graph_extraction?: boolean;
 }
 
 export interface RecapGraphPreviewReport {

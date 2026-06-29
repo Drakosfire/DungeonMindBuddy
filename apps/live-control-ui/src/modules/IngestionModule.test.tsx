@@ -326,7 +326,7 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
   });
 
-  it("runs the full ingest pipeline as one sequential operation", async () => {
+  it("runs the full ingest pipeline through backend orchestration", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect((body) => {
       if (body.operation === "stage_preview") {
@@ -371,13 +371,14 @@ describe("IngestionModule", () => {
     const operations = spy.mock.calls
       .map(([body]) => body.operation)
       .filter((operation) => operation !== "inspect_status");
-    expect(operations).toEqual([
-      "stage_preview",
-      "apply_normalize",
-      "build_frontmatter_seed",
-      "run_breadcrumb_ingest",
-      "materialize_session_memory",
-    ]);
+    expect(operations).toEqual(["generate_recap_memory"]);
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "generate_recap_memory",
+        include_graph_extraction: false,
+        graph_model_id: undefined,
+      }),
+    );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
     expect(screen.getByText("Complete: recap memory is generated. Review the rendered recap and proof artifacts.")).toBeInTheDocument();
     expect(screen.getByText("records: 10")).toBeInTheDocument();
@@ -449,10 +450,10 @@ describe("IngestionModule", () => {
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
-      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "build_frontmatter_seed", session: 23 })),
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "generate_recap_memory", session: 23 })),
     );
     const operations = spy.mock.calls.map(([body]) => body.operation);
-    expect(operations).not.toContain("stage_preview");
+    expect(operations).toContain("generate_recap_memory");
   });
 
   it("submits build_frontmatter_seed from the breadcrumb boundary", async () => {
@@ -604,6 +605,68 @@ describe("IngestionModule", () => {
     expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
   });
 
+
+  it("shows graph extraction opt-in and sends checked graph flags", async () => {
+    const user = userEvent.setup();
+    const spy = mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation", "preview_union_store_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    expect(screen.getByLabelText("Include preview graph extraction")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByLabelText("Include preview graph extraction"));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          include_graph_extraction: true,
+          graph_model_id: "gpt-5-mini",
+        }),
+      ),
+    );
+    expect((await screen.findAllByText(/preview graph materialized/i)).length).toBeGreaterThan(0);
+  });
+
+  it("reports blocked one-click graph extraction without hiding Open Recap View", async () => {
+    const user = userEvent.setup();
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation", "graph_source_bundle_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_span_bundle_ready",
+            extraction_mode: "llm_blocked",
+            blocked_reason: "OPENAI_API_KEY is not configured",
+            can_open_union_graph: false,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByLabelText("Include preview graph extraction"));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    expect(await screen.findByText(/Preview graph extraction was blocked: OPENAI_API_KEY is not configured/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+  });
 
   it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
     const user = userEvent.setup();
