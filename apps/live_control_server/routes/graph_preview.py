@@ -29,6 +29,15 @@ from apps.live_control_server.services.union_supergraph_projection_adapter impor
     build_recap_only_projection_payload,
     build_plan_union_supergraph_projection_payload,
 )
+from apps.live_control_server.services.graph_gold_review import (
+    GoldReviewCompareResponse,
+    GoldReviewEvidenceDiffResponse,
+    GoldReviewSessionsResponse,
+    GraphGoldReviewError,
+    build_gold_review_evidence_diff,
+    compare_gold_review,
+    discover_gold_review_sessions,
+)
 from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRegistryError,
     RecapArtifactsListResponse,
@@ -201,6 +210,52 @@ def get_union_supergraph_projection(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/gold-review/sessions", response_model=GoldReviewSessionsResponse)
+def get_gold_review_sessions() -> dict[str, Any]:
+    sessions = discover_gold_review_sessions(repo_root())
+    return GoldReviewSessionsResponse(sessions=sessions).model_dump(mode="json")
+
+
+@router.get("/gold-review/compare", response_model=GoldReviewCompareResponse)
+def get_gold_review_compare(
+    campaign_id: Annotated[str, Query()],
+    session_id: Annotated[str, Query()],
+    manifest_path: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        response = compare_gold_review(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            manifest_path=manifest_path,
+            root=repo_root(),
+        )
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/gold-review/evidence", response_model=GoldReviewEvidenceDiffResponse)
+def get_gold_review_evidence(
+    campaign_id: Annotated[str, Query()],
+    session_id: Annotated[str, Query()],
+    object_kind: Annotated[str, Query()],
+    object_id: Annotated[str, Query()],
+    manifest_path: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        response = build_gold_review_evidence_diff(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            object_kind=object_kind,
+            object_id=object_id,
+            manifest_path=manifest_path,
+            root=repo_root(),
+        )
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
 
 
 @router.get("/recap", response_model=RecapGraphPresentationResponse)

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from src.graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
+
 PASS_NAMES = (
     "actor_pass",
     "location_pass",
@@ -152,7 +154,14 @@ def category_edge_pass_json_schema() -> dict[str, Any]:
                         "from_node_id": {"type": "string"},
                         "to_node_id": {"type": "string"},
                         "label": {"type": "string"},
-                        "relationship_type": {"type": "string"},
+                        "relationship_type": {
+                            "type": "string",
+                            "enum": list(exact_predicate_ids()),
+                        },
+                        "predicate_family": {
+                            "type": "string",
+                            "enum": list(predicate_family_ids()),
+                        },
                         "evidence_refs": {
                             "type": "array",
                             "items": _evidence_ref_schema(),
@@ -164,6 +173,7 @@ def category_edge_pass_json_schema() -> dict[str, Any]:
                         "to_node_id",
                         "label",
                         "relationship_type",
+                        "predicate_family",
                         "evidence_refs",
                     ],
                 },

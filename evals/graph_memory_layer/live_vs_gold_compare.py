@@ -138,6 +138,15 @@ def compare_parts(
         for mid in missing:
             soft.append({"issue": issue, "detail": mid, "label": gold_label_by_id.get(mid, "")})
 
+    edge_miss_diagnostics = ir.build_edge_miss_diagnostics(
+        [entry["id"] if isinstance(entry, dict) else str(entry) for entry in coverage.get("missing_gold_edges", [])],
+        list(gold_parts.get("edges", [])),
+        live_edges,
+        gold_nidx,
+        cand_nidx,
+        threshold=0.6,
+    )
+
     scores = {
         "node_recall": _score(len(coverage["matched_nodes"]), coverage["gold_nodes_total"]),
         "edge_recall": _score(len(coverage["matched_edges"]), coverage["gold_edges_total"]),
@@ -175,6 +184,7 @@ def compare_parts(
             "best_match_assignment": True,
             "candidate_dedup_applied": True,
             "id_match_not_required": True,
+            "edge_miss_diagnostics": edge_miss_diagnostics,
         },
     }
 

@@ -12,6 +12,11 @@ from typing import Any, Mapping, Protocol, Sequence
 
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
+from src.graph_memory.predicate_catalog import (
+    prompt_markdown as predicate_catalog_prompt_markdown,
+    predicate_family_for_type,
+    validate_edge_predicate,
+)
 from src.graph_memory.party_context import (
     PartyContext,
     build_party_context_for_campaign,
@@ -19,6 +24,7 @@ from src.graph_memory.party_context import (
 from src.graph_memory.session_graph_context import (
     build_session_graph_context,
     merge_party_anchor_nodes,
+    merge_party_collective,
     party_anchors_markdown,
 )
 
@@ -251,11 +257,14 @@ def render_category_pass_prompts(
         "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
         f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n"
     )
+    predicate_catalog = predicate_catalog_prompt_markdown()
     prompts[_prompt_key(EDGE_PASS_NAME)] = (
         f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n"
         "## Task\n\nUsing ONLY the consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Return JSON with key `observation_edges` (array). "
-        "Each edge: `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, `evidence_refs`.\n"
+        "Each edge: `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, "
+        "`predicate_family`, `evidence_refs`.\n"
+        f"{predicate_catalog}\n\n"
         f"{EVIDENCE_RULE}\n\n## Consolidated nodes\n\n"
         "(injected at runtime)\n"
     )
@@ -366,17 +375,29 @@ def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_edge(raw: Mapping[str, Any]) -> dict[str, Any]:
+    relationship_type = str(raw.get("relationship_type") or "").strip().lower()
+    predicate_family = str(raw.get("predicate_family") or "").strip()
+    if relationship_type and not predicate_family:
+        predicate_family = predicate_family_for_type(relationship_type)
+
+    warnings = [str(w) for w in (raw.get("warnings") or [])]
+    for code in validate_edge_predicate(relationship_type, predicate_family):
+        marker = f"predicate_validation:{code}"
+        if marker not in warnings:
+            warnings.append(marker)
+
     return {
         "edge_id": str(raw.get("edge_id") or "edge:unknown"),
         "from_node_id": str(raw.get("from_node_id") or ""),
         "to_node_id": str(raw.get("to_node_id") or ""),
         "label": str(raw.get("label") or ""),
-        "relationship_type": str(raw.get("relationship_type") or "associated_with"),
+        "relationship_type": relationship_type,
+        "predicate_family": predicate_family,
         "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
         "evidence_refs": _normalize_evidence_refs(raw.get("evidence_refs")),
         "proposed_action": "create",
         "confidence": str(raw.get("confidence") or "medium"),
-        "warnings": list(raw.get("warnings") or []),
+        "warnings": warnings,
     }
 
 
@@ -457,7 +478,27 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
+    deduped_nodes, edges, party_collective_diag = merge_party_collective(
+        deduped_nodes,
+        edges,
+        party_ctx,
+        default_semantic_state=DEFAULT_SEMANTIC_STATE,
+    )
     edge_dedup = ir.dedup_edges(edges, deduped_nodes)
+    edge_predicate_issues = [
+        {
+            "edge_id": edge["edge_id"],
+            "relationship_type": edge.get("relationship_type"),
+            "predicate_family": edge.get("predicate_family"),
+            "issues": [
+                w.removeprefix("predicate_validation:")
+                for w in edge.get("warnings", [])
+                if str(w).startswith("predicate_validation:")
+            ],
+        }
+        for edge in edges
+        if any(str(w).startswith("predicate_validation:") for w in edge.get("warnings", []))
+    ]
 
     session_ctx = build_session_graph_context(campaign_id, session)
     diagnostics = {
@@ -467,8 +508,11 @@ def consolidate_category_outputs(
         "merged_nodes": node_dedup["merged"],
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
+        "edge_predicate_issues": edge_predicate_issues,
         "party_anchor_hub_paths": sorted(party_ctx.anchor_hub_paths()),
         "inserted_party_anchor_slugs": anchor_merge_diag.get("inserted_party_anchor_slugs", []),
+        "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
+        "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
         "registry_relpath": session_ctx.registry_relpath,
         "session_graph_context_warnings": list(session_ctx.warnings),
     }

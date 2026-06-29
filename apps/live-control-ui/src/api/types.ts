@@ -1466,6 +1466,89 @@ export interface GraphIngestLatestRunResponse {
   run: GraphIngestRunSummary | null;
 }
 
+export interface GoldReviewSessionSummary {
+  session_id: string;
+  session_number: number;
+  campaign_id: string;
+  gold_fixture_id: string;
+  gold_manifest_path: string;
+  gold_graph_path: string;
+  gold_counts: Record<string, number>;
+  available_runs: GraphIngestRunSummary[];
+}
+
+export interface GoldReviewSessionsResponse {
+  schema_version: "dmb_graph_gold_review_sessions_v1";
+  version: string;
+  sessions: GoldReviewSessionSummary[];
+}
+
+export interface GoldReviewMissEntry {
+  id: string;
+  label: string;
+}
+
+export interface GoldReviewCompareResponse {
+  schema_version: "dmb_graph_gold_review_compare_v1";
+  version: string;
+  session_id: string;
+  campaign_id: string;
+  gold_fixture_id: string;
+  gold_manifest_path: string;
+  gold_graph_path: string;
+  live_run: GraphIngestRunSummary | null;
+  comparison: {
+    scores: Record<string, number>;
+    coverage: Record<string, unknown>;
+    soft_misses: Array<{ issue: string; detail: string; label?: string }>;
+    dedup?: Record<string, number>;
+  };
+  object_index: {
+    gold: Record<string, GoldReviewObjectIndexEntry>;
+    live: Record<string, GoldReviewObjectIndexEntry>;
+  };
+  match_pairs: Record<string, Array<{ gold_id: string; live_id: string; score: number }>>;
+}
+
+export interface GoldReviewObjectIndexEntry {
+  object_kind: string;
+  object_id: string;
+  label: string;
+  payload: Record<string, unknown>;
+}
+
+export interface GoldReviewEvidenceResolvedRef {
+  source_anchor_id?: string | null;
+  source_span_ref_id?: string | null;
+  label?: string | null;
+  preview_snippet?: string | null;
+  paragraph_text?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+}
+
+export interface GoldReviewEvidenceSide {
+  object_id: string;
+  object_kind: string;
+  label?: string | null;
+  summary?: string | null;
+  payload: Record<string, unknown>;
+  evidence: GoldReviewEvidenceResolvedRef[];
+}
+
+export interface GoldReviewEvidenceDiffResponse {
+  schema_version: "dmb_graph_gold_review_evidence_v1";
+  version: string;
+  session_id: string;
+  campaign_id: string;
+  object_kind: string;
+  object_id: string;
+  matched: boolean;
+  match_score?: number | null;
+  gold: GoldReviewEvidenceSide;
+  live?: GoldReviewEvidenceSide | null;
+}
+
 export interface GraphFocusOverlay {
   focus_session_id?: string | null;
   focused_evidence_ref_ids: string[];

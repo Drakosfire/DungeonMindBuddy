@@ -2395,3 +2395,191 @@ body.plan-toolbox-open {
   padding: 0.45rem 0.7rem;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
+
+.graph-gold-review-root {
+  display: grid;
+  gap: 1rem;
+}
+
+.graph-gold-review-header h2 {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.graph-gold-review-lede,
+.graph-gold-review-note,
+.graph-gold-review-meta {
+  color: var(--fg-mute, #9aa3b5);
+  margin: 0;
+}
+
+.graph-gold-review-error {
+  color: #fca5a5;
+  margin: 0;
+}
+
+.graph-gold-review-session-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.graph-gold-review-pill {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  padding: 0.35rem 0.8rem;
+}
+
+.graph-gold-review-pill.active {
+  border-color: rgba(122, 162, 247, 0.65);
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.35);
+}
+
+.graph-gold-review-run-picker {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 36rem;
+}
+
+.graph-gold-review-run-picker select {
+  background: var(--bg-input, #12141a);
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  color: var(--fg, #e8eaef);
+  padding: 0.45rem 0.6rem;
+}
+
+.graph-gold-review-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.9fr);
+}
+
+.graph-gold-review-main,
+.graph-gold-review-inspector,
+.graph-gold-review-scorecard,
+.graph-gold-review-miss-group,
+.graph-gold-review-evidence-diff,
+.graph-gold-review-evidence-column,
+.graph-gold-review-evidence-snippet {
+  background: rgba(2, 6, 23, 0.42);
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.graph-gold-review-stat-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin-top: 0.75rem;
+}
+
+.graph-gold-review-stat {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.graph-gold-review-stat span {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.82rem;
+}
+
+.graph-gold-review-coverage-table {
+  border-collapse: collapse;
+  margin-top: 0.85rem;
+  width: 100%;
+}
+
+.graph-gold-review-coverage-table th,
+.graph-gold-review-coverage-table td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 0.35rem 0.45rem;
+  text-align: left;
+}
+
+.graph-gold-review-misses {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.graph-gold-review-miss-group header {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.graph-gold-review-miss-group ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.graph-gold-review-miss-item {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  width: 100%;
+}
+
+.graph-gold-review-miss-item.readonly {
+  cursor: default;
+}
+
+.graph-gold-review-miss-item.active {
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25);
+}
+
+.graph-gold-review-miss-item code,
+.graph-gold-review-evidence-column code {
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+.graph-gold-review-miss-heading {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.82rem;
+  margin: 0.55rem 0 0;
+}
+
+.graph-gold-review-evidence-columns {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.75rem;
+}
+
+.graph-gold-review-evidence-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.graph-gold-review-evidence-snippet header {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.graph-gold-review-beat-summary {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 960px) {
+  .graph-gold-review-layout,
+  .graph-gold-review-evidence-columns {
+    grid-template-columns: 1fr;
+  }
+}

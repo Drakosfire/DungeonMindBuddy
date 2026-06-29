@@ -233,6 +233,19 @@ def test_inverse_edges_dedup_to_one():
     assert len(result["merged"]) == 1
 
 
+def test_parent_of_vs_recognizes_classified_as_family_mismatch():
+    g_nodes = [_node("g_grob", "Grobnok", "character"), _node("g_sara", "Sara", "character")]
+    c_nodes = [_node("c_grob", "Grobnok", "character"), _node("c_sara", "Sara", "character")]
+    gi, ci = ir.node_index(g_nodes), ir.node_index(c_nodes)
+    gold = _edge("e_g", "g_grob", "g_sara", "parent_of")
+    cand = _edge("e_c", "c_grob", "c_sara", "recognizes")
+    diagnosis = ir.classify_edge_alignment(gold, cand, gi, ci)
+    assert diagnosis["reason"] == "family_mismatch"
+    assert diagnosis["gold_predicate_family"] == "kinship"
+    assert diagnosis["live_predicate_family"] == "rel:recognizes"
+    assert diagnosis["best_score"] == ir.edge_match_score(gold, cand, gi, ci)
+
+
 def test_dedup_nodes_collapses_same_canonical_key():
     nodes = [
         _node("a", "Mirathorn", "location"),

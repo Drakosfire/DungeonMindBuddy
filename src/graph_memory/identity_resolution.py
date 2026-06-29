@@ -74,13 +74,17 @@ PREDICATE_FAMILY: dict[str, str] = {
     "defends_weakened_location": "location_hierarchy",
     # routing
     "travels_to": "routing", "routes_to": "routing", "leads_to": "routing",
-    "road_to": "routing", "path_to": "routing",
+    "road_to": "routing", "path_to": "routing", "displaced_from": "routing",
+    # threat / antagonism
+    "threatens": "threat_relation", "besieges": "threat_relation",
+    "attacks": "threat_relation",
     # membership
     "member_of": "membership", "belongs_to": "membership", "serves": "membership",
     "recruits_for": "membership", "part_of_group": "membership",
     # authority
     "governs": "authority", "commands": "authority", "hires": "authority",
     "reports_to": "authority", "carries_report_to": "authority", "rules": "authority",
+    "leads": "authority",
     # knowledge / awareness
     "knows_about": "knowledge", "aware_of": "knowledge", "suspects": "knowledge",
     "missing_contact": "knowledge", "replaced_contact": "knowledge",
@@ -402,10 +406,18 @@ def _endpoint_nodes(edge: Any, node_index: Mapping[str, Any]) -> tuple[Any, Any]
     )
 
 
+def _edge_predicate_family(edge: Any) -> str:
+    explicit = _get(edge, "predicate_family", None)
+    if explicit:
+        return str(explicit).strip()
+    rel = str(_get(edge, "relationship_type", "") or "")
+    return predicate_family(rel)
+
+
 def _canonical_endpoints(edge: Any, node_index: Mapping[str, Any]) -> tuple[Any, Any, str]:
     """Resolve endpoints and canonicalize direction for inverse verbs."""
     rel = str(_get(edge, "relationship_type", "") or "")
-    family = predicate_family(rel)
+    family = _edge_predicate_family(edge)
     frm, to = _endpoint_nodes(edge, node_index)
     if INVERSE_VERBS.get(rel.lower()) and rel.lower() == "child_of":
         frm, to = to, frm
@@ -434,6 +446,182 @@ def edge_match_score(
         return 0.0
     # full credit only when family agrees; otherwise partial (relationship drift)
     return round(endpoint_score * (1.0 if family_ok else 0.6), 4)
+
+
+def _edge_endpoint_score(
+    gold_edge: Any,
+    cand_edge: Any,
+    gold_nodes_index: Mapping[str, Any],
+    cand_nodes_index: Mapping[str, Any],
+) -> tuple[float, str, str, str, str]:
+    """Return endpoint score and predicate metadata for diagnostics."""
+    g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
+    c_from, c_to, c_family = _canonical_endpoints(cand_edge, cand_nodes_index)
+    g_rel = str(_get(gold_edge, "relationship_type", "") or "")
+    c_rel = str(_get(cand_edge, "relationship_type", "") or "")
+    if g_from is None or g_to is None or c_from is None or c_to is None:
+        return 0.0, g_family, c_family, g_rel, c_rel
+    forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
+    backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
+    if g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES:
+        endpoint_score = max(forward, backward)
+    else:
+        endpoint_score = forward
+    return endpoint_score, g_family, c_family, g_rel, c_rel
+
+
+def classify_edge_alignment(
+    gold_edge: Any,
+    live_edge: Any,
+    gold_nodes_index: Mapping[str, Any],
+    cand_nodes_index: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Classify how a gold edge aligns with a live edge candidate."""
+    edge_id = str(_get(gold_edge, "edge_id", "") or "")
+    live_edge_id = str(_get(live_edge, "edge_id", "") or "")
+    g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
+    if g_from is None or g_to is None:
+        return {
+            "edge_id": edge_id,
+            "reason": "endpoint_missing",
+            "detail": "gold edge endpoint not resolved in gold node index",
+            "gold_relationship_type": str(_get(gold_edge, "relationship_type", "") or ""),
+            "gold_predicate_family": g_family,
+        }
+
+    endpoint_score, g_family, c_family, g_rel, c_rel = _edge_endpoint_score(
+        gold_edge,
+        live_edge,
+        gold_nodes_index,
+        cand_nodes_index,
+    )
+    score = edge_match_score(gold_edge, live_edge, gold_nodes_index, cand_nodes_index)
+    base = {
+        "edge_id": edge_id,
+        "best_live_edge_id": live_edge_id,
+        "best_score": score,
+        "endpoint_score": round(endpoint_score, 4),
+        "gold_relationship_type": g_rel,
+        "gold_predicate_family": g_family,
+        "live_relationship_type": c_rel,
+        "live_predicate_family": c_family,
+    }
+    c_from, c_to, _ = _canonical_endpoints(live_edge, cand_nodes_index)
+    if c_from is None or c_to is None:
+        return {
+            **base,
+            "reason": "endpoint_missing",
+            "detail": "live edge endpoint not resolved in live node index",
+        }
+    if endpoint_score < 0.6:
+        return {
+            **base,
+            "reason": "endpoint_score_below_threshold",
+            "detail": "live edge endpoints do not align with gold endpoints",
+        }
+    if g_family != c_family:
+        return {
+            **base,
+            "reason": "family_mismatch",
+            "detail": "relationship predicate family differs between gold and live",
+        }
+    if g_rel.strip().lower() != c_rel.strip().lower():
+        return {
+            **base,
+            "reason": "exact_predicate_mismatch",
+            "detail": "predicate family matches but exact relationship_type differs",
+        }
+    return {
+        **base,
+        "reason": "aligned",
+        "detail": "gold and live edges align on endpoints and predicate",
+    }
+
+
+def explain_edge_miss(
+    gold_edge: Any,
+    live_edges: Sequence[Any],
+    gold_nodes_index: Mapping[str, Any],
+    cand_nodes_index: Mapping[str, Any],
+    *,
+    threshold: float = 0.6,
+) -> dict[str, Any]:
+    """Explain why a gold edge has no live match at or above ``threshold``."""
+    edge_id = str(_get(gold_edge, "edge_id", "") or "")
+    g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
+    if g_from is None or g_to is None:
+        return {
+            "edge_id": edge_id,
+            "reason": "endpoint_missing",
+            "detail": "gold edge endpoint not resolved in gold node index",
+            "gold_relationship_type": str(_get(gold_edge, "relationship_type", "") or ""),
+            "gold_predicate_family": g_family,
+        }
+    if not live_edges:
+        return {
+            "edge_id": edge_id,
+            "reason": "no_comparable_live_edge",
+            "detail": "live graph has no edges",
+            "gold_relationship_type": str(_get(gold_edge, "relationship_type", "") or ""),
+            "gold_predicate_family": g_family,
+        }
+
+    best_score = -1.0
+    best_edge: Any | None = None
+    for cand in live_edges:
+        score = edge_match_score(gold_edge, cand, gold_nodes_index, cand_nodes_index)
+        if score > best_score:
+            best_score = score
+            best_edge = cand
+
+    if best_edge is None:
+        return {
+            "edge_id": edge_id,
+            "reason": "no_comparable_live_edge",
+            "detail": "no live edge candidates available",
+            "gold_relationship_type": str(_get(gold_edge, "relationship_type", "") or ""),
+            "gold_predicate_family": g_family,
+        }
+
+    diagnosis = classify_edge_alignment(
+        gold_edge,
+        best_edge,
+        gold_nodes_index,
+        cand_nodes_index,
+    )
+    diagnosis["best_score"] = round(best_score, 4)
+    if best_score >= threshold:
+        diagnosis["reason"] = "matched_below_report_threshold"
+        diagnosis["detail"] = "best live edge meets threshold but was not assigned"
+    elif diagnosis["reason"] == "aligned":
+        diagnosis["reason"] = "no_comparable_live_edge"
+        diagnosis["detail"] = "no live edge met the comparison threshold"
+    return diagnosis
+
+
+def build_edge_miss_diagnostics(
+    missing_gold_edge_ids: Sequence[str],
+    gold_edges: Sequence[Any],
+    live_edges: Sequence[Any],
+    gold_nodes_index: Mapping[str, Any],
+    cand_nodes_index: Mapping[str, Any],
+    *,
+    threshold: float = 0.6,
+) -> dict[str, dict[str, Any]]:
+    gold_by_id = {str(_get(edge, "edge_id", "")): edge for edge in gold_edges}
+    out: dict[str, dict[str, Any]] = {}
+    for edge_id in missing_gold_edge_ids:
+        gold_edge = gold_by_id.get(edge_id)
+        if gold_edge is None:
+            continue
+        out[edge_id] = explain_edge_miss(
+            gold_edge,
+            live_edges,
+            gold_nodes_index,
+            cand_nodes_index,
+            threshold=threshold,
+        )
+    return out
 
 
 # --------------------------------------------------------------------------- #

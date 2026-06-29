@@ -4,6 +4,7 @@ import { IngestionModule } from "../../modules/IngestionModule";
 import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
+import { GraphGoldReviewModule } from "../graphGoldReview/GraphGoldReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor } from "../types";
 import type { ReferenceResolution } from "../reference/referenceResolver";
@@ -75,6 +76,9 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   }
   if (toolId === "graph-preview") {
     return <GraphPreviewModule context={context} />;
+  }
+  if (toolId === "graph-gold-review") {
+    return <GraphGoldReviewModule context={context} />;
   }
   if (toolId === "party-registry") {
     return <PartyRegistryModule context={context} />;

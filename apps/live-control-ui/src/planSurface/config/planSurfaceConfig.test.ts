@@ -20,6 +20,7 @@ describe("planSurfaceConfig", () => {
       "ingest-recap",
       "recap",
       "graph-preview",
+      "graph-gold-review",
       "party-registry",
       "statblock",
     ]);

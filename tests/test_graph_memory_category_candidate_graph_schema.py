@@ -26,3 +26,9 @@ def test_category_pass_text_format_uses_strict_json_schema() -> None:
         if pass_name == "thread_pass":
             assert "ignored_items" in schema["required"]
             assert "deferred_items" in schema["required"]
+        if pass_name == "edge_pass":
+            edge_items = schema["properties"]["observation_edges"]["items"]
+            assert "predicate_family" in edge_items["required"]
+            assert "relationship_type" in edge_items["properties"]
+            assert "enum" in edge_items["properties"]["relationship_type"]
+            assert "parent_of" in edge_items["properties"]["relationship_type"]["enum"]

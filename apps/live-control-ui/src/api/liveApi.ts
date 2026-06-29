@@ -57,6 +57,9 @@ import type {
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
   GraphIngestRunsResponse,
+  GoldReviewCompareResponse,
+  GoldReviewEvidenceDiffResponse,
+  GoldReviewSessionsResponse,
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
@@ -271,6 +274,47 @@ export async function getLatestGraphIngestRun(
   if (sourceRecapSha256) params.set("source_recap_sha256", sourceRecapSha256);
   return apiFetch<GraphIngestLatestRunResponse>(
     `/api/live/graph-preview/graph-ingest/latest?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewCompareQuery {
+  campaignId: string;
+  sessionId: string;
+  manifestPath?: string;
+}
+
+export async function getGoldReviewSessions(): Promise<GoldReviewSessionsResponse> {
+  return apiFetch<GoldReviewSessionsResponse>("/api/live/graph-preview/gold-review/sessions");
+}
+
+export async function getGoldReviewCompare(query: GoldReviewCompareQuery): Promise<GoldReviewCompareResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  if (query.manifestPath) params.set("manifest_path", query.manifestPath);
+  return apiFetch<GoldReviewCompareResponse>(
+    `/api/live/graph-preview/gold-review/compare?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewEvidenceQuery extends GoldReviewCompareQuery {
+  objectKind: string;
+  objectId: string;
+}
+
+export async function getGoldReviewEvidence(
+  query: GoldReviewEvidenceQuery,
+): Promise<GoldReviewEvidenceDiffResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+    object_kind: query.objectKind,
+    object_id: query.objectId,
+  });
+  if (query.manifestPath) params.set("manifest_path", query.manifestPath);
+  return apiFetch<GoldReviewEvidenceDiffResponse>(
+    `/api/live/graph-preview/gold-review/evidence?${params.toString()}`,
   );
 }
 
