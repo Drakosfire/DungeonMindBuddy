@@ -333,6 +333,61 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
 
 
+def test_generate_recap_memory_reuses_preview_graph_without_force(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+
+    payload = {
+        "operation": "generate_recap_memory",
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "slug": "Mireward Road Dogfood",
+        "check": True,
+        "include_graph_extraction": True,
+        "graph_model_id": "gpt-5.4-mini",
+    }
+    first = client.post("/api/live/recap-ingest", json=payload)
+    assert first.status_code == 200
+    first_graph = first.json()["ingest_report"]["graph_preview"]
+    assert first_graph["status"] == "preview_union_store_ready"
+    first_manifest = first_graph["manifest_path"]
+
+    second = client.post("/api/live/recap-ingest", json=payload)
+    assert second.status_code == 200
+    second_graph = second.json()["ingest_report"]["graph_preview"]
+    assert second_graph["manifest_path"] == first_manifest
+
+
+def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+
+    payload = {
+        "operation": "generate_recap_memory",
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "slug": "Mireward Road Dogfood",
+        "check": True,
+        "include_graph_extraction": True,
+        "graph_model_id": "gpt-5.4-mini",
+    }
+    first = client.post("/api/live/recap-ingest", json=payload)
+    assert first.status_code == 200
+    first_manifest = first.json()["ingest_report"]["graph_preview"]["manifest_path"]
+
+    forced = client.post("/api/live/recap-ingest", json={**payload, "force_graph_run": True})
+    assert forced.status_code == 200
+    forced_graph = forced.json()["ingest_report"]["graph_preview"]
+    assert forced_graph["status"] == "preview_union_store_ready"
+    assert forced_graph["manifest_path"] != first_manifest
+
+
 def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

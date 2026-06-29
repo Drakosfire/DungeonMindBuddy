@@ -758,6 +758,48 @@ code {
   grid-column: 1 / -1;
 }
 
+.ingestion-prior-load-card {
+  grid-column: 1 / -1;
+}
+
+.ingestion-prior-load-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.ingestion-prior-load-row select {
+  min-width: min(100%, 22rem);
+  margin-left: 0.35rem;
+  border-radius: 6px;
+  border: 1px solid #3a4358;
+  background: #0f1218;
+  color: inherit;
+  padding: 0.45rem;
+}
+
+.ingestion-source-mode-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ingestion-source-mode-toggle button {
+  border: 1px solid #3a4358;
+  border-radius: 999px;
+  background: rgba(20, 24, 33, 0.5);
+  color: inherit;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.ingestion-source-mode-toggle button.active {
+  border-color: #7aa2f7;
+  background: rgba(122, 162, 247, 0.12);
+}
+
 .ingestion-actions {
   display: flex;
   gap: 0.5rem;
@@ -766,6 +808,12 @@ code {
 
 .ingestion-primary-actions {
   margin-top: 0.1rem;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ingestion-replace-graph-row {
+  margin-bottom: 0.15rem;
 }
 
 .ingestion-primary-actions button.primary {

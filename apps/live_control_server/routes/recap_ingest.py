@@ -360,6 +360,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 normalized_recap_path=normalized,
                 extract_graph=True,
                 graph_model_id=body.graph_model_id or resolve_category_graph_model(None),
+                force_graph_run=body.force_graph_run,
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
@@ -528,6 +529,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     candidate_graph_path=body.candidate_graph_path,
                     extract_graph=body.extract_graph or body.materialize_after_extract,
                     graph_model_id=body.graph_model_id,
+                    force_graph_run=body.force_graph_run,
                 )
             return _append_graph_status(status, graph)
         if body.operation == "build_frontmatter_seed":

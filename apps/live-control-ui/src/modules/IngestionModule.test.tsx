@@ -80,6 +80,11 @@ function mockRecapIngestWithInspect(
 describe("IngestionModule", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [],
+    });
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
       makeStatus({
         status: "initialized",
@@ -936,6 +941,156 @@ describe("IngestionModule", () => {
     );
     await waitFor(() =>
       expect(screen.queryByText("Resolve duplicate normalized recaps")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("loads a prior processed recap and enables graph extraction without raw paste", async () => {
+    const user = userEvent.setup();
+    const artifact = {
+      schema_version: "dmb_recap_artifact_record_v1" as const,
+      artifact_id: "artifact:recap:longmont-c2:session-23",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      source_recap_path:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      run_bundle_uri: "out/graph_memory/runs/longmont-c2/session-23/run",
+      run_manifest_uri: "out/graph_memory/runs/longmont-c2/session-23/run/manifest.json",
+      source_span_index_uri: "out/graph_memory/runs/longmont-c2/session-23/run/source_span_index.json",
+      graph_run_refs: [],
+      default_projection_mode: "preview_union",
+      registered_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      registry_source: "scan" as const,
+    };
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [artifact],
+    });
+    vi.spyOn(liveApi, "postCitationSource").mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: artifact.source_recap_path,
+      content_type: "text/markdown",
+      content: "---\ntitle: Session 23 - Mireward Gate Battle\n---\nThe party held the gate.",
+      truncated: false,
+      highlight: { match_source: "none" },
+      diagnostics: [],
+    });
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          session: 23,
+          status: "recap_applied",
+          states: ["normalized_reused", "ingest_status_inspected"],
+          paths: {
+            ...makeStatus().paths,
+            normalized_recap:
+              "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+          },
+          entity_spelling_audit: [],
+        });
+      }
+      if (body.operation === "generate_recap_memory") {
+        expect(body.raw_text).toBeUndefined();
+        expect(body.include_graph_extraction).toBe(true);
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              can_open_union_graph: true,
+            },
+          },
+        });
+      }
+      return makeStatus({ session: 23, entity_spelling_audit: [] });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+    await screen.findByLabelText("Prior processed recap");
+    await user.click(screen.getByRole("button", { name: "Load processed recap" }));
+
+    const preview = await screen.findByLabelText("Normalized recap preview");
+    expect((preview as HTMLTextAreaElement).value).toContain("The party held the gate.");
+    expect(screen.getByRole("button", { name: "Run category graph extraction" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Run category graph extraction" }));
+
+    await waitFor(() =>
+      expect(ingestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          session: 23,
+          include_graph_extraction: true,
+        }),
+      ),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(/Complete: graph projection is ready|Ingestion ready_for_planning_activation/).length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  it("allows replacing an existing preview graph when force re-extract is checked", async () => {
+    const user = userEvent.setup();
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              can_open_union_graph: true,
+            },
+          },
+          entity_spelling_audit: [],
+        });
+      }
+      if (body.operation === "generate_recap_memory") {
+        expect(body.force_graph_run).toBe(true);
+        expect(body.raw_text).toBeUndefined();
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              manifest_path: "out/graph_memory/runs/longmont-c2/session-23/run-2/manifest.json",
+              can_open_union_graph: true,
+            },
+          },
+        });
+      }
+      return makeStatus({ session: 23, entity_spelling_audit: [] });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/A preview graph already exists for this session/)).toBeInTheDocument(),
+    );
+    const reextractButton = screen.getByRole("button", { name: /category graph extraction|Replace preview graph/i });
+    expect(reextractButton).toBeDisabled();
+
+    await user.click(screen.getByLabelText(/Replace existing preview graph \(new category extraction run\)/));
+
+    expect(reextractButton).toBeEnabled();
+    await user.click(reextractButton);
+
+    await waitFor(() =>
+      expect(ingestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          session: 23,
+          force_graph_run: true,
+        }),
+      ),
     );
   });
 });
