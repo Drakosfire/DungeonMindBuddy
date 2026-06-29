@@ -20,10 +20,22 @@
       "ephanna",
       "karsemine",
       "stafl"
+    ],
+    "23": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
     ]
   },
   "session_companion_rosters": {
     "22": [
+      "thrin_branchborn",
+      "captain_lysandra_ironveil"
+    ],
+    "23": [
       "thrin_branchborn",
       "captain_lysandra_ironveil"
     ]

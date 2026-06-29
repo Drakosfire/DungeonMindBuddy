@@ -1,0 +1,72 @@
+{
+  "actor_pass": {
+    "cost_usd": 0.011457,
+    "usage": {
+      "input_tokens": 3480,
+      "output_tokens": 683,
+      "cached_tokens": 3328
+    },
+    "elapsed_ms": 5513.69,
+    "response_id": "resp_0bb962358a383fe4006a3efa55f4b881978ab20b7e72ee6d02"
+  },
+  "location_pass": {
+    "cost_usd": 0.010914499999999999,
+    "usage": {
+      "input_tokens": 3467,
+      "output_tokens": 649,
+      "cached_tokens": 3328
+    },
+    "elapsed_ms": 5161.85,
+    "response_id": "resp_06d62f0f3f12a89b006a3efa5b2824819080cc1c9e2f5d7ecc"
+  },
+  "collective_pass": {
+    "cost_usd": 0.010906999999999998,
+    "usage": {
+      "input_tokens": 3482,
+      "output_tokens": 646,
+      "cached_tokens": 3328
+    },
+    "elapsed_ms": 5421.0,
+    "response_id": "resp_06402bcb95f8bbad006a3efa6049e48193a468fe2d964dffdd"
+  },
+  "object_pass": {
+    "cost_usd": 0.0134595,
+    "usage": {
+      "input_tokens": 3465,
+      "output_tokens": 819,
+      "cached_tokens": 3328
+    },
+    "elapsed_ms": 6048.17,
+    "response_id": "resp_093e0ecef3e21337006a3efa65b77c81939aecb8a71001e181"
+  },
+  "thread_pass": {
+    "cost_usd": 0.031902,
+    "usage": {
+      "input_tokens": 3522,
+      "output_tokens": 2039,
+      "cached_tokens": 3328
+    },
+    "elapsed_ms": 16684.12,
+    "response_id": "resp_0673255c5d4c85f4006a3efa6bc8fc819598a3e4ba5e24fec4"
+  },
+  "beat_pass": {
+    "cost_usd": 0.028955,
+    "usage": {
+      "input_tokens": 2798,
+      "output_tokens": 1464,
+      "cached_tokens": 0
+    },
+    "elapsed_ms": 14752.92,
+    "response_id": "resp_0d442dc02b5d065c006a3efa7c6d00819390a3ac6522c6c2d7"
+  },
+  "edge_pass": {
+    "cost_usd": 0.029150000000000002,
+    "usage": {
+      "input_tokens": 2150,
+      "output_tokens": 1585,
+      "cached_tokens": 0
+    },
+    "elapsed_ms": 8690.77,
+    "response_id": "resp_0fb2d3aec8e7d01b006a3efa8b2e5c8190b2b68a39e57ae024"
+  }
+}

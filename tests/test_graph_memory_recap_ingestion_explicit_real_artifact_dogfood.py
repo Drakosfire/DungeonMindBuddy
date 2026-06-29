@@ -81,7 +81,7 @@ def test_reports_and_payloads_preserve_boundaries() -> None:
 
 
 def test_design_report_exists_and_states_boundaries() -> None:
-    text = Path("Docs/Reports/GRAPH-MEMORY-RECAP-INGESTION-EXPLICIT-REAL-ARTIFACT-DOGFOOD.md").read_text(encoding="utf-8")
+    text = Path("Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-RECAP-INGESTION-EXPLICIT-REAL-ARTIFACT-DOGFOOD.md").read_text(encoding="utf-8")
     for phrase in (
         "This dogfood fixture tests the explicit-input recap-ingestion materializer and projection payload chain against one manually selected real or real-derived artifact bundle.",
         "This is not directory scanning, not corpus scanning, not runtime ingestion, not a production adapter, not a `/plan` payload, not an Agent Interaction payload, and not a retrieval result.",

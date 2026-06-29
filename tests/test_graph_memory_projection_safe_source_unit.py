@@ -9,7 +9,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "projection_safe_source_unit_minimal.json"
-REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-PROJECTION-SAFE-SOURCE-UNIT.md"
+REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-PROJECTION-SAFE-SOURCE-UNIT.md"
 REQUIRED_PAYLOAD_FIELDS = {
     "adapter_key",
     "ref_id",

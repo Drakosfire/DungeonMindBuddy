@@ -1,0 +1,8 @@
+{
+  "schema": "dmb_live_extractor_candidate_envelope_v0",
+  "version": "0.1",
+  "preview_only": true,
+  "canonical_ir_valid": false,
+  "reconcile_error": "invalid_anchor_quote:not_in_paragraph:She introduces herself as Private Hester",
+  "benchmark_comparison_ready": false
+}

@@ -1,0 +1,55 @@
+---
+description: Extraction LLM calls — Responses API text.format json_schema (strict); no prompt-only JSON shape.
+alwaysApply: true
+---
+
+# Responses API structured extraction (non-negotiable)
+
+## When this applies
+
+Any **new or changed** LLM call whose job is to **extract structured data** from corpus/session text (graph memory, ingest sidecars, entity/fact extraction, eval extraction runners).
+
+Planner assistant envelopes stay under **`.cursor/rules/planner-turn-output-schema.mdc`**.
+
+## Required API shape
+
+Use OpenAI **Responses API** with **`text.format`**, not prompt-only JSON:
+
+```python
+client.responses.create(
+    model=model_id,
+    instructions=system_instructions,
+    input=[{"type": "message", "role": "user", "content": user_content}],
+    text={
+        "format": {
+            "type": "json_schema",
+            "name": "pass_output_schema_name",
+            "strict": True,
+            "schema": {...},
+        }
+    },
+)
+```
+
+## Rules
+
+- **Do not** rely on "Return strict JSON only" or fence-stripped free text for production extraction paths.
+- **Do not** use Chat Completions `response_format` for new extraction code.
+- With `strict: true`, every key in `properties` must appear in `required`; use nullable types for optional fields.
+- Resolve models via **`MODEL_POLICY.json`** actions (see monorepo **`model-policy.mdc`**), not scattered hardcoded ids. Request overrides (`graph_model_id`, CLI flags) still win.
+- Bootstrap clients with **`load_dungeonmindbuddy_dotenv()`** then **`OpenAI()`** — see **`dungeonbuddy-environment.mdc`**.
+- Handle **`refusal`** and **`incomplete`** responses as explicit extraction failures; persist raw diagnostics to run artifacts.
+- After schema changes, add/update tests asserting `format.type == "json_schema"` and `strict is True`.
+
+## Canonical examples in this repo
+
+- **`src/agent/ingest_hints_output_schema.py`** — manual JSON Schema + `ingest_hints_text_format()`
+- **`src/live_play/live_turn_classification_schema.py`** — Pydantic + `text_format`
+- **`src/graph_memory/extraction/category_candidate_graph_schema.py`** — category graph pass schemas
+- **`src/llm/api_client.py`** — centralized `responses_create` / `responses_parse`
+
+## Anti-patterns
+
+- Prompt-only JSON in category/graph extraction (legacy eval study used this; runtime must not).
+- Parsing model output without schema enforcement, then silently defaulting to `{}`.
+- Echoing corpus paragraphs into logs, chat, or external tools — see **`corpus-pii-and-llm-payloads.mdc`**.

@@ -46,11 +46,18 @@ from pathlib import Path
 from src.ingestion.frontmatter import split_frontmatter
 
 PARTY_REGISTRY_SCHEMA = "party_registry_v1"
+PARTY_REGISTRY_V2_SCHEMA = "party_registry_v2"
 PARTY_REGISTRY_BASENAME = "_party_registry.json"
+PARTY_REGISTRY_SCHEMAS = frozenset({PARTY_REGISTRY_SCHEMA, PARTY_REGISTRY_V2_SCHEMA})
 
 # Dogfood defaults for the Longmont Campaign 2 graph-extraction experiments.
 DEFAULT_CORPUS_ROOT = Path("corpus/eldyrwild-markdown")
 DEFAULT_CAMPAIGN_REL = "Longmont Campaign/Campaign 2"
+
+# campaign_id -> (corpus_root, campaign_rel under corpus root)
+CAMPAIGN_CORPUS: dict[str, tuple[Path, str]] = {
+    "longmont-c2": (DEFAULT_CORPUS_ROOT, DEFAULT_CAMPAIGN_REL),
+}
 
 # Party members are canonical hub entities. They appear in the candidate graph
 # as ordinary ``character`` nodes with a resolved corpus_ref; the marker that
@@ -145,9 +152,42 @@ def load_party_registry(corpus_root: Path, campaign_rel: str) -> dict | None:
     if not isinstance(blob, dict):
         return None
     schema = str(blob.get("schema") or "").strip()
-    if schema and schema != PARTY_REGISTRY_SCHEMA:
+    if schema and schema not in PARTY_REGISTRY_SCHEMAS:
         return None
     return blob
+
+
+def resolve_campaign_corpus(
+    campaign_id: str,
+    *,
+    corpus_root: Path | None = None,
+    campaign_rel: str | None = None,
+) -> tuple[Path, str]:
+    """Resolve corpus root + campaign folder for a campaign_id."""
+    if campaign_rel is not None:
+        root = (corpus_root if corpus_root is not None else DEFAULT_CORPUS_ROOT).resolve()
+        return root, campaign_rel
+    entry = CAMPAIGN_CORPUS.get(campaign_id.strip())
+    if entry is None:
+        raise ValueError(f"unknown campaign_id for party registry: {campaign_id}")
+    default_root, rel = entry
+    root = (corpus_root if corpus_root is not None else default_root).resolve()
+    return root, rel
+
+
+def build_party_context_for_campaign(
+    campaign_id: str,
+    session: int | str,
+    *,
+    corpus_root: Path | None = None,
+    campaign_rel: str | None = None,
+) -> PartyContext:
+    root, rel = resolve_campaign_corpus(
+        campaign_id,
+        corpus_root=corpus_root,
+        campaign_rel=campaign_rel,
+    )
+    return build_party_context(session, corpus_root=root, campaign_rel=rel)
 
 
 def _session_key(session: int | str) -> str:
@@ -250,6 +290,13 @@ def build_party_context(
 
     pc_slugs = _roster_slugs(registry, "session_pc_rosters", session_key)
     companion_slugs = _roster_slugs(registry, "session_companion_rosters", session_key)
+    if str(registry.get("schema") or "") == PARTY_REGISTRY_V2_SCHEMA:
+        roster = (registry.get("session_rosters") or {}).get(session_key, {})
+        if isinstance(roster, dict):
+            if not pc_slugs and isinstance(roster.get("pcs"), list):
+                pc_slugs = [str(x).strip() for x in roster["pcs"] if str(x).strip()]
+            if not companion_slugs and isinstance(roster.get("companions"), list):
+                companion_slugs = [str(x).strip() for x in roster["companions"] if str(x).strip()]
     if not pc_slugs:
         warnings.append(f"no session_pc_rosters['{session_key}'] entry")
 

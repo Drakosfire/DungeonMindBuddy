@@ -1,0 +1,32 @@
+{
+  "schema": "party_registry_v1",
+  "campaign_id": "longmont-c2",
+  "pc_party_names": [
+    "Questionable Company"
+  ],
+  "session_pc_rosters": {
+    "20": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ],
+    "22": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ]
+  },
+  "session_companion_rosters": {
+    "22": [
+      "thrin_branchborn",
+      "captain_lysandra_ironveil"
+    ]
+  },
+  "notes": "Table-facing adventuring-band labels for Stage B routing_context.pc_party_names (prompt rule 6d). session_pc_rosters keys are session numbers (strings); lists are GM-declared PCs present that session — used for routing_context.session_pc_roster_slugs and `the_party` expansion without editing recap line counts. Optional recap frontmatter session_pc_roster overrides when present. Loaded by evals/sentence_routing_retrieval_falsification/step2_route_run from the campaign folder adjacent to Session Recaps. session_companion_rosters (added 2026-06) mirror session_pc_rosters for non-PC NPCs who travel WITH the party that session (e.g. Thrin, Lysandra) — distinct from incidental session NPCs (Sara remote operator, sheriff). Consumed by src/graph_memory/party_context.py to seed graph-extractor standing context (party-member nodes are canonical hub anchors, not session-novel extractions). S22 PC roster is the full Questionable Company default_members per the Session 22 breadcrumb seed (baergrom is a roster member though unnamed in S22 prose); S22 companions Thrin + Lysandra are GM-declared for the dogfood graph-extraction experiments."
+}

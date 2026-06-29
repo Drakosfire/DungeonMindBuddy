@@ -1,5 +1,28 @@
 # Graph Memory Layer Evals
 
+## Status map (2026-06-28)
+
+This directory is **proof machinery**, not architecture ownership. Durable contracts live in `src/graph_memory`. Runtime wiring lives in `apps/live_control_server` and `apps/live-control-ui`.
+
+| Bucket | Location | Status |
+|--------|----------|--------|
+| **Active runtime runner** | `graph_preview_runner.py` | Used by live recap graph ingest; **still calls compact stub extractor** — wire category pipeline |
+| **Proven extraction pipeline** | `category_graph_model_study.py`, `artifacts/.../anchor_quote_n3/` | 7-pass category-decomposed extraction; **target for product runtime** |
+| **Manual gold fixtures** | `examples/session_23_candidate_graph_gold/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; compare extractor output here |
+| **Multi-pass contract (design reference)** | `examples/multi_pass_extraction_contract/`, `examples/eval_only_extractor_harness/` | Broader 9-pass contract; category study is the graduated slice |
+| **Runtime extraction stub** | `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | Single compact call (~12-node cap); replace with category pipeline |
+| **Generated graph runs** | `artifacts/graph_ingest_runs/`, `out/graph_memory/runs/` | Dogfood/local outputs; Session 24 manual run is projection gold import (`llm_extraction: false`) |
+| **Static UI prototype** | `examples/static_preview_graph_ui_prototype/` | Review-only HTML |
+| **Live extractor harness** | `examples/live_extractor_prompt_harness/`, `runs/live_extractor_prompt_harness/` | Manual prompts; untrusted `candidate_output.json` |
+| **Contract validators** | `validate_*.py`, `report_*.py` | No-LLM gates and diagnostic reports |
+
+**Session 24 manual projection:** projection benchmark gold, not extractor evidence.  
+**Category-decomposed extraction (`anchor_quote_n3`):** proven quality path — 5 category node passes + beat + edge on Session 22 (`gpt-5.4-mini`, n=3, node recall ~0.80–0.88). Runtime still uses compact `preview_candidate_graph_extractor` until `run_category_pipeline` is wired.
+
+Authority map: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`
+
+---
+
 ## Purpose
 
 This directory is the evaluation scaffold for the Graph Memory Layer experiment. It gives the experiment a dedicated, non-production place for smoke checks, future baseline captures, and later shadow artifacts.

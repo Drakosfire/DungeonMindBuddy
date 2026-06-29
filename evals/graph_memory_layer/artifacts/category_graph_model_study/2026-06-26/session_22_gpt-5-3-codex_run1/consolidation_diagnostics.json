@@ -1,0 +1,73 @@
+{
+  "per_pass_counts": {
+    "actor_pass": 9,
+    "location_pass": 8,
+    "collective_pass": 8,
+    "object_pass": 8,
+    "thread_pass": 9,
+    "beat_pass": 13,
+    "edge_pass": 0
+  },
+  "nodes_before_dedup": 42,
+  "party_companion_slugs": [
+    "thrin_branchborn",
+    "captain_lysandra_ironveil"
+  ],
+  "merged_nodes": [],
+  "merged_edges": [],
+  "dropped_edges_missing_endpoints": [],
+  "party_anchor_hub_paths": [
+    "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+    "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+    "Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+    "Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+    "Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+    "Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+  ],
+  "dropped_no_valid_evidence": {
+    "nodes": [
+      "loc_the_reach",
+      "loc_golden_fields",
+      "loc_mireward",
+      "loc_mirathorn",
+      "loc_wizards_college",
+      "loc_swamp",
+      "loc_fork_in_the_road",
+      "loc_abandoned_restaurant",
+      "faction_elderwild_reach_military",
+      "organization_wizards_college",
+      "organization_mirathorn_council",
+      "organization_mirathorn_city_guard",
+      "group_hired_mercenaries_mirathorn",
+      "faction_meat_heads",
+      "faction_shepherd_followers",
+      "group_questionable_company",
+      "mystery_s22_contact_failures_mirathorn_compromise",
+      "mystery_s22_delayed_reflections_conjuration_puddles",
+      "mystery_s22_swamp_song_compulsion",
+      "mystery_s22_storm_convergence_hail_anomaly",
+      "mystery_s22_mirathorn_outbreak_expansion",
+      "mystery_s22_shepherd_recruitment_visibility",
+      "mystery_s22_roadside_warning_north_wrong",
+      "mystery_s22_unseen_knocking_sound",
+      "mystery_s22_command_directive_vale_and_swamp_source"
+    ],
+    "beats": [
+      "beat-s22-001",
+      "beat-s22-002",
+      "beat-s22-003",
+      "beat-s22-004",
+      "beat-s22-005",
+      "beat-s22-006",
+      "beat-s22-007",
+      "beat-s22-008",
+      "beat-s22-009",
+      "beat-s22-010",
+      "beat-s22-011",
+      "beat-s22-012",
+      "beat-s22-013"
+    ]
+  }
+}

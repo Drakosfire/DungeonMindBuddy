@@ -8,7 +8,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "surface_vocabulary_boundary.json"
-REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-SURFACE-VOCABULARY-BOUNDARY.md"
+REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-SURFACE-VOCABULARY-BOUNDARY.md"
 
 
 def _manifest() -> dict[str, Any]:

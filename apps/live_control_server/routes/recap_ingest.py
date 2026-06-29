@@ -22,6 +22,9 @@ from src.corpus.session_recap_paths import (
     normalized_recap_relpath,
     recap_tail,
 )
+from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    resolve_category_graph_model,
+)
 from src.live_play.recap_ingest_pipeline import (
     PipelineOptions,
     inspect_recap_ingest_status,
@@ -74,6 +77,7 @@ class RecapIngestRequest(BaseModel):
     graph_model_id: str | None = None
     materialize_after_extract: bool = False
     include_graph_extraction: bool = True
+    include_legacy_breadcrumb: bool = False
 
 
 class RecapIngestStatusResponse(BaseModel):
@@ -343,23 +347,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
     if not applied.intersection(status.get("states", [])):
         apply_body = body.model_copy(update={"operation": "apply_normalize"})
         status = run_pipeline(_options_for_request(apply_body), corpus=corpus)
-        if status.get("status") == "error":
-            return status
-
-    if "frontmatter_seed_found" not in status.get("states", []):
-        status = _build_frontmatter_seed_from_request(body, active_corpus)
-        if status.get("status") == "error":
-            return status
-
-    if "breadcrumb_found" not in status.get("states", []):
-        status = _run_breadcrumb_ingest_from_request(body, active_corpus)
-        if status.get("status") == "error":
-            return status
-
-    if "session_memory_materialized" not in status.get("states", []):
-        materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
-        status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
-        if status.get("status") == "error":
+        if status.get("status") in {"error", "needs_reconciliation"}:
             return status
 
     if body.include_graph_extraction:
@@ -371,7 +359,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 session=body.session,
                 normalized_recap_path=normalized,
                 extract_graph=True,
-                graph_model_id=body.graph_model_id or "gpt-5-mini",
+                graph_model_id=body.graph_model_id or resolve_category_graph_model(None),
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
@@ -385,11 +373,38 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                     manifest_path=graph.get("manifest_path"),
                     session_id=f"session-{body.session}",
                 )
+            if status.get("status") not in {"error", "needs_reconciliation"}:
+                status["status"] = "ready_for_planning_activation"
         else:
             _add_unique(
                 status.setdefault("warnings", []),
                 "preview graph extraction skipped: normalized recap path could not be resolved",
             )
+
+    if body.include_legacy_breadcrumb:
+        if "frontmatter_seed_found" not in status.get("states", []):
+            status = _build_frontmatter_seed_from_request(body, active_corpus)
+            if status.get("status") == "error":
+                return status
+
+        if "breadcrumb_found" not in status.get("states", []):
+            status = _run_breadcrumb_ingest_from_request(body, active_corpus)
+            if status.get("status") == "error":
+                return status
+
+        if "session_memory_materialized" not in status.get("states", []):
+            materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
+            status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
+            if status.get("status") in {"error", "needs_reconciliation"}:
+                return status
+        if status.get("status") != "ready_for_planning_activation":
+            status["status"] = "ready_for_planning_activation"
+    else:
+        _add_unique(
+            status.setdefault("warnings", []),
+            "legacy_breadcrumb_skipped: graph-first ingest did not run frontmatter, breadcrumb, or session memory",
+        )
+
     return _merge_stage_reuse_warning(status, staged_reuse_status)
 
 def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:

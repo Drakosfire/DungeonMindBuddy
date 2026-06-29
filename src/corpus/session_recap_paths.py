@@ -80,6 +80,40 @@ def is_generic_recap_tail(text: str | None) -> bool:
     return tail in GENERIC_RECAP_TAILS or tail.isdigit()
 
 
+def is_tool_shaped_recap_tail(text: str | None, *, session: int) -> bool:
+    """Detect auto-generated slug tails such as ``session-23-mireward``."""
+    tail = recap_tail(text)
+    if not tail:
+        return True
+    if re.fullmatch(rf"session[\s-]*0?{session}(?:[\s-].+)?", tail, flags=re.I):
+        return True
+    return bool(re.fullmatch(r"[a-z0-9]+(?:[-\s][a-z0-9]+)*", tail))
+
+
+def comparable_recap_tail(text: str | None, *, session: int) -> str:
+    """Normalize a recap tail for duplicate matching, stripping session-id echoes."""
+    tail = recap_tail(text)
+    return re.sub(rf"^session[\s-]*0?{session}[\s-]*", "", tail, flags=re.I).strip()
+
+
+def canonical_recap_candidates(
+    corpus_root: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> list[Path]:
+    """Top-level ``Session Recaps/Session N - *.md`` files (excludes derivative dirs)."""
+    recaps_dir = corpus_root / session_recaps_prefix(campaign_number)
+    if not recaps_dir.is_dir():
+        return []
+    seen: dict[Path, None] = {}
+    for pattern in (f"Session {session:02d} - *.md", f"Session {session} - *.md"):
+        for path in recaps_dir.glob(pattern):
+            if path.is_file():
+                seen.setdefault(path.resolve(), None)
+    return sorted(seen.keys())
+
+
 def normalized_recap_candidates(
     corpus_root: Path,
     *,
@@ -136,23 +170,95 @@ def session_recaps_prefix(campaign_number: int) -> str:
     return f"Longmont Campaign/Campaign {campaign_number}/Session Recaps"
 
 
-def normalized_basename_from_disk(corpus_root: Path, *, campaign_number: int, session: int) -> str:
-    """Resolve basename from an existing ``_normalized/Session … - <slug>.md`` file."""
-    norm_dir = corpus_root / session_recaps_prefix(campaign_number) / "_normalized"
+def _score_normalized_candidate(
+    path: Path,
+    *,
+    session: int,
+    canonical_stems: set[str],
+    canonical_tails: set[str],
+) -> int:
+    stem = path.stem
+    tail = comparable_recap_tail(stem, session=session)
+    score = 0
+    if stem in canonical_stems:
+        score += 200
+    if tail in canonical_tails:
+        score += 120
+    for canonical_tail in canonical_tails:
+        if canonical_tail and tail == canonical_tail:
+            score += 80
+            break
+        if canonical_tail and len(canonical_tail) >= 8 and canonical_tail in tail:
+            score += 40
+            break
+    if is_tool_shaped_recap_tail(stem, session=session):
+        score -= 100
+    slug_part = stem.split(" - ", 1)[-1] if " - " in stem else stem
+    if any(ch.isupper() for ch in slug_part):
+        score += 15
+    score += min(len(tail.split()), 8)
+    return score
+
+
+def pick_normalized_basename_from_disk(
+    corpus_root: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> str | None:
+    """Pick the best normalized basename when duplicates exist, or None if unambiguous."""
     candidates = normalized_recap_candidates(
         corpus_root, campaign_number=campaign_number, session=session
     )
-    if len(candidates) > 1:
-        non_generic = [
-            path for path in candidates if not is_generic_recap_tail(path.stem)
-        ]
-        if len(non_generic) == 1:
-            return non_generic[0].stem
-    if len(candidates) != 1:
-        raise FileNotFoundError(
-            f"expected exactly one normalized recap for C{campaign_number}S{session} under {norm_dir}"
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0].stem
+
+    non_generic = [path for path in candidates if not is_generic_recap_tail(path.stem)]
+    pool = non_generic or candidates
+    if len(pool) == 1:
+        return pool[0].stem
+
+    canonical_paths = [
+        path
+        for path in canonical_recap_candidates(
+            corpus_root, campaign_number=campaign_number, session=session
         )
-    return candidates[0].stem
+        if not is_generic_recap_tail(path.stem)
+        and not is_tool_shaped_recap_tail(path.stem, session=session)
+    ]
+    canonical_stems = {path.stem for path in canonical_paths}
+    canonical_tails = {comparable_recap_tail(path.stem, session=session) for path in canonical_paths}
+    scored = [
+        (
+            _score_normalized_candidate(
+                path,
+                session=session,
+                canonical_stems=canonical_stems,
+                canonical_tails=canonical_tails,
+            ),
+            path.stem,
+        )
+        for path in pool
+    ]
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    if len(scored) >= 2 and scored[0][0] == scored[1][0]:
+        return None
+    return scored[0][1]
+
+
+def normalized_basename_from_disk(corpus_root: Path, *, campaign_number: int, session: int) -> str:
+    """Resolve basename from an existing ``_normalized/Session … - <slug>.md`` file."""
+    norm_dir = corpus_root / session_recaps_prefix(campaign_number) / "_normalized"
+    picked = pick_normalized_basename_from_disk(
+        corpus_root, campaign_number=campaign_number, session=session
+    )
+    if picked is not None:
+        return picked
+    raise FileNotFoundError(
+        f"expected exactly one normalized recap for C{campaign_number}S{session} under {norm_dir}"
+    )
 
 
 def _basename(

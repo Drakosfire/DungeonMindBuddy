@@ -37,6 +37,7 @@ export function createPlanSurfaceConfig(planView: PlanViewProjection): SurfaceCo
       { id: "ingest-recap", label: "Ingest Recap", size: "wide" },
       { id: "recap", label: "Recap", size: "wide" },
       { id: "graph-preview", label: "Graph Preview", size: "wide" },
+      { id: "party-registry", label: "Party Registry", size: "wide" },
       { id: "statblock", label: "Statblock", size: "wide" },
     ],
     canvas: {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -273,20 +274,18 @@ def test_runner_failed_candidate_validation_does_not_reach_candidate_ready(
 def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from src.graph_memory.extraction.preview_candidate_graph_extractor import FixtureCandidateGraphModelClient
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+    )
+    from tests.fixtures.graph_memory.category_extraction_helpers import (
+        minimal_category_pass_outputs,
+    )
 
     monkeypatch.chdir(tmp_path)
     source = _copy_recap_to_tmp(tmp_path)
-    raw = json.dumps(
-        {
-            "candidate_nodes": [{"id": "node:bonogo", "kind": "pc", "label": "Bonogo", "evidence_refs": ["ev:1"]}],
-            "candidate_edges": [],
-            "session_beats": [{"id": "beat:1", "summary": "Bonogo found a clue.", "evidence_refs": ["ev:1"]}],
-            "ignored_or_deferred_candidates": [],
-            "source_artifacts": [],
-            "evidence_refs": [{"id": "ev:1", "span_id": "session-24:recap:full_text"}],
-            "diagnostics": {"canon_promotion": True},
-        }
+    source.write_text(
+        "Session recap\n\nBonogo scouts the Mireward road and regroups at dusk.\n",
+        encoding="utf-8",
     )
 
     result = run_graph_preview_extraction(
@@ -296,7 +295,9 @@ def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
             normalized_recap_path=source,
             output_dir=Path("runs/session_24_llm"),
             allow_llm=True,
-            extractor_client=FixtureCandidateGraphModelClient(raw),
+            category_client=FixtureCategoryGraphPassClient(
+                minimal_category_pass_outputs("session-24:recap:paragraph:001")
+            ),
         )
     )
 
@@ -304,17 +305,19 @@ def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
     assert result.candidate_graph_path is not None and result.candidate_graph_path.exists()
     assert result.validation_report_path is not None and result.validation_report_path.exists()
     manifest = _load_manifest(result.manifest_path)
-    assert manifest["health"]["model_id"] == "gpt-5-mini"
+    assert manifest["health"]["model_id"] == "gpt-5.4-mini"
     assert manifest["diagnostics"]["candidate_extraction"] is True
+    assert manifest["diagnostics"]["extraction_mode"] == "category_decomposed"
     graph = json.loads(result.candidate_graph_path.read_text())
     assert graph["diagnostics"]["canon_promotion"] is False
+    assert (result.output_dir / "pass_telemetry.json").exists()
 
 
 def test_runner_allow_llm_blocked_writes_calm_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class BrokenClient:
-        def extract_candidate_graph(self, prompt: str, *, model_id: str) -> str:
+        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
             raise RuntimeError("model unavailable")
 
     monkeypatch.chdir(tmp_path)
@@ -327,7 +330,7 @@ def test_runner_allow_llm_blocked_writes_calm_manifest(
             normalized_recap_path=source,
             output_dir=Path("runs/session_24_blocked"),
             allow_llm=True,
-            extractor_client=BrokenClient(),
+            category_client=BrokenClient(),
         )
     )
 
@@ -341,11 +344,17 @@ def test_runner_allow_llm_blocked_writes_calm_manifest(
 def test_runner_invalid_llm_json_preserves_raw_response_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    raw = '{"candidate_nodes": [{"id": "node:bad"}'
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionError,
+    )
 
     class InvalidJsonClient:
-        def extract_candidate_graph(self, prompt: str, *, model_id: str) -> str:
-            return raw
+        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
+            raise CategoryGraphExtractionError(
+                "actor_pass returned invalid JSON: Expecting value",
+                pass_name=pass_name,
+                raw_model_response='{"observation_nodes": [',
+            )
 
     monkeypatch.chdir(tmp_path)
     source = _copy_recap_to_tmp(tmp_path)
@@ -357,7 +366,7 @@ def test_runner_invalid_llm_json_preserves_raw_response_artifact(
             normalized_recap_path=source,
             output_dir=Path("runs/session_24_invalid_json"),
             allow_llm=True,
-            extractor_client=InvalidJsonClient(),
+            category_client=InvalidJsonClient(),
         )
     )
 
@@ -365,10 +374,10 @@ def test_runner_invalid_llm_json_preserves_raw_response_artifact(
     assert result.candidate_graph_path is None
     manifest = _load_manifest(result.manifest_path)
     assert manifest["diagnostics"]["extraction_mode"] == "llm_blocked"
-    assert "candidate graph model returned invalid JSON" in manifest["errors"][0]
+    assert "actor_pass returned invalid JSON" in manifest["errors"][0]
     raw_artifact = manifest["artifacts"]["raw_model_response"]
     raw_path = tmp_path / raw_artifact["uri"]
-    assert raw_path.read_text() == raw
+    assert raw_path.read_text() == '{"observation_nodes": ['
     extract_step = next(step for step in manifest["steps"] if step["id"] == "extract_candidate_graph")
     assert extract_step["artifact_refs"][0]["uri"] == raw_artifact["uri"]
 
@@ -395,8 +404,5 @@ def test_runner_writes_deterministic_paragraph_source_spans(
         "session-22:recap:full_text",
         "session-22:recap:paragraph:001",
         "session-22:recap:paragraph:002",
-        "session-22:recap:paragraph:003",
     ]
-    assert index["spans"][2]["kind"] == "paragraph"
-    assert index["spans"][2]["text"] == "The group scouts the Mireward road."
-    assert index["paragraph_span_count"] == 3
+    assert index["paragraph_span_count"] == 2

@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FAMILY_GATE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "recap_ingestion_source_family_gate.json"
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "recap_ingestion_source_artifacts_minimal.json"
 GATE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "recap_ingestion_source_artifact_materializer_gate.json"
-REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-GATE.md"
+REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-GATE.md"
 SEMANTIC_FIELDS = {"canon_state", "lifecycle_state", "evidence_role", "authority_state", "visibility_state"}
 
 

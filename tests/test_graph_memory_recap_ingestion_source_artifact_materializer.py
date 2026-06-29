@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "recap_ingestion_materializer_inputs"
 FAMILY_GATE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "recap_ingestion_source_family_gate.json"
 GATE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "recap_ingestion_source_artifact_materializer_gate.json"
-REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER.md"
+REPORT_PATH = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER.md"
 FIXTURES = {
     "normalized_recap_markdown": FIXTURE_DIR / "normalized_recap_s01.md",
     "breadcrumbed_recap_markdown": FIXTURE_DIR / "breadcrumbed_recap_s01.md",

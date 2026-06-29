@@ -30,6 +30,38 @@ The narrow checklist for the model-contract implementation spike is archived at:
 
 This file should be updated whenever the workstream meaningfully re-anchors.
 
+## Current State (2026-06-28 cleanup re-anchor)
+
+**Product direction:** graph-first recap projection over a union supergraph. Recap pills resolve to global nodes; session focus is an overlay, not a separate graph.
+
+**What one-click ingest runs today:**
+
+```text
+raw recap → stage/apply/normalize → breadcrumb + session memory (legacy) → preview_candidate_graph_extractor (single gpt-5-mini call, ~12-node cap) → preview union store → projection payload
+```
+
+**What one-click ingest should run next:**
+
+```text
+raw recap → stage/apply/normalize → source spans → category-decomposed extraction (7 LLM passes) → preview union → projection
+```
+
+Category extraction = `evals/graph_memory_layer/category_graph_model_study.py` (`run_category_pipeline`): **actor, location, collective, object, thread** node passes, then **beat** and **edge** passes, deterministic assembly. Proven in `anchor_quote_n3` (n=3, `gpt-5.4-mini`, Session 22 gold node recall ~0.80–0.88). **Not** the compact single-pass `preview_candidate_graph_extractor`.
+
+Graph path must **not** require breadcrumb/frontmatter/session-memory steps. See `Docs/Plans/HANDOFF-graph-first-recap-ingest.md`.
+
+**Authority map:** `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` (runtime vs eval vs legacy vs generated).
+
+**Legacy (do not confuse with graph substrate):**
+
+- Breadcrumb ingest, frontmatter seed, session memory JSONL under `corpus/.../_breadcrumbed` and `_session_memory`
+- Session 24 manual projection dogfood (projection gold fixture; `llm_extraction: false`)
+- Multi-pass extraction contract + eval-only harness (broader 9-pass design reference; category study is the graduated slice)
+
+**Known extraction gap:** runtime still uses `preview_candidate_graph_extractor` (single call, ~12-node cap). Session 23 gold has 42 nodes including Orik Tane and 7 locations. Wire `run_category_pipeline` from `category_graph_model_study.py` (proven in `anchor_quote_n3`) into `graph_preview_runner.py` — do **not** patch the compact extractor caps as the long-term fix.
+
+**Repo cleanup (2026-06-28):** superseded fixture/prototype docs archived under `Docs/Design/archive/2026-06-28/graph-memory/` and `Docs/Reports/archive/2026-06-28/graph-memory/`. Evals README updated with fixture status labels.
+
 ## Current Re-Anchor
 
 The workstream has crossed from **recap ingestion / selector plumbing** into **global graph projection design**.

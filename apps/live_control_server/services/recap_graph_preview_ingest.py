@@ -412,6 +412,15 @@ def _summary_for_manifest(repo: Path, manifest_path: Path) -> GraphIngestRunSumm
     raise ValueError(f"graph-ingest manifest was not discoverable: {manifest_path}")
 
 
+def _artifact_uri(repo: Path, artifact: dict[str, Any] | None) -> str | None:
+    if not isinstance(artifact, dict):
+        return None
+    uri = artifact.get("uri")
+    if not isinstance(uri, str):
+        return None
+    return _repo_relative((repo / uri).resolve(), repo)
+
+
 def _status_from_summary(
     repo: Path, summary: GraphIngestRunSummary, *, normalized_recap_path: str | None
 ) -> dict[str, Any]:
@@ -439,6 +448,19 @@ def _status_from_summary(
     status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
     status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)
     status["candidate_beat_count"] = manifest.get("health", {}).get("beat_count", 0)
+    status["estimated_cost_usd"] = manifest.get("health", {}).get("estimated_cost_usd")
+    steps = manifest.get("steps") or []
+    status["graph_steps"] = steps
+    status["current_graph_step"] = next(
+        (step for step in reversed(steps) if step.get("state") in {"running", "complete", "failed"}),
+        None,
+    )
+    artifacts = manifest.get("artifacts") or {}
+    status["pass_telemetry_path"] = _artifact_uri(repo, artifacts.get("pass_telemetry"))
+    status["pass_outputs_path"] = _artifact_uri(repo, artifacts.get("pass_outputs"))
+    status["consolidation_diagnostics_path"] = _artifact_uri(
+        repo, artifacts.get("consolidation_diagnostics")
+    )
     if summary.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value:
         if manifest.get("errors") and manifest.get("diagnostics", {}).get("extraction_mode") == "llm_blocked":
             status["blocked_reason"] = manifest["errors"][0]
@@ -458,7 +480,11 @@ def _missing_status(normalized_recap_path: str | None) -> dict[str, Any]:
         "node_count": 0,
         "edge_count": 0,
         "evidence_ref_count": 0,
-        "next_actions": ["build_graph_preview_bundle"] if normalized_recap_path else ["materialize_session_memory"],
+        "next_actions": (
+            ["build_graph_preview_bundle"]
+            if normalized_recap_path
+            else ["apply_normalize", "build_graph_preview_bundle"]
+        ),
         "can_open_union_graph": False,
         "blocked_reason": "normalized recap missing" if not normalized_recap_path else None,
         "normalized_recap_path": normalized_recap_path,

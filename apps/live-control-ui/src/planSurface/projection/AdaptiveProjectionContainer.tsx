@@ -27,7 +27,7 @@ function requestedSessionFromLocation(): string | null {
   return new URLSearchParams(window.location.search).get("session")?.trim() || null;
 }
 
-const SESSION_AWARE_TOOLS = new Set(["ingest-recap", "recap", "graph-preview"]);
+const SESSION_AWARE_TOOLS = new Set(["ingest-recap", "recap", "graph-preview", "party-registry"]);
 
 export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
   const { active, activeResolution, close, expandContent, openTool } = useProjection();

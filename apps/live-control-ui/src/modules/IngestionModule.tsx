@@ -821,8 +821,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const hasGraphSourceBundle = hasState(latestResult, "graph_source_bundle_ready");
   const hasPreviewUnionStore = hasState(latestResult, "preview_union_store_ready");
-  const canBuildGraphPreview = hasMaterialized && !busy;
-  const canMaterializePreviewSupergraph = hasMaterialized && !busy && Boolean(
+  const hasNormalizedRecap = hasApplied;
+  const canBuildGraphPreview = hasNormalizedRecap && !busy;
+  const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && Boolean(
     extractGraphWithMini ||
     candidateGraphPath.trim() ||
     graphPreview?.candidate_graph_path ||
@@ -862,7 +863,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     {
       id: "graph",
       label: "Graph",
-      state: workflowStepState(hasPreviewUnionStore, hasMaterialized && !hasPreviewUnionStore),
+      state: workflowStepState(hasPreviewUnionStore, hasNormalizedRecap && !hasPreviewUnionStore),
     },
     {
       id: "prove",
@@ -871,7 +872,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     },
   ];
   const workflowNextAction = (() => {
-    if (state.status === "running_full_ingest") return "Working: running the full recap ingest pipeline.";
+    if (state.status === "running_full_ingest") {
+      return "Working: normalizing recap, then category graph extraction (actors → locations → collectives → objects → threads → beats → edges).";
+    }
     if (state.status === "previewing") return "Working: staging raw notes and building the preview.";
     if (state.status === "applying") return "Working: writing canonical + normalized recap files.";
     if (state.status === "building_frontmatter_seed") return "Working: building the frontmatter seed.";
@@ -879,17 +882,17 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     if (state.status === "materializing") return "Working: materializing session memory.";
     if (state.status === "building_graph_preview") return "Working: building the graph source-span preview bundle.";
     if (state.status === "materializing_preview_supergraph") return "Working: materializing the preview union supergraph.";
-    if (hasMaterialized && hasPreviewUnionStore) return "Complete: recap memory and graph projection are generated. Review the rendered recap and proof artifacts.";
-    if (hasMaterialized && graphPreview?.blocked_reason) return `Graph projection not ready: ${graphPreview.blocked_reason}`;
-    if (hasMaterialized) return "Next: click Generate Recap Memory to extract and materialize the graph projection.";
+    if (hasPreviewUnionStore) return "Complete: graph projection is ready. Review the rendered recap and graph chips.";
     if (!validRecapSession) return "Enter a valid recap/source session number.";
     if (!rawTextSatisfied && !hasUsablePreview) return "Paste raw recap text, then continue to preview.";
-    if (!hasUsablePreview) return "Next: click Generate Recap Memory. This stages, writes, breadcrumbs, and materializes in sequence.";
+    if (!hasUsablePreview) return "Next: click Generate Recap Memory to stage, normalize, and extract the graph projection.";
     if (!genericGuardPass) return "Session title is required before saving canon.";
     if (!hasApplied) return "Next: review the preview, then click Apply + Normalize.";
     if (!hasFrontmatterSeed) return "Next: click Build Frontmatter Seed, then review the generated seed.";
     if (!hasBreadcrumb) return "Next: after reviewing the seed, click Run Breadcrumb Ingest.";
     if (!hasMaterialized) return "Next: click Materialize Session Memory.";
+    if (hasNormalizedRecap && graphPreview?.blocked_reason) return `Graph projection not ready: ${graphPreview.blocked_reason}`;
+    if (hasNormalizedRecap) return "Next: click Generate Recap Memory to run category graph extraction and materialize the preview union store.";
     return "Complete: session memory is ready for planning activation.";
   })();
   const applyDisabledReason =
@@ -918,15 +921,15 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       : !hasBreadcrumb
         ? "Materialize waits for breadcrumb_found."
         : null;
-  const graphDisabledReason = !hasMaterialized
-    ? "Build Graph Preview waits for session memory."
+  const graphDisabledReason = !hasNormalizedRecap
+    ? "Build Graph Preview waits for a normalized recap (Apply + Normalize)."
     : null;
   const previewSupergraphDisabledReason = hasPreviewUnionStore
     ? "Preview union store already materialized."
-    : !hasMaterialized
-      ? "Materialize Preview Supergraph waits for session memory."
+    : !hasNormalizedRecap
+      ? "Materialize Preview Supergraph waits for a normalized recap."
       : !canMaterializePreviewSupergraph
-        ? "Candidate graph path or GPT-5 mini extraction is required before preview union materialization."
+        ? "Candidate graph path or category graph extraction is required before preview union materialization."
         : null;
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
   const canRunFullIngest =
@@ -1196,7 +1199,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           force_recap: forceRecap || undefined,
           check: true,
           include_graph_extraction: true,
-          graph_model_id: "gpt-5-mini",
+          graph_model_id: "gpt-5.4-mini",
         }),
       );
       const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
@@ -1477,7 +1480,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
-        graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
+        graph_model_id: extractGraphWithMini ? "gpt-5.4-mini" : undefined,
       });
       applyResultAndSyncSlug(result);
       setState(derivePaneStateFromResult(result));
@@ -1501,7 +1504,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
-        graph_model_id: extractGraphWithMini ? "gpt-5-mini" : undefined,
+        graph_model_id: extractGraphWithMini ? "gpt-5.4-mini" : undefined,
         materialize_after_extract: extractGraphWithMini,
       });
       applyResultAndSyncSlug(result);
@@ -1603,7 +1606,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
-  const canOpenRecapView = hasMaterialized && (state.status === "ready_for_planning_activation" || hasApplied);
+  const canOpenRecapView = (hasPreviewUnionStore || hasMaterialized) && (state.status === "ready_for_planning_activation" || hasApplied);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -1815,10 +1818,10 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                   if (checked) setCandidateGraphPath("");
                 }}
               />
-              Extract graph from recap with GPT-5 mini
+              Extract graph from recap with category extraction (gpt-5.4-mini)
             </label>
             <p className="module-muted">
-              Optional preview-only candidate graph artifact. When the GPT-5 mini extraction toggle is enabled, the backend extracts a candidate graph from the normalized recap instead.
+              Optional preview-only candidate graph artifact. When category extraction is enabled, the backend runs seven structured passes over the normalized recap.
             </p>
             <div className="ingestion-actions ingestion-manual-actions">
               <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>

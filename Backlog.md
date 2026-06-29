@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph ingest dogfood — resume checkpoint, run inventory, delete, live pass progress — captured 2026-06-29
+
+**Context:** First category-graph re-run dogfood thoughts (Session 23 LLM ingestion iteration). Operator should not restart from raw when re-running extraction.
+
+**Insight:** Dogfood iteration is extraction-quality tuning, not normalize/breadcrumb rework. The UI lacks checkpoint resume, prior-run visibility, run deletion (duplicate-name collisions), and live pass-level progress on the working spinner — backend manifest already has pass steps post-hoc.
+
+**Action:** (1) Resume from normalized recap → graph extraction only. (2) Per-session run list with step/checkpoint, timestamps, model. (3) Delete stale graph-ingest runs from UI. (4) Poll/stream current pass label on working button during 7-pass category extract.
+
+**Surfaces when:** Graph ingest dogfood; `IngestionModule.tsx`; `recap_ingest.py`; `recap_graph_preview_ingest.py`; graph run registry; category graph extraction UX; Session 23 re-run.
+
+**Refs:** `Docs/Plans/GRAPH-MEMORY-RECAP-INGEST-DOGFOOD-NOTES.md` (#7–#10, pre-dogfood blockers section).
+
 ## [IDEA] Plan surface dogfood — calm toolbar, busy canvas, branching slide graph — captured 2026-06-20
 
 **Context:** First `/plan` surface dogfood after the Plan Surface Toolbox implementation. User feedback: the toolbar "absolutely popped out," ingestion was easy to spot, and opening ingestion felt great. The markdown render of the raw session recap is fast and nice. The overall look is promising, but the live plan / plan surface is long and busy.

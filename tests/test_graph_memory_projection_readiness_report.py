@@ -9,7 +9,7 @@ from src.graph_memory.session_memory_materialize import materialize_session_memo
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "session_memory_sentence_units_minimal.jsonl"
-DOC_PATH = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-PROJECTION-READINESS-REPORT.md"
+DOC_PATH = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-PROJECTION-READINESS-REPORT.md"
 
 
 def _report():

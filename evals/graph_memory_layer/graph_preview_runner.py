@@ -10,11 +10,15 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
-from src.graph_memory.extraction.preview_candidate_graph_extractor import (
-    CandidateGraphModelClient,
-    PreviewCandidateGraphParseError,
-    PreviewCandidateGraphExtractionOptions,
-    extract_preview_candidate_graph,
+from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    CategoryGraphExtractionError,
+    CategoryGraphExtractionOptions,
+    CategoryGraphPassClient,
+    FixtureCategoryGraphPassClient,
+    OpenAICategoryGraphPassClient,
+    PASS_PROGRESS_LABELS,
+    extract_category_candidate_graph,
+    resolve_category_graph_model,
 )
 
 from graph_memory.ingestion import (
@@ -49,8 +53,7 @@ class GraphPreviewRunnerOptions:
     source_domain: str = "recap"
     run_id: str | None = None
     candidate_graph_path: Path | None = None
-    extractor_model_id: str | None = None
-    extractor_client: CandidateGraphModelClient | None = None
+    category_client: CategoryGraphPassClient | None = None
     input_path_record: str | None = None
 
 
@@ -243,21 +246,58 @@ def _write_source_span_bundle(
     return source_spans_dir, source_span_index_path, provenance_index_path, len(spans) - 1
 
 
+def _session_number(session_id: str) -> int:
+    match = re.match(r"session-(\d+)", session_id.strip())
+    if not match:
+        raise ValueError(f"session_id must look like session-N, got {session_id!r}")
+    return int(match.group(1))
+
+
+def _graph_list_fields(candidate_graph: dict[str, Any]) -> tuple[str, str, str]:
+    if "nodes" in candidate_graph or "candidate_nodes" not in candidate_graph:
+        return "nodes", "edges", "beats"
+    return "candidate_nodes", "candidate_edges", "session_beats"
+
+
 def _candidate_counts(
     candidate_graph: dict[str, Any],
     *,
     known_span_ids: set[str] | None = None,
     paragraph_span_count: int = 0,
 ) -> GraphIngestHealth:
-    ignored = candidate_graph.get("ignored_or_deferred_candidates", [])
+    nodes_key, edges_key, beats_key = _graph_list_fields(candidate_graph)
+    ignored = candidate_graph.get("ignored_items") or candidate_graph.get(
+        "ignored_or_deferred_candidates", []
+    )
     ignored_count = len(ignored) if isinstance(ignored, list) else 0
-    evidence_refs = candidate_graph.get("evidence_refs", [])
-    evidence_ref_count = len(evidence_refs) if isinstance(evidence_refs, list) else 0
+    deferred = candidate_graph.get("deferred_items", [])
+    deferred_count = len(deferred) if isinstance(deferred, list) else 0
+    evidence_ref_count = 0
     resolvable_count = 0
     paragraph_evidence_ref_count = 0
     full_text_fallback_ref_count = 0
-    if isinstance(evidence_refs, list):
-        for ref in evidence_refs:
+    for key in (nodes_key, edges_key, beats_key):
+        for obj in candidate_graph.get(key, []) if isinstance(candidate_graph.get(key), list) else []:
+            if not isinstance(obj, dict):
+                continue
+            for ref in obj.get("evidence_refs", []) if isinstance(obj.get("evidence_refs"), list) else []:
+                evidence_ref_count += 1
+                if isinstance(ref, dict):
+                    span_id = ref.get("span_id") or ref.get("source_span_ref_id")
+                elif isinstance(ref, str):
+                    span_id = ref
+                else:
+                    continue
+                if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
+                    resolvable_count += 1
+                if isinstance(span_id, str) and ":recap:paragraph:" in span_id:
+                    paragraph_evidence_ref_count += 1
+                if isinstance(span_id, str) and span_id.endswith(":recap:full_text"):
+                    full_text_fallback_ref_count += 1
+    top_refs = candidate_graph.get("evidence_refs", [])
+    if isinstance(top_refs, list):
+        evidence_ref_count = max(evidence_ref_count, len(top_refs))
+        for ref in top_refs:
             if not isinstance(ref, dict):
                 continue
             span_id = ref.get("span_id") or ref.get("source_span_ref_id")
@@ -269,11 +309,17 @@ def _candidate_counts(
                 full_text_fallback_ref_count += 1
     return GraphIngestHealth(
         candidate_graph_valid=True,
-        node_count=len(candidate_graph.get("candidate_nodes", [])),
-        edge_count=len(candidate_graph.get("candidate_edges", [])),
-        beat_count=len(candidate_graph.get("session_beats", [])),
+        node_count=len(candidate_graph.get(nodes_key, []))
+        if isinstance(candidate_graph.get(nodes_key), list)
+        else 0,
+        edge_count=len(candidate_graph.get(edges_key, []))
+        if isinstance(candidate_graph.get(edges_key), list)
+        else 0,
+        beat_count=len(candidate_graph.get(beats_key, []))
+        if isinstance(candidate_graph.get(beats_key), list)
+        else 0,
         ignored_count=ignored_count,
-        deferred_count=0,
+        deferred_count=deferred_count,
         evidence_ref_count=evidence_ref_count,
         resolvable_evidence_ref_count=resolvable_count if known_span_ids is not None else evidence_ref_count,
         openable_evidence_ref_count=resolvable_count if known_span_ids is not None else evidence_ref_count,
@@ -297,13 +343,18 @@ def _write_validation_report(
     warnings: list[str] = []
     if not candidate_graph_path.exists():
         errors.append("candidate graph file does not exist")
-    for field in ("candidate_nodes", "candidate_edges", "session_beats", "evidence_refs"):
+    nodes_key, edges_key, beats_key = _graph_list_fields(candidate_graph)
+    for field in (nodes_key, edges_key, beats_key):
         if not isinstance(candidate_graph.get(field), list):
             errors.append(f"candidate graph field must be a list: {field}")
-    has_candidates = bool(candidate_graph.get("candidate_nodes")) or bool(
-        candidate_graph.get("candidate_edges")
+    if isinstance(candidate_graph.get("evidence_refs"), list):
+        evidence_field = "evidence_refs"
+    else:
+        evidence_field = None
+    has_candidates = bool(candidate_graph.get(nodes_key)) or bool(
+        candidate_graph.get(edges_key)
     )
-    if has_candidates and "evidence_refs" not in candidate_graph:
+    if has_candidates and evidence_field and not candidate_graph.get(evidence_field):
         warnings.append("candidate graph has candidates but no evidence_refs section")
     known_span_ids: set[str] = set()
     if source_span_index_path is not None and source_span_index_path.exists():
@@ -327,27 +378,24 @@ def _write_validation_report(
             warnings.append(f"evidence ref {ref_id} missing span_id")
         elif known_span_ids and span_id not in known_span_ids:
             warnings.append(f"unresolved evidence ref span_id: {span_id}")
-    for field in ("candidate_nodes", "candidate_edges", "session_beats"):
+    for field in (nodes_key, edges_key, beats_key):
         for obj in candidate_graph.get(field, []) if isinstance(candidate_graph.get(field), list) else []:
             if not isinstance(obj, dict):
                 continue
             refs = obj.get("evidence_refs", [])
-            obj_id = obj.get("id") or obj.get("node_id") or obj.get("edge_id") or obj.get("summary") or field
+            obj_id = obj.get("node_id") or obj.get("id") or obj.get("edge_id") or obj.get("summary") or field
             if isinstance(refs, list):
-                for ref_id in refs:
-                    if isinstance(ref_id, str) and known_evidence_ids and ref_id not in known_evidence_ids:
-                        warnings.append(f"candidate {field} {obj_id} references unknown evidence ref: {ref_id}")
-                if refs and not any(
-                    isinstance(ref_id, str)
-                    and any(
-                        isinstance(ref, dict)
-                        and ref.get("id") == ref_id
-                        and ":recap:paragraph:" in str(ref.get("span_id") or ref.get("source_span_ref_id") or "")
-                        for ref in candidate_graph.get("evidence_refs", [])
-                    )
-                    for ref_id in refs
-                ):
-                    warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
+                for ref in refs:
+                    if isinstance(ref, str) and known_evidence_ids and ref not in known_evidence_ids:
+                        warnings.append(
+                            f"candidate {field} {obj_id} references unknown evidence ref: {ref}"
+                        )
+                    if isinstance(ref, dict):
+                        spref = ref.get("span_id") or ref.get("source_span_ref_id")
+                        if known_span_ids and isinstance(spref, str) and spref not in known_span_ids:
+                            warnings.append(f"unresolved evidence ref span_id: {spref}")
+                        if spref and ":recap:paragraph:" not in str(spref):
+                            warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
     diagnostics = candidate_graph.get("diagnostics", {})
     for flag in (
         "canon_promotion",
@@ -472,6 +520,7 @@ def run_graph_preview_extraction(
     candidate_validation_state = GraphIngestStepState.COMPLETE
     extraction_summary = "Existing candidate graph artifact wrapped for preview ingestion."
     raw_model_response_path: Path | None = None
+    category_pass_steps: list[GraphIngestStepStatus] = []
 
     if options.candidate_graph_path is not None:
         if not options.candidate_graph_path.exists():
@@ -516,11 +565,11 @@ def run_graph_preview_extraction(
             candidate_validation_state = GraphIngestStepState.FAILED
 
     elif options.allow_llm:
-        model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
-        source_span_id = f"{session_id}:recap:full_text"
-        source_span_catalog = json.loads(source_span_index_path.read_text()).get("spans", [])
+        model_id = resolve_category_graph_model(options.model_id)
+        span_index = json.loads(source_span_index_path.read_text())
+        session_number = _session_number(session_id)
         logger.info(
-            "candidate graph extraction starting campaign=%s session=%s model_id=%s "
+            "category graph extraction starting campaign=%s session=%s model_id=%s "
             "paragraph_span_count=%s output_dir=%s",
             campaign_id,
             session_id,
@@ -529,23 +578,41 @@ def run_graph_preview_extraction(
             safe_relative_artifact_uri(output_dir),
         )
         try:
-            extraction = extract_preview_candidate_graph(
-                PreviewCandidateGraphExtractionOptions(
+            category_client = options.category_client or OpenAICategoryGraphPassClient()
+
+            def _progress(pass_name: str, state: str) -> None:
+                label = PASS_PROGRESS_LABELS.get(pass_name, pass_name)
+                category_pass_steps.append(
+                    GraphIngestStepStatus(
+                        id=f"extract_{pass_name}",
+                        label=label,
+                        state=GraphIngestStepState.RUNNING
+                        if state == "running"
+                        else GraphIngestStepState.COMPLETE,
+                        summary=f"{label} ({state})",
+                    )
+                )
+
+            extraction = extract_category_candidate_graph(
+                CategoryGraphExtractionOptions(
                     campaign_id=campaign_id,
                     session_id=session_id,
-                    recap_markdown=recap_text,
-                    source_span_id=source_span_id,
-                    source_span_catalog=source_span_catalog if isinstance(source_span_catalog, list) else None,
+                    session_number=session_number,
+                    source_span_index=span_index,
                     model_id=model_id,
                 ),
-                client=options.extractor_client,
+                client=category_client,
+                progress_callback=_progress,
             )
             candidate_graph = extraction.candidate_graph
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
-            if extraction.raw_model_response is not None:
-                raw_model_response_path = output_dir / "raw_model_response.txt"
-                raw_model_response_path.write_text(extraction.raw_model_response)
+            pass_outputs_path = output_dir / "pass_outputs.json"
+            write_json(pass_outputs_path, extraction.pass_outputs)
+            pass_telemetry_path = output_dir / "pass_telemetry.json"
+            write_json(pass_telemetry_path, extraction.pass_telemetry)
+            consolidation_path = output_dir / "consolidation_diagnostics.json"
+            write_json(consolidation_path, extraction.consolidation_diagnostics)
             validation = _write_validation_report(
                 output_dir=output_dir,
                 campaign_id=campaign_id,
@@ -558,35 +625,55 @@ def run_graph_preview_extraction(
             artifacts["candidate_graph"] = _artifact(
                 GraphIngestArtifactKind.CANDIDATE_GRAPH,
                 candidate_graph_path,
-                "dmb_candidate_graph_preview_ir_v0",
+                "dmb_candidate_graph_preview_v0",
             )
             artifacts["candidate_validation_report"] = _artifact(
                 GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
                 validation_report_path,
                 "dmb_candidate_graph_validation_report_v0",
             )
-            if raw_model_response_path is not None:
-                artifacts["raw_model_response"] = _artifact(
-                    GraphIngestArtifactKind.PASS_TELEMETRY,
-                    raw_model_response_path,
-                    "text/plain",
-                )
-            known_span_ids = {str(sp.get("span_id") or sp.get("source_span_ref_id")) for sp in json.loads(source_span_index_path.read_text()).get("spans", []) if isinstance(sp, dict)}
-            health = _candidate_counts(candidate_graph, known_span_ids=known_span_ids, paragraph_span_count=paragraph_span_count)
-            health.model_id = model_id
+            artifacts["pass_outputs"] = _artifact(
+                GraphIngestArtifactKind.PASS_TELEMETRY,
+                pass_outputs_path,
+                "dmb_category_graph_pass_outputs_v0",
+            )
+            artifacts["pass_telemetry"] = _artifact(
+                GraphIngestArtifactKind.PASS_TELEMETRY,
+                pass_telemetry_path,
+                "dmb_category_graph_pass_telemetry_v0",
+            )
+            artifacts["consolidation_diagnostics"] = _artifact(
+                GraphIngestArtifactKind.PASS_TELEMETRY,
+                consolidation_path,
+                "dmb_category_graph_consolidation_diagnostics_v0",
+            )
+            known_span_ids = {
+                str(sp.get("span_id") or sp.get("source_span_ref_id"))
+                for sp in span_index.get("spans", [])
+                if isinstance(sp, dict) and (sp.get("span_id") or sp.get("source_span_ref_id"))
+            }
+            health = _candidate_counts(
+                candidate_graph,
+                known_span_ids=known_span_ids,
+                paragraph_span_count=paragraph_span_count,
+            )
+            health.model_id = extraction.model_id
+            health.estimated_cost_usd = extraction.total_cost_usd
             candidate_extraction = True
-            extraction_mode = "llm"
-            extraction_summary = "Candidate graph extracted from normalized recap with preview-only GPT-5 mini extractor."
+            extraction_mode = "category_decomposed"
+            extraction_summary = (
+                "Category-decomposed candidate graph extracted "
+                f"({len(extraction.pass_outputs)} passes, model {extraction.model_id})."
+            )
             logger.info(
-                "candidate graph extraction finished campaign=%s session=%s model_id=%s "
-                "nodes=%s edges=%s beats=%s evidence_refs=%s validation_valid=%s candidate_graph_path=%s",
+                "category graph extraction finished campaign=%s session=%s model_id=%s "
+                "nodes=%s edges=%s beats=%s validation_valid=%s candidate_graph_path=%s",
                 campaign_id,
                 session_id,
                 model_id,
                 health.node_count,
                 health.edge_count,
                 health.beat_count,
-                health.evidence_ref_count,
                 validation.valid,
                 safe_relative_artifact_uri(candidate_graph_path),
             )
@@ -601,7 +688,7 @@ def run_graph_preview_extraction(
                 next_actions = ["fix_candidate_graph"]
                 candidate_validation_state = GraphIngestStepState.FAILED
                 logger.warning(
-                    "candidate graph validation failed campaign=%s session=%s model_id=%s errors=%s warnings=%s",
+                    "category graph validation failed campaign=%s session=%s model_id=%s errors=%s warnings=%s",
                     campaign_id,
                     session_id,
                     model_id,
@@ -613,12 +700,12 @@ def run_graph_preview_extraction(
             health.candidate_graph_valid = False
             candidate_extraction = True
             extraction_mode = "llm_blocked"
-            health.model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
+            health.model_id = resolve_category_graph_model(options.model_id)
             manifest_errors = [str(exc)]
             next_actions = ["configure model", "supply candidate_graph_path"]
             candidate_validation_state = GraphIngestStepState.FAILED
-            extraction_summary = f"Candidate graph extraction blocked: {exc}"
-            if isinstance(exc, PreviewCandidateGraphParseError):
+            extraction_summary = f"Category graph extraction blocked: {exc}"
+            if isinstance(exc, CategoryGraphExtractionError) and exc.raw_model_response:
                 raw_model_response_path = output_dir / "raw_model_response.txt"
                 raw_model_response_path.write_text(exc.raw_model_response)
                 artifacts["raw_model_response"] = _artifact(
@@ -627,7 +714,7 @@ def run_graph_preview_extraction(
                     "text/plain",
                 )
             logger.warning(
-                "candidate graph extraction blocked campaign=%s session=%s model_id=%s error=%s raw_model_response_path=%s",
+                "category graph extraction blocked campaign=%s session=%s model_id=%s error=%s raw_model_response_path=%s",
                 campaign_id,
                 session_id,
                 health.model_id,
@@ -683,6 +770,11 @@ def run_graph_preview_extraction(
             )
         )
     else:
+        extract_artifact_refs = [artifacts["candidate_graph"]]
+        for key in ("pass_outputs", "pass_telemetry", "consolidation_diagnostics", "raw_model_response"):
+            if key in artifacts:
+                extract_artifact_refs.append(artifacts[key])
+        steps.extend(category_pass_steps)
         steps.extend(
             [
                 GraphIngestStepStatus(
@@ -692,8 +784,7 @@ def run_graph_preview_extraction(
                     started_at=now,
                     completed_at=now,
                     summary=extraction_summary,
-                    artifact_refs=[artifacts["candidate_graph"]]
-                    + ([artifacts["raw_model_response"]] if "raw_model_response" in artifacts else []),
+                    artifact_refs=extract_artifact_refs,
                 ),
                 GraphIngestStepStatus(
                     id="validate_candidate_graph",

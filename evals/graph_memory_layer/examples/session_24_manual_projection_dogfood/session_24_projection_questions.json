@@ -1,0 +1,273 @@
+{
+  "schema": "dmb_manual_graph_projection_questions_v0",
+  "benchmark_schema": "dmb_manual_graph_projection_dogfood_benchmark_v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-24",
+  "focus_session_id": "session-24",
+  "source_graph": "session_24_manual_gold_graph.json",
+  "purpose": "Evaluate whether chip projection over a manual gold graph makes the GM better prepared for the next session while preserving source boundaries.",
+  "scoring": {
+    "dimensions": [
+      {"name": "source_grounding", "max": 2, "zero": "No evidence or wrong source", "one": "Some relevant evidence", "two": "Correct anchors/snippets for each claim"},
+      {"name": "projection_quality", "max": 2, "zero": "Missing chips", "one": "Some chips surfaced", "two": "Required chips plus useful adjacency"},
+      {"name": "focus_session_clarity", "max": 2, "zero": "Confuses sessions", "one": "Mostly Session 24", "two": "Clearly distinguishes focus Session 24 vs prior/global context"},
+      {"name": "prep_usefulness", "max": 2, "zero": "Generic recap", "one": "Partly actionable", "two": "Helps GM run next scene"},
+      {"name": "restraint", "max": 2, "zero": "Invents or over-promotes", "one": "Minor overreach", "two": "Preserves deferred/unknown boundaries"}
+    ],
+    "pass_threshold": 8,
+    "hard_fail_conditions": [
+      "canon_promotion",
+      "approved_memory_write",
+      "corpus_mutation",
+      "production_retrieval_claim",
+      "unsupported_exact_count",
+      "unresolved_hook_claimed_resolved",
+      "session_24_manual_gold_treated_as_extractor_output"
+    ]
+  },
+  "questions": [
+    {
+      "question_id": "q:s24-opening-state",
+      "intent": "gm_next_session_opening_state",
+      "question": "What is the exact situation as Session 25 opens?",
+      "required_nodes": ["thread_refugee_plan", "thread_short_rest_watch", "loc_north_gate", "threat_meat_goo_ground_sink", "npc_grobnok"],
+      "must_include": ["Immediate battle ended", "Full night has fallen", "Ephanna/Stafl/Baergrom are at the wall above the gate for watch and short rest", "Others are checking town and planning for Edge refugees", "Meat piles turned to goo and sank underground", "Grobnok callback and Lysandra rockie-talkie link are pending"],
+      "must_not_claim": ["long_rest_complete", "refugees_resolved", "goo_destroyed", "grobnok_lysandra_link_complete"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill", "evidence:s24-meat-piles-goo-refugee-rest-plan", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-party-split",
+      "intent": "gm_state_tracking",
+      "question": "Who went where after the fight?",
+      "required_nodes": ["group_watch_rest_team", "group_town_refugee_team", "pc_ephanna", "pc_stafl", "pc_baergrom"],
+      "must_include": ["Ephanna, Stafl, and Baergrom stay at the wall above the gate for watch and short rest", "The others go check town and create a refugee plan"],
+      "must_not_claim": ["exact_town_team_member_list_unless_derived", "long_rest_started_for_everyone"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-refugee-problem",
+      "intent": "gm_social_logistics_prep",
+      "question": "What do I need to remember about the Edge refugees before I roleplay the next scene?",
+      "required_nodes": ["group_edge_refugees", "thread_refugee_plan", "loc_edge"],
+      "must_include": ["The refugees from Edge still need a plan", "Screening, housing, admission, safety, and taint status are unresolved", "Edge remains connected to the crisis"],
+      "must_not_claim": ["refugees_safe", "refugees_tainted", "refugees_housed", "refugees_admitted", "refugees_rejected"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-wall-risk",
+      "intent": "gm_location_risk",
+      "question": "Is the north wall damaged, and what caused it?",
+      "required_nodes": ["status_north_wall_damage", "loc_north_wall", "threat_meat_hybrids", "threat_golem_like_creature", "threat_giant_sewer_monsters"],
+      "must_include": ["A hybrid reached the wall and chipped away the foundation", "The golem dashed to the wall ready to break it down", "A sewer monster climbed onto the wall", "Structural integrity remains unresolved"],
+      "must_not_claim": ["wall_collapsed", "wall_breached", "wall_safe", "wall_repaired"],
+      "expected_evidence_ref_ids": ["evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse", "evidence:s24-wall-damage-golem-fire-weakness", "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"]
+    },
+    {
+      "question_id": "q:s24-meat-goo",
+      "intent": "gm_unresolved_threat",
+      "question": "What happened when they tried to burn the remains?",
+      "required_nodes": ["threat_meat_goo_ground_sink", "loc_battlefield_outside_gate"],
+      "must_include": ["Karsemine and Ephanna try to burn remaining meat piles", "Firebolt/Bonfire cause piles to turn to goo and get sucked underground", "This remains an unresolved threat or hook"],
+      "must_not_claim": ["goo_destroyed", "goo_purified", "threat_solved"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-monster-mechanics",
+      "intent": "gm_mechanics_memory",
+      "question": "What monster mechanics have been revealed that I should carry forward?",
+      "required_nodes": ["threat_tripod_meat_monsters", "threat_flying_meatwings", "threat_meat_hybrids", "threat_golem_like_creature", "threat_giant_sewer_monsters"],
+      "must_include": ["Tripods have ignitable gases/flesh and can impale/pull with launched spikes", "Meatwings compel targets toward consuming monsters and can prevent direct attacks", "Hybrids can attack and damage the wall/foundation", "Golem is immune to poison/charm and weak to fire", "Sewer monsters climb walls, ooze sticky gel, and can spray poison on death"],
+      "must_not_claim": ["unseen_monster_abilities", "exact_statblock", "exact_cr"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-ogonob-firebolt-first-charm", "evidence:s24-tripod-wakes-wide-meatwing-charm", "evidence:s24-wall-damage-golem-fire-weakness", "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill", "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup"]
+    },
+    {
+      "question_id": "q:s24-fire-weaknesses",
+      "intent": "gm_mechanics_precision",
+      "question": "Which enemies were shown to be weak to fire?",
+      "required_nodes": ["threat_tripod_meat_monsters", "threat_golem_like_creature", "pc_karsemine"],
+      "must_include": ["Karsemine's Firebolt ignites tripod gases/flesh and kills one tripod", "Hunter's Mark reveals the golem is weak to fire"],
+      "must_not_claim": ["meatwings_fire_weak", "hybrids_fire_weak", "sewer_monsters_fire_weak"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-ogonob-firebolt-first-charm", "evidence:s24-wall-damage-golem-fire-weakness"]
+    },
+    {
+      "question_id": "q:s24-charm-effect",
+      "intent": "gm_mechanics_precision",
+      "question": "How exactly did the meatwing compulsion work?",
+      "required_nodes": ["threat_flying_meatwings", "pc_ephanna", "pc_bonogo", "pc_caelynn", "pc_baergrom", "npc_thrin"],
+      "must_include": ["Targets are compelled to find and eat the monsters", "Targets cannot attack the monsters directly", "Ephanna and Bonogo were affected early; later Thrin, Karsemine, Ephanna, Bonogo, Caelynn, and Baergrom were enchanted"],
+      "must_not_claim": ["ordinary_dominate_person", "complete_mind_control", "permanent_charm"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-ogonob-firebolt-first-charm", "evidence:s24-tripod-wakes-wide-meatwing-charm"]
+    },
+    {
+      "question_id": "q:s24-ephanna-danger",
+      "intent": "gm_character_state",
+      "question": "What happened to Ephanna in the fight that might matter next?",
+      "required_nodes": ["pc_ephanna", "threat_flying_meatwings", "threat_tripod_meat_monsters", "threat_meat_hybrids", "pc_karsemine", "thread_short_rest_watch"],
+      "must_include": ["Ephanna is compelled by meatwings", "Ephanna climbs down and destroys a hybrid with Eldritch Blast", "A tripod impales and pulls Ephanna", "A hybrid hits Ephanna with necrotic damage", "Karsemine accidentally shoots Ephanna", "Ephanna stays at the wall for short rest/watch"],
+      "must_not_claim": ["ephanna_dead", "ephanna_unconscious", "exact_hp", "full_recovery"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-ogonob-firebolt-first-charm", "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup", "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill", "evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-baergrom-highlight",
+      "intent": "gm_character_highlight",
+      "question": "What was Baergrom's big tactical moment?",
+      "required_nodes": ["pc_baergrom", "npc_thrin", "pc_bonogo", "threat_giant_sewer_monsters"],
+      "must_include": ["Baergrom uses Bait and Switch to move Thrin out of harm's way", "Baergrom uses Commander’s Strike to direct Bonogo", "Bonogo kills the sewer monster attacking Ogonob"],
+      "must_not_claim": ["baergrom_personally_killed_the_sewer_monster"],
+      "expected_evidence_ref_ids": ["evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"]
+    },
+    {
+      "question_id": "q:s24-caelynn-grobnok",
+      "intent": "gm_communications_hook",
+      "question": "What did Caelynn tell Grobnok, and what is pending?",
+      "required_nodes": ["pc_caelynn", "npc_grobnok", "thread_rockie_talkie_bridge", "thread_grobnok_callback", "loc_edge", "loc_mireward_reach"],
+      "must_include": ["Caelynn tells Grobnok about Edge and Mireward Reach", "Grobnok is frustrated", "Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra's", "The connection will take time", "Grobnok will call back next day"],
+      "must_not_claim": ["grobnok_has_arrived", "grobnok_lysandra_link_complete", "grobnok_has_plan"],
+      "expected_evidence_ref_ids": ["evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-lysandra-status",
+      "intent": "gm_npc_roleplay_prep",
+      "question": "What should Lysandra's state and priorities be after the fight?",
+      "required_nodes": ["npc_lysandra_ironveil", "thread_refugee_plan", "loc_mireward_reach", "thread_rockie_talkie_bridge"],
+      "must_include": ["Lysandra has been commanding attacks and removing Caelynn's charm", "She recognizes advantage and pushes final assault", "She is relevant to town/refugee/security decisions and pending Grobnok communication"],
+      "must_not_claim": ["specific_orders_after_recap_ends", "lysandra_spoke_to_grobnok_directly"],
+      "expected_evidence_ref_ids": ["evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse", "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-combat-resolution-boundary",
+      "intent": "gm_resolution_boundary",
+      "question": "Is the battle over?",
+      "required_nodes": ["event_s24_mireward_north_gate_battle", "threat_tripod_meat_monsters", "threat_meat_goo_ground_sink", "thread_refugee_plan", "thread_edge_status"],
+      "must_include": ["The immediate battlefield fight ends when Thrin finishes the final tripod", "The broader crisis is not over because meat goo sinks underground, refugees need a plan, and Edge remains unresolved"],
+      "must_not_claim": ["siege_over", "edge_saved", "refugee_crisis_over", "taint_solved"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill", "evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-open-hooks",
+      "intent": "gm_hook_inventory",
+      "question": "List the unresolved hooks I should prep for the next session.",
+      "required_nodes": ["thread_refugee_plan", "status_north_wall_damage", "threat_meat_goo_ground_sink", "thread_edge_status", "thread_grobnok_callback", "thread_rockie_talkie_bridge", "thread_short_rest_watch"],
+      "must_include": ["Refugee handling", "Wall/foundation inspection or consequences", "Meat goo underground", "Current status of Edge", "Grobnok callback", "Pending Grobnok-Lysandra link", "Short-rest/watch pressure"],
+      "must_not_claim": ["any_hook_resolved_without_later_source"],
+      "expected_evidence_ref_ids": ["evidence:s24-wall-damage-golem-fire-weakness", "evidence:s24-meat-piles-goo-refugee-rest-plan", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-chip-caelynn",
+      "intent": "projection_chip_node_view",
+      "question": "When I click Caelynn, what should the projection show?",
+      "required_nodes": ["pc_caelynn", "npc_lysandra_ironveil", "npc_grobnok", "thread_rockie_talkie_bridge", "threat_flying_meatwings"],
+      "must_include": ["Charmed then cleansed by Lysandra", "Magic Missile against meatwings and final tripod attack", "Caelynn called Grobnok about Edge and Mireward Reach", "Adjacency to Lysandra, Grobnok, rockie-talkie bridge, Edge, Mireward Reach, meatwings, and final tripod event"],
+      "must_not_claim": ["session_local_identity_as_final_architecture", "rockie_link_complete"],
+      "expected_evidence_ref_ids": ["evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse", "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-chip-tripod",
+      "intent": "projection_chip_node_view",
+      "question": "When I click Tripod meat monsters, what should I see?",
+      "required_nodes": ["threat_tripod_meat_monsters", "pc_karsemine", "pc_stafl", "pc_ephanna", "npc_thrin"],
+      "must_include": ["Session 24 focus evidence for fire/gas damage, meatwing waking a sleeping tripod, impaling/pulling Ephanna, Sleep/Luck control, and final coordinated kill", "Adjacency to Karsemine, Stafl, Ephanna, Thrin, meatwings, and final assault"],
+      "must_not_claim": ["exact_statblock", "exact_cr"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-ogonob-firebolt-first-charm", "evidence:s24-tripod-wakes-wide-meatwing-charm", "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup", "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill"]
+    },
+    {
+      "question_id": "q:s24-chip-refugees",
+      "intent": "projection_chip_node_view",
+      "question": "When I click Edge refugees, what should I see?",
+      "required_nodes": ["group_edge_refugees", "thread_refugee_plan", "loc_edge"],
+      "must_include": ["Session 24 evidence that something needs to be done with refugees from Edge", "Unresolved status for screening, housing, admission, and taint", "Adjacency to Edge and town/refugee planning team"],
+      "must_not_claim": ["refugees_safe", "refugees_tainted", "refugees_admitted"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-chip-goo",
+      "intent": "projection_chip_node_view",
+      "question": "When I click meat goo sinking underground, what should I see?",
+      "required_nodes": ["threat_meat_goo_ground_sink", "loc_battlefield_outside_gate"],
+      "must_include": ["Attempted burning caused meat piles to turn to goo and get sucked underground", "This is unresolved", "Adjacency to battlefield, Karsemine, Ephanna, and future investigation"],
+      "must_not_claim": ["goo_destroyed", "goo_purified", "destination_known"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-chip-wall",
+      "intent": "projection_chip_node_view",
+      "question": "When I click the north wall, what should I see?",
+      "required_nodes": ["loc_north_wall", "status_north_wall_damage", "threat_meat_hybrids", "threat_golem_like_creature", "threat_giant_sewer_monsters", "thread_short_rest_watch"],
+      "must_include": ["Hybrid foundation damage", "Golem wall-breaking pressure", "Sewer monster climbed onto wall and sticky gel made movement difficult", "Watch/rest team remains above the gate", "Structural integrity unresolved"],
+      "must_not_claim": ["wall_breached", "wall_collapsed", "wall_safe"],
+      "expected_evidence_ref_ids": ["evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse", "evidence:s24-wall-damage-golem-fire-weakness", "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill", "evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-high-risk",
+      "intent": "review_friction",
+      "question": "Which graph items should be high-risk or frictioned before approval?",
+      "required_nodes": ["status_north_wall_damage", "thread_refugee_plan", "threat_meat_goo_ground_sink", "thread_edge_status", "thread_rockie_talkie_bridge"],
+      "must_include": ["Wall safety/structural integrity", "Refugee screening/admission/housing", "Meat goo destination and consequence", "Exact Edge status", "Grobnok-Lysandra link completion", "Exact resources/HP/slot state"],
+      "must_not_claim": ["bulk_approve_safe", "these_are_canon"],
+      "expected_evidence_ref_ids": ["evidence:s24-wall-damage-golem-fire-weakness", "evidence:s24-meat-piles-goo-refugee-rest-plan", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-proposed-writes",
+      "intent": "proposed_write_review",
+      "question": "What proposed writes would this preview generate?",
+      "required_nodes": ["thread_refugee_plan", "threat_meat_goo_ground_sink", "status_north_wall_damage", "thread_grobnok_callback"],
+      "must_include": ["Pending battle resolution write", "Pending monster mechanics updates", "Pending unresolved hooks for meat goo, wall damage, refugees, Edge status, Grobnok callback, and rockie-talkie bridge", "All proposed writes remain pending manual review"],
+      "must_not_claim": ["approved_writes", "canon_promotion", "corpus_mutation"],
+      "expected_evidence_ref_ids": ["evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill", "evidence:s24-meat-piles-goo-refugee-rest-plan", "evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-adjacent-session-need",
+      "intent": "union_supergraph_adjacency",
+      "question": "Which Session 23 facts should the projection pull in to make Session 24 make sense?",
+      "required_nodes": ["group_edge_refugees", "loc_edge", "loc_north_gate", "threat_tripod_meat_monsters", "threat_flying_meatwings", "threat_golem_like_creature", "threat_giant_sewer_monsters", "npc_lysandra_ironveil"],
+      "must_include": ["Only focused prior context needed for continuity: Edge refugees/refugee origin, north gate setup, enemy wave identities, and Lysandra/Mireward context", "Avoid broad Session 23 recap flooding"],
+      "must_not_claim": ["session_23_full_summary_required", "unbounded_prior_session_dump"],
+      "expected_evidence_ref_ids": []
+    },
+    {
+      "question_id": "q:s24-clean-control",
+      "intent": "clean_retrieval_control",
+      "question": "What happened with Baergrom's crossbow?",
+      "required_nodes": ["pc_baergrom"],
+      "must_include": ["Baergrom readies his crossbow, it jams, he throws it down, grabs a short bow, loads an arrow, and shoots the hybrid in the head"],
+      "must_not_claim": ["unrelated_baergrom_backstory", "weapon_permanently_destroyed"],
+      "expected_evidence_ref_ids": ["evidence:s24-bonogo-panic-sewer-split-baergrom-jam"]
+    },
+    {
+      "question_id": "q:s24-unsafe-exact-counts",
+      "intent": "restraint_precision_trap",
+      "question": "How many meatwings were left at the end?",
+      "required_nodes": ["threat_flying_meatwings"],
+      "must_include": ["The source does not preserve a reliable exact final meatwing count", "The immediate battle ends, but exact remaining meatwing count should not be fabricated"],
+      "must_not_claim": ["exact_final_meatwing_count"],
+      "expected_evidence_ref_ids": ["evidence:s24-tripod-wakes-wide-meatwing-charm", "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse", "evidence:s24-wall-damage-golem-fire-weakness"]
+    },
+    {
+      "question_id": "q:s24-unsafe-refugee-taint",
+      "intent": "restraint_safety_trap",
+      "question": "Are the refugees definitely tainted by the meat horror?",
+      "required_nodes": ["group_edge_refugees", "thread_refugee_plan"],
+      "must_include": ["The recap does not resolve the refugees' taint or screening status", "Treat it as a pending triage risk, not a fact"],
+      "must_not_claim": ["refugees_definitely_tainted", "refugees_definitely_clear"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    },
+    {
+      "question_id": "q:s24-unsafe-grobnok-link",
+      "intent": "restraint_temporal_trap",
+      "question": "Can Grobnok now talk directly to Lysandra?",
+      "required_nodes": ["thread_rockie_talkie_bridge", "npc_grobnok", "npc_lysandra_ironveil"],
+      "must_include": ["Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra’s", "The recap says this will take some time", "The direct link is not complete in the source"],
+      "must_not_claim": ["link_complete", "grobnok_can_now_talk_to_lysandra"],
+      "expected_evidence_ref_ids": ["evidence:s24-caelynn-grobnok-rockie-talkie"]
+    },
+    {
+      "question_id": "q:s24-unsafe-goo-destroyed",
+      "intent": "restraint_resolution_trap",
+      "question": "Did burning the meat piles solve the goo problem?",
+      "required_nodes": ["threat_meat_goo_ground_sink"],
+      "must_include": ["No. The attempted burning caused the piles to turn to goo and sink underground", "This creates or preserves an unresolved risk rather than solving it"],
+      "must_not_claim": ["burning_solved_problem", "goo_destroyed", "goo_purified"],
+      "expected_evidence_ref_ids": ["evidence:s24-meat-piles-goo-refugee-rest-plan"]
+    }
+  ]
+}

@@ -61,6 +61,11 @@ import type {
   RecapGraphPresentationResponse,
   RecapGraphQuery,
   UnionSupergraphProjectionResponse,
+  PartyRegistrySurfaceResponse,
+  PartyRegistrySessionRosterWriteCommitRequest,
+  PartyRegistrySessionRosterWriteCommitResponse,
+  PartyRegistrySessionRosterWritePrepareRequest,
+  PartyRegistrySessionRosterWritePrepareResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -150,6 +155,43 @@ export async function getJobs(): Promise<LiveJobsResponse> {
 
 export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
+}
+
+export async function getPartyRegistry(
+  campaignId: string,
+  session: number,
+): Promise<PartyRegistrySurfaceResponse> {
+  const params = new URLSearchParams({
+    campaign_id: campaignId,
+    session: String(session),
+  });
+  return apiFetch<PartyRegistrySurfaceResponse>(`/api/live/party-registry?${params.toString()}`);
+}
+
+export async function preparePartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWritePrepareRequest,
+): Promise<PartyRegistrySessionRosterWritePrepareResponse> {
+  return apiFetch<PartyRegistrySessionRosterWritePrepareResponse>(
+    "/api/live/party-registry/session-roster/prepare",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function commitPartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWriteCommitRequest,
+): Promise<PartyRegistrySessionRosterWriteCommitResponse> {
+  return apiFetch<PartyRegistrySessionRosterWriteCommitResponse>(
+    "/api/live/party-registry/session-roster/commit",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 function recapGraphQueryString(query?: RecapGraphQuery): string {

@@ -21,7 +21,7 @@ from src.graph_memory.recap_ingestion_materializer_report import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-REPORT.md"
+DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-SOURCE-ARTIFACT-MATERIALIZER-REPORT.md"
 
 
 def _materialization():

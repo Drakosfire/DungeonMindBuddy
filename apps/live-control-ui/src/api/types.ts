@@ -648,6 +648,7 @@ export interface RecapIngestRequest {
   graph_model_id?: string | null;
   materialize_after_extract?: boolean;
   include_graph_extraction?: boolean;
+  include_legacy_breadcrumb?: boolean;
 }
 
 export interface RecapGraphPreviewReport {
@@ -665,6 +666,12 @@ export interface RecapGraphPreviewReport {
   candidate_node_count?: number;
   candidate_edge_count?: number;
   candidate_beat_count?: number;
+  estimated_cost_usd?: number | null;
+  graph_steps?: Array<Record<string, unknown>>;
+  current_graph_step?: Record<string, unknown> | null;
+  pass_telemetry_path?: string | null;
+  pass_outputs_path?: string | null;
+  consolidation_diagnostics_path?: string | null;
   next_actions?: string[];
   can_open_union_graph?: boolean;
   blocked_reason?: string | null;
@@ -1537,4 +1544,78 @@ export interface UnionSupergraphProjectionResponse {
     end_offset?: number | null;
     evidence_ref_ids: string[];
   }>;
+}
+
+export interface PartyRegistryMemberRow {
+  slug: string;
+  kind: string;
+  display_name: string;
+  hub_rel_path: string;
+  hub_resolved: boolean;
+  player?: string | null;
+  corpus_ref: Record<string, unknown>;
+}
+
+export interface PartyRegistrySurfaceResponse {
+  schema_version: "dmb_party_registry_surface_v1";
+  campaign_id: string;
+  session: number;
+  session_id: string;
+  registry_schema?: string | null;
+  registry_relpath?: string | null;
+  party_names: string[];
+  pc_slugs: string[];
+  companion_slugs: string[];
+  notable_npc_slugs: string[];
+  members: PartyRegistryMemberRow[];
+  warnings: string[];
+  registry_summary: Record<string, unknown>;
+  session_graph_context: Record<string, unknown>;
+  available_session_keys: string[];
+  has_session_roster: boolean;
+  known_pc_slugs: string[];
+  known_companion_slugs: string[];
+}
+
+export interface PartyRegistrySessionRosterWritePrepareRequest {
+  campaign_id: string;
+  session: number;
+  pc_slugs: string[];
+  companion_slugs: string[];
+  copy_from_session?: number | null;
+}
+
+export interface PartyRegistrySessionRosterWritePrepareResponse {
+  schema_version: "dmb_party_registry_session_roster_write_prepare_v1";
+  campaign_id: string;
+  session: number;
+  registry_relpath: string;
+  file_exists: boolean;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  existing_size_bytes?: number | null;
+  new_size_bytes?: number | null;
+  pc_slugs: string[];
+  companion_slugs: string[];
+  warnings: string[];
+  diagnostics: string[];
+}
+
+export interface PartyRegistrySessionRosterWriteCommitRequest extends PartyRegistrySessionRosterWritePrepareRequest {
+  writer_confirm_token: string;
+}
+
+export interface PartyRegistrySessionRosterWriteCommitResponse {
+  schema_version: "dmb_party_registry_session_roster_write_commit_v1";
+  campaign_id: string;
+  session: number;
+  registry_relpath: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  file_fingerprint?: string | null;
+  backup_relpath?: string | null;
+  diagnostics: string[];
 }

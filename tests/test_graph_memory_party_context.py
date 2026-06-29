@@ -10,6 +10,8 @@ dedup-matches its extracted counterpart across sessions.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory import party_context as pc
 
@@ -30,6 +32,19 @@ def test_session_22_roster_pcs_and_companions():
     assert {m.slug for m in ctx.companions()} == {
         "thrin_branchborn", "captain_lysandra_ironveil",
     }
+
+
+def test_build_party_context_for_campaign_matches_legacy_builder():
+    legacy = pc.build_party_context(22)
+    wrapped = pc.build_party_context_for_campaign("longmont-c2", 22)
+    assert wrapped.session == legacy.session
+    assert {m.slug for m in wrapped.members} == {m.slug for m in legacy.members}
+
+
+def test_session_23_missing_roster_warns_and_is_empty():
+    ctx = pc.build_party_context_for_campaign("longmont-c2", 23)
+    assert ctx.members == ()
+    assert any("session_pc_rosters['23']" in w for w in ctx.warnings)
 
 
 def test_companions_are_npc_kind_and_resolve():
@@ -58,6 +73,12 @@ def test_unknown_session_warns_and_is_empty():
     ctx = pc.build_party_context(999)
     assert ctx.members == ()
     assert any("session_pc_rosters" in w for w in ctx.warnings)
+
+
+def test_resolve_campaign_corpus_uses_passed_corpus_root_without_campaign_rel(tmp_path: Path):
+    root, rel = pc.resolve_campaign_corpus("longmont-c2", corpus_root=tmp_path)
+    assert root == tmp_path.resolve()
+    assert rel == pc.DEFAULT_CAMPAIGN_REL
 
 
 # --------------------------------------------------------------------------- #

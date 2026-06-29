@@ -1,0 +1,37 @@
+{
+  "per_pass_counts": {
+    "actor_pass": 8,
+    "location_pass": 12,
+    "collective_pass": 8,
+    "object_pass": 2,
+    "thread_pass": 10,
+    "beat_pass": 8,
+    "edge_pass": 19
+  },
+  "nodes_before_dedup": 40,
+  "party_companion_slugs": [
+    "thrin_branchborn",
+    "captain_lysandra_ironveil"
+  ],
+  "merged_nodes": [],
+  "merged_edges": [],
+  "dropped_edges_missing_endpoints": [
+    {
+      "edge_id": "e13",
+      "from_node_id": "mystery_session22_004",
+      "to_node_id": "location:session22:roadside camp"
+    }
+  ],
+  "party_anchor_hub_paths": [
+    "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+    "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+    "Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+    "Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+    "Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+    "Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+  ],
+  "repaired_edge_evidence_refs": 18,
+  "dropped_no_valid_evidence": {}
+}

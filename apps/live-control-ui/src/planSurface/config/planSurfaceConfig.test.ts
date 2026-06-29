@@ -20,6 +20,7 @@ describe("planSurfaceConfig", () => {
       "ingest-recap",
       "recap",
       "graph-preview",
+      "party-registry",
       "statblock",
     ]);
     expect(config.theme.themeId).toBe("mireward-runbook");

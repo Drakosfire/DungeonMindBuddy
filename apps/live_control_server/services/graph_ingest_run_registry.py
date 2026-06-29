@@ -23,6 +23,8 @@ GRAPH_INGEST_RUNS_ENV = "DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT"
 GRAPH_INGEST_MANIFEST_NAME = "graph_ingest_run_manifest.json"
 DEFAULT_GRAPH_INGEST_RUN_ROOTS = [
     "out/graph_memory/runs",
+]
+EVAL_GRAPH_INGEST_RUN_ROOTS = [
     "evals/graph_memory_layer/runs",
     "evals/graph_memory_layer/artifacts/graph_ingest_runs",
 ]
@@ -78,6 +80,7 @@ def discover_graph_ingest_runs(
     source_recap_sha256: str | None = None,
     status: str | None = None,
     require_preview_union_store: bool = False,
+    include_eval_roots: bool = False,
 ) -> list[GraphIngestRunSummary]:
     """Discover valid graph-ingest manifests from bounded roots."""
 
@@ -88,7 +91,7 @@ def discover_graph_ingest_runs(
         )
 
     summaries: list[tuple[GraphIngestRunSummary, float]] = []
-    for search_root in _graph_ingest_search_roots(repo):
+    for search_root in _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots):
         if not search_root.exists():
             continue
         for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
@@ -192,9 +195,11 @@ def _normalize_repo_path(repo: Path, value: str) -> str:
     return path.as_posix().lstrip("./")
 
 
-def _graph_ingest_search_roots(repo: Path) -> list[Path]:
+def _graph_ingest_search_roots(repo: Path, *, include_eval_roots: bool = False) -> list[Path]:
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV)
-    values = [env_root] if env_root else DEFAULT_GRAPH_INGEST_RUN_ROOTS
+    values = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
+    if include_eval_roots:
+        values.extend(EVAL_GRAPH_INGEST_RUN_ROOTS)
     return [
         _resolve_repo_contained_path(Path(value), repo, must_exist=False)
         for value in values

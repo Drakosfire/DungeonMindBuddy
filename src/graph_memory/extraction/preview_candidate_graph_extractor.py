@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Compact single-pass preview candidate graph extractor (deprecated).
+
+Product recap graph ingest uses ``category_candidate_graph_extractor`` instead.
+Retained for fixture imports and legacy tests.
+"""
+
 import json
 import logging
 import os

@@ -3,7 +3,7 @@
   "campaign_id": "longmont-c2",
   "session": 22,
   "packet_id": "longmont-c2-session-22-live-packet",
-  "created_at": "2026-06-02T23:09:53Z",
+  "created_at": "2026-06-29T04:23:32Z",
   "source_paths": [
     {
       "path": "recap.md",
@@ -236,6 +236,33 @@
       "config_schema": null
     },
     {
+      "module_id": "statblock_workbench",
+      "title": "Statblock Workbench",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Read-only statblock draft artifact review surface.",
+      "config_schema": null
+    },
+    {
+      "module_id": "statblock_view",
+      "title": "Statblock View",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Read-only corpus-backed generated statblock viewer.",
+      "config_schema": null
+    },
+    {
+      "module_id": "combat_roster",
+      "title": "Combat Roster",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Table-facing current combat roster and turn tracker.",
+      "config_schema": null
+    },
+    {
       "module_id": "queue",
       "title": "Queue",
       "default_slot": "bottom",
@@ -245,5 +272,6 @@
       "config_schema": null
     }
   ],
-  "context_packets": []
+  "context_packets": [],
+  "planning_manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
 }

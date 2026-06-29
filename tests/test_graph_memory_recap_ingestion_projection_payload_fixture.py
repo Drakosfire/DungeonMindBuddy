@@ -12,7 +12,7 @@ from src.graph_memory.recap_ingestion_materializer_report import analyze_recap_i
 from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-RECAP-INGESTION-PROJECTION-PAYLOAD-FIXTURE.md"
+DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-PROJECTION-PAYLOAD-FIXTURE.md"
 EXPECTED_ARTIFACTS = {"normalized_recap_markdown", "breadcrumbed_recap_markdown", "frontmatter_seed_markdown", "session_memory_jsonl_meta", "corpus_impact_proof"}
 REQUIRED_FIELDS = {"payload_unit_id", "source_unit_id", "source_ref_id", "admitted_artifact_id", "artifact_kind", "projection_kind", "display_label", "display_summary", "semantic_state", "source_handle", "provenance", "safety"}
 SEMANTIC_FIELDS = {"canon_state", "lifecycle_state", "evidence_role", "authority_state", "visibility_state"}

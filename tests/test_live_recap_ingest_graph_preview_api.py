@@ -145,45 +145,41 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
 
 
 def _live_extraction_payload() -> dict:
-    return {
-        "candidate_nodes": [
-            {"id": "node:mireward-road", "kind": "location", "label": "Mireward Road", "evidence_refs": ["ev:1"]}
-        ],
-        "candidate_edges": [],
-        "session_beats": [
-            {"id": "beat:1", "summary": "The group scouts the Mireward road.", "evidence_refs": ["ev:1"]}
-        ],
-        "ignored_or_deferred_candidates": [],
-        "diagnostics": {
-            "preview_only": True,
-            "canon_promotion": False,
-            "approved_memory_write": False,
-            "corpus_mutation": False,
-            "production_retrieval": False,
-        },
-        "source_artifacts": [],
-        "evidence_refs": [{"id": "ev:1", "span_id": "session-22:recap:full_text"}],
-    }
+    from tests.fixtures.graph_memory.category_extraction_helpers import (
+        canonical_candidate_graph_from_passes,
+    )
+
+    return canonical_candidate_graph_from_passes(spref="session-22:recap:paragraph:001")
+
+
+def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionResult,
+    )
+
+    def fake_extract(options, *, client=None, progress_callback=None):  # noqa: ANN001
+        graph = _live_extraction_payload()
+        return CategoryGraphExtractionResult(
+            candidate_graph=graph,
+            envelope={"candidate_graph": graph},
+            pass_outputs={},
+            pass_telemetry={},
+            consolidation_diagnostics={},
+            model_id=options.model_id or "gpt-5.4-mini",
+            total_cost_usd=0.0,
+            diagnostics={"extraction_mode": "category_decomposed"},
+        )
+
+    monkeypatch.setattr(runner, "extract_category_candidate_graph", fake_extract)
 
 
 def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
-    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
-
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
-
-    def fake_extract(options, *, client=None):  # noqa: ANN001
-        return PreviewCandidateGraphExtractionResult(
-            candidate_graph=_live_extraction_payload(),
-            raw_model_response="{}",
-            model_id=options.model_id,
-            diagnostics={"extraction_mode": "llm"},
-        )
-
-    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+    _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -192,37 +188,25 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
             "campaign_id": "longmont-c2",
             "session": 22,
             "extract_graph": True,
-            "graph_model_id": "gpt-5-mini",
+            "graph_model_id": "gpt-5.4-mini",
         },
     )
 
     assert response.status_code == 200
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
-    assert graph["extraction_mode"] == "llm"
-    assert graph["model_id"] == "gpt-5-mini"
-    assert graph["candidate_node_count"] == 1
+    assert graph["extraction_mode"] == "category_decomposed"
+    assert graph["model_id"] == "gpt-5.4-mini"
+    assert graph["candidate_node_count"] >= 1
     assert (ROOT / graph["candidate_graph_path"]).is_file()
 
 
 def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
-    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
-
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
-
-    def fake_extract(options, *, client=None):  # noqa: ANN001
-        return PreviewCandidateGraphExtractionResult(
-            candidate_graph=_live_extraction_payload(),
-            raw_model_response="{}",
-            model_id=options.model_id,
-            diagnostics={"extraction_mode": "llm"},
-        )
-
-    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+    _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -239,7 +223,7 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "preview_union_store_ready"
     assert graph["can_open_union_graph"] is True
-    assert graph["extraction_mode"] == "llm"
+    assert graph["extraction_mode"] == "category_decomposed"
     assert graph["candidate_graph_path"] is not None
     assert (ROOT / graph["preview_union_store_path"]).is_file()
 
@@ -306,6 +290,7 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
             "slug": "Mireward Road Dogfood",
             "check": True,
             "include_graph_extraction": False,
+            "include_legacy_breadcrumb": True,
         },
     )
 
@@ -319,20 +304,8 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
-    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
-
     client, _corpus, _candidate = client_env
-
-    def fake_extract(options, *, client=None):  # noqa: ANN001
-        return PreviewCandidateGraphExtractionResult(
-            candidate_graph=_live_extraction_payload(),
-            raw_model_response="{}",
-            model_id=options.model_id,
-            diagnostics={"extraction_mode": "llm"},
-        )
-
-    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+    _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -344,44 +317,32 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             "slug": "Mireward Road Dogfood",
             "check": True,
             "include_graph_extraction": True,
-            "graph_model_id": "gpt-5-mini",
+            "graph_model_id": "gpt-5.4-mini",
         },
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready_for_planning_activation"
-    assert "session_memory_materialized" in body["states"]
     assert "preview_union_store_ready" in body["states"]
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "preview_union_store_ready"
-    assert graph["extraction_mode"] == "llm"
-    assert graph["model_id"] == "gpt-5-mini"
+    assert graph["extraction_mode"] == "category_decomposed"
+    assert graph["model_id"] == "gpt-5.4-mini"
     assert graph["can_open_union_graph"] is True
+    assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
 
 
 def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
-    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
-
     client, corpus, _candidate = client_env
+    _patch_fake_category_extract(monkeypatch)
     staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
     staged.write_text(
-        "Session 22 Recap\n\nThe group scouts the Mireward road and regroups at dusk.",
+        "Session 22 Recap\n\nBonogo scouts the Mireward road and regroups at dusk.",
         encoding="utf-8",
     )
-
-    def fake_extract(options, *, client=None):  # noqa: ANN001
-        return PreviewCandidateGraphExtractionResult(
-            candidate_graph=_live_extraction_payload(),
-            raw_model_response="{}",
-            model_id=options.model_id,
-            diagnostics={"extraction_mode": "llm"},
-        )
-
-    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -393,7 +354,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
             "slug": "Mireward Road Dogfood",
             "check": True,
             "include_graph_extraction": True,
-            "graph_model_id": "gpt-5-mini",
+            "graph_model_id": "gpt-5.4-mini",
         },
     )
 
@@ -401,7 +362,6 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
     body = response.json()
     assert body["status"] == "ready_for_planning_activation"
     assert "staged_raw_notes_conflict" in body["states"]
-    assert "session_memory_materialized" in body["states"]
     assert "preview_union_store_ready" in body["states"]
     assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
     assert "Different pasted text" not in staged.read_text(encoding="utf-8")
@@ -421,7 +381,7 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     def fake_extract_blocked(*_args, **_kwargs):  # noqa: ANN002, ANN003
         raise RuntimeError("test llm blocked")
 
-    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract_blocked)
+    monkeypatch.setattr(runner, "extract_category_candidate_graph", fake_extract_blocked)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -439,7 +399,6 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready_for_planning_activation"
-    assert "session_memory_materialized" in body["states"]
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
     assert graph["extraction_mode"] == "llm_blocked"
