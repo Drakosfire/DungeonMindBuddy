@@ -3,7 +3,7 @@ import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
-import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { GraphProjectionNodeView, RecapProjectionSourceSpan, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "./GraphNodePresentation";
@@ -24,14 +24,14 @@ function ReadOnlyTiptapRecap({
   nodeViews,
   activeNodeId,
   onSelectNode,
-  paragraphSpanIds,
+  sourceSpans,
   selectedEvidenceSpanId,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
-  paragraphSpanIds: string[];
+  sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
@@ -57,24 +57,76 @@ function ReadOnlyTiptapRecap({
   useEffect(() => {
     const root = readerRef.current;
     if (!root) return;
-    const paragraphs = Array.from(root.querySelectorAll<HTMLParagraphElement>(".ProseMirror p"));
-    paragraphs.forEach((paragraph, index) => {
-      const spanId = paragraphSpanIds[index];
-      if (spanId) {
-        paragraph.dataset.sourceSpanId = spanId;
-      }
-      paragraph.classList.toggle("recap-source-span-highlight", Boolean(spanId && spanId === selectedEvidenceSpanId));
-      if (spanId && spanId === selectedEvidenceSpanId && typeof paragraph.scrollIntoView === "function") {
-        paragraph.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-    });
-  }, [content, paragraphSpanIds, selectedEvidenceSpanId]);
+    const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId);
+    if (highlighted && typeof highlighted.scrollIntoView === "function") {
+      highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [content, sourceSpans, selectedEvidenceSpanId]);
 
   return (
     <div className="union-supergraph-tiptap-reader" ref={readerRef}>
       <EditorContent editor={editor} />
     </div>
   );
+}
+
+function normalizeEvidenceText(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function readableNodeText(node: HTMLElement): string {
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(".recap-node-hover-card").forEach((hiddenContext) => hiddenContext.remove());
+  return clone.textContent ?? "";
+}
+
+function attachSourceSpanDataAttributes(
+  root: HTMLElement,
+  sourceSpans: RecapProjectionSourceSpan[],
+  selectedEvidenceSpanId: string | null,
+): HTMLElement | null {
+  const candidates = Array.from(
+    root.querySelectorAll<HTMLElement>(".ProseMirror p, .ProseMirror li, .ProseMirror blockquote p"),
+  );
+  candidates.forEach((candidate) => {
+    delete candidate.dataset.sourceSpanId;
+    candidate.classList.remove("recap-source-span-highlight");
+  });
+
+  const unused = new Set(candidates);
+  const claimed = new Map<string, HTMLElement>();
+
+  for (const span of sourceSpans) {
+    const excerpt = normalizeEvidenceText(span.text_excerpt ?? "");
+    if (!excerpt) continue;
+    const matches = Array.from(unused).filter((node) => {
+      const nodeText = normalizeEvidenceText(readableNodeText(node));
+      return nodeText === excerpt || nodeText.includes(excerpt) || excerpt.includes(nodeText);
+    });
+    if (matches.length === 1) {
+      claimed.set(span.span_id, matches[0]);
+      unused.delete(matches[0]);
+    }
+  }
+
+  for (const span of sourceSpans) {
+    if (claimed.has(span.span_id)) continue;
+    const ordinal = span.ordinal ?? 0;
+    const ordinalCandidate = ordinal > 0 ? candidates[ordinal - 1] : undefined;
+    if (ordinalCandidate && unused.has(ordinalCandidate)) {
+      claimed.set(span.span_id, ordinalCandidate);
+      unused.delete(ordinalCandidate);
+    }
+  }
+
+  let highlighted: HTMLElement | null = null;
+  for (const [spanId, node] of claimed.entries()) {
+    node.dataset.sourceSpanId = spanId;
+    const isHighlighted = spanId === selectedEvidenceSpanId;
+    node.classList.toggle("recap-source-span-highlight", isHighlighted);
+    if (isHighlighted) highlighted = node;
+  }
+  return highlighted;
 }
 
 export function UnionSupergraphRecapProjection({
@@ -89,11 +141,10 @@ export function UnionSupergraphRecapProjection({
   const activeNodeId = explorerTrail.at(-1) ?? null;
   const activeNode = activeNodeId ? payload.node_views[activeNodeId] : undefined;
   const [selectedEvidenceSpanId, setSelectedEvidenceSpanId] = useState<string | null>(null);
-  const paragraphSpanIds = useMemo(
+  const paragraphSourceSpans = useMemo(
     () => (payload.source_spans ?? [])
       .filter((span) => span.kind === "paragraph")
-      .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
-      .map((span) => span.span_id),
+      .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0)),
     [payload.source_spans],
   );
   const sourceCopy = {
@@ -197,7 +248,7 @@ export function UnionSupergraphRecapProjection({
             nodeViews={payload.node_views}
             activeNodeId={activeNodeId}
             onSelectNode={openExplorer}
-            paragraphSpanIds={paragraphSpanIds}
+            sourceSpans={paragraphSourceSpans}
             selectedEvidenceSpanId={selectedEvidenceSpanId}
           />
         </article>
