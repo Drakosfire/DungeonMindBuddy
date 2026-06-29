@@ -646,10 +646,15 @@ function buildToastForResult(
     nextSteps.unshift("Normalized recap already on disk — reused without overwrite.");
   }
 
+  const graphPreview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+  const graphMaterialized = graphPreview?.status === "preview_union_store_ready";
+  const graphBlocked = graphPreview?.extraction_mode === "llm_blocked" || Boolean(graphPreview?.blocked_reason && graphPreview.status !== "preview_union_store_ready");
   const uniqueNextSteps = [...new Set(nextSteps)].filter(Boolean);
 
   const tone: IngestionToastTone =
-    result.status === "ready_for_planning_activation"
+    result.status === "ready_for_planning_activation" && graphBlocked
+      ? "warning"
+      : result.status === "ready_for_planning_activation"
       ? "success"
       : frontmatterSeedReady
         ? "success"
@@ -664,8 +669,12 @@ function buildToastForResult(
       ? "Existing staged raw notes were found, so the preview uses those notes. The pasted text was not written."
       : frontmatterSeedReady
         ? "Frontmatter seed is ready for human review before breadcrumb ingest."
+      : result.status === "ready_for_planning_activation" && graphBlocked
+        ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View still works, but chips may fall back or be unavailable.`
+      : result.status === "ready_for_planning_activation" && graphMaterialized
+        ? "Recap memory generated and preview graph materialized. Open Recap View to inspect graph-backed chips."
       : result.status === "ready_for_planning_activation"
-        ? "Recap memory generated. Open Recap View to read the recap and inspect graph chips."
+        ? "Recap memory generated. Open Recap View to read the recap."
       : result.status === "breadcrumb_required"
       ? "Expected v1 stop: canonical recap and normalized recap are prepared; retrieval activation waits for breadcrumb + session memory."
       : result.errors.length > 0
@@ -710,6 +719,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [forceRecap, setForceRecap] = useState(false);
   const [candidateGraphPath, setCandidateGraphPath] = useState("");
   const [extractGraphWithMini, setExtractGraphWithMini] = useState(false);
+  const [includeGraphExtraction, setIncludeGraphExtraction] = useState(false);
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
@@ -1140,137 +1150,62 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     lastToastKeyRef.current = null;
     setToast({
       tone: "info",
-      title: "Full ingest started",
-      detail: "Running stage, apply, seed, breadcrumb, and session-memory materialization in sequence.",
+      title: includeGraphExtraction ? "Recap + graph ingest started" : "Full ingest started",
+      detail: includeGraphExtraction
+        ? "Running recap memory generation, then preview graph extraction and materialization."
+        : "Running stage, apply, seed, breadcrumb, and session-memory materialization in sequence.",
       nextSteps: [],
     });
     setState({ status: "running_full_ingest" });
     jumpToStep(2);
 
     try {
-      let currentSlug = effectiveSlug;
-      let currentTitle = effectiveTitle;
-      const syncFields = (result: RecapIngestStatus) => {
-        const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
-        if (synced) {
-          currentSlug = synced.slug;
-          currentTitle = synced.title;
-        }
-      };
+      const result = applyAutomatedResult(
+        await postRecapIngest({
+          operation: "generate_recap_memory",
+          campaign_id: campaignId,
+          session: recapSession,
+          raw_text: rawText,
+          slug: effectiveSlug || undefined,
+          title: effectiveTitle || undefined,
+          force_stage: forceStage || undefined,
+          force_recap: forceRecap || undefined,
+          check: true,
+          include_graph_extraction: includeGraphExtraction,
+          graph_model_id: includeGraphExtraction ? "gpt-5-mini" : undefined,
+        }),
+      );
+      const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
+      setPreviewSignature(previewSourceSignature(recapSession, rawText, synced?.title ?? (effectiveTitle || effectiveSlug)));
 
-      let result = latestResult ? applyAutomatedResult(latestResult) : null;
-      if (rawTextSatisfied || !result) {
-        result = applyAutomatedResult(
-          await postRecapIngest({
-            operation: "stage_preview",
-            campaign_id: campaignId,
-            session: recapSession,
-            raw_text: rawText,
-            slug: currentSlug.trim() || undefined,
-            title: currentTitle.trim() || undefined,
-            force_stage: forceStage || undefined,
-          }),
-        );
-        syncFields(result);
-        setPreviewSignature(previewSourceSignature(recapSession, rawText, currentTitle || currentSlug));
-        if (result.status === "error") {
-          setState({ status: "error", result, message: resultErrorMessage(result, "Stage + Preview failed") });
-          return;
-        }
-        if (result.states.includes("staged_raw_notes_conflict") && !forceStage) {
-          setState({ status: "preview_ready", result });
-          setToast({
-            tone: "warning",
-            title: "Full ingest paused",
-            detail: "Existing staged notes were reused, so the pasted text was not ingested. Use Advanced only if the pasted text should replace them.",
-            nextSteps: ["Review the existing staged preview or use Advanced to replace saved raw notes and rerun full ingest."],
-            sticky: true,
-          });
-          return;
-        }
+      if (result.status === "error") {
+        setState({ status: "error", result, message: resultErrorMessage(result, "Full ingest failed") });
+        return;
       }
-
-      const applied =
-        result.states.includes("recap_applied") ||
-        result.states.includes("recap_reused") ||
-        result.states.includes("normalized_created") ||
-        result.states.includes("normalized_reused");
-      if (!applied) {
-        result = applyAutomatedResult(
-          await postRecapIngest({
-            operation: "apply_normalize",
-            campaign_id: campaignId,
-            session: recapSession,
-            slug: currentSlug.trim() || undefined,
-            title: currentTitle.trim() || undefined,
-            force_recap: forceRecap || undefined,
-          }),
-        );
-        syncFields(result);
-        if (result.status === "error") {
-          setState({ status: "error", result, message: resultErrorMessage(result, "Apply + Normalize failed") });
-          return;
-        }
-      }
-
-      if (!result.states.includes("frontmatter_seed_found")) {
-        result = applyAutomatedResult(
-          await postRecapIngest({
-            operation: "build_frontmatter_seed",
-            campaign_id: campaignId,
-            session: recapSession,
-            slug: currentSlug.trim() || undefined,
-            title: currentTitle.trim() || undefined,
-          }),
-        );
-        syncFields(result);
-        if (result.status === "error") {
-          setState({ status: "error", result, message: resultErrorMessage(result, "Frontmatter seed build failed") });
-          return;
-        }
-      }
-
-      if (!result.states.includes("breadcrumb_found")) {
-        result = applyAutomatedResult(
-          await postRecapIngest({
-            operation: "run_breadcrumb_ingest",
-            campaign_id: campaignId,
-            session: recapSession,
-            slug: currentSlug.trim() || undefined,
-            title: currentTitle.trim() || undefined,
-          }),
-        );
-        syncFields(result);
-        if (result.status === "error") {
-          setState({ status: "error", result, message: resultErrorMessage(result, "Breadcrumb ingest failed") });
-          return;
-        }
-      }
-
-      if (!result.states.includes("session_memory_materialized")) {
-        result = applyAutomatedResult(
-          await postRecapIngest({
-            operation: "materialize_session_memory",
-            campaign_id: campaignId,
-            session: recapSession,
-            slug: currentSlug.trim() || undefined,
-            title: currentTitle.trim() || undefined,
-            check: true,
-          }),
-        );
-        syncFields(result);
-        if (result.status === "error") {
-          setState({ status: "error", result, message: resultErrorMessage(result, "Session memory materialization failed") });
-          return;
-        }
+      if (result.states.includes("staged_raw_notes_conflict") && !forceStage) {
+        setState({ status: "preview_ready", result });
+        setToast({
+          tone: "warning",
+          title: "Full ingest paused",
+          detail: "Existing staged notes were reused, so the pasted text was not ingested. Use Advanced only if the pasted text should replace them.",
+          nextSteps: ["Review the existing staged preview or use Advanced to replace saved raw notes and rerun full ingest."],
+          sticky: true,
+        });
+        return;
       }
 
       if (result.status === "ready_for_planning_activation" || result.states.includes("session_memory_materialized")) {
+        const graphPreview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+        const graphBlocked = graphPreview?.extraction_mode === "llm_blocked" || Boolean(graphPreview?.blocked_reason && includeGraphExtraction && graphPreview.status !== "preview_union_store_ready");
         setState({ status: "ready_for_planning_activation", result });
         setToast({
-          tone: "success",
+          tone: graphBlocked ? "warning" : "success",
           title: "Full ingest complete",
-          detail: "Recap memory generated. Open Recap View to read the recap and inspect graph chips.",
+          detail: includeGraphExtraction
+            ? graphBlocked
+              ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View still works, but chips may fall back or be unavailable.`
+              : "Recap memory generated and preview graph materialized. Open Recap View to inspect graph-backed chips."
+            : "Recap memory generated. Open Recap View to read the recap.",
           nextSteps: [],
         });
         jumpToStep(3);
@@ -1743,6 +1678,18 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
             </div>
           </div>
 
+          <label className="ingestion-checkbox-row">
+            <input
+              type="checkbox"
+              checked={includeGraphExtraction}
+              onChange={(event) => setIncludeGraphExtraction(event.target.checked)}
+            />
+            Include preview graph extraction
+          </label>
+          <p className="module-muted">
+            Preview-only dogfood: after recap memory is generated, extract graph candidates from the normalized recap and materialize a preview union graph for Recap View chips.
+          </p>
+
           <div className="ingestion-actions ingestion-primary-actions">
             <button
               type="button"
@@ -1753,7 +1700,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               {isRunningFullIngest ? (
                 <>
                   <span className="button-inline-spinner" aria-hidden="true" />
-                  Running full ingest...
+                  {includeGraphExtraction ? "Running recap + preview graph..." : "Running full ingest..."}
                 </>
               ) : (
                 "Generate Recap Memory"
@@ -1767,7 +1714,13 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               <p>Preview invalidated by raw text/title edits. Re-run full ingest.</p>
             ) : null}
             <p className="ingestion-live-status" role="status" aria-live="polite">
-              {isRunningFullIngest ? "Full ingest in progress..." : isMaterializing ? "Materialization in progress..." : ""}
+              {isRunningFullIngest
+                ? includeGraphExtraction
+                  ? "Working: generating recap memory, then extracting and materializing preview graph."
+                  : "Working: running the full recap ingest pipeline."
+                : isMaterializing
+                  ? "Materialization in progress..."
+                  : ""}
             </p>
           </div>
 
@@ -1829,6 +1782,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
 
           <details className="ingestion-advanced-fold">
             <summary>Advanced graph dogfood</summary>
+            <p className="module-muted">Manual artifact controls for testing graph extraction/materialization outside the one-click recap flow.</p>
             <label htmlFor="ingestion-candidate-graph-path">Candidate graph path</label>
             <input
               id="ingestion-candidate-graph-path"
@@ -2070,6 +2024,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
           <section className="ingestion-proof-card" aria-label="Graph preview status">
             <h4>Graph</h4>
             <p className="module-muted">Preview supergraph only. No canon graph write.</p>
+            <p className="module-muted">Graph extraction: {graphPreview?.status === "preview_union_store_ready" ? "preview graph materialized" : graphPreview?.extraction_mode === "llm_blocked" ? "blocked" : graphPreview?.status === "candidate_validation_ready" ? "candidate ready" : graphPreview?.status === "source_span_bundle_ready" ? "candidate pending" : includeGraphExtraction && isRunningFullIngest ? "extracting" : "skipped"}</p>
             <div className="ingestion-proof-metrics">
               <span className="pill pill-neutral">status: {graphPreview?.status ?? "missing"}</span>
               <span className="pill pill-neutral">nodes: {graphPreview?.node_count ?? 0}</span>

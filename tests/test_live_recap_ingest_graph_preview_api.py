@@ -287,3 +287,101 @@ def test_recap_ingest_rejects_candidate_path_with_extract_graph(
 
     assert response.status_code == 422
     assert "cannot be combined" in response.json()["detail"]
+
+
+def test_recap_ingest_generate_recap_memory_without_graph_extraction(
+    client_env: tuple[TestClient, Path, Path]
+) -> None:
+    client, _corpus, _candidate = client_env
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
+            "slug": "Mireward Road Dogfood",
+            "check": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready_for_planning_activation"
+    assert "session_memory_materialized" in body["states"]
+    assert "graph_preview" not in body["ingest_report"]
+
+
+def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
+
+    client, _corpus, _candidate = client_env
+
+    def fake_extract(options, *, client=None):  # noqa: ANN001
+        return PreviewCandidateGraphExtractionResult(
+            candidate_graph=_live_extraction_payload(),
+            raw_model_response="{}",
+            model_id=options.model_id,
+            diagnostics={"extraction_mode": "llm"},
+        )
+
+    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
+            "slug": "Mireward Road Dogfood",
+            "check": True,
+            "include_graph_extraction": True,
+            "graph_model_id": "gpt-5-mini",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready_for_planning_activation"
+    assert "session_memory_materialized" in body["states"]
+    assert "preview_union_store_ready" in body["states"]
+    graph = body["ingest_report"]["graph_preview"]
+    assert graph["status"] == "preview_union_store_ready"
+    assert graph["extraction_mode"] == "llm"
+    assert graph["model_id"] == "gpt-5-mini"
+    assert graph["can_open_union_graph"] is True
+
+
+def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _corpus, _candidate = client_env
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
+            "slug": "Mireward Road Dogfood",
+            "check": True,
+            "include_graph_extraction": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready_for_planning_activation"
+    assert "session_memory_materialized" in body["states"]
+    graph = body["ingest_report"]["graph_preview"]
+    assert graph["status"] == "source_span_bundle_ready"
+    assert graph["extraction_mode"] == "llm_blocked"
+    assert "OPENAI_API_KEY is not configured" in graph["blocked_reason"]
+    assert any("preview graph extraction blocked" in warning for warning in body["warnings"])

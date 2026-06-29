@@ -39,6 +39,7 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
     "stage_preview",
+    "generate_recap_memory",
     "apply_normalize",
     "build_frontmatter_seed",
     "run_breadcrumb_ingest",
@@ -71,6 +72,7 @@ class RecapIngestRequest(BaseModel):
     extract_graph: bool = False
     graph_model_id: str | None = None
     materialize_after_extract: bool = False
+    include_graph_extraction: bool = False
 
 
 class RecapIngestStatusResponse(BaseModel):
@@ -293,6 +295,70 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
     )
     return _append_graph_status(status, graph)
 
+
+def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
+    active_corpus = (corpus or default_corpus_root()).resolve()
+
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+
+    if (body.raw_text or "").strip():
+        stage_body = body.model_copy(update={"operation": "stage_preview"})
+        status = run_pipeline(
+            _options_for_request(stage_body),
+            stdin=io.StringIO(body.raw_text or ""),
+            corpus=corpus,
+        )
+        if status.get("status") == "error" or ("staged_raw_notes_conflict" in status.get("states", []) and not body.force_stage):
+            return status
+
+    applied = {"recap_applied", "recap_reused", "normalized_created", "normalized_reused"}
+    if not applied.intersection(status.get("states", [])):
+        apply_body = body.model_copy(update={"operation": "apply_normalize"})
+        status = run_pipeline(_options_for_request(apply_body), corpus=corpus)
+        if status.get("status") == "error":
+            return status
+
+    if "frontmatter_seed_found" not in status.get("states", []):
+        status = _build_frontmatter_seed_from_request(body, active_corpus)
+        if status.get("status") == "error":
+            return status
+
+    if "breadcrumb_found" not in status.get("states", []):
+        status = _run_breadcrumb_ingest_from_request(body, active_corpus)
+        if status.get("status") == "error":
+            return status
+
+    if "session_memory_materialized" not in status.get("states", []):
+        materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
+        status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
+        if status.get("status") == "error":
+            return status
+
+    if body.include_graph_extraction:
+        normalized = _normalized_recap_graph_path(status, corpus)
+        if normalized:
+            graph = materialize_recap_preview_supergraph(
+                repo_root=repo_root(),
+                campaign_id=body.campaign_id,
+                session=body.session,
+                normalized_recap_path=normalized,
+                extract_graph=True,
+                graph_model_id=body.graph_model_id or "gpt-5-mini",
+            )
+            status = _append_graph_status(status, graph)
+            if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
+                _add_unique(
+                    status.setdefault("warnings", []),
+                    f"preview graph extraction blocked: {graph.get('blocked_reason') or 'unknown reason'}",
+                )
+    return status
+
 def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
     operation = body.operation
     if operation == "stage_preview":
@@ -372,6 +438,8 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
 def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
     try:
         corpus = _pipeline_corpus_root()
+        if body.operation == "generate_recap_memory":
+            return _generate_recap_memory_from_request(body, corpus)
         if body.operation == "inspect_status":
             return _inspect_status_with_graph(body, corpus)
         if body.operation == "inspect_graph_preview":
