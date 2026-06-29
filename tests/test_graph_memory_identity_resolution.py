@@ -255,3 +255,83 @@ def test_dedup_nodes_collapses_same_canonical_key():
     result = ir.dedup_nodes(nodes)
     assert len(result["kept"]) == 2
     assert len(result["merged"]) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Cross-class exact-label reconciliation
+# --------------------------------------------------------------------------- #
+
+def test_cross_class_merge_collapses_place_and_polity():
+    """"Mireward Reach" as location + organization collapses to one place node."""
+    nodes = [
+        _node("loc_mireward_reach", "Mireward Reach", "location"),
+        _node("org_mireward_reach", "Mireward Reach", "organization"),
+        _node("loc_edge", "Edge", "location"),
+        _node("org_edge", "Edge", "organization"),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    kept_ids = {n["node_id"] for n in result["kept"]}
+    assert kept_ids == {"loc_mireward_reach", "loc_edge"}  # place wins over collective
+    assert result["remap"] == {
+        "org_mireward_reach": "loc_mireward_reach",
+        "org_edge": "loc_edge",
+    }
+    assert sorted(result["merged"]) == [
+        ("loc_edge", "org_edge"),
+        ("loc_mireward_reach", "org_mireward_reach"),
+    ]
+
+
+def test_cross_class_merge_leaves_distinct_labels_untouched():
+    """Different labels that merely share tokens must not merge."""
+    nodes = [
+        _node("loc_reach", "Mireward Reach", "location"),
+        _node("fac_guards", "Mireward guards", "faction"),
+        _node("loc_north_gate", "North gate", "location"),
+        _node("loc_south_gate", "South gate", "location"),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    assert len(result["kept"]) == 4
+    assert result["remap"] == {}
+    assert result["merged"] == []
+
+
+def test_cross_class_merge_keeps_same_class_residue_for_dedup():
+    """Same-class same-label nodes are left for dedup_nodes, not merged here."""
+    nodes = [
+        _node("a", "Mirathorn", "location"),
+        _node("b", "Mirathorn", "location"),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    assert len(result["kept"]) == 2
+    assert result["merged"] == []
+
+
+def test_cross_class_merge_rewrites_edge_endpoints():
+    nodes = [
+        _node("loc_mireward_reach", "Mireward Reach", "location"),
+        _node("org_mireward_reach", "Mireward Reach", "organization"),
+        _node("loc_north_gate", "North gate", "location"),
+    ]
+    edges = [
+        {"edge_id": "e1", "from_node_id": "loc_north_gate", "to_node_id": "org_mireward_reach", "relationship_type": "located_in"},
+        {"edge_id": "e2", "from_node_id": "org_mireward_reach", "to_node_id": "loc_mireward_reach", "relationship_type": "same_as"},
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes, edges)
+    assert result["remap"] == {"org_mireward_reach": "loc_mireward_reach"}
+    rewritten = {e["edge_id"]: e for e in result["edges"]}
+    # e1 endpoint remapped to the survivor
+    assert rewritten["e1"]["to_node_id"] == "loc_mireward_reach"
+    # e2 collapsed to a self-loop and dropped
+    assert "e2" not in rewritten
+
+
+def test_cross_class_merge_unions_evidence_refs_onto_survivor():
+    nodes = [
+        _node("loc_reach", "Mireward Reach", "location", spans=[(10, 12)]),
+        _node("org_reach", "Mireward Reach", "organization", spans=[(40, 41)]),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    survivor = next(n for n in result["kept"] if n["node_id"] == "loc_reach")
+    spans = ir.evidence_line_spans(survivor)
+    assert (10, 12) in spans and (40, 41) in spans

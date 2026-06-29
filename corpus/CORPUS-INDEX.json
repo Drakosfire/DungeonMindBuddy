@@ -1,0 +1,509 @@
+{
+  "schema": "dmb_corpus_index_v1",
+  "version": "1.0",
+  "generated_at": "2026-06-29T22:06:45Z",
+  "repo_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+  "corpus_roots": {
+    "primary_markdown": {
+      "path": "corpus/eldyrwild-markdown",
+      "exists": true,
+      "markdown_file_count": 428,
+      "role": "Canonical Eldyrwild + Longmont markdown corpus (read/write target for recap ingest and worldbuilding)."
+    },
+    "unprocessed_pipeline": {
+      "path": "corpus/Eldyrwild and Campaign Unprocessed",
+      "exists": true,
+      "role": "Pipeline stage artifacts (Stage A/B surfaces, evaluation reports). Not primary markdown source."
+    },
+    "drafts": {
+      "path": "corpus/_drafts",
+      "exists": true,
+      "role": "Scratch / in-progress corpus drafts."
+    }
+  },
+  "session_recaps": {
+    "campaign_1": {
+      "campaign": "Campaign 1",
+      "path": "Longmont Campaign/Campaign 1/Session Recaps",
+      "exists": true,
+      "buckets": {
+        "_breadcrumbed": [
+          "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 01 - Stonebridge and Glowkindle Rats.breadcrumbed.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 02 - Finishing the Job.breadcrumbed.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.breadcrumbed.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md"
+        ],
+        "_normalized": [
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 02 - Finishing the Job.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 03 - The Stone Bridge Flood.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 05 - Underneath Hempholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 06 - The Road to Miraholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 07 - Passing Mirathorn Gates.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 08 - Captain Lysandra Quest.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 09 - Battle with the Meat Monsters.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 10 - Thraxx and the Last Warehouse.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 11 - Midnight Politics.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 12 - The Persistent Bugbear.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 14 - Into the Meat Grinder.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 15 - Cult Tunnels and Captain Idris.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 16 - Peacemaker Fiddle Meat Pile.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 17 - Festival Aftermath Loose Ends.md"
+        ],
+        "canonical": [
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+        ]
+      },
+      "counts": {
+        "canonical": 17,
+        "_breadcrumbed": 5,
+        "_normalized": 17
+      }
+    },
+    "campaign_2": {
+      "campaign": "Campaign 2",
+      "path": "Longmont Campaign/Campaign 2/Session Recaps",
+      "exists": true,
+      "buckets": {
+        "_archive": [
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/README.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 23 - Mireward__20260629T050000Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 23 - Session-23 Mireward Gate Battle__20260629T050000Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 23 - Session-23__20260629T050000Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 23 - ingest__20260629T050000Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 23 - session-23-mireward__20260629T050000Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_archive/Session 24 - 4__20260629T050000Z.md"
+        ],
+        "_breadcrumbed": [
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.frontmatter_seed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.frontmatter_seed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - Mireward Gate Battle.breadcrumbed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - Mireward Gate Battle.frontmatter_seed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 24 - Mireward Gate Battle.breadcrumbed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 24 - Mireward Gate Battle.frontmatter_seed.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - Mireward Gate Battle.breadcrumbed__20260622T004132Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - Mireward Gate Battle.frontmatter_seed__20260622T004132Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - Session-23 Mireward Gate Battle.breadcrumbed__20260629T040914Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - Session-23 Mireward Gate Battle.frontmatter_seed__20260629T040914Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - session-23-mireward.breadcrumbed__20260629T040904Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 23 - session-23-mireward.frontmatter_seed__20260629T040904Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 24 - 4.breadcrumbed__20260629T031226Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/_archive/Session 24 - 4.frontmatter_seed__20260629T031226Z.md"
+        ],
+        "_normalized": [
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward Gate Battle__20260622T004132Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward Gate__20260629T125358Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward__20260622T004132Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Session-23 Mireward Gate Battle__20260629T040914Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Session-23__20260629T040904Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - ingest__20260622T000343Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - session-23-mireward__20260629T040904Z.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 24 - 4__20260629T031226Z.md"
+        ],
+        "canonical": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+        ]
+      },
+      "counts": {
+        "canonical": 25,
+        "_archive": 7,
+        "_breadcrumbed": 18,
+        "_normalized": 32
+      }
+    }
+  },
+  "longmont_campaigns": {
+    "campaign_1": {
+      "campaign": "Campaign 1",
+      "path": "Longmont Campaign/Campaign 1",
+      "directories": {
+        "Locations": {
+          "path": "Longmont Campaign/Campaign 1/Locations",
+          "markdown_file_count": 10
+        },
+        "NPCs": {
+          "path": "Longmont Campaign/Campaign 1/NPCs",
+          "markdown_file_count": 40
+        },
+        "PCs": {
+          "path": "Longmont Campaign/Campaign 1/PCs",
+          "markdown_file_count": 18
+        },
+        "Session Recaps": {
+          "path": "Longmont Campaign/Campaign 1/Session Recaps",
+          "markdown_file_count": 39
+        }
+      },
+      "exists": true
+    },
+    "campaign_2": {
+      "campaign": "Campaign 2",
+      "path": "Longmont Campaign/Campaign 2",
+      "directories": {
+        "Factions": {
+          "path": "Longmont Campaign/Campaign 2/Factions",
+          "markdown_file_count": 2
+        },
+        "NPCs": {
+          "path": "Longmont Campaign/Campaign 2/NPCs",
+          "markdown_file_count": 17
+        },
+        "PCs": {
+          "path": "Longmont Campaign/Campaign 2/PCs",
+          "markdown_file_count": 25
+        },
+        "Plot Artifacts": {
+          "path": "Longmont Campaign/Campaign 2/Plot Artifacts",
+          "markdown_file_count": 2
+        },
+        "Session Prep": {
+          "path": "Longmont Campaign/Campaign 2/Session Prep",
+          "markdown_file_count": 19
+        },
+        "Session Recaps": {
+          "path": "Longmont Campaign/Campaign 2/Session Recaps",
+          "markdown_file_count": 82
+        },
+        "Statblocks": {
+          "path": "Longmont Campaign/Campaign 2/Statblocks",
+          "markdown_file_count": 4
+        },
+        "_ingest_staging": {
+          "path": "Longmont Campaign/Campaign 2/_ingest_staging",
+          "markdown_file_count": 5
+        }
+      },
+      "exists": true
+    },
+    "shared": {
+      "path": "Longmont Campaign",
+      "directories": {
+        "Cards": {
+          "path": "Longmont Campaign/Cards",
+          "markdown_file_count": 3
+        },
+        "Character Docs": {
+          "path": "Longmont Campaign/Character Docs",
+          "markdown_file_count": 1
+        },
+        "Homebrew Items": {
+          "path": "Longmont Campaign/Homebrew Items",
+          "markdown_file_count": 22
+        },
+        "NPCs": {
+          "path": "Longmont Campaign/NPCs",
+          "markdown_file_count": 1
+        }
+      },
+      "exists": true
+    }
+  },
+  "worldbuilding": {
+    "elderwyld_root": "Elderwyld",
+    "tree": {
+      "path": "Elderwyld",
+      "exists": true,
+      "markdown_at_level": [
+        "Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+        "Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md",
+        "Elderwyld/The Stonebridge Flood.md",
+        "Elderwyld/UnRefined Heading into the Flesh Kaiju.md"
+      ],
+      "directories": [
+        {
+          "path": "Elderwyld/Cities and Towns",
+          "markdown_at_level": [],
+          "subdirectories": [
+            "Edge of the World",
+            "Mirathorn",
+            "Mireward",
+            "Mossford",
+            "Stonebridge",
+            "Upriver River Route"
+          ],
+          "markdown_file_count_recursive": 73
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Edge of the World",
+          "markdown_at_level": [
+            "Elderwyld/Cities and Towns/Edge of the World/README.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 1
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Mirathorn",
+          "markdown_at_level": [
+            "Elderwyld/Cities and Towns/Mirathorn/README.md",
+            "Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+          ],
+          "subdirectories": [
+            "City Council Building",
+            "NPCs",
+            "Sewers",
+            "Stormspire Academy",
+            "Wolf Manor"
+          ],
+          "markdown_file_count_recursive": 25
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Mireward",
+          "markdown_at_level": [
+            "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+            "Elderwyld/Cities and Towns/Mireward/README.md"
+          ],
+          "subdirectories": [
+            "NPCs"
+          ],
+          "markdown_file_count_recursive": 21
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Mossford",
+          "markdown_at_level": [
+            "Elderwyld/Cities and Towns/Mossford/Mossford_Map_Key_and_Gazetteer.md",
+            "Elderwyld/Cities and Towns/Mossford/README.md"
+          ],
+          "subdirectories": [
+            "Mossford_Location_Dossiers",
+            "NPCs"
+          ],
+          "markdown_file_count_recursive": 22
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Stonebridge",
+          "markdown_at_level": [],
+          "subdirectories": [
+            "NPCs"
+          ],
+          "markdown_file_count_recursive": 2
+        },
+        {
+          "path": "Elderwyld/Cities and Towns/Upriver River Route",
+          "markdown_at_level": [],
+          "subdirectories": [
+            "NPCs"
+          ],
+          "markdown_file_count_recursive": 2
+        },
+        {
+          "path": "Elderwyld/Events",
+          "markdown_at_level": [],
+          "subdirectories": [
+            "The Festival of Expansion",
+            "The Hearthbound Bake-Off"
+          ],
+          "markdown_file_count_recursive": 14
+        },
+        {
+          "path": "Elderwyld/Events/The Festival of Expansion",
+          "markdown_at_level": [
+            "Elderwyld/Events/The Festival of Expansion/Events Mechanics.md",
+            "Elderwyld/Events/The Festival of Expansion/The Festival of Expansion.md"
+          ],
+          "subdirectories": [
+            "Schedule and Event Details"
+          ],
+          "markdown_file_count_recursive": 8
+        },
+        {
+          "path": "Elderwyld/Events/The Hearthbound Bake-Off",
+          "markdown_at_level": [
+            "Elderwyld/Events/The Hearthbound Bake-Off/Bakeoff Mechanics.md",
+            "Elderwyld/Events/The Hearthbound Bake-Off/Forageables.md",
+            "Elderwyld/Events/The Hearthbound Bake-Off/Other Teams.md",
+            "Elderwyld/Events/The Hearthbound Bake-Off/The Baked Goods.md",
+            "Elderwyld/Events/The Hearthbound Bake-Off/The Hearthbound Bake-Off.md",
+            "Elderwyld/Events/The Hearthbound Bake-Off/Tilly TuffCrust and Harland Broadquill_.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 6
+        },
+        {
+          "path": "Elderwyld/Inns and Shops",
+          "markdown_at_level": [
+            "Elderwyld/Inns and Shops/The Copper & Quartz Inn.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 1
+        },
+        {
+          "path": "Elderwyld/Item Cards",
+          "markdown_at_level": [
+            "Elderwyld/Item Cards/Untitled document.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 1
+        },
+        {
+          "path": "Elderwyld/Migrating Forest",
+          "markdown_at_level": [
+            "Elderwyld/Migrating Forest/HEX KEY_ THE MIGRATING FOREST BOARD.md",
+            "Elderwyld/Migrating Forest/README.md",
+            "Elderwyld/Migrating Forest/migrating_forest_d_100_universal_encounter_table.md",
+            "Elderwyld/Migrating Forest/migrating_forest_hex_expansion.md",
+            "Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md"
+          ],
+          "subdirectories": [
+            "Branchbound"
+          ],
+          "markdown_file_count_recursive": 10
+        },
+        {
+          "path": "Elderwyld/Migrating Forest/Branchbound",
+          "markdown_at_level": [
+            "Elderwyld/Migrating Forest/Branchbound/README.md",
+            "Elderwyld/Migrating Forest/Branchbound/The Witness Seed.md",
+            "Elderwyld/Migrating Forest/Branchbound/Threnn-of-Second-Bloom.md",
+            "Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md",
+            "Elderwyld/Migrating Forest/Branchbound/branchbound_indirect_help_encounters_ash_in_the_canopy.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 5
+        },
+        {
+          "path": "Elderwyld/Roads",
+          "markdown_at_level": [
+            "Elderwyld/Roads/README.md",
+            "Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+            "Elderwyld/Roads/reach_npc_first_names_d100.md",
+            "Elderwyld/Roads/reach_npc_last_names_d100.md",
+            "Elderwyld/Roads/reach_npc_naming_conventions.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 5
+        },
+        {
+          "path": "Elderwyld/Shephards Flock",
+          "markdown_at_level": [
+            "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md"
+          ],
+          "subdirectories": [
+            "NPCs",
+            "Statblocks and Tokens"
+          ],
+          "markdown_file_count_recursive": 16
+        },
+        {
+          "path": "Elderwyld/Shephards Flock/NPCs",
+          "markdown_at_level": [],
+          "subdirectories": [
+            "dustwalker"
+          ],
+          "markdown_file_count_recursive": 3
+        },
+        {
+          "path": "Elderwyld/Shephards Flock/Statblocks and Tokens",
+          "markdown_at_level": [
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/README.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md",
+            "Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md"
+          ],
+          "subdirectories": [
+            "Tokens"
+          ],
+          "markdown_file_count_recursive": 12
+        },
+        {
+          "path": "Elderwyld/Wilderness",
+          "markdown_at_level": [
+            "Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
+            "Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+            "Elderwyld/Wilderness/geomantic_drake_nest_loot_d100.md",
+            "Elderwyld/Wilderness/pre_era_conical_hills_d20_find.md"
+          ],
+          "subdirectories": [],
+          "markdown_file_count_recursive": 4
+        }
+      ]
+    },
+    "top_level_markdown": [
+      "Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+      "Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md",
+      "Elderwyld/The Stonebridge Flood.md",
+      "Elderwyld/UnRefined Heading into the Flesh Kaiju.md"
+    ]
+  },
+  "related_modules": {
+    "session_recap_paths": "src/corpus/session_recap_paths.py",
+    "planning_corpus_manifest": "src/live_play/planning_corpus_manifest.py",
+    "batch_ingest": "tools/batch_ingest_corpus.py"
+  }
+}

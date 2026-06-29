@@ -470,6 +470,14 @@ def consolidate_category_outputs(
         party_ctx,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
     )
+    # One observation pass per node type means a single proper noun can surface
+    # as both a place and a polity (e.g. "Mireward Reach" as location AND
+    # organization). dedup_nodes keys on (type_class, label) and keeps both,
+    # which makes endpoint binding ambiguous downstream. Collapse exact-label
+    # collisions across type classes into one canonical node and remap edges.
+    cross_class = ir.reconcile_cross_class_label_collisions(deduped_nodes)
+    deduped_nodes = list(cross_class["kept"])
+    cross_class_remap: dict[str, str] = cross_class["remap"]
 
     edge_payload = pass_outputs.get(EDGE_PASS_NAME, {})
     raw_edges = edge_payload.get("observation_edges") or []
@@ -481,6 +489,8 @@ def consolidate_category_outputs(
         if not isinstance(raw, Mapping):
             continue
         edge = _normalize_edge(raw)
+        edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
+        edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
             edges.append(edge)
         else:
@@ -519,6 +529,7 @@ def consolidate_category_outputs(
         "nodes_before_dedup": nodes_before_dedup,
         "party_companion_slugs": [m.slug for m in party_ctx.companions()],
         "merged_nodes": node_dedup["merged"],
+        "cross_class_merged_nodes": cross_class["merged"],
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,

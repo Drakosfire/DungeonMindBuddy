@@ -25,7 +25,7 @@ vocabularies in ``src/graph_memory/candidate_graph_preview.py`` (``NODE_TYPES``,
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, MutableMapping, Sequence
 
 # --------------------------------------------------------------------------- #
 # Equivalence classes
@@ -732,3 +732,136 @@ def dedup_nodes(nodes: Sequence[Any]) -> dict[str, Any]:
 def node_index(nodes: Sequence[Any]) -> dict[str, Any]:
     """Public alias for building a node_id -> node lookup."""
     return _node_index(nodes)
+
+
+# Preferred surviving type class when an exact-label collision spans classes.
+# A proper noun extracted as both a place and a polity (e.g. "Mireward Reach"
+# as ``location`` and ``organization``) should collapse to the more concrete
+# kind; actors win over places, places over collectives, and so on. Threads /
+# phenomena are least preferred so a thread label never swallows a concrete
+# entity that happens to share its text.
+_CROSS_CLASS_TYPE_PRIORITY: dict[str, int] = {
+    "actor": 6,
+    "place": 5,
+    "collective": 4,
+    "object": 3,
+    "phenomenon": 2,
+    "thread": 1,
+}
+
+
+def _cross_class_priority(node: Any) -> int:
+    return _CROSS_CLASS_TYPE_PRIORITY.get(node_type_class(node_type_of(node)), 0)
+
+
+def _merge_evidence_refs(into: Any, extra: Any) -> None:
+    """Union ``extra``'s evidence_refs onto ``into`` (best-effort, dedup-by-repr)."""
+    if not isinstance(into, Mapping):
+        return
+    base = list(into.get("evidence_refs") or [])
+    seen = {json_safe_key(r) for r in base}
+    for ref in _get(extra, "evidence_refs", []) or []:
+        key = json_safe_key(ref)
+        if key not in seen:
+            base.append(ref)
+            seen.add(key)
+    if base:
+        into["evidence_refs"] = base
+
+
+def json_safe_key(value: Any) -> str:
+    try:
+        import json as _json
+
+        return _json.dumps(value, sort_keys=True, default=str)
+    except Exception:  # pragma: no cover - defensive
+        return repr(value)
+
+
+def reconcile_cross_class_label_collisions(
+    nodes: Sequence[Any],
+    edges: Sequence[Any] | None = None,
+) -> dict[str, Any]:
+    """Merge nodes whose *normalized labels are exactly equal* across type classes.
+
+    The category extractor runs one observation pass per node type, so a single
+    proper noun can surface as several nodes with different ``node_type`` values
+    (e.g. "Mireward Reach" as a ``location`` AND an ``organization``).
+    :func:`dedup_nodes` keys on ``(type_class, normalized_label)`` and therefore
+    keeps both, which (a) inflates the node count and (b) makes downstream
+    endpoint binding ``ambiguous`` — two equally scored targets for the same
+    phrase — so the edge is dropped instead of matched.
+
+    This step collapses such exact-label collisions into one canonical node,
+    preferring the higher-priority type class (see ``_CROSS_CLASS_TYPE_PRIORITY``),
+    unions evidence refs onto the survivor, and rewrites any edge endpoints that
+    referenced a dropped id. Self-loops created by the merge are dropped.
+
+    Conservative by construction: only *byte-identical normalized labels* merge,
+    so genuinely distinct entities (different labels that merely share tokens) are
+    untouched. The degradation direction is fail-to-merge, never false-merge of
+    distinct labels.
+
+    Returns ``{"kept", "edges", "merged", "remap"}`` where ``merged`` is a list of
+    ``(survivor_id, dropped_id)`` pairs and ``remap`` maps dropped ids to survivor
+    ids. ``edges`` is ``None`` when no edge sequence was supplied.
+    """
+    groups: dict[str, list[Any]] = {}
+    order: list[str] = []
+    for node in nodes:
+        label = normalize_label(str(_get(node, "label", "")))
+        if not label:
+            order.append(f"__empty__::{id(node)}")
+            groups[order[-1]] = [node]
+            continue
+        if label not in groups:
+            groups[label] = []
+            order.append(label)
+        groups[label].append(node)
+
+    kept: list[Any] = []
+    merged: list[tuple[str, str]] = []
+    remap: dict[str, str] = {}
+    for key in order:
+        members = groups.get(key) or []
+        if not members:
+            continue
+        classes = {node_type_class(node_type_of(m)) for m in members}
+        if len(members) == 1 or len(classes) <= 1:
+            # Single node, or a same-class residue dedup_nodes already handles.
+            kept.extend(members)
+            continue
+        survivor = max(
+            members,
+            key=lambda m: (_cross_class_priority(m), len(_get(m, "evidence_refs", []) or [])),
+        )
+        survivor_id = str(_get(survivor, "node_id", ""))
+        for m in members:
+            if m is survivor:
+                continue
+            dropped_id = str(_get(m, "node_id", ""))
+            _merge_evidence_refs(survivor, m)
+            if dropped_id and dropped_id != survivor_id:
+                remap[dropped_id] = survivor_id
+                merged.append((survivor_id, dropped_id))
+        kept.append(survivor)
+
+    rewritten_edges: list[Any] | None = None
+    if edges is not None:
+        rewritten_edges = []
+        for edge in edges:
+            frm = remap.get(str(_get(edge, "from_node_id", "")), _get(edge, "from_node_id"))
+            to = remap.get(str(_get(edge, "to_node_id", "")), _get(edge, "to_node_id"))
+            if frm == to:
+                continue  # merge collapsed both endpoints into a self-loop
+            if isinstance(edge, MutableMapping):
+                edge["from_node_id"] = frm
+                edge["to_node_id"] = to
+            rewritten_edges.append(edge)
+
+    return {
+        "kept": kept,
+        "edges": rewritten_edges,
+        "merged": merged,
+        "remap": remap,
+    }

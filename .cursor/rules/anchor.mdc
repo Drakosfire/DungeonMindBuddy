@@ -42,6 +42,7 @@ Canonical sources, read together:
 
 1. `Backlog.md` (per-project, in repo root) and `~/.cursor/learnings/Backlog.md` (cross-project) — match `Surfaces when:` lines to the current task; surface 1–3 relevant items inline before starting (per `capture-and-resurface.mdc`).
 2. Any active `Docs/Plans/HANDOFF-pr<N>-*.md` matching the PR you are about to touch.
+3. **`Docs/Anchors/CORPUS-ANCHOR.md`** — when the task touches recap ingest, graph-memory extraction, planning corpus manifests, or evolving vocabulary over campaign/world markdown. Machine-readable tree: `corpus/CORPUS-INDEX.json` (regenerate via `PYTHONPATH=. python scripts/build_corpus_index.py`).
 
 **Use case:** before any task that will take >3 turns or touch >2 files. Skip for trivial tasks and live-play moments.
 

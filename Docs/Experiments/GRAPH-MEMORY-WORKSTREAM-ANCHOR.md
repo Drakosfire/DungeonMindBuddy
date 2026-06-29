@@ -6,6 +6,8 @@ Architecture roadmap: `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.
 
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
+**Corpus anchor:** `Docs/Anchors/CORPUS-ANCHOR.md` — repo-relative hierarchy of Campaign 1/2 session recaps and Elderwyld worldbuilding markdown under `corpus/eldyrwild-markdown/`. Regenerate index: `PYTHONPATH=. python scripts/build_corpus_index.py` → `corpus/CORPUS-INDEX.json`.
+
 Date: 2026-06-27
 Status: active current anchor — post-union-supergraph model contract v0 checkpoint
 Workstream: Graph Memory / Union Supergraph / Recap Projection

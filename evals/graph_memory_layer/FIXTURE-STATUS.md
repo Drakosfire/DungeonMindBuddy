@@ -52,3 +52,5 @@ Quick reference for `examples/` and `artifacts/` subdirectories. See root [`READ
 | `examples/session_23_recap_ingest/` | Session 23 normalized recap + span seeds |
 | `examples/session_22_recap_ingest/` | Session 22 fixture |
 | `examples/live_recap_ingest_run_bundle/` | Sample run bundle for Session 23 |
+
+**Corpus hierarchy (recaps + worldbuilding):** `Docs/Anchors/CORPUS-ANCHOR.md` · `corpus/CORPUS-INDEX.json` (built by `scripts/build_corpus_index.py`).

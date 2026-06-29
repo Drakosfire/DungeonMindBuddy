@@ -7,6 +7,30 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph edge recall — comparator node alias for Edge Survivors ↔ Edge refugees (and tripod/creature variants) — captured 2026-06-29
+
+**Context:** S23 staged-edge work. After cross-class node dedup landed, an "ideal Tier-1 edges" comparator probe (perfect observation+binding) showed edge recall would rise 0.381 → 0.619 (8 → 13/21). The two Tier-1 edges that *still* miss at the ceiling are `Brin leads Edge refugees` and `Edge refugees displaced_from Edge`, both `best_score 0.0`.
+
+**Insight:** The miss is purely **label divergence at the comparator**: live node is `group_edge_survivors` "Edge Survivors", gold is `node:edge-refugees` "Edge refugees". `label_similarity` shares only the token "edge" (~0.33), so `edge_match_score` can't align the endpoints. The staged *binder* already has a `refugees↔survivors` alias (`staged_edge_extraction._BINDING_TOKEN_ALIASES`) but `identity_resolution.node_match_score` / `label_similarity` (the comparator path) does not. Same class of gap for tripod ("Giant tripod meat monsters" creature vs gold "Tripod meat monsters" unknown_important, scores 0.45).
+
+**Action:** Add a small, audited alias/synonym signal to `node_match_score` (or a normalization step) so survivor↔refugee and the meat-creature variants align — *without* over-merging distinct entities. Measure against the ideal-edge probe (should unblock `leads` + `displaced_from` → ~15/21) and re-run staged trials. Keep gold fixtures untouched.
+
+**Surfaces when:** editing `src/graph_memory/identity_resolution.py` matching; touching S23 gold compare; raising edge recall past 13/21; deciding whether aliases live in extraction (live labels) vs comparator.
+
+**Refs:** `src/graph_memory/identity_resolution.py` (`node_match_score`, `label_similarity`), `src/graph_memory/extraction/staged_edge_extraction.py` (`_BINDING_TOKEN_ALIASES`), `evals/graph_memory_layer/live_vs_gold_compare.py`.
+
+## [READY] Graph edge recall — staged observation under-emits containment (located_in) edges — captured 2026-06-29
+
+**Context:** S23 staged-edge trials. Even with dedup making the "Mireward Reach" target unambiguous, individual mini trials emit `governs → Mireward Town Leadership` (wrong object node) and frequently emit **zero** `located_in` containment edges (gate/wall/inn/road → Mireward Reach), instead over-emitting `threatens`/`routes_to` on the meat-horde. The 5 located_in gold edges + governs are recoverable (endpoints exist post-dedup) but depend on observation actually producing them.
+
+**Insight:** Post-dedup, the bottleneck for ~6 Tier-1 edges shifts from binding to **relation-observation coverage + object-node choice** (stochastic, prompt-shaped). The ideal-edge probe proves the comparator+binder accept these once emitted (4/5 located_in + governs matched). So the leverage is the observation prompt (`render_relation_observation_prompt`) reliably sweeping containment and binding `governs` to the *place* not the *polity*.
+
+**Action:** Strengthen the staged relation-observation prompt's containment sweep (explicit "for every gate/wall/inn/road, emit located_in <settlement>"; prefer place over org as authority/containment object); re-run ≥3 trials and measure located_in + governs emission rate. Consider a dedicated containment sub-pass if prompt-only is unreliable.
+
+**Surfaces when:** tuning `staged_edge_extraction.render_relation_observation_prompt`; S23 edge recall stuck at 13/21 with located_in unobserved; deciding one-shot vs multi-sweep observation.
+
+**Refs:** `src/graph_memory/extraction/staged_edge_extraction.py` (`render_relation_observation_prompt`, `build_graph_context_packet`), `evals/graph_memory_layer/run_staged_edge_s23_experiment.py`.
+
 ## [READY] Graph ingest dogfood — resume checkpoint, run inventory, delete, live pass progress — captured 2026-06-29
 
 **Context:** First category-graph re-run dogfood thoughts (Session 23 LLM ingestion iteration). Operator should not restart from raw when re-running extraction.
