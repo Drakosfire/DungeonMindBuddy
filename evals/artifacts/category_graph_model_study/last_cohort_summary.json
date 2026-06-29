@@ -1,0 +1,50 @@
+{
+  "schema": "dmb_category_graph_model_study_v0",
+  "version": "0.1",
+  "session": 22,
+  "date": "2026-06-26",
+  "models": [
+    "gpt-5.4-mini"
+  ],
+  "runs_per_model": 3,
+  "runs": [
+    {
+      "model_id": "gpt-5.4-mini",
+      "run_index": 0,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/session_22_gpt-5-4-mini_run1",
+      "scenario_estimated_cost_usd": 0.043349,
+      "node_recall": 0.8,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": false
+    },
+    {
+      "model_id": "gpt-5.4-mini",
+      "run_index": 1,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/session_22_gpt-5-4-mini_run2",
+      "scenario_estimated_cost_usd": 0.047312,
+      "node_recall": 0.88,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": false
+    },
+    {
+      "model_id": "gpt-5.4-mini",
+      "run_index": 2,
+      "run_dir": "evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/session_22_gpt-5-4-mini_run3",
+      "scenario_estimated_cost_usd": 0.045628,
+      "node_recall": 0.8,
+      "edge_recall": 0.0,
+      "beat_recall": 0.0,
+      "canonical_ir_valid": false
+    }
+  ],
+  "aggregate": {
+    "cost_usd": {
+      "min": 0.043349,
+      "max": 0.047312,
+      "mean": 0.04543,
+      "sum": 0.136289
+    }
+  }
+}

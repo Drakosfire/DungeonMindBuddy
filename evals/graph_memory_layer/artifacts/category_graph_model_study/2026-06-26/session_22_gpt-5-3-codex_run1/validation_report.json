@@ -1,0 +1,630 @@
+{
+  "schema": "dmb_live_extractor_candidate_envelope_v0",
+  "version": "0.1",
+  "preview_only": true,
+  "canonical_ir_valid": true,
+  "candidate_class_counts": {
+    "nodes": 17,
+    "edges": 0,
+    "beats": 0,
+    "proposed_writes": 0,
+    "ignored_items": 1,
+    "deferred_items": 2,
+    "high_risk_claims": 0
+  },
+  "evidence_ref_count": 26,
+  "resolvable_evidence_ref_count": 26,
+  "benchmark_comparison_ready": true,
+  "reconciled_candidate_graph": {
+    "schema": "dmb_candidate_graph_preview_v0",
+    "version": "0.1",
+    "preview_id": "candidate-preview:longmont-c2:session-22:category-study",
+    "campaign_id": "longmont-c2",
+    "session_id": "session-22",
+    "source_artifact_ids": [
+      "source-artifact:session-22-normalized-recap"
+    ],
+    "status": "preview",
+    "nodes": [
+      {
+        "node_id": "professor_tealeaf",
+        "label": "Professor Tealeaf",
+        "node_type": "character",
+        "description": "A trusted contact at the Wizard’s College in Mirathorn; the party sends a message to Tealeaf and later learns Tealeaf is working with Grobnok to stabilize the city.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Professor Tealeaf",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Professor Tealeaf",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "grobnok",
+        "label": "Grobnok",
+        "node_type": "character",
+        "description": "City contact communicating with the party by rockie-talkie; reports worsening corruption outbreak, compromised contacts, council actions, and ongoing city instability.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Grobnok",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Grobnok",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Grobnok",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "private_hester",
+        "label": "Private Hester",
+        "node_type": "character",
+        "description": "A young Elderwild Reach rider carrying sealed reports for Mirathorn; warns of mysterious music and people walking into the swamp, and advises speaking with Commander Vale.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Private Hester",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "commander_vale",
+        "label": "Commander Vale",
+        "node_type": "character",
+        "description": "A Reach commander identified by Private Hester as someone Lysandra should consult before entering the swamp.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Commander Vale",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "frank",
+        "label": "Frank",
+        "node_type": "character",
+        "description": "An individual in Mirathorn from whom Grobnok took the rockie-talkie after Frank appeared compromised.",
+        "importance": "low",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Frank",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "sara",
+        "label": "Sara",
+        "node_type": "character",
+        "description": "A Mirathorn contact Grobnok has not seen recently amid the city’s crisis.",
+        "importance": "low",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Sara",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "dustwalker",
+        "label": "Dustwalker",
+        "node_type": "character",
+        "description": "A festival performer whose song matches the rhythm and tune the party later finds themselves humming near Mireward.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Dustwalker",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "the_shepherd",
+        "label": "the Shepherd",
+        "node_type": "character",
+        "description": "A cult figure being openly recruited for by the 'meat heads' during the Mirathorn unrest.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "the Shepherd",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "lysandro",
+        "label": "Lysandro",
+        "node_type": "character",
+        "description": "Lysandra’s father, encountered as a guard on the wall when the party arrives at Mireward.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Lysandro",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Lysandro",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_rockie_talkie",
+        "label": "rockie-talkie",
+        "node_type": "item",
+        "description": "Portable communication device used repeatedly by the party to contact Mirathorn and speak with Grobnok.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_silver_raven",
+        "label": "silver raven",
+        "node_type": "item",
+        "description": "Message-carrying object sent toward Mirathorn with encoded and spoken/written updates for trusted contacts.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "silver raven",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_wagon",
+        "label": "wagon",
+        "node_type": "item",
+        "description": "Primary transport and cargo vehicle used throughout overland travel in this session.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_sealed_tube_reports",
+        "label": "sealed report tube",
+        "node_type": "item",
+        "description": "Sealed tube carried by Private Hester containing reports intended for Mirathorn.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "sealed report tube",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_whisper_bottle",
+        "label": "Whisper Bottle",
+        "node_type": "item",
+        "description": "Caelynn's magical focus/tool used to cast Detect Magic on anomalous puddle water.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Whisper Bottle",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_vial_of_puddle_water",
+        "label": "vial of conjuration-tainted puddle water",
+        "node_type": "item",
+        "description": "Sampled vial of shimmering puddle water; Identify indicates it should not be consumed and suggests planar magical bleed/conjuration involvement.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "vial of conjuration-tainted puddle water",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "vial of conjuration-tainted puddle water",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_chalkboard_menu_sign",
+        "label": "chalkboard menu sign",
+        "node_type": "item",
+        "description": "Sign outside the abandoned restaurant, hastily changed to read 'headed south, north wrong,' implying recent warning/evacuation behavior.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "chalkboard menu sign",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_jar_with_old_meat_skewers",
+        "label": "jar of old meat skewers",
+        "node_type": "item",
+        "description": "Stored food remnant found in the restaurant trapdoor storage area; meat is old and graying.",
+        "importance": "low",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "jar of old meat skewers",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      }
+    ],
+    "edges": [],
+    "beats": [],
+    "proposed_writes": [],
+    "ignored_items": [
+      {
+        "item_id": "ignored_s22_party_morale_and_interpersonal_tension",
+        "label": "Mood shifts and interpersonal distrust within party",
+        "reason": "Character dynamics are present but do not add distinct external mystery-state beyond already captured trust/compromise signals.",
+        "evidence_refs": [],
+        "warnings": []
+      }
+    ],
+    "deferred_items": [
+      {
+        "item_id": "deferred_s22_lysandra_intentions_validation",
+        "label": "Validation of Lysandra's stated true intentions",
+        "reason": "Suggestion-produced statement aligns with mission objective but does not conclusively prove reliability under broader compromise concerns.",
+        "evidence_refs": [],
+        "warnings": [],
+        "suggested_next_step": "Corroborate Lysandra’s intent via independent evidence from Commander Vale, prior orders, and observed actions in Mireward/swamp operations."
+      },
+      {
+        "item_id": "deferred_s22_mist_savory_flavor_recurrence",
+        "label": "Strange savory mist at dawn",
+        "reason": "Potentially linked to known corruption motifs but insufficient detail in this session alone to classify as standalone mystery node.",
+        "evidence_refs": [],
+        "warnings": [],
+        "suggested_next_step": "Track recurrence frequency, location, and timing; compare with outbreak zones and song/compulsion events."
+      }
+    ],
+    "diagnostics": {
+      "preview_only": true,
+      "extraction_performed": false,
+      "llm_used": false,
+      "runtime_connected": false,
+      "plan_connected": false,
+      "agent_interaction_connected": false,
+      "corpus_scanned": false,
+      "corpus_mutated": false,
+      "facts_promoted": false,
+      "canon_promoted": false,
+      "unresolved_evidence_refs": 0,
+      "missing_evidence_objects": 0,
+      "warning_count": 0
+    }
+  },
+  "review_sidecar": {
+    "high_risk_claims": [],
+    "notes": [
+      "assembled deterministically from category passes"
+    ]
+  }
+}

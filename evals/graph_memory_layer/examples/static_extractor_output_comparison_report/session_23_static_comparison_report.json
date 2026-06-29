@@ -1,0 +1,942 @@
+{
+  "schema": "dmb_static_extractor_output_comparison_report_v0",
+  "version": "0.1",
+  "report_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "source_report_id": "graph-memory:eval-only-comparison-report:session-23:sample-v0",
+  "candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "verdict": {
+    "status": "safe_but_incomplete",
+    "merge_gate": "pass",
+    "reviewer_summary": "The sample candidate output has no hard failures and passes evidence/high-risk/safety gates, but misses substantial Session 23 gold coverage.",
+    "blocking_issue_count": 0,
+    "soft_issue_count": 50,
+    "recommended_next_action": "Use this report shape to inspect future static or gated extractor outputs before live extraction is admitted."
+  },
+  "score_summary": {
+    "overall_safety": {
+      "score": 1.0,
+      "band": "pass",
+      "components": {
+        "safety_gate_score": 1.0,
+        "evidence_alignment_score": 1.0,
+        "high_risk_audit_score": 1.0
+      }
+    },
+    "coverage": {
+      "node_recall": {
+        "score": 0.7857,
+        "band": "good"
+      },
+      "edge_recall": {
+        "score": 0.0952,
+        "band": "weak"
+      },
+      "beat_recall": {
+        "score": 0.4286,
+        "band": "partial"
+      },
+      "proposed_write_recall": {
+        "score": 0.375,
+        "band": "weak"
+      },
+      "ignored_item_recall": {
+        "score": 0.6667,
+        "band": "partial"
+      },
+      "deferred_item_recall": {
+        "score": 0.5,
+        "band": "partial"
+      }
+    },
+    "precision_proxy": {
+      "node_precision_proxy": {
+        "score": 1.0,
+        "band": "pass"
+      },
+      "edge_precision_proxy": {
+        "score": 0.25,
+        "band": "weak"
+      }
+    }
+  },
+  "coverage_summary": {
+    "nodes": {
+      "gold_total": 42,
+      "candidate_total": 33,
+      "matched": 33,
+      "missing": 9,
+      "extra": 0,
+      "recall": 0.7857,
+      "precision_proxy": 1.0
+    },
+    "edges": {
+      "gold_total": 21,
+      "candidate_total": 8,
+      "matched": 2,
+      "missing": 19,
+      "extra": 6,
+      "recall": 0.0952,
+      "precision_proxy": 0.25
+    },
+    "beats": {
+      "gold_total": 14,
+      "candidate_total": 6,
+      "matched": 6,
+      "missing": 8,
+      "extra": 0,
+      "recall": 0.4286,
+      "precision_proxy": 1.0
+    },
+    "proposed_writes": {
+      "gold_total": 16,
+      "candidate_total": 6,
+      "matched": 6,
+      "missing": 10,
+      "extra": 0,
+      "recall": 0.375,
+      "precision_proxy": 1.0
+    },
+    "ignored_items": {
+      "gold_total": 3,
+      "candidate_total": 2,
+      "matched": 2,
+      "missing": 1,
+      "extra": 0,
+      "recall": 0.6667,
+      "precision_proxy": 1.0
+    },
+    "deferred_items": {
+      "gold_total": 6,
+      "candidate_total": 3,
+      "matched": 3,
+      "missing": 3,
+      "extra": 0,
+      "recall": 0.5,
+      "precision_proxy": 1.0
+    }
+  },
+  "hard_failure_summary": {
+    "total": 0,
+    "by_issue": {},
+    "blocking": false,
+    "reviewer_note": "No hard safety failures were found in the static sample candidate output."
+  },
+  "soft_miss_summary": {
+    "total": 50,
+    "by_issue": {
+      "missing_deferred_item": {
+        "count": 3,
+        "items": [
+          {
+            "id": "deferred:edge-refugee-contamination-risk",
+            "label": "Edge refugee contamination risk"
+          },
+          {
+            "id": "deferred:golem-like-creature-identity",
+            "label": "Golem-like creature identity"
+          },
+          {
+            "id": "deferred:monster-eye-changes-source",
+            "label": "Source of monster eye changes"
+          }
+        ]
+      },
+      "missing_ignored_item": {
+        "count": 1,
+        "items": [
+          {
+            "id": "ignored:experienced-adventurers-identities",
+            "label": "Experienced adventurers identities"
+          }
+        ]
+      },
+      "missing_proposed_write": {
+        "count": 10,
+        "items": [
+          {
+            "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+            "label": "Create Caelynn lightning bolt cliffhanger"
+          },
+          {
+            "id": "write:create-edge-refugees",
+            "label": "Create Edge refugees"
+          },
+          {
+            "id": "write:create-edge-warning-message",
+            "label": "Create Edge warning message"
+          },
+          {
+            "id": "write:create-first-meat-wave",
+            "label": "Create First meat wave"
+          },
+          {
+            "id": "write:create-flying-meatwings",
+            "label": "Create Flying meatwings"
+          },
+          {
+            "id": "write:create-the-last-dry-bed",
+            "label": "Create The Last Dry Bed inn sublocation"
+          },
+          {
+            "id": "write:create-thread-first-wave-outcome",
+            "label": "Create Thread: first wave outcome"
+          },
+          {
+            "id": "write:create-thread-help-edge-or-defend-mireward",
+            "label": "Create Thread: help Edge or defend Mireward"
+          },
+          {
+            "id": "write:create-thread-mireward-overrun-risk",
+            "label": "Create Thread: Mireward overrun risk"
+          },
+          {
+            "id": "write:create-tripod-meat-monsters",
+            "label": "Create Tripod meat monsters"
+          }
+        ]
+      },
+      "missing_required_beat": {
+        "count": 8,
+        "items": [
+          {
+            "id": "beat:caelynn-hit-and-lysandra-counterattack",
+            "label": "Caelynn hit and Lysandra counterattack"
+          },
+          {
+            "id": "beat:eye-check-and-south-gate-plan",
+            "label": "Eye checks and south-gate plan"
+          },
+          {
+            "id": "beat:hunger-of-hadar-and-readied-attacks",
+            "label": "Hunger of Hadar and readied attacks"
+          },
+          {
+            "id": "beat:karsemine-learns-fire-weakness",
+            "label": "Karsemine learns fire weakness"
+          },
+          {
+            "id": "beat:lysandra-commanding-shout",
+            "label": "Lysandra Commanding Shout"
+          },
+          {
+            "id": "beat:meatwing-charm",
+            "label": "Meatwing charm"
+          },
+          {
+            "id": "beat:north-gate-alarm",
+            "label": "North gate alarm"
+          },
+          {
+            "id": "beat:tripod-body-launch",
+            "label": "Tripod body launch"
+          }
+        ]
+      },
+      "missing_required_edge": {
+        "count": 19,
+        "items": [
+          {
+            "id": "edge:baergrom-member-of-party",
+            "label": "Baergrom is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:bonogo-member-of-party",
+            "label": "Bonogo is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:caelynn-member-of-party",
+            "label": "Caelynn is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:edge-refugees-from-edge",
+            "label": "The refugee group comes from Edge after the town is overrun"
+          },
+          {
+            "id": "edge:ephanna-member-of-party",
+            "label": "Ephanna is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:first-wave-threatens-mireward",
+            "label": "The first meat wave threatens Mireward Reach"
+          },
+          {
+            "id": "edge:flying-meatwings-part-of-first-wave",
+            "label": "Flying meatwings are part of the first meat wave"
+          },
+          {
+            "id": "edge:karsemine-knows-tripod-fire-weakness",
+            "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
+          },
+          {
+            "id": "edge:karsemine-member-of-party",
+            "label": "Karsemine is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:last-dry-bed-located-in-mireward",
+            "label": "The Last Dry Bed inn common room is in Mireward Reach"
+          },
+          {
+            "id": "edge:lysandra-allied-with-party",
+            "label": "Lysandra acts as an allied commander with the heroes at Mireward"
+          },
+          {
+            "id": "edge:north-gate-located-in-mireward",
+            "label": "The north gate is a Mireward Reach sublocation"
+          },
+          {
+            "id": "edge:north-wall-located-in-mireward",
+            "label": "The north wall is part of Mireward Reach’s defense surface"
+          },
+          {
+            "id": "edge:orik-tane-governs-mireward",
+            "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
+          },
+          {
+            "id": "edge:road-to-north-gate-located-in-mireward",
+            "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+          },
+          {
+            "id": "edge:south-gate-located-in-mireward",
+            "label": "The south gate is a Mireward Reach sublocation"
+          },
+          {
+            "id": "edge:stafl-member-of-party",
+            "label": "Stafl is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:thrin-member-of-party",
+            "label": "Thrin is part of the responding heroes / party"
+          },
+          {
+            "id": "edge:tripod-meat-monsters-part-of-first-wave",
+            "label": "Tripod meat monsters are part of the first meat wave"
+          }
+        ]
+      },
+      "missing_required_node": {
+        "count": 9,
+        "items": [
+          {
+            "id": "node:baergrom",
+            "label": "Baergrom"
+          },
+          {
+            "id": "node:bonogo",
+            "label": "Bonogo"
+          },
+          {
+            "id": "node:meat-flank-attackers",
+            "label": "Meat flank attackers"
+          },
+          {
+            "id": "node:north-wall",
+            "label": "North wall"
+          },
+          {
+            "id": "node:ogonob",
+            "label": "Ogonob"
+          },
+          {
+            "id": "node:road-to-north-gate",
+            "label": "Road to the north gate"
+          },
+          {
+            "id": "node:south-gate",
+            "label": "South gate"
+          },
+          {
+            "id": "node:south-gate-refugee-routing",
+            "label": "South-gate refugee routing"
+          },
+          {
+            "id": "node:thrin",
+            "label": "Thrin"
+          }
+        ]
+      }
+    }
+  },
+  "missing_gold_coverage": {
+    "by_type": {
+      "nodes": [
+        {
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "id": "node:thrin",
+          "label": "Thrin"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:baergrom-member-of-party",
+          "label": "Baergrom is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:bonogo-member-of-party",
+          "label": "Bonogo is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:caelynn-member-of-party",
+          "label": "Caelynn is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:edge-refugees-from-edge",
+          "label": "The refugee group comes from Edge after the town is overrun"
+        },
+        {
+          "id": "edge:ephanna-member-of-party",
+          "label": "Ephanna is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:first-wave-threatens-mireward",
+          "label": "The first meat wave threatens Mireward Reach"
+        },
+        {
+          "id": "edge:flying-meatwings-part-of-first-wave",
+          "label": "Flying meatwings are part of the first meat wave"
+        },
+        {
+          "id": "edge:karsemine-knows-tripod-fire-weakness",
+          "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
+        },
+        {
+          "id": "edge:karsemine-member-of-party",
+          "label": "Karsemine is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:last-dry-bed-located-in-mireward",
+          "label": "The Last Dry Bed inn common room is in Mireward Reach"
+        },
+        {
+          "id": "edge:lysandra-allied-with-party",
+          "label": "Lysandra acts as an allied commander with the heroes at Mireward"
+        },
+        {
+          "id": "edge:north-gate-located-in-mireward",
+          "label": "The north gate is a Mireward Reach sublocation"
+        },
+        {
+          "id": "edge:north-wall-located-in-mireward",
+          "label": "The north wall is part of Mireward Reach’s defense surface"
+        },
+        {
+          "id": "edge:orik-tane-governs-mireward",
+          "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
+        },
+        {
+          "id": "edge:road-to-north-gate-located-in-mireward",
+          "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+        },
+        {
+          "id": "edge:south-gate-located-in-mireward",
+          "label": "The south gate is a Mireward Reach sublocation"
+        },
+        {
+          "id": "edge:stafl-member-of-party",
+          "label": "Stafl is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:thrin-member-of-party",
+          "label": "Thrin is part of the responding heroes / party"
+        },
+        {
+          "id": "edge:tripod-meat-monsters-part-of-first-wave",
+          "label": "Tripod meat monsters are part of the first meat wave"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        }
+      ],
+      "proposed_writes": [
+        {
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "id": "write:create-the-last-dry-bed",
+          "label": "Create The Last Dry Bed inn sublocation"
+        },
+        {
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        }
+      ],
+      "ignored_items": [
+        {
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ],
+      "deferred_items": [
+        {
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ]
+    },
+    "by_review_priority": {
+      "critical": [],
+      "important": [
+        {
+          "type": "edges",
+          "id": "edge:baergrom-member-of-party",
+          "label": "Baergrom is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:bonogo-member-of-party",
+          "label": "Bonogo is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:caelynn-member-of-party",
+          "label": "Caelynn is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:edge-refugees-from-edge",
+          "label": "The refugee group comes from Edge after the town is overrun"
+        },
+        {
+          "type": "edges",
+          "id": "edge:ephanna-member-of-party",
+          "label": "Ephanna is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:first-wave-threatens-mireward",
+          "label": "The first meat wave threatens Mireward Reach"
+        },
+        {
+          "type": "edges",
+          "id": "edge:flying-meatwings-part-of-first-wave",
+          "label": "Flying meatwings are part of the first meat wave"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-knows-tripod-fire-weakness",
+          "label": "Karsemine learns the tripod creatures resist poison and are weak to fire"
+        },
+        {
+          "type": "edges",
+          "id": "edge:karsemine-member-of-party",
+          "label": "Karsemine is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:last-dry-bed-located-in-mireward",
+          "label": "The Last Dry Bed inn common room is in Mireward Reach"
+        },
+        {
+          "type": "edges",
+          "id": "edge:lysandra-allied-with-party",
+          "label": "Lysandra acts as an allied commander with the heroes at Mireward"
+        },
+        {
+          "type": "edges",
+          "id": "edge:north-gate-located-in-mireward",
+          "label": "The north gate is a Mireward Reach sublocation"
+        },
+        {
+          "type": "edges",
+          "id": "edge:north-wall-located-in-mireward",
+          "label": "The north wall is part of Mireward Reach’s defense surface"
+        },
+        {
+          "type": "edges",
+          "id": "edge:orik-tane-governs-mireward",
+          "label": "Orik/Orric Tane is the mayoral civilian authority in Mireward Reach"
+        },
+        {
+          "type": "edges",
+          "id": "edge:road-to-north-gate-located-in-mireward",
+          "label": "The road to the north gate is the immediate Mireward approach where the first wave appears"
+        },
+        {
+          "type": "edges",
+          "id": "edge:south-gate-located-in-mireward",
+          "label": "The south gate is a Mireward Reach sublocation"
+        },
+        {
+          "type": "edges",
+          "id": "edge:stafl-member-of-party",
+          "label": "Stafl is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:thrin-member-of-party",
+          "label": "Thrin is part of the responding heroes / party"
+        },
+        {
+          "type": "edges",
+          "id": "edge:tripod-meat-monsters-part-of-first-wave",
+          "label": "Tripod meat monsters are part of the first meat wave"
+        },
+        {
+          "type": "beats",
+          "id": "beat:caelynn-hit-and-lysandra-counterattack",
+          "label": "Caelynn hit and Lysandra counterattack"
+        },
+        {
+          "type": "beats",
+          "id": "beat:eye-check-and-south-gate-plan",
+          "label": "Eye checks and south-gate plan"
+        },
+        {
+          "type": "beats",
+          "id": "beat:hunger-of-hadar-and-readied-attacks",
+          "label": "Hunger of Hadar and readied attacks"
+        },
+        {
+          "type": "beats",
+          "id": "beat:karsemine-learns-fire-weakness",
+          "label": "Karsemine learns fire weakness"
+        },
+        {
+          "type": "beats",
+          "id": "beat:lysandra-commanding-shout",
+          "label": "Lysandra Commanding Shout"
+        },
+        {
+          "type": "beats",
+          "id": "beat:meatwing-charm",
+          "label": "Meatwing charm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:north-gate-alarm",
+          "label": "North gate alarm"
+        },
+        {
+          "type": "beats",
+          "id": "beat:tripod-body-launch",
+          "label": "Tripod body launch"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-caelynn-lightning-bolt-cliffhanger",
+          "label": "Create Caelynn lightning bolt cliffhanger"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-refugees",
+          "label": "Create Edge refugees"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-edge-warning-message",
+          "label": "Create Edge warning message"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-first-meat-wave",
+          "label": "Create First meat wave"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-flying-meatwings",
+          "label": "Create Flying meatwings"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-the-last-dry-bed",
+          "label": "Create The Last Dry Bed inn sublocation"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-first-wave-outcome",
+          "label": "Create Thread: first wave outcome"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-help-edge-or-defend-mireward",
+          "label": "Create Thread: help Edge or defend Mireward"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-thread-mireward-overrun-risk",
+          "label": "Create Thread: Mireward overrun risk"
+        },
+        {
+          "type": "proposed_writes",
+          "id": "write:create-tripod-meat-monsters",
+          "label": "Create Tripod meat monsters"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:edge-refugee-contamination-risk",
+          "label": "Edge refugee contamination risk"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:golem-like-creature-identity",
+          "label": "Golem-like creature identity"
+        },
+        {
+          "type": "deferred_items",
+          "id": "deferred:monster-eye-changes-source",
+          "label": "Source of monster eye changes"
+        }
+      ],
+      "nice_to_have": [
+        {
+          "type": "nodes",
+          "id": "node:baergrom",
+          "label": "Baergrom"
+        },
+        {
+          "type": "nodes",
+          "id": "node:bonogo",
+          "label": "Bonogo"
+        },
+        {
+          "type": "nodes",
+          "id": "node:meat-flank-attackers",
+          "label": "Meat flank attackers"
+        },
+        {
+          "type": "nodes",
+          "id": "node:north-wall",
+          "label": "North wall"
+        },
+        {
+          "type": "nodes",
+          "id": "node:ogonob",
+          "label": "Ogonob"
+        },
+        {
+          "type": "nodes",
+          "id": "node:road-to-north-gate",
+          "label": "Road to the north gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate",
+          "label": "South gate"
+        },
+        {
+          "type": "nodes",
+          "id": "node:south-gate-refugee-routing",
+          "label": "South-gate refugee routing"
+        },
+        {
+          "type": "nodes",
+          "id": "node:thrin",
+          "label": "Thrin"
+        },
+        {
+          "type": "ignored_items",
+          "id": "ignored:experienced-adventurers-identities",
+          "label": "Experienced adventurers identities"
+        }
+      ]
+    }
+  },
+  "extra_candidate_coverage": {
+    "by_type": {
+      "nodes": [],
+      "edges": [
+        {
+          "id": "edge:edge-message-warns-of-siege",
+          "label": "warns that Edge is under siege"
+        },
+        {
+          "id": "edge:ephanna-demands-eye-checks",
+          "label": "requires refugees to show their eyes before entering"
+        },
+        {
+          "id": "edge:karsemine-detects-ground-rumble",
+          "label": "detects the approaching rumble of the wave"
+        },
+        {
+          "id": "edge:lysandro-relays-edge-message",
+          "label": "relays the warning message from Edge"
+        },
+        {
+          "id": "edge:orik-tane-commands-inn-room",
+          "label": "commands the packed inn room"
+        },
+        {
+          "id": "edge:tripods-launch-body-parts",
+          "label": "launch body parts that become smaller monsters"
+        }
+      ],
+      "beats": [],
+      "proposed_writes": [],
+      "ignored_items": [],
+      "deferred_items": []
+    },
+    "total": 6
+  },
+  "evidence_health": {
+    "evidence_alignment_score": 1.0,
+    "total_evidence_refs": 206,
+    "resolved_evidence_refs": 206,
+    "openable_evidence_refs": 206,
+    "highlightable_evidence_refs": 206,
+    "warning_count": 0,
+    "unknown_anchor_count": 0,
+    "heading_only_count": 0,
+    "source_leakage_detected": false,
+    "summary": "All candidate evidence refs resolve, open, and highlight against the Session 23 source-span fixture."
+  },
+  "high_risk_audit_summary": {
+    "score": 1.0,
+    "status": "pass",
+    "audited_object_count": 4,
+    "audited_objects": [
+      "edge:lysandra-recognizes-lysandro",
+      "node:heroes-party",
+      "node:lysandro",
+      "node:thread-remaining-approaching-horde"
+    ],
+    "forbidden_claims_absent": [
+      "Questionable Company",
+      "second wave",
+      "thread-monster-second-wave",
+      "resolved battle outcome",
+      "exact shadow count as fact",
+      "approved write",
+      "promoted lifecycle"
+    ],
+    "summary": "High-risk claims are present where expected and pass source-grounding audit."
+  },
+  "proposed_write_summary": {
+    "candidate_total": 6,
+    "matched_gold_total": 6,
+    "missing_gold_total": 10,
+    "approved_count": 0,
+    "pending_count": 6,
+    "promoted_count": 0,
+    "unsafe_status_count": 0,
+    "summary": "All candidate proposed writes remain pending; the sample omits several gold proposed writes."
+  },
+  "gm_preview_readiness": {
+    "status": "not_ready_for_gm_preview",
+    "reason": "The static sample is safe but misses too many Session 23 edges, beats, proposed writes, and deferred items to be useful as a GM-facing preview.",
+    "safe_to_inspect": true,
+    "safe_to_write": false,
+    "sufficient_coverage_for_preview": false,
+    "recommended_improvements": [
+      "Improve edge recall before GM preview.",
+      "Improve beat recall before GM preview.",
+      "Add missing deferred items and proposed writes.",
+      "Preserve current evidence and high-risk audit safety gates."
+    ]
+  },
+  "diagnostics": {
+    "static_report_fixture": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

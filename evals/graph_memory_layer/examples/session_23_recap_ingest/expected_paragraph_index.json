@@ -1,0 +1,105 @@
+{
+  "schema": "dmb_session_23_recap_paragraph_index_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-23-recap-ingest:v0",
+  "source_path": "evals/c2_live_prep/live/session_23/session_23_raw_recap.md",
+  "session": 23,
+  "title_line_stripped": true,
+  "paragraph_count_in": 13,
+  "paragraph_count_out": 13,
+  "duplicates_detected": 0,
+  "duplicates_removed": 0,
+  "paragraphs": [
+    {
+      "paragraph_id": "s23-p001",
+      "source_line_start": 3,
+      "source_line_end": 3,
+      "normalized_index": 1,
+      "preview": "On top of the wall is a well dressed man in his mid 50s with an old worn military coat over his fine clothes. He is instructing the other “guards” on how to..."
+    },
+    {
+      "paragraph_id": "s23-p002",
+      "source_line_start": 5,
+      "source_line_end": 5,
+      "normalized_index": 2,
+      "preview": "Lysandra quickly reads the message to the group, which sounds exactly like the monsters they faced in Mirathorn; slimy monsters and flying meat creatures alo..."
+    },
+    {
+      "paragraph_id": "s23-p003",
+      "source_line_start": 6,
+      "source_line_end": 6,
+      "normalized_index": 3,
+      "preview": "Another well dressed man, most likely a former merchant around the same age as Lysandro, addresses the crowd. As mayor, Orik Tane can easily command the room..."
+    },
+    {
+      "paragraph_id": "s23-p004",
+      "source_line_start": 8,
+      "source_line_end": 8,
+      "normalized_index": 4,
+      "preview": "Suddenly everyone can hear yelling and a loud bell ringing coming from outside. A very tired and very scared boy slams open the door. Through his heavy breat..."
+    },
+    {
+      "paragraph_id": "s23-p005",
+      "source_line_start": 9,
+      "source_line_end": 9,
+      "normalized_index": 5,
+      "preview": "Ephanna rushes to the gate, but protests just letting the people in. They are able to determine that there are around fifty people in this group, much less t..."
+    },
+    {
+      "paragraph_id": "s23-p006",
+      "source_line_start": 10,
+      "source_line_end": 10,
+      "normalized_index": 6,
+      "preview": "Stafl quickly forms a plan. He instructs the survivors to follow the wall around the city and to find the south gate and wait there. Inside he tells the guar..."
+    },
+    {
+      "paragraph_id": "s23-p007",
+      "source_line_start": 12,
+      "source_line_end": 12,
+      "normalized_index": 7,
+      "preview": "Karsemine and Ephanna are first to plan their attack. Karesmine steadies her bow, waiting for the creatures to get within range, while Ephanna casts Hunger o..."
+    },
+    {
+      "paragraph_id": "s23-p008",
+      "source_line_start": 13,
+      "source_line_end": 13,
+      "normalized_index": 8,
+      "preview": "The terrifying tripod creatures, 15 feet tall, bulbous and covered in skulls, sink their legs into the ground and then rip off a part of their body and launc..."
+    },
+    {
+      "paragraph_id": "s23-p009",
+      "source_line_start": 15,
+      "source_line_end": 15,
+      "normalized_index": 9,
+      "preview": "Lysandra steps forward and uses her Commanding Shout and commands Karsemine, Bonogo and Baergrom to take another shot at the flying monsters. Karesmine and B..."
+    },
+    {
+      "paragraph_id": "s23-p010",
+      "source_line_start": 16,
+      "source_line_end": 16,
+      "normalized_index": 10,
+      "preview": "Back on the wall, Karsemine uses her Hunter’s Mark on one of the tripod creatures, allowing her to learn its weaknesses and resistances. She discovers valuab..."
+    },
+    {
+      "paragraph_id": "s23-p011",
+      "source_line_start": 18,
+      "source_line_end": 18,
+      "normalized_index": 11,
+      "preview": "The giant sewer creatures both lumber closer to the wall, again taking damage from Ephanna’s spell. The equally giant tripod creatures move closer still, the..."
+    },
+    {
+      "paragraph_id": "s23-p012",
+      "source_line_start": 19,
+      "source_line_end": 19,
+      "normalized_index": 12,
+      "preview": "Meanwhile, the other six remaining meatwings from the horde move within range of the wall and begin to cast some sort of charm. Both Bonogo and Ephanna no lo..."
+    },
+    {
+      "paragraph_id": "s23-p013",
+      "source_line_start": 21,
+      "source_line_end": 21,
+      "normalized_index": 13,
+      "preview": "Along the wall the heroes can feel magic and the static of electricity building. Caelynn, furious after the barrage of attacks, lines herself up and unleashe..."
+    }
+  ]
+}

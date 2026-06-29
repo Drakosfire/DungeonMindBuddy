@@ -1,0 +1,791 @@
+{
+  "schema": "dmb_live_vs_gold_comparison_report_v0",
+  "version": "0.1",
+  "report_id": "graph-memory:category-graph-study:session-22:v0",
+  "gold_fixture_id": "graph-memory:session-22-candidate-graph-gold:v0",
+  "comparison_mode": "live_identity_vs_gold",
+  "hard_failures": [],
+  "soft_misses": [
+    {
+      "issue": "missing_required_node",
+      "detail": "node:abandoned-meat-restaurant",
+      "label": "Abandoned meat-on-a-stick restaurant"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:captain-lysandra",
+      "label": "Lysandra"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:city-guard",
+      "label": "Mirathorn city guard"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:commander-vale",
+      "label": "Commander Vale"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:delayed-puddles",
+      "label": "Delayed puddle reflections"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:dustwalker",
+      "label": "Dustwalker"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:frank",
+      "label": "Frank"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:grobnok",
+      "label": "Grobnok"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:knocking-door-thread",
+      "label": "Unseen knocking door"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:lysandro",
+      "label": "Lysandro"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:meat-heads",
+      "label": "Meat heads"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:mercenaries",
+      "label": "Mirathorn hired mercenaries"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:mirathorn",
+      "label": "Mirathorn"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:mirathorn-council",
+      "label": "Mirathorn council"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:mireward",
+      "label": "Mireward"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:mireward-reach",
+      "label": "Mireward Reach / Golden Fields"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:northern-song",
+      "label": "Northern rhythm / shared song"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:planar-bleed",
+      "label": "Conjuration planar bleed"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:private-hester",
+      "label": "Private Hester"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:professor-tealeaf",
+      "label": "Professor Tealeaf"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:sara",
+      "label": "Sara"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:shepherd",
+      "label": "The Shepherd"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:storm-hail",
+      "label": "Converging hail storm"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:swamp",
+      "label": "The swamp / cult source"
+    },
+    {
+      "issue": "missing_required_node",
+      "detail": "node:thrin",
+      "label": "Thrin"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:city-guard-reduced",
+      "label": "City guard reduced by corruption"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:council-hires-mercs",
+      "label": "Council hires mercenaries"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:delayed-puddles-part-of-bleed",
+      "label": "Puddle delay appears tied to conjuration planar bleed"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:dustwalker-linked-song",
+      "label": "Shared humming matches Dustwalker festival song"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:grobnok-missing-sara",
+      "label": "Grobnok has not seen Sara recently"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:grobnok-took-from-frank",
+      "label": "Grobnok took the rockie-talkie from Frank"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:grobnok-works-with-tealeaf",
+      "label": "Grobnok and Tealeaf work together to regain control"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:hester-points-to-vale",
+      "label": "Hester directs Lysandra to Commander Vale"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:hester-reports-swamp-music",
+      "label": "Hester reports music drawing people into swamp"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:hester-reports-to-mirathorn",
+      "label": "Hester carries reports for Mirathorn"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:lysandra-focuses-party",
+      "label": "Lysandra wants team focused on swamp source"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:lysandro-parent-of-lysandra",
+      "label": "Lysandro is Lysandra father"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:meat-heads-recruit-shepherd",
+      "label": "Meat heads recruit for the Shepherd"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:mireward-in-reach",
+      "label": "Mireward is in the Reach"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:reach-north-of-mirathorn",
+      "label": "Reach lies north of Mirathorn"
+    },
+    {
+      "issue": "missing_required_edge",
+      "detail": "edge:restaurant-located-in-reach",
+      "label": "Restaurant is on the Mireward road in the Reach"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-01-mirathorn-message-plan",
+      "label": "Party sends silver raven to Mirathorn"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-02-hester-warning",
+      "label": "Private Hester warns of swamp music"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-03-puddle-magic",
+      "label": "Delayed puddles reveal conjuration bleed"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-04-grobnok-city-update",
+      "label": "Grobnok reports renewed Mirathorn outbreak"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-05-night-rhythm-and-mist",
+      "label": "Night watch brings northern rhythm and savory mist"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-06-shared-song-recognition",
+      "label": "Party hums the Dustwalker song"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-07-roadside-shelter",
+      "label": "Party shelters at abandoned meat restaurant"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-08-unseen-door",
+      "label": "Karsemine hears an unseen door knocking"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-09-second-grobnok-call",
+      "label": "Grobnok reports meat-head recruitment"
+    },
+    {
+      "issue": "missing_required_beat",
+      "detail": "beat:s22-10-suggestion-and-wall-arrival",
+      "label": "Stafl tests Lysandra before Mireward wall reveal"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-attach-grobnok-tealeaf",
+      "label": "Attach Grobnok-Tealeaf cooperation"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-attach-lysandro-parent-edge",
+      "label": "Create Lysandro parent edge"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-abandoned-restaurant",
+      "label": "Create abandoned roadside restaurant node"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-commander-vale",
+      "label": "Create Commander Vale placeholder"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-delayed-puddles-thread",
+      "label": "Create delayed puddles mystery"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-grobnok-contact",
+      "label": "Create Grobnok contact node"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-knocking-door-thread",
+      "label": "Create unseen knocking door thread"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-lysandro",
+      "label": "Create Lysandro node"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-meat-heads",
+      "label": "Create meat heads faction node"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-northern-song-thread",
+      "label": "Create northern song thread"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-create-private-hester",
+      "label": "Create Private Hester node"
+    },
+    {
+      "issue": "missing_proposed_write",
+      "detail": "write:s22-update-lysandra-mission",
+      "label": "Attach Lysandra mission focus"
+    },
+    {
+      "issue": "missing_ignored_item",
+      "detail": "ignored:s22-bonogo-puddle-splash",
+      "label": "Bonogo splashes in puddle"
+    },
+    {
+      "issue": "missing_ignored_item",
+      "detail": "ignored:s22-fox-watch",
+      "label": "Fox eyes during Stafl watch"
+    },
+    {
+      "issue": "missing_ignored_item",
+      "detail": "ignored:s22-goodberry-horse",
+      "label": "Good Berry and water for Hester horse"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-commander-vale-identity",
+      "label": "Commander Vale identity and authority"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-knocking-door-source",
+      "label": "Source of unseen knocking door"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-lysandra-trust-state",
+      "label": "Lysandra trust and leadership state"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-planar-bleed-cause",
+      "label": "Cause of conjuration planar bleed"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-shimmering-gnome",
+      "label": "Gnome with shimmering eyes"
+    },
+    {
+      "issue": "missing_deferred_item",
+      "detail": "deferred:s22-swamp-music-agent",
+      "label": "Agent behind swamp music"
+    }
+  ],
+  "scores": {
+    "node_recall": 0.0,
+    "edge_recall": 0.0,
+    "beat_recall": 0.0,
+    "proposed_write_recall": 0.0,
+    "ignored_item_recall": 0.0,
+    "deferred_item_recall": 0.0,
+    "node_precision_proxy": 0.0,
+    "edge_precision_proxy": 1.0,
+    "evidence_alignment_score": 1.0,
+    "high_risk_audit_score": 1.0,
+    "safety_gate_score": 1.0
+  },
+  "coverage": {
+    "gold_nodes_total": 25,
+    "candidate_nodes_total": 11,
+    "matched_nodes": [],
+    "missing_gold_nodes": [
+      {
+        "id": "node:abandoned-meat-restaurant",
+        "label": "Abandoned meat-on-a-stick restaurant"
+      },
+      {
+        "id": "node:captain-lysandra",
+        "label": "Lysandra"
+      },
+      {
+        "id": "node:city-guard",
+        "label": "Mirathorn city guard"
+      },
+      {
+        "id": "node:commander-vale",
+        "label": "Commander Vale"
+      },
+      {
+        "id": "node:delayed-puddles",
+        "label": "Delayed puddle reflections"
+      },
+      {
+        "id": "node:dustwalker",
+        "label": "Dustwalker"
+      },
+      {
+        "id": "node:frank",
+        "label": "Frank"
+      },
+      {
+        "id": "node:grobnok",
+        "label": "Grobnok"
+      },
+      {
+        "id": "node:knocking-door-thread",
+        "label": "Unseen knocking door"
+      },
+      {
+        "id": "node:lysandro",
+        "label": "Lysandro"
+      },
+      {
+        "id": "node:meat-heads",
+        "label": "Meat heads"
+      },
+      {
+        "id": "node:mercenaries",
+        "label": "Mirathorn hired mercenaries"
+      },
+      {
+        "id": "node:mirathorn",
+        "label": "Mirathorn"
+      },
+      {
+        "id": "node:mirathorn-council",
+        "label": "Mirathorn council"
+      },
+      {
+        "id": "node:mireward",
+        "label": "Mireward"
+      },
+      {
+        "id": "node:mireward-reach",
+        "label": "Mireward Reach / Golden Fields"
+      },
+      {
+        "id": "node:northern-song",
+        "label": "Northern rhythm / shared song"
+      },
+      {
+        "id": "node:planar-bleed",
+        "label": "Conjuration planar bleed"
+      },
+      {
+        "id": "node:private-hester",
+        "label": "Private Hester"
+      },
+      {
+        "id": "node:professor-tealeaf",
+        "label": "Professor Tealeaf"
+      },
+      {
+        "id": "node:sara",
+        "label": "Sara"
+      },
+      {
+        "id": "node:shepherd",
+        "label": "The Shepherd"
+      },
+      {
+        "id": "node:storm-hail",
+        "label": "Converging hail storm"
+      },
+      {
+        "id": "node:swamp",
+        "label": "The swamp / cult source"
+      },
+      {
+        "id": "node:thrin",
+        "label": "Thrin"
+      }
+    ],
+    "extra_candidate_nodes": [
+      {
+        "id": "item_chalkboard_menu",
+        "label": "chalkboard menu"
+      },
+      {
+        "id": "item_jar_of_skewers",
+        "label": "jar with skewers of old meat"
+      },
+      {
+        "id": "item_rockie_talkie",
+        "label": "rockie-talkie"
+      },
+      {
+        "id": "item_sealed_tube",
+        "label": "sealed tube"
+      },
+      {
+        "id": "item_sign_to_mireward",
+        "label": "Mireward road sign"
+      },
+      {
+        "id": "item_silver_raven",
+        "label": "silver raven"
+      },
+      {
+        "id": "item_stick",
+        "label": "stick"
+      },
+      {
+        "id": "item_trapdoor",
+        "label": "trapdoor"
+      },
+      {
+        "id": "item_vial_of_puddle_water",
+        "label": "vial of puddle water"
+      },
+      {
+        "id": "item_wagon",
+        "label": "wagon"
+      },
+      {
+        "id": "item_whisper_bottle",
+        "label": "Whisper Bottle"
+      }
+    ],
+    "gold_edges_total": 16,
+    "candidate_edges_total": 0,
+    "matched_edges": [],
+    "missing_gold_edges": [
+      {
+        "id": "edge:city-guard-reduced",
+        "label": "City guard reduced by corruption"
+      },
+      {
+        "id": "edge:council-hires-mercs",
+        "label": "Council hires mercenaries"
+      },
+      {
+        "id": "edge:delayed-puddles-part-of-bleed",
+        "label": "Puddle delay appears tied to conjuration planar bleed"
+      },
+      {
+        "id": "edge:dustwalker-linked-song",
+        "label": "Shared humming matches Dustwalker festival song"
+      },
+      {
+        "id": "edge:grobnok-missing-sara",
+        "label": "Grobnok has not seen Sara recently"
+      },
+      {
+        "id": "edge:grobnok-took-from-frank",
+        "label": "Grobnok took the rockie-talkie from Frank"
+      },
+      {
+        "id": "edge:grobnok-works-with-tealeaf",
+        "label": "Grobnok and Tealeaf work together to regain control"
+      },
+      {
+        "id": "edge:hester-points-to-vale",
+        "label": "Hester directs Lysandra to Commander Vale"
+      },
+      {
+        "id": "edge:hester-reports-swamp-music",
+        "label": "Hester reports music drawing people into swamp"
+      },
+      {
+        "id": "edge:hester-reports-to-mirathorn",
+        "label": "Hester carries reports for Mirathorn"
+      },
+      {
+        "id": "edge:lysandra-focuses-party",
+        "label": "Lysandra wants team focused on swamp source"
+      },
+      {
+        "id": "edge:lysandro-parent-of-lysandra",
+        "label": "Lysandro is Lysandra father"
+      },
+      {
+        "id": "edge:meat-heads-recruit-shepherd",
+        "label": "Meat heads recruit for the Shepherd"
+      },
+      {
+        "id": "edge:mireward-in-reach",
+        "label": "Mireward is in the Reach"
+      },
+      {
+        "id": "edge:reach-north-of-mirathorn",
+        "label": "Reach lies north of Mirathorn"
+      },
+      {
+        "id": "edge:restaurant-located-in-reach",
+        "label": "Restaurant is on the Mireward road in the Reach"
+      }
+    ],
+    "extra_candidate_edges": [],
+    "gold_beats_total": 10,
+    "candidate_beats_total": 0,
+    "matched_beats": [],
+    "missing_gold_beats": [
+      {
+        "id": "beat:s22-01-mirathorn-message-plan",
+        "label": "Party sends silver raven to Mirathorn"
+      },
+      {
+        "id": "beat:s22-02-hester-warning",
+        "label": "Private Hester warns of swamp music"
+      },
+      {
+        "id": "beat:s22-03-puddle-magic",
+        "label": "Delayed puddles reveal conjuration bleed"
+      },
+      {
+        "id": "beat:s22-04-grobnok-city-update",
+        "label": "Grobnok reports renewed Mirathorn outbreak"
+      },
+      {
+        "id": "beat:s22-05-night-rhythm-and-mist",
+        "label": "Night watch brings northern rhythm and savory mist"
+      },
+      {
+        "id": "beat:s22-06-shared-song-recognition",
+        "label": "Party hums the Dustwalker song"
+      },
+      {
+        "id": "beat:s22-07-roadside-shelter",
+        "label": "Party shelters at abandoned meat restaurant"
+      },
+      {
+        "id": "beat:s22-08-unseen-door",
+        "label": "Karsemine hears an unseen door knocking"
+      },
+      {
+        "id": "beat:s22-09-second-grobnok-call",
+        "label": "Grobnok reports meat-head recruitment"
+      },
+      {
+        "id": "beat:s22-10-suggestion-and-wall-arrival",
+        "label": "Stafl tests Lysandra before Mireward wall reveal"
+      }
+    ],
+    "extra_candidate_beats": [],
+    "gold_proposed_writes_total": 12,
+    "candidate_proposed_writes_total": 0,
+    "matched_proposed_writes": [],
+    "missing_gold_proposed_writes": [
+      {
+        "id": "write:s22-attach-grobnok-tealeaf",
+        "label": "Attach Grobnok-Tealeaf cooperation"
+      },
+      {
+        "id": "write:s22-attach-lysandro-parent-edge",
+        "label": "Create Lysandro parent edge"
+      },
+      {
+        "id": "write:s22-create-abandoned-restaurant",
+        "label": "Create abandoned roadside restaurant node"
+      },
+      {
+        "id": "write:s22-create-commander-vale",
+        "label": "Create Commander Vale placeholder"
+      },
+      {
+        "id": "write:s22-create-delayed-puddles-thread",
+        "label": "Create delayed puddles mystery"
+      },
+      {
+        "id": "write:s22-create-grobnok-contact",
+        "label": "Create Grobnok contact node"
+      },
+      {
+        "id": "write:s22-create-knocking-door-thread",
+        "label": "Create unseen knocking door thread"
+      },
+      {
+        "id": "write:s22-create-lysandro",
+        "label": "Create Lysandro node"
+      },
+      {
+        "id": "write:s22-create-meat-heads",
+        "label": "Create meat heads faction node"
+      },
+      {
+        "id": "write:s22-create-northern-song-thread",
+        "label": "Create northern song thread"
+      },
+      {
+        "id": "write:s22-create-private-hester",
+        "label": "Create Private Hester node"
+      },
+      {
+        "id": "write:s22-update-lysandra-mission",
+        "label": "Attach Lysandra mission focus"
+      }
+    ],
+    "extra_candidate_proposed_writes": [],
+    "gold_ignored_items_total": 3,
+    "candidate_ignored_items_total": 3,
+    "matched_ignored_items": [],
+    "missing_gold_ignored_items": [
+      {
+        "id": "ignored:s22-bonogo-puddle-splash",
+        "label": "Bonogo splashes in puddle"
+      },
+      {
+        "id": "ignored:s22-fox-watch",
+        "label": "Fox eyes during Stafl watch"
+      },
+      {
+        "id": "ignored:s22-goodberry-horse",
+        "label": "Good Berry and water for Hester horse"
+      }
+    ],
+    "extra_candidate_ignored_items": [
+      {
+        "id": "ignored_session22_bonogo_puddle_jump_no_effect",
+        "label": "Bonogo jumps into the puddle and nothing immediately happens"
+      },
+      {
+        "id": "ignored_session22_fox_eyes",
+        "label": "Pair of eyes during watch turns out to be a fox"
+      },
+      {
+        "id": "ignored_session22_lysandro_identity_reveal",
+        "label": "Guard is revealed to be Lysandra's father Lysandro"
+      }
+    ],
+    "gold_deferred_items_total": 6,
+    "candidate_deferred_items_total": 2,
+    "matched_deferred_items": [],
+    "missing_gold_deferred_items": [
+      {
+        "id": "deferred:s22-commander-vale-identity",
+        "label": "Commander Vale identity and authority"
+      },
+      {
+        "id": "deferred:s22-knocking-door-source",
+        "label": "Source of unseen knocking door"
+      },
+      {
+        "id": "deferred:s22-lysandra-trust-state",
+        "label": "Lysandra trust and leadership state"
+      },
+      {
+        "id": "deferred:s22-planar-bleed-cause",
+        "label": "Cause of conjuration planar bleed"
+      },
+      {
+        "id": "deferred:s22-shimmering-gnome",
+        "label": "Gnome with shimmering eyes"
+      },
+      {
+        "id": "deferred:s22-swamp-music-agent",
+        "label": "Agent behind swamp music"
+      }
+    ],
+    "extra_candidate_deferred_items": [
+      {
+        "id": "deferred_session22_dustwalker_song_connection",
+        "label": "Connection between the Dustwalker festival song and current compulsion effects"
+      },
+      {
+        "id": "deferred_session22_shepherd_recruitment",
+        "label": "The Shepherd's growing open recruitment in Mirathorn"
+      }
+    ]
+  },
+  "dedup": {
+    "candidate_nodes_raw": 11,
+    "candidate_nodes_deduped": 11,
+    "merged_nodes": [],
+    "candidate_edges_raw": 0,
+    "candidate_edges_deduped": 0,
+    "merged_edges": []
+  },
+  "diagnostics": {
+    "llm_used": true,
+    "identity_resolution": true,
+    "best_match_assignment": true,
+    "candidate_dedup_applied": true,
+    "id_match_not_required": true
+  }
+}

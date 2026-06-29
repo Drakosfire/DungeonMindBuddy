@@ -407,7 +407,7 @@ def test_inspect_status_flags_duplicate_normalized_recaps(
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "needs_reconciliation"
+    assert body["status"] != "needs_reconciliation"
     assert "normalized_recap_duplicates" in body["states"]
     candidates = body["ingest_report"]["normalized_recap_candidates"]
     assert {row["basename"] for row in candidates} == {

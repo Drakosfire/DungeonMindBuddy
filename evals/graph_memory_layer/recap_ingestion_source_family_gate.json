@@ -1,0 +1,108 @@
+{
+  "schema": "dmb_recap_ingestion_source_family_gate_v0",
+  "version": "0.1",
+  "status": "active_gate",
+  "source_family": "recap_ingestion_source_artifacts",
+  "purpose": "Define whether current recap-ingestion outputs may be admitted as future source artifacts, anchors, and units before any materializer or adapter implementation.",
+  "decision": "admit_explicit_recap_ingestion_artifacts_as_source_artifacts_only",
+  "admitted_artifacts": [
+    {
+      "id": "normalized_recap_markdown",
+      "artifact_kind": "normalized_recap",
+      "source_layer": "normalized_source",
+      "default_canon_state": "played_canon",
+      "default_lifecycle_state": "ingested",
+      "default_evidence_role": "source_evidence",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "gm_private",
+      "allowed_shapes": ["SourceArtifact", "document_SourceAnchor", "section_SourceUnit_if_explicit"],
+      "forbidden_shapes": ["entity_fact", "relationship_fact", "alias_merge", "promotion_record"]
+    },
+    {
+      "id": "breadcrumbed_recap_markdown",
+      "artifact_kind": "breadcrumbed_recap",
+      "source_layer": "breadcrumb_layer",
+      "default_canon_state": "played_canon",
+      "default_lifecycle_state": "indexed",
+      "default_evidence_role": "navigation_hint",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "gm_private",
+      "allowed_shapes": ["SourceArtifact", "breadcrumb_SourceAnchor", "reference_projection_SourceUnit"],
+      "forbidden_shapes": ["entity_fact", "relationship_fact", "alias_merge", "source_evidence_without_anchor"]
+    },
+    {
+      "id": "frontmatter_seed_markdown",
+      "artifact_kind": "frontmatter_seed",
+      "source_layer": "diagnostic_layer",
+      "default_canon_state": "planning_scaffold",
+      "default_lifecycle_state": "candidate",
+      "default_evidence_role": "not_evidence",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_shapes": ["SourceArtifact", "frontmatter_field_SourceAnchor", "candidate_seed_SourceUnit"],
+      "forbidden_shapes": ["played_canon_fact", "source_evidence_claim", "promotion_record"]
+    },
+    {
+      "id": "session_memory_jsonl_meta",
+      "artifact_kind": "session_memory_meta",
+      "source_layer": "memory_layer",
+      "default_canon_state": "candidate_extraction",
+      "default_lifecycle_state": "candidate",
+      "default_evidence_role": "diagnostic_only",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_shapes": ["SourceArtifact", "meta_SourceAnchor", "diagnostic_SourceUnit"],
+      "forbidden_shapes": ["played_canon_fact", "identity_merge", "relationship_fact"]
+    },
+    {
+      "id": "corpus_impact_proof",
+      "artifact_kind": "corpus_impact_proof",
+      "source_layer": "diagnostic_layer",
+      "default_canon_state": "diagnostic_only",
+      "default_lifecycle_state": "diagnostic",
+      "default_evidence_role": "diagnostic_only",
+      "default_authority_state": "diagnostic",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_shapes": ["SourceArtifact", "proof_SourceAnchor", "diagnostic_proof_SourceUnit"],
+      "forbidden_shapes": ["narrative_evidence", "played_canon_fact", "source_evidence_claim"]
+    }
+  ],
+  "required_shared_fields": [
+    "source_artifact",
+    "source_anchor",
+    "source_unit",
+    "source_ref",
+    "provenance",
+    "evidence_role",
+    "authority_state",
+    "visibility_state",
+    "lifecycle_state",
+    "canon_state"
+  ],
+  "global_constraints": [
+    "explicit_input_only",
+    "no_directory_scanning",
+    "no_corpus_scanning",
+    "no_corpus_mutation",
+    "no_runtime_consumption",
+    "no_plan_or_agent_interaction_changes",
+    "no_entity_extraction",
+    "no_alias_resolution",
+    "no_relationship_inference",
+    "no_fact_promotion",
+    "display_summary_is_not_evidence",
+    "raw_ingestion_internals_are_opaque_locators"
+  ],
+  "blocked_source_families": [
+    "canonical_corpus_scan",
+    "live_play_records",
+    "manifest_context_query",
+    "runtime_retrieval_results",
+    "tiptap_documents"
+  ],
+  "future_allowed_work_after_gate": [
+    "recap_ingestion_source_artifact_fixture_v0",
+    "recap_ingestion_source_artifact_materializer_v0",
+    "projection_readiness_over_recap_ingestion_artifacts"
+  ]
+}

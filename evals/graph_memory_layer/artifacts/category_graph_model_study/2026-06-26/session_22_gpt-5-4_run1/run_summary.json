@@ -1,0 +1,21 @@
+{
+  "schema": "dmb_category_graph_model_study_v0",
+  "version": "0.1",
+  "model_id": "gpt-5.4",
+  "session": 22,
+  "scenario_estimated_cost_usd": 0.136745,
+  "scores": {
+    "node_recall": 0.0,
+    "edge_recall": 0.0,
+    "beat_recall": 0.0,
+    "proposed_write_recall": 0.0,
+    "ignored_item_recall": 0.0,
+    "deferred_item_recall": 0.0,
+    "node_precision_proxy": 0.0,
+    "edge_precision_proxy": 1.0,
+    "evidence_alignment_score": 1.0,
+    "high_risk_audit_score": 1.0,
+    "safety_gate_score": 1.0
+  },
+  "canonical_ir_valid": true
+}

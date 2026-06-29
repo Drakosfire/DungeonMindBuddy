@@ -53,9 +53,25 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  GraphPreviewSurfaceResponse,
+  GraphPreviewRunsResponse,
+  GraphIngestLatestRunResponse,
+  GraphIngestRunsResponse,
+  RecapArtifactsListResponse,
+  RecapGraphPresentationResponse,
+  RecapGraphQuery,
+  UnionSupergraphProjectionResponse,
+  PartyRegistrySurfaceResponse,
+  PartyRegistrySessionRosterWriteCommitRequest,
+  PartyRegistrySessionRosterWriteCommitResponse,
+  PartyRegistrySessionRosterWritePrepareRequest,
+  PartyRegistrySessionRosterWritePrepareResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+const defaultUnionSupergraphPreviewSource =
+  (import.meta.env.VITE_UNION_SUPERGRAPH_PREVIEW_SOURCE as string | undefined)?.trim() ||
+  "s22-anchor-quote-n3-s23-gold";
 
 /** Repo-relative path passed to POST /api/live/query for context_lookup grounding. */
 export const DEFAULT_PLANNING_MANIFEST_PATH =
@@ -87,6 +103,16 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
+export class LiveApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "LiveApiError";
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -109,7 +135,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         detail = parseError.message;
       }
     }
-    throw new Error(detail);
+    throw new LiveApiError(detail, response.status);
   }
   return parseJsonBody<T>(response);
 }
@@ -129,6 +155,170 @@ export async function getJobs(): Promise<LiveJobsResponse> {
 
 export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
+}
+
+export async function getPartyRegistry(
+  campaignId: string,
+  session: number,
+): Promise<PartyRegistrySurfaceResponse> {
+  const params = new URLSearchParams({
+    campaign_id: campaignId,
+    session: String(session),
+  });
+  return apiFetch<PartyRegistrySurfaceResponse>(`/api/live/party-registry?${params.toString()}`);
+}
+
+export async function preparePartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWritePrepareRequest,
+): Promise<PartyRegistrySessionRosterWritePrepareResponse> {
+  return apiFetch<PartyRegistrySessionRosterWritePrepareResponse>(
+    "/api/live/party-registry/session-roster/prepare",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function commitPartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWriteCommitRequest,
+): Promise<PartyRegistrySessionRosterWriteCommitResponse> {
+  return apiFetch<PartyRegistrySessionRosterWriteCommitResponse>(
+    "/api/live/party-registry/session-roster/commit",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+function recapGraphQueryString(query?: RecapGraphQuery): string {
+  if (!query) {
+    return "";
+  }
+  const params = new URLSearchParams();
+  if (query.run_dir) params.set("run_dir", query.run_dir);
+  if (query.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query.session_id) params.set("session_id", query.session_id);
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export async function getRecapArtifacts(campaignId?: string): Promise<RecapArtifactsListResponse> {
+  const query = campaignId ? `?campaign_id=${encodeURIComponent(campaignId)}` : "";
+  return apiFetch<RecapArtifactsListResponse>(`/api/live/graph-preview/artifacts${query}`);
+}
+
+export async function getGraphPreviewLatest(
+  runDir?: string,
+  query?: Omit<RecapGraphQuery, "run_dir">,
+): Promise<GraphPreviewSurfaceResponse> {
+  const params = new URLSearchParams();
+  if (runDir) params.set("run_dir", runDir);
+  if (query?.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query?.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query?.session_id) params.set("session_id", query.session_id);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${suffix}`);
+}
+
+export async function getGraphPreviewRuns(query?: RecapGraphQuery): Promise<GraphPreviewRunsResponse> {
+  return apiFetch<GraphPreviewRunsResponse>(`/api/live/graph-preview/runs${recapGraphQueryString(query)}`);
+}
+
+export async function getRecapGraphPresentation(
+  query?: RecapGraphQuery,
+): Promise<RecapGraphPresentationResponse> {
+  return apiFetch<RecapGraphPresentationResponse>(
+    `/api/live/graph-preview/recap${recapGraphQueryString(query)}`,
+  );
+}
+
+export interface GraphIngestRunsQuery {
+  campaignId?: string;
+  sessionId?: string;
+  sourceRecapPath?: string;
+  sourceRecapSha256?: string;
+  status?: string;
+  requirePreviewUnionStore?: boolean;
+}
+
+export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Promise<GraphIngestRunsResponse> {
+  const params = new URLSearchParams();
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  if (query.sessionId) params.set("session_id", query.sessionId);
+  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
+  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
+  if (query.status) params.set("status", query.status);
+  if (query.requirePreviewUnionStore != null) {
+    params.set("require_preview_union_store", String(query.requirePreviewUnionStore));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphIngestRunsResponse>(`/api/live/graph-preview/graph-ingest/runs${suffix}`);
+}
+
+export async function getLatestGraphIngestRun(
+  campaignId: string,
+  sessionId: string,
+  sourceRecapPath?: string,
+  sourceRecapSha256?: string,
+): Promise<GraphIngestLatestRunResponse> {
+  const params = new URLSearchParams({ campaign_id: campaignId, session_id: sessionId });
+  if (sourceRecapPath) params.set("source_recap_path", sourceRecapPath);
+  if (sourceRecapSha256) params.set("source_recap_sha256", sourceRecapSha256);
+  return apiFetch<GraphIngestLatestRunResponse>(
+    `/api/live/graph-preview/graph-ingest/latest?${params.toString()}`,
+  );
+}
+
+export interface UnionSupergraphProjectionQuery {
+  sessionId: string;
+  campaignId?: string;
+  previewSource?: string | null;
+  graphRunManifestPath?: string | null;
+  previewUnionStorePath?: string | null;
+  useLatestGraphIngest?: boolean;
+  allowRecapOnly?: boolean;
+  sourceRecapPath?: string | null;
+  sourceRecapSha256?: string | null;
+}
+
+export async function getUnionSupergraphProjection(
+  query: UnionSupergraphProjectionQuery,
+): Promise<UnionSupergraphProjectionResponse>;
+export async function getUnionSupergraphProjection(
+  sessionId: string,
+  previewSource?: string,
+): Promise<UnionSupergraphProjectionResponse>;
+export async function getUnionSupergraphProjection(
+  queryOrSessionId: UnionSupergraphProjectionQuery | string,
+  previewSource = defaultUnionSupergraphPreviewSource,
+): Promise<UnionSupergraphProjectionResponse> {
+  const query = typeof queryOrSessionId === "string"
+    ? { sessionId: queryOrSessionId, previewSource }
+    : queryOrSessionId;
+  const params = new URLSearchParams({ session_id: query.sessionId });
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  if (query.useLatestGraphIngest) params.set("use_latest_graph_ingest", "true");
+  if (query.allowRecapOnly) params.set("allow_recap_only", "true");
+  if (query.previewSource) params.set("preview_source", query.previewSource);
+  if (query.graphRunManifestPath) params.set("graph_run_manifest_path", query.graphRunManifestPath);
+  if (query.previewUnionStorePath) params.set("preview_union_store_path", query.previewUnionStorePath);
+  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
+  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
+  return apiFetch<UnionSupergraphProjectionResponse>(
+    `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
+  );
+}
+
+export async function getDefaultUnionSupergraphProjection(
+  sessionId: string,
+  previewSource = defaultUnionSupergraphPreviewSource,
+): Promise<UnionSupergraphProjectionResponse> {
+  return getUnionSupergraphProjection({ sessionId, previewSource });
 }
 
 export async function getSourceBundle(

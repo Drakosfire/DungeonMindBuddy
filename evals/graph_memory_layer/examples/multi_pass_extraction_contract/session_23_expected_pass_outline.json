@@ -1,0 +1,92 @@
+{
+  "schema": "dmb_session_23_expected_pass_outline_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:multi-pass-extraction-contract:session-23-outline:v0",
+  "required_source_anchors": [
+    "anchor:s23-wall-arrival-lysandro-message",
+    "anchor:s23-edge-warning-read",
+    "anchor:s23-mayor-orik-tane-inn-debate",
+    "anchor:s23-boy-warning-north-gate",
+    "anchor:s23-brin-holloway-refugees",
+    "anchor:s23-eye-check-protocol",
+    "anchor:s23-south-gate-routing",
+    "anchor:s23-first-wave-enemy-reveal",
+    "anchor:s23-hunger-of-hadar-and-readied-attacks",
+    "anchor:s23-tripod-body-launch",
+    "anchor:s23-lysdandra-commanding-shout",
+    "anchor:s23-karsemine-hunters-mark-weakness",
+    "anchor:s23-caelynn-hit-and-lysdandra-wall-leap",
+    "anchor:s23-meatwing-charm",
+    "anchor:s23-caelynn-lightning-bolt-cliffhanger"
+  ],
+  "required_concepts": {
+    "named_characters": [
+      "Lysandra",
+      "Lysandro",
+      "Orik Tane",
+      "Brin Holloway",
+      "Stafl",
+      "Ephanna",
+      "Karsemine",
+      "Bonogo",
+      "Thrin",
+      "Baergrom",
+      "Caelynn",
+      "Ogonob"
+    ],
+    "groups": [
+      "Heroes / party",
+      "Edge refugees",
+      "Mireward guards",
+      "Mireward townspeople",
+      "Meat flank attackers"
+    ],
+    "locations": [
+      "Mireward Reach",
+      "Edge",
+      "North gate",
+      "North wall",
+      "Inn common room",
+      "South gate",
+      "Road to the north gate"
+    ],
+    "unnamed_important": [
+      "First meat wave",
+      "Tripod meat monsters",
+      "Flying meatwings",
+      "Meat hybrid monsters",
+      "Sewer monsters",
+      "Golem-like creature",
+      "Small summoned meat monsters",
+      "Edge warning message",
+      "Eye-check protocol",
+      "South-gate refugee routing",
+      "Monster eye changes",
+      "Caelynn lightning bolt cliffhanger",
+      "Mireward overrun question",
+      "Remaining approaching horde"
+    ],
+    "ignored": [
+      "Exact shadow count",
+      "Experienced adventurers identities",
+      "Exact mechanical statblocks"
+    ],
+    "deferred": [
+      "Help Edge or defend Mireward",
+      "Edge refugee contamination risk",
+      "Outcome of the first meat-wave battle",
+      "Mireward overrun risk",
+      "Source of monster eye changes",
+      "Golem-like creature identity",
+      "Canonical party-name binding"
+    ]
+  },
+  "forbidden_claims": [
+    "Questionable Company as canonical party name unless a campaign-context source is declared",
+    "second wave",
+    "resolved battle outcome",
+    "exact shadow count",
+    "full statblock mechanics",
+    "promoted graph fact"
+  ]
+}

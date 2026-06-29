@@ -1,0 +1,23 @@
+{
+  "schema": "dmb_session_memory_meta_fixture_v0",
+  "fixture_id": "dogfood:rich-recap:redacted-lantern-archive:v0",
+  "session": {
+    "label": "Redacted Lantern Archive — Rich Recap Dogfood",
+    "sequence_hint": "dogfood-rich-recap-v0",
+    "visibility_state": "gm_private"
+  },
+  "declared_source_counts": {
+    "named_entities": 5,
+    "locations": 4,
+    "groups_or_factions": 4,
+    "items_or_clues": 5,
+    "session_beats": 6,
+    "unresolved_threads": 5
+  },
+  "safety": {
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "llm_required": false,
+    "graph_extraction_performed": false
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "bundle_id": "example:ontology-ir:minimal",
+  "schema_version": "0.1",
+  "taxonomy_registry_version": "0.1",
+  "created_by": "ontology_ir_schema_v0",
+  "description": "Synthetic example bundle for schema validation only.",
+  "nodes": [
+    {
+      "node_id": "example:node:source-document",
+      "kind": {
+        "vocabulary": "entity_kind",
+        "term": "source_document"
+      },
+      "label": "Synthetic Source Document",
+      "aliases": [],
+      "properties": {
+        "synthetic": true
+      },
+      "provenance": [],
+      "lifecycle_state": {
+        "vocabulary": "lifecycle_state",
+        "term": "candidate"
+      },
+      "visibility_state": {
+        "vocabulary": "visibility_state",
+        "term": "internal_diagnostic"
+      }
+    },
+    {
+      "node_id": "example:node:source-unit",
+      "kind": {
+        "vocabulary": "entity_kind",
+        "term": "source_unit"
+      },
+      "label": "Synthetic Source Unit",
+      "aliases": [],
+      "properties": {
+        "synthetic": true
+      },
+      "provenance": [],
+      "lifecycle_state": {
+        "vocabulary": "lifecycle_state",
+        "term": "candidate"
+      },
+      "visibility_state": {
+        "vocabulary": "visibility_state",
+        "term": "internal_diagnostic"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "example:edge:source-derivation",
+      "subject_id": "example:node:source-document",
+      "object_id": "example:node:source-unit",
+      "predicate_family": {
+        "vocabulary": "relationship_predicate_family",
+        "term": "source_derivation"
+      },
+      "label": "synthetic contains relationship",
+      "properties": {
+        "synthetic": true
+      },
+      "provenance": [],
+      "lifecycle_state": {
+        "vocabulary": "lifecycle_state",
+        "term": "candidate"
+      },
+      "visibility_state": {
+        "vocabulary": "visibility_state",
+        "term": "internal_diagnostic"
+      }
+    }
+  ],
+  "validation": [
+    {
+      "state": {
+        "vocabulary": "lifecycle_state",
+        "term": "candidate"
+      },
+      "severity": {
+        "vocabulary": "validation_severity",
+        "term": "info"
+      },
+      "message": "Synthetic schema-only example."
+    }
+  ]
+}

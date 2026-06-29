@@ -1,0 +1,31 @@
+{
+  "per_pass_counts": {
+    "actor_pass": 8,
+    "location_pass": 7,
+    "collective_pass": 7,
+    "object_pass": 8,
+    "thread_pass": 9,
+    "beat_pass": 12,
+    "edge_pass": 32
+  },
+  "nodes_before_dedup": 39,
+  "party_companion_slugs": [
+    "thrin_branchborn",
+    "captain_lysandra_ironveil"
+  ],
+  "merged_nodes": [],
+  "merged_edges": [],
+  "dropped_edges_missing_endpoints": [],
+  "party_anchor_hub_paths": [
+    "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+    "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+    "Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+    "Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+    "Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+    "Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+    "Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+  ],
+  "repaired_edge_evidence_refs": 32,
+  "dropped_no_valid_evidence": {}
+}

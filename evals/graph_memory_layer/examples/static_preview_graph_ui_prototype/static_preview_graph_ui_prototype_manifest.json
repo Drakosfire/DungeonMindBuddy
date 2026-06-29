@@ -1,0 +1,33 @@
+{
+  "schema": "dmb_static_preview_graph_ui_prototype_manifest_v0",
+  "version": "0.1",
+  "prototype_id": "graph-memory:static-preview-graph-ui-prototype:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "execution_mode": "static_fixture_prototype",
+  "source_design_spec": "Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-DESIGN-SPEC.md",
+  "source_wireframe": "Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-WIREFRAME.md",
+  "source_component_contract": "Docs/Design/GRAPH-MEMORY-PREVIEW-GRAPH-UX-COMPONENT-CONTRACT.md",
+  "source_report_fixture_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "model_path": "evals/graph_memory_layer/examples/static_preview_graph_ui_prototype/session_23_preview_graph_ui_prototype_model.json",
+  "html_path": "evals/graph_memory_layer/examples/static_preview_graph_ui_prototype/session_23_preview_graph_ui_prototype.html",
+  "diagnostics": {
+    "static_fixture_prototype": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "runtime_ui_required": false,
+    "react_required": false,
+    "api_required": false,
+    "browser_test_required": false,
+    "approval_persistence_required": false,
+    "graph_write_required": false,
+    "query_execution_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

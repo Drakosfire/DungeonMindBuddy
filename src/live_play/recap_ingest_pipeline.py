@@ -26,6 +26,7 @@ from src.corpus.session_recap_paths import (
     is_generic_recap_tail,
     normalized_recap_candidates,
     normalized_recap_relpath,
+    pick_normalized_basename_from_disk,
     resolve_under_corpus,
     session_memory_jsonl_relpath,
     session_memory_meta_relpath,
@@ -541,9 +542,22 @@ def run_pipeline(
         campaign_number=paths.campaign_number,
         session=options.session,
     )
-    if len(duplicate_candidates) > 1:
+    if _normalized_duplicates_block_progress(duplicate_candidates):
         _annotate_corpus_impact(status, corpus_dir)
         return status.to_dict()
+    if len(duplicate_candidates) > 1:
+        try:
+            disk_paths = _disk_derivative_paths(
+                corpus_dir,
+                campaign_number=paths.campaign_number,
+                session=options.session,
+            )
+            status.paths.update(
+                {key: disk_paths[key] for key in disk_paths if key in status.paths}
+            )
+            status.add_warning("continuing with recommended normalized recap among duplicates")
+        except FileNotFoundError:
+            pass
 
     try:
         breadcrumb_path, breadcrumb_rel = _resolve_breadcrumb_path(
@@ -651,10 +665,21 @@ def _normalized_candidate_rows(
             }
         )
     non_generic = [row for row in rows if not row["is_generic"]]
-    recommended = non_generic[0]["basename"] if len(non_generic) == 1 else None
+    recommended = pick_normalized_basename_from_disk(
+        corpus_dir, campaign_number=campaign_number, session=session
+    )
+    if recommended is None and len(non_generic) == 1:
+        recommended = str(non_generic[0]["basename"])
     for row in rows:
         row["recommended"] = bool(recommended) and row["basename"] == recommended
     return rows
+
+
+def _normalized_duplicates_block_progress(rows: list[dict[str, object]]) -> bool:
+    """True when duplicate normalized recaps exist and no recommended pick was resolved."""
+    if len(rows) <= 1:
+        return False
+    return not any(bool(row.get("recommended")) for row in rows)
 
 
 def _annotate_normalized_duplicates(
@@ -847,9 +872,20 @@ def inspect_recap_ingest_status(
         campaign_number=paths.campaign_number,
         session=session,
     )
-    if len(duplicate_candidates) > 1:
+    if _normalized_duplicates_block_progress(duplicate_candidates):
         _annotate_corpus_impact(status, corpus_dir)
         return status.to_dict()
+    if len(duplicate_candidates) > 1:
+        try:
+            disk_paths = _disk_derivative_paths(
+                corpus_dir,
+                campaign_number=paths.campaign_number,
+                session=session,
+            )
+            status.paths.update(disk_paths)
+            status.add_warning("continuing with recommended normalized recap among duplicates")
+        except FileNotFoundError:
+            pass
 
     staged_path = (corpus_dir / str(status.paths["staged_raw_notes"])).resolve()
     if staged_path.is_file():

@@ -1,0 +1,141 @@
+{
+  "schema": "dmb_recap_ingestion_source_artifact_materializer_gate_v0",
+  "version": "0.1",
+  "status": "active_gate",
+  "gate_id": "gate:recap-ingestion-source-artifact-materializer:v0",
+  "source_family": "recap_ingestion_source_artifacts",
+  "decision": "allow_future_explicit_input_materializer_only",
+  "purpose": "Gate whether a later PR may implement an explicit-input materializer for admitted recap-ingestion source artifacts.",
+  "depends_on": [
+    "dmb_recap_ingestion_source_family_gate_v0",
+    "dmb_recap_ingestion_source_artifact_fixture_v0"
+  ],
+  "future_materializer_name": "recap_ingestion_source_artifact_materializer_v0",
+  "future_materializer_allowed": true,
+  "future_materializer_must_be": [
+    "explicit_input_only",
+    "diagnostic_or_candidate_output_only",
+    "source_artifact_anchor_unit_output",
+    "standard_library_or_existing_graph_memory_modules_only",
+    "no_runtime_consumption",
+    "no_adapter_output"
+  ],
+  "allowed_input_artifacts": [
+    {
+      "admitted_artifact_id": "normalized_recap_markdown",
+      "artifact_kind": "normalized_recap",
+      "required": false,
+      "input_contract": "explicit_file_path",
+      "allowed_locator_schemes": ["artifact_path", "line_range"],
+      "default_canon_state": "played_canon",
+      "default_lifecycle_state": "ingested",
+      "default_evidence_role": "source_evidence",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "gm_private",
+      "allowed_output_shapes": ["SourceArtifact", "document_SourceAnchor", "section_SourceUnit_if_explicit"],
+      "must_not_emit": ["entity_fact", "relationship_fact", "alias_merge", "promotion_record"]
+    },
+    {
+      "admitted_artifact_id": "breadcrumbed_recap_markdown",
+      "artifact_kind": "breadcrumbed_recap",
+      "required": false,
+      "input_contract": "explicit_file_path",
+      "allowed_locator_schemes": ["artifact_path", "line_range", "anchor"],
+      "default_canon_state": "played_canon",
+      "default_lifecycle_state": "indexed",
+      "default_evidence_role": "navigation_hint",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "gm_private",
+      "allowed_output_shapes": ["SourceArtifact", "breadcrumb_SourceAnchor", "reference_projection_SourceUnit"],
+      "must_not_emit": ["entity_fact", "relationship_fact", "alias_merge", "source_evidence_without_anchor"]
+    },
+    {
+      "admitted_artifact_id": "frontmatter_seed_markdown",
+      "artifact_kind": "frontmatter_seed",
+      "required": false,
+      "input_contract": "explicit_file_path",
+      "allowed_locator_schemes": ["artifact_path", "frontmatter_key"],
+      "default_canon_state": "planning_scaffold",
+      "default_lifecycle_state": "candidate",
+      "default_evidence_role": "not_evidence",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_output_shapes": ["SourceArtifact", "frontmatter_field_SourceAnchor", "candidate_seed_SourceUnit"],
+      "must_not_emit": ["played_canon_fact", "source_evidence_claim", "promotion_record"]
+    },
+    {
+      "admitted_artifact_id": "session_memory_jsonl_meta",
+      "artifact_kind": "session_memory_meta",
+      "required": false,
+      "input_contract": "explicit_file_path",
+      "allowed_locator_schemes": ["artifact_path", "jsonl_record", "metadata_key"],
+      "default_canon_state": "candidate_extraction",
+      "default_lifecycle_state": "candidate",
+      "default_evidence_role": "diagnostic_only",
+      "default_authority_state": "system_derived",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_output_shapes": ["SourceArtifact", "meta_SourceAnchor", "diagnostic_SourceUnit"],
+      "must_not_emit": ["played_canon_fact", "identity_merge", "relationship_fact"]
+    },
+    {
+      "admitted_artifact_id": "corpus_impact_proof",
+      "artifact_kind": "corpus_impact_proof",
+      "required": false,
+      "input_contract": "explicit_file_path",
+      "allowed_locator_schemes": ["artifact_path", "proof_record", "metadata_key"],
+      "default_canon_state": "diagnostic_only",
+      "default_lifecycle_state": "diagnostic",
+      "default_evidence_role": "diagnostic_only",
+      "default_authority_state": "diagnostic",
+      "default_visibility_state": "internal_diagnostic",
+      "allowed_output_shapes": ["SourceArtifact", "proof_SourceAnchor", "diagnostic_proof_SourceUnit"],
+      "must_not_emit": ["narrative_evidence", "played_canon_fact", "source_evidence_claim"]
+    }
+  ],
+  "future_materializer_input_policy": {
+    "input_mode": "explicit_paths_only",
+    "minimum_required_inputs": 1,
+    "directory_scanning_allowed": false,
+    "glob_expansion_allowed": false,
+    "corpus_scanning_allowed": false,
+    "manifest_context_query_allowed": false,
+    "live_play_query_allowed": false,
+    "runtime_retrieval_allowed": false,
+    "absolute_path_output_allowed": false
+  },
+  "future_materializer_output_policy": {
+    "output_contract": "SourceArtifact_SourceAnchor_SourceUnit_bundle",
+    "allowed_output_states": ["candidate", "diagnostic", "ingested", "indexed"],
+    "allowed_canon_states": ["played_canon", "planning_scaffold", "candidate_extraction", "diagnostic_only"],
+    "required_fields": ["source_artifact", "source_anchor", "source_unit", "source_ref", "provenance", "evidence_role", "authority_state", "visibility_state", "lifecycle_state", "canon_state"],
+    "display_summary_is_evidence": false,
+    "full_text_output_allowed": false,
+    "graph_ids_public_contract": false,
+    "production_adapter_payload_allowed": false
+  },
+  "global_forbidden_behaviors": [
+    "no_materializer_in_this_pr",
+    "no_adapter",
+    "no_plan_integration",
+    "no_agent_interaction_integration",
+    "no_frontend_changes",
+    "no_runtime_changes",
+    "no_graph_retrieval",
+    "no_shadow_retrieval",
+    "no_entity_extraction",
+    "no_alias_resolution",
+    "no_identity_merge",
+    "no_relationship_inference",
+    "no_fact_promotion",
+    "no_canon_promotion",
+    "no_corpus_scanning",
+    "no_corpus_mutation",
+    "no_prompt_changes",
+    "no_production_behavior_changes"
+  ],
+  "future_allowed_work_after_gate": [
+    "recap_ingestion_source_artifact_materializer_v0",
+    "recap_ingestion_source_artifact_materializer_report_v0",
+    "projection_readiness_over_materialized_recap_ingestion_artifacts_v0"
+  ]
+}

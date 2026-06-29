@@ -1,0 +1,5 @@
+{
+  "schema": "synthetic_session_memory_meta_v0",
+  "record_count": 2,
+  "purpose": "synthetic materializer input only"
+}

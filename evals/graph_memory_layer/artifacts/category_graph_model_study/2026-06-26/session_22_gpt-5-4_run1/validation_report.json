@@ -1,0 +1,444 @@
+{
+  "schema": "dmb_live_extractor_candidate_envelope_v0",
+  "version": "0.1",
+  "preview_only": true,
+  "canonical_ir_valid": true,
+  "candidate_class_counts": {
+    "nodes": 11,
+    "edges": 0,
+    "beats": 0,
+    "proposed_writes": 0,
+    "ignored_items": 3,
+    "deferred_items": 2,
+    "high_risk_claims": 0
+  },
+  "evidence_ref_count": 16,
+  "resolvable_evidence_ref_count": 16,
+  "benchmark_comparison_ready": true,
+  "reconciled_candidate_graph": {
+    "schema": "dmb_candidate_graph_preview_v0",
+    "version": "0.1",
+    "preview_id": "candidate-preview:longmont-c2:session-22:category-study",
+    "campaign_id": "longmont-c2",
+    "session_id": "session-22",
+    "source_artifact_ids": [
+      "source-artifact:session-22-normalized-recap"
+    ],
+    "status": "preview",
+    "nodes": [
+      {
+        "node_id": "item_rockie_talkie",
+        "label": "rockie-talkie",
+        "node_type": "item",
+        "description": "A communication device the group uses to attempt contact with Mirathorn and later receive calls from Grobnok.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "rockie-talkie",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_silver_raven",
+        "label": "silver raven",
+        "node_type": "item",
+        "description": "A magical messenger item the group sends to carry spoken and written messages toward Mirathorn.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "silver raven",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_wagon",
+        "label": "wagon",
+        "node_type": "item",
+        "description": "The party's wagon, used for travel and packing camp as they continue north toward Mireward.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "wagon",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_sealed_tube",
+        "label": "sealed tube",
+        "node_type": "item",
+        "description": "A sealed report tube carried by Private Hester containing reports intended for Mirathorn.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "sealed tube",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_whisper_bottle",
+        "label": "Whisper Bottle",
+        "node_type": "item",
+        "description": "Caelynn's item used as the focus or means for casting Detect Magic on the anomalous puddle water.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Whisper Bottle",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_vial_of_puddle_water",
+        "label": "vial of puddle water",
+        "node_type": "item",
+        "description": "A small vial filled by Caelynn with water from the conjuration-tainted puddle for later examination; Identify suggests no one should drink it.",
+        "importance": "high",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "vial of puddle water",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          },
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "vial of puddle water",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_stick",
+        "label": "stick",
+        "node_type": "item",
+        "description": "A stick Karsemine uses to poke the anomalous puddle while investigating it.",
+        "importance": "low",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "stick",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_sign_to_mireward",
+        "label": "Mireward road sign",
+        "node_type": "item",
+        "description": "A roadside sign at the fork indicating Mireward is 20 miles north.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "Mireward road sign",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_chalkboard_menu",
+        "label": "chalkboard menu",
+        "node_type": "item",
+        "description": "A chalkboard outside the abandoned restaurant, hastily erased and rewritten to read 'headed south, north wrong'.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "chalkboard menu",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_trapdoor",
+        "label": "trapdoor",
+        "node_type": "item",
+        "description": "A trapdoor inside the abandoned restaurant leading to a small storage area.",
+        "importance": "low",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "trapdoor",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      },
+      {
+        "node_id": "item_jar_of_skewers",
+        "label": "jar with skewers of old meat",
+        "node_type": "item",
+        "description": "A jar found in the restaurant storage area containing a few skewers with old graying meat.",
+        "importance": "medium",
+        "semantic_state": {
+          "canon_state": "candidate_extraction",
+          "lifecycle_state": "candidate",
+          "evidence_role": "source_evidence",
+          "authority_state": "system_derived",
+          "visibility_state": "gm_private"
+        },
+        "evidence_refs": [
+          {
+            "source_ref_id": "source-ref:session-22-normalized-recap",
+            "source_artifact_id": "source-artifact:session-22-normalized-recap",
+            "label": "jar with skewers of old meat",
+            "evidence_role": "source_evidence",
+            "can_open_source": true,
+            "can_highlight_span": true
+          }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+        "corpus_ref": null
+      }
+    ],
+    "edges": [],
+    "beats": [],
+    "proposed_writes": [],
+    "ignored_items": [
+      {
+        "item_id": "ignored_session22_bonogo_puddle_jump_no_effect",
+        "label": "Bonogo jumps into the puddle and nothing immediately happens",
+        "reason": "This is a negative test result with no immediate new mystery beyond confirming no obvious instant transformation from contact alone.",
+        "evidence_refs": [],
+        "warnings": []
+      },
+      {
+        "item_id": "ignored_session22_fox_eyes",
+        "label": "Pair of eyes during watch turns out to be a fox",
+        "reason": "Explicitly resolved as mundane and not part of the anomalous thread.",
+        "evidence_refs": [],
+        "warnings": []
+      },
+      {
+        "item_id": "ignored_session22_lysandro_identity_reveal",
+        "label": "Guard is revealed to be Lysandra's father Lysandro",
+        "reason": "Character relationship reveal rather than a mystery/clue/warning/thread for this extraction pass.",
+        "evidence_refs": [],
+        "warnings": []
+      }
+    ],
+    "deferred_items": [
+      {
+        "item_id": "deferred_session22_dustwalker_song_connection",
+        "label": "Connection between the Dustwalker festival song and current compulsion effects",
+        "reason": "Strongly implied but not yet explained; needs corroborating evidence from prior or later sessions to determine mechanism and source.",
+        "evidence_refs": [],
+        "warnings": [],
+        "suggested_next_step": "Review earlier Dustwalker festival scenes and subsequent Mireward/swamp encounters for direct references tying the song to compulsion or cult activity."
+      },
+      {
+        "item_id": "deferred_session22_shepherd_recruitment",
+        "label": "The Shepherd's growing open recruitment in Mirathorn",
+        "reason": "Important cult escalation, but this pass is focused on mysteries and road-to-swamp phenomena; broader faction-state tracking may belong in a separate political or cult activity extraction.",
+        "evidence_refs": [],
+        "warnings": [],
+        "suggested_next_step": "Cross-reference prior and later city reports to build a dedicated thread for the Shepherd's recruitment, influence, and organizational structure."
+      }
+    ],
+    "diagnostics": {
+      "preview_only": true,
+      "extraction_performed": false,
+      "llm_used": false,
+      "runtime_connected": false,
+      "plan_connected": false,
+      "agent_interaction_connected": false,
+      "corpus_scanned": false,
+      "corpus_mutated": false,
+      "facts_promoted": false,
+      "canon_promoted": false,
+      "unresolved_evidence_refs": 0,
+      "missing_evidence_objects": 0,
+      "warning_count": 0
+    }
+  },
+  "review_sidecar": {
+    "high_risk_claims": [],
+    "notes": [
+      "assembled deterministically from category passes"
+    ]
+  }
+}

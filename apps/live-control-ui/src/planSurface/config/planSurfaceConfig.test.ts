@@ -16,7 +16,13 @@ describe("planSurfaceConfig", () => {
   it("creates plan surface config with tools and spike theme", () => {
     const config = createPlanSurfaceConfig(mockPlanView);
     expect(config.id).toBe("plan");
-    expect(config.tools.map((tool) => tool.id)).toEqual(["ingest-recap", "statblock"]);
+    expect(config.tools.map((tool) => tool.id)).toEqual([
+      "ingest-recap",
+      "recap",
+      "graph-preview",
+      "party-registry",
+      "statblock",
+    ]);
     expect(config.theme.themeId).toBe("mireward-runbook");
     expect(config.theme.tokens?.["--accent"]).toBe("#7aa2f7");
   });

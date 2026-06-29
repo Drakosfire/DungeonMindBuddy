@@ -1,0 +1,31 @@
+{
+  "schema": "dmb_session_22_recap_ingest_fixture_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-22-recap-ingest:v0",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "input_mode": "explicit_normalized_corpus_path",
+  "normalized_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+  "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_22_recap_ingest/source_span_seed_refs.json",
+  "authoring_mode": "manual_source_span_seed_fixture",
+  "notes": [
+    "This fixture intentionally uses the played normalized recap for Session 22: Mireward Road and Lysandro.",
+    "Backlog notes record a prior mis-promoted staging-only Session 22 artifact; this fixture points only at the canonical played recap path.",
+    "Span anchors are short line/char slices so resolver previews remain untruncated and auditable."
+  ],
+  "diagnostics": {
+    "manual_source_span_fixture": true,
+    "llm_required": false,
+    "live_planner_required": false,
+    "write_tools_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_extraction_performed": false,
+    "candidate_graph_output": false,
+    "gold_graph_output": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "runtime_behavior_changed": false,
+    "production_behavior_changed": false
+  }
+}

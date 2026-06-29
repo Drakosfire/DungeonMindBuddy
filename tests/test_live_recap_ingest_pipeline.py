@@ -5,6 +5,11 @@ from pathlib import Path
 
 import pytest
 
+from src.corpus.session_recap_paths import (
+    is_generic_recap_tail,
+    normalized_basename_from_disk,
+    pick_normalized_basename_from_disk,
+)
 from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,6 +84,56 @@ def test_stage_overwrites_with_force_stage(tmp_path: Path) -> None:
     assert staged.read_text(encoding="utf-8").startswith("Session 22 Recap")
 
 
+def test_pipeline_returns_reconciliation_state_for_ambiguous_normalized_recaps(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (norm_dir / "Session 22 - Harbor Siege.md").write_text("variant a", encoding="utf-8")
+    (norm_dir / "Session 22 - Forest March.md").write_text("variant b", encoding="utf-8")
+
+    status = run_pipeline(
+        _opts(
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=False,
+            materialize_session_memory=True,
+            slug="Harbor Siege",
+        ),
+        corpus=corpus,
+    )
+
+    assert status["status"] == "needs_reconciliation"
+    assert "normalized_recap_duplicates" in status["states"]
+    assert "expected exactly one normalized recap" not in " ".join(status["errors"])
+
+
+def test_pipeline_continues_when_duplicate_normalized_recaps_have_clear_pick(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    recaps_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps"
+    norm_dir = recaps_dir / "_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (recaps_dir / "Session 22 - Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 22 - Session-22 Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 22 - session-22-mireward.md").write_text("stale", encoding="utf-8")
+
+    status = run_pipeline(
+        _opts(
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=False,
+            materialize_session_memory=True,
+            slug="Mireward Gate Battle",
+        ),
+        corpus=corpus,
+    )
+
+    assert status["status"] != "needs_reconciliation"
+    assert "normalized_recap_duplicates" in status["states"]
+    assert "expected exactly one normalized recap" not in " ".join(status.get("errors", []))
+
+
 def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
@@ -98,9 +153,42 @@ def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(t
         corpus=corpus,
     )
 
-    assert status["status"] == "needs_reconciliation"
+    assert status["status"] != "needs_reconciliation"
     assert "normalized_recap_duplicates" in status["states"]
-    assert "expected exactly one normalized recap" not in " ".join(status["errors"])
+    assert "expected exactly one normalized recap" not in " ".join(status.get("errors", []))
+
+
+def test_normalized_basename_prefers_single_non_generic_over_numeric_duplicate(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (norm_dir / "Session 24 - Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 24 - 4.md").write_text("numeric duplicate", encoding="utf-8")
+
+    assert is_generic_recap_tail("Session 24 - 4") is True
+    assert (
+        normalized_basename_from_disk(corpus, campaign_number=2, session=24)
+        == "Session 24 - Mireward Gate Battle"
+    )
+
+
+def test_normalized_basename_prefers_canonical_title_over_tool_shaped_duplicates(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    recaps_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps"
+    norm_dir = recaps_dir / "_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (recaps_dir / "Session 23 - Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 23 - Session-23 Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 23 - session-23-mireward.md").write_text("stale", encoding="utf-8")
+
+    assert (
+        normalized_basename_from_disk(corpus, campaign_number=2, session=23)
+        == "Session 23 - Session-23 Mireward Gate Battle"
+    )
+    assert (
+        pick_normalized_basename_from_disk(corpus, campaign_number=2, session=23)
+        == "Session 23 - Session-23 Mireward Gate Battle"
+    )
 
 
 def test_apply_requires_non_generic_slug_or_title(tmp_path: Path) -> None:

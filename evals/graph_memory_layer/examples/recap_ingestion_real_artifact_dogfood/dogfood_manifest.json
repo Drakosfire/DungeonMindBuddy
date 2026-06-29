@@ -1,0 +1,15 @@
+{
+  "schema": "dmb_recap_ingestion_explicit_real_artifact_dogfood_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "dogfood:recap-ingestion-explicit-real-artifact:v0",
+  "source_family": "recap_ingestion_source_artifacts",
+  "input_mode": "explicit_paths_only",
+  "artifact_inputs": [
+    {"admitted_artifact_id": "normalized_recap_markdown", "relative_path": "normalized_recap_dogfood.md"},
+    {"admitted_artifact_id": "breadcrumbed_recap_markdown", "relative_path": "breadcrumbed_recap_dogfood.md"},
+    {"admitted_artifact_id": "frontmatter_seed_markdown", "relative_path": "frontmatter_seed_dogfood.md"},
+    {"admitted_artifact_id": "session_memory_jsonl_meta", "relative_path": "session_memory_meta_dogfood.json"},
+    {"admitted_artifact_id": "corpus_impact_proof", "relative_path": "corpus_impact_proof_dogfood.json"}
+  ],
+  "diagnostics": {"manually_curated_fixture": true, "corpus_scan_required": false, "runtime_required": false, "production_behavior": false}
+}

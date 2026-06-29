@@ -34,6 +34,21 @@ Current first PR branch:
 
 `graph-exp/00-fork-tracking-baseline`
 
+
+## Ontology / Taxonomy Ladder Branch Family
+
+The ontology/taxonomy workstream is a separate graph-memory ladder, isolated from the original `experiment/graph-memory-layer` branch stack and from the Tiptap / Markdown backend workstream.
+
+Ladder root branch:
+
+`experiment/ontology-taxonomy-ladder`
+
+Allowed stacked branches:
+
+`graph-exp/*`
+
+The first ladder PR should be docs-only except for branch-policy documentation and should establish `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md` as the active operational anchor. Later rungs may add taxonomy, ontology IR, validation, deterministic materialization, reports, and shadow retrieval fixtures, but must not change production retrieval behavior before explicit promotion.
+
 ## Verification Commands
 
 ```bash

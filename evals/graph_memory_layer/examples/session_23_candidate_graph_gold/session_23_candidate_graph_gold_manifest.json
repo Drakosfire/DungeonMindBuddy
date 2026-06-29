@@ -1,0 +1,21 @@
+{
+  "schema": "dmb_session_23_candidate_graph_gold_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "input_mode": "explicit_fixture_dependency",
+  "source_fixture_id": "graph-memory:session-23-recap-ingest:v0",
+  "source_manifest_path": "evals/graph_memory_layer/examples/session_23_recap_ingest/session_23_recap_ingest_manifest.json",
+  "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_23_recap_ingest/source_span_seed_refs.json",
+  "candidate_graph_gold_path": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json",
+  "authoring_mode": "hand_authored_gold",
+  "notes": [
+    "Gold evidence uses source_anchor_id sub-paragraph spans from source_span_seed_refs.json; live dogfood uses spref paragraph spans reconciled via line/char overlap.",
+    "Multiple nodes may share anchor evidence; span-overlap fuzzy matching is the intended live-vs-gold comparator — not exact node_id equality.",
+    "Re-grounded gold treats entity quality as corpus resolvability: NPC/PC/location nodes carry corpus_ref objects that resolve through the live reference indexes when a corpus hub exists, while sublocations, factions/groups, and creatures without hubs use resolution=proposed with stable review slugs.",
+    "The Last Dry Bed is represented as proposed sublocation ref_id=the_last_dry_bed on the inn-common-room node, cross-referenced to the Maera Vell innkeeper hub; Session 23 source grounds the inn/common-room debate but does not itself name Maera.",
+    "The edge layer was rebuilt around durable structural/semantic relationships (member_of roster, located_in containment, governs, parent_of, leads, displaced_from, threatens, part_of, knows_about). Moment-by-moment combat actions remain in session beats rather than relationship edges."
+  ],
+  "diagnostics": {"manual_gold_fixture": true, "extraction_performed": false, "llm_required": false, "live_planner_required": false, "runtime_required": false, "corpus_scan_required": false, "corpus_mutation_required": false, "graph_write_required": false, "approval_required": false, "query_execution_required": false, "plan_connected": false, "agent_interaction_connected": false, "production_behavior_changed": false}
+}

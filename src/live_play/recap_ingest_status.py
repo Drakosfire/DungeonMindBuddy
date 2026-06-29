@@ -48,8 +48,10 @@ class RecapIngestStatus:
             self.status = "error"
             return
         if "normalized_recap_duplicates" in self.states:
-            self.status = "needs_reconciliation"
-            return
+            candidates = self.ingest_report.get("normalized_recap_candidates") or []
+            if len(candidates) > 1 and not any(bool(row.get("recommended")) for row in candidates):
+                self.status = "needs_reconciliation"
+                return
         if "breadcrumb_required" in self.states:
             self.status = "breadcrumb_required"
             return

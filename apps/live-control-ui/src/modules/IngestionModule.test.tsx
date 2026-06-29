@@ -80,6 +80,11 @@ function mockRecapIngestWithInspect(
 describe("IngestionModule", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [],
+    });
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
       makeStatus({
         status: "initialized",
@@ -261,7 +266,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
-    expect(screen.getByRole("button", { name: "Run full ingest" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeDisabled();
     expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
   });
 
@@ -326,7 +331,7 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
   });
 
-  it("runs the full ingest pipeline as one sequential operation", async () => {
+  it("runs the full ingest pipeline through backend orchestration", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect((body) => {
       if (body.operation === "stage_preview") {
@@ -355,15 +360,23 @@ describe("IngestionModule", () => {
       }
       return makeStatus({
         status: "ready_for_planning_activation",
-        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation"],
-        ingest_report: { session_memory_record_count: 10, session_memory_check: "ok" },
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation", "preview_union_store_ready"],
+        ingest_report: {
+          session_memory_record_count: 10,
+          session_memory_check: "ok",
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
       });
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
       expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0),
@@ -371,16 +384,53 @@ describe("IngestionModule", () => {
     const operations = spy.mock.calls
       .map(([body]) => body.operation)
       .filter((operation) => operation !== "inspect_status");
-    expect(operations).toEqual([
-      "stage_preview",
-      "apply_normalize",
-      "build_frontmatter_seed",
-      "run_breadcrumb_ingest",
-      "materialize_session_memory",
-    ]);
+    expect(operations).toEqual(["generate_recap_memory"]);
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "generate_recap_memory",
+        include_graph_extraction: true,
+        graph_model_id: "gpt-5.4-mini",
+      }),
+    );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getByText("Complete: session memory is ready for planning activation.")).toBeInTheDocument();
+    expect(screen.getAllByText("Complete: graph projection is ready. Review the rendered recap and graph chips.").length).toBeGreaterThan(0);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
+  });
+
+  it("does not pause full ingest when existing staged notes are reused and graph is ready", async () => {
+    const user = userEvent.setup();
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "staged_raw_notes_reused",
+          "staged_raw_notes_conflict",
+          "breadcrumb_found",
+          "session_memory_materialized",
+          "ready_for_planning_activation",
+          "preview_union_store_ready",
+        ],
+        warnings: ["staged raw notes already exists; pasted raw text was not used"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nDifferent pasted text.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    expect(await screen.findByText("Full ingest complete using staged notes")).toBeInTheDocument();
+    expect(screen.getByText(/Recap memory and graph projection were generated from the existing staged notes/i)).toBeInTheDocument();
+    expect(screen.queryByText("Full ingest paused")).not.toBeInTheDocument();
+    expect(screen.queryByText("Graph (advanced)")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
   });
 
   it("resumes from disk after clear flow without requiring raw text again", async () => {
@@ -446,13 +496,13 @@ describe("IngestionModule", () => {
     expect(screen.getByText("records: 3")).toBeInTheDocument();
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Run full ingest" }));
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
-      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "build_frontmatter_seed", session: 23 })),
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "generate_recap_memory", session: 23 })),
     );
     const operations = spy.mock.calls.map(([body]) => body.operation);
-    expect(operations).not.toContain("stage_preview");
+    expect(operations).toContain("generate_recap_memory");
   });
 
   it("submits build_frontmatter_seed from the breadcrumb boundary", async () => {
@@ -567,6 +617,255 @@ describe("IngestionModule", () => {
     expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0);
   });
 
+  it("opens the recap view for generated recap memory", async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, assign },
+      writable: true,
+    });
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({ status: "initialized", states: ["ingest_status_inspected"] });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "raw_text_received",
+          "recap_preview_created",
+          "recap_applied",
+          "frontmatter_seed_found",
+          "breadcrumb_found",
+          "session_memory_materialized",
+          "ready_for_planning_activation",
+        ],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    const openButton = await screen.findByRole("button", { name: "Open Recap View" });
+    expect(screen.getByText(/Recap memory generated\. Open Recap View/)).toBeInTheDocument();
+    await user.click(openButton);
+
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+  });
+
+
+  it("always sends graph extraction flags with Generate Recap Memory", async () => {
+    const user = userEvent.setup();
+    const spy = mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation", "preview_union_store_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          include_graph_extraction: true,
+          graph_model_id: "gpt-5.4-mini",
+        }),
+      ),
+    );
+    expect((await screen.findAllByText(/preview graph materialized/i)).length).toBeGreaterThan(0);
+  });
+
+  it("reports blocked one-click graph extraction without hiding Open Recap View", async () => {
+    const user = userEvent.setup();
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "graph_source_bundle_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_span_bundle_ready",
+            extraction_mode: "llm_blocked",
+            blocked_reason: "OPENAI_API_KEY is not configured",
+            can_open_union_graph: false,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    expect(await screen.findByText(/Preview graph extraction was blocked: OPENAI_API_KEY is not configured/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+  });
+
+  it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["recap_applied", "normalized_created"],
+        });
+      }
+      if (body.operation === "build_graph_preview_bundle") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "graph_source_bundle_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "source_span_bundle_ready",
+              manifest_path: "out/graph_memory/runs/longmont-c2/session-22/run/graph_ingest_run_manifest.json",
+              blocked_reason: "Graph source bundle ready. Candidate graph extraction has not run yet.",
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    const extractToggle = screen.getByLabelText("Extract graph from recap with category extraction (gpt-5.4-mini)");
+    expect(extractToggle).toBeInTheDocument();
+    await user.click(extractToggle);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Build Graph Preview" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: "build_graph_preview_bundle",
+          session: 22,
+          extract_graph: true,
+          graph_model_id: "gpt-5.4-mini",
+        }),
+      ),
+    );
+    expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction has not run yet.").length).toBeGreaterThan(0);
+  });
+
+  it("enables materialize_preview_supergraph with category extraction and no candidate path", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["recap_applied", "normalized_created"],
+        });
+      }
+      if (body.operation === "materialize_preview_supergraph") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "preview_union_store_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+              can_open_union_graph: true,
+              extraction_mode: "category_decomposed",
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (gpt-5.4-mini)"));
+    expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
+    expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: "materialize_preview_supergraph",
+          session: 22,
+          candidate_graph_path: undefined,
+          extract_graph: true,
+          graph_model_id: "gpt-5.4-mini",
+          materialize_after_extract: true,
+        }),
+      ),
+    );
+  });
+
+  it("submits materialize_preview_supergraph with a candidate graph path", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["recap_applied", "normalized_created"],
+        });
+      }
+      if (body.operation === "materialize_preview_supergraph") {
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: ["breadcrumb_found", "session_memory_materialized", "preview_union_store_ready"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              candidate_graph_path: "out/candidate.json",
+              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+              can_open_union_graph: true,
+              node_count: 2,
+              edge_count: 1,
+            },
+          },
+        });
+      }
+      return makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["breadcrumb_found", "session_memory_materialized"],
+      });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
+
+    await waitFor(() =>
+      expect(spy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: "materialize_preview_supergraph",
+          session: 22,
+          candidate_graph_path: "out/candidate.json",
+        }),
+      ),
+    );
+    expect(screen.getByText("status: preview_union_store_ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Graph Preview" })).toBeEnabled();
+  });
+
   it("keeps file replacement controls behind explicit advanced disclosure", async () => {
     const user = userEvent.setup();
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
@@ -642,6 +941,156 @@ describe("IngestionModule", () => {
     );
     await waitFor(() =>
       expect(screen.queryByText("Resolve duplicate normalized recaps")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("loads a prior processed recap and enables graph extraction without raw paste", async () => {
+    const user = userEvent.setup();
+    const artifact = {
+      schema_version: "dmb_recap_artifact_record_v1" as const,
+      artifact_id: "artifact:recap:longmont-c2:session-23",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      source_recap_path:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      run_bundle_uri: "out/graph_memory/runs/longmont-c2/session-23/run",
+      run_manifest_uri: "out/graph_memory/runs/longmont-c2/session-23/run/manifest.json",
+      source_span_index_uri: "out/graph_memory/runs/longmont-c2/session-23/run/source_span_index.json",
+      graph_run_refs: [],
+      default_projection_mode: "preview_union",
+      registered_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      registry_source: "scan" as const,
+    };
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [artifact],
+    });
+    vi.spyOn(liveApi, "postCitationSource").mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: artifact.source_recap_path,
+      content_type: "text/markdown",
+      content: "---\ntitle: Session 23 - Mireward Gate Battle\n---\nThe party held the gate.",
+      truncated: false,
+      highlight: { match_source: "none" },
+      diagnostics: [],
+    });
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          session: 23,
+          status: "recap_applied",
+          states: ["normalized_reused", "ingest_status_inspected"],
+          paths: {
+            ...makeStatus().paths,
+            normalized_recap:
+              "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+          },
+          entity_spelling_audit: [],
+        });
+      }
+      if (body.operation === "generate_recap_memory") {
+        expect(body.raw_text).toBeUndefined();
+        expect(body.include_graph_extraction).toBe(true);
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              can_open_union_graph: true,
+            },
+          },
+        });
+      }
+      return makeStatus({ session: 23, entity_spelling_audit: [] });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+    await screen.findByLabelText("Prior processed recap");
+    await user.click(screen.getByRole("button", { name: "Load processed recap" }));
+
+    const preview = await screen.findByLabelText("Normalized recap preview");
+    expect((preview as HTMLTextAreaElement).value).toContain("The party held the gate.");
+    expect(screen.getByRole("button", { name: "Run category graph extraction" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Run category graph extraction" }));
+
+    await waitFor(() =>
+      expect(ingestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          session: 23,
+          include_graph_extraction: true,
+        }),
+      ),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(/Complete: graph projection is ready|Ingestion ready_for_planning_activation/).length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  it("allows replacing an existing preview graph when force re-extract is checked", async () => {
+    const user = userEvent.setup();
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              can_open_union_graph: true,
+            },
+          },
+          entity_spelling_audit: [],
+        });
+      }
+      if (body.operation === "generate_recap_memory") {
+        expect(body.force_graph_run).toBe(true);
+        expect(body.raw_text).toBeUndefined();
+        return makeStatus({
+          session: 23,
+          status: "ready_for_planning_activation",
+          states: ["normalized_reused", "preview_union_store_ready", "ready_for_planning_activation"],
+          ingest_report: {
+            graph_preview: {
+              status: "preview_union_store_ready",
+              manifest_path: "out/graph_memory/runs/longmont-c2/session-23/run-2/manifest.json",
+              can_open_union_graph: true,
+            },
+          },
+        });
+      }
+      return makeStatus({ session: 23, entity_spelling_audit: [] });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/A preview graph already exists for this session/)).toBeInTheDocument(),
+    );
+    const reextractButton = screen.getByRole("button", { name: /category graph extraction|Replace preview graph/i });
+    expect(reextractButton).toBeDisabled();
+
+    await user.click(screen.getByLabelText(/Replace existing preview graph \(new category extraction run\)/));
+
+    expect(reextractButton).toBeEnabled();
+    await user.click(reextractButton);
+
+    await waitFor(() =>
+      expect(ingestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "generate_recap_memory",
+          session: 23,
+          force_graph_run: true,
+        }),
+      ),
     );
   });
 });

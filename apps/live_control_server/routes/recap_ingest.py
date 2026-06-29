@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException
+
+from apps.live_control_server.config import repo_root
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.agent.recap_frontmatter_seed import (
@@ -20,6 +22,9 @@ from src.corpus.session_recap_paths import (
     normalized_recap_relpath,
     recap_tail,
 )
+from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    resolve_category_graph_model,
+)
 from src.live_play.recap_ingest_pipeline import (
     PipelineOptions,
     inspect_recap_ingest_status,
@@ -27,15 +32,25 @@ from src.live_play.recap_ingest_pipeline import (
     run_pipeline,
 )
 from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
+from apps.live_control_server.services.recap_graph_preview_ingest import (
+    build_recap_graph_preview_bundle,
+    ensure_graph_ingest_projection_payload,
+    inspect_recap_graph_preview_status,
+    materialize_recap_preview_supergraph,
+)
 
 router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
     "stage_preview",
+    "generate_recap_memory",
     "apply_normalize",
     "build_frontmatter_seed",
     "run_breadcrumb_ingest",
     "materialize_session_memory",
+    "build_graph_preview_bundle",
+    "materialize_preview_supergraph",
+    "inspect_graph_preview",
     "inspect_status",
     "reconcile_normalized_recap",
 ]
@@ -56,6 +71,13 @@ class RecapIngestRequest(BaseModel):
     force_stage: bool = False
     force_recap: bool = False
     check: bool = False
+    candidate_graph_path: str | None = None
+    force_graph_run: bool = False
+    extract_graph: bool = False
+    graph_model_id: str | None = None
+    materialize_after_extract: bool = False
+    include_graph_extraction: bool = True
+    include_legacy_breadcrumb: bool = False
 
 
 class RecapIngestStatusResponse(BaseModel):
@@ -120,6 +142,20 @@ def _run_routing_only_breadcrumb(
 def _add_unique(values: list[str], value: str) -> None:
     if value not in values:
         values.append(value)
+
+
+def _merge_stage_reuse_warning(status: dict[str, Any], staged_status: dict[str, Any] | None) -> dict[str, Any]:
+    if not staged_status or "staged_raw_notes_conflict" not in staged_status.get("states", []):
+        return status
+    for field in ("states", "warnings"):
+        values = status.setdefault(field, [])
+        for value in staged_status.get(field, []) or []:
+            if isinstance(value, str) and (
+                value.startswith("staged_raw_notes") or field == "warnings"
+            ):
+                _add_unique(values, value)
+    status.setdefault("ingest_report", {})["staged_raw_notes_reused_existing"] = True
+    return status
 
 
 def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path) -> dict[str, Any]:
@@ -226,6 +262,152 @@ def _run_breadcrumb_ingest_from_request(body: RecapIngestRequest, corpus: Path) 
     return status
 
 
+
+def _normalized_recap_graph_path(status: dict[str, Any], corpus: Path | None) -> str | None:
+    raw = status.get("paths", {}).get("normalized_recap")
+    if not raw:
+        return None
+    path = Path(str(raw))
+    if path.is_absolute():
+        return str(path) if path.is_file() else None
+    roots: list[Path] = []
+    if corpus is not None:
+        roots.append(corpus)
+    roots.append(default_corpus_root())
+    for root in roots:
+        candidate = (root / path).resolve()
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _append_graph_status(status: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
+    status.setdefault("ingest_report", {})["graph_preview"] = graph
+    states = status.setdefault("states", [])
+    graph_state_by_status = {
+        "missing": "graph_preview_missing",
+        "source_span_bundle_ready": "graph_source_bundle_ready",
+        "candidate_validation_ready": "graph_candidate_ready",
+        "preview_union_store_ready": "preview_union_store_ready",
+        "failed": "graph_preview_failed",
+    }
+    state = graph_state_by_status.get(str(graph.get("status")))
+    if state and state not in states:
+        states.append(state)
+    next_actions = status.setdefault("next_actions", [])
+    for action in graph.get("next_actions", []) or []:
+        if action not in next_actions:
+            next_actions.append(action)
+    return status
+
+
+def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+    normalized = _normalized_recap_graph_path(status, corpus)
+    graph = inspect_recap_graph_preview_status(
+        repo_root=repo_root(),
+        campaign_id=body.campaign_id,
+        session=body.session,
+        normalized_recap_path=normalized,
+    )
+    return _append_graph_status(status, graph)
+
+
+def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
+    active_corpus = (corpus or default_corpus_root()).resolve()
+    staged_reuse_status: dict[str, Any] | None = None
+
+    status = inspect_recap_ingest_status(
+        campaign_id=body.campaign_id,
+        session=body.session,
+        title=body.title,
+        slug=body.slug,
+        corpus=corpus,
+    )
+
+    if (body.raw_text or "").strip():
+        stage_body = body.model_copy(update={"operation": "stage_preview"})
+        status = run_pipeline(
+            _options_for_request(stage_body),
+            stdin=io.StringIO(body.raw_text or ""),
+            corpus=corpus,
+        )
+        if status.get("status") == "error" or ("staged_raw_notes_conflict" in status.get("states", []) and not body.force_stage):
+            if status.get("status") == "error":
+                return status
+            staged_reuse_status = status
+
+    applied = {"recap_applied", "recap_reused", "normalized_created", "normalized_reused"}
+    if not applied.intersection(status.get("states", [])):
+        apply_body = body.model_copy(update={"operation": "apply_normalize"})
+        status = run_pipeline(_options_for_request(apply_body), corpus=corpus)
+        if status.get("status") in {"error", "needs_reconciliation"}:
+            return status
+
+    if body.include_graph_extraction:
+        normalized = _normalized_recap_graph_path(status, corpus)
+        if normalized:
+            graph = materialize_recap_preview_supergraph(
+                repo_root=repo_root(),
+                campaign_id=body.campaign_id,
+                session=body.session,
+                normalized_recap_path=normalized,
+                extract_graph=True,
+                graph_model_id=body.graph_model_id or resolve_category_graph_model(None),
+                force_graph_run=body.force_graph_run,
+            )
+            status = _append_graph_status(status, graph)
+            if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
+                _add_unique(
+                    status.setdefault("warnings", []),
+                    f"preview graph extraction blocked: {graph.get('blocked_reason') or 'unknown reason'}",
+                )
+            if graph.get("status") == "preview_union_store_ready":
+                ensure_graph_ingest_projection_payload(
+                    repo_root=repo_root(),
+                    manifest_path=graph.get("manifest_path"),
+                    session_id=f"session-{body.session}",
+                )
+            if status.get("status") not in {"error", "needs_reconciliation"}:
+                status["status"] = "ready_for_planning_activation"
+        else:
+            _add_unique(
+                status.setdefault("warnings", []),
+                "preview graph extraction skipped: normalized recap path could not be resolved",
+            )
+
+    if body.include_legacy_breadcrumb:
+        if "frontmatter_seed_found" not in status.get("states", []):
+            status = _build_frontmatter_seed_from_request(body, active_corpus)
+            if status.get("status") == "error":
+                return status
+
+        if "breadcrumb_found" not in status.get("states", []):
+            status = _run_breadcrumb_ingest_from_request(body, active_corpus)
+            if status.get("status") == "error":
+                return status
+
+        if "session_memory_materialized" not in status.get("states", []):
+            materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
+            status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
+            if status.get("status") in {"error", "needs_reconciliation"}:
+                return status
+        if status.get("status") != "ready_for_planning_activation":
+            status["status"] = "ready_for_planning_activation"
+    else:
+        _add_unique(
+            status.setdefault("warnings", []),
+            "legacy_breadcrumb_skipped: graph-first ingest did not run frontmatter, breadcrumb, or session memory",
+        )
+
+    return _merge_stage_reuse_warning(status, staged_reuse_status)
+
 def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
     operation = body.operation
     if operation == "stage_preview":
@@ -305,14 +487,51 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
 def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
     try:
         corpus = _pipeline_corpus_root()
+        if body.operation == "generate_recap_memory":
+            return _generate_recap_memory_from_request(body, corpus)
         if body.operation == "inspect_status":
-            return inspect_recap_ingest_status(
+            return _inspect_status_with_graph(body, corpus)
+        if body.operation == "inspect_graph_preview":
+            return _inspect_status_with_graph(body, corpus)
+        if body.operation in {"build_graph_preview_bundle", "materialize_preview_supergraph"}:
+            status = inspect_recap_ingest_status(
                 campaign_id=body.campaign_id,
                 session=body.session,
                 title=body.title,
                 slug=body.slug,
                 corpus=corpus,
             )
+            normalized = _normalized_recap_graph_path(status, corpus)
+            if body.extract_graph and body.candidate_graph_path:
+                raise HTTPException(
+                    status_code=422,
+                    detail="candidate_graph_path cannot be combined with extract_graph=true",
+                )
+            if body.operation == "build_graph_preview_bundle":
+                if not normalized:
+                    raise HTTPException(status_code=422, detail="normalized recap missing")
+                graph = build_recap_graph_preview_bundle(
+                    repo_root=repo_root(),
+                    campaign_id=body.campaign_id,
+                    session=body.session,
+                    normalized_recap_path=normalized,
+                    force_graph_run=body.force_graph_run,
+                    candidate_graph_path=body.candidate_graph_path,
+                    extract_graph=body.extract_graph,
+                    graph_model_id=body.graph_model_id,
+                )
+            else:
+                graph = materialize_recap_preview_supergraph(
+                    repo_root=repo_root(),
+                    campaign_id=body.campaign_id,
+                    session=body.session,
+                    normalized_recap_path=normalized,
+                    candidate_graph_path=body.candidate_graph_path,
+                    extract_graph=body.extract_graph or body.materialize_after_extract,
+                    graph_model_id=body.graph_model_id,
+                    force_graph_run=body.force_graph_run,
+                )
+            return _append_graph_status(status, graph)
         if body.operation == "build_frontmatter_seed":
             return _build_frontmatter_seed_from_request(
                 body,

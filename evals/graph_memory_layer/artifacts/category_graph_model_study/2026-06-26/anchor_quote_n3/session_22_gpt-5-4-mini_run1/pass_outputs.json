@@ -1,0 +1,1335 @@
+{
+  "actor_pass": {
+    "observation_nodes": [
+      {
+        "node_id": "n1",
+        "label": "Professor Tealeaf",
+        "node_type": "character",
+        "description": "A trusted contact in Mirathorn’s Wizard’s College, chosen as a recipient for an urgent status message about trouble contacting the city.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "Professor Tealeaf",
+              "Wizard’s College"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n2",
+        "label": "Grobnok",
+        "node_type": "character",
+        "description": "A city contact who receives an encoded message, later reports that Mirathorn is facing renewed corruption outbreak, mercenaries, and cult activity; he remains the group’s evening contact.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "an encoded message to Grobnok"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "it is Grobnok",
+              "Grobnok took the rockie-talkie from Frank",
+              "He and Tealeaf are working together"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "Ephanna gets another call from Grobnok",
+              "there is an uneasy truce between the mercenaries and the “meat heads”"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n3",
+        "label": "Frank",
+        "node_type": "character",
+        "description": "A person in Mirathorn who had been handling the rockie-talkie before Grobnok says he has been compromised.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "Grobnok took the rockie-talkie from Frank",
+              "after it appears he has been compromised"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n4",
+        "label": "Sara",
+        "node_type": "character",
+        "description": "A missing city contact mentioned during Grobnok’s update; Grobnok has not seen her recently.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "he has not seen Sara recently"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n5",
+        "label": "Commander Vale",
+        "node_type": "character",
+        "description": "A military authority in Mirathorn that Private Hester advises Lysandra to speak to before entering the swamp.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "speak to Commander Vale before heading into the swamp"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n6",
+        "label": "Private Hester",
+        "node_type": "character",
+        "description": "An Elderwild Reach soldier on horseback carrying reports for Mirathorn; she warns the party that the swamp situation sounds dangerous and urges them to consult Commander Vale.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "she introduces herself as Private Hester",
+              "reports for Mirathorn",
+              "speak to Commander Vale before heading into the swamp"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n7",
+        "label": "Dustwalker",
+        "node_type": "character",
+        "description": "A performer at the festival whose song is later hummed by the whole group.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p009",
+            "anchor_quotes": [
+              "the song they all heard the Dustwalker perform at the festival"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "n8",
+        "label": "Lysandro",
+        "node_type": "character",
+        "description": "Lysandra’s father, encountered at the end of the session when the group reaches a guarded wall and he recognizes her.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p014",
+            "anchor_quotes": [
+              "“Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "location_pass": {
+    "observation_nodes": [
+      {
+        "node_id": "location:session22:mireward_road",
+        "label": "Mireward Road",
+        "node_type": "location",
+        "description": "The road/travel route the group follows north toward Mireward, with travel impacted by storms and a hail event.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p002",
+            "anchor_quotes": [
+              "Mireward",
+              "head back to the wagon"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p009",
+            "anchor_quotes": [
+              "at the fork in the road, is a small building and a sign indicating Mireward 20 miles north"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:reach_golden_fields",
+        "label": "the Reach / the Golden Fields",
+        "node_type": "location",
+        "description": "The northern region and vast fields the group focuses on at the start of the session.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p002",
+            "anchor_quotes": [
+              "the Reach; the vast Golden Fields to the north"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:mirathorn",
+        "label": "Mirathorn",
+        "node_type": "location",
+        "description": "The city the group tries to contact, later discussed as a return destination and reference point for messages and reports.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p002",
+            "anchor_quotes": [
+              "a multiday journey back to Mirathorn"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p003",
+            "anchor_quotes": [
+              "contact Mirathorn"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p005",
+            "anchor_quotes": [
+              "reports for Mirathorn"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:wizard_college",
+        "label": "Wizard’s College",
+        "node_type": "location",
+        "description": "A city sublocation identified as the likely place to contact Professor Tealeaf, considered less likely to be affected by nefarious activity.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p003",
+            "anchor_quotes": [
+              "the Wizard’s College is the least likely to be affected"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:elderwild_reach",
+        "label": "Elderwild Reach",
+        "node_type": "location",
+        "description": "A military or regional affiliation zone represented by the soldier uniform recognized by Stafl.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p005",
+            "anchor_quotes": [
+              "the soldier’s uniform of the Elderwild Reach"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:swamp",
+        "label": "the swamp",
+        "node_type": "location",
+        "description": "The destination the group is instructed to continue toward, believed to be the origin of the problem and cult activity.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p007",
+            "anchor_quotes": [
+              "continue on to the swamp where they believe this problem originates"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p005",
+            "anchor_quotes": [
+              "before heading into the swamp"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:camp_site_roadside",
+        "label": "roadside camp / campfire site",
+        "node_type": "location",
+        "description": "Temporary camping spot beside the road where the group spends the night, takes watches, and receives the rockie-talkie update.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p006",
+            "anchor_quotes": [
+              "looking for a good place to stop for the night"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p007",
+            "anchor_quotes": [
+              "sitting around the fire"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p008",
+            "anchor_quotes": [
+              "The group sits quietly near the fire"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:storm_zone",
+        "label": "storm zone / meeting storms",
+        "node_type": "location",
+        "description": "A weather-affected travel zone where storms converge, including a major hail storm that forces sheltering.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p004",
+            "anchor_quotes": [
+              "a gigantic storm from the west appears to be merging with a storm coming from the south"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p008",
+            "anchor_quotes": [
+              "Where the two storms are meeting it appears to be hazy, but Caelynn quickly determines it is a huge hail storm"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p010",
+            "anchor_quotes": [
+              "an incredible wall of hail smashes into the building and the surrounding area"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:abandoned_restaurant",
+        "label": "abandoned restaurant",
+        "node_type": "location",
+        "description": "A roadside abandoned restaurant specializing in meat on a stick, used as shelter during the hail storm.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p010",
+            "anchor_quotes": [
+              "The small building turns out to be an abandoned restaurant specializing in meat on a stick"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:storage_area",
+        "label": "storage area",
+        "node_type": "location",
+        "description": "A small storage area accessed through a trapdoor inside the abandoned restaurant.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p010",
+            "anchor_quotes": [
+              "a trapdoor leading to a small storage area"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:mireward_sign_fork",
+        "label": "fork in the road to Mireward",
+        "node_type": "location",
+        "description": "A road fork marked by a sign pointing north toward Mireward and a small building nearby.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p009",
+            "anchor_quotes": [
+              "at the fork in the road, is a small building and a sign indicating Mireward 20 miles north"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "location:session22:lysandro_guard_post",
+        "label": "wall / guard post",
+        "node_type": "location",
+        "description": "A wall in the darkness with a guard at the top who stops the group and identifies Lysandra's father.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "session-22:p013",
+            "anchor_quotes": [
+              "they spot a wall in the darkness and can just make out a person standing guard at the top"
+            ]
+          },
+          {
+            "source_span_ref_id": "session-22:p014",
+            "anchor_quotes": [
+              "And that is how they all met her father Lysandro"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "collective_pass": {
+    "observation_nodes": [
+      {
+        "node_id": "faction_wizard_college",
+        "label": "Wizard’s College",
+        "node_type": "faction",
+        "description": "The college in Mirathorn referenced as a likely safe place to contact, implying an established magical institution in the city.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "Wizard’s College"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "organization_city_council",
+        "label": "the council",
+        "node_type": "organization",
+        "description": "The city governing body in Mirathorn that coordinated response to the outbreak and instructed the party to continue toward the swamp.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "the council was not able to find all the corrupted meat in time",
+              "The council instructs the group to continue on to the swamp"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "organization_city_guard",
+        "label": "city guard",
+        "node_type": "organization",
+        "description": "Mirathorn's guard force, described as decimated and further reduced by corruption during the outbreak.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "The decimated city guard is further reduced by the corruption"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "group_mercenaries",
+        "label": "mercenaries",
+        "node_type": "group",
+        "description": "Hired armed group brought in by the council to help restore control during the city outbreak.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "the council had no other option but to hire mercenaries"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "faction_meat_heads",
+        "label": "the “meat heads”",
+        "node_type": "faction",
+        "description": "A faction or faction-like group in Mirathorn associated with the corrupted meat outbreak and recruitment for the Shepherd.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "the “meat heads”",
+              "the “meat heads” have become more vocal and open in the recruitment for the Shepherd"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "organization_the_shepherd",
+        "label": "the Shepherd",
+        "node_type": "organization",
+        "description": "A cult-like organization or movement being openly recruited for within the city.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "the recruitment for the Shepherd"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "faction_eldrewild_reach",
+        "label": "Elderwild Reach",
+        "node_type": "faction",
+        "description": "Military or regional affiliation represented by the soldier's uniform worn by Private Hester.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "the soldier’s uniform of the Elderwild Reach"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "organization_questionable_company",
+        "label": "Questionable Company",
+        "node_type": "organization",
+        "description": "The party collective traveling together on the journey north.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p002",
+            "anchor_quotes": [
+              "The group turns their focus"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "object_pass": {
+    "observation_nodes": [
+      {
+        "node_id": "item_session22_001",
+        "label": "silver raven",
+        "node_type": "item",
+        "description": "A silver raven used to send a spoken and written message toward the city, expected to take the rest of the day to arrive.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "They send off a silver raven"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "item_session22_002",
+        "label": "rockie-talkie",
+        "node_type": "item",
+        "description": "A communication device used repeatedly to try contacting Mirathorn and later to receive updates from Grobnok.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "After another failed attempt to contact Mirathorn by rockie-talkie"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "Ephanna gets another call from Grobnok"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "thread_pass": {
+    "observation_nodes": [
+      {
+        "node_id": "mystery_session22_001",
+        "label": "Rockie-talkie contact with Mirathorn is failing or compromised",
+        "node_type": "mystery",
+        "description": "The group repeatedly fails to contact Mirathorn directly, then receives partial, concerning updates suggesting the city comms chain may be compromised or controlled by someone else.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "After another failed attempt to contact Mirathorn by rockie-talkie",
+              "send a message to Professor Tealeaf",
+              "an encoded message to Grobnok in case the message gets intercepted"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "Grobnok took the rockie-talkie from Frank after it appears he has been compromised"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "Then, not fully trusting her, or anyone from the city, takes it back and gives it to Caelynn."
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_002",
+        "label": "Delayed reflections in puddles indicate anomalous conjuration magic",
+        "node_type": "mystery",
+        "description": "The puddles on the road show a persistent delay in reflections, and magical inspection suggests conjuration and possible planar bleed originating from elsewhere.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p004",
+            "anchor_quotes": [
+              "something is wrong with the reflections in the puddles",
+              "The reflections are somewhat delayed"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p006",
+            "anchor_quotes": [
+              "the magic in the puddle is from conjuration"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "it appears the magic is some sort of bleed from another plane of existence"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_003",
+        "label": "Swamp-related corruption outbreak is spreading in Mirathorn",
+        "node_type": "mystery",
+        "description": "Reports from the city describe a renewed corruption outbreak, decimated city defenses, mercenary intervention, and a likely origin in the swamp.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "the council was not able to find all the corrupted meat in time and now there is a full blown outbreak once again",
+              "The decimated city guard is further reduced by the corruption",
+              "the council instructs the group to continue on to the swamp where they believe this problem originates"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_004",
+        "label": "Mysterious music and involuntary humming affect travelers",
+        "node_type": "mystery",
+        "description": "The party and others hear or hum the same song, linked to a rhythm heard at night and the Dustwalker’s festival performance, suggesting an ongoing enchantment or influence.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "reports of mysterious music and people walking into the swamp"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p008",
+            "anchor_quotes": [
+              "a rhythmic sound on the wind coming from the north",
+              "a strange mist, with a familiar savory flavor"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p009",
+            "anchor_quotes": [
+              "one by one the each member realizes they are humming some sort of song",
+              "they are all humming the same song",
+              "the song they all heard the Dustwalker perform at the festival"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_005",
+        "label": "People walking into the swamp do not respond when stopped",
+        "node_type": "mystery",
+        "description": "Private Hester reports that individuals are moving into the swamp under suspicious circumstances and appear unresponsive, matching prior glassy-eyed corruption signs.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "people walking into the swamp, none of them responding when stopped",
+              "the glassy eyes they have seen countless times"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_006",
+        "label": "Storms are converging into a dangerous hail event",
+        "node_type": "mystery",
+        "description": "Two major storms appear to be merging, culminating in a wall of hail that forces the group to shelter and may indicate an abnormal weather event.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p004",
+            "anchor_quotes": [
+              "a gigantic storm from the west appears to be merging with a storm coming from the south"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p008",
+            "anchor_quotes": [
+              "a major storm is coming",
+              "it appears to be a huge hail storm"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p010",
+            "anchor_quotes": [
+              "an incredible wall of hail smashes into the building and the surrounding area"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_007",
+        "label": "The abandoned restaurant was recently vacated under unclear circumstances",
+        "node_type": "mystery",
+        "description": "A roadside restaurant appears recently abandoned, with a cryptic sign and preserved dishes, hinting at an abrupt departure and possible warning.",
+        "importance": "low",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p010",
+            "anchor_quotes": [
+              "the place was only recently abandoned, no more than a week ago",
+              "headed south, north wrong"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_008",
+        "label": "Door knocking is heard but no door can be found",
+        "node_type": "mystery",
+        "description": "Karsemine hears knocking on a door in the dark, but cannot locate any door or source, suggesting an unexplained presence or illusion.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p011",
+            "anchor_quotes": [
+              "Karsemine hears a distinctive sound: knocking on a door",
+              "cannot find anything that would have a door"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_009",
+        "label": "The Shepherd cult is recruiting more openly",
+        "node_type": "mystery",
+        "description": "Grobnok reports that the 'meat heads' are becoming more vocal about recruitment for the Shepherd, indicating an expanding cult presence in the city.",
+        "importance": "high",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "the “meat heads” have become more vocal and open in the recruitment for the Shepherd"
+            ]
+          }
+        ]
+      },
+      {
+        "node_id": "mystery_session22_010",
+        "label": "Lysandra's leadership and motivations are under scrutiny",
+        "node_type": "mystery",
+        "description": "Stafl tests Lysandra with magic to discern her intentions, and she states her goal is to keep the team focused on destroying the source of the cult.",
+        "importance": "medium",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p013",
+            "anchor_quotes": [
+              "Stalf casts Suggestion on Lysandra, intending to find out her motivations",
+              "her goal is to keep the team focused on going to the swamp and destroying the source of the cult"
+            ]
+          }
+        ]
+      }
+    ],
+    "ignored_items": [
+      {
+        "item_id": "ignored_session22_001",
+        "label": "Deterministic party anchors",
+        "reason": "Party names and anchored character hubs were provided as deterministic context and should not be re-extracted as session-novel nodes.",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p001",
+            "anchor_quotes": [
+              "title: Session 22 - Mireward Road and Lysandro"
+            ]
+          }
+        ]
+      },
+      {
+        "item_id": "ignored_session22_002",
+        "label": "Routine travel and camp logistics",
+        "reason": "These are normal journey details without clear mystery or unresolved thread value on their own.",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p002",
+            "anchor_quotes": [
+              "The first thing to do is break their camp and head back to the wagon"
+            ]
+          }
+        ]
+      }
+    ],
+    "deferred_items": [
+      {
+        "item_id": "deferred_session22_001",
+        "label": "Frank, Sara, and the compromised city network",
+        "reason": "The recap indicates Frank has been compromised and Sara is missing, but no direct identity, cause, or current status is resolved here.",
+        "suggested_next_step": "Check later recaps or character/NPC readmes for Frank and Sara references, then connect the compromise chain to city outbreak events.",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "Grobnok took the rockie-talkie from Frank after it appears he has been compromised",
+              "he has not seen Sara recently"
+            ]
+          }
+        ]
+      },
+      {
+        "item_id": "deferred_session22_002",
+        "label": "Source and mechanism of the swamp corruption",
+        "reason": "The city believes the swamp is the origin, but the exact entity or process behind the corruption remains unresolved in this packet.",
+        "suggested_next_step": "Review subsequent sessions for swamp exploration, cult revelations, or direct confrontation with the source.",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "the council instructs the group to continue on to the swamp where they believe this problem originates"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p013",
+            "anchor_quotes": [
+              "destroying the source of the cult"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "beat_pass": {
+    "observation_beats": [
+      {
+        "beat_id": "beat_01",
+        "order": 1,
+        "title": "Setting out toward Mireward after failed contact with Mirathorn",
+        "summary": "The group shifts focus to the Reach and decides to continue north toward Mireward. After another failed attempt to reach Mirathorn, they choose to send messages to trusted contacts and then resume travel with stormy weather building around them.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p002",
+            "anchor_quotes": [
+              "The group turns their focus to the Reach",
+              "their destination is Mireward",
+              "The trail is damp from the rain and a magical sheen lies everywhere"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p003",
+            "anchor_quotes": [
+              "After another failed attempt to contact Mirathorn by rockie-talkie",
+              "send a message to Professor Tealeaf",
+              "an encoded message to Grobnok"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_02",
+        "order": 2,
+        "title": "Suspicious travel signs and the arrival of Private Hester",
+        "summary": "While traveling north, the party notices strange reflection delays in puddles, then stops to help a mounted Reach soldier delivering reports to Mirathorn. Hester reports mysterious music, people walking into the swamp, and warns Lysandra that the party will need more help before confronting the problem.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p004",
+            "anchor_quotes": [
+              "something is wrong with the reflections in the puddles",
+              "the reflections are somewhat delayed"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p005",
+            "anchor_quotes": [
+              "Private Hester",
+              "mysterious music and people walking into the swamp",
+              "they would need a much bigger party",
+              "speak to Commander Vale"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_03",
+        "order": 3,
+        "title": "Camp investigation confirms magical disturbance",
+        "summary": "The group investigates the puddle phenomenon at camp, discovering conjuration magic and evidence that the effect may be a planar bleed. A vial is identified as unsafe to drink, and concern grows about the impact on the local environment.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p006",
+            "anchor_quotes": [
+              "the magic in the puddle is from conjuration",
+              "nothing else happens",
+              "looking for a good place to stop for the night"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "no one should drink it",
+              "the magic is some sort of bleed from another plane of existence",
+              "They are even more concerned about the effect this will have on the flora and fauna in the area"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_04",
+        "order": 4,
+        "title": "Grobnok reports a worsening city crisis and directs them to the swamp",
+        "summary": "A call from Grobnok reveals that Mirathorn is still in serious trouble: corruption has spread again, the city guard is depleted, mercenaries have been hired, and Grobnok and Tealeaf are trying to stabilize the situation. The group is instructed to continue to the swamp, and Grobnok becomes the only expected contact going forward.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p007",
+            "anchor_quotes": [
+              "Grobnok took the rockie-talkie from Frank",
+              "a full blown outbreak once again",
+              "the council had no other option but to hire mercenaries",
+              "continue on to the swamp where they believe this problem originates",
+              "the only one contacting the group going forward"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_05",
+        "order": 5,
+        "title": "Storm watch, morning travel, and the return of the shared song",
+        "summary": "After a quiet night and strange sounds on watch, the party leaves camp as a major hailstorm approaches. Their travel becomes easier emotionally, Lysandra opens up about leadership pressure, and the whole group starts humming the same song tied to the Dustwalker performance. Mireward is now close.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p008",
+            "anchor_quotes": [
+              "a major storm is coming",
+              "it is a huge hail storm",
+              "be on the lookout for any place to shelter"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p009",
+            "anchor_quotes": [
+              "Lysandra opens up to Ephanna",
+              "She is upset with how difficult it is to keep Mirathorn out of trouble",
+              "they are all humming the same song",
+              "the song they all heard the Dustwalker perform at the festival",
+              "Mireward 20 miles north"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_06",
+        "order": 6,
+        "title": "Abandoned roadside stop shelters the party from hail",
+        "summary": "The party discovers an abandoned restaurant recently vacated with unsettling signage and a few leftovers. Suspecting the storm cannot be outrun, they shelter inside and brace the structure just as a wall of hail hits.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p010",
+            "anchor_quotes": [
+              "an abandoned restaurant specializing in meat on a stick",
+              "headed south, north wrong",
+              "they may not be able to beat the storm north",
+              "take shelter in the building",
+              "an incredible wall of hail smashes into the building"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_07",
+        "order": 7,
+        "title": "Unexplained knocking and a troubling city update",
+        "summary": "After the storm passes, the group resumes travel but soon hears an unexplained knocking sound with no visible source. Another call from Grobnok reports worsening tensions inside the city, including visible recruitment by the Shepherd and a newly infected gnome, raising concern about the cult's spread.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p011",
+            "anchor_quotes": [
+              "Karsemine hears a distinctive sound: knocking on a door",
+              "cannot find anything that would have a door"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p012",
+            "anchor_quotes": [
+              "things are not getting better",
+              "the “meat heads” have become more vocal and open in the recruitment for the Shepherd",
+              "a gnome was found within the city to have the shimmering eyes"
+            ]
+          }
+        ]
+      },
+      {
+        "beat_id": "beat_08",
+        "order": 8,
+        "title": "Lysandra’s intent is tested, then Lysandro is met at the wall",
+        "summary": "Stafl uses magic to probe Lysandra's motives and she states her goal clearly: keep the team focused on reaching the swamp and destroying the source of the cult. Soon after, the group reaches a guarded wall at night, where a standing figure challenges them and recognizes Lysandra as his daughter, revealing her father Lysandro.",
+        "involved_node_ids": [],
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref:session-22:p013",
+            "anchor_quotes": [
+              "Stalf casts Suggestion on Lysandra",
+              "her goal is to keep the team focused on going to the swamp and destroying the source of the cult",
+              "a person standing guard at the top",
+              "our leader should step forward"
+            ]
+          },
+          {
+            "source_span_ref_id": "spref:session-22:p014",
+            "anchor_quotes": [
+              "Is that little Lysandra?",
+              "No dad, it’s Lieutenant Lysandra now",
+              "they all met her father Lysandro"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "edge_pass": {
+    "observation_edges": [
+      {
+        "edge_id": "e1",
+        "from_node_id": "n1",
+        "to_node_id": "faction_wizard_college",
+        "label": "affiliated_with",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_01",
+            "anchor_quotes": [
+              "Professor Tealeaf",
+              "Wizard’s College"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e2",
+        "from_node_id": "n5",
+        "to_node_id": "organization_city_guard",
+        "label": "associated_with",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_02",
+            "anchor_quotes": [
+              "Commander Vale",
+              "city guard"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e3",
+        "from_node_id": "n6",
+        "to_node_id": "organization_city_guard",
+        "label": "associated_with",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_02",
+            "anchor_quotes": [
+              "Private Hester",
+              "city guard"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e4",
+        "from_node_id": "n2",
+        "to_node_id": "faction_meat_heads",
+        "label": "member_of",
+        "relationship_type": "membership",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_03",
+            "anchor_quotes": [
+              "Grobnok",
+              "the “meat heads”"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e5",
+        "from_node_id": "n7",
+        "to_node_id": "faction_eldrewild_reach",
+        "label": "associated_with",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_04",
+            "anchor_quotes": [
+              "Dustwalker",
+              "Elderwild Reach"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e6",
+        "from_node_id": "n8",
+        "to_node_id": "location:session22:lysandro_guard_post",
+        "label": "at",
+        "relationship_type": "location",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_05",
+            "anchor_quotes": [
+              "Lysandro",
+              "wall / guard post"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e7",
+        "from_node_id": "n3",
+        "to_node_id": "location:session22:mireward_road",
+        "label": "at",
+        "relationship_type": "location",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_06",
+            "anchor_quotes": [
+              "Frank",
+              "Mireward Road"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e8",
+        "from_node_id": "n4",
+        "to_node_id": "location:session22:camp_site_roadside",
+        "label": "at",
+        "relationship_type": "location",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_07",
+            "anchor_quotes": [
+              "Sara",
+              "campfire site"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e9",
+        "from_node_id": "item_session22_001",
+        "to_node_id": "organization_questionable_company",
+        "label": "used_by",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_08",
+            "anchor_quotes": [
+              "silver raven",
+              "Questionable Company"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e10",
+        "from_node_id": "item_session22_002",
+        "to_node_id": "organization_questionable_company",
+        "label": "used_by",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_08",
+            "anchor_quotes": [
+              "rockie-talkie",
+              "Questionable Company"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e11",
+        "from_node_id": "mystery_session22_001",
+        "to_node_id": "item_session22_002",
+        "label": "involves",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_09",
+            "anchor_quotes": [
+              "Rockie-talkie contact with Mirathorn is failing or compromised"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e12",
+        "from_node_id": "mystery_session22_003",
+        "to_node_id": "location:session22:mirathorn",
+        "label": "affects",
+        "relationship_type": "causal",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_10",
+            "anchor_quotes": [
+              "Swamp-related corruption outbreak is spreading in Mirathorn",
+              "Mirathorn"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e13",
+        "from_node_id": "mystery_session22_004",
+        "to_node_id": "location:session22:roadside camp",
+        "label": "occurs_at",
+        "relationship_type": "location",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_11",
+            "anchor_quotes": [
+              "Mysterious music and involuntary humming affect travelers"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e14",
+        "from_node_id": "mystery_session22_005",
+        "to_node_id": "location:session22:swamp",
+        "label": "involves",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_12",
+            "anchor_quotes": [
+              "People walking into the swamp do not respond when stopped",
+              "the swamp"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e15",
+        "from_node_id": "mystery_session22_006",
+        "to_node_id": "location:session22:storm_zone",
+        "label": "concerns",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_13",
+            "anchor_quotes": [
+              "Storms are converging into a dangerous hail event",
+              "storm"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e16",
+        "from_node_id": "mystery_session22_007",
+        "to_node_id": "location:session22:abandoned_restaurant",
+        "label": "concerns",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_14",
+            "anchor_quotes": [
+              "The abandoned restaurant was recently vacated under unclear circumstances",
+              "abandoned restaurant"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e17",
+        "from_node_id": "mystery_session22_008",
+        "to_node_id": "location:session22:abandoned_restaurant",
+        "label": "occurs_at",
+        "relationship_type": "location",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_15",
+            "anchor_quotes": [
+              "Door knocking is heard but no door can be found",
+              "door knocking"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e18",
+        "from_node_id": "mystery_session22_009",
+        "to_node_id": "organization_the_shepherd",
+        "label": "concerns",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_16",
+            "anchor_quotes": [
+              "The Shepherd cult is recruiting more openly",
+              "The Shepherd"
+            ]
+          }
+        ]
+      },
+      {
+        "edge_id": "e19",
+        "from_node_id": "mystery_session22_010",
+        "to_node_id": "n8",
+        "label": "concerns",
+        "relationship_type": "association",
+        "evidence_refs": [
+          {
+            "source_span_ref_id": "spref_17",
+            "anchor_quotes": [
+              "Lysandra's leadership and motivations are under scrutiny"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

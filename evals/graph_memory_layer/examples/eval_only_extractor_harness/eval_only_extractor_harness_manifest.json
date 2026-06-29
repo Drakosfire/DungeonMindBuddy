@@ -1,0 +1,32 @@
+{
+  "schema": "dmb_eval_only_extractor_harness_manifest_v0",
+  "version": "0.1",
+  "harness_id": "graph-memory:eval-only-extractor-harness:v0",
+  "campaign_id": "longmont-c2",
+  "target_session": 23,
+  "execution_mode": "eval_only_fixture",
+  "contract_id": "graph-memory:multi-pass-extraction-contract:v0",
+  "contract_manifest_path": "evals/graph_memory_layer/examples/multi_pass_extraction_contract/multi_pass_extraction_contract.json",
+  "session_23_contract_fixture_path": "evals/graph_memory_layer/examples/multi_pass_extraction_contract/session_23_contract_fixture.json",
+  "session_23_expected_pass_outline_path": "evals/graph_memory_layer/examples/multi_pass_extraction_contract/session_23_expected_pass_outline.json",
+  "gold_comparison_contract_path": "evals/graph_memory_layer/examples/multi_pass_extraction_contract/session_23_gold_comparison_contract.json",
+  "source_fixture_id": "graph-memory:session-23-recap-ingest:v0",
+  "gold_fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+  "candidate_output_bundle_path": "evals/graph_memory_layer/examples/eval_only_extractor_harness/session_23_candidate_output_bundle.sample.json",
+  "expected_comparison_report_path": "evals/graph_memory_layer/examples/eval_only_extractor_harness/session_23_expected_comparison_report.sample.json",
+  "diagnostics": {
+    "eval_only_fixture": true,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}

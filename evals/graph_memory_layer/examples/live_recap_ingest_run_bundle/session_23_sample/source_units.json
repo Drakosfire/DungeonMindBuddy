@@ -1,0 +1,182 @@
+{
+  "schema": "dmb_live_recap_source_units_v0",
+  "source_artifact_id": "source-artifact:longmont-c2:session-23:live-recap-v0",
+  "unitization": {
+    "blank_lines_preserved": true,
+    "heading_count": 0,
+    "line_count": 38,
+    "mode": "markdown_line_and_paragraph_units",
+    "paragraph_count": 14
+  },
+  "units": [
+    {
+      "char_end": 264,
+      "char_start": 0,
+      "contains_raw_full_text": false,
+      "line_end": 12,
+      "line_start": 1,
+      "ordinal": 1,
+      "source_unit_id": "srcunit:session-23:p001",
+      "text_hash": "e8d490f188e912565739792bcc9d76289e20cedb2453a81516f3e18c955631b8",
+      "text_preview": "--- title: \"Session 23 - Mireward Gate Battle\" document_class: play canon_layer: campaign campai",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 1140,
+      "char_start": 265,
+      "contains_raw_full_text": false,
+      "line_end": 14,
+      "line_start": 14,
+      "ordinal": 2,
+      "source_unit_id": "srcunit:session-23:p002",
+      "text_hash": "0784f4f817feb755a860c7f8b4dbf3d01973afaf304673d3d77bc561e69622f4",
+      "text_preview": "On top of the wall is a well dressed man in his mid 50s with an old worn military coat over his ",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 1756,
+      "char_start": 1141,
+      "contains_raw_full_text": false,
+      "line_end": 16,
+      "line_start": 16,
+      "ordinal": 3,
+      "source_unit_id": "srcunit:session-23:p003",
+      "text_hash": "5f705a97713f1b9c925fc2709afb066cdf516861082e34b431f6ddab16005774",
+      "text_preview": "Lysandra quickly reads the message to the group, which sounds exactly like the monsters they fac",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 2626,
+      "char_start": 1757,
+      "contains_raw_full_text": false,
+      "line_end": 18,
+      "line_start": 18,
+      "ordinal": 4,
+      "source_unit_id": "srcunit:session-23:p004",
+      "text_hash": "ff93475b764d6b362546dd86826ddac4293e0a8b5ac5e37f68560e7f81a29ab0",
+      "text_preview": "Another well dressed man, most likely a former merchant around the same age as Lysandro, address",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 3388,
+      "char_start": 2627,
+      "contains_raw_full_text": false,
+      "line_end": 20,
+      "line_start": 20,
+      "ordinal": 5,
+      "source_unit_id": "srcunit:session-23:p005",
+      "text_hash": "2e99222df2613fa6723897df54efc2d64e4cb5b0d922595a65dc49c70f26d4dc",
+      "text_preview": "Suddenly everyone can hear yelling and a loud bell ringing coming from outside. A very tired and",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 4221,
+      "char_start": 3389,
+      "contains_raw_full_text": false,
+      "line_end": 22,
+      "line_start": 22,
+      "ordinal": 6,
+      "source_unit_id": "srcunit:session-23:p006",
+      "text_hash": "a9b970ef0627dfbbc24f2ccf40e6d0607d78c6cc928e7a9cde10e9e7ad3aa9d0",
+      "text_preview": "Ephanna rushes to the gate, but protests just letting the people in. They are able to determine ",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 5206,
+      "char_start": 4222,
+      "contains_raw_full_text": false,
+      "line_end": 24,
+      "line_start": 24,
+      "ordinal": 7,
+      "source_unit_id": "srcunit:session-23:p007",
+      "text_hash": "73947a6cc026c3d587bc93fc502622f206e3deddadff0b56542d1117dd2b6d57",
+      "text_preview": "Stafl quickly forms a plan. He instructs the survivors to follow the wall around the city and to",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 5793,
+      "char_start": 5207,
+      "contains_raw_full_text": false,
+      "line_end": 26,
+      "line_start": 26,
+      "ordinal": 8,
+      "source_unit_id": "srcunit:session-23:p008",
+      "text_hash": "1f445507db7ae631553a7435a154c9adc57e5ec28cc4baee040d6c2e7c46a8c5",
+      "text_preview": "Karsemine and Ephanna are first to plan their attack. Karesmine steadies her bow, waiting for th",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 6624,
+      "char_start": 5794,
+      "contains_raw_full_text": false,
+      "line_end": 28,
+      "line_start": 28,
+      "ordinal": 9,
+      "source_unit_id": "srcunit:session-23:p009",
+      "text_hash": "f78e6a294bfd11d8219d95c7e7404d9f911f2f34619042cba656de6ba702307f",
+      "text_preview": "The terrifying tripod creatures, 15 feet tall, bulbous and covered in skulls, sink their legs in",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 7095,
+      "char_start": 6625,
+      "contains_raw_full_text": false,
+      "line_end": 30,
+      "line_start": 30,
+      "ordinal": 10,
+      "source_unit_id": "srcunit:session-23:p010",
+      "text_hash": "7e152442791e6d6bc01bd88b746d9b415f19a4daabdcf8f4276000dcba965b58",
+      "text_preview": "Lysandra steps forward and uses her Commanding Shout and commands Karsemine, Bonogo and Baergrom",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 7899,
+      "char_start": 7096,
+      "contains_raw_full_text": false,
+      "line_end": 32,
+      "line_start": 32,
+      "ordinal": 11,
+      "source_unit_id": "srcunit:session-23:p011",
+      "text_hash": "5efb507b172db62bba24e2ac1e4695d12556a75f1c1210cf0e1071ff89bb95e9",
+      "text_preview": "Back on the wall, Karsemine uses her Hunter\u2019s Mark on one of the tripod creatures, allowing her ",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 8696,
+      "char_start": 7900,
+      "contains_raw_full_text": false,
+      "line_end": 34,
+      "line_start": 34,
+      "ordinal": 12,
+      "source_unit_id": "srcunit:session-23:p012",
+      "text_hash": "179bd5d4297a0b415d33c6779308d8344b7a1d0f6be3aebe22ddcd41f53c0826",
+      "text_preview": "The giant sewer creatures both lumber closer to the wall, again taking damage from Ephanna\u2019s spe",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 9127,
+      "char_start": 8697,
+      "contains_raw_full_text": false,
+      "line_end": 36,
+      "line_start": 36,
+      "ordinal": 13,
+      "source_unit_id": "srcunit:session-23:p013",
+      "text_hash": "084290d70ccc1af5fe8c00ab0cdf8f83a18a7970a52c23ef9275092ce5844eb8",
+      "text_preview": "Meanwhile, the other six remaining meatwings from the horde move within range of the wall and be",
+      "unit_type": "paragraph"
+    },
+    {
+      "char_end": 9514,
+      "char_start": 9128,
+      "contains_raw_full_text": false,
+      "line_end": 38,
+      "line_start": 38,
+      "ordinal": 14,
+      "source_unit_id": "srcunit:session-23:p014",
+      "text_hash": "c969cd827cc073257e4db0ebfa722960ed4585414e6d8bab929d10b014ad9fd2",
+      "text_preview": "Along the wall the heroes can feel magic and the static of electricity building. Caelynn, furiou",
+      "unit_type": "paragraph"
+    }
+  ],
+  "version": "0.1"
+}

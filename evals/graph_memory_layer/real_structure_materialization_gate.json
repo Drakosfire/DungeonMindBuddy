@@ -1,0 +1,117 @@
+{
+  "version": "0.1",
+  "status": "active_gate",
+  "workstream": "graph_memory_ontology_taxonomy_ladder",
+  "purpose": "Decide which single real existing source family may be admitted for the next deterministic materializer PR.",
+  "current_phase": "post_synthetic_materializer_report",
+  "gate_decision": {
+    "admitted_source_family": "session_memory_jsonl_sentence_units",
+    "admitted_for_next_materializer": true,
+    "decision_rationale": [
+      "Already structured closer to source units than raw Markdown or corpus documents.",
+      "Can be materialized diagnostically without extraction, alias resolution, or inferred relationships.",
+      "Avoids making assumptions about the future Tiptap canonical document model.",
+      "Can produce useful coverage reports before any retrieval behavior changes."
+    ],
+    "next_pr_title": "graph-memory: add session-memory sentence-unit materializer v0"
+  },
+  "global_constraints": {
+    "no_production_retrieval_changes": true,
+    "no_corpus_mutation": true,
+    "no_llm_calls": true,
+    "no_entity_extraction": true,
+    "no_alias_resolution": true,
+    "no_relationship_inference": true,
+    "no_promoted_records": true,
+    "diagnostic_only_default": true,
+    "must_run_validation_rules": true,
+    "must_emit_report": true
+  },
+  "candidate_source_families": [
+    {
+      "id": "session_memory_jsonl_sentence_units",
+      "label": "Session-memory JSONL sentence/source-unit records",
+      "status": "admitted_next",
+      "risk_level": "medium",
+      "admitted_for_next_materializer": true,
+      "allowed_read_surfaces": [
+        "explicit session-memory JSONL fixture or configured path only"
+      ],
+      "forbidden_read_surfaces": [
+        "canonical corpus files",
+        "live-play manifests",
+        "activated manifests",
+        "Tiptap output",
+        "Markdown corpus scanning",
+        "production retrieval modules"
+      ],
+      "allowed_graph_record_shapes": [
+        "source_document",
+        "source_unit",
+        "route attachment if explicit",
+        "evidence role if explicit"
+      ],
+      "forbidden_graph_record_shapes": [
+        "campaign fact",
+        "entity identity merge",
+        "alias edge",
+        "inferred relationship",
+        "promoted claim",
+        "graph summary as source evidence"
+      ],
+      "required_record_defaults": {
+        "lifecycle_state": "candidate",
+        "visibility_state": "internal_diagnostic",
+        "evidence_role_default": "diagnostic_only"
+      },
+      "required_reports": [
+        "node count",
+        "edge count",
+        "source refs",
+        "provenance refs",
+        "validation issue summary",
+        "route/source-unit coverage if applicable"
+      ]
+    },
+    {
+      "id": "manifest_records",
+      "label": "Activated or manifest-backed retrieval records",
+      "status": "deferred",
+      "risk_level": "medium_high",
+      "admitted_for_next_materializer": false,
+      "defer_reason": "Manifest records are close to retrieval behavior and should wait until session-memory source-unit materialization reporting is proven."
+    },
+    {
+      "id": "markdown_source_documents",
+      "label": "Markdown source documents",
+      "status": "deferred",
+      "risk_level": "high",
+      "admitted_for_next_materializer": false,
+      "defer_reason": "Markdown source parsing may conflict with future Tiptap canonical document model and should not be first."
+    },
+    {
+      "id": "canonical_corpus_files",
+      "label": "Canonical corpus files",
+      "status": "blocked",
+      "risk_level": "high",
+      "admitted_for_next_materializer": false,
+      "defer_reason": "Canonical corpus mutation and broad corpus scanning remain forbidden in early ladder work."
+    },
+    {
+      "id": "tiptap_canonical_documents",
+      "label": "Tiptap canonical document structures",
+      "status": "deferred",
+      "risk_level": "unknown",
+      "admitted_for_next_materializer": false,
+      "defer_reason": "Tiptap backend model is not the source contract for this ladder yet."
+    },
+    {
+      "id": "live_play_records",
+      "label": "Live-play and activated runtime records",
+      "status": "blocked",
+      "risk_level": "high",
+      "admitted_for_next_materializer": false,
+      "defer_reason": "Live/runtime surfaces are too close to production behavior for first materialization."
+    }
+  ]
+}

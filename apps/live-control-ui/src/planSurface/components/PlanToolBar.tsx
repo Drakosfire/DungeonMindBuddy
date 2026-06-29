@@ -25,7 +25,15 @@ export function PlanToolBar({ config }: PlanToolBarProps) {
             onClick={() => openTool(tool.id)}
           >
             <span>{tool.label}</span>
-            <small>{tool.id === "ingest-recap" ? "Recap workflow" : "Workbench"}</small>
+            <small>
+              {tool.id === "ingest-recap"
+                ? "Recap workflow"
+                : tool.id === "recap"
+                  ? "Graph-linked reader"
+                : tool.id === "graph-preview"
+                  ? "Graph evidence"
+                  : "Workbench"}
+            </small>
           </button>
         ))}
       </nav>

@@ -620,10 +620,14 @@ export interface ResolvedRollResponse {
 
 export type RecapIngestOperation =
   | "stage_preview"
+  | "generate_recap_memory"
   | "apply_normalize"
   | "build_frontmatter_seed"
   | "run_breadcrumb_ingest"
   | "materialize_session_memory"
+  | "build_graph_preview_bundle"
+  | "materialize_preview_supergraph"
+  | "inspect_graph_preview"
   | "inspect_status"
   | "reconcile_normalized_recap";
 
@@ -638,6 +642,39 @@ export interface RecapIngestRequest {
   force_stage?: boolean;
   force_recap?: boolean;
   check?: boolean;
+  candidate_graph_path?: string;
+  force_graph_run?: boolean;
+  extract_graph?: boolean;
+  graph_model_id?: string | null;
+  materialize_after_extract?: boolean;
+  include_graph_extraction?: boolean;
+  include_legacy_breadcrumb?: boolean;
+}
+
+export interface RecapGraphPreviewReport {
+  status: string;
+  run_dir?: string | null;
+  manifest_path?: string | null;
+  candidate_graph_path?: string | null;
+  preview_union_store_path?: string | null;
+  preview_union_store_valid?: boolean | null;
+  node_count?: number;
+  edge_count?: number;
+  evidence_ref_count?: number;
+  extraction_mode?: string | null;
+  model_id?: string | null;
+  candidate_node_count?: number;
+  candidate_edge_count?: number;
+  candidate_beat_count?: number;
+  estimated_cost_usd?: number | null;
+  graph_steps?: Array<Record<string, unknown>>;
+  current_graph_step?: Record<string, unknown> | null;
+  pass_telemetry_path?: string | null;
+  pass_outputs_path?: string | null;
+  consolidation_diagnostics_path?: string | null;
+  next_actions?: string[];
+  can_open_union_graph?: boolean;
+  blocked_reason?: string | null;
 }
 
 export interface NormalizedRecapCandidate {
@@ -1237,5 +1274,348 @@ export interface IngestionSourceBundle {
   anchors: SourceAnchor[];
   units: SourceUnit[];
   coverage: Record<string, unknown>;
+  diagnostics: string[];
+}
+
+export interface GraphPreviewAnchorQuoteMatch {
+  quote: string;
+  char_start: number;
+  char_end: number;
+  match_text: string;
+}
+
+export interface GraphPreviewEvidenceRef {
+  source_ref_id?: string | null;
+  source_artifact_id?: string | null;
+  source_span_ref_id?: string | null;
+  source_anchor_id?: string | null;
+  label?: string | null;
+  evidence_role?: string | null;
+  can_open_source: boolean;
+  can_highlight_span: boolean;
+  anchor_quotes: string[];
+  anchor_quote_matches: GraphPreviewAnchorQuoteMatch[];
+  paragraph_text?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  recap_source_path?: string | null;
+}
+
+export type GraphPreviewCandidateSection =
+  | "nodes"
+  | "edges"
+  | "beats"
+  | "ignored_items"
+  | "deferred_items";
+
+export interface GraphPreviewCandidateRow {
+  section: GraphPreviewCandidateSection;
+  object_id: string;
+  label: string;
+  kind: string;
+  description?: string | null;
+  importance?: string | null;
+  evidence_count: number;
+  evidence_refs: GraphPreviewEvidenceRef[];
+}
+
+export interface GraphPreviewHealth {
+  canonical_ir_valid: boolean;
+  reconcile_error?: string | null;
+  node_count: number;
+  edge_count: number;
+  beat_count: number;
+  ignored_count: number;
+  deferred_count: number;
+  evidence_ref_count: number;
+  resolvable_evidence_ref_count: number;
+  model_id?: string | null;
+  scenario_estimated_cost_usd?: number | null;
+  node_recall?: number | null;
+}
+
+export interface GraphPreviewSurfaceResponse {
+  schema_version: "dmb_graph_preview_surface_v1";
+  version: string;
+  run_dir: string;
+  run_bundle_dir?: string | null;
+  recap_source_path?: string | null;
+  health: GraphPreviewHealth;
+  candidates: GraphPreviewCandidateRow[];
+}
+
+export interface GraphPreviewRunSummary {
+  run_dir: string;
+  model_id?: string | null;
+  run_index?: number | null;
+  canonical_ir_valid?: boolean | null;
+  scenario_estimated_cost_usd?: number | null;
+}
+
+export interface GraphPreviewRunsResponse {
+  schema_version: "dmb_graph_preview_surface_v1";
+  version: string;
+  runs: GraphPreviewRunSummary[];
+}
+
+export interface RecapGraphRunRef {
+  run_uri: string;
+  model_id?: string | null;
+  run_index?: number | null;
+  canonical_ir_valid?: boolean | null;
+  scenario_estimated_cost_usd?: number | null;
+  node_recall?: number | null;
+}
+
+export interface RecapArtifactRecord {
+  schema_version: "dmb_recap_artifact_record_v1";
+  artifact_id: string;
+  campaign_id: string;
+  session_id: string;
+  source_artifact_id?: string | null;
+  source_recap_path: string;
+  breadcrumb_seed_path?: string | null;
+  session_memory_records_path?: string | null;
+  run_bundle_uri: string;
+  run_manifest_uri: string;
+  source_span_index_uri: string;
+  provenance_index_uri?: string | null;
+  graph_run_refs: RecapGraphRunRef[];
+  default_graph_run_uri?: string | null;
+  default_projection_mode: string;
+  source_sha256?: string | null;
+  registered_at: string;
+  updated_at: string;
+  registry_source: "scan" | "explicit";
+}
+
+export interface RecapArtifactsListResponse {
+  schema_version: "dmb_recap_artifacts_registry_v1";
+  version: string;
+  records: RecapArtifactRecord[];
+}
+
+export interface RecapGraphQuery {
+  run_dir?: string;
+  artifact_id?: string;
+  campaign_id?: string;
+  session_id?: string;
+}
+
+export interface RecapGraphChip {
+  label: string;
+  tone: "new" | "recurring" | "evidence" | "warning" | "neutral";
+  source_session?: number | null;
+}
+
+export interface RecapGraphNode {
+  object_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  description?: string | null;
+  evidence_count: number;
+  chips: RecapGraphChip[];
+}
+
+export interface RecapGraphLink {
+  href: string;
+  object_id: string;
+  label: string;
+  source_span_ref_id: string;
+  char_start: number;
+  char_end: number;
+  evidence_ref_ids: string[];
+}
+
+export interface RecapGraphPresentationResponse {
+  schema_version: "dmb_recap_graph_presentation_v1";
+  version: string;
+  run_dir: string;
+  recap_source_path?: string | null;
+  markdown: string;
+  nodes: Record<string, RecapGraphNode>;
+  links: RecapGraphLink[];
+}
+
+export interface GraphIngestRunSummary {
+  manifest_path: string;
+  run_dir: string;
+  campaign_id: string;
+  session_id: string;
+  status: string;
+  updated_at?: string | null;
+  created_at?: string | null;
+  preview_union_store_path?: string | null;
+  preview_union_store_valid?: boolean | null;
+  node_count: number;
+  edge_count: number;
+  evidence_ref_count: number;
+  next_actions: string[];
+}
+
+export interface GraphIngestRunsResponse {
+  schema_version: "dmb_graph_ingest_run_registry_v1";
+  version: string;
+  runs: GraphIngestRunSummary[];
+}
+
+export interface GraphIngestLatestRunResponse {
+  schema_version: "dmb_graph_ingest_run_registry_v1";
+  version: string;
+  run: GraphIngestRunSummary | null;
+}
+
+export interface GraphFocusOverlay {
+  focus_session_id?: string | null;
+  focused_evidence_ref_ids: string[];
+  focused_edge_ids: string[];
+  focused_node_ids: string[];
+}
+
+export interface RecapProjectionSourceSpan {
+  span_id: string;
+  kind: string;
+  ordinal?: number | null;
+  text_excerpt?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+}
+
+export interface GraphProjectionEvidenceBadge {
+  evidence_ref_id: string;
+  source_artifact_id: string;
+  source_domain: string;
+  evidence_role: string;
+  is_focus_session_evidence: boolean;
+  can_open_source: boolean;
+  can_highlight_span: boolean;
+  label?: string | null;
+  session_id?: string | null;
+  source_span_ref_id?: string | null;
+}
+
+export interface GraphProjectionAdjacencyCandidate {
+  edge_id: string;
+  node_id: string;
+  label: string;
+  kind: string;
+  predicate: string;
+  direction: string;
+  anchored_to_focus_session: boolean;
+  source_domains: string[];
+  evidence_ref_ids: string[];
+  edge_label?: string | null;
+  session_ids?: string[];
+}
+
+export interface GraphProjectionSuggestedExpansion extends GraphProjectionAdjacencyCandidate {
+  rank: number;
+  rank_reason: string;
+}
+
+export interface GraphProjectionNodeView {
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  aliases: string[];
+  source_domains: string[];
+  evidence_badges: GraphProjectionEvidenceBadge[];
+  adjacency: GraphProjectionAdjacencyCandidate[];
+  suggested_expansions?: GraphProjectionSuggestedExpansion[];
+  anchored_to_focus_session: boolean;
+  summary?: string | null;
+}
+
+export interface UnionSupergraphProjectionResponse {
+  campaign_id: string;
+  session_id: string;
+  graph_id?: string | null;
+  markdown?: string | null;
+  focus: GraphFocusOverlay;
+  node_views: Record<string, GraphProjectionNodeView>;
+  source_spans?: RecapProjectionSourceSpan[];
+  mentions: Array<{
+    mention_id: string;
+    node_id: string;
+    label: string;
+    start_offset?: number | null;
+    end_offset?: number | null;
+    evidence_ref_ids: string[];
+  }>;
+}
+
+export interface PartyRegistryMemberRow {
+  slug: string;
+  kind: string;
+  display_name: string;
+  hub_rel_path: string;
+  hub_resolved: boolean;
+  player?: string | null;
+  corpus_ref: Record<string, unknown>;
+}
+
+export interface PartyRegistrySurfaceResponse {
+  schema_version: "dmb_party_registry_surface_v1";
+  campaign_id: string;
+  session: number;
+  session_id: string;
+  registry_schema?: string | null;
+  registry_relpath?: string | null;
+  party_names: string[];
+  pc_slugs: string[];
+  companion_slugs: string[];
+  notable_npc_slugs: string[];
+  members: PartyRegistryMemberRow[];
+  warnings: string[];
+  registry_summary: Record<string, unknown>;
+  session_graph_context: Record<string, unknown>;
+  available_session_keys: string[];
+  has_session_roster: boolean;
+  known_pc_slugs: string[];
+  known_companion_slugs: string[];
+}
+
+export interface PartyRegistrySessionRosterWritePrepareRequest {
+  campaign_id: string;
+  session: number;
+  pc_slugs: string[];
+  companion_slugs: string[];
+  copy_from_session?: number | null;
+}
+
+export interface PartyRegistrySessionRosterWritePrepareResponse {
+  schema_version: "dmb_party_registry_session_roster_write_prepare_v1";
+  campaign_id: string;
+  session: number;
+  registry_relpath: string;
+  file_exists: boolean;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  existing_size_bytes?: number | null;
+  new_size_bytes?: number | null;
+  pc_slugs: string[];
+  companion_slugs: string[];
+  warnings: string[];
+  diagnostics: string[];
+}
+
+export interface PartyRegistrySessionRosterWriteCommitRequest extends PartyRegistrySessionRosterWritePrepareRequest {
+  writer_confirm_token: string;
+}
+
+export interface PartyRegistrySessionRosterWriteCommitResponse {
+  schema_version: "dmb_party_registry_session_roster_write_commit_v1";
+  campaign_id: string;
+  session: number;
+  registry_relpath: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  file_fingerprint?: string | null;
+  backup_relpath?: string | null;
   diagnostics: string[];
 }

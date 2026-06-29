@@ -1,0 +1,17 @@
+{
+  "schema": "dmb_corpus_impact_proof_fixture_v0",
+  "fixture_id": "dogfood:rich-recap:redacted-lantern-archive:v0",
+  "impact": {
+    "corpus_scan_performed": false,
+    "corpus_files_read": 0,
+    "corpus_files_written": 0,
+    "runtime_behavior_changed": false,
+    "production_behavior_changed": false
+  },
+  "boundary": {
+    "source_fixture_only": true,
+    "candidate_graph_output_included": false,
+    "gold_graph_output_included": false,
+    "fact_or_canon_promotion_included": false
+  }
+}

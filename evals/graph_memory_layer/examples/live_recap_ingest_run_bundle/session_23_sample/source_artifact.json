@@ -1,0 +1,17 @@
+{
+  "approval_state": "not_applicable",
+  "campaign_id": "longmont-c2",
+  "memory_state": "not_memory",
+  "provenance_index_path": "provenance_index.json",
+  "raw_text_included": false,
+  "schema": "dmb_live_recap_source_artifact_v0",
+  "session_id": "session-23",
+  "source_artifact_id": "source-artifact:longmont-c2:session-23:live-recap-v0",
+  "source_hash": "afdd17e47b4cc1e8e1d5a7b3128ef6aec7fa83eed372648d502acfcd0395ea16",
+  "source_label": "Session 23 Sample",
+  "source_span_index_path": "source_span_index.json",
+  "source_state": "ingested_for_dogfood",
+  "source_type": "recap_markdown",
+  "source_units_path": "source_units.json",
+  "version": "0.1"
+}

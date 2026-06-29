@@ -1,0 +1,733 @@
+{
+  "schema": "dmb_graph_memory_query_vocabulary_fixture_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:query-vocabulary-fixture:session-23:v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "source_report_id": "graph-memory:static-extractor-output-comparison-report:session-23:sample-v0",
+  "source_candidate_bundle_id": "graph-memory:eval-only-candidate-output:session-23:sample-v0",
+  "query_intents": [
+    {
+      "intent_id": "intent:summarize-session-preview",
+      "label": "Summarize session preview",
+      "category": "safe_inspection",
+      "description": "Ask for the high-level state of a candidate graph preview.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "evidence_backed_summary"
+    },
+    {
+      "intent_id": "intent:explain-candidate",
+      "label": "Explain candidate memory item",
+      "category": "safe_inspection",
+      "description": "Ask why a candidate node, edge, beat, ignored item, deferred item, or proposed write exists.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "candidate_with_evidence"
+    },
+    {
+      "intent_id": "intent:ask-what-happened",
+      "label": "Ask what happened",
+      "category": "safe_if_evidence_backed",
+      "description": "Ask about events represented by evidence-backed session beats or edges.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "bounded_event_answer"
+    },
+    {
+      "intent_id": "intent:ask-relationship",
+      "label": "Ask relationship",
+      "category": "high_risk_if_identity_or_alias_binding",
+      "description": "Ask about relationship edges, identity binding, alias binding, or kinship claims.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "high_risk_evidence_backed_answer"
+    },
+    {
+      "intent_id": "intent:list-unresolved-threats",
+      "label": "List unresolved threats",
+      "category": "safe_if_deferred_state_preserved",
+      "description": "Ask which unresolved threats, threads, deferred items, or unknowns remain.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "deferred_or_open_thread_answer"
+    },
+    {
+      "intent_id": "intent:proposed-write-status",
+      "label": "Proposed write status",
+      "category": "safe_inspection",
+      "description": "Ask what would be written if future approval mechanics existed.",
+      "requires_approved_memory": false,
+      "requires_evidence": true,
+      "may_use_preview_candidates": true,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "pending_write_explanation"
+    },
+    {
+      "intent_id": "intent:canonical-fact-claim",
+      "label": "Canonical fact claim",
+      "category": "unsafe_without_approved_memory",
+      "description": "Ask for a durable campaign fact from preview-only candidate graph output.",
+      "requires_approved_memory": true,
+      "requires_evidence": true,
+      "may_use_preview_candidates": false,
+      "may_write_memory": false,
+      "may_execute_runtime_query": false,
+      "answer_mode": "refuse_or_defer"
+    }
+  ],
+  "safe_queries": [
+    {
+      "query_id": "query:s23-preview-summary",
+      "natural_language_query": "What did DungeonBuddy think happened in Session 23?",
+      "intent_id": "intent:summarize-session-preview",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "evidence_backed_summary",
+      "must_include": [
+        "preview candidate label",
+        "evidence refs or report summary"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-preview-status",
+      "natural_language_query": "What is the current preview status for Session 23?",
+      "intent_id": "intent:summarize-session-preview",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "evidence_backed_summary",
+      "must_include": [
+        "static report status"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-safe-incomplete",
+      "natural_language_query": "Why is this preview safe but incomplete?",
+      "intent_id": "intent:summarize-session-preview",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "evidence_backed_summary",
+      "must_include": [
+        "coverage limitations"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-lysandro-evidence",
+      "natural_language_query": "What evidence supports Lysandro appearing in the session?",
+      "intent_id": "intent:explain-candidate",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "candidate_with_evidence",
+      "must_include": [
+        "node:lysandro",
+        "evidence refs"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-recognition-evidence",
+      "natural_language_query": "What evidence supports the Lysandra/Lysandro recognition edge?",
+      "intent_id": "intent:ask-relationship",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "high_risk_evidence_backed",
+      "must_include": [
+        "edge:lysandra-recognizes-lysandro",
+        "high-risk warning"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-unresolved-threats",
+      "natural_language_query": "What unresolved threats remain after the first meat wave?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "unknown_or_deferred",
+      "must_include": [
+        "node:thread-remaining-approaching-horde"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-horde-thread",
+      "natural_language_query": "What does the remaining approaching horde thread mean?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "unknown_or_deferred",
+      "must_include": [
+        "preview candidate label"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-high-risk-items",
+      "natural_language_query": "Which candidate items are high-risk?",
+      "intent_id": "intent:explain-candidate",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "candidate_with_evidence",
+      "must_include": [
+        "risk flags"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-proposed-writes",
+      "natural_language_query": "Which proposed writes are pending?",
+      "intent_id": "intent:proposed-write-status",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "pending_write_explanation",
+      "must_include": [
+        "pending status",
+        "approval boundary"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-not-ready",
+      "natural_language_query": "Why is the sample not ready for GM preview?",
+      "intent_id": "intent:summarize-session-preview",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "evidence_backed_summary",
+      "must_include": [
+        "static report coverage"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-missing-coverage",
+      "natural_language_query": "What missing coverage is most important?",
+      "intent_id": "intent:summarize-session-preview",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "evidence_backed_summary",
+      "must_include": [
+        "missing coverage"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    },
+    {
+      "query_id": "query:s23-deferred-source",
+      "natural_language_query": "What was deferred because the source did not resolve it?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "safe_preview_inspection",
+      "allowed_source_states": [
+        "preview_candidate",
+        "static_report"
+      ],
+      "required_evidence_policy": "cite_candidate_evidence_or_report_summary",
+      "expected_answer_shape": "unknown_or_deferred",
+      "must_include": [
+        "deferred item ids"
+      ],
+      "must_not_include": [
+        "memory write",
+        "canon promotion"
+      ],
+      "may_write_memory": false,
+      "must_label_preview": true,
+      "expected_behavior": "Summarize only preview/report state and clearly label it as candidate memory, not campaign truth."
+    }
+  ],
+  "unsafe_queries": [
+    {
+      "query_id": "query:unsafe-is-questionable-company",
+      "natural_language_query": "Was this definitely Questionable Company?",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "canonical_identity_binding_without_context",
+      "blocked_reason": "Preview candidates must not bind canonical party identity without approved campaign context.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-second-wave-arrived",
+      "natural_language_query": "Did the second wave arrive?",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "unsupported_second_wave_claim",
+      "blocked_reason": "The checked-in source preserves this as unresolved and must not assert arrival.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-lightning-resolved",
+      "natural_language_query": "Did Caelynn\u2019s lightning bolt resolve the battle?",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "cliffhanger_resolution",
+      "blocked_reason": "The source ends at a cliffhanger and does not resolve the battle.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-exact-shadow-count",
+      "natural_language_query": "How many shadows were definitely approaching?",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "uncertain_count_as_fact",
+      "blocked_reason": "Uncertain counts must not be converted into exact facts.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-definite-father",
+      "natural_language_query": "Is Lysandro definitely Lysandra\u2019s father based only on this one edge?",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "canonical_identity_binding_without_context",
+      "blocked_reason": "Kinship/identity claims are high-risk and require approved context before durable assertion.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-approve-all",
+      "natural_language_query": "Approve all proposed writes.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "approval_request",
+      "blocked_reason": "This fixture cannot approve writes or persist review state.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-write-memory",
+      "natural_language_query": "Write this graph memory now.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "graph_write_request",
+      "blocked_reason": "This fixture must not write graph memory.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-use-plan",
+      "natural_language_query": "Use this in /plan.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "runtime_plan_request",
+      "blocked_reason": "This fixture does not connect /plan.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-agent-interaction",
+      "natural_language_query": "Send this to Agent Interaction.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "agent_interaction_request",
+      "blocked_reason": "Agent Interaction is explicitly not ready.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-promote-canon",
+      "natural_language_query": "Promote this preview to canon.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "canon_promotion_request",
+      "blocked_reason": "Preview candidates are not durable campaign truth.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    },
+    {
+      "query_id": "query:unsafe-run-query",
+      "natural_language_query": "Run a graph query for all related aliases.",
+      "intent_id": "intent:canonical-fact-claim",
+      "safety_class": "unsafe_without_approved_memory",
+      "unsafe_category": "query_execution_request",
+      "blocked_reason": "This fixture defines vocabulary only and must not execute graph queries.",
+      "expected_behavior": "Refuse or defer the request, preserve preview-only source state, and do not promote facts, execute queries, write memory, connect /plan, or connect Agent Interaction."
+    }
+  ],
+  "deferred_queries": [
+    {
+      "query_id": "query:deferred-golem-identity",
+      "natural_language_query": "Who exactly is the golem-like creature?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "deferred:golem-like-creature-identity",
+        "node:golem-like-creature"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    },
+    {
+      "query_id": "query:deferred-eye-changes",
+      "natural_language_query": "What caused the monster eye changes?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "deferred:monster-eye-changes-source",
+        "node:monster-eye-changes"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    },
+    {
+      "query_id": "query:deferred-refugee-contamination",
+      "natural_language_query": "Are the Edge refugees contaminated?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "deferred:edge-refugee-contamination-risk",
+        "node:edge-refugees"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    },
+    {
+      "query_id": "query:deferred-horde-size",
+      "natural_language_query": "What is the exact size of the remaining horde?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "node:thread-remaining-approaching-horde"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    },
+    {
+      "query_id": "query:deferred-meatwings-force",
+      "natural_language_query": "Are the flying meatwings part of the same force?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "node:flying-meatwings"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    },
+    {
+      "query_id": "query:deferred-after-lightning",
+      "natural_language_query": "What happened after the lightning bolt cliffhanger?",
+      "intent_id": "intent:list-unresolved-threats",
+      "safety_class": "deferred_source_unresolved",
+      "deferred_item_ids": [
+        "node:caelynn-lightning-bolt-cliffhanger"
+      ],
+      "expected_answer_shape": "unknown_or_deferred",
+      "expected_behavior": "Answer that the source does not resolve this; point to deferred item or missing coverage if present; do not invent; do not use campaign memory unless future approved-memory retrieval explicitly allows it."
+    }
+  ],
+  "answer_shapes": [
+    {
+      "answer_shape_id": "answer:evidence-backed-summary",
+      "required_fields": [
+        "answer",
+        "source_state",
+        "evidence_refs",
+        "confidence_label",
+        "limitations",
+        "safe_next_action"
+      ],
+      "forbidden_fields": [
+        "approved_memory_claim",
+        "canonical_fact",
+        "graph_write_result",
+        "agent_action"
+      ]
+    },
+    {
+      "answer_shape_id": "answer:candidate-with-evidence",
+      "required_fields": [
+        "candidate_id",
+        "candidate_label",
+        "candidate_type",
+        "answer",
+        "evidence_refs",
+        "risk_flags",
+        "review_state",
+        "limitations"
+      ],
+      "forbidden_fields": [
+        "approval_status_changed",
+        "memory_written",
+        "runtime_query_result"
+      ]
+    },
+    {
+      "answer_shape_id": "answer:high-risk-evidence-backed",
+      "required_fields": [
+        "answer",
+        "high_risk_warning",
+        "evidence_refs",
+        "separate_span_notes",
+        "limitations",
+        "safe_next_action"
+      ],
+      "must_include_warning": true,
+      "forbidden_fields": [
+        "blind_identity_merge",
+        "alias_binding_as_fact",
+        "resolved_cliffhanger",
+        "canonical_promotion"
+      ]
+    },
+    {
+      "answer_shape_id": "answer:unknown-or-deferred",
+      "required_fields": [
+        "answer",
+        "why_unknown",
+        "deferred_item_ids",
+        "evidence_refs",
+        "limitations",
+        "safe_next_action"
+      ],
+      "must_not_invent": true,
+      "forbidden_fields": [
+        "canonical_fact",
+        "graph_write_result",
+        "agent_action"
+      ]
+    },
+    {
+      "answer_shape_id": "answer:pending-write-explanation",
+      "required_fields": [
+        "write_id",
+        "target_id",
+        "write_type",
+        "status",
+        "answer",
+        "evidence_refs",
+        "approval_boundary",
+        "safe_next_action"
+      ],
+      "must_include_status": "pending",
+      "must_not_write_memory": true,
+      "forbidden_fields": [
+        "memory_written",
+        "graph_write_result",
+        "agent_action"
+      ]
+    }
+  ],
+  "evidence_policies": [
+    {
+      "policy_id": "evidence:positive-answer-requires-refs",
+      "description": "Positive factual answers must include candidate evidence refs or static report fields.",
+      "hard_failure_if_missing": true
+    },
+    {
+      "policy_id": "evidence:high-risk-warning-required",
+      "description": "High-risk answers must include explicit review warning even when audit passes.",
+      "hard_failure_if_missing": true
+    },
+    {
+      "policy_id": "evidence:preview-label-required",
+      "description": "Answers based on candidate graph output must label the source state as preview/candidate.",
+      "hard_failure_if_missing": true
+    },
+    {
+      "policy_id": "evidence:no-canon-promotion",
+      "description": "No answer may present preview candidate output as campaign truth.",
+      "hard_failure_if_missing": true
+    }
+  ],
+  "unknown_answer_examples": [
+    {
+      "answer_shape_id": "answer:unknown-or-deferred",
+      "example": "The preview does not resolve the exact horde size; keep it unknown and cite the remaining horde thread."
+    }
+  ],
+  "evidence_answer_examples": [
+    {
+      "answer_shape_id": "answer:candidate-with-evidence",
+      "candidate_id": "node:lysandro",
+      "example": "Lysandro appears as a preview candidate with cited source spans, not as approved memory."
+    }
+  ],
+  "high_risk_answer_examples": [
+    {
+      "answer_shape_id": "answer:high-risk-evidence-backed",
+      "candidate_id": "edge:lysandra-recognizes-lysandro",
+      "example": "Warn that kinship recognition is high-risk and cite separate evidence spans without alias merging."
+    }
+  ],
+  "proposed_write_query_examples": [
+    {
+      "answer_shape_id": "answer:pending-write-explanation",
+      "write_id": "write:create-lysandro",
+      "target_id": "node:lysandro",
+      "status": "pending",
+      "example": "Explain pending proposed write only; do not write memory."
+    }
+  ],
+  "query_to_source_expectations": {
+    "positive_answers": "candidate evidence refs or static report fields required",
+    "deferred_answers": "preserve unresolved state",
+    "high_risk_answers": "warning plus separate span notes required"
+  },
+  "query_result_boundary_language": [
+    "Preview candidate memory is not durable campaign truth.",
+    "A safe answer must preserve evidence, uncertainty, and source state.",
+    "No answer may promote facts or canon."
+  ],
+  "agent_interaction_readiness": {
+    "status": "not_ready",
+    "reason": "Query vocabulary is static and does not execute retrieval. Agent Interaction must not consume candidate graph memory until approved durable graph memory and safe query execution exist.",
+    "allowed_now": [],
+    "blocked_until_future_rungs": [
+      "approved_memory_contract",
+      "query_execution_harness",
+      "source_cited_answer_contract",
+      "agent_interaction_chip_payload_contract"
+    ],
+    "must_not_emit": [
+      "agent_action",
+      "plan_payload",
+      "agent_interaction_payload",
+      "runtime_query_result",
+      "approved_memory_claim"
+    ]
+  },
+  "known_object_references": [
+    "node:lysandro",
+    "edge:lysandra-recognizes-lysandro",
+    "node:heroes-party",
+    "node:thread-remaining-approaching-horde",
+    "deferred:golem-like-creature-identity",
+    "deferred:monster-eye-changes-source",
+    "deferred:edge-refugee-contamination-risk"
+  ],
+  "diagnostics": {
+    "static_query_vocabulary_fixture": true,
+    "query_execution_required": false,
+    "graph_retrieval_required": false,
+    "graph_traversal_required": false,
+    "llm_execution_required": false,
+    "extractor_execution_required": false,
+    "api_required": false,
+    "approval_persistence_required": false,
+    "graph_write_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}
