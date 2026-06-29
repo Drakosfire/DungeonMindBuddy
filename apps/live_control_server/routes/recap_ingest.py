@@ -31,6 +31,7 @@ from src.live_play.recap_ingest_pipeline import (
 from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 from apps.live_control_server.services.recap_graph_preview_ingest import (
     build_recap_graph_preview_bundle,
+    ensure_graph_ingest_projection_payload,
     inspect_recap_graph_preview_status,
     materialize_recap_preview_supergraph,
 )
@@ -72,7 +73,7 @@ class RecapIngestRequest(BaseModel):
     extract_graph: bool = False
     graph_model_id: str | None = None
     materialize_after_extract: bool = False
-    include_graph_extraction: bool = False
+    include_graph_extraction: bool = True
 
 
 class RecapIngestStatusResponse(BaseModel):
@@ -137,6 +138,20 @@ def _run_routing_only_breadcrumb(
 def _add_unique(values: list[str], value: str) -> None:
     if value not in values:
         values.append(value)
+
+
+def _merge_stage_reuse_warning(status: dict[str, Any], staged_status: dict[str, Any] | None) -> dict[str, Any]:
+    if not staged_status or "staged_raw_notes_conflict" not in staged_status.get("states", []):
+        return status
+    for field in ("states", "warnings"):
+        values = status.setdefault(field, [])
+        for value in staged_status.get(field, []) or []:
+            if isinstance(value, str) and (
+                value.startswith("staged_raw_notes") or field == "warnings"
+            ):
+                _add_unique(values, value)
+    status.setdefault("ingest_report", {})["staged_raw_notes_reused_existing"] = True
+    return status
 
 
 def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path) -> dict[str, Any]:
@@ -250,12 +265,16 @@ def _normalized_recap_graph_path(status: dict[str, Any], corpus: Path | None) ->
         return None
     path = Path(str(raw))
     if path.is_absolute():
-        return str(path)
+        return str(path) if path.is_file() else None
+    roots: list[Path] = []
     if corpus is not None:
-        candidate = (corpus / path).resolve()
-        if candidate.exists():
+        roots.append(corpus)
+    roots.append(default_corpus_root())
+    for root in roots:
+        candidate = (root / path).resolve()
+        if candidate.is_file():
             return str(candidate)
-    return str(path)
+    return None
 
 
 def _append_graph_status(status: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
@@ -298,6 +317,7 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
 
 def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
     active_corpus = (corpus or default_corpus_root()).resolve()
+    staged_reuse_status: dict[str, Any] | None = None
 
     status = inspect_recap_ingest_status(
         campaign_id=body.campaign_id,
@@ -315,7 +335,9 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
             corpus=corpus,
         )
         if status.get("status") == "error" or ("staged_raw_notes_conflict" in status.get("states", []) and not body.force_stage):
-            return status
+            if status.get("status") == "error":
+                return status
+            staged_reuse_status = status
 
     applied = {"recap_applied", "recap_reused", "normalized_created", "normalized_reused"}
     if not applied.intersection(status.get("states", [])):
@@ -357,7 +379,18 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                     status.setdefault("warnings", []),
                     f"preview graph extraction blocked: {graph.get('blocked_reason') or 'unknown reason'}",
                 )
-    return status
+            if graph.get("status") == "preview_union_store_ready":
+                ensure_graph_ingest_projection_payload(
+                    repo_root=repo_root(),
+                    manifest_path=graph.get("manifest_path"),
+                    session_id=f"session-{body.session}",
+                )
+        else:
+            _add_unique(
+                status.setdefault("warnings", []),
+                "preview graph extraction skipped: normalized recap path could not be resolved",
+            )
+    return _merge_stage_reuse_warning(status, staged_reuse_status)
 
 def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
     operation = body.operation

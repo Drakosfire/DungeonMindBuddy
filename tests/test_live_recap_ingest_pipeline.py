@@ -5,6 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from src.corpus.session_recap_paths import (
+    is_generic_recap_tail,
+    normalized_basename_from_disk,
+)
 from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,6 +105,20 @@ def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(t
     assert status["status"] == "needs_reconciliation"
     assert "normalized_recap_duplicates" in status["states"]
     assert "expected exactly one normalized recap" not in " ".join(status["errors"])
+
+
+def test_normalized_basename_prefers_single_non_generic_over_numeric_duplicate(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    norm_dir.mkdir(parents=True, exist_ok=True)
+    (norm_dir / "Session 24 - Mireward Gate Battle.md").write_text("canon", encoding="utf-8")
+    (norm_dir / "Session 24 - 4.md").write_text("numeric duplicate", encoding="utf-8")
+
+    assert is_generic_recap_tail("Session 24 - 4") is True
+    assert (
+        normalized_basename_from_disk(corpus, campaign_number=2, session=24)
+        == "Session 24 - Mireward Gate Battle"
+    )
 
 
 def test_apply_requires_non_generic_slug_or_title(tmp_path: Path) -> None:

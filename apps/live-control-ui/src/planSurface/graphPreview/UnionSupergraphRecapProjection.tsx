@@ -152,6 +152,10 @@ export function UnionSupergraphRecapProjection({
       label: "latest graph-ingest preview",
       description: "This recap is projected from the latest preview union supergraph for this campaign/session.",
     },
+    "recap-only": {
+      label: "recap memory only",
+      description: "This session has ingested recap memory, but no graph projection is ready yet, so graph chips are unavailable.",
+    },
     "default-preview-source": {
       label: "default preview fixture",
       description: "No latest graph-ingest preview store was available for this session, so this is using the default preview source.",

@@ -355,8 +355,16 @@ describe("IngestionModule", () => {
       }
       return makeStatus({
         status: "ready_for_planning_activation",
-        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation"],
-        ingest_report: { session_memory_record_count: 10, session_memory_check: "ok" },
+        states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation", "preview_union_store_ready"],
+        ingest_report: {
+          session_memory_record_count: 10,
+          session_memory_check: "ok",
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
       });
     });
 
@@ -375,13 +383,49 @@ describe("IngestionModule", () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "generate_recap_memory",
-        include_graph_extraction: false,
-        graph_model_id: undefined,
+        include_graph_extraction: true,
+        graph_model_id: "gpt-5-mini",
       }),
     );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getByText("Complete: recap memory is generated. Review the rendered recap and proof artifacts.")).toBeInTheDocument();
+    expect(screen.getAllByText("Complete: recap memory and graph projection are generated. Review the rendered recap and proof artifacts.").length).toBeGreaterThan(0);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
+  });
+
+  it("does not pause full ingest when existing staged notes are reused and graph is ready", async () => {
+    const user = userEvent.setup();
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "staged_raw_notes_reused",
+          "staged_raw_notes_conflict",
+          "breadcrumb_found",
+          "session_memory_materialized",
+          "ready_for_planning_activation",
+          "preview_union_store_ready",
+        ],
+        warnings: ["staged raw notes already exists; pasted raw text was not used"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nDifferent pasted text.");
+    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+
+    expect(await screen.findByText("Full ingest complete using staged notes")).toBeInTheDocument();
+    expect(screen.getByText(/Recap memory and graph projection were generated from the existing staged notes/i)).toBeInTheDocument();
+    expect(screen.queryByText("Full ingest paused")).not.toBeInTheDocument();
+    expect(screen.queryByText("Graph (advanced)")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
   });
 
   it("resumes from disk after clear flow without requiring raw text again", async () => {
@@ -606,7 +650,7 @@ describe("IngestionModule", () => {
   });
 
 
-  it("shows graph extraction opt-in and sends checked graph flags", async () => {
+  it("always sends graph extraction flags with Generate Recap Memory", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect(() =>
       makeStatus({
@@ -623,10 +667,8 @@ describe("IngestionModule", () => {
     );
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    expect(screen.getByLabelText("Include preview graph extraction")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByLabelText("Include preview graph extraction"));
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
@@ -661,7 +703,6 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByLabelText("Include preview graph extraction"));
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     expect(await screen.findByText(/Preview graph extraction was blocked: OPENAI_API_KEY is not configured/)).toBeInTheDocument();

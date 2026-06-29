@@ -15,12 +15,21 @@ import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection
 type LatestRunStatus = "loading" | "ready" | "unavailable" | "warning" | "error";
 type ProjectionLoadStatus = "idle" | "loading" | "ready" | "error";
 
-interface GraphIngestProjectionPanelProps {
-  context: PlanContextDescriptor;
+function requestedSessionFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const session = new URLSearchParams(window.location.search).get("session")?.trim();
+  return session || null;
 }
 
 function ingestSessionId(context: PlanContextDescriptor): string {
-  return `session-${context.ingestSession}`;
+  return requestedSessionFromLocation() ?? `session-${context.ingestSession}`;
+}
+
+interface GraphIngestProjectionPanelProps {
+  context: PlanContextDescriptor;
+  sessionId?: string;
+  sourceRecapPath?: string;
+  sourceRecapSha256?: string;
 }
 
 function friendlyProjectionError(error: unknown): string {
@@ -32,8 +41,13 @@ function friendlyProjectionError(error: unknown): string {
   return error instanceof Error ? error.message : "Failed to load union graph projection.";
 }
 
-export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPanelProps) {
-  const sessionId = ingestSessionId(context);
+export function GraphIngestProjectionPanel({
+  context,
+  sessionId: providedSessionId,
+  sourceRecapPath,
+  sourceRecapSha256,
+}: GraphIngestProjectionPanelProps) {
+  const sessionId = providedSessionId ?? ingestSessionId(context);
   const [latestStatus, setLatestStatus] = useState<LatestRunStatus>("loading");
   const [latestGraphRun, setLatestGraphRun] = useState<GraphIngestRunSummary | null>(null);
   const [latestGraphRunError, setLatestGraphRunError] = useState<string | null>(null);
@@ -48,7 +62,12 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
     setProjectionError(null);
     setUnionProjection(null);
     try {
-      const response = await getLatestGraphIngestRun(context.campaignId, sessionId);
+      const response = await getLatestGraphIngestRun(
+        context.campaignId,
+        sessionId,
+        sourceRecapPath,
+        sourceRecapSha256,
+      );
       setLatestGraphRun(response.run);
       setLatestStatus(response.run ? "ready" : "unavailable");
     } catch (error) {
@@ -65,11 +84,16 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
       setLatestStatus("error");
       setLatestGraphRunError(error instanceof Error ? error.message : "Failed to load latest graph-ingest run.");
     }
-  }, [context.campaignId, sessionId]);
+  }, [context.campaignId, sessionId, sourceRecapPath, sourceRecapSha256]);
 
   useEffect(() => {
     void loadLatest();
   }, [loadLatest]);
+
+  const openIngestRecap = () => {
+    if (typeof window === "undefined") return;
+    window.location.assign(`/plan?tool=ingest-recap&session=${encodeURIComponent(sessionId)}`);
+  };
 
   const openUnionGraph = async () => {
     setProjectionStatus("loading");
@@ -79,6 +103,8 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
         campaignId: context.campaignId,
         sessionId,
         useLatestGraphIngest: true,
+        sourceRecapPath,
+        sourceRecapSha256,
       });
       setUnionProjection(projection);
       setProjectionStatus("ready");
@@ -109,9 +135,15 @@ export function GraphIngestProjectionPanel({ context }: GraphIngestProjectionPan
 
       {latestStatus === "unavailable" ? (
         <div className="graph-ingest-run-card" data-state="unavailable">
-          <strong>Unavailable: no preview_union_store_ready run found</strong>
-          <p>No preview-union-ready graph-ingest run exists for this campaign/session yet.</p>
-          <p>Run the graph preview pipeline/materializer first.</p>
+          <strong>Graph-rendered recap not ready yet</strong>
+          <p>No lineage-matched graph projection exists for this ingested recap yet.</p>
+          <p>
+            Generate Recap Memory for this session, then refresh. That one button now creates the
+            graph projection used by Recap View.
+          </p>
+          <button type="button" onClick={openIngestRecap}>
+            Generate Recap Memory for {sessionId}
+          </button>
         </div>
       ) : null}
 

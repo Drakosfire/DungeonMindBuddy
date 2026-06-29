@@ -180,8 +180,43 @@ def test_adapter_builds_projection_from_graph_ingest_manifest(
 
     assert projection.session_id == "session-24"
     assert projection.graph_id == "longmont-c2:preview-union-supergraph"
-    assert "npc_elara_voss" in projection.node_views
+    assert "character_mira" in projection.node_views
     assert isinstance(projection.mentions, list)
+
+
+def test_adapter_prefers_persisted_projection_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    projection_payload = {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "graph_id": "longmont-c2:persisted-projection",
+        "markdown": "# Persisted projection markdown",
+        "focus": {"focus_session_id": "session-24", "focused_evidence_ref_ids": [], "focused_edge_ids": [], "focused_node_ids": []},
+        "node_views": {},
+        "mentions": [],
+        "source_spans": [],
+    }
+    projection_path = result.manifest_path.parent / "projection_payload.json"
+    projection_path.write_text(json.dumps(projection_payload), encoding="utf-8")
+    manifest["artifacts"]["projection_payload"] = {
+        "kind": "projection_payload",
+        "uri": projection_path.relative_to(tmp_path).as_posix(),
+        "schema": "dmb_recap_graph_projection_v0",
+        "exists": True,
+        "preview_only": True,
+    }
+    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    projection = build_plan_union_supergraph_projection(
+        session_id="session-24",
+        graph_run_manifest_path=result.manifest_path,
+    )
+
+    assert projection.graph_id == "longmont-c2:persisted-projection"
+    assert projection.markdown == "# Persisted projection markdown"
 
 
 def test_adapter_rejects_manifest_not_preview_union_store_ready(

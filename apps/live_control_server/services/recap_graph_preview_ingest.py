@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -10,13 +12,15 @@ from typing import Any
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
     discover_graph_ingest_runs,
-    resolve_latest_preview_union_graph_ingest_run,
 )
 from evals.graph_memory_layer.graph_preview_runner import (
     GraphPreviewRunnerOptions,
     run_graph_preview_extraction,
 )
-from graph_memory.ingestion.graph_ingest_run import GraphIngestRunStatus
+from graph_memory.ingestion.graph_ingest_run import (
+    GraphIngestArtifactKind,
+    GraphIngestRunStatus,
+)
 from src.graph_memory.union_supergraph.preview_run_materialize import (
     PreviewUnionMaterializeOptions,
     materialize_preview_union_store_from_graph_ingest_run,
@@ -24,6 +28,7 @@ from src.graph_memory.union_supergraph.preview_run_materialize import (
 
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 _RUNS_ROOT = Path("out/graph_memory/runs")
+logger = logging.getLogger(__name__)
 
 
 def inspect_recap_graph_preview_status(
@@ -36,10 +41,15 @@ def inspect_recap_graph_preview_status(
     """Return latest graph-ingest status for a recap session without writing files."""
 
     repo = repo_root.resolve()
+    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
+        repo, normalized_recap_path
+    )
     runs = discover_graph_ingest_runs(
         repo,
         campaign_id=campaign_id,
         session_id=f"session-{session}",
+        source_recap_path=source_recap_path,
+        source_recap_sha256=source_recap_sha256,
     )
     if not runs:
         return _missing_status(normalized_recap_path)
@@ -61,12 +71,29 @@ def build_recap_graph_preview_bundle(
 
     repo = repo_root.resolve()
     normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
+    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
+        repo, normalized_recap_path
+    )
     candidate = (
         _resolve_existing_repo_path(repo, candidate_graph_path, field_name="candidate_graph_path")
         if candidate_graph_path
         else None
     )
     _reject_forbidden_candidate(candidate)
+    logger.info(
+        "graph preview bundle requested campaign=%s session=session-%s normalized=%s "
+        "source_recap_path=%s source_recap_sha256=%s force_graph_run=%s "
+        "candidate_graph_path=%s extract_graph=%s model_id=%s",
+        campaign_id,
+        session,
+        normalized_recap_path,
+        source_recap_path,
+        source_recap_sha256,
+        force_graph_run,
+        candidate_graph_path,
+        extract_graph,
+        graph_model_id,
+    )
 
     desired_statuses = {
         GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
@@ -77,11 +104,33 @@ def build_recap_graph_preview_bundle(
         GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
     }
     if not force_graph_run:
-        reusable = _latest_matching_run(repo, campaign_id, session, desired_statuses)
+        reusable = _latest_matching_run(
+            repo,
+            campaign_id,
+            session,
+            desired_statuses,
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
+        )
         if reusable is not None:
+            logger.info(
+                "graph preview bundle reusing run campaign=%s session=session-%s status=%s manifest=%s run_dir=%s",
+                campaign_id,
+                session,
+                reusable.status,
+                reusable.manifest_path,
+                reusable.run_dir,
+            )
             return _status_from_summary(repo, reusable, normalized_recap_path=normalized_recap_path)
 
     run_dir = _new_run_dir(repo, campaign_id, session)
+    logger.info(
+        "graph preview bundle starting extraction campaign=%s session=session-%s run_dir=%s allow_llm=%s",
+        campaign_id,
+        session,
+        _repo_relative(run_dir, repo),
+        extract_graph,
+    )
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
@@ -93,9 +142,20 @@ def build_recap_graph_preview_bundle(
             model_id=graph_model_id,
             comparison_mode="none",
             candidate_graph_path=candidate,
+            input_path_record=source_recap_path,
         )
     )
     summary = _summary_for_manifest(repo, result.manifest_path)
+    logger.info(
+        "graph preview bundle finished campaign=%s session=session-%s status=%s manifest=%s "
+        "candidate_graph_path=%s validation_report_path=%s",
+        campaign_id,
+        session,
+        summary.status,
+        summary.manifest_path,
+        _repo_relative(result.candidate_graph_path, repo) if result.candidate_graph_path else None,
+        _repo_relative(result.validation_report_path, repo) if result.validation_report_path else None,
+    )
     return _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
 
 
@@ -113,6 +173,23 @@ def materialize_recap_preview_supergraph(
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
     repo = repo_root.resolve()
+    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
+        repo, normalized_recap_path
+    )
+    logger.info(
+        "preview union materialization requested campaign=%s session=session-%s normalized=%s "
+        "source_recap_path=%s source_recap_sha256=%s manifest_path=%s candidate_graph_path=%s "
+        "extract_graph=%s model_id=%s",
+        campaign_id,
+        session,
+        normalized_recap_path,
+        source_recap_path,
+        source_recap_sha256,
+        manifest_path,
+        candidate_graph_path,
+        extract_graph,
+        graph_model_id,
+    )
     if candidate_graph_path:
         if not normalized_recap_path:
             raise ValueError("normalized recap is required when candidate_graph_path is supplied")
@@ -128,7 +205,19 @@ def materialize_recap_preview_supergraph(
         )
 
     if extract_graph and not candidate_graph_path and normalized_recap_path:
-        existing = discover_graph_ingest_runs(repo, campaign_id=campaign_id, session_id=f"session-{session}")
+        existing = discover_graph_ingest_runs(
+            repo,
+            campaign_id=campaign_id,
+            session_id=f"session-{session}",
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
+        )
+        logger.info(
+            "preview union extract-then-materialize discovered runs campaign=%s session=session-%s statuses=%s",
+            campaign_id,
+            session,
+            [run.status for run in existing[:5]],
+        )
         if not existing or existing[0].status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
             build_recap_graph_preview_bundle(
                 repo_root=repo,
@@ -144,19 +233,63 @@ def materialize_recap_preview_supergraph(
         manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
         summary = _summary_for_manifest(repo, manifest)
     else:
-        runs = discover_graph_ingest_runs(repo, campaign_id=campaign_id, session_id=f"session-{session}")
+        runs = discover_graph_ingest_runs(
+            repo,
+            campaign_id=campaign_id,
+            session_id=f"session-{session}",
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
+        )
         summary = runs[0] if runs else None
 
     if summary is None:
+        logger.warning(
+            "preview union materialization missing graph run campaign=%s session=session-%s normalized=%s",
+            campaign_id,
+            session,
+            normalized_recap_path,
+        )
         return _missing_status(normalized_recap_path)
     if summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value:
+        ensure_graph_ingest_projection_payload(
+            repo_root=repo,
+            manifest_path=summary.manifest_path,
+            session_id=f"session-{session}",
+        )
+        logger.info(
+            "preview union materialization reused ready run campaign=%s session=session-%s manifest=%s union_store=%s",
+            campaign_id,
+            session,
+            summary.manifest_path,
+            summary.preview_union_store_path,
+        )
         return _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
     if summary.status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = "candidate graph required before preview union materialization"
+        status["blocked_reason"] = (
+            status.get("blocked_reason")
+            or "candidate graph required before preview union materialization"
+        )
         status["next_actions"] = ["supply candidate_graph_path", "build_graph_preview_bundle"]
+        logger.warning(
+            "preview union materialization blocked campaign=%s session=session-%s status=%s "
+            "manifest=%s extraction_mode=%s blocked_reason=%s next_actions=%s",
+            campaign_id,
+            session,
+            summary.status,
+            summary.manifest_path,
+            status.get("extraction_mode"),
+            status.get("blocked_reason"),
+            status.get("next_actions"),
+        )
         return status
 
+    logger.info(
+        "preview union materialization starting campaign=%s session=session-%s manifest=%s",
+        campaign_id,
+        session,
+        summary.manifest_path,
+    )
     result = materialize_preview_union_store_from_graph_ingest_run(
         PreviewUnionMaterializeOptions(
             manifest_path=(repo / summary.manifest_path).resolve(),
@@ -165,13 +298,105 @@ def materialize_recap_preview_supergraph(
         )
     )
     updated = _summary_for_manifest(repo, result.manifest_path)
+    ensure_graph_ingest_projection_payload(
+        repo_root=repo,
+        manifest_path=_repo_relative(result.manifest_path, repo),
+        session_id=f"session-{session}",
+    )
+    logger.info(
+        "preview union materialization finished campaign=%s session=session-%s manifest=%s union_store=%s",
+        campaign_id,
+        session,
+        updated.manifest_path,
+        updated.preview_union_store_path,
+    )
     return _status_from_summary(repo, updated, normalized_recap_path=normalized_recap_path)
 
 
+def ensure_graph_ingest_projection_payload(
+    *,
+    repo_root: Path,
+    manifest_path: str | None,
+    session_id: str,
+) -> Path | None:
+    """Persist projection_payload.json on a preview_union_store_ready graph-ingest run."""
+
+    if not manifest_path:
+        return None
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection_payload,
+    )
+
+    repo = repo_root.resolve()
+    manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
+    payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
+    artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
+    existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+    if isinstance(existing, dict) and existing.get("exists") is True:
+        uri = existing.get("uri")
+        if isinstance(uri, str):
+            return _resolve_existing_repo_path(repo, uri, field_name="projection_payload")
+
+    projection_payload = build_plan_union_supergraph_projection_payload(
+        session_id=session_id,
+        graph_run_manifest_path=manifest_full,
+    )
+    projection_path = manifest_full.parent / "projection_payload.json"
+    projection_path.write_text(
+        json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    artifacts = dict(artifacts)
+    artifacts[GraphIngestArtifactKind.PROJECTION_PAYLOAD.value] = {
+        "kind": GraphIngestArtifactKind.PROJECTION_PAYLOAD.value,
+        "uri": _repo_relative(projection_path, repo),
+        "schema": "dmb_recap_graph_projection_v0",
+        "exists": True,
+        "preview_only": True,
+    }
+    payload_data["artifacts"] = artifacts
+    manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return projection_path
+
+
+def _lineage_for_normalized_recap(
+    repo: Path, normalized_recap_path: str | None
+) -> tuple[str | None, str | None]:
+    if not normalized_recap_path:
+        return None, None
+    try:
+        path = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
+    except (FileNotFoundError, ValueError):
+        if not Path(normalized_recap_path).is_absolute():
+            return normalized_recap_path.replace("\\", "/"), None
+        return None, None
+    source_recap_sha256 = f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+    try:
+        source_recap_path = path.resolve().relative_to(repo.resolve()).as_posix()
+    except ValueError:
+        if not Path(normalized_recap_path).is_absolute():
+            source_recap_path = normalized_recap_path.replace("\\", "/")
+        else:
+            source_recap_path = None
+    return source_recap_path, source_recap_sha256
+
+
 def _latest_matching_run(
-    repo: Path, campaign_id: str, session: int, statuses: set[str]
+    repo: Path,
+    campaign_id: str,
+    session: int,
+    statuses: set[str],
+    *,
+    source_recap_path: str | None = None,
+    source_recap_sha256: str | None = None,
 ) -> GraphIngestRunSummary | None:
-    for run in discover_graph_ingest_runs(repo, campaign_id=campaign_id, session_id=f"session-{session}"):
+    for run in discover_graph_ingest_runs(
+        repo,
+        campaign_id=campaign_id,
+        session_id=f"session-{session}",
+        source_recap_path=source_recap_path,
+        source_recap_sha256=source_recap_sha256,
+    ):
         if run.status in statuses:
             return run
     return None

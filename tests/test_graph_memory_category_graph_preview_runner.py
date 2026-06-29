@@ -338,6 +338,41 @@ def test_runner_allow_llm_blocked_writes_calm_manifest(
     assert manifest["next_actions"] == ["configure model", "supply candidate_graph_path"]
 
 
+def test_runner_invalid_llm_json_preserves_raw_response_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = '{"candidate_nodes": [{"id": "node:bad"}'
+
+    class InvalidJsonClient:
+        def extract_candidate_graph(self, prompt: str, *, model_id: str) -> str:
+            return raw
+
+    monkeypatch.chdir(tmp_path)
+    source = _copy_recap_to_tmp(tmp_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/session_24_invalid_json"),
+            allow_llm=True,
+            extractor_client=InvalidJsonClient(),
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
+    assert result.candidate_graph_path is None
+    manifest = _load_manifest(result.manifest_path)
+    assert manifest["diagnostics"]["extraction_mode"] == "llm_blocked"
+    assert "candidate graph model returned invalid JSON" in manifest["errors"][0]
+    raw_artifact = manifest["artifacts"]["raw_model_response"]
+    raw_path = tmp_path / raw_artifact["uri"]
+    assert raw_path.read_text() == raw
+    extract_step = next(step for step in manifest["steps"] if step["id"] == "extract_candidate_graph")
+    assert extract_step["artifact_refs"][0]["uri"] == raw_artifact["uri"]
+
+
 def test_runner_writes_deterministic_paragraph_source_spans(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

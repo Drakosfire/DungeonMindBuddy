@@ -64,6 +64,7 @@ class GraphIngestArtifactRef(_GraphIngestModel):
 class GraphIngestSource(_GraphIngestModel):
     source_artifact_id: str | None = None
     source_domain: str = "recap"
+    input_path_record: str | None = None
     normalized_recap_path: str | None = None
     normalized_recap_sha256: str | None = None
     source_label: str | None = None

@@ -38,6 +38,7 @@ def test_union_supergraph_projection_api_returns_session_23_payload() -> None:
         "focus",
         "node_views",
         "mentions",
+        "source_spans",
     }
 
 
@@ -203,7 +204,7 @@ def test_api_returns_projection_from_graph_run_manifest_path(
     payload = response.json()
     assert payload["session_id"] == "session-24"
     assert payload["graph_id"] == "longmont-c2:preview-union-supergraph"
-    assert "npc_elara_voss" in payload["node_views"]
+    assert "character_mira" in payload["node_views"]
 
 
 def test_api_preserves_preview_source_fallback() -> None:
@@ -237,6 +238,112 @@ def test_api_rejects_unsafe_graph_run_manifest_path(
 
     assert response.status_code == 400
     assert "unsafe repo-contained path" in response.json()["detail"]
+
+
+def test_api_returns_recap_only_projection_when_allowed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    normalized_dir = (
+        tmp_path
+        / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    )
+    normalized_dir.mkdir(parents=True)
+    (normalized_dir / "Session 24 - Dogfood.md").write_text(
+        "---\ntitle: Dogfood\n---\n# Session 24\n\nRecap memory text.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(adapter_module, "corpus_root", lambda: tmp_path)
+
+    response = _client().get(
+        "/api/live/graph-preview/union-supergraph/projection",
+        params={
+            "campaign_id": "longmont-c2",
+            "session_id": "session-24",
+            "allow_recap_only": "true",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["campaign_id"] == "longmont-c2"
+    assert payload["session_id"] == "session-24"
+    assert payload["graph_id"] is None
+    assert payload["markdown"] == "# Session 24\n\nRecap memory text."
+    assert payload["focus"]["focus_session_id"] == "session-24"
+    assert payload["node_views"] == {}
+    assert payload["mentions"] == []
+
+
+def test_recap_artifacts_registry_discovers_canonical_normalized_recaps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(adapter_module, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
+    normalized_dir = (
+        tmp_path
+        / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized"
+    )
+    normalized_dir.mkdir(parents=True)
+    (normalized_dir / "Session 24 - Constructed.md").write_text(
+        "# Session 24\n\nConstructed recap.",
+        encoding="utf-8",
+    )
+
+    response = _client().get(
+        "/api/live/graph-preview/artifacts",
+        params={"campaign_id": "longmont-c2"},
+    )
+
+    assert response.status_code == 200
+    records = response.json()["records"]
+    assert [record["session_id"] for record in records] == ["session-24"]
+    assert records[0]["source_recap_path"].endswith(
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Constructed.md"
+    )
+
+
+def test_latest_graph_ingest_requires_matching_source_recap_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
+    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "runs")
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    source_sha = manifest["source"]["normalized_recap_sha256"]
+
+    mismatch = _client().get(
+        "/api/live/graph-preview/graph-ingest/latest",
+        params={
+            "campaign_id": "longmont-c2",
+            "session_id": "session-24",
+            "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Real.md",
+        },
+    )
+    match = _client().get(
+        "/api/live/graph-preview/graph-ingest/latest",
+        params={
+            "campaign_id": "longmont-c2",
+            "session_id": "session-24",
+            "source_recap_sha256": source_sha,
+        },
+    )
+
+    assert mismatch.status_code == 404
+    assert match.status_code == 200
+    assert match.json()["run"]["manifest_path"] == "runs/candidate_ready/graph_ingest_run_manifest.json"
+
+
+def test_api_recap_only_requires_campaign_id() -> None:
+    response = _client().get(
+        "/api/live/graph-preview/union-supergraph/projection",
+        params={
+            "session_id": "session-24",
+            "allow_recap_only": "true",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "campaign_id is required" in response.json()["detail"]
 
 
 def test_api_rejects_store_with_recap_path_outside_repo(

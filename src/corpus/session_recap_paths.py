@@ -76,7 +76,8 @@ def recap_tail(text: str | None) -> str:
 
 
 def is_generic_recap_tail(text: str | None) -> bool:
-    return recap_tail(text) in GENERIC_RECAP_TAILS
+    tail = recap_tail(text)
+    return tail in GENERIC_RECAP_TAILS or tail.isdigit()
 
 
 def normalized_recap_candidates(
@@ -141,6 +142,12 @@ def normalized_basename_from_disk(corpus_root: Path, *, campaign_number: int, se
     candidates = normalized_recap_candidates(
         corpus_root, campaign_number=campaign_number, session=session
     )
+    if len(candidates) > 1:
+        non_generic = [
+            path for path in candidates if not is_generic_recap_tail(path.stem)
+        ]
+        if len(non_generic) == 1:
+            return non_generic[0].stem
     if len(candidates) != 1:
         raise FileNotFoundError(
             f"expected exactly one normalized recap for C{campaign_number}S{session} under {norm_dir}"

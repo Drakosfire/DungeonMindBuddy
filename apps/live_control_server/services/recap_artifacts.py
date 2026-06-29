@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Mapping
@@ -142,6 +143,45 @@ def _session_number(session_id: str) -> int | None:
         return int(session_id) if session_id.isdigit() else None
     tail = session_id.split(marker, 1)[1]
     return int(tail) if tail.isdigit() else None
+
+
+def _campaign_id_from_corpus_path(path: Path) -> str | None:
+    parts = path.parts
+    for index, part in enumerate(parts):
+        if part == "Longmont Campaign" and index + 1 < len(parts):
+            match = re.fullmatch(r"Campaign (\d+)", parts[index + 1])
+            if match:
+                return f"longmont-c{match.group(1)}"
+    return None
+
+
+def _normalized_recap_record_from_path(root: Path, recap_path: Path) -> RecapArtifactRecord | None:
+    campaign_id = _campaign_id_from_corpus_path(recap_path)
+    session_match = re.match(r"Session\s+(\d+)\b", recap_path.name)
+    if campaign_id is None or session_match is None:
+        return None
+    session_id = normalize_session_id(int(session_match.group(1)))
+    source_recap_path = _rel_posix(root, recap_path)
+    now = _utc_now_iso()
+    return RecapArtifactRecord(
+        artifact_id=f"{campaign_id}/{session_id}",
+        campaign_id=campaign_id,
+        session_id=session_id,
+        source_artifact_id=None,
+        source_recap_path=source_recap_path,
+        breadcrumb_seed_path=_breadcrumb_seed_path(source_recap_path),
+        session_memory_records_path=_session_memory_path(source_recap_path),
+        run_bundle_uri="",
+        run_manifest_uri="",
+        source_span_index_uri="",
+        provenance_index_uri=None,
+        graph_run_refs=[],
+        default_graph_run_uri=None,
+        source_sha256=f"sha256:{hashlib.sha256(recap_path.read_bytes()).hexdigest()}",
+        registered_at=now,
+        updated_at=now,
+        registry_source="scan",
+    )
 
 
 def _load_registry_document(root: Path) -> RecapArtifactsRegistryDocument:
@@ -338,6 +378,13 @@ def sync_recap_artifacts_registry(root: Path | None = None) -> RecapArtifactsReg
         if record is not None:
             records_by_id[record.artifact_id] = record
 
+    corpus_root = base / "corpus/eldyrwild-markdown"
+    if corpus_root.is_dir():
+        for recap_path in sorted(corpus_root.glob("Longmont Campaign/Campaign */Session Recaps/_normalized/Session *.md")):
+            record = _normalized_recap_record_from_path(base, recap_path)
+            if record is not None:
+                records_by_id.setdefault(record.artifact_id, record)
+
     for cohort in _collect_cohort_summaries(base):
         session_number = cohort.get("session")
         if session_number is None:
@@ -382,7 +429,4 @@ def sync_recap_artifacts_registry(root: Path | None = None) -> RecapArtifactsReg
 
 def ensure_recap_artifacts_registry(root: Path | None = None) -> RecapArtifactsRegistryDocument:
     base = root or repo_root()
-    path = recap_artifacts_path(base)
-    if not path.is_file() or not _load_registry_document(base).records:
-        return sync_recap_artifacts_registry(base)
-    return _load_registry_document(base)
+    return sync_recap_artifacts_registry(base)

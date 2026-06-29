@@ -26,6 +26,7 @@ from apps.live_control_server.services.graph_preview_surface import (
     GraphPreviewSurfaceError,
 )
 from apps.live_control_server.services.union_supergraph_projection_adapter import (
+    build_recap_only_projection_payload,
     build_plan_union_supergraph_projection_payload,
 )
 from apps.live_control_server.services.recap_artifacts import (
@@ -108,6 +109,8 @@ def get_graph_preview_latest(
 def get_graph_ingest_runs(
     campaign_id: Annotated[str | None, Query()] = None,
     session_id: Annotated[str | None, Query()] = None,
+    source_recap_path: Annotated[str | None, Query()] = None,
+    source_recap_sha256: Annotated[str | None, Query()] = None,
     status: Annotated[str | None, Query()] = None,
     require_preview_union_store: Annotated[bool, Query()] = False,
 ) -> dict[str, Any]:
@@ -116,6 +119,8 @@ def get_graph_ingest_runs(
             repo_root(),
             campaign_id=campaign_id,
             session_id=session_id,
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
             status=status,
             require_preview_union_store=require_preview_union_store,
         )
@@ -128,10 +133,16 @@ def get_graph_ingest_runs(
 def get_latest_graph_ingest_run(
     campaign_id: Annotated[str, Query()],
     session_id: Annotated[str, Query()],
+    source_recap_path: Annotated[str | None, Query()] = None,
+    source_recap_sha256: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
         run = resolve_latest_preview_union_graph_ingest_run(
-            repo_root(), campaign_id=campaign_id, session_id=session_id
+            repo_root(),
+            campaign_id=campaign_id,
+            session_id=session_id,
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
         )
     except GraphIngestRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -143,12 +154,22 @@ def get_union_supergraph_projection(
     session_id: Annotated[str, Query()],
     campaign_id: Annotated[str | None, Query()] = None,
     use_latest_graph_ingest: Annotated[bool, Query()] = False,
+    allow_recap_only: Annotated[bool, Query()] = False,
     store_path: Annotated[str | None, Query()] = None,
     preview_source: Annotated[str | None, Query()] = None,
     graph_run_manifest_path: Annotated[str | None, Query()] = None,
     preview_union_store_path: Annotated[str | None, Query()] = None,
+    source_recap_path: Annotated[str | None, Query()] = None,
+    source_recap_sha256: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
+        if allow_recap_only:
+            if campaign_id is None:
+                raise ValueError("campaign_id is required when allow_recap_only=true")
+            return build_recap_only_projection_payload(
+                campaign_id=campaign_id,
+                session_id=session_id,
+            )
         resolved_manifest_path = graph_run_manifest_path
         if resolved_manifest_path is None and use_latest_graph_ingest:
             if campaign_id is None:
@@ -156,7 +177,11 @@ def get_union_supergraph_projection(
                     "campaign_id is required when use_latest_graph_ingest=true"
                 )
             latest = resolve_latest_preview_union_graph_ingest_run(
-                repo_root(), campaign_id=campaign_id, session_id=session_id
+                repo_root(),
+                campaign_id=campaign_id,
+                session_id=session_id,
+                source_recap_path=source_recap_path,
+                source_recap_sha256=source_recap_sha256,
             )
             resolved_manifest_path = latest.manifest_path
         return build_plan_union_supergraph_projection_payload(

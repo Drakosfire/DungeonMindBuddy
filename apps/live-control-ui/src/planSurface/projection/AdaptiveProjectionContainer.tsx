@@ -1,8 +1,13 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { getRecapArtifacts } from "../../api/liveApi";
 import { useProjection, projectionContainerClass } from "./projectionContext";
 import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
 import type { SurfaceConfig } from "../types";
+import {
+  filterNumericRecapArtifactRecords,
+  sortRecapArtifactRecords,
+} from "../graphPreview/recapSessionLabels";
 
 interface AdaptiveProjectionContainerProps {
   config: SurfaceConfig;
@@ -17,11 +22,52 @@ function requestedToolFromLocation(): string | null {
   return hash.startsWith("tool=") ? hash.slice("tool=".length) : hash || null;
 }
 
+function requestedSessionFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("session")?.trim() || null;
+}
+
+const SESSION_AWARE_TOOLS = new Set(["ingest-recap", "recap", "graph-preview"]);
+
 export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
   const { active, activeResolution, close, expandContent, openTool } = useProjection();
   const isOpen = Boolean(active);
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
+  const [latestIngestedSessionId, setLatestIngestedSessionId] = useState<string | null>(null);
+
+  const resolveLatestIngestedSessionId = useCallback(async () => {
+    if (latestIngestedSessionId) return latestIngestedSessionId;
+    try {
+      const response = await getRecapArtifacts(config.context.campaignId);
+      const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
+      const sessionId = records.at(-1)?.session_id ?? null;
+      setLatestIngestedSessionId(sessionId);
+      return sessionId;
+    } catch {
+      setLatestIngestedSessionId(null);
+      return null;
+    }
+  }, [config.context.campaignId, latestIngestedSessionId]);
+
+  const openToolFromNav = useCallback(
+    async (toolId: string) => {
+      const inferredSessionId =
+        SESSION_AWARE_TOOLS.has(toolId) && !requestedSessionFromLocation()
+          ? await resolveLatestIngestedSessionId()
+          : null;
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("tool", toolId);
+        if (inferredSessionId) {
+          params.set("session", inferredSessionId);
+        }
+        window.history.pushState({}, "", `/plan?${params.toString()}`);
+      }
+      openTool(toolId);
+    },
+    [openTool, resolveLatestIngestedSessionId],
+  );
 
   useEffect(() => {
     const requestedTool = requestedToolFromLocation();
@@ -62,7 +108,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         aria-expanded={isOpen}
         aria-controls="plan-toolbox-drawer"
         title="Plan toolbox"
-        onClick={() => (isOpen ? close() : firstToolId ? openTool(firstToolId) : undefined)}
+        onClick={() => (isOpen ? close() : firstToolId ? void openToolFromNav(firstToolId) : undefined)}
       >
         Tools
       </button>
@@ -100,7 +146,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
               type="button"
               className={activeToolId === tool.id ? "active" : undefined}
               aria-pressed={activeToolId === tool.id}
-              onClick={() => openTool(tool.id)}
+              onClick={() => void openToolFromNav(tool.id)}
             >
               {tool.label}
             </button>

@@ -74,6 +74,8 @@ def discover_graph_ingest_runs(
     *,
     campaign_id: str | None = None,
     session_id: str | None = None,
+    source_recap_path: str | None = None,
+    source_recap_sha256: str | None = None,
     status: str | None = None,
     require_preview_union_store: bool = False,
 ) -> list[GraphIngestRunSummary]:
@@ -96,6 +98,13 @@ def discover_graph_ingest_runs(
             if campaign_id is not None and summary.campaign_id != campaign_id:
                 continue
             if session_id is not None and summary.session_id != session_id:
+                continue
+            if (source_recap_path is not None or source_recap_sha256 is not None) and not _manifest_matches_source_recap(
+                repo,
+                manifest_path,
+                source_recap_path=source_recap_path,
+                source_recap_sha256=source_recap_sha256,
+            ):
                 continue
             if status is not None and summary.status != status:
                 continue
@@ -122,11 +131,15 @@ def resolve_latest_preview_union_graph_ingest_run(
     *,
     campaign_id: str,
     session_id: str,
+    source_recap_path: str | None = None,
+    source_recap_sha256: str | None = None,
 ) -> GraphIngestRunSummary:
     runs = discover_graph_ingest_runs(
         root,
         campaign_id=campaign_id,
         session_id=session_id,
+        source_recap_path=source_recap_path,
+        source_recap_sha256=source_recap_sha256,
         require_preview_union_store=True,
     )
     if not runs:
@@ -136,6 +149,47 @@ def resolve_latest_preview_union_graph_ingest_run(
             status_code=404,
         )
     return runs[0]
+
+
+def _manifest_matches_source_recap(
+    repo: Path,
+    manifest_path: Path,
+    *,
+    source_recap_path: str | None,
+    source_recap_sha256: str | None,
+) -> bool:
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    if source_recap_sha256:
+        actual_hashes = [
+            source.get("normalized_recap_sha256"),
+            (payload.get("artifacts") or {}).get("normalized_recap", {}).get("sha256")
+            if isinstance(payload.get("artifacts"), dict)
+            else None,
+        ]
+        if any(value == source_recap_sha256 for value in actual_hashes if isinstance(value, str)):
+            return True
+    if not source_recap_path:
+        return False
+    raw_values = [
+        source.get("normalized_recap_path"),
+        source.get("input_path_record"),
+    ]
+    expected = _normalize_repo_path(repo, source_recap_path)
+    return any(_normalize_repo_path(repo, value) == expected for value in raw_values if isinstance(value, str))
+
+
+def _normalize_repo_path(repo: Path, value: str) -> str:
+    path = Path(value)
+    if path.is_absolute():
+        try:
+            return path.resolve().relative_to(repo).as_posix()
+        except ValueError:
+            return path.resolve().as_posix()
+    return path.as_posix().lstrip("./")
 
 
 def _graph_ingest_search_roots(repo: Path) -> list[Path]:

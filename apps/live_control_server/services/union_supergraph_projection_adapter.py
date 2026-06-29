@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root
+from src.corpus.session_recap_paths import campaign_number_from_id
+from src.live_play.recap_stage_paths import corpus_root
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestRunManifest,
@@ -14,7 +17,11 @@ from graph_memory.ingestion.graph_ingest_validate import (
     FORBIDDEN_DIAGNOSTIC_FLAGS,
     validate_graph_ingest_run_manifest,
 )
-from graph_memory.projection import RecapGraphProjection, build_recap_graph_projection
+from graph_memory.projection import (
+    GraphFocusOverlay,
+    RecapGraphProjection,
+    build_recap_graph_projection,
+)
 from graph_memory.projection.recap_projection import RecapProjectionSourceSpan
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -54,6 +61,9 @@ def build_plan_union_supergraph_projection(
     """Build a backend-neutral graph projection for a /plan session lens."""
 
     if graph_run_manifest_path is not None:
+        persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
+        if persisted is not None:
+            return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
     elif preview_union_store_path is not None:
         store = load_preview_union_store(preview_union_store_path)
@@ -64,8 +74,33 @@ def build_plan_union_supergraph_projection(
     else:
         store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
     markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
+    if not (markdown or "").strip():
+        markdown = _load_corpus_normalized_recap_markdown(
+            campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
+            session_id=session_id,
+        )
     source_spans = _load_manifest_source_spans(graph_run_manifest_path) if graph_run_manifest_path is not None else []
-    return build_recap_graph_projection(store, session_id=session_id, markdown=markdown, source_spans=source_spans)
+    return build_recap_graph_projection(store, session_id=session_id, markdown=markdown or "", source_spans=source_spans)
+
+
+def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return None
+    artifact = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+    if not isinstance(artifact, dict):
+        return None
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    projection_path = _resolve_repo_contained_path(Path(uri), root)
+    projection_payload = json.loads(projection_path.read_text(encoding="utf-8"))
+    if not isinstance(projection_payload, dict):
+        return None
+    return projection_payload
 
 
 
@@ -223,6 +258,26 @@ def _load_focus_recap_markdown_from_store(
     return _strip_yaml_frontmatter(input_path.read_text(encoding="utf-8"))
 
 
+def _load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str) -> str | None:
+    match = re.fullmatch(r"session-(\d+)", session_id.strip())
+    if not match:
+        return None
+    session = int(match.group(1))
+    campaign_number = campaign_number_from_id(campaign_id)
+    normalized_dir = (
+        corpus_root()
+        / f"Longmont Campaign/Campaign {campaign_number}/Session Recaps/_normalized"
+    )
+    if not normalized_dir.is_dir():
+        return None
+    candidates = sorted(normalized_dir.glob(f"Session {session:02d} - *.md"))
+    if not candidates:
+        candidates = sorted(normalized_dir.glob(f"Session {session} - *.md"))
+    if not candidates:
+        return None
+    return _strip_yaml_frontmatter(candidates[0].read_text(encoding="utf-8"))
+
+
 def _strip_yaml_frontmatter(markdown: str) -> str:
     lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     if not lines or lines[0].strip() != "---":
@@ -249,6 +304,34 @@ def build_plan_union_supergraph_projection_payload(
         preview_source=preview_source,
         graph_run_manifest_path=graph_run_manifest_path,
         preview_union_store_path=preview_union_store_path,
+    )
+    return projection.model_dump(mode="json")
+
+
+def build_recap_only_projection_payload(
+    *,
+    campaign_id: str,
+    session_id: str,
+) -> dict[str, Any]:
+    """Build a recap-first payload when graph projection artifacts do not exist yet."""
+
+    markdown = _load_corpus_normalized_recap_markdown(
+        campaign_id=campaign_id,
+        session_id=session_id,
+    )
+    if not (markdown or "").strip():
+        raise FileNotFoundError(
+            f"normalized recap markdown not found for {campaign_id} {session_id}"
+        )
+    projection = RecapGraphProjection(
+        campaign_id=campaign_id,
+        session_id=session_id,
+        graph_id=None,
+        markdown=markdown,
+        focus=GraphFocusOverlay(focus_session_id=session_id),
+        node_views={},
+        mentions=[],
+        source_spans=[],
     )
     return projection.model_dump(mode="json")
 

@@ -2,20 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   LiveApiError,
-  getDefaultUnionSupergraphProjection,
-  getGraphPreviewRuns,
   getRecapArtifacts,
-  getRecapGraphPresentation,
   getUnionSupergraphProjection,
 } from "../../api/liveApi";
 import type {
-  GraphPreviewRunSummary,
   RecapArtifactRecord,
-  RecapGraphPresentationResponse,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
-import { RecapGraphProjection } from "./RecapGraphProjection";
 import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 import {
   filterNumericRecapArtifactRecords,
@@ -23,9 +17,9 @@ import {
 } from "./recapSessionLabels";
 
 type LoadStatus = "loading" | "ready" | "error";
-type RecapMode = "union-supergraph" | "legacy";
 export type RecapProjectionSource =
   | "latest-graph-ingest"
+  | "recap-only"
   | "default-preview-source"
   | "legacy"
   | "unavailable";
@@ -47,17 +41,15 @@ function isExpectedProjectionMiss(error: unknown): boolean {
 }
 
 export function RecapGraphModule({ context }: RecapGraphModuleProps) {
-  const defaultSessionId = requestedSessionFromLocation() ?? `session-${context.ingestSession}`;
+  const requestedSessionId = requestedSessionFromLocation();
+  const fallbackSessionId = `session-${context.ingestSession}`;
+  const defaultSessionId = requestedSessionId ?? fallbackSessionId;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<RecapMode>("union-supergraph");
   const [unionPayload, setUnionPayload] = useState<UnionSupergraphProjectionResponse | null>(null);
-  const [legacyPayload, setLegacyPayload] = useState<RecapGraphPresentationResponse | null>(null);
   const [projectionSource, setProjectionSource] = useState<RecapProjectionSource>("unavailable");
-  const [runs, setRuns] = useState<GraphPreviewRunSummary[]>([]);
-  const [selectedRunDir, setSelectedRunDir] = useState("");
-  const [pinnedNodeId, setPinnedNodeId] = useState<string | null>(null);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
+  const [artifactsLoaded, setArtifactsLoaded] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
 
   const sessionOptions = useMemo(() => {
@@ -76,16 +68,17 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const loadUnionProjection = useCallback(async (sessionId = selectedSessionId) => {
     setStatus("loading");
     setError(null);
-    setPinnedNodeId(null);
+    const selectedRecord = sessionRecords.find((record) => record.session_id === sessionId);
     try {
       const projection = await getUnionSupergraphProjection({
         campaignId: context.campaignId,
         sessionId,
         useLatestGraphIngest: true,
+        sourceRecapPath: selectedRecord?.source_recap_path,
+        sourceRecapSha256: selectedRecord?.source_sha256,
       });
       setUnionPayload(projection);
       setProjectionSource("latest-graph-ingest");
-      setMode("union-supergraph");
       setStatus("ready");
       return;
     } catch (latestError) {
@@ -98,56 +91,25 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       }
     }
 
-    try {
-      const projection = await getDefaultUnionSupergraphProjection(sessionId);
-      setUnionPayload(projection);
-      setProjectionSource("default-preview-source");
-      setMode("union-supergraph");
-      setStatus("ready");
-    } catch (fallbackError) {
+    if (selectedRecord) {
       setUnionPayload(null);
       setProjectionSource("unavailable");
       setError(
-        fallbackError instanceof Error
-          ? `No union-supergraph projection is available for ${sessionId}. ${fallbackError.message}`
-          : `No union-supergraph projection is available for ${sessionId}.`,
+        `Graph projection is not ready for ${sessionId}. Recap memory exists, but no lineage-matched preview union projection was found.`,
       );
       setStatus("error");
+      return;
     }
-  }, [context.campaignId, selectedSessionId]);
 
-  const loadLegacyRun = useCallback(async (runDir?: string, sessionId = selectedSessionId) => {
-    setStatus("loading");
-    setError(null);
-    try {
-      const recapQuery = {
-        campaign_id: context.campaignId,
-        session_id: sessionId,
-      };
-      const [runList, recap] = await Promise.all([
-        getGraphPreviewRuns(recapQuery),
-        getRecapGraphPresentation({ ...recapQuery, run_dir: runDir }),
-      ]);
-      setRuns(runList.runs);
-      setLegacyPayload(recap);
-      setSelectedRunDir(recap.run_dir);
-      setPinnedNodeId((current) => {
-        if (current && recap.nodes[current]) {
-          return current;
-        }
-        return Object.keys(recap.nodes)[0] ?? null;
-      });
-      setProjectionSource("legacy");
-      setMode("legacy");
-      setStatus("ready");
-    } catch (loadError) {
-      setStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Failed to load legacy recap graph");
-    }
-  }, [context.campaignId, selectedSessionId]);
+    setUnionPayload(null);
+    setProjectionSource("unavailable");
+    setError(`No ingested recap artifact or union-supergraph projection is available for ${sessionId}.`);
+    setStatus("error");
+  }, [context.campaignId, selectedSessionId, sessionRecords]);
 
   useEffect(() => {
     let cancelled = false;
+    setArtifactsLoaded(false);
 
     void getRecapArtifacts(context.campaignId)
       .then((response) => {
@@ -156,32 +118,34 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         }
         const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
         setSessionRecords(records);
-        setSelectedSessionId(defaultSessionId || records[0]?.session_id || `session-${context.ingestSession}`);
+        setSelectedSessionId(requestedSessionId ?? records.at(-1)?.session_id ?? fallbackSessionId);
+        setArtifactsLoaded(true);
       })
       .catch(() => {
         if (!cancelled) {
           setSessionRecords([]);
           setSelectedSessionId(defaultSessionId);
+          setArtifactsLoaded(true);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, defaultSessionId]);
+  }, [context.campaignId, defaultSessionId, fallbackSessionId, requestedSessionId]);
 
   useEffect(() => {
-    if (mode === "legacy") {
+    if (!artifactsLoaded) {
       return;
     }
     void loadUnionProjection(selectedSessionId);
-  }, [loadUnionProjection, mode, selectedSessionId]);
+  }, [artifactsLoaded, loadUnionProjection, selectedSessionId]);
 
   if (status === "loading") {
     return <p className="plan-projection-empty">Loading union supergraph projection…</p>;
   }
 
-  if (status === "error" && mode === "union-supergraph") {
+  if (status === "error") {
     return (
       <div className="recap-reader-root">
         <p className="graph-preview-error" role="alert">
@@ -190,14 +154,11 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         <button type="button" onClick={() => void loadUnionProjection(selectedSessionId)}>
           Retry
         </button>
-        <button type="button" onClick={() => void loadLegacyRun()}>
-          Open legacy recap preview
-        </button>
       </div>
     );
   }
 
-  if (mode === "union-supergraph" && unionPayload) {
+  if (unionPayload) {
     return (
       <UnionSupergraphRecapProjection
         payload={unionPayload}
@@ -207,45 +168,9 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         }}
         sessionOptions={sessionOptions}
         projectionSource={projectionSource}
-        onOpenLegacy={() => {
-          void loadLegacyRun(undefined, selectedSessionId);
-        }}
       />
     );
   }
 
-  if (status === "error" || !legacyPayload) {
-    return (
-      <div className="recap-reader-root">
-        <p className="graph-preview-error" role="alert">{error ?? "Recap graph unavailable."}</p>
-        <button type="button" onClick={() => void loadLegacyRun(selectedRunDir || undefined)}>
-          Retry legacy preview
-        </button>
-        <button type="button" onClick={() => void loadUnionProjection(selectedSessionId)}>
-          Back to union supergraph
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <RecapGraphProjection
-      payload={legacyPayload}
-      runs={runs}
-      sessionRecords={sessionRecords}
-      selectedSessionId={selectedSessionId}
-      onSelectSession={(sessionId) => {
-        setSelectedSessionId(sessionId);
-        setSelectedRunDir("");
-        void loadLegacyRun(undefined, sessionId);
-      }}
-      selectedRunDir={selectedRunDir}
-      onSelectRun={(runDir) => {
-        setSelectedRunDir(runDir);
-        void loadLegacyRun(runDir);
-      }}
-      pinnedNodeId={pinnedNodeId}
-      onPinNode={setPinnedNodeId}
-    />
-  );
+  return <p className="plan-projection-empty">No union-supergraph projection loaded.</p>;
 }

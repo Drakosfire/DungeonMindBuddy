@@ -106,11 +106,11 @@ describe("liveApi artifact/capability helpers", () => {
       mockJsonResponse({ schema_version: "dmb_graph_ingest_run_registry_v1", version: "1", run: null }),
     );
 
-    await getLatestGraphIngestRun("c2", "session-22");
+    await getLatestGraphIngestRun("c2", "session-22", "corpus/recap.md", "sha256:abc");
 
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe(
-      "/api/live/graph-preview/graph-ingest/latest?campaign_id=c2&session_id=session-22",
+      "/api/live/graph-preview/graph-ingest/latest?campaign_id=c2&session_id=session-22&source_recap_path=corpus%2Frecap.md&source_recap_sha256=sha256%3Aabc",
     );
   });
 
@@ -123,6 +123,8 @@ describe("liveApi artifact/capability helpers", () => {
       campaignId: "c2",
       sessionId: "session-22",
       useLatestGraphIngest: true,
+      sourceRecapPath: "corpus/recap.md",
+      sourceRecapSha256: "sha256:abc",
     });
 
     const [url] = fetchSpy.mock.calls[0];
@@ -130,7 +132,27 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toContain("campaign_id=c2");
     expect(String(url)).toContain("session_id=session-22");
     expect(String(url)).toContain("use_latest_graph_ingest=true");
+    expect(String(url)).toContain("source_recap_path=corpus%2Frecap.md");
+    expect(String(url)).toContain("source_recap_sha256=sha256%3Aabc");
     expect(String(url)).not.toContain("preview_source=");
+  });
+
+  it("getUnionSupergraphProjection supports recap-only mode", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ campaign_id: "c2", session_id: "session-24", focus: {}, node_views: {}, mentions: [] }),
+    );
+
+    await getUnionSupergraphProjection({
+      campaignId: "c2",
+      sessionId: "session-24",
+      allowRecapOnly: true,
+    });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toContain("/api/live/graph-preview/union-supergraph/projection?");
+    expect(String(url)).toContain("campaign_id=c2");
+    expect(String(url)).toContain("session_id=session-24");
+    expect(String(url)).toContain("allow_recap_only=true");
   });
 
   it("getUnionSupergraphProjection preserves previewSource fallback", async () => {

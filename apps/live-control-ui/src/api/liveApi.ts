@@ -198,6 +198,8 @@ export async function getRecapGraphPresentation(
 export interface GraphIngestRunsQuery {
   campaignId?: string;
   sessionId?: string;
+  sourceRecapPath?: string;
+  sourceRecapSha256?: string;
   status?: string;
   requirePreviewUnionStore?: boolean;
 }
@@ -206,6 +208,8 @@ export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Prom
   const params = new URLSearchParams();
   if (query.campaignId) params.set("campaign_id", query.campaignId);
   if (query.sessionId) params.set("session_id", query.sessionId);
+  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
+  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
   if (query.status) params.set("status", query.status);
   if (query.requirePreviewUnionStore != null) {
     params.set("require_preview_union_store", String(query.requirePreviewUnionStore));
@@ -217,8 +221,12 @@ export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Prom
 export async function getLatestGraphIngestRun(
   campaignId: string,
   sessionId: string,
+  sourceRecapPath?: string,
+  sourceRecapSha256?: string,
 ): Promise<GraphIngestLatestRunResponse> {
   const params = new URLSearchParams({ campaign_id: campaignId, session_id: sessionId });
+  if (sourceRecapPath) params.set("source_recap_path", sourceRecapPath);
+  if (sourceRecapSha256) params.set("source_recap_sha256", sourceRecapSha256);
   return apiFetch<GraphIngestLatestRunResponse>(
     `/api/live/graph-preview/graph-ingest/latest?${params.toString()}`,
   );
@@ -231,6 +239,9 @@ export interface UnionSupergraphProjectionQuery {
   graphRunManifestPath?: string | null;
   previewUnionStorePath?: string | null;
   useLatestGraphIngest?: boolean;
+  allowRecapOnly?: boolean;
+  sourceRecapPath?: string | null;
+  sourceRecapSha256?: string | null;
 }
 
 export async function getUnionSupergraphProjection(
@@ -250,9 +261,12 @@ export async function getUnionSupergraphProjection(
   const params = new URLSearchParams({ session_id: query.sessionId });
   if (query.campaignId) params.set("campaign_id", query.campaignId);
   if (query.useLatestGraphIngest) params.set("use_latest_graph_ingest", "true");
+  if (query.allowRecapOnly) params.set("allow_recap_only", "true");
   if (query.previewSource) params.set("preview_source", query.previewSource);
   if (query.graphRunManifestPath) params.set("graph_run_manifest_path", query.graphRunManifestPath);
   if (query.previewUnionStorePath) params.set("preview_union_store_path", query.previewUnionStorePath);
+  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
+  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
   return apiFetch<UnionSupergraphProjectionResponse>(
     `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
   );

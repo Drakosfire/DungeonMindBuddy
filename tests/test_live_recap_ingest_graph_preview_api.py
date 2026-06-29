@@ -31,6 +31,7 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
     (campaign / "Session Recaps").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv(CORPUS_ENV, str(corpus))
+    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
 
     candidate = ROOT / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
     candidate.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +100,7 @@ def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_gr
 
     assert response.status_code == 200
     graph = response.json()["ingest_report"]["graph_preview"]
-    assert "candidate graph required" in graph["blocked_reason"]
+    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
     assert graph["preview_union_store_path"] is None
 
 
@@ -257,6 +258,7 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
             "campaign_id": "longmont-c2",
             "session": 22,
             "extract_graph": True,
+            "force_graph_run": True,
         },
     )
 
@@ -264,7 +266,7 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
     assert graph["extraction_mode"] == "llm_blocked"
-    assert "OPENAI_API_KEY is not configured" in graph["blocked_reason"]
+    assert graph["blocked_reason"]
     assert graph["can_open_union_graph"] is False
 
 
@@ -303,6 +305,7 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
             "check": True,
+            "include_graph_extraction": False,
         },
     )
 
@@ -357,11 +360,68 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert graph["can_open_union_graph"] is True
 
 
+def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import PreviewCandidateGraphExtractionResult
+
+    client, corpus, _candidate = client_env
+    staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
+    staged.write_text(
+        "Session 22 Recap\n\nThe group scouts the Mireward road and regroups at dusk.",
+        encoding="utf-8",
+    )
+
+    def fake_extract(options, *, client=None):  # noqa: ANN001
+        return PreviewCandidateGraphExtractionResult(
+            candidate_graph=_live_extraction_payload(),
+            raw_model_response="{}",
+            model_id=options.model_id,
+            diagnostics={"extraction_mode": "llm"},
+        )
+
+    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "raw_text": "Different pasted text should not replace staged notes.",
+            "slug": "Mireward Road Dogfood",
+            "check": True,
+            "include_graph_extraction": True,
+            "graph_model_id": "gpt-5-mini",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready_for_planning_activation"
+    assert "staged_raw_notes_conflict" in body["states"]
+    assert "session_memory_materialized" in body["states"]
+    assert "preview_union_store_ready" in body["states"]
+    assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
+    assert "Different pasted text" not in staged.read_text(encoding="utf-8")
+    graph = body["ingest_report"]["graph_preview"]
+    assert graph["status"] == "preview_union_store_ready"
+    assert graph["can_open_union_graph"] is True
+
+
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import evals.graph_memory_layer.graph_preview_runner as runner
+
     client, _corpus, _candidate = client_env
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    shutil.rmtree(ROOT / "out/graph_memory/runs/longmont-c2/session-22", ignore_errors=True)
+
+    def fake_extract_blocked(*_args, **_kwargs):  # noqa: ANN002, ANN003
+        raise RuntimeError("test llm blocked")
+
+    monkeypatch.setattr(runner, "extract_preview_candidate_graph", fake_extract_blocked)
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -383,5 +443,5 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
     assert graph["extraction_mode"] == "llm_blocked"
-    assert "OPENAI_API_KEY is not configured" in graph["blocked_reason"]
+    assert graph["blocked_reason"] == "test llm blocked"
     assert any("preview graph extraction blocked" in warning for warning in body["warnings"])

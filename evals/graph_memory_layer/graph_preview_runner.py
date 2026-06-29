@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import shutil
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from typing import Any, Literal
 
 from src.graph_memory.extraction.preview_candidate_graph_extractor import (
     CandidateGraphModelClient,
+    PreviewCandidateGraphParseError,
     PreviewCandidateGraphExtractionOptions,
     extract_preview_candidate_graph,
 )
@@ -30,6 +32,7 @@ from graph_memory.ingestion import (
 )
 
 ComparisonMode = Literal["none", "gold_if_available", "required_gold"]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,7 @@ class GraphPreviewRunnerOptions:
     candidate_graph_path: Path | None = None
     extractor_model_id: str | None = None
     extractor_client: CandidateGraphModelClient | None = None
+    input_path_record: str | None = None
 
 
 @dataclass(frozen=True)
@@ -515,6 +519,15 @@ def run_graph_preview_extraction(
         model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
         source_span_id = f"{session_id}:recap:full_text"
         source_span_catalog = json.loads(source_span_index_path.read_text()).get("spans", [])
+        logger.info(
+            "candidate graph extraction starting campaign=%s session=%s model_id=%s "
+            "paragraph_span_count=%s output_dir=%s",
+            campaign_id,
+            session_id,
+            model_id,
+            paragraph_span_count,
+            safe_relative_artifact_uri(output_dir),
+        )
         try:
             extraction = extract_preview_candidate_graph(
                 PreviewCandidateGraphExtractionOptions(
@@ -564,6 +577,19 @@ def run_graph_preview_extraction(
             candidate_extraction = True
             extraction_mode = "llm"
             extraction_summary = "Candidate graph extracted from normalized recap with preview-only GPT-5 mini extractor."
+            logger.info(
+                "candidate graph extraction finished campaign=%s session=%s model_id=%s "
+                "nodes=%s edges=%s beats=%s evidence_refs=%s validation_valid=%s candidate_graph_path=%s",
+                campaign_id,
+                session_id,
+                model_id,
+                health.node_count,
+                health.edge_count,
+                health.beat_count,
+                health.evidence_ref_count,
+                validation.valid,
+                safe_relative_artifact_uri(candidate_graph_path),
+            )
             if validation.valid:
                 status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
                 health.candidate_graph_valid = True
@@ -574,6 +600,14 @@ def run_graph_preview_extraction(
                 manifest_errors = validation.errors
                 next_actions = ["fix_candidate_graph"]
                 candidate_validation_state = GraphIngestStepState.FAILED
+                logger.warning(
+                    "candidate graph validation failed campaign=%s session=%s model_id=%s errors=%s warnings=%s",
+                    campaign_id,
+                    session_id,
+                    model_id,
+                    validation.errors,
+                    validation.warnings,
+                )
         except Exception as exc:
             status = GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
             health.candidate_graph_valid = False
@@ -584,6 +618,24 @@ def run_graph_preview_extraction(
             next_actions = ["configure model", "supply candidate_graph_path"]
             candidate_validation_state = GraphIngestStepState.FAILED
             extraction_summary = f"Candidate graph extraction blocked: {exc}"
+            if isinstance(exc, PreviewCandidateGraphParseError):
+                raw_model_response_path = output_dir / "raw_model_response.txt"
+                raw_model_response_path.write_text(exc.raw_model_response)
+                artifacts["raw_model_response"] = _artifact(
+                    GraphIngestArtifactKind.PASS_TELEMETRY,
+                    raw_model_response_path,
+                    "text/plain",
+                )
+            logger.warning(
+                "candidate graph extraction blocked campaign=%s session=%s model_id=%s error=%s raw_model_response_path=%s",
+                campaign_id,
+                session_id,
+                health.model_id,
+                exc,
+                safe_relative_artifact_uri(raw_model_response_path)
+                if raw_model_response_path is not None
+                else None,
+            )
 
     now = _now_iso()
     run_id = (
@@ -625,6 +677,9 @@ def run_graph_preview_extraction(
                     if options.allow_llm
                     else "Skipped because allow_llm is false and no candidate graph fixture was supplied."
                 ),
+                artifact_refs=[artifacts["raw_model_response"]]
+                if "raw_model_response" in artifacts
+                else [],
             )
         )
     else:
@@ -664,6 +719,7 @@ def run_graph_preview_extraction(
         source=GraphIngestSource(
             source_artifact_id=f"artifact:recap:{campaign_id}:{session_id}",
             source_domain=options.source_domain,
+            input_path_record=options.input_path_record,
             normalized_recap_path=source_uri,
             normalized_recap_sha256=recap_sha256,
             source_label=options.source_label,
