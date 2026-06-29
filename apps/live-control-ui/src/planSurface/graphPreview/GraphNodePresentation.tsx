@@ -18,16 +18,41 @@ import {
   type RecapNodePresentation,
 } from "./recapNodePresentation";
 
-function EvidenceBadgeRow({ badge }: { badge: GraphProjectionEvidenceBadge }) {
+function EvidenceBadgeRow({
+  badge,
+  onSelect,
+  selected,
+}: {
+  badge: GraphProjectionEvidenceBadge;
+  onSelect?: (badge: GraphProjectionEvidenceBadge) => void;
+  selected?: boolean;
+}) {
   const tone = badge.is_focus_session_evidence ? "focus" : "worldbuilding";
-  return (
-    <li className="union-supergraph-evidence-badge" data-tone={tone}>
+  const label = evidencePlanningText(badge);
+  const content = (
+    <>
       <span className="union-supergraph-evidence-domain">{badge.source_domain}</span>
-      <span>{evidencePlanningText(badge)}</span>
+      <span>{label}</span>
+      {badge.source_span_ref_id ? <small>{badge.source_span_ref_id}</small> : null}
       {badge.is_focus_session_evidence ? (
         <em className="union-supergraph-focus-tag">current session</em>
       ) : (
         <em className="union-supergraph-context-tag">prior context</em>
+      )}
+    </>
+  );
+  return (
+    <li className="union-supergraph-evidence-badge" data-tone={tone} data-selected={selected ? "true" : "false"}>
+      {badge.source_span_ref_id ? (
+        <button
+          type="button"
+          className="union-supergraph-evidence-button"
+          onClick={() => onSelect?.(badge)}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="union-supergraph-evidence-button">{content}</div>
       )}
     </li>
   );
@@ -181,6 +206,8 @@ export function GraphNodeExplorer({
   onBack,
   onClose,
   onExpand,
+  onEvidenceSelect,
+  selectedEvidenceSpanId,
 }: {
   node: GraphProjectionNodeView;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -188,6 +215,8 @@ export function GraphNodeExplorer({
   onBack: () => void;
   onClose: () => void;
   onExpand: (nodeId: string) => void;
+  onEvidenceSelect?: (badge: GraphProjectionEvidenceBadge) => void;
+  selectedEvidenceSpanId?: string | null;
 }) {
   const [showAllExpansions, setShowAllExpansions] = useState(false);
   const presentation = buildRecapNodePresentation(node);
@@ -282,7 +311,7 @@ export function GraphNodeExplorer({
           <h4>Current session</h4>
           <ul>
             {focusEvidence.map((badge) => (
-              <EvidenceBadgeRow key={badge.evidence_ref_id} badge={badge} />
+              <EvidenceBadgeRow key={badge.evidence_ref_id} badge={badge} onSelect={onEvidenceSelect} selected={badge.source_span_ref_id === selectedEvidenceSpanId} />
             ))}
           </ul>
         </section>
@@ -293,7 +322,7 @@ export function GraphNodeExplorer({
           <h4>Prior context</h4>
           <ul>
             {contextEvidence.map((badge) => (
-              <EvidenceBadgeRow key={badge.evidence_ref_id} badge={badge} />
+              <EvidenceBadgeRow key={badge.evidence_ref_id} badge={badge} onSelect={onEvidenceSelect} selected={badge.source_span_ref_id === selectedEvidenceSpanId} />
             ))}
           </ul>
         </section>

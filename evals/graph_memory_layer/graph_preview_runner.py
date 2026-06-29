@@ -129,6 +129,31 @@ def _copy_source_recap(source: Path, output_dir: Path) -> Path:
     return target
 
 
+
+def _line_number_at(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def _split_recap_paragraph_spans(recap_text: str) -> list[dict[str, Any]]:
+    spans: list[dict[str, Any]] = []
+    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\Z)", recap_text, flags=re.DOTALL):
+        paragraph = match.group(0).strip("\n")
+        if not paragraph.strip():
+            continue
+        start = match.start() + (len(match.group(0)) - len(match.group(0).lstrip("\n")))
+        end = start + len(paragraph)
+        spans.append(
+            {
+                "ordinal": len(spans) + 1,
+                "text": paragraph,
+                "char_start": start,
+                "char_end": end,
+                "line_start": _line_number_at(recap_text, start),
+                "line_end": _line_number_at(recap_text, max(start, end - 1)),
+            }
+        )
+    return spans
+
 def _write_source_span_bundle(
     *,
     recap_text: str,
@@ -137,11 +162,51 @@ def _write_source_span_bundle(
     session_id: str,
     source_uri: str,
     source_sha256: str,
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path, Path, int]:
     source_spans_dir = output_dir / "source_spans"
     source_spans_dir.mkdir(parents=True, exist_ok=True)
     source_span_path = source_spans_dir / "recap_full_text.md"
     source_span_path.write_text(recap_text)
+    source_artifact_id = f"artifact:recap:{campaign_id}:{session_id}"
+
+    spans: list[dict[str, Any]] = [
+        {
+            "span_id": f"{session_id}:recap:full_text",
+            "source_span_ref_id": f"{session_id}:recap:full_text",
+            "source_artifact_id": source_artifact_id,
+            "kind": "full_text",
+            "ordinal": 0,
+            "source_uri": source_uri,
+            "local_uri": safe_relative_artifact_uri(source_span_path),
+            "char_start": 0,
+            "char_end": len(recap_text),
+            "line_start": 1,
+            "line_end": max(1, len(recap_text.splitlines())),
+            "text_excerpt": recap_text[:240],
+            "preview_only": True,
+        }
+    ]
+    for paragraph in _split_recap_paragraph_spans(recap_text):
+        paragraph_path = source_spans_dir / f"recap_paragraph_{paragraph['ordinal']:03d}.md"
+        paragraph_path.write_text(str(paragraph["text"]))
+        spans.append(
+            {
+                "span_id": f"{session_id}:recap:paragraph:{paragraph['ordinal']:03d}",
+                "source_span_ref_id": f"{session_id}:recap:paragraph:{paragraph['ordinal']:03d}",
+                "source_artifact_id": source_artifact_id,
+                "kind": "paragraph",
+                "ordinal": paragraph["ordinal"],
+                "source_uri": source_uri,
+                "local_uri": safe_relative_artifact_uri(paragraph_path),
+                "char_start": paragraph["char_start"],
+                "char_end": paragraph["char_end"],
+                "line_start": paragraph["line_start"],
+                "line_end": paragraph["line_end"],
+                "text": paragraph["text"],
+                "text_excerpt": str(paragraph["text"])[:240],
+                "preview_only": True,
+            }
+        )
 
     source_span_index = {
         "schema": "dmb_source_span_index_v0",
@@ -149,16 +214,8 @@ def _write_source_span_bundle(
         "campaign_id": campaign_id,
         "session_id": session_id,
         "source_sha256": source_sha256,
-        "spans": [
-            {
-                "span_id": f"{session_id}:recap:full_text",
-                "source_uri": source_uri,
-                "local_uri": safe_relative_artifact_uri(source_span_path),
-                "char_start": 0,
-                "char_end": len(recap_text),
-                "preview_only": True,
-            }
-        ],
+        "paragraph_span_count": len(spans) - 1,
+        "spans": spans,
     }
     source_span_index_path = output_dir / "source_span_index.json"
     write_json(source_span_index_path, source_span_index)
@@ -170,7 +227,7 @@ def _write_source_span_bundle(
         "session_id": session_id,
         "source_artifacts": [
             {
-                "artifact_id": f"artifact:recap:{campaign_id}:{session_id}",
+                "artifact_id": source_artifact_id,
                 "uri": source_uri,
                 "sha256": source_sha256,
                 "preview_only": True,
@@ -179,15 +236,33 @@ def _write_source_span_bundle(
     }
     provenance_index_path = output_dir / "provenance_index.json"
     write_json(provenance_index_path, provenance_index)
-    return source_spans_dir, source_span_index_path, provenance_index_path
+    return source_spans_dir, source_span_index_path, provenance_index_path, len(spans) - 1
 
 
-def _candidate_counts(candidate_graph: dict[str, Any]) -> GraphIngestHealth:
-    # Shallow fixture/report counts only. This does not prove source-span resolvability.
+def _candidate_counts(
+    candidate_graph: dict[str, Any],
+    *,
+    known_span_ids: set[str] | None = None,
+    paragraph_span_count: int = 0,
+) -> GraphIngestHealth:
     ignored = candidate_graph.get("ignored_or_deferred_candidates", [])
     ignored_count = len(ignored) if isinstance(ignored, list) else 0
     evidence_refs = candidate_graph.get("evidence_refs", [])
     evidence_ref_count = len(evidence_refs) if isinstance(evidence_refs, list) else 0
+    resolvable_count = 0
+    paragraph_evidence_ref_count = 0
+    full_text_fallback_ref_count = 0
+    if isinstance(evidence_refs, list):
+        for ref in evidence_refs:
+            if not isinstance(ref, dict):
+                continue
+            span_id = ref.get("span_id") or ref.get("source_span_ref_id")
+            if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
+                resolvable_count += 1
+            if isinstance(span_id, str) and ":recap:paragraph:" in span_id:
+                paragraph_evidence_ref_count += 1
+            if isinstance(span_id, str) and span_id.endswith(":recap:full_text"):
+                full_text_fallback_ref_count += 1
     return GraphIngestHealth(
         candidate_graph_valid=True,
         node_count=len(candidate_graph.get("candidate_nodes", [])),
@@ -196,9 +271,12 @@ def _candidate_counts(candidate_graph: dict[str, Any]) -> GraphIngestHealth:
         ignored_count=ignored_count,
         deferred_count=0,
         evidence_ref_count=evidence_ref_count,
-        resolvable_evidence_ref_count=evidence_ref_count,
-        openable_evidence_ref_count=evidence_ref_count,
-        highlightable_evidence_ref_count=evidence_ref_count,
+        resolvable_evidence_ref_count=resolvable_count if known_span_ids is not None else evidence_ref_count,
+        openable_evidence_ref_count=resolvable_count if known_span_ids is not None else evidence_ref_count,
+        highlightable_evidence_ref_count=paragraph_evidence_ref_count,
+        paragraph_span_count=paragraph_span_count,
+        paragraph_evidence_ref_count=paragraph_evidence_ref_count,
+        full_text_fallback_ref_count=full_text_fallback_ref_count,
     )
 
 
@@ -209,6 +287,7 @@ def _write_validation_report(
     session_id: str,
     candidate_graph_path: Path,
     candidate_graph: dict[str, Any],
+    source_span_index_path: Path | None = None,
 ) -> CandidateValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
@@ -222,6 +301,49 @@ def _write_validation_report(
     )
     if has_candidates and "evidence_refs" not in candidate_graph:
         warnings.append("candidate graph has candidates but no evidence_refs section")
+    known_span_ids: set[str] = set()
+    if source_span_index_path is not None and source_span_index_path.exists():
+        span_index = json.loads(source_span_index_path.read_text())
+        known_span_ids = {
+            str(span.get("span_id") or span.get("source_span_ref_id"))
+            for span in span_index.get("spans", [])
+            if isinstance(span, dict) and (span.get("span_id") or span.get("source_span_ref_id"))
+        }
+    known_evidence_ids = set()
+    for ref in candidate_graph.get("evidence_refs", []) if isinstance(candidate_graph.get("evidence_refs"), list) else []:
+        if not isinstance(ref, dict):
+            continue
+        ref_id = ref.get("id")
+        span_id = ref.get("span_id") or ref.get("source_span_ref_id")
+        if not isinstance(ref_id, str) or not ref_id:
+            warnings.append("evidence ref missing id")
+            continue
+        known_evidence_ids.add(ref_id)
+        if not isinstance(span_id, str) or not span_id:
+            warnings.append(f"evidence ref {ref_id} missing span_id")
+        elif known_span_ids and span_id not in known_span_ids:
+            warnings.append(f"unresolved evidence ref span_id: {span_id}")
+    for field in ("candidate_nodes", "candidate_edges", "session_beats"):
+        for obj in candidate_graph.get(field, []) if isinstance(candidate_graph.get(field), list) else []:
+            if not isinstance(obj, dict):
+                continue
+            refs = obj.get("evidence_refs", [])
+            obj_id = obj.get("id") or obj.get("node_id") or obj.get("edge_id") or obj.get("summary") or field
+            if isinstance(refs, list):
+                for ref_id in refs:
+                    if isinstance(ref_id, str) and known_evidence_ids and ref_id not in known_evidence_ids:
+                        warnings.append(f"candidate {field} {obj_id} references unknown evidence ref: {ref_id}")
+                if refs and not any(
+                    isinstance(ref_id, str)
+                    and any(
+                        isinstance(ref, dict)
+                        and ref.get("id") == ref_id
+                        and ":recap:paragraph:" in str(ref.get("span_id") or ref.get("source_span_ref_id") or "")
+                        for ref in candidate_graph.get("evidence_refs", [])
+                    )
+                    for ref_id in refs
+                ):
+                    warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
     diagnostics = candidate_graph.get("diagnostics", {})
     for flag in (
         "canon_promotion",
@@ -241,6 +363,10 @@ def _write_validation_report(
         "errors": errors,
         "warnings": warnings,
         "diagnostics": {
+            "evidence_ref_count": len(candidate_graph.get("evidence_refs", [])) if isinstance(candidate_graph.get("evidence_refs"), list) else 0,
+            "resolvable_evidence_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and (not known_span_ids or (ref.get("span_id") or ref.get("source_span_ref_id")) in known_span_ids)),
+            "paragraph_evidence_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and ":recap:paragraph:" in str(ref.get("span_id") or ref.get("source_span_ref_id") or "")),
+            "full_text_fallback_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and str(ref.get("span_id") or ref.get("source_span_ref_id") or "").endswith(":recap:full_text")),
             "preview_only": True,
             "canon_promotion": False,
             "approved_memory_write": False,
@@ -297,7 +423,7 @@ def run_graph_preview_extraction(
     copied_recap_path = _copy_source_recap(normalized_recap_path, output_dir)
     copied_recap_sha256 = compute_sha256(copied_recap_path)
     source_uri = safe_relative_artifact_uri(copied_recap_path)
-    source_spans_dir, source_span_index_path, provenance_index_path = (
+    source_spans_dir, source_span_index_path, provenance_index_path, paragraph_span_count = (
         _write_source_span_bundle(
             recap_text=recap_text,
             output_dir=output_dir,
@@ -334,7 +460,7 @@ def run_graph_preview_extraction(
     status = GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
     candidate_graph_path: Path | None = None
     validation_report_path: Path | None = None
-    health = GraphIngestHealth()
+    health = GraphIngestHealth(paragraph_span_count=paragraph_span_count)
     candidate_extraction = False
     extraction_mode = "none"
     manifest_errors: list[str] = []
@@ -357,6 +483,7 @@ def run_graph_preview_extraction(
             session_id=session_id,
             candidate_graph_path=candidate_graph_path,
             candidate_graph=candidate_graph,
+            source_span_index_path=source_span_index_path,
         )
         validation_report_path = validation.path
         artifacts["candidate_graph"] = _artifact(
@@ -369,7 +496,8 @@ def run_graph_preview_extraction(
             validation_report_path,
             "dmb_candidate_graph_validation_report_v0",
         )
-        health = _candidate_counts(candidate_graph)
+        known_span_ids = {str(sp.get("span_id") or sp.get("source_span_ref_id")) for sp in json.loads(source_span_index_path.read_text()).get("spans", []) if isinstance(sp, dict)}
+        health = _candidate_counts(candidate_graph, known_span_ids=known_span_ids, paragraph_span_count=paragraph_span_count)
         candidate_extraction = True
         extraction_mode = "fixture"
         if validation.valid:
@@ -386,6 +514,7 @@ def run_graph_preview_extraction(
     elif options.allow_llm:
         model_id = options.extractor_model_id or options.model_id or "gpt-5-mini"
         source_span_id = f"{session_id}:recap:full_text"
+        source_span_catalog = json.loads(source_span_index_path.read_text()).get("spans", [])
         try:
             extraction = extract_preview_candidate_graph(
                 PreviewCandidateGraphExtractionOptions(
@@ -393,6 +522,7 @@ def run_graph_preview_extraction(
                     session_id=session_id,
                     recap_markdown=recap_text,
                     source_span_id=source_span_id,
+                    source_span_catalog=source_span_catalog if isinstance(source_span_catalog, list) else None,
                     model_id=model_id,
                 ),
                 client=options.extractor_client,
@@ -409,6 +539,7 @@ def run_graph_preview_extraction(
                 session_id=session_id,
                 candidate_graph_path=candidate_graph_path,
                 candidate_graph=candidate_graph,
+                source_span_index_path=source_span_index_path,
             )
             validation_report_path = validation.path
             artifacts["candidate_graph"] = _artifact(
@@ -427,7 +558,8 @@ def run_graph_preview_extraction(
                     raw_model_response_path,
                     "text/plain",
                 )
-            health = _candidate_counts(candidate_graph)
+            known_span_ids = {str(sp.get("span_id") or sp.get("source_span_ref_id")) for sp in json.loads(source_span_index_path.read_text()).get("spans", []) if isinstance(sp, dict)}
+            health = _candidate_counts(candidate_graph, known_span_ids=known_span_ids, paragraph_span_count=paragraph_span_count)
             health.model_id = model_id
             candidate_extraction = True
             extraction_mode = "llm"

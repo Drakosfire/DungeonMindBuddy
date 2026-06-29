@@ -2358,3 +2358,40 @@ body.plan-toolbox-open {
   border-top: 1px solid var(--border, #2a3142);
   padding-top: 0.75rem;
 }
+
+.union-supergraph-evidence-button {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.union-supergraph-evidence-button:disabled {
+  cursor: default;
+}
+
+.union-supergraph-evidence-badge[data-selected="true"] {
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+.union-supergraph-evidence-button small {
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.union-supergraph-tiptap-reader .ProseMirror p.recap-source-span-highlight {
+  background: rgba(250, 204, 21, 0.22);
+  border-left: 4px solid #f59e0b;
+  border-radius: 0.6rem;
+  margin-left: -0.7rem;
+  padding: 0.45rem 0.7rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}

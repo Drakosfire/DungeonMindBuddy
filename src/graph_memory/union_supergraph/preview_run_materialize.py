@@ -293,6 +293,7 @@ def _normalize_evidence_ref(
         "can_open_source": ref_map.get("can_open_source", True),
         "can_highlight_span": ref_map.get("can_highlight_span", True),
         "anchor_quotes": ref_map.get("anchor_quotes", []),
+        "label": ref_map.get("text_excerpt") or ref_map.get("label"),
     }
 
 
