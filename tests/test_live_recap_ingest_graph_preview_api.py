@@ -234,6 +234,10 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "src.graph_memory.extraction.category_candidate_graph_extractor.load_dungeonmindbuddy_dotenv",
+        lambda: None,
+    )
 
     response = client.post(
         "/api/live/recap-ingest",

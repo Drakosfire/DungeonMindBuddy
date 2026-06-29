@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
 from src.graph_memory.predicate_catalog import (
@@ -260,12 +261,24 @@ def render_category_pass_prompts(
     predicate_catalog = predicate_catalog_prompt_markdown()
     prompts[_prompt_key(EDGE_PASS_NAME)] = (
         f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n"
-        "## Task\n\nUsing ONLY the consolidated node list supplied below, propose durable relationship edges. "
-        "Do NOT create new nodes. Return JSON with key `observation_edges` (array). "
+        "## Task\n\nUsing ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
+        "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
+        "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
+        "do not stop after the first few obvious edges.\n\n"
+        "## Relationship extraction sweep\n\n"
+        "Review the source and nodes systematically before returning JSON:\n"
+        "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
+        "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
+        "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
+        "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
+        "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
+        "Prefer specific supported predicates over generic `associated_with` / `linked_to`. "
+        "Omit an edge only when no catalog predicate is supported by a source quote or one endpoint cannot be bound to a listed node.\n\n"
+        "Return JSON with key `observation_edges` (array). "
         "Each edge: `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, "
         "`predicate_family`, `evidence_refs`.\n"
         f"{predicate_catalog}\n\n"
-        f"{EVIDENCE_RULE}\n\n## Consolidated nodes\n\n"
+        f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n\n## Consolidated nodes\n\n"
         "(injected at runtime)\n"
     )
     return prompts
@@ -643,6 +656,29 @@ def assemble_envelope(
     }
 
 
+def _edge_prompt_node_summary(node: Mapping[str, Any]) -> dict[str, Any]:
+    """Compact node payload for edge extraction.
+
+    Edges need more than labels: descriptions and node evidence help the model
+    bind endpoints and copy valid quotes without seeing the full candidate graph
+    shape. Keep the payload bounded and review-friendly.
+    """
+    summary: dict[str, Any] = {
+        "node_id": node.get("node_id"),
+        "label": node.get("label"),
+        "node_type": node.get("node_type"),
+    }
+    description = str(node.get("description") or "").strip()
+    if description:
+        summary["description"] = description
+    evidence_refs = node.get("evidence_refs")
+    if evidence_refs:
+        summary["evidence_refs"] = evidence_refs
+    if node.get("context_anchor"):
+        summary["context_anchor"] = True
+    return summary
+
+
 def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
     """Return candidate graph payload suitable for graph_preview_runner artifacts."""
     graph = dict(envelope.get("candidate_graph") or envelope)
@@ -666,6 +702,7 @@ class OpenAICategoryGraphPassClient:
             category_pass_text_format,
         )
 
+        load_dungeonmindbuddy_dotenv()
         if not os.environ.get("OPENAI_API_KEY"):
             raise CategoryGraphExtractionError(
                 "OPENAI_API_KEY is not configured; supply candidate_graph_path or disable graph extraction."
@@ -820,10 +857,7 @@ def run_category_pipeline(
         session=options.session_number,
     )
     nodes_json = json.dumps(
-        [
-            {"node_id": n["node_id"], "label": n["label"], "node_type": n["node_type"]}
-            for n in consolidated["nodes"]
-        ],
+        [_edge_prompt_node_summary(n) for n in consolidated["nodes"]],
         indent=2,
     )
     edge_prompt = prompts[_prompt_key(EDGE_PASS_NAME)].replace(
