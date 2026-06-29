@@ -248,6 +248,57 @@ describe("UnionSupergraphRecapProjection", () => {
     });
   });
 
+  it("does not match short rendered nodes contained inside longer excerpts", async () => {
+    const payload = {
+      ...session23UnionSupergraphFixture,
+      markdown: "# Session 22\n\n- road\n\n[Caelynn](dmb-node:pc_caelynn) follows a distinct trail.",
+      source_spans: [
+        {
+          span_id: "session-22:recap:paragraph:001",
+          kind: "paragraph",
+          ordinal: 0,
+          text_excerpt: "The party follows the road beyond the Mireward gate.",
+        },
+      ],
+      node_views: {
+        ...session23UnionSupergraphFixture.node_views,
+        pc_caelynn: {
+          ...session23UnionSupergraphFixture.node_views.pc_caelynn,
+          evidence_badges: [
+            {
+              ...session23UnionSupergraphFixture.node_views.pc_caelynn.evidence_badges[0],
+              label: "Short reverse-contained node",
+              source_span_ref_id: "session-22:recap:paragraph:001",
+            },
+          ],
+        },
+      },
+    };
+    render(
+      <UnionSupergraphRecapProjection
+        payload={payload}
+        selectedSessionId="session-22"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-22"]}
+      />,
+    );
+
+    const caelynnPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Caelynn" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(caelynnPill);
+    fireEvent.click(screen.getByRole("button", { name: /Short reverse-contained node/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector("li")).not.toHaveClass("recap-source-span-highlight");
+      expect(document.querySelector('[data-source-span-id="session-22:recap:paragraph:001"]')).toBeNull();
+    });
+  });
+
   it("applies role styling to recap pills", async () => {
     render(
       <UnionSupergraphRecapProjection

@@ -101,7 +101,7 @@ function attachSourceSpanDataAttributes(
     if (!excerpt) continue;
     const matches = Array.from(unused).filter((node) => {
       const nodeText = normalizeEvidenceText(readableNodeText(node));
-      return nodeText === excerpt || nodeText.includes(excerpt) || excerpt.includes(nodeText);
+      return nodeText === excerpt || nodeText.includes(excerpt);
     });
     if (matches.length === 1) {
       claimed.set(span.span_id, matches[0]);
