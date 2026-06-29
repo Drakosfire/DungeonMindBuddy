@@ -104,3 +104,61 @@ def test_session_23_projection_marks_prior_session_edges_as_non_focus_context() 
         "session-23" in store.edges[edge_id].session_ids
         for edge_id in projection.focus.focused_edge_ids
     )
+
+
+def test_preview_import_paragraph_lookup_accepts_new_recap_paragraph_span_id(tmp_path: Path) -> None:
+    recap_path = tmp_path / "recap.md"
+    recap_path.write_text(
+        "---\ntitle: Session 22\n---\n\nIntro paragraph.\n\nThe group scouts the Mireward road.",
+        encoding="utf-8",
+    )
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        """
+{
+  "campaign_id": "longmont-c2",
+  "session_id": "session-22",
+  "nodes": [
+    {
+      "node_id": "node:mireward-road",
+      "node_type": "location",
+      "label": "Mireward Road",
+      "evidence_refs": [
+        {
+          "id": "ev:1",
+          "span_id": "session-22:recap:paragraph:002",
+          "text_excerpt": "The group scouts the Mireward road.",
+          "anchor_quotes": ["group scouts Mireward road"]
+        }
+      ]
+    }
+  ],
+  "edges": []
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    payload = build_preview_union_supergraph(
+        [CandidateGraphInput(path=candidate_path, session_id="session-22", recap_path=recap_path)],
+        focus_session_id="session-22",
+    )
+    evidence = next(iter(payload["evidence"].values()))
+
+    assert evidence["source_span_ref_id"] == "session-22:recap:paragraph:002"
+    assert evidence["label"] == "The group scouts the Mireward road."
+    assert evidence["anchor_quotes"] == ["group scouts the Mireward road"]
+    assert evidence["anchor_quote_matches"][0]["match_text"] == "group scouts the Mireward road"
+
+
+def test_preview_import_paragraph_lookup_preserves_legacy_spref_id(tmp_path: Path) -> None:
+    recap_path = tmp_path / "recap.md"
+    recap_path.write_text("Intro paragraph.\n\nLegacy road paragraph.", encoding="utf-8")
+
+    from graph_memory.union_supergraph.preview_import import _paragraph_lookup
+
+    lookup = _paragraph_lookup(recap_path, session_id="session-22")
+
+    assert lookup["session-22:recap:paragraph:002"] == "Legacy road paragraph."
+    assert lookup["spref:session-22:p002"] == "Legacy road paragraph."
+    assert lookup["session-22:p002"] == "Legacy road paragraph."

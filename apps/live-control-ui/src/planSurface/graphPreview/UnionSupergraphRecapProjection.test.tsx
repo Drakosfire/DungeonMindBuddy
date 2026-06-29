@@ -151,6 +151,154 @@ describe("UnionSupergraphRecapProjection", () => {
     });
   });
 
+  it("highlights source spans by text excerpt when headings and lists shift DOM order", async () => {
+    const payload = {
+      ...session23UnionSupergraphFixture,
+      markdown: "# Session 22\n\nIntro paragraph.\n\n- A list item that renders before the target.\n\n[Caelynn](dmb-node:pc_caelynn) scouts the Mireward road.",
+      source_spans: [
+        { span_id: "session-22:recap:paragraph:001", kind: "paragraph", ordinal: 1, text_excerpt: "Intro paragraph." },
+        { span_id: "session-22:recap:paragraph:002", kind: "paragraph", ordinal: 2, text_excerpt: "Caelynn scouts the Mireward road." },
+      ],
+      node_views: {
+        ...session23UnionSupergraphFixture.node_views,
+        pc_caelynn: {
+          ...session23UnionSupergraphFixture.node_views.pc_caelynn,
+          evidence_badges: [
+            {
+              ...session23UnionSupergraphFixture.node_views.pc_caelynn.evidence_badges[0],
+              label: "Scouted the Mireward road",
+              source_span_ref_id: "session-22:recap:paragraph:002",
+            },
+          ],
+        },
+      },
+    };
+    render(
+      <UnionSupergraphRecapProjection
+        payload={payload}
+        selectedSessionId="session-22"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-22"]}
+      />,
+    );
+
+    const caelynnPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Caelynn" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(caelynnPill);
+    fireEvent.click(screen.getByRole("button", { name: /Scouted the Mireward road/i }));
+
+    await waitFor(() => {
+      const target = document.querySelector('[data-source-span-id="session-22:recap:paragraph:002"]');
+      expect(target).toHaveClass("recap-source-span-highlight");
+      expect(target?.querySelector('[data-graph-node-id="pc_caelynn"]')).toHaveTextContent("Caelynn");
+      expect(target).toHaveTextContent("scouts the Mireward road.");
+      expect(document.querySelector("li")).not.toHaveClass("recap-source-span-highlight");
+      expect(screen.getByRole("heading", { name: "Session 22" })).not.toHaveClass("recap-source-span-highlight");
+    });
+  });
+
+  it("does not attach ambiguous text excerpts to the wrong paragraph", async () => {
+    const payload = {
+      ...session23UnionSupergraphFixture,
+      markdown: "# Session 22\n\nRepeated clue.\n\nRepeated clue.\n\n[Caelynn](dmb-node:pc_caelynn) follows a distinct trail.",
+      source_spans: [
+        { span_id: "session-22:recap:paragraph:001", kind: "paragraph", ordinal: 0, text_excerpt: "Repeated clue." },
+      ],
+      node_views: {
+        ...session23UnionSupergraphFixture.node_views,
+        pc_caelynn: {
+          ...session23UnionSupergraphFixture.node_views.pc_caelynn,
+          evidence_badges: [
+            {
+              ...session23UnionSupergraphFixture.node_views.pc_caelynn.evidence_badges[0],
+              label: "Ambiguous repeated clue",
+              source_span_ref_id: "session-22:recap:paragraph:001",
+            },
+          ],
+        },
+      },
+    };
+    render(
+      <UnionSupergraphRecapProjection
+        payload={payload}
+        selectedSessionId="session-22"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-22"]}
+      />,
+    );
+
+    const caelynnPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Caelynn" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(caelynnPill);
+    fireEvent.click(screen.getByRole("button", { name: /Ambiguous repeated clue/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector(".recap-source-span-highlight")).toBeNull();
+      expect(document.querySelector('[data-source-span-id="session-22:recap:paragraph:001"]')).toBeNull();
+    });
+  });
+
+  it("does not match short rendered nodes contained inside longer excerpts", async () => {
+    const payload = {
+      ...session23UnionSupergraphFixture,
+      markdown: "# Session 22\n\n- road\n\n[Caelynn](dmb-node:pc_caelynn) follows a distinct trail.",
+      source_spans: [
+        {
+          span_id: "session-22:recap:paragraph:001",
+          kind: "paragraph",
+          ordinal: 0,
+          text_excerpt: "The party follows the road beyond the Mireward gate.",
+        },
+      ],
+      node_views: {
+        ...session23UnionSupergraphFixture.node_views,
+        pc_caelynn: {
+          ...session23UnionSupergraphFixture.node_views.pc_caelynn,
+          evidence_badges: [
+            {
+              ...session23UnionSupergraphFixture.node_views.pc_caelynn.evidence_badges[0],
+              label: "Short reverse-contained node",
+              source_span_ref_id: "session-22:recap:paragraph:001",
+            },
+          ],
+        },
+      },
+    };
+    render(
+      <UnionSupergraphRecapProjection
+        payload={payload}
+        selectedSessionId="session-22"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-22"]}
+      />,
+    );
+
+    const caelynnPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Caelynn" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(caelynnPill);
+    fireEvent.click(screen.getByRole("button", { name: /Short reverse-contained node/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector("li")).not.toHaveClass("recap-source-span-highlight");
+      expect(document.querySelector('[data-source-span-id="session-22:recap:paragraph:001"]')).toBeNull();
+    });
+  });
+
   it("applies role styling to recap pills", async () => {
     render(
       <UnionSupergraphRecapProjection

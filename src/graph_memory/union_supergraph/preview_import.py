@@ -389,13 +389,12 @@ def _paragraph_lookup(recap_path: Path | None, *, session_id: str) -> dict[str, 
         return {}
     text = _strip_yaml_frontmatter(recap_path.read_text(encoding="utf-8"))
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
-    return {
-        f"spref:{session_id}:p{index:03d}": paragraph
-        for index, paragraph in enumerate(paragraphs, start=1)
-    } | {
-        f"{session_id}:p{index:03d}": paragraph
-        for index, paragraph in enumerate(paragraphs, start=1)
-    }
+    lookup: dict[str, str] = {}
+    for index, paragraph in enumerate(paragraphs, start=1):
+        lookup[f"{session_id}:recap:paragraph:{index:03d}"] = paragraph
+        lookup[f"spref:{session_id}:p{index:03d}"] = paragraph
+        lookup[f"{session_id}:p{index:03d}"] = paragraph
+    return lookup
 
 
 def _strip_yaml_frontmatter(markdown: str) -> str:
