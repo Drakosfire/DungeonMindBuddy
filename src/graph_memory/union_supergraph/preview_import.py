@@ -284,6 +284,7 @@ def _add_evidence(
     ref_map = ref if isinstance(ref, Mapping) else {}
     span_ref_id = str(
         ref_map.get("source_span_ref_id")
+        or ref_map.get("span_id")
         or ref_map.get("source_anchor_id")
         or f"spref:{session_id}:unknown"
     )
@@ -299,7 +300,7 @@ def _add_evidence(
             "source_span_ref_id": span_ref_id,
             "can_open_source": bool(ref_map.get("can_open_source", True)),
             "can_highlight_span": bool(ref_map.get("can_highlight_span", True)),
-            "label": ref_map.get("label") or label,
+            "label": ref_map.get("text_excerpt") or ref_map.get("label") or label,
         },
     )
     paragraph = paragraph_lookup.get(span_ref_id)

@@ -1466,6 +1466,15 @@ export interface GraphFocusOverlay {
   focused_node_ids: string[];
 }
 
+export interface RecapProjectionSourceSpan {
+  span_id: string;
+  kind: string;
+  ordinal?: number | null;
+  text_excerpt?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+}
+
 export interface GraphProjectionEvidenceBadge {
   evidence_ref_id: string;
   source_artifact_id: string;
@@ -1519,6 +1528,7 @@ export interface UnionSupergraphProjectionResponse {
   markdown?: string | null;
   focus: GraphFocusOverlay;
   node_views: Record<string, GraphProjectionNodeView>;
+  source_spans?: RecapProjectionSourceSpan[];
   mentions: Array<{
     mention_id: string;
     node_id: string;

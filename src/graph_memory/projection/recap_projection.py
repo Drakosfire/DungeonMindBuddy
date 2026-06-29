@@ -16,6 +16,17 @@ from graph_memory.projection.node_view import (
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 
+class RecapProjectionSourceSpan(BaseModel):
+    model_config = ConfigDict(extra="allow", strict=True)
+
+    span_id: str
+    kind: str
+    ordinal: int | None = None
+    text_excerpt: str | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+
+
 class RecapProjectionMention(BaseModel):
     """A mention in recap text that resolves to a global graph node."""
 
@@ -41,6 +52,7 @@ class RecapGraphProjection(BaseModel):
     focus: GraphFocusOverlay
     node_views: dict[str, GraphProjectionNodeView]
     mentions: list[RecapProjectionMention] = Field(default_factory=list)
+    source_spans: list[RecapProjectionSourceSpan] = Field(default_factory=list)
 
 
 def build_focus_overlay(
@@ -139,6 +151,7 @@ def build_recap_graph_projection(
     store: UnionSupergraphStore,
     session_id: str,
     markdown: str | None = None,
+    source_spans: list[RecapProjectionSourceSpan] | None = None,
 ) -> RecapGraphProjection:
     """Build a backend-neutral recap graph projection from a union-supergraph store."""
 
@@ -154,6 +167,7 @@ def build_recap_graph_projection(
             for node_id in sorted(store.nodes)
         },
         mentions=mentions,
+        source_spans=source_spans or [],
     )
 
 

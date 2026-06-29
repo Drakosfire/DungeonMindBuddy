@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -24,12 +24,17 @@ function ReadOnlyTiptapRecap({
   nodeViews,
   activeNodeId,
   onSelectNode,
+  paragraphSpanIds,
+  selectedEvidenceSpanId,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  paragraphSpanIds: string[];
+  selectedEvidenceSpanId: string | null;
 }) {
+  const readerRef = useRef<HTMLDivElement | null>(null);
   const content = useMemo(
     () => markdownToTiptapDoc(markdown, { parseGraphNodeLinks: true }).doc as Content,
     [markdown],
@@ -49,8 +54,24 @@ function ReadOnlyTiptapRecap({
     setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode });
   }, [nodeViews, activeNodeId, onSelectNode]);
 
+  useEffect(() => {
+    const root = readerRef.current;
+    if (!root) return;
+    const paragraphs = Array.from(root.querySelectorAll<HTMLParagraphElement>(".ProseMirror p"));
+    paragraphs.forEach((paragraph, index) => {
+      const spanId = paragraphSpanIds[index];
+      if (spanId) {
+        paragraph.dataset.sourceSpanId = spanId;
+      }
+      paragraph.classList.toggle("recap-source-span-highlight", Boolean(spanId && spanId === selectedEvidenceSpanId));
+      if (spanId && spanId === selectedEvidenceSpanId && typeof paragraph.scrollIntoView === "function") {
+        paragraph.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    });
+  }, [content, paragraphSpanIds, selectedEvidenceSpanId]);
+
   return (
-    <div className="union-supergraph-tiptap-reader">
+    <div className="union-supergraph-tiptap-reader" ref={readerRef}>
       <EditorContent editor={editor} />
     </div>
   );
@@ -67,6 +88,14 @@ export function UnionSupergraphRecapProjection({
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
   const activeNodeId = explorerTrail.at(-1) ?? null;
   const activeNode = activeNodeId ? payload.node_views[activeNodeId] : undefined;
+  const [selectedEvidenceSpanId, setSelectedEvidenceSpanId] = useState<string | null>(null);
+  const paragraphSpanIds = useMemo(
+    () => (payload.source_spans ?? [])
+      .filter((span) => span.kind === "paragraph")
+      .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
+      .map((span) => span.span_id),
+    [payload.source_spans],
+  );
   const sourceCopy = {
     "latest-graph-ingest": {
       label: "latest graph-ingest preview",
@@ -90,6 +119,7 @@ export function UnionSupergraphRecapProjection({
 
   useEffect(() => {
     setExplorerTrail([]);
+    setSelectedEvidenceSpanId(null);
   }, [payload.session_id]);
 
   const openExplorer = (nodeId: string) => {
@@ -155,7 +185,7 @@ export function UnionSupergraphRecapProjection({
 
       <p className="recap-reader-hint union-supergraph-mentions-hint">
         Read-only TipTap projection of ingested recap Markdown. Editing and corpus writes are intentionally out of
-        scope here. {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} projected.
+        scope here. Graph chips are preview memory candidates; evidence highlights show the recap paragraph that supports the selected graph context. {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} projected.
       </p>
 
       <div
@@ -167,6 +197,8 @@ export function UnionSupergraphRecapProjection({
             nodeViews={payload.node_views}
             activeNodeId={activeNodeId}
             onSelectNode={openExplorer}
+            paragraphSpanIds={paragraphSpanIds}
+            selectedEvidenceSpanId={selectedEvidenceSpanId}
           />
         </article>
         {explorerOpen && activeNode ? (
@@ -178,6 +210,8 @@ export function UnionSupergraphRecapProjection({
             onBack={popExplorer}
             onClose={closeExplorer}
             onExpand={pushExplorer}
+            onEvidenceSelect={(badge) => setSelectedEvidenceSpanId(badge.source_span_ref_id ?? null)}
+            selectedEvidenceSpanId={selectedEvidenceSpanId}
           />
         ) : null}
       </div>

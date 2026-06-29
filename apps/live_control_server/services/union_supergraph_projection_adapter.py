@@ -15,6 +15,7 @@ from graph_memory.ingestion.graph_ingest_validate import (
     validate_graph_ingest_run_manifest,
 )
 from graph_memory.projection import RecapGraphProjection, build_recap_graph_projection
+from graph_memory.projection.recap_projection import RecapProjectionSourceSpan
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,
@@ -63,8 +64,39 @@ def build_plan_union_supergraph_projection(
     else:
         store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
     markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
-    return build_recap_graph_projection(store, session_id=session_id, markdown=markdown)
+    source_spans = _load_manifest_source_spans(graph_run_manifest_path) if graph_run_manifest_path is not None else []
+    return build_recap_graph_projection(store, session_id=session_id, markdown=markdown, source_spans=source_spans)
 
+
+
+def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
+    root = repo_root().resolve()
+    payload = json.loads(_resolve_repo_contained_path(graph_run_manifest_path, root).read_text(encoding="utf-8"))
+    uri = ((payload.get("source") or {}).get("source_span_index_uri"))
+    if not isinstance(uri, str) or not uri:
+        return []
+    index_path = _resolve_repo_contained_path(root / uri, root)
+    if not index_path.is_file():
+        return []
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    spans: list[RecapProjectionSourceSpan] = []
+    for span in index.get("spans", []):
+        if not isinstance(span, dict):
+            continue
+        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        if not isinstance(span_id, str):
+            continue
+        spans.append(
+            RecapProjectionSourceSpan(
+                span_id=span_id,
+                kind=str(span.get("kind") or "span"),
+                ordinal=span.get("ordinal") if isinstance(span.get("ordinal"), int) else None,
+                text_excerpt=str(span.get("text_excerpt") or span.get("text") or "")[:240] or None,
+                line_start=span.get("line_start") if isinstance(span.get("line_start"), int) else None,
+                line_end=span.get("line_end") if isinstance(span.get("line_end"), int) else None,
+            )
+        )
+    return spans
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,

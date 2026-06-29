@@ -118,6 +118,39 @@ describe("UnionSupergraphRecapProjection", () => {
     expect(screen.getAllByText("prior context").length).toBeGreaterThan(0);
   });
 
+  it("highlights the recap paragraph selected from node evidence", async () => {
+    const payload = {
+      ...session23UnionSupergraphFixture,
+      source_spans: [
+        { span_id: "spref:session-23:p014", kind: "paragraph", ordinal: 1, text_excerpt: "Caelynn held the Mireward gate" },
+      ],
+    };
+    render(
+      <UnionSupergraphRecapProjection
+        payload={payload}
+        selectedSessionId="session-23"
+        onSelectSession={() => undefined}
+        sessionOptions={["session-23"]}
+      />,
+    );
+
+    const caelynnPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Caelynn" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(caelynnPill);
+
+    fireEvent.click(screen.getByRole("button", { name: /Held the Mireward gate/i }));
+
+    await waitFor(() => {
+      const paragraph = document.querySelector('[data-source-span-id="spref:session-23:p014"]');
+      expect(paragraph).toHaveClass("recap-source-span-highlight");
+    });
+  });
+
   it("applies role styling to recap pills", async () => {
     render(
       <UnionSupergraphRecapProjection

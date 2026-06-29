@@ -68,3 +68,24 @@ def test_extract_preview_candidate_graph_uses_fixture_client() -> None:
     assert result.raw_model_response == raw
     assert result.candidate_graph["ignored_or_deferred_candidates"] == [{"summary": "uncertain spelling"}]
     assert result.candidate_graph["diagnostics"]["preview_only"] is True
+
+
+def test_prompt_prefers_paragraph_source_span_catalog() -> None:
+    from src.graph_memory.extraction.preview_candidate_graph_extractor import build_preview_candidate_graph_prompt
+
+    prompt = build_preview_candidate_graph_prompt(
+        PreviewCandidateGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            recap_markdown="The group scouts the Mireward road.",
+            source_span_id="session-22:recap:full_text",
+            source_span_catalog=[
+                {"span_id": "session-22:recap:paragraph:001", "kind": "paragraph", "ordinal": 1, "text_excerpt": "The group scouts the Mireward road."},
+                {"span_id": "session-22:recap:full_text", "kind": "full_text", "ordinal": 0},
+            ],
+        )
+    )
+
+    assert "Prefer paragraph span ids" in prompt
+    assert "session-22:recap:paragraph:001" in prompt
+    assert "full_text" in prompt

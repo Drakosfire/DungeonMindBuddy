@@ -336,3 +336,32 @@ def test_runner_allow_llm_blocked_writes_calm_manifest(
     manifest = _load_manifest(result.manifest_path)
     assert manifest["errors"] == ["model unavailable"]
     assert manifest["next_actions"] == ["configure model", "supply candidate_graph_path"]
+
+
+def test_runner_writes_deterministic_paragraph_source_spans(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "recap.md"
+    source.write_text("Opening title\n\nThe group scouts the Mireward road.\n\nThey regroup at dusk.\n")
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            normalized_recap_path=source,
+            output_dir=Path("runs/session_22"),
+        )
+    )
+
+    index = _load_manifest(result.output_dir / "source_span_index.json")
+    span_ids = [span["span_id"] for span in index["spans"]]
+    assert span_ids == [
+        "session-22:recap:full_text",
+        "session-22:recap:paragraph:001",
+        "session-22:recap:paragraph:002",
+        "session-22:recap:paragraph:003",
+    ]
+    assert index["spans"][2]["kind"] == "paragraph"
+    assert index["spans"][2]["text"] == "The group scouts the Mireward road."
+    assert index["paragraph_span_count"] == 3

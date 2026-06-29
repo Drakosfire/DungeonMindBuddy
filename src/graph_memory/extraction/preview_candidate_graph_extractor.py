@@ -32,6 +32,7 @@ class PreviewCandidateGraphExtractionOptions:
     session_id: str
     recap_markdown: str
     source_span_id: str
+    source_span_catalog: list[dict[str, Any]] | None = None
     model_id: str = "gpt-5-mini"
     temperature: float = 0.0
     max_output_tokens: int = 6000
@@ -103,16 +104,37 @@ def enforce_preview_only_candidate_graph(payload: dict[str, Any]) -> dict[str, A
     return sanitized
 
 
+def _format_source_span_catalog(options: PreviewCandidateGraphExtractionOptions) -> str:
+    spans = options.source_span_catalog or []
+    rows = []
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        if not isinstance(span_id, str):
+            continue
+        kind = span.get("kind") or "span"
+        ordinal = span.get("ordinal")
+        excerpt = str(span.get("text_excerpt") or span.get("text") or "").replace("\n", " ")[:240]
+        rows.append(f"- {span_id} ({kind} {ordinal}) — {excerpt}")
+    return "\n".join(rows) if rows else f"- {options.source_span_id} (full_text fallback)"
+
+
 def build_preview_candidate_graph_prompt(options: PreviewCandidateGraphExtractionOptions) -> str:
+    source_catalog = _format_source_span_catalog(options)
     return f"""You are extracting preview-only candidate graph facts from a TTRPG session recap.
 Extract only facts supported by the recap. Prefer fewer, higher-confidence candidates.
-Every candidate node, edge, and beat must reference evidence_refs. Use this source span id: {options.source_span_id}
+Every candidate node, edge, and beat must reference evidence_refs. Prefer paragraph span ids from the source span catalog whenever possible; use the full_text span only when a fact is broadly supported across the whole recap. Full-text fallback span id: {options.source_span_id}
 Do not infer canon beyond the text. Do not promote anything to approved memory.
 Return JSON only with top-level arrays candidate_nodes, candidate_edges, session_beats, ignored_or_deferred_candidates, source_artifacts, evidence_refs, and diagnostics.
 Nodes: extract PCs, NPCs, factions, locations, artifacts, threats, monsters, events, mysteries, fronts, and unresolved threads. Prefer id format node:<slug>; include kind, label, role when obvious, summary, evidence_refs.
 Edges: extract navigation-relevant relationships using types such as located_at, allied_with, opposed_by, threatens, discovered, travels_to, owns, commands, investigates, protects, changed_by, foreshadows, unresolved_thread.
 Session beats: extract 3-12 concise beats with summary and evidence_refs.
+Evidence refs must be top-level objects like {"id":"ev:1","span_id":"<catalog span id>","text_excerpt":"short supporting excerpt"}; candidates then cite those evidence ids.
 Defer uncertain identities, spelling ambiguity, unsupported inference, or chat noise in ignored_or_deferred_candidates.
+
+Available source spans:
+{source_catalog}
 
 Campaign: {options.campaign_id}
 Session: {options.session_id}
