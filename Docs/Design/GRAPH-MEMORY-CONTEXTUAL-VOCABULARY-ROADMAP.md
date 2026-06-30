@@ -14,7 +14,18 @@ Each update should mark completed items, add newly discovered follow-ups, and pr
 - [x] PR 0 — Narrow cross-class reconciliation safety policy.
 - [x] Add blocked exact-label collision diagnostics.
 - [x] Document comparator-vs-production dedup test naming.
-- [ ] Inventory benchmark fixture authority classes.
+- [x] Inventory benchmark fixture authority classes.
+
+Completed notes:
+
+- PR 1 added `evals/graph_memory_layer/FIXTURE-AUTHORITY-LEDGER.md` as the durable fixture authority map for vocabulary and graph-memory ablations.
+
+
+Milestone 1 follow-ups:
+
+- [ ] Convert selected routing/retrieval, session-event, or entity-resolution gold into candidate graph gold only through a dedicated reviewed conversion PR.
+- [ ] Add candidate graph gold for C1 Session 13 if graph-memory ablations need that campaign/session surface.
+- [ ] Add fixture authority rows automatically when future benchmark fixtures are introduced.
 
 ## Milestone 2 — Vocabulary substrate
 
