@@ -22,6 +22,8 @@ from src.graph_memory.party_context import (
     PartyContext,
     build_party_context_for_campaign,
 )
+from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
+from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.session_graph_context import (
     build_session_graph_context,
     merge_party_anchor_nodes,
@@ -140,6 +142,8 @@ class CategoryGraphExtractionOptions:
     session_number: int
     source_span_index: Mapping[str, Any]
     model_id: str | None = None
+    enable_edge_vocabulary_packet: bool = False
+    edge_vocabulary_packet: ContextVocabularyPacket | None = None
 
 
 @dataclass(frozen=True)
@@ -668,6 +672,28 @@ def assemble_envelope(
     }
 
 
+def edge_vocabulary_ablation_diagnostics(options: CategoryGraphExtractionOptions) -> dict[str, Any]:
+    if not options.enable_edge_vocabulary_packet or options.edge_vocabulary_packet is None:
+        return {"enabled": False}
+    return render_edge_vocabulary_context(options.edge_vocabulary_packet).diagnostics
+
+
+def build_edge_pass_prompt(
+    edge_prompt_template: str,
+    nodes: Sequence[Mapping[str, Any]],
+    *,
+    options: CategoryGraphExtractionOptions,
+) -> tuple[str, dict[str, Any]]:
+    nodes_json = json.dumps([_edge_prompt_node_summary(n) for n in nodes], indent=2)
+    prompt = edge_prompt_template.replace("(injected at runtime)", nodes_json)
+    diagnostics = {"enabled": False}
+    if options.enable_edge_vocabulary_packet and options.edge_vocabulary_packet is not None:
+        edge_vocab_context = render_edge_vocabulary_context(options.edge_vocabulary_packet)
+        prompt = f"{prompt}\n\n{edge_vocab_context.context_text}\n"
+        diagnostics = edge_vocab_context.diagnostics
+    return prompt, diagnostics
+
+
 def _edge_prompt_node_summary(node: Mapping[str, Any]) -> dict[str, Any]:
     """Compact node payload for edge extraction.
 
@@ -868,12 +894,10 @@ def run_category_pipeline(
         campaign_id=options.campaign_id,
         session=options.session_number,
     )
-    nodes_json = json.dumps(
-        [_edge_prompt_node_summary(n) for n in consolidated["nodes"]],
-        indent=2,
-    )
-    edge_prompt = prompts[_prompt_key(EDGE_PASS_NAME)].replace(
-        "(injected at runtime)", nodes_json
+    edge_prompt, edge_vocabulary_diag = build_edge_pass_prompt(
+        prompts[_prompt_key(EDGE_PASS_NAME)],
+        consolidated["nodes"],
+        options=options,
     )
     _notify(EDGE_PASS_NAME, "running")
     edge_result = client.run_pass(
@@ -925,6 +949,7 @@ def run_category_pipeline(
         diagnostics={
             "extraction_mode": "category_decomposed",
             "model_id": model_id,
+            "edge_vocabulary_ablation": edge_vocabulary_diag,
             **PREVIEW_DIAGNOSTICS,
         },
     )
