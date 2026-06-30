@@ -14,6 +14,13 @@ from .lexical_observation import (
     normalize_observed_text,
     observations_to_artifact_payload,
 )
+from .packet_render import (
+    ContextPacketBudgetPolicy,
+    ContextPacketRenderResult,
+    context_packet_to_artifact_payload,
+    make_context_packet_id,
+    render_context_vocabulary_packet,
+)
 from .seed_compile import (
     VocabularySeedCompileResult,
     VocabularySeedScopePolicy,
@@ -65,6 +72,11 @@ __all__ = [
     "SourceDomain",
     "Status",
     "VocabularyEntry",
+    "ContextPacketBudgetPolicy",
+    "ContextPacketRenderResult",
+    "context_packet_to_artifact_payload",
+    "make_context_packet_id",
+    "render_context_vocabulary_packet",
     "VocabularySeedCompileResult",
     "VocabularySeedScopePolicy",
     "canonical_label_from_observations",
