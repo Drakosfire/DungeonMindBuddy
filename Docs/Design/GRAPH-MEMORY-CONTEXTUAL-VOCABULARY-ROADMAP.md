@@ -32,20 +32,22 @@ Milestone 1 follow-ups:
 - [x] Add `src/graph_memory/vocabulary/` contract skeleton.
 - [x] Add storage-agnostic DTOs for vocabulary entries, observations, aliases, do-not-merge decisions, containment hints, and context packets.
 - [x] Add deterministic vocabulary contract fixtures.
-- [ ] Add graph-ingest artifact seam for vocabulary artifacts.
+- [x] Add graph-ingest artifact seam for vocabulary artifacts.
 
 Completed notes:
 
 - PR 2 added the initial storage-agnostic vocabulary model contracts under `src/graph_memory/vocabulary/`.
 - PR 2 added deterministic JSON round-trip unit tests for the vocabulary contracts; stable fixture files are deferred.
 - PR 3 added deterministic hand-authored JSON fixtures under `evals/graph_memory_layer/examples/vocabulary_contract_fixtures/` and fixture-loading tests.
+- PR 4 added `src/graph_memory/vocabulary/artifact.py`, a storage-neutral vocabulary artifact bundle loader and diagnostics seam backed by deterministic fixture tests.
 
 Milestone 2 follow-ups:
 
 - [ ] Add explicit JSON schema export for vocabulary contracts if downstream tooling needs schema files.
 - [ ] Reconcile `SourceDomain` constants with `src/graph_memory/evidence/source_domain.py` if duplication becomes confusing.
 - [ ] Use stable fixture JSON examples as references before packet renderer work.
-- [ ] Add graph-ingest artifact seam for vocabulary artifacts using the validated contract fixtures as example payloads.
+
+Milestone 2 is now complete enough to begin ingestion vocabulary evidence work. Future PRs should keep lexical observation extraction behind explicit tests and should use the artifact seam rather than ad hoc JSON loading.
 
 ## Milestone 3 — Ingestion vocabulary evidence
 
