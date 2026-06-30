@@ -5,6 +5,15 @@ from .artifact import (
     VocabularyArtifactSummary,
     load_vocabulary_artifact_bundle,
 )
+from .lexical_observation import (
+    LexicalObservationPassResult,
+    VocabularySourceSpan,
+    build_lexical_observations_from_spans,
+    extract_candidate_surfaces,
+    infer_observed_kind_hint,
+    normalize_observed_text,
+    observations_to_artifact_payload,
+)
 from .model import (
     AliasCandidate,
     AuthorityLabel,
@@ -27,6 +36,13 @@ __all__ = [
     "VocabularyArtifactManifestFile",
     "VocabularyArtifactSummary",
     "load_vocabulary_artifact_bundle",
+    "observations_to_artifact_payload",
+    "normalize_observed_text",
+    "infer_observed_kind_hint",
+    "extract_candidate_surfaces",
+    "build_lexical_observations_from_spans",
+    "VocabularySourceSpan",
+    "LexicalObservationPassResult",
     "AliasCandidate",
     "AuthorityLabel",
     "ContextVocabularyPacket",

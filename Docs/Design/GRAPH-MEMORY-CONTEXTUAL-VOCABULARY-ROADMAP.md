@@ -51,10 +51,14 @@ Milestone 2 is now complete enough to begin ingestion vocabulary evidence work. 
 
 ## Milestone 3 — Ingestion vocabulary evidence
 
-- [ ] Add lexical observation pass from source spans.
-- [ ] Emit vocabulary diagnostics without mutating corpus.
+- [x] Add lexical observation pass from source spans.
+- [x] Emit vocabulary diagnostics without mutating corpus.
 - [ ] Compile separate world and campaign vocabulary seed artifacts.
 - [ ] Render scoped context vocabulary packets.
+
+Completed notes:
+
+- PR 5 added a deterministic in-memory lexical observation pass that emits `LexicalObservation` objects and JSON-serializable diagnostics without wiring into ingest or mutating corpus.
 
 ## Milestone 4 — Extraction ablations
 
