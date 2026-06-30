@@ -530,6 +530,7 @@ def consolidate_category_outputs(
         "party_companion_slugs": [m.slug for m in party_ctx.companions()],
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
+        "cross_class_blocked_nodes": cross_class.get("blocked", []),
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,

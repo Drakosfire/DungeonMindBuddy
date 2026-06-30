@@ -754,6 +754,28 @@ def _cross_class_priority(node: Any) -> int:
     return _CROSS_CLASS_TYPE_PRIORITY.get(node_type_class(node_type_of(node)), 0)
 
 
+def should_merge_cross_class_label_collision(members: Sequence[Any]) -> dict[str, Any]:
+    """Return the explicit policy decision for an exact-label class collision.
+
+    This intentionally only inspects coarse node type classes today. Future
+    vocabulary work can extend this seam with aliases, do-not-merge decisions,
+    evidence hints, or corpus authority without reopening the reconciliation
+    loop itself.
+    """
+    classes = sorted({node_type_class(node_type_of(member)) for member in members})
+    if set(classes) == {"place", "collective"}:
+        return {
+            "action": "merge",
+            "reason": "place_collective_exact_label",
+            "classes": classes,
+        }
+    return {
+        "action": "block",
+        "reason": "unsafe_cross_class_exact_label",
+        "classes": classes,
+    }
+
+
 def _merge_evidence_refs(into: Any, extra: Any) -> None:
     """Union ``extra``'s evidence_refs onto ``into`` (best-effort, dedup-by-repr)."""
     if not isinstance(into, Mapping):
@@ -792,19 +814,22 @@ def reconcile_cross_class_label_collisions(
     endpoint binding ``ambiguous`` — two equally scored targets for the same
     phrase — so the edge is dropped instead of matched.
 
-    This step collapses such exact-label collisions into one canonical node,
-    preferring the higher-priority type class (see ``_CROSS_CLASS_TYPE_PRIORITY``),
-    unions evidence refs onto the survivor, and rewrites any edge endpoints that
-    referenced a dropped id. Self-loops created by the merge are dropped.
+    This step applies an explicit safety policy before collapsing exact-label
+    collisions. Today only place/collective duplicates are approved to merge;
+    other cross-class collisions stay separate and are surfaced in ``blocked``
+    diagnostics. Approved merges still prefer the higher-priority type class
+    (see ``_CROSS_CLASS_TYPE_PRIORITY``), union evidence refs onto the survivor,
+    and rewrite any edge endpoints that referenced a dropped id. Self-loops
+    created by approved merges are dropped.
 
-    Conservative by construction: only *byte-identical normalized labels* merge,
-    so genuinely distinct entities (different labels that merely share tokens) are
-    untouched. The degradation direction is fail-to-merge, never false-merge of
-    distinct labels.
+    Conservative by construction: only policy-approved *byte-identical normalized
+    labels* merge. The degradation direction is fail-to-merge with diagnostics,
+    never false-merge of distinct identities.
 
-    Returns ``{"kept", "edges", "merged", "remap"}`` where ``merged`` is a list of
-    ``(survivor_id, dropped_id)`` pairs and ``remap`` maps dropped ids to survivor
-    ids. ``edges`` is ``None`` when no edge sequence was supplied.
+    Returns ``{"kept", "edges", "merged", "remap", "blocked"}`` where ``merged``
+    is a list of ``(survivor_id, dropped_id)`` pairs, ``remap`` maps dropped ids
+    to survivor ids, and ``blocked`` lists unsafe exact-label class collisions.
+    ``edges`` is ``None`` when no edge sequence was supplied.
     """
     groups: dict[str, list[Any]] = {}
     order: list[str] = []
@@ -822,6 +847,7 @@ def reconcile_cross_class_label_collisions(
     kept: list[Any] = []
     merged: list[tuple[str, str]] = []
     remap: dict[str, str] = {}
+    blocked: list[dict[str, Any]] = []
     for key in order:
         members = groups.get(key) or []
         if not members:
@@ -829,6 +855,18 @@ def reconcile_cross_class_label_collisions(
         classes = {node_type_class(node_type_of(m)) for m in members}
         if len(members) == 1 or len(classes) <= 1:
             # Single node, or a same-class residue dedup_nodes already handles.
+            kept.extend(members)
+            continue
+        policy = should_merge_cross_class_label_collision(members)
+        if policy["action"] != "merge":
+            blocked.append(
+                {
+                    "label": key,
+                    "node_ids": [str(_get(m, "node_id", "")) for m in members],
+                    "classes": policy["classes"],
+                    "reason": policy["reason"],
+                }
+            )
             kept.extend(members)
             continue
         survivor = max(
@@ -864,4 +902,5 @@ def reconcile_cross_class_label_collisions(
         "edges": rewritten_edges,
         "merged": merged,
         "remap": remap,
+        "blocked": blocked,
     }
