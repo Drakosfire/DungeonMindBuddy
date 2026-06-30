@@ -69,13 +69,16 @@ Milestone 3 is now complete enough to begin extraction ablations. Future PRs sho
 - [x] Run post-extraction vocabulary diagnostics baseline.
 - [x] Run edge-pass vocabulary packet ablation.
 - [x] Run node-pass vocabulary packet ablation.
-- [ ] Compare endpoint binding, edge miss reasons, cross-class collisions, unsafe collision count, and combat encounter pickup.
+- [x] Compare endpoint binding, edge miss reasons, cross-class collisions, unsafe collision count, and combat encounter pickup.
 
 Completed notes:
 
 - PR 8 added `src/graph_memory/vocabulary/extraction_diagnostics.py`, a passive diagnostics layer for comparing existing extraction output to rendered vocabulary packets without changing extraction or injecting packets.
 - PR 9 added `src/graph_memory/vocabulary/edge_context.py` and an explicit opt-in edge-pass vocabulary packet ablation seam with diagnostics while preserving default extraction behavior.
 - PR 10 added an explicit opt-in node-pass vocabulary packet ablation path. It renders scoped packets into targeted node/category-pass context, exposes per-pass diagnostics, and preserves default extraction behavior.
+- PR 11 added a deterministic vocabulary ablation comparison harness for precomputed baseline, edge-packet, node-packet, and combined extraction variants. It compares vocabulary pickup, type alignment, predicate pickup, edge-drop/miss reasons, cross-class collisions, unsafe collision counts, and combat encounter pickup without running LLMs or dogfood material.
+
+Milestone 4 is now complete enough to begin dogfood runs. Future PRs should use the comparison harness on reviewed campaign material and must clearly separate synthetic harness tests from observed model behavior.
 
 ## Milestone 5 — Stable Global Node alignment
 

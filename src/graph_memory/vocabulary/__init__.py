@@ -1,3 +1,12 @@
+from .ablation_compare import (
+    VocabularyAblationComparisonResult,
+    VocabularyAblationVariant,
+    compare_vocabulary_ablation_variants,
+    compute_variant_delta,
+    render_vocabulary_ablation_comparison_markdown,
+    summarize_variant_metrics,
+    vocabulary_ablation_comparison_to_payload,
+)
 from .edge_context import (
     EdgeVocabularyContext,
     render_edge_vocabulary_context,
@@ -62,6 +71,13 @@ from .model import (
 )
 
 __all__ = [
+    "vocabulary_ablation_comparison_to_payload",
+    "summarize_variant_metrics",
+    "render_vocabulary_ablation_comparison_markdown",
+    "compute_variant_delta",
+    "compare_vocabulary_ablation_variants",
+    "VocabularyAblationVariant",
+    "VocabularyAblationComparisonResult",
     "EdgeVocabularyContext",
     "render_edge_vocabulary_context",
     "NodeVocabularyContext",
