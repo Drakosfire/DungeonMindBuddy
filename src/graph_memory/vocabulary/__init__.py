@@ -1,3 +1,10 @@
+from .artifact import (
+    VocabularyArtifactBundle,
+    VocabularyArtifactManifest,
+    VocabularyArtifactManifestFile,
+    VocabularyArtifactSummary,
+    load_vocabulary_artifact_bundle,
+)
 from .model import (
     AliasCandidate,
     AuthorityLabel,
@@ -15,6 +22,11 @@ from .model import (
 )
 
 __all__ = [
+    "VocabularyArtifactBundle",
+    "VocabularyArtifactManifest",
+    "VocabularyArtifactManifestFile",
+    "VocabularyArtifactSummary",
+    "load_vocabulary_artifact_bundle",
     "AliasCandidate",
     "AuthorityLabel",
     "ContextVocabularyPacket",
