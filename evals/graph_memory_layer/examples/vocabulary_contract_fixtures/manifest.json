@@ -1,0 +1,24 @@
+{
+  "schema": "dmb_vocabulary_contract_fixture_manifest_v1",
+  "fixture_id": "vocabulary_contract_fixtures_v1",
+  "authority_class": "vocabulary_contract_fixture",
+  "candidate_graph_comparison": false,
+  "status": "hand_authored_contract_fixture",
+  "description": "Deterministic JSON examples for contextual vocabulary model contracts.",
+  "files": [
+    {"path": "source_artifacts.json", "model": "SourceArtifactRef", "count": 2, "purpose": "Source artifact reference contract examples."},
+    {"path": "lexical_observations.json", "model": "LexicalObservation", "count": 2, "purpose": "Raw lexical observation contract examples."},
+    {"path": "vocabulary_entries.json", "model": "VocabularyEntry", "count": 3, "purpose": "World and campaign vocabulary entry examples."},
+    {"path": "alias_candidates.json", "model": "AliasCandidate", "count": 2, "purpose": "Generated alias candidate examples, including risk flags."},
+    {"path": "do_not_merge_decisions.json", "model": "DoNotMergeDecision", "count": 1, "purpose": "Generated but unreviewed do-not-merge warning example."},
+    {"path": "containment_hints.json", "model": "ContainmentHint", "count": 1, "purpose": "Containment hint contract example."},
+    {"path": "context_vocabulary_packet.json", "model": "ContextVocabularyPacket", "count": 1, "purpose": "Lossy prompt-time packet slice example."}
+  ],
+  "non_goals": [
+    "canon campaign memory",
+    "candidate graph extraction gold",
+    "projection gold",
+    "Stable Global Node truth",
+    "prompt input contract"
+  ]
+}

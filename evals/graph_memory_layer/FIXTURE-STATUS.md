@@ -31,6 +31,12 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 | `examples/multi_pass_extraction_contract/` | 9-pass contract sketch for Session 23 |
 | `examples/eval_only_extractor_harness/` | Static candidate bundle shaped by multi-pass contract |
 
+## Contract fixtures
+
+| Path | Session | Use | Notes |
+|------|---------|-----|-------|
+| `examples/vocabulary_contract_fixtures/` | fixture-only | Vocabulary DTO contract fixtures | Hand-authored JSON examples for model validation and round-trip tests; not extraction gold. |
+
 ## Generated / dogfood runs
 
 | Path | Notes |
