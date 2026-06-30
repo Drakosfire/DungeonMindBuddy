@@ -2,6 +2,10 @@ from .edge_context import (
     EdgeVocabularyContext,
     render_edge_vocabulary_context,
 )
+from .node_context import (
+    NodeVocabularyContext,
+    render_node_vocabulary_context,
+)
 from .extraction_diagnostics import (
     ExtractedVocabularyEdge,
     ExtractedVocabularyNode,
@@ -60,6 +64,8 @@ from .model import (
 __all__ = [
     "EdgeVocabularyContext",
     "render_edge_vocabulary_context",
+    "NodeVocabularyContext",
+    "render_node_vocabulary_context",
     "vocabulary_extraction_diagnostics_to_payload",
     "diagnose_vocabulary_extraction_baseline",
     "VocabularyExtractionDiagnosticsResult",

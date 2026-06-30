@@ -24,6 +24,7 @@ from src.graph_memory.party_context import (
 )
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
 from src.graph_memory.session_graph_context import (
     build_session_graph_context,
     merge_party_anchor_nodes,
@@ -144,6 +145,8 @@ class CategoryGraphExtractionOptions:
     model_id: str | None = None
     enable_edge_vocabulary_packet: bool = False
     edge_vocabulary_packet: ContextVocabularyPacket | None = None
+    enable_node_vocabulary_packet: bool = False
+    node_vocabulary_packet: ContextVocabularyPacket | None = None
 
 
 @dataclass(frozen=True)
@@ -678,6 +681,29 @@ def edge_vocabulary_ablation_diagnostics(options: CategoryGraphExtractionOptions
     return render_edge_vocabulary_context(options.edge_vocabulary_packet).diagnostics
 
 
+def build_node_pass_prompt(
+    pass_name: str,
+    node_prompt_template: str,
+    *,
+    options: CategoryGraphExtractionOptions,
+) -> tuple[str, dict[str, Any]]:
+    allowed_passes = {name for name, _default_type, _instruction in NODE_EXTRACTION_PASSES}
+    if pass_name not in allowed_passes:
+        raise ValueError(f"pass_name must be one of {sorted(allowed_passes)}")
+
+    if not options.enable_node_vocabulary_packet or options.node_vocabulary_packet is None:
+        return node_prompt_template, {"enabled": False}
+
+    context = render_node_vocabulary_context(options.node_vocabulary_packet, pass_name=pass_name)
+    prompt = node_prompt_template
+    marker = "\n\n## Source Packet\n\n"
+    if marker in prompt and context.context_text:
+        prompt = prompt.replace(marker, f"\n\n{context.context_text}{marker}", 1)
+    elif context.context_text:
+        prompt = f"{prompt}\n\n{context.context_text}\n"
+    return prompt, context.diagnostics
+
+
 def build_edge_pass_prompt(
     edge_prompt_template: str,
     nodes: Sequence[Mapping[str, Any]],
@@ -847,6 +873,7 @@ def run_category_pipeline(
     pass_telemetry: dict[str, Any] = {}
     total_cost = 0.0
     system = "Category-decomposed graph memory extraction."
+    node_vocabulary_pass_diagnostics: dict[str, Any] = {}
 
     def _notify(pass_name: str, state: str) -> None:
         if progress_callback is not None:
@@ -854,11 +881,17 @@ def run_category_pipeline(
 
     for pass_name, _default_type, _instruction in NODE_EXTRACTION_PASSES:
         _notify(pass_name, "running")
+        node_prompt, node_vocabulary_diag = build_node_pass_prompt(
+            pass_name,
+            prompts[_prompt_key(pass_name)],
+            options=options,
+        )
+        node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
         result = client.run_pass(
             pass_name,
             model_id=model_id,
             instructions=system,
-            user_content=prompts[_prompt_key(pass_name)],
+            user_content=node_prompt,
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {
@@ -938,6 +971,16 @@ def run_category_pipeline(
         model_id=model_id,
     )
     candidate_graph = canonical_graph_for_runner(envelope)
+    node_vocabulary_enabled = (
+        options.enable_node_vocabulary_packet and options.node_vocabulary_packet is not None
+    )
+    node_vocabulary_diag: dict[str, Any] = {"enabled": False}
+    if node_vocabulary_enabled:
+        node_vocabulary_diag = {
+            "enabled": True,
+            "packet_id": options.node_vocabulary_packet.packet_id,
+            "passes": node_vocabulary_pass_diagnostics,
+        }
     return CategoryGraphExtractionResult(
         candidate_graph=candidate_graph,
         envelope=envelope,
@@ -950,6 +993,7 @@ def run_category_pipeline(
             "extraction_mode": "category_decomposed",
             "model_id": model_id,
             "edge_vocabulary_ablation": edge_vocabulary_diag,
+            "node_vocabulary_ablation": node_vocabulary_diag,
             **PREVIEW_DIAGNOSTICS,
         },
     )
