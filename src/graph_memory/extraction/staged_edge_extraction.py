@@ -22,6 +22,8 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     _source_packet_md,
     parse_json_object,
 )
+from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
+from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.predicate_catalog import (
     exact_predicate_ids,
     predicate_family_for_type,
@@ -157,6 +159,18 @@ def _beat_summaries(beats: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+@dataclass(frozen=True)
+class EdgeVocabularyAblationOptions:
+    enable_edge_vocabulary_packet: bool = False
+    vocabulary_packet: ContextVocabularyPacket | None = None
+
+
+def edge_vocabulary_ablation_diagnostics(options: EdgeVocabularyAblationOptions | None = None) -> dict[str, Any]:
+    if options is None or not options.enable_edge_vocabulary_packet or options.vocabulary_packet is None:
+        return {"enabled": False}
+    return render_edge_vocabulary_context(options.vocabulary_packet).diagnostics
+
+
 def build_graph_context_packet(
     *,
     source_rows: Sequence[dict[str, Any]],
@@ -164,6 +178,7 @@ def build_graph_context_packet(
     beats: Sequence[Mapping[str, Any]],
     ignored_items: Sequence[Mapping[str, Any]] | None = None,
     deferred_items: Sequence[Mapping[str, Any]] | None = None,
+    edge_vocabulary_options: EdgeVocabularyAblationOptions | None = None,
 ) -> str:
     """Markdown context for staged relation observation (runs last)."""
     node_summaries = [_edge_prompt_node_summary(n) for n in nodes]
@@ -207,6 +222,16 @@ def build_graph_context_packet(
                 "```",
             ]
         )
+    if (
+        edge_vocabulary_options
+        and edge_vocabulary_options.enable_edge_vocabulary_packet
+        and edge_vocabulary_options.vocabulary_packet is not None
+    ):
+        edge_vocab_context = render_edge_vocabulary_context(
+            edge_vocabulary_options.vocabulary_packet
+        )
+        sections.extend(["", edge_vocab_context.context_text])
+
     sections.extend(
         [
             "",
@@ -232,6 +257,7 @@ def render_relation_observation_prompt(
     beats: Sequence[Mapping[str, Any]],
     ignored_items: Sequence[Mapping[str, Any]] | None = None,
     deferred_items: Sequence[Mapping[str, Any]] | None = None,
+    edge_vocabulary_options: EdgeVocabularyAblationOptions | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
     context = build_graph_context_packet(
@@ -240,6 +266,7 @@ def render_relation_observation_prompt(
         beats=beats,
         ignored_items=ignored_items,
         deferred_items=deferred_items,
+        edge_vocabulary_options=edge_vocabulary_options,
     )
     safety = (
         "Preview-only graph memory extraction. "
@@ -611,6 +638,7 @@ def run_staged_edge_extraction(
     source_rows: Sequence[dict[str, Any]],
     consolidated: Mapping[str, Any],
     allowed_span_refs: set[str] | None = None,
+    edge_vocabulary_options: EdgeVocabularyAblationOptions | None = None,
 ) -> StagedEdgeExtractionResult:
     """Run observe → bind → normalize → assemble on a consolidated graph snapshot."""
     nodes = list(consolidated.get("nodes") or [])
@@ -625,6 +653,7 @@ def run_staged_edge_extraction(
         beats=beats,
         ignored_items=ignored,
         deferred_items=deferred,
+        edge_vocabulary_options=edge_vocabulary_options,
     )
     llm = run_relation_observation_llm(model_id=model_id, user_content=prompt)
     raw_candidates = llm["parsed"].get("relation_candidates") or []
