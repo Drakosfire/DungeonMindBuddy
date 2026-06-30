@@ -54,12 +54,15 @@ Milestone 2 is now complete enough to begin ingestion vocabulary evidence work. 
 - [x] Add lexical observation pass from source spans.
 - [x] Emit vocabulary diagnostics without mutating corpus.
 - [x] Compile separate world and campaign vocabulary seed artifacts.
-- [ ] Render scoped context vocabulary packets.
+- [x] Render scoped context vocabulary packets.
 
 Completed notes:
 
 - PR 5 added a deterministic in-memory lexical observation pass that emits `LexicalObservation` objects and JSON-serializable diagnostics without wiring into ingest or mutating corpus.
 - PR 6 added a deterministic vocabulary seed compiler that groups lexical observations into separate world and campaign `VocabularyEntry` seed payloads without writing artifacts or mutating corpus.
+- PR 7 added a deterministic scoped context vocabulary packet renderer that converts supplied world/campaign entries and review hints into `ContextVocabularyPacket` payloads without prompt injection or extraction changes.
+
+Milestone 3 is now complete enough to begin extraction ablations. Future PRs should wire packet use only behind explicit ablation tests and diagnostics.
 
 ## Milestone 4 — Extraction ablations
 
