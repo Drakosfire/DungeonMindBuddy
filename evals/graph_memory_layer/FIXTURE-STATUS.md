@@ -2,6 +2,8 @@
 
 Quick reference for `examples/` and `artifacts/` subdirectories. See root [`README.md`](README.md) for commands.
 
+Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDGER.md) classifies which fixtures are candidate graph gold, projection gold, routing/retrieval gold, mechanical ingest fixtures, and generated artifacts.
+
 ## Manual gold (hand-authored, not extractor output)
 
 | Path | Session | Use |
