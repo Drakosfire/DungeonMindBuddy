@@ -14,6 +14,15 @@ from .lexical_observation import (
     normalize_observed_text,
     observations_to_artifact_payload,
 )
+from .seed_compile import (
+    VocabularySeedCompileResult,
+    VocabularySeedScopePolicy,
+    canonical_label_from_observations,
+    compile_vocabulary_seed_entries,
+    infer_seed_scope,
+    make_vocab_seed_id,
+    seed_entries_to_artifact_payload,
+)
 from .model import (
     AliasCandidate,
     AuthorityLabel,
@@ -56,4 +65,11 @@ __all__ = [
     "SourceDomain",
     "Status",
     "VocabularyEntry",
+    "VocabularySeedCompileResult",
+    "VocabularySeedScopePolicy",
+    "canonical_label_from_observations",
+    "compile_vocabulary_seed_entries",
+    "infer_seed_scope",
+    "make_vocab_seed_id",
+    "seed_entries_to_artifact_payload",
 ]
