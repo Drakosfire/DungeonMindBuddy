@@ -41,6 +41,26 @@ def test_build_party_context_for_campaign_matches_legacy_builder():
     assert {m.slug for m in wrapped.members} == {m.slug for m in legacy.members}
 
 
+def test_campaign_1_session_1_roster_resolves_party_anchors():
+    ctx = pc.build_party_context_for_campaign("longmont-c1", 1)
+    assert ctx.campaign_id == "longmont-c1"
+    assert ctx.session == "1"
+    assert ctx.party_names == ("Heroes / Party",)
+    assert not ctx.warnings
+    assert {m.slug for m in ctx.pcs()} == {
+        "baergrom",
+        "bonogo",
+        "caelynn",
+        "ephanna",
+        "karsemine",
+        "stafl",
+    }
+    assert ctx.companions() == ()
+    anchors = ctx.anchor_hub_paths()
+    assert len(anchors) == 6
+    assert all(p.endswith("/README.md") for p in anchors)
+
+
 def test_session_23_missing_roster_warns_and_is_empty():
     ctx = pc.build_party_context_for_campaign("longmont-c2", 23)
     assert ctx.members == ()

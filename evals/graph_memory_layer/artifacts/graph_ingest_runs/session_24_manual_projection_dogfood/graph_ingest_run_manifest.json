@@ -1,0 +1,99 @@
+{
+  "artifacts": {
+    "preview_union_store": {
+      "exists": true,
+      "kind": "preview_union_store",
+      "preview_only": true,
+      "schema": "dmb_union_supergraph_store_v0",
+      "sha256": "sha256:cd2ad4818d4d9c3b460d8e4605d0f154a75e7e6cf92aeec08667b4dc8a601460",
+      "uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_24_manual_projection_dogfood/preview_union_store.json"
+    },
+    "projection_payload": {
+      "exists": true,
+      "kind": "projection_payload",
+      "preview_only": true,
+      "schema": "dmb_recap_graph_projection_v0",
+      "sha256": "sha256:62a1fc52a23306db64ebedb877de6ee5cd3f888e651536fbae1f7d9e9277ce5d",
+      "uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_24_manual_projection_dogfood/projection_payload.json"
+    },
+    "source_span_bundle": {
+      "exists": true,
+      "kind": "source_span_bundle",
+      "preview_only": true,
+      "schema": "dmb_manual_projection_source_span_bundle_v0",
+      "sha256": "sha256:33a07dfdeacc569db7cdc98f6fad3082d7ba839963abb76a978673efaa6d10cd",
+      "uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_24_manual_projection_dogfood/source_span_bundle.json"
+    }
+  },
+  "campaign_id": "longmont-c2",
+  "created_at": "2026-06-28T21:48:53Z",
+  "diagnostics": {
+    "agent_interaction_connected": false,
+    "approved_memory_write": false,
+    "candidate_extraction": false,
+    "canon_promotion": false,
+    "corpus_mutation": false,
+    "llm_extraction": false,
+    "manual_gold": true,
+    "preview_import": true,
+    "preview_only": true,
+    "production_retrieval": false,
+    "runtime_projection_connected": true
+  },
+  "errors": [],
+  "health": {
+    "candidate_graph_valid": true,
+    "deferred_count": 7,
+    "edge_count": 32,
+    "estimated_cost_usd": null,
+    "evidence_ref_count": 10,
+    "highlightable_evidence_ref_count": 10,
+    "model_id": null,
+    "node_count": 36,
+    "openable_evidence_ref_count": 10,
+    "preview_union_store_valid": true,
+    "resolvable_evidence_ref_count": 10
+  },
+  "next_actions": [
+    "open_projection_preview",
+    "manual_gm_dogfood_review"
+  ],
+  "projection": null,
+  "run_id": "graph-ingest:longmont-c2:session-24:manual-projection-dogfood",
+  "schema": "dmb_graph_ingest_run_manifest_v0",
+  "session_id": "session-24",
+  "source": {
+    "normalized_recap_path": "evals/graph_memory_layer/examples/session_24_manual_projection_dogfood/session_24_raw_recap_PLACEHOLDER.md",
+    "normalized_recap_sha256": "sha256:d800d442cd66c6c0984c5de6500aa8272378f8c7606205b5d8f71fd19c7f526a",
+    "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+    "source_domain": "recap",
+    "source_label": "Session 24 manual projection dogfood fixture",
+    "source_span_bundle_uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_24_manual_projection_dogfood/source_span_bundle.json"
+  },
+  "status": "preview_union_store_ready",
+  "steps": [
+    {
+      "artifact_refs": [],
+      "id": "validate_manual_fixture",
+      "label": "Validate manual Session 24 fixture",
+      "state": "complete"
+    },
+    {
+      "artifact_refs": [],
+      "id": "adapt_preview_union_store",
+      "label": "Adapt manual graph to preview union store",
+      "state": "complete"
+    },
+    {
+      "artifact_refs": [],
+      "id": "load_projection",
+      "label": "Load union-supergraph projection",
+      "state": "complete"
+    }
+  ],
+  "updated_at": "2026-06-28T21:48:53Z",
+  "version": "0.1",
+  "warnings": [
+    "raw recap placeholder has not been populated; source-span text matching is blocked"
+  ]
+}

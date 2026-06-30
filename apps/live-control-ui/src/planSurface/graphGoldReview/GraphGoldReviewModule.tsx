@@ -4,12 +4,14 @@ import {
   getGoldReviewCompare,
   getGoldReviewEvidence,
   getGoldReviewSessions,
+  getGoldReviewVocabularyAblation,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionSummary,
+  VocabularyAblationDogfoodResponse,
 } from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
 import { GraphGoldEvidenceDiff } from "./GraphGoldEvidenceDiff";
@@ -17,6 +19,7 @@ import { GraphGoldReviewMissTables } from "./GraphGoldReviewMissTables";
 import { GraphGoldReviewRunPicker } from "./GraphGoldReviewRunPicker";
 import { GraphGoldReviewScorecard } from "./GraphGoldReviewScorecard";
 import { GraphGoldReviewSessionPicker } from "./GraphGoldReviewSessionPicker";
+import { GraphGoldReviewVocabularyAblation } from "./GraphGoldReviewVocabularyAblation";
 import {
   pickDefaultManifestPath,
   pickDefaultSession,
@@ -47,6 +50,11 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
   const [evidenceDiff, setEvidenceDiff] = useState<GoldReviewEvidenceDiffResponse | null>(null);
   const [evidenceStatus, setEvidenceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [vocabAblation, setVocabAblation] = useState<VocabularyAblationDogfoodResponse | null>(null);
+  const [vocabStatus, setVocabStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [vocabError, setVocabError] = useState<string | null>(null);
+
+  const showVocabularyAblation = selectedSessionId === "session-23";
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session.session_id === selectedSessionId),
@@ -113,6 +121,42 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     if (!sessionsLoaded) return;
     void loadCompare();
   }, [loadCompare, sessionsLoaded]);
+
+  useEffect(() => {
+    if (!sessionsLoaded || !showVocabularyAblation) {
+      setVocabAblation(null);
+      setVocabStatus("idle");
+      setVocabError(null);
+      return;
+    }
+    let cancelled = false;
+    setVocabStatus("loading");
+    setVocabError(null);
+    void getGoldReviewVocabularyAblation({
+      campaignId: context.campaignId,
+      sessionId: selectedSessionId,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setVocabAblation(response);
+        setVocabStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setVocabAblation(null);
+        setVocabStatus("error");
+        if (error instanceof LiveApiError) {
+          setVocabError(error.message);
+          return;
+        }
+        setVocabError(
+          error instanceof Error ? error.message : "Failed to load vocabulary ablation dogfood.",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [context.campaignId, selectedSessionId, sessionsLoaded, showVocabularyAblation]);
 
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -192,6 +236,14 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
         <p className="graph-gold-review-note">Loading gold vs live comparison…</p>
       ) : null}
       {compareError ? <p className="graph-gold-review-error">{compareError}</p> : null}
+
+      {showVocabularyAblation ? (
+        <GraphGoldReviewVocabularyAblation
+          data={vocabStatus === "ready" ? vocabAblation : null}
+          loading={vocabStatus === "loading"}
+          error={vocabError}
+        />
+      ) : null}
 
       <div className="graph-gold-review-layout">
         <div className="graph-gold-review-main">

@@ -1,0 +1,39 @@
+{
+  "schema": "dmb_session_1_recap_ingest_fixture_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-1-recap-ingest:v0",
+  "campaign_id": "longmont-c1",
+  "session": 1,
+  "input_kind": "raw_session_recap",
+  "input_mode": "explicit_path_only",
+  "raw_recap_path": "evals/c1_live_prep/live/session_1/session_1_raw_recap.md",
+  "expected_normalized_recap_path": "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_normalized_recap.md",
+  "expected_paragraph_index_path": "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_paragraph_index.json",
+  "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_1_recap_ingest/source_span_seed_refs.json",
+  "normalization": {
+    "helper_module": "src.agent.recap_ingest_helpers",
+    "helper_function": "assemble_recap",
+    "title": "Session 1 - Stonebridge and Glowkindle Rats",
+    "remove_duplicates": true
+  },
+  "diagnostics": {
+    "raw_input_committed": true,
+    "uses_existing_recap_ingest_helpers": true,
+    "llm_required": false,
+    "live_planner_required": false,
+    "write_tools_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_extraction_performed": false,
+    "candidate_graph_output": false,
+    "gold_graph_output": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "runtime_behavior_changed": false,
+    "production_behavior_changed": false
+  },
+  "notes": [
+    "Stone Bridge town vs the Stone Bridge river span is a do-not-merge probe; both labels appear in the source.",
+    "The Wizard's Tower Brewing Co organization vs the shatter mage's tower location is a cross-class probe."
+  ]
+}

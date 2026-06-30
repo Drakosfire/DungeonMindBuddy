@@ -1,0 +1,3535 @@
+{
+  "beats": [
+    {
+      "beat_id": "beat_001",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Long ago, the gods lost to the other things",
+            "The nameless goddess gone, given their life to save everything",
+            "we will turn these Elderwylds to garden"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 1,
+      "proposed_action": "create",
+      "summary": "The city\u2019s founding ethos is framed as a remembrance of divine sacrifice and survival against cosmic annihilation, with a promise to transform the Elderwylds into a safe home and garden.",
+      "title": "Mythic origin and civic purpose",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_002",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Elderwyld is a continent on the edge of reality",
+            "Mostly non-existence, mostly inert",
+            "Sometimes it\u2019s a giant fish, sometimes it\u2019s a pack of wolves"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:002"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 2,
+      "proposed_action": "create",
+      "summary": "The Elderwyld is described as a reality-edge continent where something beyond the planar threshold can generate dangerous life-forms from near-nothingness.",
+      "title": "Elderwyld environment and hazards",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_003",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire",
+            "They repaired an ancient airship"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "and discovered the continent, cutting off contact with the Empire to start anew"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 3,
+      "proposed_action": "create",
+      "summary": "Mirathorn began over 200 years ago when settlers fleeing the Lundayell Empire repaired an ancient airship, discovered the continent, and severed imperial contact to start anew.",
+      "title": "Settlement origin and independence",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_004",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "At the base of the Stormspire Peaks, by Lake Mirathorn, making it a strategic trade hub"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:005"
+        },
+        {
+          "anchor_quotes": [
+            "Approximately 7000 residents of diverse races"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:006"
+        },
+        {
+          "anchor_quotes": [
+            "Major industries include brewing, craftsmanship, fishing, agriculture, and magical goods"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:007"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 4,
+      "proposed_action": "create",
+      "summary": "Mirathorn sits by Lake Mirathorn at the Stormspire Peaks, functions as a trade hub, and supports a diverse population and multi-industry economy.",
+      "title": "Geography, population, and economy",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_005",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Luminox Sheep are fluffy, woolly creatures that emit a gentle, bioluminescent glow"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:008"
+        },
+        {
+          "anchor_quotes": [
+            "Tidal Turtles are small, amphibious creatures with shells that change color based on their mood"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:015"
+        },
+        {
+          "anchor_quotes": [
+            "Starling Cows have hides adorned with starry patterns that shift and change"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:022"
+        },
+        {
+          "anchor_quotes": [
+            "Sunflower Ducks have bright yellow feathers that resemble sunflower petals"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:029"
+        },
+        {
+          "anchor_quotes": [
+            "Flutter Ferrets are playful, curious creatures with butterfly-like wings"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:036"
+        },
+        {
+          "anchor_quotes": [
+            "Float Goats are whimsical, goat-like creatures with an extraordinary ability to walk on water"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:043"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 5,
+      "proposed_action": "create",
+      "summary": "A sequence of local magical creatures are presented with practical byproducts\u2014wool, milk, shells, feathers, dust, and hides\u2014used in crafts, food, alchemy, transport, and rituals.",
+      "title": "Fantastic livestock and material byproducts",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_006",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "A democratic city-state governed by a council representing various races and guilds"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:056"
+        },
+        {
+          "anchor_quotes": [
+            "The Grand Market, Stormspire Academy, Lake Mirathorn Docks, The Broken Blade Inn, Temple of the Nameless Goddess"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 6,
+      "proposed_action": "create",
+      "summary": "Mirathorn is governed as a democratic city-state with a council and major civic sites including market, academy, docks, inn, and temple.",
+      "title": "Government and civic institutions",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_007",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Commemorates the Goddess's sacrifice and the city's growth"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:058"
+        },
+        {
+          "anchor_quotes": [
+            "Built with murals transported tile-by-tile from the Lundayell Empire, honoring the Nameless Goddess"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:060"
+        },
+        {
+          "anchor_quotes": [
+            "A center for worship, healing, and education about the Goddess\u2019s teachings"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:062"
+        },
+        {
+          "anchor_quotes": [
+            "Festival of Remembrance, Ritual of Renewal, and Ceremonies of Healing"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:063"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 7,
+      "proposed_action": "create",
+      "summary": "The Temple of the Nameless Goddess memorializes sacrifice, expanded from the Aspitome\u2019s bubble, and serves worship, healing, education, and ritual remembrance.",
+      "title": "Temple history and communal role",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_008",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mayor Elara Swiftwind: Charismatic Gnome leader of the city council"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:064"
+        },
+        {
+          "anchor_quotes": [
+            "Barin is pragmatic and shrewd, understanding the importance of trade and business to the city"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:068"
+        },
+        {
+          "anchor_quotes": [
+            "Grobnok is wary of the cult\u2019s influence creeping into his territory"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:074"
+        },
+        {
+          "anchor_quotes": [
+            "Deeply troubled by the dark magic at play"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:079"
+        },
+        {
+          "anchor_quotes": [
+            "Unbeknownst to her, she has been ensorcelled by the Wolf to overlook the corruption within the guard"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        },
+        {
+          "anchor_quotes": [
+            "Concerned about the integrity of the city's defenses and the safety of its people"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:089"
+        },
+        {
+          "anchor_quotes": [
+            "The contamination of food is a direct threat to her domain"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:094"
+        },
+        {
+          "anchor_quotes": [
+            "Concerned about the cult using hidden passageways and tunnels for their schemes"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:099"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 8,
+      "proposed_action": "create",
+      "summary": "A set of named council figures and civic leaders are introduced, each with a role and stance on cult-related unrest, ranging from economic concern to defensive denial, investigative caution, and anti-corruption resolve.",
+      "title": "Council leadership and attitudes toward the cult threat",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_009",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Sabotage in the Market: Tainted goods causing illness among non-humans"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:100"
+        },
+        {
+          "anchor_quotes": [
+            "Cult Recruitment: Disappearances and new leaders preaching human supremacy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:101"
+        },
+        {
+          "anchor_quotes": [
+            "Magical Disturbances: Natural disasters hinting at dark magic"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:102"
+        },
+        {
+          "anchor_quotes": [
+            "Rescue Mission: Freeing non-human captives from a secret hideout"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:103"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 9,
+      "proposed_action": "create",
+      "summary": "The city\u2019s active trouble points are summarized as sabotage, recruitment, magical disturbances, and a rescue mission involving non-human captives.",
+      "title": "Cult-related incident hooks",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_010",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "One Reach is equivalent to 8 kilometers (5 miles)"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:104"
+        },
+        {
+          "anchor_quotes": [
+            "The term \"Reaches\" originated from the early days of settlement"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:108"
+        },
+        {
+          "anchor_quotes": [
+            "The term now symbolizes the bravery and determination of those early settlers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:109"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 10,
+      "proposed_action": "create",
+      "summary": "The setting defines Reaches as an 8-kilometer unit with cultural roots in early settlement, hardship, and exploration.",
+      "title": "\u2018Reaches\u2019 as a local travel measure",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_011",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Vibrant Farmlands",
+            "expansive farmlands",
+            "orchards with fruit-laden trees and vineyards with ripening grapes"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:114"
+        },
+        {
+          "anchor_quotes": [
+            "Floatgoats: Some farms have floatgoats"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:116"
+        },
+        {
+          "anchor_quotes": [
+            "Mills and Breweries"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:117"
+        },
+        {
+          "anchor_quotes": [
+            "Workshops and Smithies"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:118"
+        },
+        {
+          "anchor_quotes": [
+            "Increased Traffic"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:119"
+        },
+        {
+          "anchor_quotes": [
+            "Frontier Folk"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:120"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 11,
+      "proposed_action": "create",
+      "summary": "The route into the city passes through farmland, livestock, floatgoats, mills, breweries, workshops, and increasing crowds of travelers and frontier folk.",
+      "title": "Approach to Mirathorn through the countryside",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_012",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Ancient Walls: Mirathorn is surrounded by ancient stone walls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:121"
+        },
+        {
+          "anchor_quotes": [
+            "Guard Towers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:122"
+        },
+        {
+          "anchor_quotes": [
+            "Main Gates: The main gates of Mirathorn are grand and sturdy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:123"
+        },
+        {
+          "anchor_quotes": [
+            "Temporary Structures: Encircling the city are makeshift tents, stalls, and temporary shelters"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:124"
+        },
+        {
+          "anchor_quotes": [
+            "Vendors and Performers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:125"
+        },
+        {
+          "anchor_quotes": [
+            "Communal Spaces"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:126"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 12,
+      "proposed_action": "create",
+      "summary": "Mirathorn\u2019s old walls, gate towers, and main gates frame a crowded, temporary outer settlement built to absorb the festival influx.",
+      "title": "City defenses and festival congestion",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_013",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Crowded Gates"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:127"
+        },
+        {
+          "anchor_quotes": [
+            "The toll to enter the city is steep"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:128"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 13,
+      "proposed_action": "create",
+      "summary": "The city entrance is congested, the toll is high, and the resulting frustration creates a volatile atmosphere for arrivals.",
+      "title": "Gate bottleneck and toll conflict",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_014",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "The protest is led by charismatic cult leaders"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:130"
+        },
+        {
+          "anchor_quotes": [
+            "The city guards are visibly tense"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:131"
+        },
+        {
+          "anchor_quotes": [
+            "The main gates are a bottleneck of people and carts"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 14,
+      "proposed_action": "create",
+      "summary": "A cult-led protest against the toll escalates tensions outside the gate, with organizers agitating crowds and guards trying to prevent a riot.",
+      "title": "Shepherd's Flock protest at the gate",
+      "warnings": []
+    }
+  ],
+  "campaign_id": "elderwyld",
+  "deferred_items": [
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "ensorcelled by the Wolf"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        }
+      ],
+      "item_id": "df1",
+      "label": "Specific identity of the Wolf",
+      "reason": "The Wolf is referenced as the one who ensorcelled Thalia, but no identifying details or relation to the cult are provided here.",
+      "suggested_next_step": "Look for later mentions clarifying whether the Wolf is a person, entity, or title.",
+      "warnings": []
+    },
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Initially tied to expanding the Aspitome\u2019s bubble."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:058"
+        }
+      ],
+      "item_id": "df2",
+      "label": "Nature and mechanics of the Aspitome bubble",
+      "reason": "The text says the festival was initially tied to expanding the Aspitome\u2019s bubble, but does not explain what the bubble is or how it functions.",
+      "suggested_next_step": "Seek source text describing the Aspitome's containment field, boundary, or protective effects.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "approved_memory_write": false,
+    "canon_promotion": false,
+    "corpus_mutation": false,
+    "extraction_mode": "category_decomposed",
+    "extraction_performed": true,
+    "llm_used": true,
+    "model_id": "gpt-5.4-mini",
+    "preview_only": true,
+    "production_retrieval": false,
+    "runtime_connected": true,
+    "warning_count": 0
+  },
+  "edges": [
+    {
+      "confidence": "medium",
+      "edge_id": "e1",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "A democratic city-state governed by a council representing various races and guilds."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:056"
+        }
+      ],
+      "from_node_id": "loc_4",
+      "label": "governed by",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_mirathorn_city_council",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e2",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mayor Elara Swiftwind",
+            "Charismatic Gnome leader of the city council"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:064"
+        }
+      ],
+      "from_node_id": "npc_elara_swiftwind",
+      "label": "leads the city council",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_mirathorn_city_council",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e3",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of Commerce"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:067"
+        }
+      ],
+      "from_node_id": "npc_barin_stonefoot",
+      "label": "represents commerce",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_commerce_representation",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e4",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of the Undercity and Cultural Sectors"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:072"
+        }
+      ],
+      "from_node_id": "npc_grobnok_the_goblin",
+      "label": "represents undercity and cultural sectors",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_undercity_cultural_sectors",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e5",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Headmaster Tinkerbright \u2013 Head of the Wizard\u2019s College"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:075"
+        }
+      ],
+      "from_node_id": "npc_headmaster_tinkerbright",
+      "label": "heads the Wizard\u2019s College",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_wizards_college",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e6",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of the Arcane"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:077"
+        }
+      ],
+      "from_node_id": "npc_headmaster_tinkerbright",
+      "label": "represents the arcane",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_wizards_college",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e7",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Commander Thalia Ashenvale",
+            "Commander of the Guard"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:080"
+        }
+      ],
+      "from_node_id": "npc_commander_thalia_ashenvale",
+      "label": "commands the guard",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_mirathorn_guard",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e8",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of Law and Order"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:082"
+        }
+      ],
+      "from_node_id": "npc_commander_thalia_ashenvale",
+      "label": "represents law and order",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_infrastructure_representation",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e9",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of the Craft Guilds"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:087"
+        }
+      ],
+      "from_node_id": "npc_torrin_flamescale",
+      "label": "represents the craft guilds",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_craft_guilds",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e10",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Merril Tealeaf",
+            "Leader of the Agricultural Union"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:090"
+        }
+      ],
+      "from_node_id": "npc_merril_tealeaf",
+      "label": "leads the Agricultural Union",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_agricultural_union",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e11",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of Agriculture and Food Production"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:092"
+        }
+      ],
+      "from_node_id": "npc_merril_tealeaf",
+      "label": "represents agriculture and food production",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_agricultural_union",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e12",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Role: Representative of Infrastructure"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:097"
+        }
+      ],
+      "from_node_id": "npc_rurik_stonehammer",
+      "label": "represents infrastructure",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_infrastructure_representation",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e13",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "At the base of the Stormspire Peaks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:005"
+        }
+      ],
+      "from_node_id": "loc_2",
+      "label": "near Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e14",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "by Lake Mirathorn, making it a strategic trade hub."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:005"
+        }
+      ],
+      "from_node_id": "loc_3",
+      "label": "by Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e15",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Grand Market"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "from_node_id": "loc_5",
+      "label": "within Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e16",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Stormspire Academy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "from_node_id": "loc_6",
+      "label": "within Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e17",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Lake Mirathorn Docks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "from_node_id": "loc_7",
+      "label": "on Lake Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_3",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e18",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Broken Blade Inn"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "from_node_id": "loc_8",
+      "label": "within Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e19",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Temple of the Nameless Goddess"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "from_node_id": "loc_9",
+      "label": "within Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e20",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "All that was left was the Aspitome and it\u2019s defenders.",
+            "The nameless goddess gone, given their life to save everything."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        }
+      ],
+      "from_node_id": "loc_10",
+      "label": "associated with Aspitome defenders and sacrifice",
+      "predicate_family": "social_relation",
+      "proposed_action": "create",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn2",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e21",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        }
+      ],
+      "from_node_id": "faction_settlers_from_lundayell",
+      "label": "fled the Lundayell Empire",
+      "predicate_family": "routing",
+      "proposed_action": "create",
+      "relationship_type": "displaced_from",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_11",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e22",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "and discovered the continent, cutting off contact with the Empire to start anew."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "from_node_id": "faction_settlers_from_lundayell",
+      "label": "founded Mirathorn",
+      "predicate_family": "routing",
+      "proposed_action": "create",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e23",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "They repaired an ancient airship"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "and discovered the continent"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "from_node_id": "item_001",
+      "label": "discovery route to Mirathorn's founding",
+      "predicate_family": "routing",
+      "proposed_action": "create",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e24",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "As the players approach Mirathorn from the east, they first encounter expansive farmlands."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:114"
+        }
+      ],
+      "from_node_id": "loc_12",
+      "label": "east of Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "east_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e25",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The road to Mirathorn is crowded with travelers, merchants, and farmers making their way to the festival."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:119"
+        }
+      ],
+      "from_node_id": "loc_13",
+      "label": "road to Mirathorn",
+      "predicate_family": "routing",
+      "proposed_action": "create",
+      "relationship_type": "road_to",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e26",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Encircling the city are makeshift tents, stalls, and temporary shelters"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:124"
+        }
+      ],
+      "from_node_id": "loc_14",
+      "label": "encircling Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e27",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The main gates of Mirathorn are grand and sturdy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:123"
+        }
+      ],
+      "from_node_id": "loc_15",
+      "label": "main gates of Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e28",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mirathorn is surrounded by ancient stone walls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:121"
+        }
+      ],
+      "from_node_id": "loc_16",
+      "label": "surrounds Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e29",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Interspersed along the walls are guard towers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:122"
+        }
+      ],
+      "from_node_id": "loc_17",
+      "label": "along the walls",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_16",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e30",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "for the Festival of Expansion."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "from_node_id": "loc_18",
+      "label": "festival in Mirathorn",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_4",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e31",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest outside the main gate"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        }
+      ],
+      "from_node_id": "organization_shepherds_flock",
+      "label": "protests outside the main gate",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_15",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e32",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        }
+      ],
+      "from_node_id": "organization_shepherds_flock",
+      "label": "stages protest at the gate",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_15",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e33",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "holding signs and chanting slogans against the toll"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "The toll to enter the city is steep"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:128"
+        }
+      ],
+      "from_node_id": "organization_shepherds_flock",
+      "label": "opposes the toll system",
+      "predicate_family": "threat_relation",
+      "proposed_action": "create",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "item_016",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e34",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Guards manage the flow, checking goods and collecting tolls."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:127"
+        }
+      ],
+      "from_node_id": "faction_mirathorn_guard",
+      "label": "manages the gates",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_15",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e35",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The city guards are visibly tense, trying to maintain order and prevent the protest from turning into a riot."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:131"
+        }
+      ],
+      "from_node_id": "faction_mirathorn_guard",
+      "label": "maintains order against protest",
+      "predicate_family": "social_relation",
+      "proposed_action": "create",
+      "relationship_type": "distrusts",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_shepherds_flock",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e36",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "overlook the corruption within the guard"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        },
+        {
+          "anchor_quotes": [
+            "signs of internal corruption."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:084"
+        }
+      ],
+      "from_node_id": "npc_commander_thalia_ashenvale",
+      "label": "oversee corruption within the guard",
+      "predicate_family": "knowledge",
+      "proposed_action": "create",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn8",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e37",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "deploy the resources of the Wizard\u2019s College to detect and counteract the cult\u2019s influence."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:079"
+        }
+      ],
+      "from_node_id": "npc_headmaster_tinkerbright",
+      "label": "counteracts cult influence",
+      "predicate_family": "knowledge",
+      "proposed_action": "create",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn5",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e38",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "He wants to assist in locating and sealing off any areas the cult might be using."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:099"
+        }
+      ],
+      "from_node_id": "npc_rurik_stonehammer",
+      "label": "locating hidden passageways used by cult",
+      "predicate_family": "knowledge",
+      "proposed_action": "create",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn6",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e39",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The contamination of food is a direct threat to her domain."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:094"
+        }
+      ],
+      "from_node_id": "npc_merril_tealeaf",
+      "label": "food contamination threat",
+      "predicate_family": "knowledge",
+      "proposed_action": "create",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn5",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e40",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Sabotage in the Market: Tainted goods causing illness among non-humans."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:100"
+        },
+        {
+          "anchor_quotes": [
+            "Cult Recruitment: Disappearances and new leaders preaching human supremacy."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:101"
+        },
+        {
+          "anchor_quotes": [
+            "Magical Disturbances: Natural disasters hinting at dark magic."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:102"
+        }
+      ],
+      "from_node_id": "organization_shepherds_flock",
+      "label": "linked to sabotage, recruitment, and dark magic",
+      "predicate_family": "social_relation",
+      "proposed_action": "create",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mn5",
+      "warnings": []
+    }
+  ],
+  "ignored_items": [
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mayor Elara Swiftwind"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:064"
+        },
+        {
+          "anchor_quotes": [
+            "Barin Stonefoot"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:065"
+        },
+        {
+          "anchor_quotes": [
+            "Headmaster Tinkerbright"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:075"
+        }
+      ],
+      "item_id": "ig1",
+      "label": "Named city officials and proprietors",
+      "reason": "These are named actors and civic roles, but the task is to extract mysteries, clues, warnings, events, unresolved phenomena, and threads rather than build party/cast records.",
+      "suggested_next_step": "Register named actors separately in the Party Registry if actor extraction is desired.",
+      "warnings": []
+    },
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Luminox Sheep"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:008"
+        },
+        {
+          "anchor_quotes": [
+            "Tidal Turtles"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:015"
+        },
+        {
+          "anchor_quotes": [
+            "Float Goats"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:043"
+        }
+      ],
+      "item_id": "ig2",
+      "label": "Animal product utility catalog",
+      "reason": "The livestock and their products are worldbuilding details, but not unresolved threads or mysteries in this pass.",
+      "suggested_next_step": "Only promote if later text introduces contamination, theft, or unusual behavior tied to these creatures.",
+      "warnings": []
+    }
+  ],
+  "nodes": [
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Charismatic gnome mayor and leader of the city council.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mayor Elara Swiftwind",
+            "Charismatic Gnome leader of the city council"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:064"
+        }
+      ],
+      "importance": "high",
+      "label": "Elara Swiftwind",
+      "node_id": "npc_elara_swiftwind",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Dwarf proprietor of the Copper and Quartz Inn; serves as representative of commerce and is pragmatic, shrewd, and profit-minded.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Barin Stonefoot",
+            "Proprietor of the Copper and Quartz Inn"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:065"
+        },
+        {
+          "anchor_quotes": [
+            "Barin is pragmatic and shrewd",
+            "keen eye for profit"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:068"
+        }
+      ],
+      "importance": "high",
+      "label": "Barin Stonefoot",
+      "node_id": "npc_barin_stonefoot",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Goblin owner of Grit and Grime; representative of the undercity and cultural sectors, lively, cunning, and alert to illicit city activity.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Grobnok the Goblin",
+            "Owner of Grit and Grime"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:070"
+        },
+        {
+          "anchor_quotes": [
+            "Grobnok is lively and cunning",
+            "the city\u2019s underbelly"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:073"
+        }
+      ],
+      "importance": "high",
+      "label": "Grobnok the Goblin",
+      "node_id": "npc_grobnok_the_goblin",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Gnome head of the Wizard\u2019s College and representative of the arcane; curious, inventive, and brilliant in arcane studies.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Headmaster Tinkerbright",
+            "Head of the Wizard\u2019s College"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:075"
+        },
+        {
+          "anchor_quotes": [
+            "curious and inventive gnome",
+            "brilliance in arcane studies"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:078"
+        }
+      ],
+      "importance": "high",
+      "label": "Headmaster Tinkerbright",
+      "node_id": "npc_headmaster_tinkerbright",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Half-elf commander of the guard and representative of law and order; disciplined, authoritative, and protective, though magically influenced to overlook corruption.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Commander Thalia Ashenvale",
+            "Commander of the Guard"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:080"
+        },
+        {
+          "anchor_quotes": [
+            "disciplined and authoritative",
+            "she has been ensorcelled by the Wolf"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        }
+      ],
+      "importance": "high",
+      "label": "Commander Thalia Ashenvale",
+      "node_id": "npc_commander_thalia_ashenvale",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Dragonborn master smith and representative of the craft guilds; stern, practical, and outspoken about city defenses and honor.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Torrin Flamescale",
+            "Master Smith and Representative of the Guilds"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:085"
+        },
+        {
+          "anchor_quotes": [
+            "stern and practical Dragonborn",
+            "passion for his craft"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:088"
+        }
+      ],
+      "importance": "high",
+      "label": "Torrin Flamescale",
+      "node_id": "npc_torrin_flamescale",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Gnome leader of the Agricultural Union and representative of agriculture and food production; nurturing, practical, and focused on food safety and rare plants.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Merril Tealeaf",
+            "Leader of the Agricultural Union"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:090"
+        },
+        {
+          "anchor_quotes": [
+            "Merril is nurturing and practical",
+            "cultivate rare and magical plants"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:093"
+        }
+      ],
+      "importance": "high",
+      "label": "Merril Tealeaf",
+      "node_id": "npc_merril_tealeaf",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Dwarf chief architect and representative of infrastructure; meticulous, detail-oriented, and knowledgeable about hidden passages and sewers.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Rurik Stonehammer",
+            "Chief Architect"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:095"
+        },
+        {
+          "anchor_quotes": [
+            "meticulous and detail-oriented",
+            "hidden passages and sewers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:098"
+        }
+      ],
+      "importance": "high",
+      "label": "Rurik Stonehammer",
+      "node_id": "npc_rurik_stonehammer",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A group of cultists staging a protest outside the main gate, led by charismatic agitators and opposing the city toll.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "charismatic cult leaders",
+            "stir up the crowd"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:130"
+        }
+      ],
+      "importance": "medium",
+      "label": "Shepherd's Flock cultists",
+      "node_id": "npc_shepherds_flock_cultists",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A continent on the edge of reality.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Elderwyld is a continent on the edge of reality."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:002"
+        },
+        {
+          "anchor_quotes": [
+            "Just as they forged a new land, and a new home for all, we will turn these Elderwylds to garden."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        }
+      ],
+      "importance": "high",
+      "label": "Elderwyld",
+      "node_id": "loc_1",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Mountain range forming part of Mirathorn\u2019s setting and strategic geography.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "At the base of the Stormspire Peaks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:005"
+        }
+      ],
+      "importance": "medium",
+      "label": "Stormspire Peaks",
+      "node_id": "loc_2",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Lake beside Mirathorn, associated with docks and trade access.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "by Lake Mirathorn, making it a strategic trade hub."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:005"
+        },
+        {
+          "anchor_quotes": [
+            "Lake Mirathorn Docks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "high",
+      "label": "Lake Mirathorn",
+      "node_id": "loc_3",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The city-state at the center of the source packet, described as a democratic trade hub with walls, gates, and surrounding settlements.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "A democratic city-state governed by a council representing various races and guilds."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:056"
+        },
+        {
+          "anchor_quotes": [
+            "the ancient city walls loom ahead",
+            "the out town around the city"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:132"
+        }
+      ],
+      "importance": "high",
+      "label": "Mirathorn",
+      "node_id": "loc_4",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Major market area within Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Grand Market"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        },
+        {
+          "anchor_quotes": [
+            "Commemorates the Goddess's sacrifice and the city's growth."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:058"
+        }
+      ],
+      "importance": "medium",
+      "label": "Grand Market",
+      "node_id": "loc_5",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A major city location identified among Mirathorn's notable places.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Grand Market"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "Grand Market",
+      "node_id": "item_008",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Named academic site in Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Stormspire Academy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "Stormspire Academy",
+      "node_id": "loc_6",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A major city location identified among Mirathorn's notable places.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Stormspire Academy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "Stormspire Academy",
+      "node_id": "item_009",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Dock area on Lake Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Lake Mirathorn Docks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "Lake Mirathorn Docks",
+      "node_id": "loc_7",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A major city location associated with Mirathorn's docks and trade activity.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Lake Mirathorn Docks"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "Lake Mirathorn Docks",
+      "node_id": "item_010",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Named inn in Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Broken Blade Inn"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "low",
+      "label": "The Broken Blade Inn",
+      "node_id": "loc_8",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A notable inn listed among Mirathorn's key locations.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Broken Blade Inn"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        }
+      ],
+      "importance": "medium",
+      "label": "The Broken Blade Inn",
+      "node_id": "item_011",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Temple in Mirathorn devoted to the Nameless Goddess.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Temple of the Nameless Goddess"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        },
+        {
+          "anchor_quotes": [
+            "A center for worship, healing, and education about the Goddess\u2019s teachings."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:062"
+        }
+      ],
+      "importance": "medium",
+      "label": "Temple of the Nameless Goddess",
+      "node_id": "loc_9",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A temple devoted to the Nameless Goddess, included among Mirathorn's important locations.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Temple of the Nameless Goddess"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:057"
+        },
+        {
+          "anchor_quotes": [
+            "A center for worship, healing, and education about the Goddess\u2019s teachings"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:062"
+        }
+      ],
+      "importance": "high",
+      "label": "Temple of the Nameless Goddess",
+      "node_id": "item_012",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Referenced as a place or domain associated with the defenders and expansion history.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "All that was left was the Aspitome and it\u2019s defenders."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        },
+        {
+          "anchor_quotes": [
+            "Initially tied to expanding the Aspitome\u2019s bubble."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:058"
+        }
+      ],
+      "importance": "low",
+      "label": "Aspitome",
+      "node_id": "loc_10",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Empire from which settlers fled and from which contact was cut off.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "cutting off contact with the Empire to start anew."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "importance": "medium",
+      "label": "Lundayell Empire",
+      "node_id": "loc_11",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Expansive agricultural lands encountered when approaching Mirathorn from the east.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "As the players approach Mirathorn from the east, they first encounter expansive farmlands."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:114"
+        }
+      ],
+      "importance": "medium",
+      "label": "Farmlands east of Mirathorn",
+      "node_id": "loc_12",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The approach road leading into the city, lined with commerce and traffic.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Closer to the city",
+            "the road"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:117"
+        },
+        {
+          "anchor_quotes": [
+            "The road to Mirathorn is crowded with travelers, merchants, and farmers making their way to the festival."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:119"
+        }
+      ],
+      "importance": "high",
+      "label": "Road to Mirathorn",
+      "node_id": "loc_13",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The makeshift settlement of tents, stalls, and shelters encircling Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Encircling the city are makeshift tents, stalls, and temporary shelters set up by the influx of visitors."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:124"
+        },
+        {
+          "anchor_quotes": [
+            "The out town around the city is a chaotic but festive mix of tents and stalls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:132"
+        }
+      ],
+      "importance": "high",
+      "label": "Out town",
+      "node_id": "loc_14",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Primary entrance to the city, crowded and monitored by guards.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The main gates of Mirathorn are grand and sturdy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:123"
+        },
+        {
+          "anchor_quotes": [
+            "The gates are heavily congested with people trying to enter the city."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:127"
+        }
+      ],
+      "importance": "high",
+      "label": "Main gates of Mirathorn",
+      "node_id": "loc_15",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Old stone walls surrounding Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mirathorn is surrounded by ancient stone walls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:121"
+        }
+      ],
+      "importance": "medium",
+      "label": "Ancient city walls",
+      "node_id": "loc_16",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Towers along Mirathorn\u2019s walls serving as lookout points.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Interspersed along the walls are guard towers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:122"
+        }
+      ],
+      "importance": "low",
+      "label": "Guard towers",
+      "node_id": "loc_17",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Named festival/event destination associated with entering Mirathorn.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "for the Festival of Expansion."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "importance": "low",
+      "label": "Festival of Expansion",
+      "node_id": "loc_18",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A city festival commemorating the Goddess's sacrifice and the city's growth, with events including ceremonies, competitions, and a ritual of expansion.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Commemorates the Goddess's sacrifice and the city's growth"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:058"
+        },
+        {
+          "anchor_quotes": [
+            "Opening Ceremony, Brewing Competition, Market Fair, Magical Demonstrations, Cultural Exhibitions, and a symbolic Ritual of Expansion"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:059"
+        }
+      ],
+      "importance": "high",
+      "label": "Festival of Expansion",
+      "node_id": "item_013",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The democratic governing council of Mirathorn, representing multiple races and guilds.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "A democratic city-state governed by a council representing various races and guilds."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:056"
+        }
+      ],
+      "importance": "high",
+      "label": "Mirathorn City Council",
+      "node_id": "faction_mirathorn_city_council",
+      "node_type": "faction",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The city\u2019s law-and-order force responsible for managing the gates, maintaining order, and guarding the city.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Guard Towers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:122"
+        },
+        {
+          "anchor_quotes": [
+            "Guards manage the flow, checking goods and collecting tolls."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:127"
+        },
+        {
+          "anchor_quotes": [
+            "The city guards are visibly tense, trying to maintain order and prevent the protest from turning into a riot."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:131"
+        }
+      ],
+      "importance": "high",
+      "label": "Mirathorn Guard",
+      "node_id": "faction_mirathorn_guard",
+      "node_type": "faction",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A cult group staging protests outside the city gate and advocating against the entry toll.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "the protest by the Shepherd's Flock"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "importance": "high",
+      "label": "Shepherd's Flock",
+      "node_id": "organization_shepherds_flock",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The local arcane institution represented on the council and involved in detecting and countering cult influence.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Headmaster Tinkerbright \u2013 Head of the Wizard\u2019s College"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:075"
+        },
+        {
+          "anchor_quotes": [
+            "deploy the resources of the Wizard\u2019s College to detect and counteract the cult\u2019s influence."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:079"
+        }
+      ],
+      "importance": "medium",
+      "label": "Wizard\u2019s College",
+      "node_id": "organization_wizards_college",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The city\u2019s agriculture and food-production representative body on the council.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Leader of the Agricultural Union"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:090"
+        },
+        {
+          "anchor_quotes": [
+            "Representative of Agriculture and Food Production"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:092"
+        }
+      ],
+      "importance": "medium",
+      "label": "Agricultural Union",
+      "node_id": "organization_agricultural_union",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The guild bloc representing craft production and related city interests.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Master Smith and Representative of the Guilds"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:085"
+        },
+        {
+          "anchor_quotes": [
+            "Representative of the Craft Guilds"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:087"
+        }
+      ],
+      "importance": "medium",
+      "label": "Craft Guilds",
+      "node_id": "organization_craft_guilds",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The commerce sector represented in the city council, concerned with trade and economic stability.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Proprietor of the Copper and Quartz Inn"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:065"
+        },
+        {
+          "anchor_quotes": [
+            "Representative of Commerce"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:067"
+        }
+      ],
+      "importance": "medium",
+      "label": "Commerce Representation",
+      "node_id": "organization_commerce_representation",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The undercity and cultural interests represented in the council, with influence over the city\u2019s nightlife and hidden activities.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Owner of Grit and Grime"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:070"
+        },
+        {
+          "anchor_quotes": [
+            "Representative of the Undercity and Cultural Sectors"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:072"
+        }
+      ],
+      "importance": "low",
+      "label": "Undercity and Cultural Sectors",
+      "node_id": "organization_undercity_cultural_sectors",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The infrastructure interests represented on the council, including structural integrity and hidden passages.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Chief Architect"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:095"
+        },
+        {
+          "anchor_quotes": [
+            "Representative of Infrastructure"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:097"
+        }
+      ],
+      "importance": "low",
+      "label": "Infrastructure Representation",
+      "node_id": "organization_infrastructure_representation",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The original settler group that founded Mirathorn after fleeing the Lundayell Empire and severing contact.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "cutting off contact with the Empire to start anew."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "importance": "medium",
+      "label": "Settlers fleeing the Lundayell Empire",
+      "node_id": "faction_settlers_from_lundayell",
+      "node_type": "faction",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "An ancient airship was repaired by settlers and used in the discovery of the continent.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "They repaired an ancient airship"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "and discovered the continent"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "importance": "high",
+      "label": "Ancient airship",
+      "node_id": "item_001",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A luminous livestock breed whose wool, skin, and eyes emit light; its wool, milk, and dye are used in clothing, potions, salves, and crafts.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Luminox Sheep are fluffy, woolly creatures that emit a gentle, bioluminescent glow"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:008"
+        },
+        {
+          "anchor_quotes": [
+            "The wool is highly sought after for its natural glow"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:009"
+        },
+        {
+          "anchor_quotes": [
+            "The sheep also produce milk with a faint glow"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:011"
+        },
+        {
+          "anchor_quotes": [
+            "The wool can be processed to extract a dye"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:013"
+        }
+      ],
+      "importance": "high",
+      "label": "Luminox Sheep",
+      "node_id": "item_002",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Tidal Turtle shells are used for decorative items, jewelry, and lightweight armor, while their mucus is used in traditional remedies and ointments.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The iridescent shells of Tidal Turtles are used for crafting decorative items, jewelry, and even lightweight armor"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:016"
+        },
+        {
+          "anchor_quotes": [
+            "The mucus secreted by Tidal Turtles is used in traditional remedies"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:020"
+        }
+      ],
+      "importance": "medium",
+      "label": "Tidal Turtles shells and mucus",
+      "node_id": "item_003",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Starling Cows provide glowing milk, starry hides for garments, and cheese served at special occasions and feasts.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Their milk has a faint, twinkling glow"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:023"
+        },
+        {
+          "anchor_quotes": [
+            "The starry hides are used to create stunning garments and accessories"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:025"
+        },
+        {
+          "anchor_quotes": [
+            "The cheese made from their milk has a unique, slightly sweet flavor"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:027"
+        }
+      ],
+      "importance": "medium",
+      "label": "Starling Cow milk, hides, and cheese",
+      "node_id": "item_004",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Sunflower Ducks provide glowing feathers, magical scroll-writing quills, energizing eggs, and rejuvenating oil used in cooking and potions.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The feathers are used for decorative purposes and in crafting"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:030"
+        },
+        {
+          "anchor_quotes": [
+            "Sunflower Duck feather quills are popular for writing magical scrolls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:031"
+        },
+        {
+          "anchor_quotes": [
+            "Their eggs have unique properties, often used in potions and alchemy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:032"
+        },
+        {
+          "anchor_quotes": [
+            "this oil is used in cooking and potions"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:034"
+        }
+      ],
+      "importance": "medium",
+      "label": "Sunflower Duck materials",
+      "node_id": "item_005",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Flutter Ferret wing scales and wing dust are used in potions, enchantments, feather-falling effects, and agility concoctions.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The scales from their wings can be collected without harm and used in potions and enchantments"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:037"
+        },
+        {
+          "anchor_quotes": [
+            "The dust from their wings can be used to create a magical powder"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:041"
+        }
+      ],
+      "importance": "medium",
+      "label": "Flutter Ferret wing scales and dust",
+      "node_id": "item_006",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Float Goats produce airy wool for garments, buoyant milk and cheese for culinary and magical uses, and wing dust used in alchemical enchantments.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The fur of Float Goats is incredibly soft and lightweight"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:044"
+        },
+        {
+          "anchor_quotes": [
+            "The milk of Float Goats has a unique, slightly effervescent quality"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:046"
+        },
+        {
+          "anchor_quotes": [
+            "The cheese made from their milk is light and airy"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:048"
+        },
+        {
+          "anchor_quotes": [
+            "The dust that collects from their wings has minor buoyancy properties"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:050"
+        }
+      ],
+      "importance": "high",
+      "label": "Float Goat wool, milk, cheese, and buoyancy dust",
+      "node_id": "item_007",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Ancient stone walls, guard towers, and reinforced main gates that surround Mirathorn and control access to the city.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Mirathorn is surrounded by ancient stone walls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:121"
+        },
+        {
+          "anchor_quotes": [
+            "Guard Towers"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:122"
+        },
+        {
+          "anchor_quotes": [
+            "The main gates of Mirathorn are grand and sturdy, made of reinforced wood and iron"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:123"
+        }
+      ],
+      "importance": "high",
+      "label": "Mirathorn city walls and gates",
+      "node_id": "item_014",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Temporary tents, stalls, shelters, campfires, and communal areas surrounding the city during the festival influx.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "makeshift tents, stalls, and temporary shelters"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:124"
+        },
+        {
+          "anchor_quotes": [
+            "Communal campfires and gathering spots"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:126"
+        }
+      ],
+      "importance": "medium",
+      "label": "Out town tents and stalls",
+      "node_id": "item_015",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A steep entry toll used to regulate access to Mirathorn and contributing to visitor discontent.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The toll to enter the city is steep"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:128"
+        },
+        {
+          "anchor_quotes": [
+            "Guards manage the flow, checking goods and collecting tolls"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:127"
+        }
+      ],
+      "importance": "medium",
+      "label": "Toll system at the main gate",
+      "node_id": "item_016",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Materials used by Shepherd's Flock cultists during their protest against the city toll.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "holding signs and chanting slogans against the toll"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "Some protesters are distributing pamphlets with their message"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:130"
+        }
+      ],
+      "importance": "low",
+      "label": "Protest signs and pamphlets",
+      "node_id": "item_017",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A local distance measure used in travel, mapping, trade, and official documents.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "One Reach is equivalent to 8 kilometers (5 miles)"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:104"
+        },
+        {
+          "anchor_quotes": [
+            "The borders of Mirathorn extend 20 Reaches from the city center"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:106"
+        },
+        {
+          "anchor_quotes": [
+            "The term \"Reaches\" originated from the early days of settlement"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:108"
+        }
+      ],
+      "importance": "low",
+      "label": "Mirathorn borders measured in Reaches",
+      "node_id": "item_018",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "An ancient, reality-devouring force beyond planes, fae, demons, devils, and chaos is described as consuming allied powers after they besieged reality. Its nature and origin remain undefined.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Beyond the planes, and the fae, and the gods was something else.",
+            "that Other thing, Other place, turned and consumed them too."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        }
+      ],
+      "importance": "high",
+      "label": "The Other Thing that consumed gods and other powers",
+      "node_id": "mn1",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Only the Aspitome and its defenders remained after the catastrophe, and a nameless goddess is said to have given her life to save everything. The exact identity, nature, and consequences of the Aspitome are unclear.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "All that was left was the Aspitome and it\u2019s defenders.",
+            "The nameless goddess gone, given their life to save everything."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:001"
+        }
+      ],
+      "importance": "high",
+      "label": "The Aspitome and the nameless goddess's sacrifice",
+      "node_id": "mn2",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The continent sits at the edge of reality, beyond great waterfalls lies an undefined mostly non-existence that can still spawn creatures from sparks of chaos and unreality.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The Elderwyld is a continent on the edge of reality.",
+            "Beyond the great waterfalls is something not Fae, or other planar, more like undefined. Mostly non-existence, mostly inert.",
+            "Something is born, crawls out."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:002"
+        }
+      ],
+      "importance": "high",
+      "label": "The Elderwyld's edge-of-reality phenomenon",
+      "node_id": "mn3",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Mirathorn was founded by settlers fleeing the Lundayell Empire, who repaired an ancient airship and discovered the continent before losing contact with the Empire. The details of the escape and discovery are not provided.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Founded over 200 years ago by settlers fleeing the Lundayell Empire.",
+            "They repaired an ancient airship"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:003"
+        },
+        {
+          "anchor_quotes": [
+            "and discovered the continent, cutting off contact with the Empire to start anew."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:004"
+        }
+      ],
+      "importance": "medium",
+      "label": "Founding after escape from the Lundayell Empire",
+      "node_id": "mn4",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Multiple linked threats are reported: tainted goods causing illness, disappearances and human-supremacist preaching, and magical disturbances suggesting dark magic. The cult's scope and hierarchy are unresolved.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Sabotage in the Market: Tainted goods causing illness among non-humans."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:100"
+        },
+        {
+          "anchor_quotes": [
+            "Cult Recruitment: Disappearances and new leaders preaching human supremacy."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:101"
+        },
+        {
+          "anchor_quotes": [
+            "Magical Disturbances: Natural disasters hinting at dark magic."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:102"
+        }
+      ],
+      "importance": "high",
+      "label": "Cult activity tied to sabotage, recruitment, and dark magic",
+      "node_id": "mn5",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A rescue mission is implied to free non-human captives from a secret hideout, suggesting the cult or another hidden group is imprisoning people somewhere in or near the city.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Rescue Mission: Freeing non-human captives from a secret hideout."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:103"
+        }
+      ],
+      "importance": "high",
+      "label": "Secret hideout holding non-human captives",
+      "node_id": "mn6",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The guard commander has been ensorcelled by the Wolf to overlook corruption within the guard, making her resistant to accusations and potentially unaware of internal compromise.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Unbeknownst to her, she has been ensorcelled by the Wolf to overlook the corruption within the guard, making her resistant to believing any accusations."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        },
+        {
+          "anchor_quotes": [
+            "Due to the magical manipulation, she may dismiss or be unaware of signs of internal corruption."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:084"
+        }
+      ],
+      "importance": "high",
+      "label": "Commander Thalia Ashenvale's magical manipulation",
+      "node_id": "mn7",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "There are accusations of internal corruption within the guard, but their extent, origin, and responsible parties are unresolved and may be obscured by enchantment.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "overlook the corruption within the guard"
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:083"
+        },
+        {
+          "anchor_quotes": [
+            "signs of internal corruption."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:084"
+        }
+      ],
+      "importance": "high",
+      "label": "Corruption in the city guard",
+      "node_id": "mn8",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A protest by Shepherd's Flock cultists outside the main gate challenges the steep toll, and the situation may escalate into unrest or serve as cover for other activity.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a group of Shepherd's Flock cultists is staging a protest."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:129"
+        },
+        {
+          "anchor_quotes": [
+            "Occasional shouts and scuffles break out, adding to the overall chaos."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:131"
+        },
+        {
+          "anchor_quotes": [
+            "the players notice the protest by the Shepherd's Flock, adding a layer of tension and urgency to the scene."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "importance": "medium",
+      "label": "Shepherd's Flock protest at the city gate",
+      "node_id": "mn9",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The city's major festival is imminent and already strained by crowds, toll disputes, cult protest, and concerns that sabotage or unrest could disrupt it.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Opening Ceremony, Brewing Competition, Market Fair, Magical Demonstrations, Cultural Exhibitions, and a symbolic Ritual of Expansion."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:059"
+        },
+        {
+          "anchor_quotes": [
+            "which is crucial for the city\u2019s economy."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:069"
+        },
+        {
+          "anchor_quotes": [
+            "as they navigate their way into Mirathorn for the Festival of Expansion."
+          ],
+          "source_span_ref_id": "spref:mirathorn-city:133"
+        }
+      ],
+      "importance": "medium",
+      "label": "Festival of Expansion as a pressured civic focal point",
+      "node_id": "mn10",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    }
+  ],
+  "preview_id": "candidate-preview:elderwyld:mirathorn-city:category",
+  "proposed_writes": [],
+  "schema": "dmb_candidate_graph_preview_v0",
+  "session_id": "mirathorn-city",
+  "source_artifact_ids": [
+    "artifact:recap:elderwyld:mirathorn-city"
+  ],
+  "status": "preview",
+  "version": "0.1"
+}

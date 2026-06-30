@@ -57,6 +57,8 @@ DEFAULT_CAMPAIGN_REL = "Longmont Campaign/Campaign 2"
 # campaign_id -> (corpus_root, campaign_rel under corpus root)
 CAMPAIGN_CORPUS: dict[str, tuple[Path, str]] = {
     "longmont-c2": (DEFAULT_CORPUS_ROOT, DEFAULT_CAMPAIGN_REL),
+    "longmont-c1": (DEFAULT_CORPUS_ROOT, "Longmont Campaign/Campaign 1"),
+    "elderwyld": (DEFAULT_CORPUS_ROOT, "Elderwyld"),
 }
 
 # Party members are canonical hub entities. They appear in the candidate graph

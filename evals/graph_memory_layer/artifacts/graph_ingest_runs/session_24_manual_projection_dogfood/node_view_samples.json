@@ -1,0 +1,1404 @@
+{
+  "node_samples": {
+    "group_edge_refugees": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-refugees-need-plan",
+          "edge_label": "The refugees from Edge need a plan after the battle",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "thread",
+          "label": "Refugee handling plan",
+          "node_id": "thread_refugee_plan",
+          "predicate": "requires_decision",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Edge refugees",
+        "refugees",
+        "refugees from Edge"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-refugee-screening-status",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Edge refugee screening/admission status",
+          "must_not_claim": [
+            "refugees_are_safe",
+            "refugees_are_contaminated",
+            "refugees_admitted",
+            "refugees_rejected",
+            "refugees_housed"
+          ],
+          "reason": "The recap says a plan is needed but does not resolve screening, admission, housing, safety, or contamination."
+        },
+        {
+          "deferred_id": "deferred:s24-meat-goo-underground-destination",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Destination/effect of underground meat goo",
+          "must_not_claim": [
+            "goo_destroyed",
+            "goo_purified",
+            "goo_reached_specific_target",
+            "goo_creates_specific_monster"
+          ],
+          "reason": "The meat piles turn to goo and sink underground; the recap does not say where they go or what consequence follows."
+        },
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-party-long-rest-available",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Long rest availability",
+          "must_not_claim": [
+            "long_rest_started",
+            "whole_party_resting",
+            "all_resources_recovered"
+          ],
+          "reason": "The source states short rest/watch for some party members, not a safe long rest for the whole party."
+        },
+        {
+          "deferred_id": "deferred:s24-exact-resources-and-hit-points",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Exact HP/spell slot/resource state",
+          "must_not_claim": [
+            "exact_hp",
+            "exact_spell_slots",
+            "exact_remaining_consumables"
+          ],
+          "reason": "The recap indicates pressure and need to recover but not exact HP, slots, or resources."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-meat-piles-goo-refugee-rest-plan",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Meat piles turn to goo and sink, party splits between watch/rest and refugee plan",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-meat-piles-goo-refugee-rest-plan"
+        }
+      ],
+      "kind": "group",
+      "label": "Edge refugees",
+      "node_id": "group_edge_refugees",
+      "role": "group",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-refugees-need-plan",
+          "edge_label": "The refugees from Edge need a plan after the battle",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "thread",
+          "label": "Refugee handling plan",
+          "node_id": "thread_refugee_plan",
+          "predicate": "requires_decision",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "The refugees from Edge still need a plan after the battle; screening, housing, admission, safety, and contamination status remain unresolved."
+    },
+    "loc_north_wall": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-sewer-climbed-wall",
+          "edge_label": "A giant sewer monster slides up and onto the wall among Lysandra, Thrin, and Caelynn",
+          "evidence_ref_ids": [
+            "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"
+          ],
+          "kind": "threat",
+          "label": "Giant sewer monsters",
+          "node_id": "threat_giant_sewer_monsters",
+          "predicate": "moved_to",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-golem-threatened-wall",
+          "edge_label": "The golem ignores Enemies Abound and dashes to the wall to break it down",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "threat",
+          "label": "Golem-like creature",
+          "node_id": "threat_golem_like_creature",
+          "predicate": "threatened",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "North wall",
+        "foundation",
+        "north wall",
+        "wall"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-wall-structural-integrity",
+          "evidence_ref_ids": [
+            "evidence:s24-wall-damage-golem-fire-weakness",
+            "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"
+          ],
+          "label": "North wall structural integrity",
+          "must_not_claim": [
+            "wall_collapsed",
+            "wall_safe",
+            "wall_breached",
+            "wall_fully_repaired"
+          ],
+          "reason": "The wall/foundation is attacked, but the recap does not inspect or resolve its structural state."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-wall-damage-golem-fire-weakness",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Hybrid damages wall, Karsemine kills tripod, golem traits revealed and destroyed",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-wall-damage-golem-fire-weakness"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Sewer monster climbs wall, sticky gel hazard, Baergrom saves Thrin and enables Bonogo kill",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"
+        }
+      ],
+      "kind": "location",
+      "label": "North wall",
+      "node_id": "loc_north_wall",
+      "role": "location",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-sewer-climbed-wall",
+          "edge_label": "A giant sewer monster slides up and onto the wall among Lysandra, Thrin, and Caelynn",
+          "evidence_ref_ids": [
+            "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"
+          ],
+          "kind": "threat",
+          "label": "Giant sewer monsters",
+          "node_id": "threat_giant_sewer_monsters",
+          "predicate": "moved_to",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-golem-threatened-wall",
+          "edge_label": "The golem ignores Enemies Abound and dashes to the wall to break it down",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "threat",
+          "label": "Golem-like creature",
+          "node_id": "threat_golem_like_creature",
+          "predicate": "threatened",
+          "rank": 2,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "The wall/foundation is attacked by a hybrid and threatened by the golem; a sewer monster climbs onto the wall and creates a sticky gel hazard. Structural safety is unresolved."
+    },
+    "npc_grobnok": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-caelynn-called-grobnok",
+          "edge_label": "Caelynn calls Grobnok and tells him about Edge and Mireward Reach",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "pc",
+          "label": "Caelynn",
+          "node_id": "pc_caelynn",
+          "predicate": "communicated_with",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-grobnok-callback-pending",
+          "edge_label": "Grobnok will call back the next day",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "thread",
+          "label": "Grobnok next-day callback",
+          "node_id": "thread_grobnok_callback",
+          "predicate": "promised_followup",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Grobnok"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-grobnok-lysandra-comms-link-complete",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "label": "Grobnok-Lysandra direct comms link completion",
+          "must_not_claim": [
+            "link_complete",
+            "grobnok_can_now_talk_to_lysandra",
+            "lysandra_received_grobnok_directly"
+          ],
+          "reason": "Caelynn attempts to connect the rockie-talkies, but the recap says it will take time."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-caelynn-grobnok-rockie-talkie",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Caelynn calls Grobnok, reports Edge and Mireward, pending rockie-talkie bridge",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-caelynn-grobnok-rockie-talkie"
+        }
+      ],
+      "kind": "npc",
+      "label": "Grobnok",
+      "node_id": "npc_grobnok",
+      "role": "npc",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-caelynn-called-grobnok",
+          "edge_label": "Caelynn calls Grobnok and tells him about Edge and Mireward Reach",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "pc",
+          "label": "Caelynn",
+          "node_id": "pc_caelynn",
+          "predicate": "communicated_with",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-grobnok-callback-pending",
+          "edge_label": "Grobnok will call back the next day",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "thread",
+          "label": "Grobnok next-day callback",
+          "node_id": "thread_grobnok_callback",
+          "predicate": "promised_followup",
+          "rank": 2,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "Grobnok receives Caelynn's report about Edge and Mireward Reach, is frustrated by not being able to act, and says he will call back the next day while a rockie-talkie bridge to Lysandra remains pending."
+    },
+    "pc_caelynn": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-caelynn-called-grobnok",
+          "edge_label": "Caelynn calls Grobnok and tells him about Edge and Mireward Reach",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "npc",
+          "label": "Grobnok",
+          "node_id": "npc_grobnok",
+          "predicate": "communicated_with",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-lysandra-removed-caelynn-charm",
+          "edge_label": "Lysandra removes the charm affecting Caelynn",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "npc",
+          "label": "Lysandra Ironveil",
+          "node_id": "npc_lysandra_ironveil",
+          "predicate": "removed_status",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-caelynn-magic-missile-meatwings",
+          "edge_label": "Caelynn uses level 2 Magic Missile to heavily damage two meatwings and explode a third",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "threat",
+          "label": "Flying meatwings",
+          "node_id": "threat_flying_meatwings",
+          "predicate": "damaged",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Caelynn"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-grobnok-lysandra-comms-link-complete",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "label": "Grobnok-Lysandra direct comms link completion",
+          "must_not_claim": [
+            "link_complete",
+            "grobnok_can_now_talk_to_lysandra",
+            "lysandra_received_grobnok_directly"
+          ],
+          "reason": "Caelynn attempts to connect the rockie-talkies, but the recap says it will take time."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-tripod-wakes-wide-meatwing-charm",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Tripod attacks Ogonob, sleeping tripod awakened, meatwings charm most of team",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-tripod-wakes-wide-meatwing-charm"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Stafl tries Enemies Abound, golem reaches wall, Lysandra commands attacks and removes Caelynn charm",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Hybrid wounds Ephanna, Karsemine friendly fire then kills hybrid, coordinated attack kills last tripod",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-hybrid-friendly-fire-coordinated-tripod-kill"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-caelynn-grobnok-rockie-talkie",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Caelynn calls Grobnok, reports Edge and Mireward, pending rockie-talkie bridge",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-caelynn-grobnok-rockie-talkie"
+        }
+      ],
+      "kind": "pc",
+      "label": "Caelynn",
+      "node_id": "pc_caelynn",
+      "role": "pc",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-caelynn-magic-missile-meatwings",
+          "edge_label": "Caelynn uses level 2 Magic Missile to heavily damage two meatwings and explode a third",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "threat",
+          "label": "Flying meatwings",
+          "node_id": "threat_flying_meatwings",
+          "predicate": "damaged",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-caelynn-called-grobnok",
+          "edge_label": "Caelynn calls Grobnok and tells him about Edge and Mireward Reach",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "npc",
+          "label": "Grobnok",
+          "node_id": "npc_grobnok",
+          "predicate": "communicated_with",
+          "rank": 2,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-lysandra-removed-caelynn-charm",
+          "edge_label": "Lysandra removes the charm affecting Caelynn",
+          "evidence_ref_ids": [
+            "evidence:s24-stafl-golem-commanding-shout-caelynn-cleanse"
+          ],
+          "kind": "npc",
+          "label": "Lysandra Ironveil",
+          "node_id": "npc_lysandra_ironveil",
+          "predicate": "removed_status",
+          "rank": 3,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "Caelynn is charmed, is cleansed by Lysandra, uses Magic Missile against meatwings, joins the final tripod attack, and calls Grobnok to report Edge and Mireward Reach."
+    },
+    "thread_refugee_plan": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-refugees-need-plan",
+          "edge_label": "The refugees from Edge need a plan after the battle",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "group",
+          "label": "Edge refugees",
+          "node_id": "group_edge_refugees",
+          "predicate": "requires_decision",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Refugee handling plan",
+        "plan for the refugees",
+        "something needs to be done with the refugees"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-refugee-screening-status",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Edge refugee screening/admission status",
+          "must_not_claim": [
+            "refugees_are_safe",
+            "refugees_are_contaminated",
+            "refugees_admitted",
+            "refugees_rejected",
+            "refugees_housed"
+          ],
+          "reason": "The recap says a plan is needed but does not resolve screening, admission, housing, safety, or contamination."
+        },
+        {
+          "deferred_id": "deferred:s24-meat-goo-underground-destination",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Destination/effect of underground meat goo",
+          "must_not_claim": [
+            "goo_destroyed",
+            "goo_purified",
+            "goo_reached_specific_target",
+            "goo_creates_specific_monster"
+          ],
+          "reason": "The meat piles turn to goo and sink underground; the recap does not say where they go or what consequence follows."
+        },
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-party-long-rest-available",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Long rest availability",
+          "must_not_claim": [
+            "long_rest_started",
+            "whole_party_resting",
+            "all_resources_recovered"
+          ],
+          "reason": "The source states short rest/watch for some party members, not a safe long rest for the whole party."
+        },
+        {
+          "deferred_id": "deferred:s24-exact-resources-and-hit-points",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Exact HP/spell slot/resource state",
+          "must_not_claim": [
+            "exact_hp",
+            "exact_spell_slots",
+            "exact_remaining_consumables"
+          ],
+          "reason": "The recap indicates pressure and need to recover but not exact HP, slots, or resources."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-meat-piles-goo-refugee-rest-plan",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Meat piles turn to goo and sink, party splits between watch/rest and refugee plan",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-meat-piles-goo-refugee-rest-plan"
+        }
+      ],
+      "kind": "thread",
+      "label": "Refugee handling plan",
+      "node_id": "thread_refugee_plan",
+      "role": "thread",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-refugees-need-plan",
+          "edge_label": "The refugees from Edge need a plan after the battle",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "group",
+          "label": "Edge refugees",
+          "node_id": "group_edge_refugees",
+          "predicate": "requires_decision",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "The group needs to decide what to do with the Edge refugees; the recap ends before the plan is made."
+    },
+    "thread_rockie_talkie_bridge": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-rockie-link-pending",
+          "edge_label": "Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra\u2019s, but it will take time",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "npc",
+          "label": "Lysandra Ironveil",
+          "node_id": "npc_lysandra_ironveil",
+          "predicate": "pending_connection",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Grobnok's rockie-talkie",
+        "Grobnok-Lysandra rockie-talkie link",
+        "Lysandra's rockie-talkie",
+        "rockie-talkie connected with Lysandra\u2019s"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-grobnok-lysandra-comms-link-complete",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "label": "Grobnok-Lysandra direct comms link completion",
+          "must_not_claim": [
+            "link_complete",
+            "grobnok_can_now_talk_to_lysandra",
+            "lysandra_received_grobnok_directly"
+          ],
+          "reason": "Caelynn attempts to connect the rockie-talkies, but the recap says it will take time."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-caelynn-grobnok-rockie-talkie",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Caelynn calls Grobnok, reports Edge and Mireward, pending rockie-talkie bridge",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-caelynn-grobnok-rockie-talkie"
+        }
+      ],
+      "kind": "thread",
+      "label": "Grobnok-Lysandra rockie-talkie link",
+      "node_id": "thread_rockie_talkie_bridge",
+      "role": "thread",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-rockie-link-pending",
+          "edge_label": "Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra\u2019s, but it will take time",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie"
+          ],
+          "kind": "npc",
+          "label": "Lysandra Ironveil",
+          "node_id": "npc_lysandra_ironveil",
+          "predicate": "pending_connection",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "Caelynn attempts to connect Grobnok's rockie-talkie with Lysandra\u2019s, but this will take time and is not complete in the source."
+    },
+    "threat_meat_goo_ground_sink": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-meat-piles-became-goo",
+          "edge_label": "Burning attempts cause remaining meat piles to turn to goo and sink into the ground",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "location",
+          "label": "Battlefield outside the gate",
+          "node_id": "loc_battlefield_outside_gate",
+          "predicate": "moved_underground_at",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Meat piles / goo sinking into ground",
+        "goo",
+        "meat piles",
+        "remaining piles of meat",
+        "sucked into the ground"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-edge-refugee-screening-status",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Edge refugee screening/admission status",
+          "must_not_claim": [
+            "refugees_are_safe",
+            "refugees_are_contaminated",
+            "refugees_admitted",
+            "refugees_rejected",
+            "refugees_housed"
+          ],
+          "reason": "The recap says a plan is needed but does not resolve screening, admission, housing, safety, or contamination."
+        },
+        {
+          "deferred_id": "deferred:s24-meat-goo-underground-destination",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Destination/effect of underground meat goo",
+          "must_not_claim": [
+            "goo_destroyed",
+            "goo_purified",
+            "goo_reached_specific_target",
+            "goo_creates_specific_monster"
+          ],
+          "reason": "The meat piles turn to goo and sink underground; the recap does not say where they go or what consequence follows."
+        },
+        {
+          "deferred_id": "deferred:s24-edge-current-survivors-and-threat-status",
+          "evidence_ref_ids": [
+            "evidence:s24-caelynn-grobnok-rockie-talkie",
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Current status of Edge",
+          "must_not_claim": [
+            "edge_saved",
+            "edge_destroyed",
+            "edge_empty",
+            "edge_fully_occupied",
+            "all_survivors_accounted_for"
+          ],
+          "reason": "Edge is reported to Grobnok and is the refugee origin, but current conditions are not resolved."
+        },
+        {
+          "deferred_id": "deferred:s24-party-long-rest-available",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Long rest availability",
+          "must_not_claim": [
+            "long_rest_started",
+            "whole_party_resting",
+            "all_resources_recovered"
+          ],
+          "reason": "The source states short rest/watch for some party members, not a safe long rest for the whole party."
+        },
+        {
+          "deferred_id": "deferred:s24-exact-resources-and-hit-points",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "label": "Exact HP/spell slot/resource state",
+          "must_not_claim": [
+            "exact_hp",
+            "exact_spell_slots",
+            "exact_remaining_consumables"
+          ],
+          "reason": "The recap indicates pressure and need to recover but not exact HP, slots, or resources."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-meat-piles-goo-refugee-rest-plan",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Meat piles turn to goo and sink, party splits between watch/rest and refugee plan",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-meat-piles-goo-refugee-rest-plan"
+        }
+      ],
+      "kind": "unresolved_threat",
+      "label": "Meat piles / goo sinking into ground",
+      "node_id": "threat_meat_goo_ground_sink",
+      "role": "unresolved_threat",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-meat-piles-became-goo",
+          "edge_label": "Burning attempts cause remaining meat piles to turn to goo and sink into the ground",
+          "evidence_ref_ids": [
+            "evidence:s24-meat-piles-goo-refugee-rest-plan"
+          ],
+          "kind": "location",
+          "label": "Battlefield outside the gate",
+          "node_id": "loc_battlefield_outside_gate",
+          "predicate": "moved_underground_at",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "When the party tries to burn remaining meat piles, the piles turn to goo and sink underground. This is unresolved and should not be treated as destroyed or purified."
+    },
+    "threat_tripod_meat_monsters": {
+      "adjacency": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-party-killed-final-tripod",
+          "edge_label": "Bonogo, Caelynn, Ephanna, Ogonob, and Thrin coordinate to kill the final sleeping tripod",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill"
+          ],
+          "kind": "party",
+          "label": "Questionable Company",
+          "node_id": "party_questionable_company",
+          "predicate": "resolved_combatant",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-tripod-impaled-ephanna",
+          "edge_label": "A tripod launches a spike, impaling Ephanna and pulling them toward it",
+          "evidence_ref_ids": [
+            "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup"
+          ],
+          "kind": "pc",
+          "label": "Ephanna",
+          "node_id": "pc_ephanna",
+          "predicate": "injured_or_restrained",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-karsemine-damaged-tripod-firebolt",
+          "edge_label": "Karsemine ignites a tripod's gases with Firebolt",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-ogonob-firebolt-first-charm"
+          ],
+          "kind": "pc",
+          "label": "Karsemine",
+          "node_id": "pc_karsemine",
+          "predicate": "damaged",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-karsemine-killed-tripod-firebolt",
+          "edge_label": "Karsemine kills a tripod by fully igniting its flesh with Firebolt",
+          "evidence_ref_ids": [
+            "evidence:s24-wall-damage-golem-fire-weakness"
+          ],
+          "kind": "pc",
+          "label": "Karsemine",
+          "node_id": "pc_karsemine",
+          "predicate": "killed",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-stafl-slept-tripod",
+          "edge_label": "Stafl casts Sleep on the tripod and uses Luck to keep it from breaking out",
+          "evidence_ref_ids": [
+            "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup"
+          ],
+          "kind": "pc",
+          "label": "Stafl",
+          "node_id": "pc_stafl",
+          "predicate": "disabled",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-tripod-has-fire-gas-vulnerability",
+          "edge_label": "Tripods have ignitable gases/flesh that make fire especially effective",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-ogonob-firebolt-first-charm",
+            "evidence:s24-wall-damage-golem-fire-weakness"
+          ],
+          "kind": "trait",
+          "label": "Fire/gas ignition vulnerability",
+          "node_id": "trait_fire_gas_ignition",
+          "predicate": "has_observed_trait",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "aliases": [
+        "Tripod meat monsters",
+        "tripod creature",
+        "tripod creatures",
+        "tripod monster",
+        "tripod monsters"
+      ],
+      "anchored_to_focus_session": true,
+      "deferred_or_high_risk_boundaries": [
+        {
+          "deferred_id": "deferred:s24-wall-structural-integrity",
+          "evidence_ref_ids": [
+            "evidence:s24-wall-damage-golem-fire-weakness",
+            "evidence:s24-sewer-wall-sticky-gel-baergrom-bonogo-kill"
+          ],
+          "label": "North wall structural integrity",
+          "must_not_claim": [
+            "wall_collapsed",
+            "wall_safe",
+            "wall_breached",
+            "wall_fully_repaired"
+          ],
+          "reason": "The wall/foundation is attacked, but the recap does not inspect or resolve its structural state."
+        }
+      ],
+      "evidence_badges": [
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-hybrid-ogonob-firebolt-first-charm",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Hybrid advance, Ogonob attacked, Karsemine ignites tripod gases, first compulsion continues",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-hybrid-ogonob-firebolt-first-charm"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-tripod-wakes-wide-meatwing-charm",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Tripod attacks Ogonob, sleeping tripod awakened, meatwings charm most of team",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-tripod-wakes-wide-meatwing-charm"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-wall-damage-golem-fire-weakness",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Hybrid damages wall, Karsemine kills tripod, golem traits revealed and destroyed",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-wall-damage-golem-fire-weakness"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Tripod impales Ephanna, Stafl uses Sleep and Luck, Lysandra calls final assault, sewer death poison spray",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-ephanna-impaled-tripod-sleep-final-assault-setup"
+        },
+        {
+          "can_highlight_span": true,
+          "can_open_source": true,
+          "evidence_ref_id": "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill",
+          "evidence_role": "source_evidence",
+          "is_focus_session_evidence": true,
+          "label": "Hybrid wounds Ephanna, Karsemine friendly fire then kills hybrid, coordinated attack kills last tripod",
+          "session_id": "session-24",
+          "source_artifact_id": "source:longmont-c2:session-24:raw-recap-placeholder",
+          "source_domain": "recap",
+          "source_span_ref_id": "anchor:s24-hybrid-friendly-fire-coordinated-tripod-kill"
+        }
+      ],
+      "kind": "threat",
+      "label": "Tripod meat monsters",
+      "node_id": "threat_tripod_meat_monsters",
+      "role": "threat",
+      "source_domains": [
+        "recap"
+      ],
+      "suggested_expansions": [
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-tripod-has-fire-gas-vulnerability",
+          "edge_label": "Tripods have ignitable gases/flesh that make fire especially effective",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-ogonob-firebolt-first-charm",
+            "evidence:s24-wall-damage-golem-fire-weakness"
+          ],
+          "kind": "trait",
+          "label": "Fire/gas ignition vulnerability",
+          "node_id": "trait_fire_gas_ignition",
+          "predicate": "has_observed_trait",
+          "rank": 1,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-karsemine-damaged-tripod-firebolt",
+          "edge_label": "Karsemine ignites a tripod's gases with Firebolt",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-ogonob-firebolt-first-charm"
+          ],
+          "kind": "pc",
+          "label": "Karsemine",
+          "node_id": "pc_karsemine",
+          "predicate": "damaged",
+          "rank": 2,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-karsemine-killed-tripod-firebolt",
+          "edge_label": "Karsemine kills a tripod by fully igniting its flesh with Firebolt",
+          "evidence_ref_ids": [
+            "evidence:s24-wall-damage-golem-fire-weakness"
+          ],
+          "kind": "pc",
+          "label": "Karsemine",
+          "node_id": "pc_karsemine",
+          "predicate": "killed",
+          "rank": 3,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-party-killed-final-tripod",
+          "edge_label": "Bonogo, Caelynn, Ephanna, Ogonob, and Thrin coordinate to kill the final sleeping tripod",
+          "evidence_ref_ids": [
+            "evidence:s24-hybrid-friendly-fire-coordinated-tripod-kill"
+          ],
+          "kind": "party",
+          "label": "Questionable Company",
+          "node_id": "party_questionable_company",
+          "predicate": "resolved_combatant",
+          "rank": 4,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "outgoing",
+          "edge_id": "edge:s24-tripod-impaled-ephanna",
+          "edge_label": "A tripod launches a spike, impaling Ephanna and pulling them toward it",
+          "evidence_ref_ids": [
+            "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup"
+          ],
+          "kind": "pc",
+          "label": "Ephanna",
+          "node_id": "pc_ephanna",
+          "predicate": "injured_or_restrained",
+          "rank": 5,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        {
+          "anchored_to_focus_session": true,
+          "direction": "incoming",
+          "edge_id": "edge:s24-stafl-slept-tripod",
+          "edge_label": "Stafl casts Sleep on the tripod and uses Luck to keep it from breaking out",
+          "evidence_ref_ids": [
+            "evidence:s24-ephanna-impaled-tripod-sleep-final-assault-setup"
+          ],
+          "kind": "pc",
+          "label": "Stafl",
+          "node_id": "pc_stafl",
+          "predicate": "disabled",
+          "rank": 6,
+          "rank_reason": "current session",
+          "session_ids": [
+            "session-24"
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        }
+      ],
+      "summary": "Tripods have ignitable gases/flesh, can launch impaling spikes that pull targets, can be affected by Sleep, and are eliminated by the end of the immediate battle."
+    }
+  },
+  "schema": "dmb_session_24_manual_projection_node_view_samples_v0",
+  "version": "0.1"
+}

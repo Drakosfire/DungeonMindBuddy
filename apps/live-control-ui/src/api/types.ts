@@ -1549,6 +1549,51 @@ export interface GoldReviewEvidenceDiffResponse {
   live?: GoldReviewEvidenceSide | null;
 }
 
+export interface VocabularyAblationVariantSetup {
+  variant_name: string;
+  enable_node_packet: boolean;
+  enable_edge_packet: boolean;
+  node_count: number;
+  edge_count: number;
+  total_cost_usd?: number | null;
+  score?: number | null;
+  known_name_pickup_rate?: number | null;
+  recognition_rate?: number | null;
+  present_recognized?: string[];
+  present_missed?: string[];
+  contamination_count?: number | null;
+  contamination_rate?: number | null;
+  absent_contaminated?: string[];
+  combat_encounter_match_count?: number | null;
+  predicate_hint_match_count?: number | null;
+  unsafe_cross_class_blocked_count?: number | null;
+  node_kinds?: Record<string, number>;
+  edge_predicates?: Record<string, number>;
+}
+
+export interface VocabularyAblationPartition {
+  present_set: string[];
+  absent_set: string[];
+}
+
+export interface VocabularyAblationDogfoodResponse {
+  schema_version: "dmb_vocabulary_ablation_dogfood_v1";
+  version: string;
+  generated_at: string;
+  scope: string;
+  session_id: string;
+  campaign_id: string;
+  model_id: string;
+  report_path: string;
+  packet_id: string;
+  source_span_count: number;
+  source_files: string[];
+  recommendation: string;
+  comparison: Record<string, unknown>;
+  variant_setup: VocabularyAblationVariantSetup[];
+  partition?: VocabularyAblationPartition;
+}
+
 export interface GraphFocusOverlay {
   focus_session_id?: string | null;
   focused_evidence_ref_ids: string[];

@@ -13,6 +13,128 @@ The project direction is a campaign/worldbuilding union supergraph. Session reca
 
 This is a design document only. It does not authorize implementation by itself.
 
+## 2026-06-30 — Objective lock, falsification plan, and test-bed expansion
+
+This section is an addendum written after the first end-to-end dogfood of the
+Milestone 4 ablation harness (C2S23 Mireward recap, `gpt-5.4-mini`, four
+variants). It supersedes any implicit objective that the dogfood runner encoded.
+The body of this document below remains the architecture reference; this section
+locks *what counts as success* and *what would falsify the idea*.
+
+### Objective lock
+
+The contextual vocabulary layer exists to improve **cross-session identity
+stability and relational structure** in the union supergraph. Its value must be
+proven by **structural**, **generalization**, and **safety** signals, in that
+priority order:
+
+1. **Structural** (primary): fewer duplicate cross-class proper-noun nodes,
+   fewer ambiguous/missing-endpoint edge drops, fewer wrong-type/object
+   bindings, more reliable containment (`located_in`) and `governs`→place edges.
+   These are *behaviors the model cannot fake by echoing a supplied string*.
+2. **Generalization**: node/edge recall and precision against **full
+   hand-authored gold**, including entities the packet did **not** list.
+3. **Safety**: zero hallucinated foreign entities (a name with no textual hook
+   in the source must not appear just because the packet carried it), and zero
+   unsafe merges across do-not-merge pairs.
+
+Single-source recall over **packet-supplied names** is demoted to a secondary
+diagnostic. It is structurally circular (the model is rewarded for repeating
+what the prompt handed it) and is therefore not a success criterion on its own.
+
+### Hard rule: packets are source-derived, never gold-derived
+
+The C2S23 dogfood built its vocabulary packet from **gold label forms**. That is
+the root cause of the circular recall signal and it quietly teaches the metric
+the answer key (the exact anti-pattern called out in `Backlog.md` and the
+parent handoff §3.3). For every experiment under this objective:
+
+- The packet MUST be compiled only from corpus sources, NPC/PC registries, and
+  prior graph observations — never from the gold graph being scored against.
+- The gold graph is the **scoring key only**. It is never an input to packet
+  construction, extraction, or the comparator alias table.
+
+### Lessons recorded from the C2S23 dogfood (so we do not repeat them)
+
+- **Recall over supplied names is circular.** All four variants recognized an
+  identical set (`Edge, Mireward Reach, North gate, Orik Tane`) and missed an
+  identical set (`Lysandra, Lysandro, First meat wave`); recognition moved by
+  zero. Exact-label scoring is blind to near-variant labels
+  (`Father Lysandro`, `the first wave`) — which is precisely the divergence the
+  layer is meant to fix, so the instrument was blind to its own target.
+- **The recap is a weak test bed.** On 13 recap paragraphs, baseline
+  `cross_class_collision_count`, `conflicting_kind_collision_count`, and
+  `unsafe_cross_class_blocked_count` were all ~0. The pathologies the layer
+  targets barely manifest, so variants cannot be discriminated. The design
+  doc's own collision evidence came from full S22/S23 **stored category runs**,
+  not a recap.
+- **The absent-set was mis-constructed.** It mixed truly-foreign proper nouns
+  (zero textual hook: `Maelthor`, `The Shepherd`, `Under-Hymn Brood`) with a
+  contextually-inferable governance term (`Mireward Council`). The model did
+  **not** echo any of the three foreign names despite them being in the packet
+  — the dangerous failure mode did not occur — and the one leak was the
+  plausible-from-context term. Contamination probes must use **zero-textual-hook
+  foreign nouns only**; plausible inferences belong in a separate lane.
+
+### Falsification plan (go / no-go)
+
+The layer earns continued investment only if, on the **expanded test bed**
+(≥2 sessions across both campaigns + 1 worldbuilding doc), a packet variant
+clears **all** of these against its own baseline:
+
+- **GO-1 (structural):** `cross_class_collision_count` and
+  `unsafe_collision_count` strictly decrease on at least one test bed where the
+  baseline exhibits the pathology, with no increase on the others.
+- **GO-2 (binding):** `dropped_edges_missing_endpoints_count` +
+  `ambiguous_endpoint_drop_count` strictly decrease.
+- **GO-3 (no regression):** `node_recall` and `edge_recall` are ≥ baseline
+  (within run-to-run noise; require ≥3 trials for the LLM passes).
+- **GO-4 (safety):** absent-set (zero-textual-hook) contamination = 0 and
+  do-not-merge violations = 0.
+- **GO-5 (generalization):** at least one structural or recall gain appears on
+  an entity the packet did **not** list. A gain visible only as packet-name
+  echo does not count.
+
+Kill / redesign criteria:
+
+- If structural metrics are **flat across variants** on a bed where the baseline
+  shows the pathology, the packet **placement or contents** are wrong — redesign
+  the packet, not the metric.
+- If recall **regresses** with the packet, the packet is over-constraining
+  (forcing unsupported entities/types) — tighten authority gating.
+- If the only movement is packet-name recall, the experiment is measuring
+  circularity — discard the result.
+
+### Test-bed expansion (decided 2026-06-30)
+
+Two new hand-authored `candidate_graph_gold` fixtures, authored from source
+evidence with anchor spans, following the existing S22/S23 fixture contract
+(`session_NN_recap_ingest` + `session_NN_candidate_graph_gold` + loader +
+`_GOLD_SESSIONS` registration + tests):
+
+1. **Campaign 1, Session 1 recap** — `Session 01 - Stonebridge and Glowkindle
+   Rats`. Chosen over C1S13 (the roadmap's earlier candidate) because it is the
+   earliest, smallest, cleanest recap, sits in a **different campaign**
+   (`longmont-c1`) the packet has not memorized, and carries built-in
+   cross-class and containment probes: `Wizard's Tower Brewing Co` (place vs
+   organization), `Stone Bridge` the town vs the literal stone bridge landmark,
+   `The River's Edge Pub` contained in Stone Bridge, the brewing **gnomes** as a
+   collective, and an opening combat encounter (giant rats). This is a clean
+   generalization probe with a fresh proper-noun set.
+2. **A worldbuilding doc** — a Stonebridge setting hub (e.g. the Stonebridge
+   town/`Grishna` world hub). This adds the **world-authority axis** the recap
+   beds cannot test: evergreen setting facts with `authority = world_reference`
+   and `temporal_scope = evergreen`, **no session-occurrence claims**. Gold
+   nodes carry `world_reference` authority (not `canon_play`), `corpus_ref`
+   resolves to the hub itself, and edges are evergreen relations
+   (`located_in`, `runs`/`operates`, `part_of`) rather than played-canon events.
+   This exercises the design's world-vs-campaign vocabulary split directly.
+
+These two beds let us run the same four-variant ablation where the failure modes
+actually appear and where packet contents (compiled from C1 registries + the
+Stonebridge hub, never from gold) can be judged against the GO/kill criteria
+above.
+
 ## Architecture commitments
 
 The vocabulary layer must be provenance-grounded, evolving during ingestion, storage-agnostic, inspectable, safe against silent canon promotion, usable by prompts and deterministic code, scoped across separate world and campaign vocabulary stores, and oriented toward Stable Global Node alignment.

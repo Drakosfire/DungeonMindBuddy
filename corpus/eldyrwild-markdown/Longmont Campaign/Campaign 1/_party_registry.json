@@ -1,0 +1,18 @@
+{
+  "schema": "party_registry_v1",
+  "campaign_id": "longmont-c1",
+  "pc_party_names": [
+    "Heroes / Party"
+  ],
+  "session_pc_rosters": {
+    "1": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ]
+  },
+  "notes": "Campaign 1 Session 1 Stonebridge dogfood roster. Six PCs named in Session 1 recap (merchant-guard party of six). Consumed by src/graph_memory/party_context.py for graph-extraction standing context and merge_party_collective (Heroes / party anchor + member_of edges). No session_companion_rosters for S1 — companions not established in C1S1 prose."
+}

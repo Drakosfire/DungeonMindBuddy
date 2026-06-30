@@ -35,7 +35,7 @@ def test_gold_review_sessions_endpoint_lists_s22_and_s23() -> None:
     payload = response.json()
     assert payload["schema_version"] == "dmb_graph_gold_review_sessions_v1"
     session_ids = {item["session_id"] for item in payload["sessions"]}
-    assert session_ids == {"session-22", "session-23"}
+    assert session_ids == {"session-1", "session-22", "session-23", "mirathorn-city"}
 
 
 def test_gold_review_compare_without_live_run_returns_gold_only_scores(
@@ -113,6 +113,29 @@ def test_gold_review_evidence_endpoint_returns_side_by_side_payload(
     assert payload["live"]["object_id"] == "node:lysandro"
     assert payload["gold"]["evidence"]
     assert payload["live"]["evidence"]
+
+
+def test_gold_review_vocabulary_ablation_endpoint_loads_session_23_artifact() -> None:
+    response = _client().get(
+        "/api/live/graph-preview/gold-review/vocabulary-ablation",
+        params={"campaign_id": "longmont-c2", "session_id": "session-23"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schema_version"] == "dmb_vocabulary_ablation_dogfood_v1"
+    assert payload["session_id"] == "session-23"
+    assert payload["comparison"]["best_variant"] == "edge_and_node_packet"
+    assert len(payload["variant_setup"]) == 4
+
+
+def test_gold_review_vocabulary_ablation_endpoint_404_for_unsupported_session() -> None:
+    response = _client().get(
+        "/api/live/graph-preview/gold-review/vocabulary-ablation",
+        params={"campaign_id": "longmont-c2", "session_id": "session-22"},
+    )
+
+    assert response.status_code == 404
 
 
 def test_gold_review_service_is_not_imported_by_ingest_extraction_paths() -> None:

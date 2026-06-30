@@ -8,6 +8,8 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 
 | Path | Session | Use |
 |------|---------|-----|
+| `examples/session_1_candidate_graph_gold/` | 1 | Candidate graph gold (26 nodes); C1 cross-campaign vocabulary ablation bed |
+| `examples/mirathorn_city_candidate_graph_gold/` | world | Candidate graph gold (28 nodes); world-authority vocabulary ablation bed |
 | `examples/session_23_candidate_graph_gold/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
 | `examples/session_24_manual_projection_dogfood/` | 24 | Projection gold (36 nodes); **not** LLM extraction benchmark |
 
@@ -58,6 +60,8 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 | Path | Notes |
 |------|-------|
 | `examples/session_23_recap_ingest/` | Session 23 normalized recap + span seeds |
+| `examples/session_1_recap_ingest/` | Session 1 normalized recap + span seeds |
+| `examples/mirathorn_city_world_doc/` | Mirathorn city world doc snapshot + span seeds |
 | `examples/session_22_recap_ingest/` | Session 22 fixture |
 | `examples/live_recap_ingest_run_bundle/` | Sample run bundle for Session 23 |
 

@@ -87,6 +87,79 @@ describe("GraphGoldReviewModule", () => {
       object_index: { gold: {}, live: {} },
       match_pairs: {},
     });
+    vi.spyOn(liveApi, "getGoldReviewVocabularyAblation").mockResolvedValue({
+      schema_version: "dmb_vocabulary_ablation_dogfood_v1",
+      version: "0.1",
+      generated_at: "2026-06-30T03:49:35Z",
+      scope: "c2s23-mireward",
+      session_id: "session-23",
+      campaign_id: "longmont-c2",
+      model_id: "gpt-5.4-mini",
+      report_path: "Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-C2S23-MIREWARD.md",
+      packet_id: "packet:vocab:4f671bfb39e9",
+      source_span_count: 13,
+      source_files: [],
+      recommendation:
+        "Do not promote edge_and_node_packet from this run: present-set recognition tied baseline, while the heuristic winner contaminated absent-set names. If continuing packet-assisted dogfood, use edge_packet as the clean comparison and keep baseline as the safety control.",
+      comparison: {
+        best_variant: "node_packet",
+        summary: {
+          known_name_pickup_best_variant: "node_packet",
+          predicate_hint_best_variant: "edge_packet",
+          combat_encounter_best_variant: "baseline",
+          safest_collision_variant: "node_packet",
+        },
+        warnings: [],
+      },
+      variant_setup: [
+        {
+          variant_name: "baseline",
+          enable_node_packet: false,
+          enable_edge_packet: false,
+          node_count: 62,
+          edge_count: 37,
+          score: -19,
+          known_name_pickup_rate: 0.333,
+          recognition_rate: 0.571,
+          present_recognized: ["Edge", "Mireward Reach", "North gate", "Orik Tane"],
+          contamination_count: 0,
+          contamination_rate: 0,
+          absent_contaminated: [],
+          combat_encounter_match_count: 0,
+          predicate_hint_match_count: 0,
+          unsafe_cross_class_blocked_count: 1,
+        },
+        {
+          variant_name: "node_packet",
+          enable_node_packet: true,
+          enable_edge_packet: false,
+          node_count: 52,
+          edge_count: 35,
+          score: 0,
+          known_name_pickup_rate: 0.583,
+          recognition_rate: 0.571,
+          present_recognized: ["Edge", "Mireward Reach", "North gate", "Orik Tane"],
+          contamination_count: 3,
+          contamination_rate: 0.6,
+          absent_contaminated: ["Mireward Council", "Shepherds", "Under-Hymn Brood"],
+          combat_encounter_match_count: 0,
+          predicate_hint_match_count: 3,
+          unsafe_cross_class_blocked_count: 0,
+        },
+      ],
+      partition: {
+        present_set: [
+          "Mireward Reach",
+          "Lysandra",
+          "Lysandro",
+          "Orik Tane",
+          "Edge",
+          "North gate",
+          "First meat wave",
+        ],
+        absent_set: ["Maelthor", "The Shepherd", "Shepherds", "Under-Hymn Brood", "Mireward Council"],
+      },
+    });
     vi.spyOn(liveApi, "getGoldReviewEvidence").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_evidence_v1",
       version: "0.1",
@@ -135,6 +208,11 @@ describe("GraphGoldReviewModule", () => {
     });
 
     expect(screen.getByRole("tab", { name: "Session 23" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("C2S23 Mireward dogfood")).toBeInTheDocument();
+    expect(screen.getByText(/Do not promote edge_and_node_packet/)).toBeInTheDocument();
+    expect(screen.getAllByText("57.1%").length).toBeGreaterThan(0);
+    expect(screen.getByText("60% (3)")).toBeInTheDocument();
+    expect(screen.getByText(/Under-Hymn Brood/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Lysandro/i }));
     expect(await screen.findByText("Gold expected")).toBeInTheDocument();
     expect(screen.getByText("Lysandro argued with the mayor")).toBeInTheDocument();

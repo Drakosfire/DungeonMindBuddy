@@ -1,0 +1,525 @@
+{
+  "beds": [
+    {
+      "bed_id": "mirathorn-city",
+      "campaign_id": "elderwyld",
+      "comparison": {
+        "baseline_variant_name": "baseline",
+        "best_variant": "edge_and_node_packet",
+        "comparison_method": "vocabulary_ablation_comparison_v1",
+        "deltas_vs_baseline": {
+          "edge_and_node_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": -4,
+            "cross_class_blocked_count_delta": -5,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": -4,
+            "edge_drop_count_delta": 0,
+            "known_name_match_count_delta": 1,
+            "known_name_miss_count_delta": -1,
+            "known_name_pickup_rate_delta": 0.07600000000000001,
+            "predicate_hint_match_count_delta": 1,
+            "predicate_hint_miss_count_delta": -1,
+            "type_hint_match_count_delta": 2,
+            "type_hint_mismatch_count_delta": -1,
+            "unsafe_cross_class_blocked_count_delta": -5
+          },
+          "edge_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": 3,
+            "cross_class_blocked_count_delta": 2,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": 3,
+            "edge_drop_count_delta": 0,
+            "known_name_match_count_delta": 0,
+            "known_name_miss_count_delta": 0,
+            "known_name_pickup_rate_delta": 0.0,
+            "predicate_hint_match_count_delta": 1,
+            "predicate_hint_miss_count_delta": -1,
+            "type_hint_match_count_delta": -1,
+            "type_hint_mismatch_count_delta": 1,
+            "unsafe_cross_class_blocked_count_delta": 2
+          },
+          "node_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": 1,
+            "cross_class_blocked_count_delta": 1,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": 1,
+            "edge_drop_count_delta": 0,
+            "known_name_match_count_delta": 3,
+            "known_name_miss_count_delta": -3,
+            "known_name_pickup_rate_delta": 0.22999999999999993,
+            "predicate_hint_match_count_delta": 0,
+            "predicate_hint_miss_count_delta": 0,
+            "type_hint_match_count_delta": 3,
+            "type_hint_mismatch_count_delta": 0,
+            "unsafe_cross_class_blocked_count_delta": 1
+          }
+        },
+        "metrics_by_variant": {
+          "baseline": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 9,
+            "cross_class_blocked_count": 10,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 9,
+            "edge_drop_count": 0,
+            "edge_drop_reasons": {},
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 0,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 6,
+            "known_name_miss_count": 7,
+            "known_name_pickup_rate": 0.462,
+            "predicate_hint_match_count": 4,
+            "predicate_hint_miss_count": 7,
+            "type_hint_match_count": 5,
+            "type_hint_mismatch_count": 1,
+            "type_hint_missing_count": 7,
+            "unsafe_cross_class_blocked_count": 10
+          },
+          "edge_and_node_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 5,
+            "cross_class_blocked_count": 5,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 5,
+            "edge_drop_count": 0,
+            "edge_drop_reasons": {},
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 0,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 7,
+            "known_name_miss_count": 6,
+            "known_name_pickup_rate": 0.538,
+            "predicate_hint_match_count": 5,
+            "predicate_hint_miss_count": 6,
+            "type_hint_match_count": 7,
+            "type_hint_mismatch_count": 0,
+            "type_hint_missing_count": 6,
+            "unsafe_cross_class_blocked_count": 5
+          },
+          "edge_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 12,
+            "cross_class_blocked_count": 12,
+            "cross_class_merged_count": 1,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 12,
+            "edge_drop_count": 0,
+            "edge_drop_reasons": {},
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 0,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 6,
+            "known_name_miss_count": 7,
+            "known_name_pickup_rate": 0.462,
+            "predicate_hint_match_count": 5,
+            "predicate_hint_miss_count": 6,
+            "type_hint_match_count": 4,
+            "type_hint_mismatch_count": 2,
+            "type_hint_missing_count": 7,
+            "unsafe_cross_class_blocked_count": 12
+          },
+          "node_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 10,
+            "cross_class_blocked_count": 11,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 10,
+            "edge_drop_count": 0,
+            "edge_drop_reasons": {},
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 0,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 9,
+            "known_name_miss_count": 4,
+            "known_name_pickup_rate": 0.692,
+            "predicate_hint_match_count": 4,
+            "predicate_hint_miss_count": 7,
+            "type_hint_match_count": 8,
+            "type_hint_mismatch_count": 1,
+            "type_hint_missing_count": 4,
+            "unsafe_cross_class_blocked_count": 11
+          }
+        },
+        "packet_id": "packet:vocab:baf8726327fd",
+        "scope": "campaign",
+        "scores_by_variant": {
+          "baseline": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -18,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -9,
+              "edge_drop_count_penalty": 0,
+              "known_name_match_count": 6,
+              "known_name_miss_count_penalty": -7,
+              "predicate_hint_match_count": 4,
+              "predicate_hint_miss_count_penalty": -7,
+              "type_hint_match_count": 5,
+              "type_hint_mismatch_count_x2_penalty": -2,
+              "unsafe_cross_class_blocked_count_x3_penalty": -30
+            },
+            "score": -58
+          },
+          "edge_and_node_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -10,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -5,
+              "edge_drop_count_penalty": 0,
+              "known_name_match_count": 7,
+              "known_name_miss_count_penalty": -6,
+              "predicate_hint_match_count": 5,
+              "predicate_hint_miss_count_penalty": -6,
+              "type_hint_match_count": 7,
+              "type_hint_mismatch_count_x2_penalty": 0,
+              "unsafe_cross_class_blocked_count_x3_penalty": -15
+            },
+            "score": -23
+          },
+          "edge_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -24,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -12,
+              "edge_drop_count_penalty": 0,
+              "known_name_match_count": 6,
+              "known_name_miss_count_penalty": -7,
+              "predicate_hint_match_count": 5,
+              "predicate_hint_miss_count_penalty": -6,
+              "type_hint_match_count": 4,
+              "type_hint_mismatch_count_x2_penalty": -4,
+              "unsafe_cross_class_blocked_count_x3_penalty": -36
+            },
+            "score": -74
+          },
+          "node_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -20,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -10,
+              "edge_drop_count_penalty": 0,
+              "known_name_match_count": 9,
+              "known_name_miss_count_penalty": -4,
+              "predicate_hint_match_count": 4,
+              "predicate_hint_miss_count_penalty": -7,
+              "type_hint_match_count": 8,
+              "type_hint_mismatch_count_x2_penalty": -2,
+              "unsafe_cross_class_blocked_count_x3_penalty": -33
+            },
+            "score": -55
+          }
+        },
+        "summary": {
+          "combat_encounter_best_variant": "baseline",
+          "known_name_pickup_best_variant": "node_packet",
+          "predicate_hint_best_variant": "edge_and_node_packet",
+          "safest_collision_variant": "edge_and_node_packet",
+          "score_note": "Heuristic review score; not benchmark truth."
+        },
+        "variant_order": [
+          "baseline",
+          "edge_packet",
+          "node_packet",
+          "edge_and_node_packet"
+        ],
+        "warnings": [
+          "edge_packet: unsafe cross-class collision regression vs baseline",
+          "edge_packet: collision regression vs baseline",
+          "node_packet: unsafe cross-class collision regression vs baseline",
+          "node_packet: collision regression vs baseline"
+        ]
+      },
+      "go_criteria": {
+        "GO-1": true,
+        "GO-2": false,
+        "GO-3": false,
+        "GO-4": true,
+        "GO-5": true,
+        "best_clean_variant": "edge_and_node_packet",
+        "newly_matched_gold_nodes_not_in_packet": [
+          "the Lundayell Empire"
+        ]
+      },
+      "gold_fixture_id": "graph-memory:mirathorn-city-candidate-graph-gold:v0",
+      "gold_scores_by_variant": {
+        "baseline": {
+          "edge_recall": 0.1154,
+          "node_recall": 0.6786
+        },
+        "edge_and_node_packet": {
+          "edge_recall": 0.1923,
+          "node_recall": 0.6429
+        },
+        "edge_packet": {
+          "edge_recall": 0.1538,
+          "node_recall": 0.7143
+        },
+        "node_packet": {
+          "edge_recall": 0.2308,
+          "node_recall": 0.7143
+        }
+      },
+      "packet_id": "packet:vocab:baf8726327fd",
+      "partition": {
+        "absent_set": [
+          "Stone Bridge",
+          "Glowkindle",
+          "Mireward Reach",
+          "Karsemine"
+        ],
+        "present_set": [
+          "Mirathorn",
+          "Stormspire Peaks",
+          "Lake Mirathorn",
+          "Lundayell Empire",
+          "Festival of Expansion",
+          "Shepherd's Flock",
+          "Wizard's Tower Brewing Co"
+        ]
+      },
+      "recommendation": "Prefer edge_and_node_packet for further dogfood.",
+      "session_id": "mirathorn-city",
+      "session_number": 0,
+      "source_files": [
+        "evals/graph_memory_layer/examples/mirathorn_city_world_doc/mirathorn_city_source.md"
+      ],
+      "source_span_count": 133,
+      "variant_setup": [
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 9,
+          "edge_count": 36,
+          "edge_drop_count": 0,
+          "edge_predicates": {
+            "associated_with": 1,
+            "aware_of": 4,
+            "commands": 1,
+            "contains": 3,
+            "governs": 1,
+            "knows_about": 1,
+            "leads": 3,
+            "linked_to": 1,
+            "located_in": 2,
+            "member_of": 2,
+            "owns": 1,
+            "present_at": 2,
+            "pursues": 1,
+            "road_to": 1,
+            "routes_to": 3,
+            "threatens": 1,
+            "west_of": 1,
+            "within": 7
+          },
+          "enable_edge_packet": false,
+          "enable_node_packet": false,
+          "known_name_pickup_rate": 0.462,
+          "node_count": 90,
+          "node_kinds": {
+            "actor": 9,
+            "collective": 8,
+            "object": 37,
+            "place": 24,
+            "thread": 12
+          },
+          "predicate_hint_match_count": 4,
+          "present_missed": [
+            "Festival of Expansion",
+            "Wizard's Tower Brewing Co"
+          ],
+          "present_recognized": [
+            "Lake Mirathorn",
+            "Lundayell Empire",
+            "Mirathorn",
+            "Shepherd's Flock",
+            "Stormspire Peaks"
+          ],
+          "recognition_rate": 0.714,
+          "score": -58,
+          "total_cost_usd": 0.129137,
+          "unsafe_cross_class_blocked_count": 10,
+          "variant_name": "baseline"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 12,
+          "edge_count": 30,
+          "edge_drop_count": 0,
+          "edge_predicates": {
+            "commands": 1,
+            "governs": 1,
+            "knows_about": 2,
+            "leads": 3,
+            "located_in": 10,
+            "member_of": 4,
+            "near": 1,
+            "owns": 2,
+            "present_at": 1,
+            "within": 5
+          },
+          "enable_edge_packet": true,
+          "enable_node_packet": false,
+          "known_name_pickup_rate": 0.462,
+          "node_count": 105,
+          "node_kinds": {
+            "actor": 9,
+            "collective": 7,
+            "object": 43,
+            "place": 34,
+            "thread": 12
+          },
+          "predicate_hint_match_count": 5,
+          "present_missed": [
+            "Festival of Expansion",
+            "Wizard's Tower Brewing Co"
+          ],
+          "present_recognized": [
+            "Lake Mirathorn",
+            "Lundayell Empire",
+            "Mirathorn",
+            "Shepherd's Flock",
+            "Stormspire Peaks"
+          ],
+          "recognition_rate": 0.714,
+          "score": -74,
+          "total_cost_usd": 0.089989,
+          "unsafe_cross_class_blocked_count": 12,
+          "variant_name": "edge_packet"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 10,
+          "edge_count": 30,
+          "edge_drop_count": 0,
+          "edge_predicates": {
+            "commands": 1,
+            "contains": 1,
+            "defends_weakened_location": 1,
+            "displaced_from": 1,
+            "governs": 1,
+            "knows_about": 1,
+            "leads": 3,
+            "leads_to": 1,
+            "located_in": 8,
+            "member_of": 3,
+            "part_of": 4,
+            "present_at": 1,
+            "suspects": 1,
+            "threatens": 1,
+            "within": 2
+          },
+          "enable_edge_packet": false,
+          "enable_node_packet": true,
+          "known_name_pickup_rate": 0.692,
+          "node_count": 81,
+          "node_kinds": {
+            "actor": 9,
+            "collective": 9,
+            "object": 33,
+            "place": 19,
+            "thread": 11
+          },
+          "predicate_hint_match_count": 4,
+          "present_missed": [],
+          "present_recognized": [
+            "Festival of Expansion",
+            "Lake Mirathorn",
+            "Lundayell Empire",
+            "Mirathorn",
+            "Shepherd's Flock",
+            "Stormspire Peaks",
+            "Wizard's Tower Brewing Co"
+          ],
+          "recognition_rate": 1.0,
+          "score": -55,
+          "total_cost_usd": 0.108077,
+          "unsafe_cross_class_blocked_count": 11,
+          "variant_name": "node_packet"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 5,
+          "edge_count": 46,
+          "edge_drop_count": 0,
+          "edge_predicates": {
+            "belongs_to": 2,
+            "caused_by": 1,
+            "east_of": 1,
+            "governs": 1,
+            "leads": 2,
+            "located_in": 9,
+            "member_of": 6,
+            "owns": 1,
+            "part_of": 6,
+            "possesses": 11,
+            "present_at": 2,
+            "reports_threat_in": 1,
+            "road_to": 1,
+            "within": 2
+          },
+          "enable_edge_packet": true,
+          "enable_node_packet": true,
+          "known_name_pickup_rate": 0.538,
+          "node_count": 72,
+          "node_kinds": {
+            "actor": 14,
+            "collective": 4,
+            "object": 24,
+            "place": 19,
+            "thread": 11
+          },
+          "predicate_hint_match_count": 5,
+          "present_missed": [
+            "Festival of Expansion",
+            "Wizard's Tower Brewing Co"
+          ],
+          "present_recognized": [
+            "Lake Mirathorn",
+            "Lundayell Empire",
+            "Mirathorn",
+            "Shepherd's Flock",
+            "Stormspire Peaks"
+          ],
+          "recognition_rate": 0.714,
+          "score": -23,
+          "total_cost_usd": 0.090278,
+          "unsafe_cross_class_blocked_count": 5,
+          "variant_name": "edge_and_node_packet"
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-06-30T17:20:46Z",
+  "model_id": "gpt-5.4-mini",
+  "report_path": "Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS-MIRATHORN.md",
+  "schema": "dmb_vocabulary_ablation_dogfood_v1",
+  "scope": "expanded-beds"
+}

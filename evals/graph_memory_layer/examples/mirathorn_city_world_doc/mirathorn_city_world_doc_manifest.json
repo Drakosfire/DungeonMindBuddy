@@ -1,0 +1,30 @@
+{
+  "schema": "dmb_mirathorn_city_world_doc_fixture_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:mirathorn-city-world-doc:v0",
+  "campaign_id": null,
+  "session": null,
+  "input_kind": "worldbuilding_doc",
+  "input_mode": "explicit_path_only",
+  "source_doc_path": "evals/graph_memory_layer/examples/mirathorn_city_world_doc/mirathorn_city_source.md",
+  "source_span_seed_refs_path": "evals/graph_memory_layer/examples/mirathorn_city_world_doc/source_span_seed_refs.json",
+  "diagnostics": {
+    "source_snapshot_committed": true,
+    "llm_required": false,
+    "live_planner_required": false,
+    "write_tools_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_extraction_performed": false,
+    "candidate_graph_output": false,
+    "gold_graph_output": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "runtime_behavior_changed": false,
+    "production_behavior_changed": false
+  },
+  "notes": [
+    "Evergreen worldbuilding doc snapshot for The City of Mirathorn; no recap normalization.",
+    "World-authority bed: no session occurrence; setting reference facts only."
+  ]
+}

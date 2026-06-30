@@ -1,0 +1,321 @@
+{
+  "beds": [
+    {
+      "bed_id": "c1s1-stonebridge",
+      "campaign_id": "longmont-c1",
+      "edge_prompt_context": {
+        "context_text": "Vocabulary context for edge extraction:\n\nKnown names:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- Mireward Reach [place]\n- Stone Bridge [place]\n- stone bridge\n- The River's Edge Pub [place]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+        "diagnostics": {
+          "combat_encounter_hint_count": 0,
+          "containment_hint_count": 1,
+          "context_line_count": 31,
+          "do_not_merge_hint_count": 2,
+          "enabled": true,
+          "known_name_count": 12,
+          "packet_id": "packet:vocab:8a7c6a045ddb",
+          "predicate_hint_count": 10,
+          "predicate_hint_subject_count": 7,
+          "render_method": "edge_vocabulary_context_v1",
+          "trimmed_line_count": 0,
+          "untrimmed_line_count": 31
+        }
+      },
+      "node_prompt_contexts": {
+        "actor_pass": {
+          "context_text": "Vocabulary context for node extraction \u2014 actor_pass:\n\nKnown scoped names for this pass:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n\nPredicate hints for later edge extraction:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org",
+          "diagnostics": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 0,
+            "context_line_count": 20,
+            "do_not_merge_hint_count": 2,
+            "enabled": true,
+            "known_name_count": 7,
+            "packet_id": "packet:vocab:8a7c6a045ddb",
+            "pass_name": "actor_pass",
+            "predicate_hint_count": 5,
+            "predicate_hint_subject_count": 4,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "actor"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 20
+          }
+        },
+        "collective_pass": {
+          "context_text": "",
+          "diagnostics": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 0,
+            "context_line_count": 0,
+            "do_not_merge_hint_count": 2,
+            "enabled": true,
+            "known_name_count": 0,
+            "packet_id": "packet:vocab:8a7c6a045ddb",
+            "pass_name": "collective_pass",
+            "predicate_hint_count": 0,
+            "predicate_hint_subject_count": 0,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "collective"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 0
+          }
+        },
+        "location_pass": {
+          "context_text": "Vocabulary context for node extraction \u2014 location_pass:\n\nKnown scoped names for this pass:\n- Mireward Reach [place]\n- Stone Bridge [place]\n- The River's Edge Pub [place]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints for later edge extraction:\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+          "diagnostics": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 1,
+            "context_line_count": 19,
+            "do_not_merge_hint_count": 2,
+            "enabled": true,
+            "known_name_count": 4,
+            "packet_id": "packet:vocab:8a7c6a045ddb",
+            "pass_name": "location_pass",
+            "predicate_hint_count": 5,
+            "predicate_hint_subject_count": 3,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "place"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 19
+          }
+        },
+        "object_pass": {
+          "context_text": "",
+          "diagnostics": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 0,
+            "context_line_count": 0,
+            "do_not_merge_hint_count": 2,
+            "enabled": true,
+            "known_name_count": 0,
+            "packet_id": "packet:vocab:8a7c6a045ddb",
+            "pass_name": "object_pass",
+            "predicate_hint_count": 0,
+            "predicate_hint_subject_count": 0,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "object"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 0
+          }
+        },
+        "thread_pass": {
+          "context_text": "",
+          "diagnostics": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 0,
+            "context_line_count": 0,
+            "do_not_merge_hint_count": 2,
+            "enabled": true,
+            "known_name_count": 0,
+            "packet_id": "packet:vocab:8a7c6a045ddb",
+            "pass_name": "thread_pass",
+            "predicate_hint_count": 0,
+            "predicate_hint_subject_count": 0,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "thread",
+              "phenomenon",
+              "combat_encounter",
+              "social_encounter",
+              "session_beat",
+              "unknown"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 0
+          }
+        }
+      },
+      "packet": {
+        "alias_hints": [],
+        "budget_policy": {
+          "max_alias_hints": 12,
+          "max_campaign_entry_refs": 36,
+          "max_candidate_alias_hints": 12,
+          "max_combat_encounter_hints": 12,
+          "max_containment_hints": 16,
+          "max_do_not_merge_hints": 16,
+          "max_known_names": 48,
+          "max_predicate_hints": 48,
+          "max_type_hints": 48,
+          "max_world_entry_refs": 24,
+          "render_method": "deterministic_context_vocabulary_packet_render_v1"
+        },
+        "campaign_entry_refs": [
+          "vocab:c1s1:bonogo",
+          "vocab:c1s1:lysandra-ironveil",
+          "vocab:c1s1:glowkindle",
+          "vocab:c1s1:grishna",
+          "vocab:c1s1:karsemine",
+          "vocab:c1s1:mireward-reach",
+          "vocab:c1s1:stone-bridge",
+          "vocab:c1s1:stone-bridge-landmark",
+          "vocab:c1s1:rivers-edge-pub",
+          "vocab:c1s1:the-shepherd",
+          "vocab:c1s1:torbin-jove",
+          "vocab:c1s1:wizards-tower-org",
+          "vocab:c1s1:wizards-tower-brewing-co"
+        ],
+        "candidate_alias_hints": [],
+        "combat_encounter_hints": [],
+        "containment_hints": [
+          {
+            "authority": "manual_seed",
+            "child_label": "The River's Edge Pub",
+            "child_vocab_id": "vocab:c1s1:rivers-edge-pub",
+            "confidence": null,
+            "evidence_refs": [],
+            "hint_id": "contain:c1s1:rivers-edge-in-stone-bridge",
+            "parent_label": "Stone Bridge",
+            "parent_vocab_id": "vocab:c1s1:stone-bridge",
+            "relationship_type": "located_in",
+            "status": "candidate"
+          }
+        ],
+        "do_not_merge_hints": [
+          {
+            "created_by": null,
+            "decision_id": "dnm:c1s1:stone-bridge-town-vs-landmark",
+            "evidence_refs": [],
+            "left_vocab_id": "vocab:c1s1:stone-bridge",
+            "reason": "Stone Bridge town vs literal stone bridge landmark must remain visible.",
+            "reviewed_by": null,
+            "right_vocab_id": "vocab:c1s1:stone-bridge-landmark",
+            "source": "dogfood_manual_packet",
+            "status": "candidate"
+          },
+          {
+            "created_by": null,
+            "decision_id": "dnm:c1s1:wizards-tower-place-vs-org",
+            "evidence_refs": [],
+            "left_vocab_id": "vocab:c1s1:wizards-tower-brewing-co",
+            "reason": "Place vs organization ambiguity for Wizard's Tower Brewing Co.",
+            "reviewed_by": null,
+            "right_vocab_id": "vocab:c1s1:wizards-tower-org",
+            "source": "dogfood_manual_packet",
+            "status": "candidate"
+          }
+        ],
+        "generated_at": null,
+        "known_names": [
+          "Bonogo",
+          "Captain Lysandra Ironveil",
+          "Glowkindle",
+          "Grishna",
+          "Karsemine",
+          "Mireward Reach",
+          "Stone Bridge",
+          "The River's Edge Pub",
+          "The Shepherd",
+          "Torbin Jove",
+          "Wizard's Tower Brewing Co",
+          "stone bridge"
+        ],
+        "packet_id": "packet:vocab:8a7c6a045ddb",
+        "predicate_hints": {
+          "Bonogo": [
+            "present_at"
+          ],
+          "Glowkindle": [
+            "present_at",
+            "located_in"
+          ],
+          "Grishna": [
+            "present_at"
+          ],
+          "Karsemine": [
+            "present_at"
+          ],
+          "Stone Bridge": [
+            "located_in",
+            "present_at"
+          ],
+          "The River's Edge Pub": [
+            "located_in"
+          ],
+          "Wizard's Tower Brewing Co": [
+            "located_in",
+            "present_at"
+          ]
+        },
+        "scope": "campaign",
+        "type_hints": {
+          "Bonogo": "actor",
+          "Captain Lysandra Ironveil": "actor",
+          "Glowkindle": "actor",
+          "Grishna": "actor",
+          "Karsemine": "actor",
+          "Mireward Reach": "place",
+          "Stone Bridge": "place",
+          "The River's Edge Pub": "place",
+          "The Shepherd": "actor",
+          "Torbin Jove": "actor",
+          "Wizard's Tower Brewing Co": "place"
+        },
+        "world_entry_refs": []
+      },
+      "partition": {
+        "absent_set": [
+          "Captain Lysandra Ironveil",
+          "Mireward Reach",
+          "The Shepherd",
+          "Torbin Jove"
+        ],
+        "present_set": [
+          "Stone Bridge",
+          "Glowkindle",
+          "Grishna",
+          "Wizard's Tower Brewing Co",
+          "The River's Edge Pub",
+          "Karsemine",
+          "Bonogo"
+        ]
+      },
+      "session_id": "session-1",
+      "session_number": 1,
+      "source_files": [
+        "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_normalized_recap.md"
+      ],
+      "variant_prompt_context_map": {
+        "baseline": {
+          "edge_context": null,
+          "node_contexts": []
+        },
+        "edge_and_node_packet": {
+          "edge_context": "Vocabulary context for edge extraction:\n\nKnown names:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- Mireward Reach [place]\n- Stone Bridge [place]\n- stone bridge\n- The River's Edge Pub [place]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+          "node_contexts": {
+            "actor_pass": "Vocabulary context for node extraction \u2014 actor_pass:\n\nKnown scoped names for this pass:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n\nPredicate hints for later edge extraction:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org",
+            "collective_pass": "",
+            "location_pass": "Vocabulary context for node extraction \u2014 location_pass:\n\nKnown scoped names for this pass:\n- Mireward Reach [place]\n- Stone Bridge [place]\n- The River's Edge Pub [place]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints for later edge extraction:\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+            "object_pass": "",
+            "thread_pass": ""
+          }
+        },
+        "edge_packet": {
+          "edge_context": "Vocabulary context for edge extraction:\n\nKnown names:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- Mireward Reach [place]\n- Stone Bridge [place]\n- stone bridge\n- The River's Edge Pub [place]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+          "node_contexts": []
+        },
+        "node_packet": {
+          "edge_context": null,
+          "node_contexts": {
+            "actor_pass": "Vocabulary context for node extraction \u2014 actor_pass:\n\nKnown scoped names for this pass:\n- Bonogo [actor]\n- Captain Lysandra Ironveil [actor]\n- Glowkindle [actor]\n- Grishna [actor]\n- Karsemine [actor]\n- The Shepherd [actor]\n- Torbin Jove [actor]\n\nPredicate hints for later edge extraction:\n- Bonogo: present_at\n- Glowkindle: located_in, present_at\n- Grishna: present_at\n- Karsemine: present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org",
+            "collective_pass": "",
+            "location_pass": "Vocabulary context for node extraction \u2014 location_pass:\n\nKnown scoped names for this pass:\n- Mireward Reach [place]\n- Stone Bridge [place]\n- The River's Edge Pub [place]\n- Wizard's Tower Brewing Co [place]\n\nPredicate hints for later edge extraction:\n- Stone Bridge: located_in, present_at\n- The River's Edge Pub: located_in\n- Wizard's Tower Brewing Co: located_in, present_at\n\nDo-not-merge cautions:\n- vocab:c1s1:stone-bridge != vocab:c1s1:stone-bridge-landmark\n- vocab:c1s1:wizards-tower-brewing-co != vocab:c1s1:wizards-tower-org\n\nContainment hints:\n- The River's Edge Pub -> Stone Bridge",
+            "object_pass": "",
+            "thread_pass": ""
+          }
+        }
+      }
+    }
+  ],
+  "generated_at": "2026-06-30T20:19:17Z",
+  "report_path": "Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md",
+  "schema": "dmb_vocabulary_ablation_prompt_review_v1",
+  "scope": "expanded-beds"
+}

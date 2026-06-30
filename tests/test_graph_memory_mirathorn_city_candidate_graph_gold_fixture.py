@@ -1,0 +1,151 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from evals.graph_memory_layer.mirathorn_city_candidate_graph_gold_fixture import *
+from evals.graph_memory_layer.mirathorn_city_world_doc_fixture import load_source_doc
+from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+
+
+def test_manifest():
+    p = gold_manifest_path()
+    assert p.exists()
+    m = load_gold_manifest()
+    validate_gold_manifest(m)
+    assert m["schema"] == GOLD_MANIFEST_SCHEMA and m["version"] == GOLD_MANIFEST_VERSION
+    assert m["fixture_id"] == GOLD_FIXTURE_ID and m["campaign_id"] is None and m["session"] is None
+    assert m["input_mode"] == "explicit_fixture_dependency"
+    assert m["source_fixture_id"] == "graph-memory:mirathorn-city-world-doc:v0"
+    for k in ("source_manifest_path", "source_span_seed_refs_path", "candidate_graph_gold_path"):
+        assert not Path(m[k]).is_absolute() and ".." not in Path(m[k]).parts
+    assert m["candidate_graph_gold_path"] == GOLD_GRAPH_PATH
+    assert all(v is False for k, v in m["diagnostics"].items() if k != "manual_gold_fixture")
+
+
+def test_parse_schema_and_shape():
+    assert gold_graph_path().exists()
+    p = parse_gold_candidate_graph()
+    r = validate_gold_candidate_graph()
+    assert not r.issues
+    assert p.schema == "dmb_candidate_graph_preview_v0" and p.version == "0.1" and p.status == "preview"
+    assert p.campaign_id is None and p.session_id is None
+    assert len(p.nodes) >= 26 and len(p.edges) >= 24 and len(p.beats) == 0 and len(p.proposed_writes) >= 2
+    assert len(p.ignored_items) >= 1 and len(p.deferred_items) >= 3
+    labels = " ".join(n.label.lower() for n in p.nodes)
+    for term in [
+        "mirathorn",
+        "the elderwyld",
+        "lundayell",
+        "stormspire",
+        "shepherd's flock",
+        "wizard's tower brewing co",
+        "elara swiftwind",
+        "tinkerbright",
+        "nameless goddess",
+    ]:
+        assert term in labels or term in json.dumps(load_gold_candidate_graph_dict()).lower()
+
+
+def test_integrity_and_evidence():
+    p = parse_gold_candidate_graph()
+    node_ids = {n.node_id for n in p.nodes}
+    assert len(node_ids) == len(p.nodes)
+    assert len({e.edge_id for e in p.edges}) == len(p.edges)
+    assert len({w.write_id for w in p.proposed_writes}) == len(p.proposed_writes)
+    assert len({i.item_id for i in p.ignored_items} | {d.item_id for d in p.deferred_items}) == len(p.ignored_items) + len(
+        p.deferred_items
+    )
+    assert all(e.from_node_id in node_ids and e.to_node_id in node_ids for e in p.edges)
+    targets = node_ids | {e.edge_id for e in p.edges} | {i.item_id for i in p.ignored_items} | {d.item_id for d in p.deferred_items}
+    assert all(w.target_id in targets for w in p.proposed_writes)
+    refs = collect_gold_evidence_refs(p)
+    assert refs and all(refs)
+    assert all(
+        getattr(o, "evidence_refs")
+        for seq in (p.nodes, p.edges, p.beats, p.proposed_writes, p.ignored_items, p.deferred_items)
+        for o in seq
+    )
+    anchors = valid_source_anchor_ids()
+    assert all(
+        r.source_artifact_id == SOURCE_ARTIFACT_ID and r.source_ref_id == SOURCE_REF_ID and r.source_anchor_id in anchors
+        for r in refs
+    )
+    resolved = resolve_gold_evidence_refs()
+    assert len(resolved) == len(refs)
+    assert all(not r.warnings for r in resolved)
+    validate_high_risk_evidence_audit(p)
+    assert all(r.can_open_source and r.can_highlight_span for r in resolved)
+    assert all(r.preview_snippet.strip() and not r.preview_snippet.strip().startswith("#") for r in resolved)
+    text = json.dumps(load_gold_candidate_graph_dict())
+    assert load_source_doc() not in text
+
+
+def test_semantics_content_and_boundaries():
+    p = parse_gold_candidate_graph()
+    assert all(n.semantic_state.lifecycle_state != "promoted" for n in p.nodes)
+    assert all(e.semantic_state.lifecycle_state != "promoted" for e in p.edges)
+    assert all(w.status == "pending" for w in p.proposed_writes)
+    assert all(
+        getattr(o, "proposed_action", "create") not in COMMITTED_ACTIONS
+        for o in list(p.nodes) + list(p.edges) + list(p.beats)
+    )
+    d = p.diagnostics
+    assert d.preview_only and not any(
+        [
+            d.extraction_performed,
+            d.llm_used,
+            d.runtime_connected,
+            d.plan_connected,
+            d.agent_interaction_connected,
+            d.corpus_scanned,
+            d.corpus_mutated,
+            d.facts_promoted,
+            d.canon_promoted,
+        ]
+    )
+    text = json.dumps(load_gold_candidate_graph_dict(), ensure_ascii=False).lower()
+    for term in [
+        "mirathorn",
+        "the elderwyld",
+        "lundayell",
+        "stormspire",
+        "shepherd's flock",
+        "wizard's tower brewing co",
+        "elara swiftwind",
+        "tinkerbright",
+        "nameless goddess",
+    ]:
+        assert term.lower() in text
+    for forbidden in [
+        "llm_response",
+        "extraction_output",
+        "runtime_payload",
+        "plan_payload",
+        "agent_interaction_payload",
+        "query_execution",
+        "corpus_mutation",
+        "graph_write_result",
+        '"approved"',
+        '"promoted"',
+        "/workspace/",
+    ]:
+        assert forbidden not in text
+
+
+def test_cli_report_and_validator():
+    v = subprocess.run(
+        [sys.executable, "-m", "evals.graph_memory_layer.validate_mirathorn_city_candidate_graph_gold_fixture"],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert "mirathorn city candidate graph gold fixture: ready" in v.stdout
+    r = subprocess.run(
+        [sys.executable, "-m", "evals.graph_memory_layer.report_mirathorn_city_candidate_graph_gold_fixture"],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert "## Evidence Preview" in r.stdout
+    assert "This is a hand-authored Mirathorn City Candidate Graph Preview gold fixture." in r.stdout

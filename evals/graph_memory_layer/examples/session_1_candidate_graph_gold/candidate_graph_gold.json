@@ -1,0 +1,1960 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:s1:stonebridge-glowkindle-rats:gold-v0",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-1",
+  "source_artifact_ids": [
+    "source-artifact:session-1-normalized-recap"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:heroes-party",
+      "label": "Heroes / Party",
+      "node_type": "group",
+      "description": "The six merchant-guard travelers who arrive outside Stone Bridge.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:karsemine",
+      "label": "Karsemine",
+      "node_type": "character",
+      "description": "Tiefling Ranger who searches the tower interior and spots the magma spider.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-interior",
+          "label": "tower-interior",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "karsemine",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:stafl",
+      "label": "Stafl",
+      "node_type": "character",
+      "description": "Human Bard in the traveling party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "stafl",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:caelynn",
+      "label": "Caelynn",
+      "node_type": "character",
+      "description": "Half Elf Sorcerer in the traveling party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "caelynn",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:ephanna",
+      "label": "Ephanna",
+      "node_type": "character",
+      "description": "Kenku Warlock in the traveling party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "ephanna",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:bonogo",
+      "label": "Bonogo",
+      "node_type": "character",
+      "description": "Bugbear Rogue who buys a firkin of ale at the pub.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-bonogo-firkin",
+          "label": "bonogo-firkin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "bonogo",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:baergrom",
+      "label": "Baergrom",
+      "node_type": "character",
+      "description": "Dwarf Fighter in the traveling party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "pc",
+        "ref_id": "baergrom",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:stone-bridge-town",
+      "label": "Stone Bridge",
+      "node_type": "location",
+      "description": "The small town where the party arrives.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stonebridge-overview",
+          "label": "stonebridge-overview",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [
+        "do-not-merge with node:stone-bridge-span (the bridge) — shared label, distinct concepts"
+      ],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "stonebridge",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:stone-bridge-span",
+      "label": "the Stone Bridge",
+      "node_type": "location",
+      "description": "The literal Stone Bridge over the river.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stone-bridge-span",
+          "label": "stone-bridge-span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [
+        "the river crossing, not the town; do-not-merge with node:stone-bridge-town"
+      ],
+      "corpus_ref": {
+        "type": "sublocation",
+        "ref_id": "stone_bridge_span",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:rivers-edge-pub",
+      "label": "The River's Edge Pub",
+      "node_type": "location",
+      "description": "Stone Bridge tavern run by Grishna.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rivers-edge-pub-grishna",
+          "label": "rivers-edge-pub-grishna",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "rivers_edge_pub",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:grishna",
+      "label": "Grishna",
+      "node_type": "character",
+      "description": "Half-orc innkeeper of The River's Edge Pub.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rivers-edge-pub-grishna",
+          "label": "rivers-edge-pub-grishna",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "grishna",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md"
+      }
+    },
+    {
+      "node_id": "node:glowkindle",
+      "label": "Glowkindle",
+      "node_type": "character",
+      "description": "Local brewer who posts the rat-clearing job and hires the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "glowkindle-job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "glowkindle",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:wizards-tower-brewing-co",
+      "label": "The Wizard's Tower Brewing Co",
+      "node_type": "organization",
+      "description": "Brewing company operating at the shatter mage's tower.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "wizards-tower-located",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-gnomes",
+          "label": "tower-gnomes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [
+        "cross-class: same site surfaces as organization (the company) and as location node:wizards-tower"
+      ],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "wizards_tower_brewing_co",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:wizards-tower",
+      "label": "the shatter mage's tower",
+      "node_type": "location",
+      "description": "The physical tower site containing the brewery, cellar, and deeper halls.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-interior",
+          "label": "tower-interior",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-magma-spider",
+          "label": "magma-spider",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "cross-class with node:wizards-tower-brewing-co: the physical tower vs the brewing company"
+      ],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "wizards_tower_site",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:fermentation-cellar",
+      "label": "the fermentation cellar",
+      "node_type": "location",
+      "description": "Cellar expansion site where giant rats attacked the excavation crew.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "sublocation",
+        "ref_id": "fermentation_cellar",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:statue-foot-landmark",
+      "label": "the giant statue foot",
+      "node_type": "location",
+      "description": "Enormous statue foot landmark along the river trail.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-statue-foot",
+          "label": "statue-foot",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "statue_foot_landmark",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:brewing-gnomes",
+      "label": "the troupe of gnomes",
+      "node_type": "group",
+      "description": "Gnomes busily brewing in the tower tap room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-gnomes",
+          "label": "tower-gnomes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "wizards_tower_gnomes",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:excavation-crew",
+      "label": "Glowkindle's excavation crew",
+      "node_type": "group",
+      "description": "Crew assaulted by giant rats during cellar expansion.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "glowkindle_excavation_crew",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:giant-rats",
+      "label": "Giant rats",
+      "node_type": "unknown_important",
+      "description": "Giant rats in the fermentation cellar.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "creature",
+        "ref_id": "giant_rats",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:cat-owl",
+      "label": "the cat owl",
+      "node_type": "unknown_important",
+      "description": "Mysterious cat owl tossed into the rat fight to help.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-cat-owl",
+          "label": "cat-owl",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "creature",
+        "ref_id": "cat_owl",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:magma-spider",
+      "label": "flaming magma infused spider monstrosity",
+      "node_type": "unknown_important",
+      "description": "Flaming magma-infused spider revealed at session end.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-magma-spider",
+          "label": "magma-spider",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [
+        "cliffhanger reveal"
+      ],
+      "corpus_ref": {
+        "type": "creature",
+        "ref_id": "magma_spider",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:rat-clearing-job",
+      "label": "the rat-clearing job",
+      "node_type": "thread",
+      "description": "Glowkindle's posted mercenary job to clear giant rats.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "glowkindle-job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-job-agreed",
+          "label": "rats-job-agreed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:rat-cellar-combat",
+      "label": "the rat cellar fight",
+      "node_type": "event",
+      "description": "Hard-fought rat-cellar combat that brings the team together.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-job-agreed",
+          "label": "rats-job-agreed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-first-combat",
+          "label": "first-combat",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:firkin-of-ale",
+      "label": "a Firkin of ale",
+      "node_type": "item",
+      "description": "Firkin of ale Bonogo buys for two gold.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-bonogo-firkin",
+          "label": "bonogo-firkin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "firkin_of_ale",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:job-board",
+      "label": "the Stone Bridge job board",
+      "node_type": "item",
+      "description": "Stone Bridge job board where Glowkindle posted the rat job.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stonebridge-overview",
+          "label": "stonebridge-overview",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "glowkindle-job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "stonebridge_job_board",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:shatter-mage-mystery",
+      "label": "the shatter mage's tower mystery",
+      "node_type": "mystery",
+      "description": "Unresolved mystery of the shatter mage's tower beyond the brewery.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-interior",
+          "label": "tower-interior",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-magma-spider",
+          "label": "magma-spider",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:karsemine-member-of-party",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:heroes-party",
+      "label": "Karsemine is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:stafl-member-of-party",
+      "from_node_id": "node:stafl",
+      "to_node_id": "node:heroes-party",
+      "label": "Stafl is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:caelynn-member-of-party",
+      "from_node_id": "node:caelynn",
+      "to_node_id": "node:heroes-party",
+      "label": "Caelynn is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:ephanna-member-of-party",
+      "from_node_id": "node:ephanna",
+      "to_node_id": "node:heroes-party",
+      "label": "Ephanna is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bonogo-member-of-party",
+      "from_node_id": "node:bonogo",
+      "to_node_id": "node:heroes-party",
+      "label": "Bonogo is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:baergrom-member-of-party",
+      "from_node_id": "node:baergrom",
+      "to_node_id": "node:heroes-party",
+      "label": "Baergrom is part of the heroes / party",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "party-arrival",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grishna-operates-pub",
+      "from_node_id": "node:grishna",
+      "to_node_id": "node:rivers-edge-pub",
+      "label": "Grishna operates The River's Edge Pub",
+      "relationship_type": "operates",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rivers-edge-pub-grishna",
+          "label": "rivers-edge-pub-grishna",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:pub-located-in-stonebridge",
+      "from_node_id": "node:rivers-edge-pub",
+      "to_node_id": "node:stone-bridge-town",
+      "label": "The River's Edge Pub is in Stone Bridge",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stonebridge-overview",
+          "label": "stonebridge-overview",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bridge-located-in-stonebridge",
+      "from_node_id": "node:stone-bridge-span",
+      "to_node_id": "node:stone-bridge-town",
+      "label": "the Stone Bridge spans the river at Stone Bridge",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stone-bridge-span",
+          "label": "stone-bridge-span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:jobboard-located-in-stonebridge",
+      "from_node_id": "node:job-board",
+      "to_node_id": "node:stone-bridge-town",
+      "label": "the job board is in Stone Bridge",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stonebridge-overview",
+          "label": "stonebridge-overview",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle-operates-brewery",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:wizards-tower-brewing-co",
+      "label": "Glowkindle operates the Wizard's Tower Brewing Co",
+      "relationship_type": "operates",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:glowkindle-posted-job",
+      "from_node_id": "node:glowkindle",
+      "to_node_id": "node:rat-clearing-job",
+      "label": "Glowkindle posted the rat-clearing job",
+      "relationship_type": "posted",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "glowkindle-job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:job-on-jobboard",
+      "from_node_id": "node:rat-clearing-job",
+      "to_node_id": "node:job-board",
+      "label": "the rat-clearing job was posted on the job board",
+      "relationship_type": "posted_on",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "glowkindle-job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-accepts-job",
+      "from_node_id": "node:heroes-party",
+      "to_node_id": "node:rat-clearing-job",
+      "label": "the heroes / party accept the rat-clearing job",
+      "relationship_type": "undertakes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-job-agreed",
+          "label": "rats-job-agreed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:party-travels-to-brewery",
+      "from_node_id": "node:heroes-party",
+      "to_node_id": "node:wizards-tower-brewing-co",
+      "label": "the heroes / party travel to the brewery",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "wizards-tower-located",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grishna-knows-brewery",
+      "from_node_id": "node:grishna",
+      "to_node_id": "node:wizards-tower-brewing-co",
+      "label": "Grishna knows where the brewery is located",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "wizards-tower-located",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:gnomes-member-of-brewery",
+      "from_node_id": "node:brewing-gnomes",
+      "to_node_id": "node:wizards-tower-brewing-co",
+      "label": "the troupe of gnomes work at the brewery",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-gnomes",
+          "label": "tower-gnomes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:brewery-located-in-tower",
+      "from_node_id": "node:wizards-tower-brewing-co",
+      "to_node_id": "node:wizards-tower",
+      "label": "the brewing company is located in the tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "wizards-tower-located",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:cellar-located-in-tower",
+      "from_node_id": "node:fermentation-cellar",
+      "to_node_id": "node:wizards-tower",
+      "label": "the fermentation cellar is in the tower",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:crew-member-of-brewery",
+      "from_node_id": "node:excavation-crew",
+      "to_node_id": "node:wizards-tower-brewing-co",
+      "label": "the excavation crew works for the brewery",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:rats-located-in-cellar",
+      "from_node_id": "node:giant-rats",
+      "to_node_id": "node:fermentation-cellar",
+      "label": "giant rats are in the fermentation cellar",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:rats-part-of-combat",
+      "from_node_id": "node:giant-rats",
+      "to_node_id": "node:rat-cellar-combat",
+      "label": "giant rats are part of the rat cellar fight",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-first-combat",
+          "label": "first-combat",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:combat-threatens-crew",
+      "from_node_id": "node:rat-cellar-combat",
+      "to_node_id": "node:excavation-crew",
+      "label": "the rat cellar fight threatens the excavation crew",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:catowl-part-of-combat",
+      "from_node_id": "node:cat-owl",
+      "to_node_id": "node:rat-cellar-combat",
+      "label": "the cat owl is part of the rat cellar fight",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-cat-owl",
+          "label": "cat-owl",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:arrival-at-stone-bridge",
+      "order": 1,
+      "title": "Arrival at Stone Bridge",
+      "summary": "The merchant-guard party of six arrives outside the town of Stone Bridge.",
+      "involved_node_ids": [
+        "node:heroes-party",
+        "node:stone-bridge-town",
+        "node:karsemine",
+        "node:stafl",
+        "node:caelynn",
+        "node:ephanna",
+        "node:bonogo",
+        "node:baergrom"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-party-arrival",
+          "label": "Arrival at Stone Bridge",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:pub-and-glowkindle-job",
+      "order": 2,
+      "title": "The pub and Glowkindle's job",
+      "summary": "At The River's Edge Pub, Grishna shares directions and the party learns of Glowkindle's rat-clearing job on the town job board.",
+      "involved_node_ids": [
+        "node:rivers-edge-pub",
+        "node:grishna",
+        "node:glowkindle",
+        "node:rat-clearing-job",
+        "node:job-board",
+        "node:stone-bridge-town",
+        "node:bonogo",
+        "node:firkin-of-ale"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rivers-edge-pub-grishna",
+          "label": "pub scene",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "Glowkindle job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:rat-clearing-job"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:trail-to-brewery",
+      "order": 3,
+      "title": "Trail to the brewery past the statue foot",
+      "summary": "Following Grishna's directions, the party hikes upriver past the giant statue foot to the Wizard's Tower Brewing Company.",
+      "involved_node_ids": [
+        "node:heroes-party",
+        "node:wizards-tower-brewing-co",
+        "node:wizards-tower",
+        "node:statue-foot-landmark",
+        "node:grishna"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "brewery directions",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-statue-foot",
+          "label": "statue foot landmark",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:rat-cellar-fight",
+      "order": 4,
+      "title": "The rat-cellar fight",
+      "summary": "Glowkindle hires the party to clear giant rats from the fermentation cellar; the fight is harder than expected and a mysterious cat owl is tossed in to help.",
+      "involved_node_ids": [
+        "node:glowkindle",
+        "node:rat-clearing-job",
+        "node:rat-cellar-combat",
+        "node:giant-rats",
+        "node:fermentation-cellar",
+        "node:excavation-crew",
+        "node:cat-owl",
+        "node:heroes-party"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "giant rats in cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-job-agreed",
+          "label": "party accepts job",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-first-combat",
+          "label": "first combat",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-cat-owl",
+          "label": "cat owl",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:tower-interior-magma-spider",
+      "order": 5,
+      "title": "Tower interior and magma-spider cliffhanger",
+      "summary": "After the fight, the party explores tiled halls and broken alchemy tools before Karsemine makes eye contact with a flaming magma-infused spider.",
+      "involved_node_ids": [
+        "node:wizards-tower",
+        "node:karsemine",
+        "node:magma-spider",
+        "node:shatter-mage-mystery",
+        "node:brewing-gnomes"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-interior",
+          "label": "tower interior exploration",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-magma-spider",
+          "label": "magma spider cliffhanger",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:shatter-mage-mystery"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [
+    {
+      "write_id": "write:create-glowkindle",
+      "write_type": "create_node",
+      "target_id": "node:glowkindle",
+      "label": "Create Glowkindle NPC node",
+      "reason": "Glowkindle is a new Session 1 NPC anchor for the rat-clearing job and brewery operator role.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-glowkindle-job",
+          "label": "Glowkindle",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-wizards-tower-brewing-co",
+      "write_type": "create_node",
+      "target_id": "node:wizards-tower-brewing-co",
+      "label": "Create Wizard's Tower Brewing Co organization node",
+      "reason": "The brewing company is a new Session 1 organization anchor distinct from the physical tower location.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "Wizard's Tower Brewing Co",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignored_items": [
+    {
+      "item_id": "ignored:river-name-placeholder",
+      "label": "[River name] placeholder",
+      "reason": "The recap uses [River name] as an unnamed river placeholder; do not promote a canonical river name from this span.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stone-bridge-span",
+          "label": "unnamed river placeholder",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:stone-bridge-town-vs-span",
+      "label": "Stone Bridge town vs the Stone Bridge span",
+      "reason": "Stone Bridge names both the town and the river crossing; these must remain distinct nodes and must not merge.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stonebridge-overview",
+          "label": "Stone Bridge town",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-stone-bridge-span",
+          "label": "Stone Bridge span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Keep town (node:stone-bridge-town) and span (node:stone-bridge-span) separate in extraction and vocabulary layers; verify do-not-merge probes in ablation runs.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:brewery-vs-tower-cross-class",
+      "label": "Brewing company vs physical tower cross-class",
+      "reason": "The Wizard's Tower Brewing Co organization and the shatter mage's tower location refer to overlapping site concepts with different node types.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-wizards-tower-located",
+          "label": "brewing company",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-interior",
+          "label": "tower interior",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Preserve cross-class separation between node:wizards-tower-brewing-co (organization) and node:wizards-tower (location) in extraction and vocabulary ablation.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 5
+  }
+}

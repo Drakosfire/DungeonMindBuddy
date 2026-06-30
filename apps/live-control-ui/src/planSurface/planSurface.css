@@ -2577,6 +2577,71 @@ body.plan-toolbox-open {
   margin: 0.5rem 0 0;
 }
 
+.graph-gold-review-vocab-ablation {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--plan-border, rgba(255, 255, 255, 0.12));
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.graph-gold-review-vocab-recommendation {
+  margin: 0.75rem 0 1rem;
+  font-weight: 600;
+}
+
+.graph-gold-review-vocab-table tr.graph-gold-review-vocab-best td {
+  background: rgba(120, 190, 120, 0.08);
+}
+
+.graph-gold-review-vocab-partition {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  margin: 1rem 0 0;
+}
+
+.graph-gold-review-vocab-partition > div {
+  border: 1px solid var(--plan-border, rgba(255, 255, 255, 0.12));
+  border-radius: 0.65rem;
+  padding: 0.75rem;
+}
+
+.graph-gold-review-vocab-partition h4 {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.35rem;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.graph-gold-review-vocab-partition p {
+  margin: 0;
+}
+
+.graph-gold-review-vocab-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 1rem 0 0;
+}
+
+.graph-gold-review-vocab-summary dt {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.graph-gold-review-vocab-summary dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.graph-gold-review-vocab-warnings {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  opacity: 0.85;
+}
+
 @media (max-width: 960px) {
   .graph-gold-review-layout,
   .graph-gold-review-evidence-columns {

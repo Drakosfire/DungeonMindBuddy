@@ -1,0 +1,504 @@
+{
+  "campaign_id": "longmont-c2",
+  "comparison": {
+    "baseline_variant_name": "baseline",
+    "best_variant": "edge_and_node_packet",
+    "comparison_method": "vocabulary_ablation_comparison_v1",
+    "deltas_vs_baseline": {
+      "edge_and_node_packet": {
+        "combat_encounter_match_count_delta": 0,
+        "combat_encounter_miss_count_delta": 0,
+        "conflicting_kind_collision_count_delta": 0,
+        "cross_class_blocked_count_delta": 0,
+        "do_not_merge_collision_count_delta": 0,
+        "duplicate_label_collision_count_delta": 0,
+        "edge_drop_count_delta": -1,
+        "known_name_match_count_delta": 1,
+        "known_name_miss_count_delta": -1,
+        "known_name_pickup_rate_delta": 0.08399999999999996,
+        "predicate_hint_match_count_delta": 2,
+        "predicate_hint_miss_count_delta": -2,
+        "type_hint_match_count_delta": 1,
+        "type_hint_mismatch_count_delta": 0,
+        "unsafe_cross_class_blocked_count_delta": 0
+      },
+      "edge_packet": {
+        "combat_encounter_match_count_delta": 0,
+        "combat_encounter_miss_count_delta": 0,
+        "conflicting_kind_collision_count_delta": 0,
+        "cross_class_blocked_count_delta": 0,
+        "do_not_merge_collision_count_delta": 0,
+        "duplicate_label_collision_count_delta": 0,
+        "edge_drop_count_delta": -1,
+        "known_name_match_count_delta": 0,
+        "known_name_miss_count_delta": 0,
+        "known_name_pickup_rate_delta": 0.0,
+        "predicate_hint_match_count_delta": 2,
+        "predicate_hint_miss_count_delta": -2,
+        "type_hint_match_count_delta": 0,
+        "type_hint_mismatch_count_delta": 0,
+        "unsafe_cross_class_blocked_count_delta": 0
+      },
+      "node_packet": {
+        "combat_encounter_match_count_delta": 0,
+        "combat_encounter_miss_count_delta": 0,
+        "conflicting_kind_collision_count_delta": 0,
+        "cross_class_blocked_count_delta": 0,
+        "do_not_merge_collision_count_delta": 0,
+        "duplicate_label_collision_count_delta": 0,
+        "edge_drop_count_delta": -1,
+        "known_name_match_count_delta": 1,
+        "known_name_miss_count_delta": -1,
+        "known_name_pickup_rate_delta": 0.08399999999999996,
+        "predicate_hint_match_count_delta": 1,
+        "predicate_hint_miss_count_delta": -1,
+        "type_hint_match_count_delta": 1,
+        "type_hint_mismatch_count_delta": 0,
+        "unsafe_cross_class_blocked_count_delta": 0
+      }
+    },
+    "metrics_by_variant": {
+      "baseline": {
+        "combat_encounter_match_count": 0,
+        "combat_encounter_miss_count": 1,
+        "conflicting_kind_collision_count": 0,
+        "cross_class_blocked_count": 0,
+        "cross_class_merged_count": 1,
+        "do_not_merge_collision_count": 0,
+        "duplicate_label_collision_count": 0,
+        "edge_drop_count": 1,
+        "edge_drop_reasons": {
+          "missing_endpoint": 1
+        },
+        "edge_predicate_issue_count": 0,
+        "endpoint_binding_failure_count": 1,
+        "endpoint_binding_success_count": 0,
+        "known_name_match_count": 4,
+        "known_name_miss_count": 8,
+        "known_name_pickup_rate": 0.333,
+        "predicate_hint_match_count": 1,
+        "predicate_hint_miss_count": 10,
+        "type_hint_match_count": 4,
+        "type_hint_mismatch_count": 0,
+        "type_hint_missing_count": 8,
+        "unsafe_cross_class_blocked_count": 0
+      },
+      "edge_and_node_packet": {
+        "combat_encounter_match_count": 0,
+        "combat_encounter_miss_count": 1,
+        "conflicting_kind_collision_count": 0,
+        "cross_class_blocked_count": 0,
+        "cross_class_merged_count": 0,
+        "do_not_merge_collision_count": 0,
+        "duplicate_label_collision_count": 0,
+        "edge_drop_count": 0,
+        "edge_drop_reasons": {},
+        "edge_predicate_issue_count": 0,
+        "endpoint_binding_failure_count": 0,
+        "endpoint_binding_success_count": 0,
+        "known_name_match_count": 5,
+        "known_name_miss_count": 7,
+        "known_name_pickup_rate": 0.417,
+        "predicate_hint_match_count": 3,
+        "predicate_hint_miss_count": 8,
+        "type_hint_match_count": 5,
+        "type_hint_mismatch_count": 0,
+        "type_hint_missing_count": 7,
+        "unsafe_cross_class_blocked_count": 0
+      },
+      "edge_packet": {
+        "combat_encounter_match_count": 0,
+        "combat_encounter_miss_count": 1,
+        "conflicting_kind_collision_count": 0,
+        "cross_class_blocked_count": 0,
+        "cross_class_merged_count": 1,
+        "do_not_merge_collision_count": 0,
+        "duplicate_label_collision_count": 0,
+        "edge_drop_count": 0,
+        "edge_drop_reasons": {},
+        "edge_predicate_issue_count": 0,
+        "endpoint_binding_failure_count": 0,
+        "endpoint_binding_success_count": 0,
+        "known_name_match_count": 4,
+        "known_name_miss_count": 8,
+        "known_name_pickup_rate": 0.333,
+        "predicate_hint_match_count": 3,
+        "predicate_hint_miss_count": 8,
+        "type_hint_match_count": 4,
+        "type_hint_mismatch_count": 0,
+        "type_hint_missing_count": 8,
+        "unsafe_cross_class_blocked_count": 0
+      },
+      "node_packet": {
+        "combat_encounter_match_count": 0,
+        "combat_encounter_miss_count": 1,
+        "conflicting_kind_collision_count": 0,
+        "cross_class_blocked_count": 0,
+        "cross_class_merged_count": 0,
+        "do_not_merge_collision_count": 0,
+        "duplicate_label_collision_count": 0,
+        "edge_drop_count": 0,
+        "edge_drop_reasons": {},
+        "edge_predicate_issue_count": 0,
+        "endpoint_binding_failure_count": 0,
+        "endpoint_binding_success_count": 0,
+        "known_name_match_count": 5,
+        "known_name_miss_count": 7,
+        "known_name_pickup_rate": 0.417,
+        "predicate_hint_match_count": 2,
+        "predicate_hint_miss_count": 9,
+        "type_hint_match_count": 5,
+        "type_hint_mismatch_count": 0,
+        "type_hint_missing_count": 7,
+        "unsafe_cross_class_blocked_count": 0
+      }
+    },
+    "packet_id": "packet:vocab:4f671bfb39e9",
+    "scope": "campaign",
+    "scores_by_variant": {
+      "baseline": {
+        "components": {
+          "combat_encounter_match_count_x2": 0,
+          "combat_encounter_miss_count_x2_penalty": -2,
+          "conflicting_kind_collision_count_x2_penalty": 0,
+          "do_not_merge_collision_count_x3_penalty": 0,
+          "duplicate_label_collision_count_penalty": 0,
+          "edge_drop_count_penalty": -1,
+          "known_name_match_count": 4,
+          "known_name_miss_count_penalty": -8,
+          "predicate_hint_match_count": 1,
+          "predicate_hint_miss_count_penalty": -10,
+          "type_hint_match_count": 4,
+          "type_hint_mismatch_count_x2_penalty": 0,
+          "unsafe_cross_class_blocked_count_x3_penalty": 0
+        },
+        "score": -12
+      },
+      "edge_and_node_packet": {
+        "components": {
+          "combat_encounter_match_count_x2": 0,
+          "combat_encounter_miss_count_x2_penalty": -2,
+          "conflicting_kind_collision_count_x2_penalty": 0,
+          "do_not_merge_collision_count_x3_penalty": 0,
+          "duplicate_label_collision_count_penalty": 0,
+          "edge_drop_count_penalty": 0,
+          "known_name_match_count": 5,
+          "known_name_miss_count_penalty": -7,
+          "predicate_hint_match_count": 3,
+          "predicate_hint_miss_count_penalty": -8,
+          "type_hint_match_count": 5,
+          "type_hint_mismatch_count_x2_penalty": 0,
+          "unsafe_cross_class_blocked_count_x3_penalty": 0
+        },
+        "score": -4
+      },
+      "edge_packet": {
+        "components": {
+          "combat_encounter_match_count_x2": 0,
+          "combat_encounter_miss_count_x2_penalty": -2,
+          "conflicting_kind_collision_count_x2_penalty": 0,
+          "do_not_merge_collision_count_x3_penalty": 0,
+          "duplicate_label_collision_count_penalty": 0,
+          "edge_drop_count_penalty": 0,
+          "known_name_match_count": 4,
+          "known_name_miss_count_penalty": -8,
+          "predicate_hint_match_count": 3,
+          "predicate_hint_miss_count_penalty": -8,
+          "type_hint_match_count": 4,
+          "type_hint_mismatch_count_x2_penalty": 0,
+          "unsafe_cross_class_blocked_count_x3_penalty": 0
+        },
+        "score": -7
+      },
+      "node_packet": {
+        "components": {
+          "combat_encounter_match_count_x2": 0,
+          "combat_encounter_miss_count_x2_penalty": -2,
+          "conflicting_kind_collision_count_x2_penalty": 0,
+          "do_not_merge_collision_count_x3_penalty": 0,
+          "duplicate_label_collision_count_penalty": 0,
+          "edge_drop_count_penalty": 0,
+          "known_name_match_count": 5,
+          "known_name_miss_count_penalty": -7,
+          "predicate_hint_match_count": 2,
+          "predicate_hint_miss_count_penalty": -9,
+          "type_hint_match_count": 5,
+          "type_hint_mismatch_count_x2_penalty": 0,
+          "unsafe_cross_class_blocked_count_x3_penalty": 0
+        },
+        "score": -6
+      }
+    },
+    "summary": {
+      "combat_encounter_best_variant": "baseline",
+      "known_name_pickup_best_variant": "edge_and_node_packet",
+      "predicate_hint_best_variant": "edge_and_node_packet",
+      "safest_collision_variant": "baseline",
+      "score_note": "Heuristic review score; not benchmark truth."
+    },
+    "variant_order": [
+      "baseline",
+      "edge_packet",
+      "node_packet",
+      "edge_and_node_packet"
+    ],
+    "warnings": []
+  },
+  "generated_at": "2026-06-30T12:58:33Z",
+  "model_id": "gpt-5.4-mini",
+  "packet_id": "packet:vocab:4f671bfb39e9",
+  "partition": {
+    "absent_set": [
+      "Maelthor",
+      "The Shepherd",
+      "Shepherds",
+      "Under-Hymn Brood",
+      "Mireward Council"
+    ],
+    "present_set": [
+      "Mireward Reach",
+      "Lysandra",
+      "Lysandro",
+      "Orik Tane",
+      "Edge",
+      "North gate",
+      "First meat wave"
+    ]
+  },
+  "recommendation": "Do not promote edge_and_node_packet from this run: present-set recognition tied baseline, while the heuristic winner contaminated absent-set names. If continuing packet-assisted dogfood, use edge_packet as the clean comparison and keep baseline as the safety control.",
+  "report_path": "Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-C2S23-MIREWARD.md",
+  "schema": "dmb_vocabulary_ablation_dogfood_v1",
+  "scope": "c2s23-mireward",
+  "session_id": "session-23",
+  "source_files": [
+    "evals/graph_memory_layer/examples/session_23_recap_ingest/expected_normalized_recap.md"
+  ],
+  "source_span_count": 13,
+  "variant_setup": [
+    {
+      "absent_contaminated": [],
+      "combat_encounter_match_count": 0,
+      "contamination_count": 0,
+      "contamination_rate": 0.0,
+      "edge_count": 42,
+      "edge_predicates": {
+        "attacks": 6,
+        "carries": 1,
+        "commands": 3,
+        "contains": 2,
+        "displaced_from": 1,
+        "governs": 1,
+        "knows_about": 1,
+        "leads": 1,
+        "leads_to": 1,
+        "located_in": 1,
+        "member_of": 10,
+        "north_of": 1,
+        "part_of": 2,
+        "present_at": 1,
+        "refers_to": 3,
+        "sublocation_of": 1,
+        "threatens": 3,
+        "travels_to": 2,
+        "within": 1
+      },
+      "enable_edge_packet": false,
+      "enable_node_packet": false,
+      "known_name_pickup_rate": 0.333,
+      "node_count": 54,
+      "node_kinds": {
+        "actor": 11,
+        "collective": 8,
+        "object": 12,
+        "place": 13,
+        "thread": 10
+      },
+      "predicate_hint_match_count": 1,
+      "present_missed": [
+        "First meat wave",
+        "Lysandra",
+        "Lysandro"
+      ],
+      "present_recognized": [
+        "Edge",
+        "Mireward Reach",
+        "North gate",
+        "Orik Tane"
+      ],
+      "recognition_rate": 0.571,
+      "score": -12,
+      "total_cost_usd": 0.067708,
+      "unsafe_cross_class_blocked_count": 0,
+      "variant_name": "baseline"
+    },
+    {
+      "absent_contaminated": [],
+      "combat_encounter_match_count": 0,
+      "contamination_count": 0,
+      "contamination_rate": 0.0,
+      "edge_count": 38,
+      "edge_predicates": {
+        "attacks": 1,
+        "caused_by": 1,
+        "commands": 3,
+        "governs": 1,
+        "knows_about": 2,
+        "leads": 1,
+        "located_in": 5,
+        "member_of": 8,
+        "part_of": 1,
+        "participates_in": 2,
+        "pursues": 1,
+        "refers_to": 2,
+        "reports_threat_in": 1,
+        "routes_to": 1,
+        "same_as": 1,
+        "sublocation_of": 1,
+        "threatens": 2,
+        "travels_to": 2,
+        "within": 2
+      },
+      "enable_edge_packet": true,
+      "enable_node_packet": false,
+      "known_name_pickup_rate": 0.333,
+      "node_count": 43,
+      "node_kinds": {
+        "actor": 11,
+        "collective": 8,
+        "object": 11,
+        "place": 11,
+        "thread": 2
+      },
+      "predicate_hint_match_count": 3,
+      "present_missed": [
+        "First meat wave",
+        "Lysandra",
+        "Lysandro"
+      ],
+      "present_recognized": [
+        "Edge",
+        "Mireward Reach",
+        "North gate",
+        "Orik Tane"
+      ],
+      "recognition_rate": 0.571,
+      "score": -7,
+      "total_cost_usd": 0.045086,
+      "unsafe_cross_class_blocked_count": 0,
+      "variant_name": "edge_packet"
+    },
+    {
+      "absent_contaminated": [
+        "Mireward Council"
+      ],
+      "combat_encounter_match_count": 0,
+      "contamination_count": 1,
+      "contamination_rate": 0.2,
+      "edge_count": 35,
+      "edge_predicates": {
+        "attacks": 1,
+        "commands": 2,
+        "contains": 1,
+        "displaced_from": 1,
+        "governs": 2,
+        "identified_as": 1,
+        "knows_about": 2,
+        "leads_to": 1,
+        "located_in": 4,
+        "member_of": 8,
+        "part_of_group": 5,
+        "possesses": 1,
+        "refers_to": 2,
+        "same_as": 1,
+        "threatens": 1,
+        "travels_to": 2
+      },
+      "enable_edge_packet": false,
+      "enable_node_packet": true,
+      "known_name_pickup_rate": 0.417,
+      "node_count": 53,
+      "node_kinds": {
+        "actor": 18,
+        "collective": 5,
+        "object": 14,
+        "place": 9,
+        "thread": 7
+      },
+      "predicate_hint_match_count": 2,
+      "present_missed": [
+        "First meat wave",
+        "Lysandra",
+        "Lysandro"
+      ],
+      "present_recognized": [
+        "Edge",
+        "Mireward Reach",
+        "North gate",
+        "Orik Tane"
+      ],
+      "recognition_rate": 0.571,
+      "score": -6,
+      "total_cost_usd": 0.062285,
+      "unsafe_cross_class_blocked_count": 0,
+      "variant_name": "node_packet"
+    },
+    {
+      "absent_contaminated": [
+        "Mireward Council"
+      ],
+      "combat_encounter_match_count": 0,
+      "contamination_count": 1,
+      "contamination_rate": 0.2,
+      "edge_count": 38,
+      "edge_predicates": {
+        "attacks": 3,
+        "carries_report_to": 1,
+        "commands": 2,
+        "contains": 1,
+        "displaced_from": 1,
+        "governs": 1,
+        "holds": 1,
+        "leads": 1,
+        "leads_to": 1,
+        "located_in": 4,
+        "member_of": 8,
+        "owns": 5,
+        "present_at": 1,
+        "refers_to": 2,
+        "reports_threat_in": 1,
+        "routes_to": 1,
+        "threatens": 1,
+        "travels_to": 2,
+        "within": 1
+      },
+      "enable_edge_packet": true,
+      "enable_node_packet": true,
+      "known_name_pickup_rate": 0.417,
+      "node_count": 40,
+      "node_kinds": {
+        "actor": 12,
+        "collective": 4,
+        "object": 12,
+        "place": 11,
+        "thread": 1
+      },
+      "predicate_hint_match_count": 3,
+      "present_missed": [
+        "First meat wave",
+        "Lysandra",
+        "Lysandro"
+      ],
+      "present_recognized": [
+        "Edge",
+        "Mireward Reach",
+        "North gate",
+        "Orik Tane"
+      ],
+      "recognition_rate": 0.571,
+      "score": -4,
+      "total_cost_usd": 0.046924,
+      "unsafe_cross_class_blocked_count": 0,
+      "variant_name": "edge_and_node_packet"
+    }
+  ]
+}

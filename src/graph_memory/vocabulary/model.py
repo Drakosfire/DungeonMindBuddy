@@ -173,7 +173,7 @@ class EvidenceRef(_VocabularyModel):
     confidence: float | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.source_artifact_id, "source_artifact_id")
         if self.line_start is not None and self.line_end is not None and self.line_end < self.line_start:
             raise ValueError("line_end must be greater than or equal to line_start")
@@ -196,7 +196,7 @@ class SourceArtifactRef(_VocabularyModel):
     indexed_at: str | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.source_artifact_id, "source_artifact_id")
         _require_non_empty(self.scope, "scope")
         if self.scope != "global" and not (self.campaign_id or self.world_id):
@@ -217,7 +217,7 @@ class LexicalObservation(_VocabularyModel):
     confidence: float | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.observation_id, "observation_id")
         _require_non_empty(self.source_artifact_id, "source_artifact_id")
         _require_non_empty(self.surface_text, "surface_text")
@@ -250,7 +250,7 @@ class VocabularyEntry(_VocabularyModel):
     notes: str | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.vocab_id, "vocab_id")
         _require_non_empty(self.canonical_label, "canonical_label")
         _require_non_empty(self.scope, "scope")
@@ -288,7 +288,7 @@ class AliasCandidate(_VocabularyModel):
     risk_flags: list[RiskFlag] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.alias_candidate_id, "alias_candidate_id")
         _require_non_empty(self.left_surface, "left_surface")
         _require_non_empty(self.right_surface, "right_surface")
@@ -313,7 +313,7 @@ class DoNotMergeDecision(_VocabularyModel):
     reviewed_by: str | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.decision_id, "decision_id")
         _require_non_empty(self.left_vocab_id, "left_vocab_id")
         _require_non_empty(self.right_vocab_id, "right_vocab_id")
@@ -335,7 +335,7 @@ class ContainmentHint(_VocabularyModel):
     authority: AuthorityLabel | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.hint_id, "hint_id")
         _require_non_empty(self.child_label, "child_label")
         _require_non_empty(self.parent_label, "parent_label")
@@ -362,7 +362,7 @@ class ContextVocabularyPacket(_VocabularyModel):
     generated_at: str | None = None
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        _VocabularyModel.__post_init__(self)
         _require_non_empty(self.packet_id, "packet_id")
         _require_non_empty(self.scope, "scope")
         self.world_entry_refs = _dedupe_preserving_order(self.world_entry_refs)

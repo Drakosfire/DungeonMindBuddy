@@ -80,6 +80,27 @@ Completed notes:
 
 Milestone 4 is now complete enough to begin dogfood runs. Future PRs should use the comparison harness on reviewed campaign material and must clearly separate synthetic harness tests from observed model behavior.
 
+Milestone 4 follow-ups (captured 2026-06-30 after the first C2S23 recap dogfood):
+
+- [x] First dogfood run (C2S23 Mireward recap, four variants). Surfaced that the
+  recap bed cannot discriminate variants (structural pathologies ~0) and that a
+  gold-derived packet makes recall circular. See
+  `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-C2S23-MIREWARD.md`.
+- [x] Lock objective + falsification plan in
+  `Docs/Design/DESIGN-contextual-vocabulary-layer.md` (2026-06-30 addendum):
+  structural > generalization > safety; packets source-derived not gold-derived;
+  GO/kill thresholds.
+- [ ] Author candidate graph gold for **C1 Session 1** recap
+  (`Session 01 - Stonebridge and Glowkindle Rats`, `longmont-c1`) following the
+  S22/S23 fixture contract. Cross-campaign generalization bed with built-in
+  cross-class + containment probes.
+- [ ] Author candidate graph gold for a **worldbuilding doc** (Stonebridge hub),
+  with `world_reference` authority and evergreen relations — the world-authority
+  axis the recap beds cannot test.
+- [ ] Re-run the four-variant ablation on the expanded bed with a packet
+  compiled only from corpus/registries (never gold), and score against the
+  GO/kill criteria.
+
 ## Milestone 5 — Stable Global Node alignment
 
 - [ ] Design vocabulary-to-Stable-Global-Node alignment candidates.

@@ -1,0 +1,529 @@
+{
+  "beds": [
+    {
+      "bed_id": "c1s1-stonebridge",
+      "campaign_id": "longmont-c1",
+      "comparison": {
+        "baseline_variant_name": "baseline",
+        "best_variant": "node_packet",
+        "comparison_method": "vocabulary_ablation_comparison_v1",
+        "deltas_vs_baseline": {
+          "edge_and_node_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": 0,
+            "cross_class_blocked_count_delta": 2,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": 0,
+            "edge_drop_count_delta": 5,
+            "known_name_match_count_delta": 1,
+            "known_name_miss_count_delta": -1,
+            "known_name_pickup_rate_delta": 0.08400000000000007,
+            "predicate_hint_match_count_delta": 4,
+            "predicate_hint_miss_count_delta": -4,
+            "type_hint_match_count_delta": 1,
+            "type_hint_mismatch_count_delta": 0,
+            "unsafe_cross_class_blocked_count_delta": 2
+          },
+          "edge_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": 1,
+            "cross_class_blocked_count_delta": 1,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": 1,
+            "edge_drop_count_delta": -1,
+            "known_name_match_count_delta": 0,
+            "known_name_miss_count_delta": 0,
+            "known_name_pickup_rate_delta": 0.0,
+            "predicate_hint_match_count_delta": 2,
+            "predicate_hint_miss_count_delta": -2,
+            "type_hint_match_count_delta": 0,
+            "type_hint_mismatch_count_delta": 0,
+            "unsafe_cross_class_blocked_count_delta": 1
+          },
+          "node_packet": {
+            "combat_encounter_match_count_delta": 0,
+            "combat_encounter_miss_count_delta": 0,
+            "conflicting_kind_collision_count_delta": -1,
+            "cross_class_blocked_count_delta": -1,
+            "do_not_merge_collision_count_delta": 0,
+            "duplicate_label_collision_count_delta": -1,
+            "edge_drop_count_delta": -1,
+            "known_name_match_count_delta": 1,
+            "known_name_miss_count_delta": -1,
+            "known_name_pickup_rate_delta": 0.08400000000000007,
+            "predicate_hint_match_count_delta": 0,
+            "predicate_hint_miss_count_delta": 0,
+            "type_hint_match_count_delta": 1,
+            "type_hint_mismatch_count_delta": 0,
+            "unsafe_cross_class_blocked_count_delta": -1
+          }
+        },
+        "metrics_by_variant": {
+          "baseline": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 5,
+            "cross_class_blocked_count": 5,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 5,
+            "edge_drop_count": 2,
+            "edge_drop_reasons": {
+              "missing_endpoint": 2
+            },
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 2,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 7,
+            "known_name_miss_count": 5,
+            "known_name_pickup_rate": 0.583,
+            "predicate_hint_match_count": 0,
+            "predicate_hint_miss_count": 10,
+            "type_hint_match_count": 6,
+            "type_hint_mismatch_count": 0,
+            "type_hint_missing_count": 5,
+            "unsafe_cross_class_blocked_count": 5
+          },
+          "edge_and_node_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 5,
+            "cross_class_blocked_count": 7,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 5,
+            "edge_drop_count": 7,
+            "edge_drop_reasons": {
+              "missing_endpoint": 7
+            },
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 7,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 8,
+            "known_name_miss_count": 4,
+            "known_name_pickup_rate": 0.667,
+            "predicate_hint_match_count": 4,
+            "predicate_hint_miss_count": 6,
+            "type_hint_match_count": 7,
+            "type_hint_mismatch_count": 0,
+            "type_hint_missing_count": 4,
+            "unsafe_cross_class_blocked_count": 7
+          },
+          "edge_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 6,
+            "cross_class_blocked_count": 6,
+            "cross_class_merged_count": 0,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 6,
+            "edge_drop_count": 1,
+            "edge_drop_reasons": {
+              "missing_endpoint": 1
+            },
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 1,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 7,
+            "known_name_miss_count": 5,
+            "known_name_pickup_rate": 0.583,
+            "predicate_hint_match_count": 2,
+            "predicate_hint_miss_count": 8,
+            "type_hint_match_count": 6,
+            "type_hint_mismatch_count": 0,
+            "type_hint_missing_count": 5,
+            "unsafe_cross_class_blocked_count": 6
+          },
+          "node_packet": {
+            "combat_encounter_match_count": 0,
+            "combat_encounter_miss_count": 0,
+            "conflicting_kind_collision_count": 4,
+            "cross_class_blocked_count": 4,
+            "cross_class_merged_count": 1,
+            "do_not_merge_collision_count": 0,
+            "duplicate_label_collision_count": 4,
+            "edge_drop_count": 1,
+            "edge_drop_reasons": {
+              "missing_endpoint": 1
+            },
+            "edge_predicate_issue_count": 0,
+            "endpoint_binding_failure_count": 1,
+            "endpoint_binding_success_count": 0,
+            "known_name_match_count": 8,
+            "known_name_miss_count": 4,
+            "known_name_pickup_rate": 0.667,
+            "predicate_hint_match_count": 0,
+            "predicate_hint_miss_count": 10,
+            "type_hint_match_count": 7,
+            "type_hint_mismatch_count": 0,
+            "type_hint_missing_count": 4,
+            "unsafe_cross_class_blocked_count": 4
+          }
+        },
+        "packet_id": "packet:vocab:8a7c6a045ddb",
+        "scope": "campaign",
+        "scores_by_variant": {
+          "baseline": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -10,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -5,
+              "edge_drop_count_penalty": -2,
+              "known_name_match_count": 7,
+              "known_name_miss_count_penalty": -5,
+              "predicate_hint_match_count": 0,
+              "predicate_hint_miss_count_penalty": -10,
+              "type_hint_match_count": 6,
+              "type_hint_mismatch_count_x2_penalty": 0,
+              "unsafe_cross_class_blocked_count_x3_penalty": -15
+            },
+            "score": -34
+          },
+          "edge_and_node_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -10,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -5,
+              "edge_drop_count_penalty": -7,
+              "known_name_match_count": 8,
+              "known_name_miss_count_penalty": -4,
+              "predicate_hint_match_count": 4,
+              "predicate_hint_miss_count_penalty": -6,
+              "type_hint_match_count": 7,
+              "type_hint_mismatch_count_x2_penalty": 0,
+              "unsafe_cross_class_blocked_count_x3_penalty": -21
+            },
+            "score": -34
+          },
+          "edge_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -12,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -6,
+              "edge_drop_count_penalty": -1,
+              "known_name_match_count": 7,
+              "known_name_miss_count_penalty": -5,
+              "predicate_hint_match_count": 2,
+              "predicate_hint_miss_count_penalty": -8,
+              "type_hint_match_count": 6,
+              "type_hint_mismatch_count_x2_penalty": 0,
+              "unsafe_cross_class_blocked_count_x3_penalty": -18
+            },
+            "score": -35
+          },
+          "node_packet": {
+            "components": {
+              "combat_encounter_match_count_x2": 0,
+              "combat_encounter_miss_count_x2_penalty": 0,
+              "conflicting_kind_collision_count_x2_penalty": -8,
+              "do_not_merge_collision_count_x3_penalty": 0,
+              "duplicate_label_collision_count_penalty": -4,
+              "edge_drop_count_penalty": -1,
+              "known_name_match_count": 8,
+              "known_name_miss_count_penalty": -4,
+              "predicate_hint_match_count": 0,
+              "predicate_hint_miss_count_penalty": -10,
+              "type_hint_match_count": 7,
+              "type_hint_mismatch_count_x2_penalty": 0,
+              "unsafe_cross_class_blocked_count_x3_penalty": -12
+            },
+            "score": -24
+          }
+        },
+        "summary": {
+          "combat_encounter_best_variant": "baseline",
+          "known_name_pickup_best_variant": "edge_and_node_packet",
+          "predicate_hint_best_variant": "edge_and_node_packet",
+          "safest_collision_variant": "node_packet",
+          "score_note": "Heuristic review score; not benchmark truth."
+        },
+        "variant_order": [
+          "baseline",
+          "edge_packet",
+          "node_packet",
+          "edge_and_node_packet"
+        ],
+        "warnings": [
+          "edge_packet: unsafe cross-class collision regression vs baseline",
+          "edge_packet: collision regression vs baseline",
+          "edge_and_node_packet: unsafe cross-class collision regression vs baseline"
+        ]
+      },
+      "go_criteria": {
+        "GO-1": true,
+        "GO-2": true,
+        "GO-3": false,
+        "GO-4": true,
+        "GO-5": true,
+        "best_clean_variant": "node_packet",
+        "newly_matched_gold_nodes_not_in_packet": [
+          "the cat owl"
+        ]
+      },
+      "gold_fixture_id": "graph-memory:session-1-candidate-graph-gold:v0",
+      "gold_scores_by_variant": {
+        "baseline": {
+          "edge_recall": 0.2917,
+          "node_recall": 0.7692
+        },
+        "edge_and_node_packet": {
+          "edge_recall": 0.2917,
+          "node_recall": 0.6923
+        },
+        "edge_packet": {
+          "edge_recall": 0.3333,
+          "node_recall": 0.7308
+        },
+        "node_packet": {
+          "edge_recall": 0.2917,
+          "node_recall": 0.7308
+        }
+      },
+      "packet_id": "packet:vocab:8a7c6a045ddb",
+      "partition": {
+        "absent_set": [
+          "Captain Lysandra Ironveil",
+          "Mireward Reach",
+          "The Shepherd",
+          "Torbin Jove"
+        ],
+        "present_set": [
+          "Stone Bridge",
+          "Glowkindle",
+          "Grishna",
+          "Wizard's Tower Brewing Co",
+          "The River's Edge Pub",
+          "Karsemine",
+          "Bonogo"
+        ]
+      },
+      "recommendation": "Prefer node_packet for further dogfood.",
+      "session_id": "session-1",
+      "session_number": 1,
+      "source_files": [
+        "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_normalized_recap.md"
+      ],
+      "source_span_count": 8,
+      "variant_setup": [
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 5,
+          "edge_count": 28,
+          "edge_drop_count": 2,
+          "edge_predicates": {
+            "attacks": 1,
+            "belongs_to": 1,
+            "caused_by": 1,
+            "contains": 3,
+            "holds": 2,
+            "leads_to": 2,
+            "located_in": 2,
+            "member_of": 7,
+            "mission_targets": 1,
+            "part_of": 1,
+            "same_as": 3,
+            "serves": 1,
+            "within": 3
+          },
+          "enable_edge_packet": false,
+          "enable_node_packet": false,
+          "known_name_pickup_rate": 0.583,
+          "node_count": 47,
+          "node_kinds": {
+            "actor": 10,
+            "collective": 11,
+            "object": 10,
+            "place": 11,
+            "thread": 5
+          },
+          "predicate_hint_match_count": 0,
+          "present_missed": [
+            "Wizard's Tower Brewing Co"
+          ],
+          "present_recognized": [
+            "Bonogo",
+            "Glowkindle",
+            "Grishna",
+            "Karsemine",
+            "Stone Bridge",
+            "The River's Edge Pub"
+          ],
+          "recognition_rate": 0.857,
+          "score": -34,
+          "total_cost_usd": 0.046659,
+          "unsafe_cross_class_blocked_count": 5,
+          "variant_name": "baseline"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 6,
+          "edge_count": 34,
+          "edge_drop_count": 1,
+          "edge_predicates": {
+            "attacks": 2,
+            "belongs_to": 1,
+            "caused_by": 1,
+            "contains": 1,
+            "governs": 2,
+            "identified_as": 1,
+            "knows_about": 1,
+            "leads_to": 1,
+            "located_in": 8,
+            "member_of": 7,
+            "near": 1,
+            "part_of": 1,
+            "path_to": 1,
+            "present_at": 1,
+            "reports_to": 1,
+            "same_as": 2,
+            "threatens": 1,
+            "within": 1
+          },
+          "enable_edge_packet": true,
+          "enable_node_packet": false,
+          "known_name_pickup_rate": 0.583,
+          "node_count": 52,
+          "node_kinds": {
+            "actor": 10,
+            "collective": 9,
+            "object": 16,
+            "place": 10,
+            "thread": 7
+          },
+          "predicate_hint_match_count": 2,
+          "present_missed": [
+            "Wizard's Tower Brewing Co"
+          ],
+          "present_recognized": [
+            "Bonogo",
+            "Glowkindle",
+            "Grishna",
+            "Karsemine",
+            "Stone Bridge",
+            "The River's Edge Pub"
+          ],
+          "recognition_rate": 0.857,
+          "score": -35,
+          "total_cost_usd": 0.043816,
+          "unsafe_cross_class_blocked_count": 6,
+          "variant_name": "edge_packet"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 4,
+          "edge_count": 27,
+          "edge_drop_count": 1,
+          "edge_predicates": {
+            "attacks": 1,
+            "carries_report_to": 1,
+            "caused_by": 1,
+            "contains": 6,
+            "identified_as": 2,
+            "leads": 2,
+            "leads_to": 1,
+            "member_of": 6,
+            "mission_targets": 1,
+            "near": 1,
+            "owns": 1,
+            "path_to": 1,
+            "serves": 1,
+            "within": 2
+          },
+          "enable_edge_packet": false,
+          "enable_node_packet": true,
+          "known_name_pickup_rate": 0.667,
+          "node_count": 46,
+          "node_kinds": {
+            "actor": 9,
+            "collective": 9,
+            "object": 14,
+            "place": 7,
+            "thread": 7
+          },
+          "predicate_hint_match_count": 0,
+          "present_missed": [],
+          "present_recognized": [
+            "Bonogo",
+            "Glowkindle",
+            "Grishna",
+            "Karsemine",
+            "Stone Bridge",
+            "The River's Edge Pub",
+            "Wizard's Tower Brewing Co"
+          ],
+          "recognition_rate": 1.0,
+          "score": -24,
+          "total_cost_usd": 0.042675,
+          "unsafe_cross_class_blocked_count": 4,
+          "variant_name": "node_packet"
+        },
+        {
+          "absent_contaminated": [],
+          "contamination_count": 0,
+          "contamination_rate": 0.0,
+          "duplicate_label_collision_count": 5,
+          "edge_count": 25,
+          "edge_drop_count": 7,
+          "edge_predicates": {
+            "associated_with": 1,
+            "attacks": 1,
+            "governs": 1,
+            "located_in": 7,
+            "member_of": 6,
+            "part_of": 1,
+            "part_of_group": 1,
+            "participates_in": 3,
+            "present_at": 2,
+            "same_as": 2
+          },
+          "enable_edge_packet": true,
+          "enable_node_packet": true,
+          "known_name_pickup_rate": 0.667,
+          "node_count": 47,
+          "node_kinds": {
+            "actor": 11,
+            "collective": 8,
+            "object": 18,
+            "place": 5,
+            "thread": 5
+          },
+          "predicate_hint_match_count": 4,
+          "present_missed": [],
+          "present_recognized": [
+            "Bonogo",
+            "Glowkindle",
+            "Grishna",
+            "Karsemine",
+            "Stone Bridge",
+            "The River's Edge Pub",
+            "Wizard's Tower Brewing Co"
+          ],
+          "recognition_rate": 1.0,
+          "score": -34,
+          "total_cost_usd": 0.042651,
+          "unsafe_cross_class_blocked_count": 7,
+          "variant_name": "edge_and_node_packet"
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-06-30T20:19:17Z",
+  "model_id": "gpt-5.4-mini",
+  "report_path": "Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md",
+  "schema": "dmb_vocabulary_ablation_dogfood_v1",
+  "scope": "expanded-beds"
+}

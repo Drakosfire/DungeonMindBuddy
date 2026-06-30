@@ -34,9 +34,11 @@ from apps.live_control_server.services.graph_gold_review import (
     GoldReviewEvidenceDiffResponse,
     GoldReviewSessionsResponse,
     GraphGoldReviewError,
+    VocabularyAblationDogfoodResponse,
     build_gold_review_evidence_diff,
     compare_gold_review,
     discover_gold_review_sessions,
+    load_vocabulary_ablation_dogfood,
 )
 from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRegistryError,
@@ -251,6 +253,22 @@ def get_gold_review_evidence(
             object_kind=object_kind,
             object_id=object_id,
             manifest_path=manifest_path,
+            root=repo_root(),
+        )
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/gold-review/vocabulary-ablation", response_model=VocabularyAblationDogfoodResponse)
+def get_gold_review_vocabulary_ablation(
+    campaign_id: Annotated[str, Query()],
+    session_id: Annotated[str, Query()],
+) -> dict[str, Any]:
+    try:
+        response = load_vocabulary_ablation_dogfood(
+            campaign_id=campaign_id,
+            session_id=session_id,
             root=repo_root(),
         )
     except GraphGoldReviewError as exc:

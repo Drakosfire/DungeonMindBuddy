@@ -60,6 +60,7 @@ import type {
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
+  VocabularyAblationDogfoodResponse,
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
@@ -315,6 +316,23 @@ export async function getGoldReviewEvidence(
   if (query.manifestPath) params.set("manifest_path", query.manifestPath);
   return apiFetch<GoldReviewEvidenceDiffResponse>(
     `/api/live/graph-preview/gold-review/evidence?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewVocabularyAblationQuery {
+  campaignId: string;
+  sessionId: string;
+}
+
+export async function getGoldReviewVocabularyAblation(
+  query: GoldReviewVocabularyAblationQuery,
+): Promise<VocabularyAblationDogfoodResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  return apiFetch<VocabularyAblationDogfoodResponse>(
+    `/api/live/graph-preview/gold-review/vocabulary-ablation?${params.toString()}`,
   );
 }
 

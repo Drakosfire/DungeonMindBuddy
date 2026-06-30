@@ -1,0 +1,70 @@
+{
+  "schema": "dmb_session_1_recap_paragraph_index_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-1-recap-ingest:v0",
+  "source_path": "evals/c1_live_prep/live/session_1/session_1_raw_recap.md",
+  "session": 1,
+  "title_line_stripped": true,
+  "paragraph_count_in": 8,
+  "paragraph_count_out": 8,
+  "duplicates_detected": 0,
+  "duplicates_removed": 0,
+  "paragraphs": [
+    {
+      "paragraph_id": "s1-p001",
+      "source_line_start": 3,
+      "source_line_end": 3,
+      "normalized_index": 1,
+      "preview": "After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caely..."
+    },
+    {
+      "paragraph_id": "s1-p002",
+      "source_line_start": 5,
+      "source_line_end": 5,
+      "normalized_index": 2,
+      "preview": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern..."
+    },
+    {
+      "paragraph_id": "s1-p003",
+      "source_line_start": 7,
+      "source_line_end": 7,
+      "normalized_index": 3,
+      "preview": "While doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's..."
+    },
+    {
+      "paragraph_id": "s1-p004",
+      "source_line_start": 9,
+      "source_line_end": 9,
+      "normalized_index": 4,
+      "preview": "Grishna was true to her word, the directions were sound. There was a clear trail along the river to an enormous boulder.  As the group approached it resolved..."
+    },
+    {
+      "paragraph_id": "s1-p005",
+      "source_line_start": 11,
+      "source_line_end": 11,
+      "normalized_index": 5,
+      "preview": "Another few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company.  Bustling with activity, and smelling of brew..."
+    },
+    {
+      "paragraph_id": "s1-p006",
+      "source_line_start": 13,
+      "source_line_end": 13,
+      "normalized_index": 6,
+      "preview": "Within they met Glowkindle who told them, a bit about the issue at hand. Giant rats had assaulted his excavation crew after they broke through a wall expandi..."
+    },
+    {
+      "paragraph_id": "s1-p007",
+      "source_line_start": 15,
+      "source_line_end": 15,
+      "normalized_index": 7,
+      "preview": "A fine first combat to bring the team together!"
+    },
+    {
+      "paragraph_id": "s1-p008",
+      "source_line_start": 17,
+      "source_line_end": 17,
+      "normalized_index": 8,
+      "preview": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wis..."
+    }
+  ]
+}
