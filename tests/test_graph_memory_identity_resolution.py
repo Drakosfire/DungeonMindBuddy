@@ -47,6 +47,10 @@ def test_normalize_label_strips_articles_and_honorifics():
 
 
 # --------------------------------------------------------------------------- #
+# Comparator matching behavior
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
 # Node matching
 # --------------------------------------------------------------------------- #
 
@@ -246,6 +250,10 @@ def test_parent_of_vs_recognizes_classified_as_family_mismatch():
     assert diagnosis["best_score"] == ir.edge_match_score(gold, cand, gi, ci)
 
 
+# --------------------------------------------------------------------------- #
+# Production / intra-graph dedup behavior
+# --------------------------------------------------------------------------- #
+
 def test_dedup_nodes_collapses_same_canonical_key():
     nodes = [
         _node("a", "Mirathorn", "location"),
@@ -258,7 +266,7 @@ def test_dedup_nodes_collapses_same_canonical_key():
 
 
 # --------------------------------------------------------------------------- #
-# Cross-class exact-label reconciliation
+# Cross-class reconciliation safety policy
 # --------------------------------------------------------------------------- #
 
 def test_cross_class_merge_collapses_place_and_polity():
@@ -280,6 +288,7 @@ def test_cross_class_merge_collapses_place_and_polity():
         ("loc_edge", "org_edge"),
         ("loc_mireward_reach", "org_mireward_reach"),
     ]
+    assert result["blocked"] == []
 
 
 def test_cross_class_merge_leaves_distinct_labels_untouched():
@@ -294,6 +303,7 @@ def test_cross_class_merge_leaves_distinct_labels_untouched():
     assert len(result["kept"]) == 4
     assert result["remap"] == {}
     assert result["merged"] == []
+    assert result["blocked"] == []
 
 
 def test_cross_class_merge_keeps_same_class_residue_for_dedup():
@@ -305,6 +315,51 @@ def test_cross_class_merge_keeps_same_class_residue_for_dedup():
     result = ir.reconcile_cross_class_label_collisions(nodes)
     assert len(result["kept"]) == 2
     assert result["merged"] == []
+    assert result["blocked"] == []
+
+
+def test_cross_class_actor_collective_collision_is_blocked():
+    nodes = [
+        _node("actor:the-shepherd", "The Shepherd", "character", spans=[(10, 10)]),
+        _node("faction:the-shepherd", "The Shepherd", "faction", spans=[(20, 20)]),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    assert {n["node_id"] for n in result["kept"]} == {
+        "actor:the-shepherd",
+        "faction:the-shepherd",
+    }
+    assert result["merged"] == []
+    assert result["remap"] == {}
+    assert result["blocked"] == [
+        {
+            "label": "shepherd",
+            "node_ids": ["actor:the-shepherd", "faction:the-shepherd"],
+            "classes": ["actor", "collective"],
+            "reason": "unsafe_cross_class_exact_label",
+        }
+    ]
+
+
+def test_blocked_cross_class_collision_does_not_rewrite_edge_endpoints():
+    nodes = [
+        _node("actor:the-shepherd", "The Shepherd", "character"),
+        _node("faction:the-shepherd", "The Shepherd", "faction"),
+    ]
+    edges = [
+        {
+            "edge_id": "e1",
+            "from_node_id": "actor:the-shepherd",
+            "to_node_id": "faction:the-shepherd",
+            "relationship_type": "associated_with",
+        }
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes, edges)
+    assert result["merged"] == []
+    assert result["remap"] == {}
+    assert result["blocked"][0]["classes"] == ["actor", "collective"]
+    assert result["edges"] == edges
+    assert result["edges"][0]["from_node_id"] == "actor:the-shepherd"
+    assert result["edges"][0]["to_node_id"] == "faction:the-shepherd"
 
 
 def test_cross_class_merge_rewrites_edge_endpoints():
@@ -319,6 +374,7 @@ def test_cross_class_merge_rewrites_edge_endpoints():
     ]
     result = ir.reconcile_cross_class_label_collisions(nodes, edges)
     assert result["remap"] == {"org_mireward_reach": "loc_mireward_reach"}
+    assert result["blocked"] == []
     rewritten = {e["edge_id"]: e for e in result["edges"]}
     # e1 endpoint remapped to the survivor
     assert rewritten["e1"]["to_node_id"] == "loc_mireward_reach"
@@ -332,6 +388,7 @@ def test_cross_class_merge_unions_evidence_refs_onto_survivor():
         _node("org_reach", "Mireward Reach", "organization", spans=[(40, 41)]),
     ]
     result = ir.reconcile_cross_class_label_collisions(nodes)
+    assert result["blocked"] == []
     survivor = next(n for n in result["kept"] if n["node_id"] == "loc_reach")
     spans = ir.evidence_line_spans(survivor)
     assert (10, 12) in spans and (40, 41) in spans

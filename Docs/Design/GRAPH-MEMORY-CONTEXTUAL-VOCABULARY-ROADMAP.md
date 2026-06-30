@@ -1,0 +1,45 @@
+# Graph Memory Contextual Vocabulary Roadmap
+
+Status: active roadmap checklist  
+Branch anchor: `experiment/ontology-taxonomy-ladder`
+
+## Rule for future handoffs
+
+Every PR handoff in this workstream must update this checklist.
+
+Each update should mark completed items, add newly discovered follow-ups, and preserve deferred decisions. Do not silently remove unfinished work.
+
+## Milestone 1 — Identity safety and observability
+
+- [x] PR 0 — Narrow cross-class reconciliation safety policy.
+- [x] Add blocked exact-label collision diagnostics.
+- [x] Document comparator-vs-production dedup test naming.
+- [ ] Inventory benchmark fixture authority classes.
+
+## Milestone 2 — Vocabulary substrate
+
+- [ ] Add `src/graph_memory/vocabulary/` contract skeleton.
+- [ ] Add storage-agnostic DTOs for vocabulary entries, observations, aliases, do-not-merge decisions, containment hints, and context packets.
+- [ ] Add deterministic vocabulary contract fixtures.
+- [ ] Add graph-ingest artifact seam for vocabulary artifacts.
+
+## Milestone 3 — Ingestion vocabulary evidence
+
+- [ ] Add lexical observation pass from source spans.
+- [ ] Emit vocabulary diagnostics without mutating corpus.
+- [ ] Compile separate world and campaign vocabulary seed artifacts.
+- [ ] Render scoped context vocabulary packets.
+
+## Milestone 4 — Extraction ablations
+
+- [ ] Run post-extraction vocabulary diagnostics baseline.
+- [ ] Run edge-pass vocabulary packet ablation.
+- [ ] Run node-pass vocabulary packet ablation.
+- [ ] Compare endpoint binding, edge miss reasons, cross-class collisions, unsafe collision count, and combat encounter pickup.
+
+## Milestone 5 — Stable Global Node alignment
+
+- [ ] Design vocabulary-to-Stable-Global-Node alignment candidates.
+- [ ] Add merge-blocked and needs-review diagnostics.
+- [ ] Connect vocabulary diagnostics to union-supergraph reconciliation.
+- [ ] Defer review UI until artifact evidence proves the workflow.
