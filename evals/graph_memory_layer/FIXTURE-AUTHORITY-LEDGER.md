@@ -19,6 +19,7 @@ Purpose: classify graph-memory and adjacent benchmark fixtures by what they can 
 | `static_review_fixture` | no | Static UI/report artifact for human review or contract illustration. | Review, screenshots, report formatting, and UX communication. | Extraction, retrieval, or classifier scoring authority. |
 | `generated_run_artifact` | no | Output produced by a runner, dogfood import, or local/runtime execution. | Debugging, reproducibility traces, and provenance review. | Gold authority unless separately accepted and ledgered. |
 | `unknown_needs_inspection` | no | Purpose or shape is not yet established. | Discovery only; inspect before use. | Any benchmark score, architecture claim, or canon/projection assertion. |
+| `vocabulary_contract_fixture` | no | Hand-authored JSON examples for vocabulary contract shape and round-trip tests. | Contract validation, example payloads, and future schema/export reference. | Candidate graph scoring, canon memory, projection gold, prompt input authority, or Stable Global Node truth. |
 
 ## Candidate graph extraction gold
 
@@ -80,6 +81,12 @@ Purpose: classify graph-memory and adjacent benchmark fixtures by what they can 
 | `evals/c2_live_prep/benchmarks/c2s23_hub_world_query_gold.json` | Longmont C2 S23 prep | `retrieval_gold` | no | Hub/world query admission gold for dogfood-full manifest checks. | Candidate graph extraction scoring. | Evaluator-only query/admission fixture. |
 | `evals/c2_live_prep/gold/session_22_live_turn_classifier.json` | Longmont C2 S22 | `classifier_gold` | no | Expected live-turn classifier routes for reconstructed GM utterances. | Candidate graph, projection, or retrieval gold. | Found in adjacent `gold/`, not under `benchmarks/`. |
 | `evals/c2_live_prep/benchmarks/` | Longmont C2 live prep | `retrieval_gold` | no | Query/admission benchmark surfaces for C2 live prep. | Candidate graph extraction scoring. | Directory exists; individual files may include manifests, seeds, templates, and reports with lower authority than gold JSONs. |
+
+## Vocabulary contract fixtures
+
+| Path | Session/campaign | Authority class | Candidate graph comparison? | Proves | Must not be used for | Notes |
+|---|---|---|---:|---|---|---|
+| `evals/graph_memory_layer/examples/vocabulary_contract_fixtures/` | fixture-only | `vocabulary_contract_fixture` | no | Vocabulary DTO JSON shape, validation, and round-trip contract examples. | Candidate graph extraction scoring, canon promotion, projection gold, or Stable Global Node truth. | Hand-authored deterministic fixtures; not generated output and not corpus-derived. |
 
 ## Static review fixtures
 

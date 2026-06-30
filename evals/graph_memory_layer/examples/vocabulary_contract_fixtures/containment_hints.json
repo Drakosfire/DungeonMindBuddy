@@ -1,0 +1,3 @@
+[
+  {"hint_id":"contain:fixture:north-gate-mireward","child_label":"North Gate","parent_label":"Mireward","child_vocab_id":null,"parent_vocab_id":"vocab:fixture:mireward-place","relationship_type":"contained_in","confidence":0.85,"status":"candidate","evidence_refs":[{"source_artifact_id":"artifact:vocab-fixture-session-recap","source_span_ref_id":"span:vocab-fixture:002","quote":"The north gate defense became the central fight.","line_start":20,"line_end":21,"confidence":0.85}],"authority":"manual_seed"}
+]

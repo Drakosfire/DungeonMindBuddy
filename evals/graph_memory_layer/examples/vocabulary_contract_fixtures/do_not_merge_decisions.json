@@ -1,0 +1,3 @@
+[
+  {"decision_id":"dnm:fixture:mireward-place-polity","left_vocab_id":"vocab:fixture:mireward-place","right_vocab_id":"vocab:fixture:mireward-polity","status":"needs_review","source":"hand_authored_contract_fixture","reason":"Fixture demonstrates generated warning state for eponymous place versus leadership body.","evidence_refs":[],"created_by":"fixture_author","reviewed_by":null}
+]

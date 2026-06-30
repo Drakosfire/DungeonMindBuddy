@@ -1,0 +1,4 @@
+[
+  {"source_artifact_id":"artifact:vocab-fixture-world-reference","source_domain":"worldbuilding","scope":"world","campaign_id":null,"world_id":"world:fixture-mirathorn","session_id":null,"uri":"fixture://vocabulary/world-reference","content_hash":"sha256:fixture-world-reference","document_class":"contract_fixture","subject_class":"world_reference","authority":"manual_seed","indexed_at":"2026-06-30T00:00:00Z"},
+  {"source_artifact_id":"artifact:vocab-fixture-session-recap","source_domain":"recap","scope":"campaign","campaign_id":"campaign:fixture-longmont-c2","world_id":"world:fixture-mirathorn","session_id":"session:fixture-23","uri":"fixture://vocabulary/session-recap","content_hash":"sha256:fixture-session-recap","document_class":"contract_fixture","subject_class":"session_recap","authority":"manual_seed","indexed_at":"2026-06-30T00:00:00Z"}
+]
