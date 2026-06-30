@@ -1,3 +1,10 @@
+from .extraction_diagnostics import (
+    ExtractedVocabularyEdge,
+    ExtractedVocabularyNode,
+    VocabularyExtractionDiagnosticsResult,
+    diagnose_vocabulary_extraction_baseline,
+    vocabulary_extraction_diagnostics_to_payload,
+)
 from .artifact import (
     VocabularyArtifactBundle,
     VocabularyArtifactManifest,
@@ -47,6 +54,11 @@ from .model import (
 )
 
 __all__ = [
+    "vocabulary_extraction_diagnostics_to_payload",
+    "diagnose_vocabulary_extraction_baseline",
+    "VocabularyExtractionDiagnosticsResult",
+    "ExtractedVocabularyNode",
+    "ExtractedVocabularyEdge",
     "VocabularyArtifactBundle",
     "VocabularyArtifactManifest",
     "VocabularyArtifactManifestFile",
