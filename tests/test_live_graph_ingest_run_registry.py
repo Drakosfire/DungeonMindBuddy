@@ -262,3 +262,195 @@ def test_build_recap_graph_preview_bundle_unknown_profile_fails_closed(
         )
 
     assert not list((tmp_path / "out/graph_memory/runs").glob("**/candidate_graph.json"))
+
+
+def _service_fake_runner_with_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    actual_runner = ingest_service.run_graph_preview_extraction
+    calls: list[GraphPreviewRunnerOptions] = []
+
+    def fake_runner(options: GraphPreviewRunnerOptions):
+        calls.append(options)
+        candidate = tmp_path / "service_fake_candidate.json"
+        candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        return actual_runner(
+            GraphPreviewRunnerOptions(
+                campaign_id=options.campaign_id,
+                session_id=options.session_id,
+                normalized_recap_path=options.normalized_recap_path,
+                output_dir=options.output_dir,
+                source_label=options.source_label,
+                model_id=options.model_id,
+                allow_llm=False,
+                comparison_mode=options.comparison_mode,
+                candidate_graph_path=candidate,
+                input_path_record=options.input_path_record,
+                graph_extraction_profile=options.graph_extraction_profile,
+            )
+        )
+
+    monkeypatch.setattr(ingest_service, "run_graph_preview_extraction", fake_runner)
+    return ingest_service, calls
+
+
+def _profiled_candidate_ready_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    output_dir: str,
+    *,
+    graph_extraction_profile: str | None = None,
+):
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / f"{output_dir.replace('/', '_')}_recap.md"
+    candidate = tmp_path / f"{output_dir.replace('/', '_')}_candidate.json"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path(output_dir),
+            candidate_graph_path=candidate,
+            graph_extraction_profile=graph_extraction_profile,
+            input_path_record=source.relative_to(tmp_path).as_posix(),
+        )
+    )
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    return result, source
+
+
+def test_build_recap_graph_preview_bundle_skips_mismatched_profile_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/default_profile"
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    assert calls[0].graph_extraction_profile == "category_encounter_job_preview"
+    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert status["graph_extraction_profile"] == "category_encounter_job_preview"
+
+
+def test_build_recap_graph_preview_bundle_reuses_matching_profile_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/encounter_profile",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls == []
+    assert status["manifest_path"] == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert status["graph_extraction_profile"] == "category_encounter_job_preview"
+
+
+def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/legacy_profile"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    manifest["diagnostics"].pop("graph_extraction_profile", None)
+    manifest["diagnostics"].pop("graph_extraction_profile_options", None)
+    old_result.manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    default_status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+    )
+    assert calls == []
+    assert default_status["manifest_path"] == old_result.manifest_path.relative_to(tmp_path).as_posix()
+
+    encounter_status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    assert calls
+    assert encounter_status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert encounter_status["graph_extraction_profile"] == "category_encounter_job_preview"
+
+
+def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/existing_candidate"
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    explicit_candidate = tmp_path / "explicit_candidate.json"
+    explicit_candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        candidate_graph_path=explicit_candidate.relative_to(tmp_path).as_posix(),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    assert calls[0].candidate_graph_path == explicit_candidate.resolve()
+    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert status["graph_extraction_profile"] == "category_encounter_job_preview"
+
+
+def test_build_recap_graph_preview_bundle_force_graph_run_ignores_matching_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/force_existing",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert status["graph_extraction_profile"] == "category_encounter_job_preview"

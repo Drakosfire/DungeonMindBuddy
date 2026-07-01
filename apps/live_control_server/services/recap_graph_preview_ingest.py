@@ -15,6 +15,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
 )
 from evals.graph_memory_layer.graph_preview_runner import (
     GraphPreviewRunnerOptions,
+    normalize_graph_extraction_profile,
     run_graph_preview_extraction,
 )
 from graph_memory.ingestion.graph_ingest_run import (
@@ -81,6 +82,8 @@ def build_recap_graph_preview_bundle(
         else None
     )
     _reject_forbidden_candidate(candidate)
+    requested_profile = normalize_graph_extraction_profile(graph_extraction_profile)
+    profile_sensitive_reuse = extract_graph or graph_extraction_profile is not None
     logger.info(
         "graph preview bundle requested campaign=%s session=session-%s normalized=%s "
         "source_recap_path=%s source_recap_sha256=%s force_graph_run=%s "
@@ -105,7 +108,7 @@ def build_recap_graph_preview_bundle(
         GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
         GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
     }
-    if not force_graph_run:
+    if not force_graph_run and candidate is None:
         reusable = _latest_matching_run(
             repo,
             campaign_id,
@@ -113,6 +116,7 @@ def build_recap_graph_preview_bundle(
             desired_statuses,
             source_recap_path=source_recap_path,
             source_recap_sha256=source_recap_sha256,
+            graph_extraction_profile=requested_profile if profile_sensitive_reuse else None,
         )
         if reusable is not None:
             logger.info(
@@ -145,7 +149,7 @@ def build_recap_graph_preview_bundle(
             comparison_mode="none",
             candidate_graph_path=candidate,
             input_path_record=source_recap_path,
-            graph_extraction_profile=graph_extraction_profile,
+            graph_extraction_profile=requested_profile,
         )
     )
     summary = _summary_for_manifest(repo, result.manifest_path)
@@ -418,6 +422,7 @@ def _latest_matching_run(
     *,
     source_recap_path: str | None = None,
     source_recap_sha256: str | None = None,
+    graph_extraction_profile: str | None = None,
 ) -> GraphIngestRunSummary | None:
     for run in discover_graph_ingest_runs(
         repo,
@@ -426,9 +431,31 @@ def _latest_matching_run(
         source_recap_path=source_recap_path,
         source_recap_sha256=source_recap_sha256,
     ):
-        if run.status in statuses:
-            return run
+        if run.status not in statuses:
+            continue
+        if graph_extraction_profile is not None and not _summary_matches_graph_extraction_profile(
+            repo, run, graph_extraction_profile
+        ):
+            continue
+        return run
     return None
+
+
+def _summary_matches_graph_extraction_profile(
+    repo: Path, summary: GraphIngestRunSummary, requested_profile: str
+) -> bool:
+    manifest_path = (repo / summary.manifest_path).resolve()
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    diagnostics = manifest.get("diagnostics") if isinstance(manifest, dict) else None
+    manifest_profile = None
+    if isinstance(diagnostics, dict):
+        manifest_profile = diagnostics.get("graph_extraction_profile")
+    if manifest_profile is None:
+        manifest_profile = "current_default"
+    return manifest_profile == requested_profile
 
 
 def _summary_for_manifest(repo: Path, manifest_path: Path) -> GraphIngestRunSummary:
