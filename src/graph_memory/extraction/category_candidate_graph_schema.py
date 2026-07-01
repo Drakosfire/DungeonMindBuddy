@@ -1,7 +1,7 @@
 """Strict JSON schemas for category-decomposed graph extraction passes."""
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from src.graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
 
@@ -12,6 +12,7 @@ PASS_NAMES = (
     "object_pass",
     "thread_pass",
     "beat_pass",
+    "encounter_job_pass",
     "edge_pass",
 )
 
@@ -33,14 +34,20 @@ def _evidence_ref_schema() -> dict[str, Any]:
     }
 
 
-def _observation_node_schema() -> dict[str, Any]:
+def _observation_node_schema(
+    *,
+    allowed_node_types: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    node_type_schema: dict[str, Any] = {"type": "string"}
+    if allowed_node_types is not None:
+        node_type_schema["enum"] = list(allowed_node_types)
     return {
         "type": "object",
         "additionalProperties": False,
         "properties": {
             "node_id": {"type": "string"},
             "label": {"type": "string"},
-            "node_type": {"type": "string"},
+            "node_type": node_type_schema,
             "description": {"type": ["string", "null"]},
             "importance": {
                 "type": "string",
@@ -80,11 +87,15 @@ def _disposition_item_schema() -> dict[str, Any]:
     }
 
 
-def category_node_pass_json_schema(*, include_dispositions: bool = False) -> dict[str, Any]:
+def category_node_pass_json_schema(
+    *,
+    include_dispositions: bool = False,
+    allowed_node_types: Sequence[str] | None = None,
+) -> dict[str, Any]:
     props: dict[str, Any] = {
         "observation_nodes": {
             "type": "array",
-            "items": _observation_node_schema(),
+            "items": _observation_node_schema(allowed_node_types=allowed_node_types),
         },
     }
     required = ["observation_nodes"]
@@ -190,6 +201,11 @@ def schema_for_pass(pass_name: str) -> dict[str, Any]:
         return category_beat_pass_json_schema()
     if pass_name == "edge_pass":
         return category_edge_pass_json_schema()
+    if pass_name == "encounter_job_pass":
+        return category_node_pass_json_schema(
+            include_dispositions=False,
+            allowed_node_types=("combat_encounter", "quest"),
+        )
     if pass_name in {"actor_pass", "location_pass", "collective_pass", "object_pass"}:
         return category_node_pass_json_schema(include_dispositions=False)
     raise ValueError(f"unknown category pass: {pass_name}")

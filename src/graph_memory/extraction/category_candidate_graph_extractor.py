@@ -35,6 +35,7 @@ from src.graph_memory.session_graph_context import (
 logger = logging.getLogger(__name__)
 
 BEAT_PASS_NAME = "beat_pass"
+ENCOUNTER_JOB_PASS_NAME = "encounter_job_pass"
 EDGE_PASS_NAME = "edge_pass"
 
 NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = (
@@ -70,6 +71,7 @@ NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = (
 
 ALL_PASS_NAMES: tuple[str, ...] = tuple(p[0] for p in NODE_EXTRACTION_PASSES) + (
     BEAT_PASS_NAME,
+    ENCOUNTER_JOB_PASS_NAME,
     EDGE_PASS_NAME,
 )
 
@@ -80,6 +82,7 @@ PASS_PROGRESS_LABELS: dict[str, str] = {
     "object_pass": "Extracting notable objects",
     "thread_pass": "Extracting mysteries and threads",
     "beat_pass": "Extracting session beats",
+    "encounter_job_pass": "Extracting encounters and quests",
     "edge_pass": "Extracting relationship edges",
 }
 
@@ -147,6 +150,7 @@ class CategoryGraphExtractionOptions:
     edge_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     node_vocabulary_packet: ContextVocabularyPacket | None = None
+    enable_encounter_job_pass: bool = False
 
 
 @dataclass(frozen=True)
@@ -381,6 +385,23 @@ def _normalize_node(raw: Mapping[str, Any], default_type: str) -> dict[str, Any]
     }
 
 
+ENCOUNTER_JOB_ALLOWED_NODE_TYPES = frozenset({"combat_encounter", "quest"})
+
+
+def _normalize_encounter_job_node(raw: Mapping[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    explicit_type = raw.get("node_type")
+    node_type = str(explicit_type or "").strip()
+    if not node_type:
+        raw = dict(raw)
+        raw["node_type"] = "quest"
+    elif node_type not in ENCOUNTER_JOB_ALLOWED_NODE_TYPES:
+        node_id = str(raw.get("node_id") or "").strip()
+        if not node_id:
+            node_id = f"node:{ir.normalize_label(str(raw.get('label', 'unknown')))}"
+        return None, node_id
+    return _normalize_node(raw, "quest"), None
+
+
 def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "beat_id": str(raw.get("beat_id") or "beat:unknown"),
@@ -446,6 +467,7 @@ def consolidate_category_outputs(
     beats: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
     deferred: list[dict[str, Any]] = []
+    encounter_job_diag: dict[str, Any] = {"enabled": False}
 
     for pass_name, default_type, _ in NODE_EXTRACTION_PASSES:
         payload = pass_outputs.get(pass_name, {})
@@ -461,6 +483,29 @@ def consolidate_category_outputs(
             for raw in payload.get("deferred_items") or []:
                 if isinstance(raw, Mapping):
                     deferred.append(_normalize_disposition(raw, "deferred"))
+
+    encounter_payload = pass_outputs.get(ENCOUNTER_JOB_PASS_NAME)
+    if encounter_payload is not None:
+        raw_encounter_nodes = encounter_payload.get("observation_nodes") or []
+        per_pass_counts[ENCOUNTER_JOB_PASS_NAME] = len(raw_encounter_nodes)
+        dropped_invalid_node_type_ids: list[str] = []
+        kept_count = 0
+        for raw in raw_encounter_nodes:
+            if not isinstance(raw, Mapping):
+                continue
+            normalized, dropped_id = _normalize_encounter_job_node(raw)
+            if dropped_id:
+                dropped_invalid_node_type_ids.append(dropped_id)
+                continue
+            if normalized is not None:
+                kept_count += 1
+                nodes.append(normalized)
+        encounter_job_diag = {
+            "enabled": True,
+            "raw_node_count": len(raw_encounter_nodes),
+            "kept_node_count": kept_count,
+            "dropped_invalid_node_type_ids": dropped_invalid_node_type_ids,
+        }
 
     beat_payload = pass_outputs.get(BEAT_PASS_NAME, {})
     raw_beats = beat_payload.get("observation_beats") or []
@@ -547,6 +592,7 @@ def consolidate_category_outputs(
         "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
         "registry_relpath": session_ctx.registry_relpath,
         "session_graph_context_warnings": list(session_ctx.warnings),
+        ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
     }
     return {
         "nodes": deduped_nodes,
@@ -743,6 +789,62 @@ def _edge_prompt_node_summary(node: Mapping[str, Any]) -> dict[str, Any]:
     return summary
 
 
+def _encounter_job_beat_summary(beat: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "beat_id": beat.get("beat_id"),
+        "order": beat.get("order"),
+        "title": beat.get("title"),
+        "summary": beat.get("summary"),
+        "involved_node_ids": list(beat.get("involved_node_ids") or []),
+        "evidence_refs": list(beat.get("evidence_refs") or []),
+    }
+
+
+def render_encounter_job_pass_prompt(
+    source_rows: Sequence[dict[str, Any]],
+    *,
+    party_ctx: PartyContext,
+    nodes: Sequence[Mapping[str, Any]],
+    beats: Sequence[Mapping[str, Any]],
+) -> str:
+    src = _source_packet_md(source_rows)
+    anchors = _party_anchors_block(party_ctx)
+    safety = (
+        "Preview-only graph memory extraction. "
+        "Forbidden: approve memory, commit graph records, promote canon, execute writes."
+    )
+    nodes_json = json.dumps([_edge_prompt_node_summary(n) for n in nodes], indent=2)
+    beats_json = json.dumps([_encounter_job_beat_summary(b) for b in beats], indent=2)
+    forbidden_types = (
+        "character, location, organization, faction, group, item, thread, mystery, "
+        "warning, event, job, task, mission, bounty, errand, adversary, monster, pc, party"
+    )
+    return (
+        f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
+        f"{anchors}\n\n"
+        "## Task\n\n"
+        "Extract only durable job/quest/objective nodes and discrete combat encounter nodes.\n\n"
+        "Create `quest` nodes for accepted, offered, assigned, discovered, or pursued objectives. "
+        "Use `quest` for jobs, tasks, missions, bounties, errands, and requests. "
+        "Do not use `job`, `task`, `mission`, `bounty`, or `errand` as node_type.\n\n"
+        "Create `combat_encounter` nodes for discrete conflict scenes or tactical confrontations. "
+        "A combat encounter is not the monster, not the location, not the quest, and not the recap beat.\n\n"
+        "Separate a quest from the encounter that occurs while pursuing it.\n\n"
+        "Do not recreate actors, PCs, party members, employers, locations, objects, rewards, mysteries, warnings, or threats. "
+        "Those belong to other passes or later edge/attachment passes.\n\n"
+        "Emit only node_type values `combat_encounter` and `quest`.\n"
+        f"Forbidden node_type values: {forbidden_types}.\n"
+        "Do not use `job`.\n"
+        "Do not recreate locations.\n\n"
+        "Return JSON with key `observation_nodes` only. Each node must include:\n"
+        "`node_id`, `label`, `node_type`, `description`, `importance`, `evidence_refs`.\n"
+        f"{EVIDENCE_RULE}\n\n"
+        f"## Existing consolidated nodes\n\n```json\n{nodes_json}\n```\n\n"
+        f"## Source-local beats\n\n```json\n{beats_json}\n```\n\n"
+        f"## Source Packet\n\n{src}\n"
+    )
+
+
 def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
     """Return candidate graph payload suitable for graph_preview_runner artifacts."""
     graph = dict(envelope.get("candidate_graph") or envelope)
@@ -927,6 +1029,35 @@ def run_category_pipeline(
         campaign_id=options.campaign_id,
         session=options.session_number,
     )
+    if options.enable_encounter_job_pass:
+        encounter_prompt = render_encounter_job_pass_prompt(
+            source_rows,
+            party_ctx=party_ctx,
+            nodes=consolidated["nodes"],
+            beats=consolidated["beats"],
+        )
+        _notify(ENCOUNTER_JOB_PASS_NAME, "running")
+        encounter_result = client.run_pass(
+            ENCOUNTER_JOB_PASS_NAME,
+            model_id=model_id,
+            instructions=system,
+            user_content=encounter_prompt,
+        )
+        pass_outputs[ENCOUNTER_JOB_PASS_NAME] = encounter_result["parsed"]
+        pass_telemetry[ENCOUNTER_JOB_PASS_NAME] = {
+            "cost_usd": encounter_result["cost_usd"],
+            "usage": encounter_result["usage"],
+            "elapsed_ms": encounter_result["elapsed_ms"],
+            "response_id": encounter_result["response_id"],
+            "progress_label": PASS_PROGRESS_LABELS[ENCOUNTER_JOB_PASS_NAME],
+        }
+        total_cost += encounter_result["cost_usd"]
+        _notify(ENCOUNTER_JOB_PASS_NAME, "complete")
+        consolidated = consolidate_category_outputs(
+            pass_outputs,
+            campaign_id=options.campaign_id,
+            session=options.session_number,
+        )
     edge_prompt, edge_vocabulary_diag = build_edge_pass_prompt(
         prompts[_prompt_key(EDGE_PASS_NAME)],
         consolidated["nodes"],
