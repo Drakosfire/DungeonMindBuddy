@@ -20,6 +20,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
+from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 
 from graph_memory.ingestion import (
     GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
@@ -82,6 +83,9 @@ class GraphPreviewRunnerOptions:
     category_client: CategoryGraphPassClient | None = None
     input_path_record: str | None = None
     graph_extraction_profile: GraphExtractionProfile | str | None = None
+    context_vocabulary_packet: ContextVocabularyPacket | None = None
+    enable_node_vocabulary_packet: bool = False
+    enable_edge_vocabulary_packet: bool = False
 
 
 @dataclass(frozen=True)
@@ -122,8 +126,17 @@ def category_options_for_graph_extraction_profile(
     session_number: int,
     source_span_index: dict[str, Any],
     model_id: str,
+    context_vocabulary_packet: ContextVocabularyPacket | None = None,
+    enable_node_vocabulary_packet: bool = False,
+    enable_edge_vocabulary_packet: bool = False,
 ) -> tuple[CategoryGraphExtractionOptions, dict[str, Any]]:
     profile_options = graph_extraction_profile_options(profile)
+    # Independent of the profile's own `enable_dynamic_node_vocabulary_packet` flag
+    # (a separate, session-graph-derived vocabulary feature): this is the static,
+    # corpus/registry-derived context vocabulary packet used by the vocabulary
+    # ablation dogfood, opt-in here so any profile can be run with or without it.
+    enable_node_vocabulary_packet = enable_node_vocabulary_packet and context_vocabulary_packet is not None
+    enable_edge_vocabulary_packet = enable_edge_vocabulary_packet and context_vocabulary_packet is not None
     return (
         CategoryGraphExtractionOptions(
             campaign_id=campaign_id,
@@ -131,11 +144,18 @@ def category_options_for_graph_extraction_profile(
             session_number=session_number,
             source_span_index=source_span_index,
             model_id=model_id,
+            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+            node_vocabulary_packet=context_vocabulary_packet if enable_node_vocabulary_packet else None,
+            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+            edge_vocabulary_packet=context_vocabulary_packet if enable_edge_vocabulary_packet else None,
             **profile_options,
         ),
         {
             "graph_extraction_profile": profile,
             "graph_extraction_profile_options": profile_options,
+            "context_vocabulary_packet_id": context_vocabulary_packet.packet_id if context_vocabulary_packet else None,
+            "enable_node_vocabulary_packet": enable_node_vocabulary_packet,
+            "enable_edge_vocabulary_packet": enable_edge_vocabulary_packet,
         },
     )
 
@@ -526,6 +546,11 @@ def run_graph_preview_extraction(
 ) -> GraphPreviewRunnerResult:
     profile = normalize_graph_extraction_profile(options.graph_extraction_profile)
     profile_option_diagnostics = graph_extraction_profile_options(profile)
+    vocabulary_option_diagnostics: dict[str, Any] = {
+        "context_vocabulary_packet_id": None,
+        "enable_node_vocabulary_packet": False,
+        "enable_edge_vocabulary_packet": False,
+    }
     campaign_id = _slug(options.campaign_id)
     session_id = _slug(options.session_id)
     if options.comparison_mode not in ("none", "gold_if_available", "required_gold"):
@@ -671,8 +696,16 @@ def run_graph_preview_extraction(
                 session_number=session_number,
                 source_span_index=span_index,
                 model_id=model_id,
+                context_vocabulary_packet=options.context_vocabulary_packet,
+                enable_node_vocabulary_packet=options.enable_node_vocabulary_packet,
+                enable_edge_vocabulary_packet=options.enable_edge_vocabulary_packet,
             )
             profile_option_diagnostics = dict(profile_diagnostics["graph_extraction_profile_options"])
+            vocabulary_option_diagnostics = {
+                "context_vocabulary_packet_id": profile_diagnostics["context_vocabulary_packet_id"],
+                "enable_node_vocabulary_packet": profile_diagnostics["enable_node_vocabulary_packet"],
+                "enable_edge_vocabulary_packet": profile_diagnostics["enable_edge_vocabulary_packet"],
+            }
             extraction = extract_category_candidate_graph(
                 extraction_options,
                 client=category_client,
@@ -900,6 +933,7 @@ def run_graph_preview_extraction(
             extraction_mode=extraction_mode,
             graph_extraction_profile=profile,
             graph_extraction_profile_options=profile_option_diagnostics,
+            **vocabulary_option_diagnostics,
         ),
         projection=None,
         warnings=[]

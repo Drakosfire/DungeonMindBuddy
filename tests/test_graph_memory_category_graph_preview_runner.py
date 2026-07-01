@@ -588,6 +588,85 @@ def test_runner_encounter_job_preview_profile_maps_flags_and_outputs(
     assert extraction_diagnostics.get("dynamic_node_vocabulary_packet", {}).get("enabled") in {None, False}
 
 
+def test_runner_encounter_job_preview_profile_threads_context_vocabulary_packet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+    )
+    from src.graph_memory.vocabulary import VocabularyEntry, render_context_vocabulary_packet
+
+    monkeypatch.chdir(tmp_path)
+    source = _runner_source_with_glowkindle_recap(tmp_path)
+
+    packet = render_context_vocabulary_packet(
+        scope="campaign",
+        campaign_entries=[
+            VocabularyEntry(
+                vocab_id="vocab:test:glowkindle",
+                canonical_label="Glowkindle",
+                entity_kind="actor",
+                scope="campaign",
+                campaign_id="longmont-c2",
+                status="candidate",
+                authority="manual_seed",
+            ),
+        ],
+        packet_seed="test-runner-vocabulary-packet-v1",
+    ).packet
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/encounter_job_preview_vocab"),
+            allow_llm=True,
+            graph_extraction_profile="category_encounter_job_preview",
+            category_client=FixtureCategoryGraphPassClient(_runner_glowkindle_pass_outputs()),
+            context_vocabulary_packet=packet,
+            enable_node_vocabulary_packet=True,
+            enable_edge_vocabulary_packet=True,
+        )
+    )
+    manifest = _load_manifest(result.manifest_path)
+    diagnostics = manifest["diagnostics"]
+
+    assert validate_graph_ingest_run_manifest(manifest)["valid"] is True
+    assert diagnostics["context_vocabulary_packet_id"] == packet.packet_id
+    assert diagnostics["enable_node_vocabulary_packet"] is True
+    assert diagnostics["enable_edge_vocabulary_packet"] is True
+
+
+def test_runner_encounter_job_preview_profile_without_packet_leaves_vocabulary_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = _runner_source_with_glowkindle_recap(tmp_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/encounter_job_preview_no_vocab"),
+            allow_llm=True,
+            graph_extraction_profile="category_encounter_job_preview",
+            category_client=FixtureCategoryGraphPassClient(_runner_glowkindle_pass_outputs()),
+        )
+    )
+    manifest = _load_manifest(result.manifest_path)
+    diagnostics = manifest["diagnostics"]
+
+    assert diagnostics["context_vocabulary_packet_id"] is None
+    assert diagnostics["enable_node_vocabulary_packet"] is False
+    assert diagnostics["enable_edge_vocabulary_packet"] is False
+
+
 def test_runner_unknown_graph_extraction_profile_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -18,6 +18,7 @@ from evals.graph_memory_layer.graph_preview_runner import (
     normalize_graph_extraction_profile,
     run_graph_preview_extraction,
 )
+from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestRunStatus,
@@ -68,6 +69,9 @@ def build_recap_graph_preview_bundle(
     extract_graph: bool = False,
     graph_model_id: str | None = None,
     graph_extraction_profile: str | None = None,
+    context_vocabulary_packet: ContextVocabularyPacket | None = None,
+    enable_node_vocabulary_packet: bool = False,
+    enable_edge_vocabulary_packet: bool = False,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
@@ -150,6 +154,9 @@ def build_recap_graph_preview_bundle(
             candidate_graph_path=candidate,
             input_path_record=source_recap_path,
             graph_extraction_profile=requested_profile,
+            context_vocabulary_packet=context_vocabulary_packet,
+            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
         )
     )
     summary = _summary_for_manifest(repo, result.manifest_path)
@@ -178,6 +185,9 @@ def materialize_recap_preview_supergraph(
     graph_model_id: str | None = None,
     force_graph_run: bool = False,
     graph_extraction_profile: str | None = None,
+    context_vocabulary_packet: ContextVocabularyPacket | None = None,
+    enable_node_vocabulary_packet: bool = False,
+    enable_edge_vocabulary_packet: bool = False,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
@@ -215,6 +225,9 @@ def materialize_recap_preview_supergraph(
             extract_graph=extract_graph,
             graph_model_id=graph_model_id,
             graph_extraction_profile=graph_extraction_profile,
+            context_vocabulary_packet=context_vocabulary_packet,
+            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
         )
 
     if extract_graph and not candidate_graph_path and normalized_recap_path:
@@ -250,6 +263,9 @@ def materialize_recap_preview_supergraph(
                 extract_graph=True,
                 graph_model_id=graph_model_id,
                 graph_extraction_profile=graph_extraction_profile,
+                context_vocabulary_packet=context_vocabulary_packet,
+                enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+                enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             )
 
     if manifest_path:

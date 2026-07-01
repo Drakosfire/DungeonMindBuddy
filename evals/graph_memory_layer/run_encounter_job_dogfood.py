@@ -8,6 +8,12 @@ Usage:
     python -m evals.graph_memory_layer.run_encounter_job_dogfood \
         --campaign-id longmont-c1 --session 1 \
         --recap-path "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md"
+
+Add ``--enable-vocabulary-packet`` to also enable the static, corpus/registry-derived
+context vocabulary packet (the same packet built by
+``run_vocabulary_ablation_expanded_beds_dogfood.py``'s ``c1s1-stonebridge`` bed) on both
+the node and edge passes, for a baseline-vs-vocabulary-assisted comparison under the
+encounter/job profile.
 """
 
 from __future__ import annotations
@@ -60,7 +66,42 @@ def main() -> None:
             "preview_union_store_ready so it is selectable in the Gold Review run picker."
         ),
     )
+    parser.add_argument(
+        "--enable-vocabulary-packet",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Enable the static, corpus/registry-derived context vocabulary packet "
+            "(node + edge) on this run, for baseline-vs-vocabulary comparison. Only "
+            "the c1s1-stonebridge packet is wired up; other campaigns/sessions raise."
+        ),
+    )
     args = parser.parse_args()
+
+    context_vocabulary_packet = None
+    if args.enable_vocabulary_packet:
+        if args.campaign_id != "longmont-c1" or args.session != 1:
+            raise SystemExit(
+                "--enable-vocabulary-packet only has a packet wired up for "
+                "longmont-c1 session 1 (c1s1-stonebridge); pass --campaign-id "
+                "longmont-c1 --session 1 or omit the flag."
+            )
+        from evals.graph_memory_layer.run_vocabulary_ablation_expanded_beds_dogfood import (
+            BED_CONFIGS,
+        )
+
+        bed = BED_CONFIGS["c1s1-stonebridge"]
+        context_vocabulary_packet = bed.build_packet(bed)
+
+    vocabulary_kwargs = (
+        {
+            "context_vocabulary_packet": context_vocabulary_packet,
+            "enable_node_vocabulary_packet": True,
+            "enable_edge_vocabulary_packet": True,
+        }
+        if context_vocabulary_packet is not None
+        else {}
+    )
 
     if args.materialize_preview_union:
         status = materialize_recap_preview_supergraph(
@@ -72,6 +113,7 @@ def main() -> None:
             extract_graph=True,
             graph_model_id=args.model_id,
             graph_extraction_profile=args.graph_extraction_profile,
+            **vocabulary_kwargs,
         )
     else:
         status = build_recap_graph_preview_bundle(
@@ -83,6 +125,7 @@ def main() -> None:
             extract_graph=True,
             graph_model_id=args.model_id,
             graph_extraction_profile=args.graph_extraction_profile,
+            **vocabulary_kwargs,
         )
     print(json.dumps(status, indent=2, sort_keys=True))
 

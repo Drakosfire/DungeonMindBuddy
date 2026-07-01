@@ -505,3 +505,74 @@ fixture refresh** (add the missing narrated edges in point 1 above, add `quest`/
 node types, decide a stated inclusion bar for minor items) into the next Prime Design pass, rather
 than trusting recall deltas against this fixture as the primary success signal for further
 encounter/job tuning.
+
+## Addendum 3 — segmentation fix, vocabulary-packet wiring, and gold/baseline/vocabulary 3-way comparison
+
+Two follow-on actions after Addendum 2's gold-fixture remediation (now `v1`, applied separately —
+see `Backlog.md` Follow-up 3): (1) fixed the paragraph-segmentation trailing-newline bug identified
+in §9/Addendum 1, and (2) wired the static, corpus/registry-derived context vocabulary packet (the
+same packet used by the vocabulary-ablation dogfood) into the real runtime encounter/job path, which
+previously had no way to enable it at all. Both changes are documented in full in `Backlog.md`
+(Follow-up 4 and Follow-up 5).
+
+**Segmentation fix.** `_split_recap_paragraph_spans`'s lookahead was changed from
+`(?=\n\s*\n|\Z)` to `(?=\n\s*\n|\s*\Z)`, so a source file ending in a single trailing newline (every
+normally-saved recap) no longer silently drops its final paragraph. C1S1's paragraph span count went
+8→9; the final paragraph's content (the magma-infused spider monstrosity, the shatter mage's tower)
+is now present in every run's candidate graph regardless of vocabulary setting.
+
+**Vocabulary wiring.** `GraphPreviewRunnerOptions` gained `context_vocabulary_packet`,
+`enable_node_vocabulary_packet`, and `enable_edge_vocabulary_packet` fields, threaded through
+`category_options_for_graph_extraction_profile` into the extractor's existing (already-supported but
+previously unreachable from this path) `CategoryGraphExtractionOptions` vocabulary fields. The
+manifest's `diagnostics` block now records `context_vocabulary_packet_id` and both enable flags for
+every run, so any future review UI can show at a glance whether a given run used vocabulary
+assistance. `run_encounter_job_dogfood.py` gained `--enable-vocabulary-packet`, which reuses the
+exact same C1S1 packet (`BED_CONFIGS["c1s1-stonebridge"]`) already vetted by the vocabulary-ablation
+dogfood, rather than inventing a second one.
+
+**Three-way comparison (gold `v1` vs. baseline vs. baseline+vocabulary, both post-segmentation-fix,
+`category_encounter_job_preview` profile, real model extraction):**
+
+| Run | node_count | edge_count | merged_nodes | blocked_nodes | node_recall | edge_recall | node_precision_proxy | edge_precision_proxy |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline (no vocab) | 53 | 33 | 0 | 7 | 66.7% | 23.3% | 34.0% | 21.2% |
+| baseline + vocabulary | 46 | 33 | 1 | 4 | 59.3% | 26.7% | 34.8% | 24.2% |
+
+Runs: `out/graph_memory/runs/longmont-c1/session-1/20260701T204317Z/` (baseline) and
+`out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/` (baseline+vocabulary); both
+git-ignored, preview-only, `preview_union_store_ready`, selectable in the Graph Gold Review run
+picker.
+
+**Reading the delta, node-by-node and edge-by-edge (not just the aggregate):**
+
+- Vocabulary **helped structural consolidation** — cross-class blocked collisions dropped 7→4 and
+  produced the run's first auto-merge (0→1), with 7 fewer raw nodes overall (53→46). This is the
+  same "vocabulary helps recognition/consolidation" pattern the earlier vocabulary-ablation dogfood
+  found on this same recap.
+- Vocabulary **recovered 2 new gold nodes** (`Glowkindle's excavation crew`, `the troupe of gnomes`)
+  and **2 new gold edges**, both spatial-containment (`The River's Edge Pub is in Stone Bridge`, `the
+  job board is in Stone Bridge`) — consistent with the ablation dogfood's "vocabulary is directionally
+  useful for spatial containment" finding.
+- Vocabulary **regressed 4 previously-matched gold nodes** (`Giant rats`, `The Wizard's Tower Brewing
+  Co`, `the Stone Bridge`, `the fermentation cellar`) and **1 previously-matched edge** (`the Stone
+  Bridge spans the river at Stone Bridge`) — not because the underlying content disappeared, but
+  because vocabulary-influenced relabeling/consolidation shifted these nodes' surface phrasing enough
+  that the comparator's label-similarity match to gold's specific wording broke. This is the same
+  "actively harmful to institutional identity" pattern flagged in the vocabulary-ablation work,
+  showing up here as a comparator-visible regression rather than a real content loss.
+- Net result is a wash on the aggregate score (node recall down 7.4 points, edge recall up 3.4
+  points, both precision proxies up slightly) — **directionally consistent with, not contradicting,**
+  every prior vocabulary finding in this repo: vocabulary trades some label-matching stability for
+  better structural consolidation and spatial-edge recovery. One run is not enough to promote or
+  reject vocabulary-by-default for this profile; it is enough to say the effect is real, repeatable
+  in direction (matches the C1S1 ablation dogfood's node/edge pattern), and orthogonal to the
+  segmentation fix (both runs recovered the previously-dropped final paragraph equally).
+
+**Explicitly not done in this pass** (by the user's own sequencing decision): no attempt to build a
+unified "Graph Exploring" tool combining Graph Preview, Graph Gold Review, Vocabulary Review, and
+Party Registry. That design question — including whether Party Registry (a write path) belongs in
+the same surface as the three read-only diagnostic tools, and whether the unified tool should extend
+Graph Gold Review's existing run-picker/comparison base rather than being built from scratch — is
+deliberately deferred to a future Prime Design pass. See `Backlog.md` Follow-up 5 for the full
+scoping conversation and the user's answers on sequencing, Party Registry scope, and merge base.
