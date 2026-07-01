@@ -1231,6 +1231,10 @@ body.plan-toolbox-open {
   overflow: hidden;
 }
 
+body.plan-toolbox-open .plan-agent-shell {
+  z-index: 840;
+}
+
 .plan-agent-answer-card,
 .plan-agent-citation-cards,
 .plan-agent-source-reader {
@@ -2817,6 +2821,57 @@ body.plan-toolbox-open {
 
 .manual-review-pill-edge .manual-review-pill-label {
   font-weight: 500;
+}
+
+.manual-review-pill-highlighted {
+  border-color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.14);
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.45);
+}
+
+.manual-review-node-link {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg, #e8eaef);
+  text-decoration: underline;
+  text-decoration-color: rgba(122, 162, 247, 0.5);
+  text-decoration-style: dotted;
+  cursor: pointer;
+}
+
+.manual-review-node-link:hover,
+.manual-review-node-link:focus-visible {
+  color: var(--accent, #7aa2f7);
+  text-decoration-style: solid;
+}
+
+.manual-review-pill-edges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.manual-review-edge-chip {
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  border-radius: 999px;
+  background: rgba(122, 162, 247, 0.08);
+  color: var(--fg-mute, #9aa3b5);
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+}
+
+.manual-review-edge-chip:hover,
+.manual-review-edge-chip:focus-visible {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.16);
 }
 
 .manual-review-empty {

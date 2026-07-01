@@ -20,6 +20,12 @@ import {
 
 type LoadStatus = "loading" | "ready" | "error";
 
+interface NavigateTarget {
+  variantName: string;
+  kind: "node" | "edge";
+  id: string;
+}
+
 function bedLabel(bed: ManualReviewBedSummary): string {
   if (bed.source_label) {
     const fileName = bed.source_label.split("/").pop();
@@ -31,6 +37,10 @@ function bedLabel(bed: ManualReviewBedSummary): string {
 function nodesForPass(variant: ManualReviewVariantDetail | undefined, pass: ManualReviewPassId): ManualReviewNode[] {
   if (!variant) return [];
   return variant.nodes.filter((node) => node.pass_name === pass);
+}
+
+function edgesForNode(edges: ManualReviewEdge[], nodeId: string): ManualReviewEdge[] {
+  return edges.filter((edge) => edge.from_node_id === nodeId || edge.to_node_id === nodeId);
 }
 
 function goldCounts(variant: ManualReviewVariantDetail | undefined): {
@@ -48,9 +58,27 @@ function goldCounts(variant: ManualReviewVariantDetail | undefined): {
   };
 }
 
-function NodePill({ node }: { node: ManualReviewNode }) {
+function NodePill({
+  node,
+  variantName,
+  connectedEdges,
+  isHighlighted,
+  onNavigateToEdge,
+}: {
+  node: ManualReviewNode;
+  variantName: string;
+  connectedEdges: ManualReviewEdge[];
+  isHighlighted: boolean;
+  onNavigateToEdge: (edgeId: string) => void;
+}) {
   return (
-    <li className="manual-review-pill manual-review-pill-detailed">
+    <li
+      id={`${variantName}-node-${node.node_id}`}
+      className={
+        "manual-review-pill manual-review-pill-detailed" +
+        (isHighlighted ? " manual-review-pill-highlighted" : "")
+      }
+    >
       <div className="manual-review-pill-row">
         <span className="manual-review-pill-label">{node.label}</span>
         <span className="manual-review-pill-type">{node.node_type}</span>
@@ -69,18 +97,70 @@ function NodePill({ node }: { node: ManualReviewNode }) {
           ))}
         </blockquote>
       ) : null}
+      {connectedEdges.length ? (
+        <div className="manual-review-pill-edges" aria-label="Connected edges">
+          {connectedEdges.map((edge) => {
+            const outgoing = edge.from_node_id === node.node_id;
+            const otherLabel = outgoing
+              ? edge.to_label ?? edge.to_node_id
+              : edge.from_label ?? edge.from_node_id;
+            const arrow = outgoing ? "→" : "←";
+            return (
+              <button
+                key={edge.edge_id}
+                type="button"
+                className="manual-review-edge-chip"
+                onClick={() => onNavigateToEdge(edge.edge_id)}
+                title="Jump to this edge"
+              >
+                {arrow} {edge.relationship_type} {arrow} {otherLabel}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </li>
   );
 }
 
-function EdgePill({ edge }: { edge: ManualReviewEdge }) {
+function EdgePill({
+  edge,
+  variantName,
+  isHighlighted,
+  onNavigateToNode,
+}: {
+  edge: ManualReviewEdge;
+  variantName: string;
+  isHighlighted: boolean;
+  onNavigateToNode: (nodeId: string) => void;
+}) {
   return (
-    <li className="manual-review-pill manual-review-pill-edge manual-review-pill-detailed">
+    <li
+      id={`${variantName}-edge-${edge.edge_id}`}
+      className={
+        "manual-review-pill manual-review-pill-edge manual-review-pill-detailed" +
+        (isHighlighted ? " manual-review-pill-highlighted" : "")
+      }
+    >
       <div className="manual-review-pill-row">
         <span className="manual-review-pill-label">
-          {edge.from_label ?? edge.from_node_id}{" "}
+          <button
+            type="button"
+            className="manual-review-node-link"
+            onClick={() => onNavigateToNode(edge.from_node_id)}
+            title="Jump to this node"
+          >
+            {edge.from_label ?? edge.from_node_id}
+          </button>{" "}
           <span className="manual-review-pill-predicate">{edge.relationship_type}</span>{" "}
-          {edge.to_label ?? edge.to_node_id}
+          <button
+            type="button"
+            className="manual-review-node-link"
+            onClick={() => onNavigateToNode(edge.to_node_id)}
+            title="Jump to this node"
+          >
+            {edge.to_label ?? edge.to_node_id}
+          </button>
         </span>
       </div>
       <div className="manual-review-pill-row">
@@ -118,15 +198,37 @@ function VariantColumn({
   variantName,
   variant,
   activePass,
+  highlightTarget,
+  onNavigate,
 }: {
   variantName: string;
   variant: ManualReviewVariantDetail | undefined;
   activePass: ManualReviewPassId;
+  highlightTarget: NavigateTarget | null;
+  onNavigate: (variantName: string, kind: "node" | "edge", id: string, passName?: string | null) => void;
 }) {
   const isEdgePass = activePass === EDGE_PASS_NAME;
   const nodes = isEdgePass ? [] : nodesForPass(variant, activePass);
   const edges = isEdgePass ? variant?.edges ?? [] : [];
+  const allEdges = variant?.edges ?? [];
   const gold = goldCounts(variant);
+
+  const passByNodeId = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const node of variant?.nodes ?? []) {
+      map.set(node.node_id, node.pass_name ?? null);
+    }
+    return map;
+  }, [variant]);
+
+  function isHighlighted(kind: "node" | "edge", id: string): boolean {
+    return (
+      highlightTarget !== null &&
+      highlightTarget.variantName === variantName &&
+      highlightTarget.kind === kind &&
+      highlightTarget.id === id
+    );
+  }
 
   return (
     <div className="manual-review-column">
@@ -142,7 +244,15 @@ function VariantColumn({
           <p className="manual-review-column-note">{edges.length} edges extracted</p>
           <ul className="manual-review-pill-list">
             {edges.map((edge) => (
-              <EdgePill key={edge.edge_id} edge={edge} />
+              <EdgePill
+                key={edge.edge_id}
+                edge={edge}
+                variantName={variantName}
+                isHighlighted={isHighlighted("edge", edge.edge_id)}
+                onNavigateToNode={(nodeId) =>
+                  onNavigate(variantName, "node", nodeId, passByNodeId.get(nodeId))
+                }
+              />
             ))}
             {edges.length === 0 ? <li className="manual-review-empty">No edges extracted.</li> : null}
           </ul>
@@ -152,7 +262,14 @@ function VariantColumn({
           <p className="manual-review-column-note">{nodes.length} nodes for this pass</p>
           <ul className="manual-review-pill-list">
             {nodes.map((node) => (
-              <NodePill key={node.node_id} node={node} />
+              <NodePill
+                key={node.node_id}
+                node={node}
+                variantName={variantName}
+                connectedEdges={edgesForNode(allEdges, node.node_id)}
+                isHighlighted={isHighlighted("node", node.node_id)}
+                onNavigateToEdge={(edgeId) => onNavigate(variantName, "edge", edgeId)}
+              />
             ))}
             {nodes.length === 0 ? <li className="manual-review-empty">No nodes extracted for this pass.</li> : null}
           </ul>
@@ -193,6 +310,7 @@ export function ManualReviewModule() {
   const [detailStatus, setDetailStatus] = useState<LoadStatus>("loading");
   const [detailError, setDetailError] = useState<string | null>(null);
   const [activePass, setActivePass] = useState<ManualReviewPassId>("actor_pass");
+  const [highlightTarget, setHighlightTarget] = useState<NavigateTarget | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,12 +358,33 @@ export function ManualReviewModule() {
     };
   }, [selectedBedId]);
 
+  useEffect(() => {
+    if (!highlightTarget) return;
+    const domId = `${highlightTarget.variantName}-${highlightTarget.kind}-${highlightTarget.id}`;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(domId);
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightTarget, activePass]);
+
   const passTabs = useMemo<ManualReviewPassId[]>(() => [...NODE_PASS_NAMES, EDGE_PASS_NAME], []);
 
   const promptText =
     activePass === EDGE_PASS_NAME
       ? bedDetail?.edge_prompt_context ?? ""
       : bedDetail?.node_prompt_contexts[activePass] ?? "";
+
+  function handleNavigate(variantName: string, kind: "node" | "edge", id: string, passName?: string | null) {
+    if (kind === "edge") {
+      setActivePass(EDGE_PASS_NAME);
+    } else if (passName && (NODE_PASS_NAMES as readonly string[]).includes(passName)) {
+      setActivePass(passName as ManualReviewPassId);
+    }
+    setHighlightTarget({ variantName, kind, id });
+  }
 
   return (
     <div className="manual-review-root">
@@ -271,7 +410,10 @@ export function ManualReviewModule() {
               className={
                 bed.bed_id === selectedBedId ? "graph-gold-review-pill active" : "graph-gold-review-pill"
               }
-              onClick={() => setSelectedBedId(bed.bed_id)}
+              onClick={() => {
+                setSelectedBedId(bed.bed_id);
+                setHighlightTarget(null);
+              }}
             >
               {bedLabel(bed)}
             </button>
@@ -292,7 +434,10 @@ export function ManualReviewModule() {
                 role="tab"
                 aria-selected={pass === activePass}
                 className={pass === activePass ? "graph-gold-review-pill active" : "graph-gold-review-pill"}
-                onClick={() => setActivePass(pass)}
+                onClick={() => {
+                  setActivePass(pass);
+                  setHighlightTarget(null);
+                }}
               >
                 {PASS_LABELS[pass]}
               </button>
@@ -306,11 +451,15 @@ export function ManualReviewModule() {
               variantName={BASELINE_VARIANT}
               variant={bedDetail.variants[BASELINE_VARIANT]}
               activePass={activePass}
+              highlightTarget={highlightTarget}
+              onNavigate={handleNavigate}
             />
             <VariantColumn
               variantName={ASSISTED_VARIANT}
               variant={bedDetail.variants[ASSISTED_VARIANT]}
               activePass={activePass}
+              highlightTarget={highlightTarget}
+              onNavigate={handleNavigate}
             />
           </div>
         </>

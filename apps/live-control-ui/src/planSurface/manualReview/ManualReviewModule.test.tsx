@@ -50,7 +50,7 @@ function bedDetail(): ManualReviewBedDetail {
     variants: {
       baseline: {
         variant_name: "baseline",
-        node_count: 1,
+        node_count: 2,
         edge_count: 1,
         cost_usd: 0.01,
         nodes: [
@@ -65,6 +65,18 @@ function bedDetail(): ManualReviewBedDetail {
             corpus_ref: null,
             evidence_span_ids: ["spref:c1s1-recap:002"],
             anchor_quotes: ["it's tavern The River's Edge Pub run by Grishna the Half-orc"],
+          },
+          {
+            node_id: "loc_stone_bridge",
+            label: "Stone Bridge",
+            node_type: "place",
+            pass_name: "location_pass",
+            description: "The stone bridge crossing the river into town.",
+            confidence: "high",
+            importance: "medium",
+            corpus_ref: null,
+            evidence_span_ids: [],
+            anchor_quotes: [],
           },
         ],
         edges: [
@@ -155,6 +167,34 @@ describe("ManualReviewModule", () => {
     ) as HTMLElement;
     expect(within(baselineColumn).getByText(/contains/)).toBeInTheDocument();
     expect(within(baselineColumn).getByText(/It has the Stone Bridge over the river/)).toBeInTheDocument();
+  });
+
+  it("navigates from an edge pill to its connected node pass, and from a node pill back to the edge", async () => {
+    vi.spyOn(liveApi, "getManualReviewBeds").mockResolvedValue(bedsResponse);
+    vi.spyOn(liveApi, "getManualReviewBed").mockResolvedValue(bedDetail());
+
+    render(<ManualReviewModule />);
+
+    const edgeTab = await screen.findByRole("tab", { name: "Edge" });
+    edgeTab.click();
+
+    const baselineColumn = (await screen.findByText("Baseline (no vocabulary)")).closest(
+      ".manual-review-column",
+    ) as HTMLElement;
+    const nodeLink = within(baselineColumn).getByRole("button", { name: "Stone Bridge" });
+    nodeLink.click();
+
+    // Clicking a node link on the edge jumps to that node's pass (location_pass here).
+    const locationTab = await screen.findByRole("tab", { name: "Location" });
+    expect(locationTab).toHaveAttribute("aria-selected", "true");
+    const stoneBridgePill = await screen.findByText("The stone bridge crossing the river into town.");
+    expect(stoneBridgePill).toBeInTheDocument();
+
+    // The Stone Bridge node pill now shows a connected-edge chip back to the edge pass.
+    const edgeChip = within(baselineColumn).getByRole("button", { name: /contains.*Stone Bridge over the river/ });
+    edgeChip.click();
+
+    expect(await screen.findByRole("tab", { name: "Edge", selected: true })).toBeInTheDocument();
   });
 
   it("shows an error state when the beds request fails", async () => {
