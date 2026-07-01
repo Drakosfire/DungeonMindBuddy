@@ -1,7 +1,7 @@
 {
   "schema": "dmb_candidate_graph_preview_v0",
   "version": "0.1",
-  "preview_id": "candidate-preview:longmont-c1:s1:stonebridge-glowkindle-rats:gold-v0",
+  "preview_id": "candidate-preview:longmont-c1:s1:stonebridge-glowkindle-rats:gold-v1",
   "campaign_id": "longmont-c1",
   "session_id": "session-1",
   "source_artifact_ids": [
@@ -563,10 +563,43 @@
       }
     },
     {
+      "node_id": "node:excavation-wall-breach",
+      "label": "the breached cellar wall",
+      "node_type": "landmark",
+      "description": "The wall Glowkindle's excavation crew broke through while expanding the fermentation cellar -- the structural opening that put the crew in the giant rats' path.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "sublocation",
+        "ref_id": "excavation_wall_breach",
+        "resolution": "proposed"
+      }
+    },
+    {
       "node_id": "node:statue-foot-landmark",
       "label": "the giant statue foot",
-      "node_type": "location",
-      "description": "Enormous statue foot landmark along the river trail.",
+      "node_type": "landmark",
+      "description": "An enormous boulder-like shape along the river trail that resolves, on approach, into what looks like the foot of a once-giant statue -- or, just as plausibly, an oversized joke by whichever sculptor made it. The source text plays up this ambiguity rather than settling it; see deferred:statue-foot-boulder-ambiguity.",
       "importance": "low",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -765,7 +798,7 @@
     {
       "node_id": "node:rat-clearing-job",
       "label": "the rat-clearing job",
-      "node_type": "thread",
+      "node_type": "quest",
       "description": "Glowkindle's posted mercenary job to clear giant rats.",
       "importance": "high",
       "semantic_state": {
@@ -802,8 +835,8 @@
     {
       "node_id": "node:rat-cellar-combat",
       "label": "the rat cellar fight",
-      "node_type": "event",
-      "description": "Hard-fought rat-cellar combat that brings the team together.",
+      "node_type": "combat_encounter",
+      "description": "Hard-fought rat-cellar combat that brings the team together -- the fight ran long enough that the party burned through many healing potions before it broke.",
       "importance": "high",
       "semantic_state": {
         "canon_state": "played_canon",
@@ -1621,6 +1654,176 @@
       "proposed_action": "create",
       "confidence": "low",
       "warnings": []
+    },
+    {
+      "edge_id": "edge:karsemine-discovers-magma-spider",
+      "from_node_id": "node:karsemine",
+      "to_node_id": "node:magma-spider",
+      "label": "Karsemine spots the magma spider",
+      "relationship_type": "discovers",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-magma-spider",
+          "label": "magma-spider",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:bonogo-buys-firkin",
+      "from_node_id": "node:bonogo",
+      "to_node_id": "node:firkin-of-ale",
+      "label": "Bonogo buys a firkin of ale for two gold",
+      "relationship_type": "buys",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-bonogo-firkin",
+          "label": "bonogo-firkin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:firkin-located-in-pub",
+      "from_node_id": "node:firkin-of-ale",
+      "to_node_id": "node:rivers-edge-pub",
+      "label": "the firkin of ale is bought at The River's Edge Pub",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-bonogo-firkin",
+          "label": "bonogo-firkin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:crew-breaches-wall",
+      "from_node_id": "node:excavation-crew",
+      "to_node_id": "node:excavation-wall-breach",
+      "label": "Glowkindle's excavation crew breaches the cellar wall",
+      "relationship_type": "breaches",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wall-breach-located-in-cellar",
+      "from_node_id": "node:excavation-wall-breach",
+      "to_node_id": "node:fermentation-cellar",
+      "label": "the breached wall is in the fermentation cellar",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:combat-caused-by-wall-breach",
+      "from_node_id": "node:rat-cellar-combat",
+      "to_node_id": "node:excavation-wall-breach",
+      "label": "the rat cellar fight was caused by the wall breach exposing the crew to the rats",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-rats-cellar",
+          "label": "rats-cellar",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [
+        "inferred causal sequence from source phrasing (\"after they broke through...\"), not an explicit causal statement"
+      ]
     }
   ],
   "beats": [
@@ -1884,6 +2087,40 @@
         }
       ],
       "warnings": []
+    },
+    {
+      "item_id": "ignored:magical-crystals-tap-room-lighting",
+      "label": "Magical crystals lighting the brewery tap room",
+      "reason": "Ambient lighting detail with no causal or recurring role this session; below the stated inclusion bar for a dedicated node. Revisit only if a later session ties these crystals to the shatter mage's tower mystery.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-tower-gnomes",
+          "label": "tower-gnomes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:health-potions-consumed-in-fight",
+      "label": "Many health potions downed during the rat-cellar fight",
+      "reason": "Consumable-use flavor establishing fight difficulty, not a durable object or plot thread; captured qualitatively in node:rat-cellar-combat's description instead of a dedicated node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-cat-owl",
+          "label": "cat-owl",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
     }
   ],
   "deferred_items": [
@@ -1940,6 +2177,24 @@
       ],
       "suggested_next_step": "Preserve cross-class separation between node:wizards-tower-brewing-co (organization) and node:wizards-tower (location) in extraction and vocabulary ablation.",
       "warnings": []
+    },
+    {
+      "item_id": "deferred:statue-foot-boulder-ambiguity",
+      "label": "Is the giant foot a real ruined statue, or an oversized sculptor's joke?",
+      "reason": "Source text explicitly frames this as unresolved (\"probably the former but who really knows with art anyway\"). Preserve the ambiguity rather than flattening it into a settled fact.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-1-normalized-recap",
+          "source_artifact_id": "source-artifact:session-1-normalized-recap",
+          "source_anchor_id": "anchor:c1s1-statue-foot",
+          "label": "statue-foot",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "If a later session resolves the statue's true origin, update here rather than silently retconning the landmark.",
+      "warnings": []
     }
   ],
   "diagnostics": {
@@ -1955,6 +2210,6 @@
     "canon_promoted": false,
     "unresolved_evidence_refs": 0,
     "missing_evidence_objects": 0,
-    "warning_count": 5
+    "warning_count": 6
   }
 }

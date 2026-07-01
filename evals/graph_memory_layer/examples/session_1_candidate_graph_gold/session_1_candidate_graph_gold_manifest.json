@@ -1,7 +1,7 @@
 {
   "schema": "dmb_session_1_candidate_graph_gold_manifest_v0",
   "version": "0.1",
-  "fixture_id": "graph-memory:session-1-candidate-graph-gold:v0",
+  "fixture_id": "graph-memory:session-1-candidate-graph-gold:v1",
   "campaign_id": "longmont-c1",
   "session": 1,
   "input_mode": "explicit_fixture_dependency",
@@ -14,7 +14,8 @@
     "Source is the Campaign 1 Session 1 normalized recap (Stonebridge and Glowkindle Rats).",
     "Stone Bridge town (node:stone-bridge-town) vs the Stone Bridge span (node:stone-bridge-span) is a do-not-merge probe with shared label text.",
     "The Wizard's Tower Brewing Co (organization) vs the shatter mage's tower (location) is a cross-class probe at the same site.",
-    "corpus_ref resolvability: Grishna is resolved to the Stonebridge NPC hub; all other corpus_ref entries use resolution=proposed with stable review slugs."
+    "corpus_ref resolvability: Grishna is resolved to the Stonebridge NPC hub; all other corpus_ref entries use resolution=proposed with stable review slugs.",
+    "v1 (2026-07-01 gold remediation): retyped node:rat-clearing-job to quest and node:rat-cellar-combat to combat_encounter; added the first-class landmark node type and retyped/rewrote node:statue-foot-landmark to preserve its source ambiguity; closed three description-vs-edge self-consistency gaps (Karsemine/magma-spider, Bonogo/firkin, firkin/pub); added node:excavation-wall-breach with its causal edges; added ignored_items for the magical crystals and health potions. See the inclusion policy docstring in session_1_candidate_graph_gold_fixture.py."
   ],
   "diagnostics": {
     "manual_gold_fixture": true,

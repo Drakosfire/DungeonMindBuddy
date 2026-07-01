@@ -1,4 +1,17 @@
-"""Session 1 candidate graph gold fixture helpers (hand-authored; no extraction)."""
+"""Session 1 candidate graph gold fixture helpers (hand-authored; no extraction).
+
+Inclusion policy (v1, added during the 2026-07-01 gold remediation):
+- Promote source content to a node when it is causally load-bearing for the
+  session's central conflict, OR when the source text itself dwells on it as
+  ambiguous or notable -- even if minor.
+- Otherwise, if the content is real but decorative/flavor, add an explicit
+  `ignored_item` with a one-line reason instead of silently omitting it.
+  Nothing should be droppable without a paper trail.
+- Every relationship asserted in a node's own `description` field must have
+  a corresponding edge in this fixture. A description that narrates a
+  relationship this fixture doesn't encode as an edge is a fixture bug,
+  not a stylistic choice.
+"""
 from __future__ import annotations
 
 import json
@@ -25,7 +38,7 @@ from evals.graph_memory_layer.session_1_recap_ingest_fixture import (
     resolve_source_span_seed_refs,
 )
 
-GOLD_FIXTURE_ID = "graph-memory:session-1-candidate-graph-gold:v0"
+GOLD_FIXTURE_ID = "graph-memory:session-1-candidate-graph-gold:v1"
 GOLD_MANIFEST_SCHEMA = "dmb_session_1_candidate_graph_gold_manifest_v0"
 GOLD_MANIFEST_VERSION = "0.1"
 GOLD_FIXTURE_REL = "evals/graph_memory_layer/examples/session_1_candidate_graph_gold"

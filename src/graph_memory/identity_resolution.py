@@ -42,7 +42,10 @@ NODE_TYPE_CLASS: dict[str, str] = {
     "party": "collective",
     # places
     "location": "place", "sublocation": "place", "region": "place",
-    "route": "place", "hub": "place",
+    "route": "place", "hub": "place", "landmark": "place",
+    # landmark = notable physical/environmental feature (structural damage,
+    # ambiguous monuments, terrain waypoints) distinct from a full location;
+    # folded into "place" since it is still physical and locatable.
     # unresolved / narrative threads
     "mystery": "thread", "clue": "thread", "thread": "thread", "rumor": "thread",
     "promise": "thread", "debt": "thread", "hook": "thread", "quest": "thread",

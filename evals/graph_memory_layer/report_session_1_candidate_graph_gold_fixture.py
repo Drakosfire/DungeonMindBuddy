@@ -6,7 +6,7 @@ def main():
     p=parse_gold_candidate_graph(); refs=collect_gold_evidence_refs(p); res=resolve_gold_evidence_refs()
     print('# Session 1 Candidate Graph Gold Fixture Report\n')
     print('## Summary\n\n| Metric | Count |\n|---|---:|')
-    for k,v in [('Nodes',len(p.nodes)),('Edges',len(p.edges)),('Session beats',len(p.beats)),('Proposed writes',len(p.proposed_writes)),('Ignored items',len(p.ignored_items)),('Deferred items',len(p.deferred_items)),('Evidence refs',len(refs)),('Resolved evidence refs',len(res)),('Unnamed-important nodes',sum(n.node_type=='unknown_important' for n in p.nodes)),('Thread/mystery nodes',sum(n.node_type in {'thread','mystery'} for n in p.nodes))]: print(f'| {k} | {v} |')
+    for k,v in [('Nodes',len(p.nodes)),('Edges',len(p.edges)),('Session beats',len(p.beats)),('Proposed writes',len(p.proposed_writes)),('Ignored items',len(p.ignored_items)),('Deferred items',len(p.deferred_items)),('Evidence refs',len(refs)),('Resolved evidence refs',len(res)),('Unnamed-important nodes',sum(n.node_type=='unknown_important' for n in p.nodes)),('Thread/mystery/quest nodes',sum(n.node_type in {'thread','mystery','quest'} for n in p.nodes)),('Combat_encounter nodes',sum(n.node_type=='combat_encounter' for n in p.nodes)),('Landmark nodes',sum(n.node_type=='landmark' for n in p.nodes))]: print(f'| {k} | {v} |')
     print('\n## Session Outline\n\n| Order | Beat | Summary | Evidence |\n|---:|---|---|---:|')
     for b in sorted(p.beats,key=lambda x:x.order): print(f'| {b.order} | {esc(b.title)} | {esc(b.summary)} | {len(b.evidence_refs)} |')
     print('\n## Nodes\n\n| ID | Label | Type | Importance | Confidence | Evidence |\n|---|---|---|---|---|---:|')

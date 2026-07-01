@@ -207,7 +207,12 @@ def _line_number_at(text: str, offset: int) -> int:
 
 def _split_recap_paragraph_spans(recap_text: str) -> list[dict[str, Any]]:
     spans: list[dict[str, Any]] = []
-    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\Z)", recap_text, flags=re.DOTALL):
+    # The lookahead must accept the *actual* end of the paragraph even when the
+    # source file ends with a single trailing newline (the normal case for any
+    # saved Markdown file) — `\Z` alone only matches with zero trailing chars,
+    # so a lone trailing "\n" silently swallowed the final paragraph. `\s*\Z`
+    # allows any trailing whitespace before end-of-string.
+    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\s*\Z)", recap_text, flags=re.DOTALL):
         paragraph = match.group(0).strip("\n")
         if not paragraph.strip():
             continue

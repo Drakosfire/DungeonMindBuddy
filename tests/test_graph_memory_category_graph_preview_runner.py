@@ -400,12 +400,17 @@ def test_runner_writes_deterministic_paragraph_source_spans(
 
     index = _load_manifest(result.output_dir / "source_span_index.json")
     span_ids = [span["span_id"] for span in index["spans"]]
+    # Regression guard for the trailing-newline segmentation bug: the source
+    # file ends with a single "\n" (the normal case for saved Markdown), and
+    # the final paragraph ("They regroup at dusk.") must still be split out.
     assert span_ids == [
         "session-22:recap:full_text",
         "session-22:recap:paragraph:001",
         "session-22:recap:paragraph:002",
+        "session-22:recap:paragraph:003",
     ]
-    assert index["paragraph_span_count"] == 2
+    assert index["paragraph_span_count"] == 3
+    assert index["spans"][-1]["text_excerpt"] == "They regroup at dusk."
 
 
 def _profile_options(manifest: dict[str, Any]) -> dict[str, bool]:

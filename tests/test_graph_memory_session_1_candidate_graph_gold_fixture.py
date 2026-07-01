@@ -23,7 +23,9 @@ def test_parse_schema_and_shape():
     assert p.campaign_id=='longmont-c1' and p.session_id=='session-1'
     assert len(p.nodes)>=24 and len(p.edges)>=22 and len(p.beats)>=5 and len(p.proposed_writes)>=2
     assert len(p.ignored_items)>=1 and len(p.deferred_items)>=2
-    assert sum(n.node_type in {'thread','mystery'} for n in p.nodes)>=2
+    assert sum(n.node_type in {'thread','mystery','quest'} for n in p.nodes)>=2
+    assert sum(n.node_type=='combat_encounter' for n in p.nodes)>=1
+    assert sum(n.node_type=='landmark' for n in p.nodes)>=1
     assert sum(n.node_type=='unknown_important' for n in p.nodes)>=3
     labels=' '.join(n.label.lower() for n in p.nodes)
     for term in ['heroes / party','stone bridge','grishna','glowkindle',"wizard's tower brewing co",'the troupe of gnomes','giant rats','fermentation cellar','magma','karsemine','bonogo']:
