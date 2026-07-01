@@ -26,6 +26,7 @@ from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_cont
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
 from src.graph_memory.session_graph_context import (
+    attach_party_participation_edges,
     build_session_graph_context,
     merge_party_anchor_nodes,
     merge_party_collective,
@@ -151,6 +152,7 @@ class CategoryGraphExtractionOptions:
     enable_node_vocabulary_packet: bool = False
     node_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_encounter_job_pass: bool = False
+    enable_party_participation_attachment: bool = False
 
 
 @dataclass(frozen=True)
@@ -460,6 +462,7 @@ def consolidate_category_outputs(
     *,
     campaign_id: str,
     session: int,
+    enable_party_participation_attachment: bool = False,
 ) -> dict[str, Any]:
     party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
@@ -559,6 +562,15 @@ def consolidate_category_outputs(
         party_ctx,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
     )
+    if enable_party_participation_attachment:
+        edges, party_participation_diag = attach_party_participation_edges(
+            deduped_nodes,
+            edges,
+            party_ctx,
+            default_semantic_state=DEFAULT_SEMANTIC_STATE,
+        )
+    else:
+        party_participation_diag = {"enabled": False}
     edge_dedup = ir.dedup_edges(edges, deduped_nodes)
     edge_predicate_issues = [
         {
@@ -590,6 +602,7 @@ def consolidate_category_outputs(
         "inserted_party_anchor_slugs": anchor_merge_diag.get("inserted_party_anchor_slugs", []),
         "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
         "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
+        "party_participation_attachment": party_participation_diag,
         "registry_relpath": session_ctx.registry_relpath,
         "session_graph_context_warnings": list(session_ctx.warnings),
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
@@ -1028,6 +1041,7 @@ def run_category_pipeline(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
+        enable_party_participation_attachment=options.enable_party_participation_attachment,
     )
     if options.enable_encounter_job_pass:
         encounter_prompt = render_encounter_job_pass_prompt(
@@ -1057,6 +1071,7 @@ def run_category_pipeline(
             pass_outputs,
             campaign_id=options.campaign_id,
             session=options.session_number,
+            enable_party_participation_attachment=options.enable_party_participation_attachment,
         )
     edge_prompt, edge_vocabulary_diag = build_edge_pass_prompt(
         prompts[_prompt_key(EDGE_PASS_NAME)],
@@ -1085,6 +1100,7 @@ def run_category_pipeline(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
+        enable_party_participation_attachment=options.enable_party_participation_attachment,
     )
     repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
     sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
