@@ -754,26 +754,85 @@ def _cross_class_priority(node: Any) -> int:
     return _CROSS_CLASS_TYPE_PRIORITY.get(node_type_class(node_type_of(node)), 0)
 
 
+_CROSS_CLASS_POLICY_VERSION = "cross_class_exact_label_policy_v0"
+
+_CROSS_CLASS_POLICY_REASON_BY_CLASS_SET: dict[frozenset[str], str] = {
+    frozenset({"place", "collective"}): "place_collective_exact_label",
+    frozenset({"object", "place"}): "object_place_structure_pressure",
+    frozenset({"collective", "object"}): "collective_object_role_pressure",
+    frozenset({"collective", "object", "place"}): "collective_object_place_establishment_pressure",
+    frozenset({"place", "thread"}): "place_thread_narrative_overlap",
+    frozenset({"place", "phenomenon"}): "place_phenomenon_narrative_overlap",
+}
+
+
+def _class_set_policy_reason(classes: set[str]) -> str:
+    explicit = _CROSS_CLASS_POLICY_REASON_BY_CLASS_SET.get(frozenset(classes))
+    if explicit:
+        return explicit
+    if "actor" in classes:
+        return "actor_cross_class_collision_high_risk"
+    if "thread" in classes or "phenomenon" in classes:
+        return "narrative_concrete_collision_high_risk"
+    if "object" in classes and "place" in classes:
+        return "object_place_structure_pressure"
+    return "unsafe_cross_class_exact_label"
+
+
+def _cross_class_collision_policy(classes: set[str]) -> dict[str, Any]:
+    sorted_classes = sorted(classes)
+    policy_reason = _class_set_policy_reason(classes)
+    if classes == {"place", "collective"}:
+        return {
+            "action": "merge",
+            "reason": "place_collective_exact_label",
+            "policy_reason": policy_reason,
+            "policy_version": _CROSS_CLASS_POLICY_VERSION,
+            "classes": sorted_classes,
+        }
+    return {
+        "action": "block",
+        "reason": "unsafe_cross_class_exact_label",
+        "policy_reason": policy_reason,
+        "policy_version": _CROSS_CLASS_POLICY_VERSION,
+        "classes": sorted_classes,
+    }
+
+
 def should_merge_cross_class_label_collision(members: Sequence[Any]) -> dict[str, Any]:
-    """Return the explicit policy decision for an exact-label class collision.
+    """Return the conservative exact-label policy decision for a class collision.
 
     This intentionally only inspects coarse node type classes today. Future
     vocabulary work can extend this seam with aliases, do-not-merge decisions,
     evidence hints, or corpus authority without reopening the reconciliation
     loop itself.
     """
-    classes = sorted({node_type_class(node_type_of(member)) for member in members})
-    if set(classes) == {"place", "collective"}:
-        return {
-            "action": "merge",
-            "reason": "place_collective_exact_label",
-            "classes": classes,
-        }
-    return {
-        "action": "block",
-        "reason": "unsafe_cross_class_exact_label",
-        "classes": classes,
+    classes = {node_type_class(node_type_of(member)) for member in members}
+    return _cross_class_collision_policy(classes)
+
+
+def _clean_cross_class_description(value: Any, *, max_chars: int = 180) -> str | None:
+    text = str(value or "").replace("\n", " ").strip()
+    if not text:
+        return None
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rstrip() + "…"
+
+
+def _cross_class_member_summary(node: Any) -> dict[str, Any]:
+    evidence_refs = _get(node, "evidence_refs", []) or []
+    summary: dict[str, Any] = {
+        "node_id": str(_get(node, "node_id", "") or ""),
+        "label": str(_get(node, "label", "") or ""),
+        "node_type": node_type_of(node),
+        "type_class": node_type_class(node_type_of(node)),
+        "evidence_count": len(evidence_refs) if isinstance(evidence_refs, Sequence) else 0,
     }
+    description = _clean_cross_class_description(_get(node, "description", ""))
+    if description:
+        summary["description"] = description
+    return summary
 
 
 def _merge_evidence_refs(into: Any, extra: Any) -> None:
@@ -859,12 +918,18 @@ def reconcile_cross_class_label_collisions(
             continue
         policy = should_merge_cross_class_label_collision(members)
         if policy["action"] != "merge":
+            sorted_members = sorted(members, key=lambda m: str(_get(m, "node_id", "") or ""))
             blocked.append(
                 {
                     "label": key,
-                    "node_ids": [str(_get(m, "node_id", "")) for m in members],
+                    "node_ids": [str(_get(m, "node_id", "")) for m in sorted_members],
                     "classes": policy["classes"],
-                    "reason": policy["reason"],
+                    "reason": "unsafe_cross_class_exact_label",
+                    "policy_reason": policy["policy_reason"],
+                    "policy_version": _CROSS_CLASS_POLICY_VERSION,
+                    "member_summaries": [
+                        _cross_class_member_summary(m) for m in sorted_members
+                    ],
                 }
             )
             kept.extend(members)

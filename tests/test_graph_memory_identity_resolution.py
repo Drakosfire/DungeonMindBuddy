@@ -7,6 +7,8 @@ inverse-edge duplicates (parent_of + child_of)."""
 
 from __future__ import annotations
 
+import json
+
 from src.graph_memory import identity_resolution as ir
 
 
@@ -330,14 +332,13 @@ def test_cross_class_actor_collective_collision_is_blocked():
     }
     assert result["merged"] == []
     assert result["remap"] == {}
-    assert result["blocked"] == [
-        {
-            "label": "shepherd",
-            "node_ids": ["actor:the-shepherd", "faction:the-shepherd"],
-            "classes": ["actor", "collective"],
-            "reason": "unsafe_cross_class_exact_label",
-        }
-    ]
+    blocked = result["blocked"][0]
+    assert blocked["label"] == "shepherd"
+    assert blocked["node_ids"] == ["actor:the-shepherd", "faction:the-shepherd"]
+    assert blocked["classes"] == ["actor", "collective"]
+    assert blocked["reason"] == "unsafe_cross_class_exact_label"
+    assert blocked["policy_reason"] == "actor_cross_class_collision_high_risk"
+    assert blocked["policy_version"] == "cross_class_exact_label_policy_v0"
 
 
 def test_blocked_cross_class_collision_does_not_rewrite_edge_endpoints():
@@ -392,3 +393,131 @@ def test_cross_class_merge_unions_evidence_refs_onto_survivor():
     survivor = next(n for n in result["kept"] if n["node_id"] == "loc_reach")
     spans = ir.evidence_line_spans(survivor)
     assert (10, 12) in spans and (40, 41) in spans
+
+
+def test_cross_class_policy_place_collective_still_merges():
+    nodes = [
+        {"node_id": "loc_mireward", "label": "Mireward", "node_type": "location"},
+        {"node_id": "org_mireward", "label": "Mireward", "node_type": "organization"},
+    ]
+    policy = ir.should_merge_cross_class_label_collision(nodes)
+
+    assert policy["action"] == "merge"
+    assert policy["reason"] == "place_collective_exact_label"
+    assert policy["policy_reason"] == "place_collective_exact_label"
+    assert policy["policy_version"] == "cross_class_exact_label_policy_v0"
+    assert policy["classes"] == ["collective", "place"]
+
+
+def test_cross_class_policy_blocks_object_place_with_specific_reason():
+    nodes = [
+        {"node_id": "loc_bridge", "label": "Stone Bridge", "node_type": "location"},
+        {"node_id": "item_bridge", "label": "Stone Bridge", "node_type": "item"},
+    ]
+    policy = ir.should_merge_cross_class_label_collision(nodes)
+
+    assert policy["action"] == "block"
+    assert policy["reason"] == "unsafe_cross_class_exact_label"
+    assert policy["policy_reason"] == "object_place_structure_pressure"
+    assert policy["policy_version"] == "cross_class_exact_label_policy_v0"
+    assert policy["classes"] == ["object", "place"]
+
+
+def test_cross_class_policy_blocks_collective_object_place_triad():
+    nodes = [
+        {"node_id": "loc_pub", "label": "River's Edge Pub", "node_type": "location"},
+        {"node_id": "org_pub", "label": "River's Edge Pub", "node_type": "organization"},
+        {"node_id": "item_pub", "label": "River's Edge Pub", "node_type": "item"},
+    ]
+    policy = ir.should_merge_cross_class_label_collision(nodes)
+
+    assert policy["action"] == "block"
+    assert policy["reason"] == "unsafe_cross_class_exact_label"
+    assert policy["policy_reason"] == "collective_object_place_establishment_pressure"
+    assert policy["classes"] == ["collective", "object", "place"]
+
+
+def test_cross_class_policy_blocks_actor_involved_collision():
+    nodes = [
+        {"node_id": "npc_spider", "label": "Spider Monstrosity", "node_type": "character"},
+        {"node_id": "item_spider", "label": "Spider Monstrosity", "node_type": "item"},
+    ]
+    policy = ir.should_merge_cross_class_label_collision(nodes)
+
+    assert policy["action"] == "block"
+    assert policy["reason"] == "unsafe_cross_class_exact_label"
+    assert policy["policy_reason"] == "actor_cross_class_collision_high_risk"
+
+
+def test_cross_class_policy_blocks_place_thread_collision():
+    nodes = [
+        {"node_id": "loc_tools", "label": "Room of Broken Tools", "node_type": "location"},
+        {"node_id": "mystery_tools", "label": "Room of Broken Tools", "node_type": "mystery"},
+    ]
+    policy = ir.should_merge_cross_class_label_collision(nodes)
+
+    assert policy["action"] == "block"
+    assert policy["reason"] == "unsafe_cross_class_exact_label"
+    assert policy["policy_reason"] == "place_thread_narrative_overlap"
+
+
+def test_cross_class_merge_remaps_edges_for_approved_place_collective_collision():
+    nodes = [
+        {"node_id": "loc_mireward", "label": "Mireward", "node_type": "location", "evidence_refs": [{"id": "a"}]},
+        {"node_id": "org_mireward", "label": "Mireward", "node_type": "organization", "evidence_refs": [{"id": "b"}]},
+        {"node_id": "npc_mayor", "label": "Mayor Elara", "node_type": "character"},
+    ]
+    edges = [
+        {"edge_id": "edge_1", "from_node_id": "npc_mayor", "to_node_id": "org_mireward", "relationship_type": "governs"},
+    ]
+
+    result = ir.reconcile_cross_class_label_collisions(nodes, edges)
+
+    assert result["merged"] == [("loc_mireward", "org_mireward")]
+    assert result["remap"] == {"org_mireward": "loc_mireward"}
+    assert result["edges"][0]["to_node_id"] == "loc_mireward"
+    assert result["blocked"] == []
+
+
+def test_blocked_object_place_collision_keeps_nodes_and_adds_safe_member_summaries():
+    nodes = [
+        {
+            "node_id": "loc_bridge",
+            "label": "Stone Bridge",
+            "node_type": "location",
+            "description": "A bridge\nwith a short description.",
+            "evidence_refs": [{"quote": "secret quote", "anchor_quotes": ["also secret"]}],
+        },
+        {"node_id": "item_bridge", "label": "Stone Bridge", "node_type": "item"},
+    ]
+
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+
+    assert len(result["kept"]) == 2
+    assert result["merged"] == []
+    assert result["remap"] == {}
+    assert len(result["blocked"]) == 1
+    blocked = result["blocked"][0]
+    assert blocked["reason"] == "unsafe_cross_class_exact_label"
+    assert blocked["policy_reason"] == "object_place_structure_pressure"
+    assert blocked["policy_version"] == "cross_class_exact_label_policy_v0"
+    assert blocked["member_summaries"] == [
+        {
+            "node_id": "item_bridge",
+            "label": "Stone Bridge",
+            "node_type": "item",
+            "type_class": "object",
+            "evidence_count": 0,
+        },
+        {
+            "node_id": "loc_bridge",
+            "label": "Stone Bridge",
+            "node_type": "location",
+            "type_class": "place",
+            "evidence_count": 1,
+            "description": "A bridge with a short description.",
+        },
+    ]
+    serialized = json.dumps(result["blocked"], sort_keys=True)
+    assert "secret quote" not in serialized
+    assert "also secret" not in serialized
