@@ -7,6 +7,7 @@ without requiring an immediate corpus migration.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -374,3 +375,150 @@ def merge_party_collective(
             "party_membership_edge_slugs": seeded_slugs,
         },
     )
+
+
+def _edge_id_slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "unknown"
+
+
+def _party_participation_edge(
+    *,
+    subject_id: str,
+    subject_label: str,
+    target: Mapping[str, Any],
+    relationship_type: str,
+    predicate_family: str,
+    verb_label: str,
+    default_semantic_state: Mapping[str, Any],
+) -> dict[str, Any]:
+    target_id = str(target.get("node_id") or "")
+    target_label = str(target.get("label") or target_id)
+    return {
+        "edge_id": (
+            f"edge:{_edge_id_slug(subject_id.removeprefix('node:'))}-"
+            f"{_edge_id_slug(relationship_type.replace('_', '-'))}-"
+            f"{_edge_id_slug(target_id)}"
+        ),
+        "from_node_id": subject_id,
+        "to_node_id": target_id,
+        "label": f"{subject_label} {verb_label} {target_label}",
+        "relationship_type": relationship_type,
+        "predicate_family": predicate_family,
+        "semantic_state": dict(default_semantic_state),
+        "evidence_refs": [],
+        "proposed_action": "anchor",
+        "confidence": "medium",
+        "warnings": [
+            "context_anchor_no_session_evidence",
+            "deterministic_party_participation",
+        ],
+        "context_anchor": True,
+    }
+
+
+def attach_party_participation_edges(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    party_ctx: PartyContext,
+    *,
+    default_semantic_state: Mapping[str, Any],
+    attach_to_individual_members: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Attach deterministic party context to quest and combat encounter nodes.
+
+    The default subject is the party collective. Individual party-member edges
+    are intentionally opt-in so deterministic attachment does not explode into
+    per-PC action attribution unless a caller explicitly requests it.
+    """
+    node_by_id = {str(node.get("node_id") or ""): node for node in nodes}
+    combat_nodes = sorted(
+        (node for node in nodes if node.get("node_type") == "combat_encounter"),
+        key=lambda node: str(node.get("node_id") or ""),
+    )
+    quest_nodes = sorted(
+        (node for node in nodes if node.get("node_type") == "quest"),
+        key=lambda node: str(node.get("node_id") or ""),
+    )
+    diag: dict[str, Any] = {
+        "enabled": True,
+        "subject_node_ids": [],
+        "combat_encounter_node_ids": [str(node.get("node_id") or "") for node in combat_nodes],
+        "quest_node_ids": [str(node.get("node_id") or "") for node in quest_nodes],
+        "inserted_edge_ids": [],
+        "inserted_edge_count": 0,
+        "skipped_reason": None,
+    }
+
+    if not combat_nodes and not quest_nodes:
+        diag["skipped_reason"] = "no_encounter_or_quest_nodes"
+        return edges, diag
+
+    subjects: list[tuple[str, str]] = []
+    if PARTY_COLLECTIVE_NODE_ID in node_by_id:
+        collective = node_by_id[PARTY_COLLECTIVE_NODE_ID]
+        subjects.append(
+            (PARTY_COLLECTIVE_NODE_ID, str(collective.get("label") or PARTY_COLLECTIVE_LABEL))
+        )
+
+    if attach_to_individual_members:
+        key_to_id: dict[str, str] = {}
+        for node in nodes:
+            node_id = str(node.get("node_id") or "")
+            if node_id:
+                key_to_id.setdefault(ir.canonical_node_key(node), node_id)
+        for member in party_ctx.members:
+            member_id = key_to_id.get(ir.canonical_node_key(member.seed_node()))
+            if member_id and member_id != PARTY_COLLECTIVE_NODE_ID:
+                subjects.append((member_id, member.display_name))
+
+    # Keep stable order and avoid duplicate subjects if a member unexpectedly
+    # resolves to the collective.
+    deduped_subjects: list[tuple[str, str]] = []
+    seen_subjects: set[str] = set()
+    for subject_id, subject_label in subjects:
+        if subject_id in seen_subjects:
+            continue
+        seen_subjects.add(subject_id)
+        deduped_subjects.append((subject_id, subject_label))
+    diag["subject_node_ids"] = [subject_id for subject_id, _ in deduped_subjects]
+
+    if not deduped_subjects:
+        diag["skipped_reason"] = "no_party_subject"
+        return edges, diag
+
+    merged_edges = list(edges)
+    existing_edge_ids = {str(edge.get("edge_id") or "") for edge in merged_edges}
+    for subject_id, subject_label in deduped_subjects:
+        for node in combat_nodes:
+            edge = _party_participation_edge(
+                subject_id=subject_id,
+                subject_label=subject_label,
+                target=node,
+                relationship_type="participates_in",
+                predicate_family="participation",
+                verb_label="participates in",
+                default_semantic_state=default_semantic_state,
+            )
+            if edge["edge_id"] not in existing_edge_ids:
+                merged_edges.append(edge)
+                existing_edge_ids.add(edge["edge_id"])
+                diag["inserted_edge_ids"].append(edge["edge_id"])
+        for node in quest_nodes:
+            edge = _party_participation_edge(
+                subject_id=subject_id,
+                subject_label=subject_label,
+                target=node,
+                relationship_type="pursues",
+                predicate_family="hook_relation",
+                verb_label="pursues",
+                default_semantic_state=default_semantic_state,
+            )
+            if edge["edge_id"] not in existing_edge_ids:
+                merged_edges.append(edge)
+                existing_edge_ids.add(edge["edge_id"])
+                diag["inserted_edge_ids"].append(edge["edge_id"])
+
+    diag["inserted_edge_ids"] = sorted(diag["inserted_edge_ids"])
+    diag["inserted_edge_count"] = len(diag["inserted_edge_ids"])
+    return merged_edges, diag
