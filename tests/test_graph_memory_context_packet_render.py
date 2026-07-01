@@ -24,6 +24,7 @@ def _entry(
     scope: str = "campaign",
     aliases: list[str] | None = None,
     candidate_aliases: list[str] | None = None,
+    negative_aliases: list[str] | None = None,
 ) -> VocabularyEntry:
     return VocabularyEntry(
         vocab_id=vocab_id,
@@ -34,6 +35,7 @@ def _entry(
         world_id="world:mirathorn" if scope == "world" else None,
         aliases=aliases or [],
         candidate_aliases=candidate_aliases or [],
+        negative_aliases=negative_aliases or [],
     )
 
 
@@ -74,17 +76,45 @@ def test_deterministic_packet_ids_and_payloads_for_different_entry_order():
     assert first.packet.to_dict() == second.packet.to_dict()
 
 
-def test_budget_trims_known_names_and_reports_trimmed_counts():
+def test_known_names_are_canonical_only_and_aliases_are_grouped():
     entry = _entry(
-        "vocab:campaign:north-gate-defense",
-        "North Gate Defense",
-        "combat_encounter",
-        aliases=["The North Gate Defense", "Gate Defense"],
-        candidate_aliases=["North Gate fight"],
+        "vocab:campaign:lysandra",
+        "Captain Lysandra",
+        "actor",
+        aliases=["Lysandra Ironveil", "Captain Ironveil"],
+        candidate_aliases=["The Captain"],
+        negative_aliases=["Some Wrong Name"],
     )
 
     result = render_context_vocabulary_packet(
         campaign_entries=[entry],
+        predicate_hints={"Captain Lysandra": ["leads"], "The Captain": ["ignored"]},
+    )
+    packet = result.packet
+
+    assert packet.known_names == ["Captain Lysandra"]
+    assert "Lysandra Ironveil" not in packet.known_names
+    assert "The Captain" not in packet.known_names
+    assert packet.entry_aliases == {"Captain Lysandra": ["Lysandra Ironveil", "Captain Ironveil"]}
+    assert packet.candidate_entry_aliases == {"Captain Lysandra": ["The Captain"]}
+    assert "Some Wrong Name" not in packet.known_names
+    assert "Some Wrong Name" not in packet.entry_aliases.get("Captain Lysandra", [])
+    assert "Some Wrong Name" not in packet.candidate_entry_aliases.get("Captain Lysandra", [])
+    assert packet.entry_labels == {"vocab:campaign:lysandra": "Captain Lysandra"}
+    assert packet.entry_kinds == {"vocab:campaign:lysandra": "actor"}
+    assert packet.predicate_hints == {"Captain Lysandra": ["leads"]}
+    assert result.diagnostics["entry_alias_count"] == 2
+    assert result.diagnostics["candidate_entry_alias_count"] == 1
+
+
+def test_budget_trims_known_names_and_reports_trimmed_counts():
+    entries = [
+        _entry(f"vocab:campaign:name-{index}", f"Name {index}", "actor")
+        for index in range(3)
+    ]
+
+    result = render_context_vocabulary_packet(
+        campaign_entries=entries,
         budget_policy=ContextPacketBudgetPolicy(max_known_names=2),
     )
 
@@ -155,6 +185,22 @@ def test_invalid_budget_fails_clearly():
 
     with pytest.raises(ValueError, match="max_known_names"):
         ContextPacketBudgetPolicy(max_known_names=1.2).validate()  # type: ignore[arg-type]
+
+
+def test_old_style_packet_payload_loads_with_alias_group_defaults():
+    packet = ContextVocabularyPacket.from_dict(
+        {
+            "packet_id": "packet:vocab:old-style",
+            "scope": "campaign",
+            "known_names": ["Captain Lysandra"],
+            "type_hints": {"Captain Lysandra": "actor"},
+        }
+    )
+
+    assert packet.entry_aliases == {}
+    assert packet.candidate_entry_aliases == {}
+    assert packet.entry_labels == {}
+    assert packet.entry_kinds == {}
 
 
 def test_packet_payload_helper_round_trips():

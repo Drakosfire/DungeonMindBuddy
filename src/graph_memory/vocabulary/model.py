@@ -351,6 +351,10 @@ class ContextVocabularyPacket(_VocabularyModel):
     world_entry_refs: list[str] = field(default_factory=list)
     campaign_entry_refs: list[str] = field(default_factory=list)
     known_names: list[str] = field(default_factory=list)
+    entry_aliases: dict[str, list[str]] = field(default_factory=dict)
+    candidate_entry_aliases: dict[str, list[str]] = field(default_factory=dict)
+    entry_labels: dict[str, str] = field(default_factory=dict)
+    entry_kinds: dict[str, EntityKind] = field(default_factory=dict)
     alias_hints: list[AliasCandidate] = field(default_factory=list)
     candidate_alias_hints: list[AliasCandidate] = field(default_factory=list)
     do_not_merge_hints: list[DoNotMergeDecision] = field(default_factory=list)
@@ -368,5 +372,9 @@ class ContextVocabularyPacket(_VocabularyModel):
         self.world_entry_refs = _dedupe_preserving_order(self.world_entry_refs)
         self.campaign_entry_refs = _dedupe_preserving_order(self.campaign_entry_refs)
         self.known_names = _dedupe_preserving_order(self.known_names)
+        self.entry_aliases = {key: _dedupe_preserving_order(values) for key, values in self.entry_aliases.items()}
+        self.candidate_entry_aliases = {
+            key: _dedupe_preserving_order(values) for key, values in self.candidate_entry_aliases.items()
+        }
         self.combat_encounter_hints = _dedupe_preserving_order(self.combat_encounter_hints)
         self.predicate_hints = {key: _dedupe_preserving_order(values) for key, values in self.predicate_hints.items()}

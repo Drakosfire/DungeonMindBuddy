@@ -98,13 +98,28 @@ def make_context_packet_id(
 
 def _known_names(world_entries: list[VocabularyEntry], campaign_entries: list[VocabularyEntry]) -> list[str]:
     return _dedupe_preserving_order(
-        [entry.canonical_label for entry in world_entries]
-        + [entry.canonical_label for entry in campaign_entries]
-        + [alias for entry in world_entries for alias in entry.aliases]
-        + [alias for entry in campaign_entries for alias in entry.aliases]
-        + [alias for entry in world_entries for alias in entry.candidate_aliases]
-        + [alias for entry in campaign_entries for alias in entry.candidate_aliases]
+        [entry.canonical_label for entry in world_entries] + [entry.canonical_label for entry in campaign_entries]
     )
+
+
+def _entry_alias_groups(entries: list[VocabularyEntry]) -> dict[str, list[str]]:
+    return {entry.canonical_label: list(entry.aliases) for entry in entries if entry.aliases}
+
+
+def _candidate_entry_alias_groups(entries: list[VocabularyEntry]) -> dict[str, list[str]]:
+    return {entry.canonical_label: list(entry.candidate_aliases) for entry in entries if entry.candidate_aliases}
+
+
+def _entry_labels(entries: list[VocabularyEntry]) -> dict[str, str]:
+    return {entry.vocab_id: entry.canonical_label for entry in entries}
+
+
+def _entry_kinds(entries: list[VocabularyEntry]) -> dict[str, EntityKind]:
+    return {entry.vocab_id: entry.entity_kind for entry in entries}
+
+
+def _alias_count(groups: Mapping[str, list[str]]) -> int:
+    return sum(len(values) for values in groups.values())
 
 
 def _type_hints(entries: list[VocabularyEntry], limit: int) -> tuple[dict[str, EntityKind], int]:
@@ -157,6 +172,10 @@ def render_context_vocabulary_packet(
     all_known_names = _known_names(retained_world_entries, retained_campaign_entries)
     known_names, trimmed_known_names = _trim(all_known_names, policy.max_known_names)
     type_hints, trimmed_type_hints = _type_hints(retained_entries, policy.max_type_hints)
+    entry_aliases = _entry_alias_groups(retained_entries)
+    candidate_entry_aliases = _candidate_entry_alias_groups(retained_entries)
+    entry_labels = _entry_labels(retained_entries)
+    entry_kinds = _entry_kinds(retained_entries)
     combat_hints, trimmed_combat_hints = _trim(
         [entry.canonical_label for entry in retained_entries if entry.entity_kind == "combat_encounter"],
         policy.max_combat_encounter_hints,
@@ -187,6 +206,10 @@ def render_context_vocabulary_packet(
         world_entry_refs=[entry.vocab_id for entry in retained_world_entries],
         campaign_entry_refs=[entry.vocab_id for entry in retained_campaign_entries],
         known_names=known_names,
+        entry_aliases=entry_aliases,
+        candidate_entry_aliases=candidate_entry_aliases,
+        entry_labels=entry_labels,
+        entry_kinds=entry_kinds,
         alias_hints=retained_alias_hints,
         candidate_alias_hints=retained_candidate_alias_hints,
         do_not_merge_hints=retained_do_not_merge_hints,
@@ -202,6 +225,8 @@ def render_context_vocabulary_packet(
         "world_entry_count": len(retained_world_entries),
         "campaign_entry_count": len(retained_campaign_entries),
         "known_name_count": len(known_names),
+        "entry_alias_count": _alias_count(entry_aliases),
+        "candidate_entry_alias_count": _alias_count(candidate_entry_aliases),
         "alias_hint_count": len(retained_alias_hints),
         "candidate_alias_hint_count": len(retained_candidate_alias_hints),
         "do_not_merge_hint_count": len(retained_do_not_merge_hints),

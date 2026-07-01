@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .model import ContextVocabularyPacket, EntityKind
+from .model import ContextVocabularyPacket, DoNotMergeDecision, EntityKind
 
 RENDER_METHOD = "node_vocabulary_context_v1"
 
@@ -56,14 +56,51 @@ def _predicate_lines(packet: ContextVocabularyPacket, retained_names: set[str]) 
     return lines
 
 
-def _do_not_merge_lines(packet: ContextVocabularyPacket) -> list[str]:
-    return [
-        f"- {hint.left_vocab_id} != {hint.right_vocab_id}"
-        for hint in sorted(
-            packet.do_not_merge_hints,
-            key=lambda hint: (hint.left_vocab_id, hint.right_vocab_id, hint.decision_id),
-        )
-    ]
+def _name_line(packet: ContextVocabularyPacket, name: str) -> list[str]:
+    kind = packet.type_hints.get(name)
+    lines = [f"- {name} [{kind}]" if kind else f"- {name}"]
+    aliases = packet.entry_aliases.get(name, [])
+    if aliases:
+        lines.append(f"  aliases: {', '.join(aliases)}")
+    candidate_aliases = packet.candidate_entry_aliases.get(name, [])
+    if candidate_aliases:
+        lines.append(f"  candidate aliases / review only: {', '.join(candidate_aliases)}")
+    return lines
+
+
+def _resolved_vocab_id(packet: ContextVocabularyPacket, vocab_id: str) -> tuple[str, bool]:
+    label = packet.entry_labels.get(vocab_id)
+    if label is None:
+        return vocab_id, False
+    kind = packet.entry_kinds.get(vocab_id)
+    return (f"{label} [{kind}]" if kind else label), True
+
+
+def _do_not_merge_line(packet: ContextVocabularyPacket, hint: DoNotMergeDecision) -> tuple[str, bool]:
+    left, left_resolved = _resolved_vocab_id(packet, hint.left_vocab_id)
+    right, right_resolved = _resolved_vocab_id(packet, hint.right_vocab_id)
+    line = f"- {left} must not merge with {right}"
+    if hint.reason:
+        line += f" — {hint.reason}"
+    return line, left_resolved or right_resolved
+
+
+def _do_not_merge_lines(packet: ContextVocabularyPacket, retained_names: set[str] | None = None) -> list[str]:
+    lines: list[str] = []
+    for hint in sorted(
+        packet.do_not_merge_hints,
+        key=lambda hint: (hint.left_vocab_id, hint.right_vocab_id, hint.decision_id),
+    ):
+        if retained_names is not None:
+            left_label = packet.entry_labels.get(hint.left_vocab_id)
+            right_label = packet.entry_labels.get(hint.right_vocab_id)
+            if left_label is None and right_label is None:
+                continue
+            if left_label not in retained_names and right_label not in retained_names:
+                continue
+        line, _ = _do_not_merge_line(packet, hint)
+        lines.append(line)
+    return lines
 
 
 def _containment_lines(packet: ContextVocabularyPacket, retained_names: set[str]) -> list[str]:
@@ -94,14 +131,14 @@ def render_node_vocabulary_context(
     known_names = _targeted_known_names(packet, target_kinds)
     retained_names = set(known_names)
 
-    known_name_lines = [f"- {name} [{packet.type_hints[name]}]" for name in known_names]
+    known_name_lines = [line for name in known_names for line in _name_line(packet, name)]
     combat_lines = (
         [f"- {label}" for label in _sorted_text([label for label in packet.combat_encounter_hints if label in retained_names])]
         if pass_name == "thread_pass"
         else []
     )
     predicate_lines = _predicate_lines(packet, retained_names)
-    do_not_merge_lines = _do_not_merge_lines(packet)
+    do_not_merge_lines = _do_not_merge_lines(packet, retained_names)
     containment_lines = _containment_lines(packet, retained_names)
 
     lines: list[str] = []
