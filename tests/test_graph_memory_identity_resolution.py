@@ -521,3 +521,30 @@ def test_blocked_object_place_collision_keeps_nodes_and_adds_safe_member_summari
     serialized = json.dumps(result["blocked"], sort_keys=True)
     assert "secret quote" not in serialized
     assert "also secret" not in serialized
+
+
+def test_quest_node_type_class_remains_thread():
+    assert ir.node_type_class("quest") == "thread"
+
+
+def test_combat_encounter_node_type_class_is_phenomenon():
+    assert ir.node_type_class("combat_encounter") == "phenomenon"
+
+
+def test_combat_encounter_canonical_node_key_uses_phenomenon_class():
+    node = {
+        "node_id": "enc_glowkindle_rats",
+        "label": "Glowkindle cellar rat fight",
+        "node_type": "combat_encounter",
+    }
+
+    key = ir.canonical_node_key(node)
+
+    assert key[0] == "phenomenon"
+    assert key[1] == "glowkindle cellar rat fight"
+
+
+def test_unknown_job_adversary_monster_types_do_not_gain_identity_classes():
+    assert ir.node_type_class("job").startswith("type:")
+    assert ir.node_type_class("adversary").startswith("type:")
+    assert ir.node_type_class("monster").startswith("type:")
