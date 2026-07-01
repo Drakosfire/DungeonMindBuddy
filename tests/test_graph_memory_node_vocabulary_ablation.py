@@ -108,7 +108,7 @@ def test_beat_pass_is_not_modified():
 
 
 def test_edge_pass_is_not_modified_by_node_flag():
-    edge_prompt, diagnostics = build_edge_pass_prompt(
+    edge_prompt, diagnostics, encounter_job_edge_diag = build_edge_pass_prompt(
         _prompts()["edge_pass.md"],
         [],
         options=_options(enable_node_vocabulary_packet=True, node_vocabulary_packet=_packet()),
@@ -117,6 +117,7 @@ def test_edge_pass_is_not_modified_by_node_flag():
     assert "Vocabulary context for node extraction" not in edge_prompt
     assert "Vocabulary context for edge extraction" not in edge_prompt
     assert diagnostics == {"enabled": False}
+    assert encounter_job_edge_diag["enabled"] is False
 
 
 def test_node_and_edge_flags_are_independent():
@@ -130,7 +131,7 @@ def test_node_and_edge_flags_are_independent():
     )
 
     node_prompt, node_diag = build_node_pass_prompt("location_pass", _prompts()["location_pass.md"], options=options)
-    edge_prompt, edge_diag = build_edge_pass_prompt(_prompts()["edge_pass.md"], [], options=options)
+    edge_prompt, edge_diag, _ = build_edge_pass_prompt(_prompts()["edge_pass.md"], [], options=options)
 
     assert "Vocabulary context for node extraction" in node_prompt
     assert "Vocabulary context for edge extraction" in edge_prompt

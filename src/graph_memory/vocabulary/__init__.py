@@ -7,6 +7,13 @@ from .ablation_compare import (
     summarize_variant_metrics,
     vocabulary_ablation_comparison_to_payload,
 )
+from .dynamic_selection import (
+    DynamicVocabularySelectionPolicy,
+    DynamicVocabularySelectionResult,
+    build_dynamic_context_vocabulary_packet,
+    entity_kind_from_node_type,
+    vocabulary_entry_from_node,
+)
 from .edge_context import (
     EdgeVocabularyContext,
     render_edge_vocabulary_context,
@@ -78,6 +85,11 @@ __all__ = [
     "compare_vocabulary_ablation_variants",
     "VocabularyAblationVariant",
     "VocabularyAblationComparisonResult",
+    "DynamicVocabularySelectionPolicy",
+    "DynamicVocabularySelectionResult",
+    "build_dynamic_context_vocabulary_packet",
+    "entity_kind_from_node_type",
+    "vocabulary_entry_from_node",
     "EdgeVocabularyContext",
     "render_edge_vocabulary_context",
     "NodeVocabularyContext",
