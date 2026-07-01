@@ -36,6 +36,32 @@ from graph_memory.ingestion import (
 )
 
 ComparisonMode = Literal["none", "gold_if_available", "required_gold"]
+GraphExtractionProfile = Literal[
+    "current_default",
+    "category_baseline",
+    "category_encounter_job_preview",
+]
+
+_GRAPH_EXTRACTION_PROFILE_OPTIONS: dict[GraphExtractionProfile, dict[str, bool]] = {
+    "current_default": {
+        "enable_encounter_job_pass": False,
+        "enable_party_participation_attachment": False,
+        "enable_encounter_job_edge_guidance": False,
+        "enable_dynamic_node_vocabulary_packet": False,
+    },
+    "category_baseline": {
+        "enable_encounter_job_pass": False,
+        "enable_party_participation_attachment": False,
+        "enable_encounter_job_edge_guidance": False,
+        "enable_dynamic_node_vocabulary_packet": False,
+    },
+    "category_encounter_job_preview": {
+        "enable_encounter_job_pass": True,
+        "enable_party_participation_attachment": True,
+        "enable_encounter_job_edge_guidance": True,
+        "enable_dynamic_node_vocabulary_packet": False,
+    },
+}
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +81,7 @@ class GraphPreviewRunnerOptions:
     candidate_graph_path: Path | None = None
     category_client: CategoryGraphPassClient | None = None
     input_path_record: str | None = None
+    graph_extraction_profile: GraphExtractionProfile | str | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +101,43 @@ class CandidateValidationResult:
     errors: list[str]
     warnings: list[str]
 
+
+def normalize_graph_extraction_profile(value: str | None) -> GraphExtractionProfile:
+    if value is None:
+        return "current_default"
+    if value in _GRAPH_EXTRACTION_PROFILE_OPTIONS:
+        return value  # type: ignore[return-value]
+    raise ValueError(f"unsupported graph_extraction_profile: {value}")
+
+
+def graph_extraction_profile_options(profile: GraphExtractionProfile) -> dict[str, bool]:
+    return dict(_GRAPH_EXTRACTION_PROFILE_OPTIONS[profile])
+
+
+def category_options_for_graph_extraction_profile(
+    *,
+    profile: GraphExtractionProfile,
+    campaign_id: str,
+    session_id: str,
+    session_number: int,
+    source_span_index: dict[str, Any],
+    model_id: str,
+) -> tuple[CategoryGraphExtractionOptions, dict[str, Any]]:
+    profile_options = graph_extraction_profile_options(profile)
+    return (
+        CategoryGraphExtractionOptions(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            session_number=session_number,
+            source_span_index=source_span_index,
+            model_id=model_id,
+            **profile_options,
+        ),
+        {
+            "graph_extraction_profile": profile,
+            "graph_extraction_profile_options": profile_options,
+        },
+    )
 
 def compute_sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -455,6 +519,8 @@ def _artifact(
 def run_graph_preview_extraction(
     options: GraphPreviewRunnerOptions,
 ) -> GraphPreviewRunnerResult:
+    profile = normalize_graph_extraction_profile(options.graph_extraction_profile)
+    profile_option_diagnostics = graph_extraction_profile_options(profile)
     campaign_id = _slug(options.campaign_id)
     session_id = _slug(options.session_id)
     if options.comparison_mode not in ("none", "gold_if_available", "required_gold"):
@@ -593,14 +659,17 @@ def run_graph_preview_extraction(
                     )
                 )
 
+            extraction_options, profile_diagnostics = category_options_for_graph_extraction_profile(
+                profile=profile,
+                campaign_id=campaign_id,
+                session_id=session_id,
+                session_number=session_number,
+                source_span_index=span_index,
+                model_id=model_id,
+            )
+            profile_option_diagnostics = dict(profile_diagnostics["graph_extraction_profile_options"])
             extraction = extract_category_candidate_graph(
-                CategoryGraphExtractionOptions(
-                    campaign_id=campaign_id,
-                    session_id=session_id,
-                    session_number=session_number,
-                    source_span_index=span_index,
-                    model_id=model_id,
-                ),
+                extraction_options,
                 client=category_client,
                 progress_callback=_progress,
             )
@@ -824,6 +893,8 @@ def run_graph_preview_extraction(
         diagnostics=GraphIngestDiagnostics(
             candidate_extraction=candidate_extraction,
             extraction_mode=extraction_mode,
+            graph_extraction_profile=profile,
+            graph_extraction_profile_options=profile_option_diagnostics,
         ),
         projection=None,
         warnings=[]

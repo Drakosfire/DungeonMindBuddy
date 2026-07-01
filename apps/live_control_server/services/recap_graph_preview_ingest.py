@@ -66,6 +66,7 @@ def build_recap_graph_preview_bundle(
     candidate_graph_path: str | None = None,
     extract_graph: bool = False,
     graph_model_id: str | None = None,
+    graph_extraction_profile: str | None = None,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
@@ -83,7 +84,7 @@ def build_recap_graph_preview_bundle(
     logger.info(
         "graph preview bundle requested campaign=%s session=session-%s normalized=%s "
         "source_recap_path=%s source_recap_sha256=%s force_graph_run=%s "
-        "candidate_graph_path=%s extract_graph=%s model_id=%s",
+        "candidate_graph_path=%s extract_graph=%s model_id=%s graph_extraction_profile=%s",
         campaign_id,
         session,
         normalized_recap_path,
@@ -93,6 +94,7 @@ def build_recap_graph_preview_bundle(
         candidate_graph_path,
         extract_graph,
         graph_model_id,
+        graph_extraction_profile,
     )
 
     desired_statuses = {
@@ -143,6 +145,7 @@ def build_recap_graph_preview_bundle(
             comparison_mode="none",
             candidate_graph_path=candidate,
             input_path_record=source_recap_path,
+            graph_extraction_profile=graph_extraction_profile,
         )
     )
     summary = _summary_for_manifest(repo, result.manifest_path)
@@ -170,6 +173,7 @@ def materialize_recap_preview_supergraph(
     extract_graph: bool = False,
     graph_model_id: str | None = None,
     force_graph_run: bool = False,
+    graph_extraction_profile: str | None = None,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
@@ -180,7 +184,7 @@ def materialize_recap_preview_supergraph(
     logger.info(
         "preview union materialization requested campaign=%s session=session-%s normalized=%s "
         "source_recap_path=%s source_recap_sha256=%s manifest_path=%s candidate_graph_path=%s "
-        "extract_graph=%s model_id=%s force_graph_run=%s",
+        "extract_graph=%s model_id=%s force_graph_run=%s graph_extraction_profile=%s",
         campaign_id,
         session,
         normalized_recap_path,
@@ -191,6 +195,7 @@ def materialize_recap_preview_supergraph(
         extract_graph,
         graph_model_id,
         force_graph_run,
+        graph_extraction_profile,
     )
     forced_build_status: dict[str, Any] | None = None
     if candidate_graph_path:
@@ -205,6 +210,7 @@ def materialize_recap_preview_supergraph(
             candidate_graph_path=candidate_graph_path,
             extract_graph=extract_graph,
             graph_model_id=graph_model_id,
+            graph_extraction_profile=graph_extraction_profile,
         )
 
     if extract_graph and not candidate_graph_path and normalized_recap_path:
@@ -239,6 +245,7 @@ def materialize_recap_preview_supergraph(
                 force_graph_run=True,
                 extract_graph=True,
                 graph_model_id=graph_model_id,
+                graph_extraction_profile=graph_extraction_profile,
             )
 
     if manifest_path:
@@ -465,7 +472,10 @@ def _status_from_summary(
         "normalized_recap_path": normalized_recap_path,
     }
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    status["extraction_mode"] = manifest.get("diagnostics", {}).get("extraction_mode")
+    diagnostics = manifest.get("diagnostics", {})
+    status["extraction_mode"] = diagnostics.get("extraction_mode")
+    status["graph_extraction_profile"] = diagnostics.get("graph_extraction_profile")
+    status["graph_extraction_profile_options"] = diagnostics.get("graph_extraction_profile_options")
     status["model_id"] = manifest.get("health", {}).get("model_id")
     status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
     status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)

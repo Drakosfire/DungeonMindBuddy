@@ -207,3 +207,58 @@ def _set_manifest_time(manifest_path: Path, updated_at: str) -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     payload["updated_at"] = updated_at
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_build_recap_graph_preview_bundle_threads_profile_without_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "normalized.md"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    status = build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        force_graph_run=True,
+        extract_graph=False,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert status["status"] == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value
+    assert status["candidate_graph_path"] is None
+    assert status["graph_extraction_profile"] == "category_encounter_job_preview"
+    assert status["graph_extraction_profile_options"]["enable_encounter_job_pass"] is True
+    manifest = json.loads((tmp_path / status["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["diagnostics"]["candidate_extraction"] is False
+    assert not (tmp_path / status["run_dir"] / "pass_outputs.json").exists()
+
+
+def test_build_recap_graph_preview_bundle_unknown_profile_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "normalized.md"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported graph_extraction_profile: surprise_me"):
+        build_recap_graph_preview_bundle(
+            repo_root=tmp_path,
+            campaign_id="longmont-c2",
+            session=24,
+            normalized_recap_path=str(source),
+            force_graph_run=True,
+            extract_graph=True,
+            graph_extraction_profile="surprise_me",
+        )
+
+    assert not list((tmp_path / "out/graph_memory/runs").glob("**/candidate_graph.json"))
