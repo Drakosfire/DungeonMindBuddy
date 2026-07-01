@@ -446,3 +446,14 @@ Docs/Design/GRAPH-MEMORY-LIVE-RECAP-INGEST-RUN-BUNDLE.md
 
 Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-shot model-ready prompts from PR189 source-spanned recap bundles and validate manually supplied candidate graph output. Next rung: gated manual live LLM dogfood run / candidate output review packet against the Session 23 benchmark. Still blocked: graph writes, approval persistence, query execution, runtime retrieval, /plan, Agent Interaction, corpus scan/mutation, production extraction, and production UI.
 
+
+## Encounter/Job Dogfood Projection Fixture
+
+Validates and reports a deterministic no-LLM dogfood projection bundle for the encounter/job extraction stack. The fixture exercises `encounter_job_pass`, deterministic party participation attachment, encounter/job edge guidance, and dynamic node vocabulary selection against a synthetic Glowkindle rat-job source packet.
+
+It does not call an LLM, scan corpus files, mutate corpus files, write graph memory, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
+
+```bash
+PYTHONPATH=. uv run python -m evals.graph_memory_layer.validate_encounter_job_dogfood_projection
+PYTHONPATH=. uv run python -m evals.graph_memory_layer.report_encounter_job_dogfood_projection
+```
