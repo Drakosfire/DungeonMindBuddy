@@ -22,6 +22,7 @@ from src.graph_memory.party_context import (
     PartyContext,
     build_party_context_for_campaign,
 )
+from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
@@ -151,6 +152,8 @@ class CategoryGraphExtractionOptions:
     edge_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     node_vocabulary_packet: ContextVocabularyPacket | None = None
+    enable_dynamic_node_vocabulary_packet: bool = False
+    dynamic_node_vocabulary_nodes: tuple[Mapping[str, Any], ...] = ()
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
@@ -735,6 +738,40 @@ def assemble_envelope(
     }
 
 
+def resolve_node_vocabulary_packet_for_options(
+    options: CategoryGraphExtractionOptions,
+) -> tuple[ContextVocabularyPacket | None, dict[str, Any]]:
+    if options.node_vocabulary_packet is not None and (
+        options.enable_node_vocabulary_packet or options.enable_dynamic_node_vocabulary_packet
+    ):
+        diag = {
+            "enabled": True,
+            "source": "explicit_node_vocabulary_packet",
+            "packet_id": options.node_vocabulary_packet.packet_id,
+        }
+        if options.enable_dynamic_node_vocabulary_packet and options.dynamic_node_vocabulary_nodes:
+            diag["dynamic_nodes_ignored"] = True
+        return options.node_vocabulary_packet, diag
+    if not options.enable_dynamic_node_vocabulary_packet:
+        return None, {"enabled": False}
+    if not options.dynamic_node_vocabulary_nodes:
+        return None, {
+            "enabled": True,
+            "source": "dynamic_node_vocabulary_nodes",
+            "packet_id": None,
+            "selected_entry_count": 0,
+            "skipped_reason": "no_dynamic_nodes",
+        }
+    result = build_dynamic_context_vocabulary_packet(
+        nodes=options.dynamic_node_vocabulary_nodes,
+        campaign_id=options.campaign_id,
+    )
+    return result.packet, {
+        **result.diagnostics,
+        "source": "dynamic_node_vocabulary_nodes",
+    }
+
+
 def edge_vocabulary_ablation_diagnostics(options: CategoryGraphExtractionOptions) -> dict[str, Any]:
     if not options.enable_edge_vocabulary_packet or options.edge_vocabulary_packet is None:
         return {"enabled": False}
@@ -746,15 +783,19 @@ def build_node_pass_prompt(
     node_prompt_template: str,
     *,
     options: CategoryGraphExtractionOptions,
+    node_vocabulary_packet_override: ContextVocabularyPacket | None = None,
 ) -> tuple[str, dict[str, Any]]:
     allowed_passes = {name for name, _default_type, _instruction in NODE_EXTRACTION_PASSES}
     if pass_name not in allowed_passes:
         raise ValueError(f"pass_name must be one of {sorted(allowed_passes)}")
 
-    if not options.enable_node_vocabulary_packet or options.node_vocabulary_packet is None:
+    packet = node_vocabulary_packet_override or (
+        options.node_vocabulary_packet if options.enable_node_vocabulary_packet else None
+    )
+    if packet is None:
         return node_prompt_template, {"enabled": False}
 
-    context = render_node_vocabulary_context(options.node_vocabulary_packet, pass_name=pass_name)
+    context = render_node_vocabulary_context(packet, pass_name=pass_name)
     prompt = node_prompt_template
     marker = "\n\n## Source Packet\n\n"
     if marker in prompt and context.context_text:
@@ -890,6 +931,7 @@ def render_encounter_job_pass_prompt(
     party_ctx: PartyContext,
     nodes: Sequence[Mapping[str, Any]],
     beats: Sequence[Mapping[str, Any]],
+    vocabulary_context: str | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
@@ -903,9 +945,11 @@ def render_encounter_job_pass_prompt(
         "character, location, organization, faction, group, item, thread, mystery, "
         "warning, event, job, task, mission, bounty, errand, adversary, monster, pc, party"
     )
+    vocabulary_block = f"{vocabulary_context}\n\n" if vocabulary_context else ""
     return (
         f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
         f"{anchors}\n\n"
+        f"{vocabulary_block}"
         "## Task\n\n"
         "Extract only durable job/quest/objective nodes and discrete combat encounter nodes.\n\n"
         "Create `quest` nodes for accepted, offered, assigned, discovered, or pursued objectives. "
@@ -1060,6 +1104,7 @@ def run_category_pipeline(
     total_cost = 0.0
     system = "Category-decomposed graph memory extraction."
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
+    effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
 
     def _notify(pass_name: str, state: str) -> None:
         if progress_callback is not None:
@@ -1071,6 +1116,7 @@ def run_category_pipeline(
             pass_name,
             prompts[_prompt_key(pass_name)],
             options=options,
+            node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
         result = client.run_pass(
@@ -1115,11 +1161,19 @@ def run_category_pipeline(
         enable_party_participation_attachment=options.enable_party_participation_attachment,
     )
     if options.enable_encounter_job_pass:
+        encounter_vocabulary_context = ""
+        if effective_node_vocabulary_packet is not None:
+            encounter_vocabulary = render_node_vocabulary_context(
+                effective_node_vocabulary_packet, pass_name=ENCOUNTER_JOB_PASS_NAME
+            )
+            encounter_vocabulary_context = encounter_vocabulary.context_text
+            node_vocabulary_pass_diagnostics[ENCOUNTER_JOB_PASS_NAME] = encounter_vocabulary.diagnostics
         encounter_prompt = render_encounter_job_pass_prompt(
             source_rows,
             party_ctx=party_ctx,
             nodes=consolidated["nodes"],
             beats=consolidated["beats"],
+            vocabulary_context=encounter_vocabulary_context,
         )
         _notify(ENCOUNTER_JOB_PASS_NAME, "running")
         encounter_result = client.run_pass(
@@ -1189,14 +1243,12 @@ def run_category_pipeline(
         model_id=model_id,
     )
     candidate_graph = canonical_graph_for_runner(envelope)
-    node_vocabulary_enabled = (
-        options.enable_node_vocabulary_packet and options.node_vocabulary_packet is not None
-    )
+    node_vocabulary_enabled = effective_node_vocabulary_packet is not None
     node_vocabulary_diag: dict[str, Any] = {"enabled": False}
     if node_vocabulary_enabled:
         node_vocabulary_diag = {
             "enabled": True,
-            "packet_id": options.node_vocabulary_packet.packet_id,
+            "packet_id": effective_node_vocabulary_packet.packet_id,
             "passes": node_vocabulary_pass_diagnostics,
         }
     return CategoryGraphExtractionResult(
@@ -1213,6 +1265,7 @@ def run_category_pipeline(
             "edge_vocabulary_ablation": edge_vocabulary_diag,
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
+            "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
             **PREVIEW_DIAGNOSTICS,
         },
     )

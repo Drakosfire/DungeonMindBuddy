@@ -20,6 +20,7 @@ NODE_PASS_KIND_TARGETS: dict[str, tuple[EntityKind, ...]] = {
         "session_beat",
         "unknown",
     ),
+    "encounter_job_pass": ("combat_encounter", "thread", "actor", "place"),
 }
 
 
@@ -134,7 +135,7 @@ def render_node_vocabulary_context(
     known_name_lines = [line for name in known_names for line in _name_line(packet, name)]
     combat_lines = (
         [f"- {label}" for label in _sorted_text([label for label in packet.combat_encounter_hints if label in retained_names])]
-        if pass_name == "thread_pass"
+        if pass_name in {"thread_pass", "encounter_job_pass"}
         else []
     )
     predicate_lines = _predicate_lines(packet, retained_names)
@@ -147,8 +148,10 @@ def render_node_vocabulary_context(
         _append_section(lines, "Known scoped names for this pass:", known_name_lines)
         _append_section(lines, "Combat encounter names:", combat_lines)
         _append_section(lines, "Predicate hints for later edge extraction:", predicate_lines)
-        _append_section(lines, "Do-not-merge cautions:", do_not_merge_lines)
-        _append_section(lines, "Containment hints:", containment_lines)
+        if pass_name == "encounter_job_pass" or do_not_merge_lines:
+            _append_section(lines, "Do-not-merge cautions:", do_not_merge_lines or ["- None for retained names."])
+        if pass_name == "encounter_job_pass" or containment_lines:
+            _append_section(lines, "Containment hints:", containment_lines or ["- None for retained names."])
 
     untrimmed_line_count = len(lines)
     trimmed_line_count = 0
