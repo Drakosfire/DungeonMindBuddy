@@ -9,7 +9,13 @@ import type {
   RecapArtifactRecord,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
+import {
+  resolveInitialReviewCampaignId,
+  resolveSessionRecapContext,
+  syncReviewCampaignUrl,
+} from "../sessionCampaignContext";
 import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 import {
   filterNumericRecapArtifactRecords,
@@ -28,7 +34,7 @@ interface RecapGraphModuleProps {
   context: PlanContextDescriptor;
 }
 
-const DOGFOOD_SESSION_OPTIONS = ["session-21", "session-22", "session-23"];
+const DOGFOOD_SESSION_OPTIONS = ["session-1", "session-21", "session-22", "session-23"];
 
 function requestedSessionFromLocation(): string | null {
   if (typeof window === "undefined") return null;
@@ -51,29 +57,41 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
   const [artifactsLoaded, setArtifactsLoaded] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
+  const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
+    resolveInitialReviewCampaignId(context.campaignId),
+  );
+
+  const campaignSessionRecords = useMemo(
+    () => sessionRecords.filter((record) => record.campaign_id === selectedCampaignId),
+    [selectedCampaignId, sessionRecords],
+  );
 
   const sessionOptions = useMemo(() => {
-    const options = new Set(sessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
+    const options = new Set(campaignSessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
     options.add(`session-${context.ingestSession}`);
     options.add(defaultSessionId);
-    sessionRecords.forEach((record) => options.add(record.session_id));
+    campaignSessionRecords.forEach((record) => options.add(record.session_id));
     return [...options].sort((left, right) => {
       const leftNum = Number.parseInt(left.replace("session-", ""), 10);
       const rightNum = Number.parseInt(right.replace("session-", ""), 10);
       return leftNum - rightNum;
     });
-  }, [context.ingestSession, defaultSessionId, sessionRecords]);
-
+  }, [campaignSessionRecords, context.ingestSession, defaultSessionId]);
 
   const loadUnionProjection = useCallback(async (sessionId = selectedSessionId) => {
     setStatus("loading");
     setError(null);
-    const selectedRecord = sessionRecords.find((record) => record.session_id === sessionId);
+    const { campaignId, record: selectedRecord } = resolveSessionRecapContext(
+      sessionId,
+      selectedCampaignId,
+      sessionRecords,
+    );
     try {
       const projection = await getUnionSupergraphProjection({
-        campaignId: context.campaignId,
+        campaignId,
         sessionId,
         useLatestGraphIngest: true,
+        graphRunManifestPath: selectedRecord?.run_manifest_uri || undefined,
         sourceRecapPath: selectedRecord?.source_recap_path,
         sourceRecapSha256: selectedRecord?.source_sha256,
       });
@@ -95,7 +113,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       setUnionPayload(null);
       setProjectionSource("unavailable");
       setError(
-        `Graph projection is not ready for ${sessionId}. Recap memory exists, but no lineage-matched preview union projection was found.`,
+        `Graph projection is not ready for ${sessionId} in ${campaignId}. Recap memory exists, but no lineage-matched preview union projection was found.`,
       );
       setStatus("error");
       return;
@@ -103,22 +121,31 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
     setUnionPayload(null);
     setProjectionSource("unavailable");
-    setError(`No ingested recap artifact or union-supergraph projection is available for ${sessionId}.`);
+    setError(
+      `No ingested recap artifact or union-supergraph projection is available for ${sessionId} in ${selectedCampaignId}.`,
+    );
     setStatus("error");
-  }, [context.campaignId, selectedSessionId, sessionRecords]);
+  }, [selectedCampaignId, selectedSessionId, sessionRecords]);
 
   useEffect(() => {
     let cancelled = false;
     setArtifactsLoaded(false);
 
-    void getRecapArtifacts(context.campaignId)
+    void getRecapArtifacts(selectedCampaignId)
       .then((response) => {
         if (cancelled) {
           return;
         }
-        const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
+        const records = sortRecapArtifactRecords(
+          filterNumericRecapArtifactRecords(response.records),
+        );
         setSessionRecords(records);
-        setSelectedSessionId(requestedSessionId ?? records.at(-1)?.session_id ?? fallbackSessionId);
+        const campaignRecords = records.filter((record) => record.campaign_id === selectedCampaignId);
+        const nextSessionId =
+          requestedSessionId && campaignRecords.some((record) => record.session_id === requestedSessionId)
+            ? requestedSessionId
+            : (campaignRecords.at(-1)?.session_id ?? fallbackSessionId);
+        setSelectedSessionId(nextSessionId);
         setArtifactsLoaded(true);
       })
       .catch(() => {
@@ -132,7 +159,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, defaultSessionId, fallbackSessionId, requestedSessionId]);
+  }, [defaultSessionId, fallbackSessionId, requestedSessionId, selectedCampaignId]);
 
   useEffect(() => {
     if (!artifactsLoaded) {
@@ -141,6 +168,37 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     void loadUnionProjection(selectedSessionId);
   }, [artifactsLoaded, loadUnionProjection, selectedSessionId]);
 
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaignId(campaignId);
+    syncReviewCampaignUrl(campaignId);
+  };
+
+  const handleSessionSelect = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("session", sessionId);
+      params.set("campaign", selectedCampaignId);
+      window.history.replaceState({}, "", `/plan?${params.toString()}`);
+    }
+  };
+
+  const reviewToolbar = (
+    <div className="recap-reader-toolbar">
+      <ReviewCampaignPicker selectedCampaignId={selectedCampaignId} onSelect={handleCampaignSelect} />
+      <label className="graph-preview-run-picker">
+        <span>Focus session</span>
+        <select value={selectedSessionId} onChange={(event) => handleSessionSelect(event.target.value)}>
+          {sessionOptions.map((sessionId) => (
+            <option key={sessionId} value={sessionId}>
+              {sessionId.replace("session-", "Session ")}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
   if (status === "loading") {
     return <p className="plan-projection-empty">Loading union supergraph projection…</p>;
   }
@@ -148,6 +206,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   if (status === "error") {
     return (
       <div className="recap-reader-root">
+        {reviewToolbar}
         <p className="graph-preview-error" role="alert">
           {error ?? `No union-supergraph projection is available for ${selectedSessionId}.`}
         </p>
@@ -163,11 +222,11 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       <UnionSupergraphRecapProjection
         payload={unionPayload}
         selectedSessionId={selectedSessionId}
-        onSelectSession={(sessionId) => {
-          setSelectedSessionId(sessionId);
-        }}
+        onSelectSession={handleSessionSelect}
         sessionOptions={sessionOptions}
         projectionSource={projectionSource}
+        selectedCampaignId={selectedCampaignId}
+        onSelectCampaign={handleCampaignSelect}
       />
     );
   }

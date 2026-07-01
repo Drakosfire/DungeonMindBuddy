@@ -235,6 +235,7 @@ def discover_gold_review_sessions(root: Path | None = None) -> list[GoldReviewSe
                 campaign_id=entry["campaign_id"],
                 session_id=entry["session_id"],
                 require_preview_union_store=True,
+                include_eval_roots=True,
             )
         else:
             runs = []
@@ -437,7 +438,9 @@ def _gold_manifest_rel_path(entry: dict[str, Any]) -> str:
 
 
 def _resolve_run_summary(repo: Path, manifest_path: str) -> GraphIngestRunSummary:
-    runs = discover_graph_ingest_runs(repo, require_preview_union_store=True)
+    runs = discover_graph_ingest_runs(
+        repo, require_preview_union_store=True, include_eval_roots=True
+    )
     for run in runs:
         if run.manifest_path == manifest_path:
             return run

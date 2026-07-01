@@ -47,11 +47,14 @@ export function requestedSessionFromLocation(): string | null {
   return new URLSearchParams(window.location.search).get("session")?.trim() || null;
 }
 
-export function syncGoldReviewUrl(sessionId: string): void {
+export function syncGoldReviewUrl(sessionId: string, campaignId?: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
   params.set("tool", "graph-gold-review");
   params.set("session", sessionId);
+  if (campaignId) {
+    params.set("campaign", campaignId);
+  }
   window.history.replaceState({}, "", `/plan?${params.toString()}`);
 }
 

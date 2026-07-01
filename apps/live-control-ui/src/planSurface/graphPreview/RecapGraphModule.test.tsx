@@ -107,7 +107,7 @@ describe("RecapGraphModule", () => {
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
     expect(fallback).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Graph projection is not ready for session-24. Recap memory exists, but no lineage-matched preview union projection was found.",
+      "Graph projection is not ready for session-24 in longmont-c2. Recap memory exists, but no lineage-matched preview union projection was found.",
     );
   });
 
@@ -123,7 +123,86 @@ describe("RecapGraphModule", () => {
     expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
     expect(fallback).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent("No ingested recap artifact or union-supergraph projection is available for session-24");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No ingested recap artifact or union-supergraph projection is available for session-22 in longmont-c2.",
+    );
+  });
+
+  it("uses the campaign-specific recap record when session numbers collide across campaigns", async () => {
+    window.history.replaceState({}, "", "/plan?tool=recap&session=session-1&campaign=longmont-c1");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => {
+      if (campaignId === "longmont-c1") {
+        return {
+          records: [
+            {
+              ...artifactRecord(1),
+              artifact_id: "longmont-c1/session-1",
+              campaign_id: "longmont-c1",
+              session_id: "session-1",
+              source_recap_path:
+                "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge.md",
+              source_sha256: "sha256:c1-session-1",
+              run_manifest_uri:
+                "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json",
+            },
+          ],
+        };
+      }
+      return { records: [] };
+    });
+    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      ...session23UnionSupergraphFixture,
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(getUnion).toHaveBeenCalledWith({
+        campaignId: "longmont-c1",
+        sessionId: "session-1",
+        useLatestGraphIngest: true,
+        graphRunManifestPath:
+          "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json",
+        sourceRecapPath:
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge.md",
+        sourceRecapSha256: "sha256:c1-session-1",
+      });
+    });
+  });
+
+  it("loads the selected campaign when the campaign picker changes", async () => {
+    window.history.replaceState({}, "", "/plan?tool=recap&session=session-1&campaign=longmont-c2");
+    const getArtifacts = vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => ({
+      records:
+        campaignId === "longmont-c2"
+          ? [
+              {
+                ...artifactRecord(1),
+                artifact_id: "longmont-c2/session-1",
+                campaign_id: "longmont-c2",
+                session_id: "session-1",
+                source_recap_path:
+                  "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+                source_sha256: "sha256:c2-session-1",
+              },
+            ]
+          : [],
+    }));
+    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      ...session23UnionSupergraphFixture,
+      campaign_id: "longmont-c2",
+      session_id: "session-1",
+      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(getArtifacts).toHaveBeenCalledWith("longmont-c2");
+    });
   });
 
   it("does not offer legacy recap preview when union projection is unavailable", async () => {
@@ -139,7 +218,7 @@ describe("RecapGraphModule", () => {
     expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Graph projection is not ready for session-24. Recap memory exists, but no lineage-matched preview union projection was found.",
+      "Graph projection is not ready for session-24 in longmont-c2. Recap memory exists, but no lineage-matched preview union projection was found.",
     );
   });
 });

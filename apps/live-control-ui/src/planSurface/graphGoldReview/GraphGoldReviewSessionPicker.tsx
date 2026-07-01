@@ -1,4 +1,5 @@
 import type { GoldReviewSessionSummary } from "../../api/types";
+import { goldReviewSessionLabel } from "../sessionCampaignContext";
 
 interface GraphGoldReviewSessionPickerProps {
   sessions: GoldReviewSessionSummary[];
@@ -24,7 +25,7 @@ export function GraphGoldReviewSessionPicker({
             className={active ? "graph-gold-review-pill active" : "graph-gold-review-pill"}
             onClick={() => onSelect(session.session_id)}
           >
-            Session {session.session_number}
+            {goldReviewSessionLabel(session)}
           </button>
         );
       })}

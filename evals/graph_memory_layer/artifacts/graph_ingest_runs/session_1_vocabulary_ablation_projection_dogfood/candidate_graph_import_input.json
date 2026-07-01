@@ -1,0 +1,2016 @@
+{
+  "beats": [
+    {
+      "beat_id": "beat_001",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "After traveling together for some time together as merchant guards",
+            "found themselves outside the town of Stone Bridge"
+          ],
+          "source_span_ref_id": "spref:session-1:p001"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 1,
+      "proposed_action": "create",
+      "summary": "A mixed party of merchant guards has been traveling together and reaches the town of Stone Bridge.",
+      "title": "Travelers arrive outside Stone Bridge",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_002",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The town of Stone Bridge is known for very few things",
+            "It has the Stone Bridge over the river",
+            "it's tavern  The River's Edge Pub",
+            "the local brewer Glowkindle had posted a help request on the jobs board",
+            "clean up some rats"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 2,
+      "proposed_action": "create",
+      "summary": "Stone Bridge is described as a small, obscure town with a bridge, a tavern, and a job board; the brewer Glowkindle has posted a request for mercenaries to deal with rats.",
+      "title": "Stone Bridge and the rat job are introduced",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_003",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "While doing some drinking at the Riv'ers Edge Pub to wash away the road",
+            "Grishna was quick to share that Glowkindle had been through",
+            "Up river, west at the big rock, walk till you see it.",
+            "Bonogo",
+            "bought a Firkin of ale for two gold",
+            "He quite enjoyed the hike to the brewery"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 3,
+      "proposed_action": "create",
+      "summary": "While drinking at The River's Edge Pub, Grishna explains how to reach the brewery, and Bonogo buys a firkin of ale before enjoying the hike onward.",
+      "title": "At the pub, directions and beer set the journey in motion",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_004",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Grishna was true to her word, the directions were sound.",
+            "There was a clear trail along the river to an enormous boulder.",
+            "it resolved into what must have been the foot of a once enormous statue."
+          ],
+          "source_span_ref_id": "spref:session-1:p004"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 4,
+      "proposed_action": "create",
+      "summary": "The party follows a clear riverside trail to a huge boulder that appears to be the foot of an enormous statue, though the narration leaves room for uncertainty and humor.",
+      "title": "The route leads past a massive boulder that may be a statue foot",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_005",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Another few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company.",
+            "Bustling with activity, and smelling of brewing",
+            "the fine tap room lit by magical crystals"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 5,
+      "proposed_action": "create",
+      "summary": "After several more hours of walking, the group reaches the Wizard's Tower Brewing Company, a busy gnomish brewery and tap room lit by magical crystals.",
+      "title": "Arrival at the Wizard's Tower Brewing Company",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_006",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Within they met Glowkindle who told them, a bit about the issue at hand.",
+            "Giant rats had assaulted his excavation crew",
+            "they broke through a wall expanding the fermentation cellar",
+            "For a healthy prize of 25 gold pieces each, the team agreed to clear out the rats"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 6,
+      "proposed_action": "create",
+      "summary": "Glowkindle explains that giant rats attacked excavation workers after a wall was broken into during cellar expansion, and the party accepts a payment of 25 gold pieces each to clear them out.",
+      "title": "Glowkindle hires the party to clear giant rats from the cellar",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_007",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Which was significantly harder than expected",
+            "led to multiple folk going down",
+            "a mysterious cat owl being tossed into the room to help",
+            "a lot of blood from rats and teammates",
+            "many, many, many health potions being downed"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        },
+        {
+          "anchor_quotes": [
+            "A fine first combat to bring the team together!"
+          ],
+          "source_span_ref_id": "spref:session-1:p007"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 7,
+      "proposed_action": "create",
+      "summary": "The rat fight proves much harder than expected, with multiple allies dropping, a cat-owl assist, heavy bloodshed, and many healing potions consumed.",
+      "title": "The first combat becomes a brutal team-bonding fight",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_008",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Finally, free to explore the team found a beautifully tiled hallway",
+            "a trapped mosaic on the ground",
+            "a room full of broken alchemical tools",
+            "As Karsemine wisely searched the room, eventually looking up",
+            "she made eye contact with another resident of the shatter mages tower.",
+            "Some kind of flaming magma infused spider monstrosity."
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "involved_node_ids": [],
+      "order": 8,
+      "proposed_action": "create",
+      "summary": "After combat, the team explores a tiled hallway and a room of broken alchemical tools; Karsemine searches, looks up, and spots a flaming magma-infused spider monstrosity from the shatter mage tower.",
+      "title": "Exploration reveals a trapped hall and a monstrous spider-like foe",
+      "warnings": []
+    }
+  ],
+  "campaign_id": "longmont-c1",
+  "deferred_items": [
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "river [River name]"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "item_id": "defer_001",
+      "label": "River name placeholder resolution",
+      "reason": "The source explicitly leaves the river unnamed; further corpus context is needed before creating a canonical location node.",
+      "suggested_next_step": "Check surrounding session notes or map references for the river's proper name.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "approved_memory_write": false,
+    "canon_promotion": false,
+    "corpus_mutation": false,
+    "extraction_mode": "category_decomposed",
+    "extraction_performed": true,
+    "llm_used": true,
+    "model_id": "gpt-5.4-mini",
+    "preview_only": true,
+    "production_retrieval": false,
+    "runtime_connected": true,
+    "warning_count": 0
+  },
+  "edges": [
+    {
+      "confidence": "medium",
+      "edge_id": "e1",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river [River name]"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "loc_stone_bridge_over_river",
+      "label": "over the river",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "mystery_001",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e2",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river [River name]"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "item_stone_bridge",
+      "label": "is the bridge in town",
+      "predicate_family": "identity",
+      "proposed_action": "create",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_stone_bridge_over_river",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e3",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "loc_rivers_edge_pub",
+      "label": "in Stone Bridge",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_stone_bridge",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e4",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "organization_rivers_edge_pub",
+      "label": "tavern at",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_rivers_edge_pub",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e5",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "npc:grishna",
+      "label": "runs",
+      "predicate_family": "authority",
+      "proposed_action": "create",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "organization_rivers_edge_pub",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e6",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "While doing some drinking at the Riv'ers Edge Pub"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "from_node_id": "npc:grishna",
+      "label": "at the pub",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_rivers_edge_pub",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e7",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "npc:glowkindle",
+      "label": "posted on",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "item_jobs_board",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e8",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "from_node_id": "item_glowkindle_help_request",
+      "label": "posted on",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "item_jobs_board",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e9",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "For a healthy prize of 25 gold pieces each"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "from_node_id": "item_glowkindle_help_request",
+      "label": "offers reward",
+      "predicate_family": "social_relation",
+      "proposed_action": "create",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "item_25_gold_reward",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e10",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "from_node_id": "item_giant_rats",
+      "label": "assaulted",
+      "predicate_family": "threat_relation",
+      "proposed_action": "create",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "group_excavation_crew",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e11",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "after they broke through a wall expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "from_node_id": "group_excavation_crew",
+      "label": "expanding",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "item_fermentation_cellar",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e12",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "from_node_id": "item_fermentation_cellar",
+      "label": "in brewery",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_wizard_tower_brewing_co",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e13",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Another few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "from_node_id": "faction_wizard_tower_brewing_co",
+      "label": "located at",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_wizards_tower_brewing_co",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e14",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "from_node_id": "npc:the-wizard-s-tower-brewing-company-gnomes",
+      "label": "inside brewery",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_wizard_tower_brewing_co",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e15",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the troupe of gnomes busily brewing"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "from_node_id": "group_gnome_brewing_troupe",
+      "label": "brewing at",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "faction_wizard_tower_brewing_co",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e16",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "from_node_id": "npc:cat-owl",
+      "label": "to help",
+      "predicate_family": "participation",
+      "proposed_action": "create",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "group_excavation_crew",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e17",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "another resident of the shatter mages tower"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "from_node_id": "npc:spider-monstrosity",
+      "label": "resident of",
+      "predicate_family": "membership",
+      "proposed_action": "create",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "group_shatter_mages_tower_residents",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e18",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Some kind of flaming magma infused spider monstrosity"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "from_node_id": "item_flaming_magma_spider",
+      "label": "same entity",
+      "predicate_family": "identity",
+      "proposed_action": "create",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "npc:spider-monstrosity",
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "edge_id": "e19",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "found themselves outside the town of Stone Bridge"
+          ],
+          "source_span_ref_id": "spref:session-1:p001"
+        }
+      ],
+      "from_node_id": "group_merchant_guards_party",
+      "label": "outside town",
+      "predicate_family": "location_hierarchy",
+      "proposed_action": "create",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "loc_stone_bridge",
+      "warnings": []
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:baergrom-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:baergrom",
+      "label": "Baergrom is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:bonogo-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:bonogo",
+      "label": "Bonogo is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:caelynn-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:caelynn",
+      "label": "Caelynn is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:ephanna-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:ephanna",
+      "label": "Ephanna is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:karsemine-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:karsemine",
+      "label": "Karsemine is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "edge_id": "edge:stafl-member-of-party",
+      "evidence_refs": [],
+      "from_node_id": "node:stafl",
+      "label": "Stafl is part of the responding heroes / party",
+      "predicate_family": "membership",
+      "proposed_action": "anchor",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "to_node_id": "node:heroes-party",
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    }
+  ],
+  "ignored_items": [
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "After traveling together for some time together as merchant guards"
+          ],
+          "source_span_ref_id": "spref:session-1:p001"
+        }
+      ],
+      "item_id": "ignore_001",
+      "label": "Party roster and travel introduction",
+      "reason": "This is deterministic party-anchor context and not a session-novel mystery thread.",
+      "warnings": []
+    },
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Grishna was quick to share that Glowkindle had been through"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        },
+        {
+          "anchor_quotes": [
+            "Bonogo... bought a Firkin of ale for two gold"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "item_id": "ignore_002",
+      "label": "Grishna's tavern and beer purchase details",
+      "reason": "These are scene color and mundane logistics rather than unresolved phenomena.",
+      "warnings": []
+    },
+    {
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "A fine first combat to bring the team together!"
+          ],
+          "source_span_ref_id": "spref:session-1:p007"
+        }
+      ],
+      "item_id": "ignore_003",
+      "label": "First combat recap commentary",
+      "reason": "Non-diegetic summary statement without a distinct unresolved thread.",
+      "warnings": []
+    }
+  ],
+  "nodes": [
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Half-orc tavern keeper who runs The River's Edge Pub in Stone Bridge and gives directions to the Wizard's Tower Brewing Co.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        },
+        {
+          "anchor_quotes": [
+            "Grishna was quick to share that Glowkindle had been through"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "importance": "high",
+      "label": "Grishna",
+      "node_id": "npc:grishna",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Local brewer in Stone Bridge who posts a help request about rats and later explains the brewing company\u2019s giant rat problem.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        },
+        {
+          "anchor_quotes": [
+            "Within they met Glowkindle who told them, a bit about the issue at hand"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "high",
+      "label": "Glowkindle",
+      "node_id": "npc:glowkindle",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A group of gnomes busily brewing inside the Wizard's Tower Brewing Company tap room.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "low",
+      "label": "the troupe of gnomes",
+      "node_id": "npc:the-wizard-s-tower-brewing-company-gnomes",
+      "node_type": "character",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The gnome brewing workers encountered at the Wizard's Tower Brewing Company.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "empty except for the troupe of gnomes busily brewing"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "medium",
+      "label": "troupe of gnomes",
+      "node_id": "group_gnome_brewing_troupe",
+      "node_type": "group",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A mysterious cat owl tossed into the room during the rat fight to help the party.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "low",
+      "label": "cat owl",
+      "node_id": "npc:cat-owl",
+      "node_type": "creature",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A hostile spider-like monstrosity encountered in the shatter mages tower.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Some kind of flaming magma infused spider monstrosity"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "low",
+      "label": "flaming magma infused spider monstrosity",
+      "node_id": "npc:spider-monstrosity",
+      "node_type": "creature",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A dangerous spider monstrosity infused with flaming magma, encountered in the shatter mages tower.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Some kind of flaming magma infused spider monstrosity."
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "high",
+      "label": "Flaming magma infused spider monstrosity",
+      "node_id": "item_flaming_magma_spider",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A town known for very few things, including the Stone Bridge over the river, The River's Edge Pub, a job board, and the local brewer Glowkindle's posted request.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The town of Stone Bridge",
+            "It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        },
+        {
+          "anchor_quotes": [
+            "found themselves outside the town of Stone Bridge"
+          ],
+          "source_span_ref_id": "spref:session-1:p001"
+        }
+      ],
+      "importance": "high",
+      "label": "Stone Bridge",
+      "node_id": "loc_stone_bridge",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The town of Stone Bridge, treated here as a local community collective associated with the adventure.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "The town of Stone Bridge is known for very few things",
+            "Stone Bridge is hardly known"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "medium",
+      "label": "Stone Bridge",
+      "node_id": "faction_stone_bridge",
+      "node_type": "faction",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The stone bridge crossing the river near the town of Stone Bridge.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "medium",
+      "label": "Stone Bridge",
+      "node_id": "item_stone_bridge",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Stone Bridge tavern run by Grishna the Half-orc, where the party drank before following directions to the brewery.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        },
+        {
+          "anchor_quotes": [
+            "While doing some drinking at the Riv'ers Edge Pub"
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "importance": "medium",
+      "label": "The River's Edge Pub",
+      "node_id": "loc_rivers_edge_pub",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The tavern in Stone Bridge run by Grishna.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "medium",
+      "label": "The River's Edge Pub",
+      "node_id": "organization_rivers_edge_pub",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The local tavern in Stone Bridge run by Grishna the Half-orc.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "it's tavern  The River's Edge Pub run by Grishna the Half-orc"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "medium",
+      "label": "The River's Edge Pub",
+      "node_id": "item_rivers_edge_pub",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A brewery located upriver west at the big rock, reached by following a trail from the river; it has a tap room lit by magical crystals and brewing gnomes.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "where the The Wizard's Tower Brewing Co was located. Up river, west at the big rock, walk till you see it."
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        },
+        {
+          "anchor_quotes": [
+            "Another few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company."
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "high",
+      "label": "Wizard's Tower Brewing Co",
+      "node_id": "loc_wizards_tower_brewing_co",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A bridge in Stone Bridge spanning the river mentioned in the recap.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "It has the Stone Bridge over the river [River name]"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "low",
+      "label": "Stone Bridge over the river",
+      "node_id": "loc_stone_bridge_over_river",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A large boulder along the trail, identified as the foot of a once enormous statue.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "There was a clear trail along the river to an enormous boulder."
+          ],
+          "source_span_ref_id": "spref:session-1:p004"
+        }
+      ],
+      "importance": "low",
+      "label": "enormous boulder",
+      "node_id": "loc_enormous_boulder",
+      "node_type": "location",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A massive boulder along the river trail that appears to be the foot of a ruined statue.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "There was a clear trail along the river to an enormous boulder."
+          ],
+          "source_span_ref_id": "spref:session-1:p004"
+        }
+      ],
+      "importance": "low",
+      "label": "Enormous boulder",
+      "node_id": "item_enormous_boulder",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The group of travelers described as having traveled together as merchant guards.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "After traveling together for some time together as merchant guards",
+            "our mish mash of travelers"
+          ],
+          "source_span_ref_id": "spref:session-1:p001"
+        }
+      ],
+      "importance": "high",
+      "label": "merchant guards party",
+      "node_id": "group_merchant_guards_party",
+      "node_type": "group",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The brewery / tap room that housed the gnome brewing troupe and served as the site of the rat problem.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Another few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company",
+            "Bustling with activity"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "high",
+      "label": "Wizard's Tower Brewing Company",
+      "node_id": "faction_wizard_tower_brewing_co",
+      "node_type": "organization",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A brewing company with a fine tap room lit by magical crystals and gnomes brewing inside.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the Wizard's Tower Brewing Company",
+            "the fine tap room lit by magical crystals"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "high",
+      "label": "The Wizard's Tower Brewing Company",
+      "node_id": "item_wizards_tower_brewing_company",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The crew working on the cellar excavation that was attacked by giant rats.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew",
+            "they broke through a wall expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "medium",
+      "label": "excavation crew",
+      "node_id": "group_excavation_crew",
+      "node_type": "group",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Glowkindle's crew working on expanding the fermentation cellar.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "his excavation crew after they broke through a wall expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "low",
+      "label": "Excavation crew",
+      "node_id": "item_excavation_crew",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Another resident collective associated with the shatter mages tower, encountered deeper in the location.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "another resident of the shatter mages tower"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "low",
+      "label": "residents of the shatter mages tower",
+      "node_id": "group_shatter_mages_tower_residents",
+      "node_type": "group",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A local job board in Stone Bridge where requests are posted.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "It did have a job board"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "low",
+      "label": "Job Board",
+      "node_id": "item_jobs_board",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A posted request from Glowkindle asking for mercenaries to help clean up rats.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the local brewer Glowkindle had posted a help request on the jobs board",
+            "his need of a band of mercenaries to help clean up some rats"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "medium",
+      "label": "Glowkindle's Help Request",
+      "node_id": "item_glowkindle_help_request",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A firkin of ale purchased by Bonogo for two gold.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Bonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold."
+          ],
+          "source_span_ref_id": "spref:session-1:p003"
+        }
+      ],
+      "importance": "low",
+      "label": "Firkin of ale",
+      "node_id": "item_firkin_of_ale",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "What the enormous boulder may actually be: the foot of a once enormous statue.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "what must have been the foot of a once enormous statue"
+          ],
+          "source_span_ref_id": "spref:session-1:p004"
+        }
+      ],
+      "importance": "low",
+      "label": "Foot of a once enormous statue",
+      "node_id": "item_foot_of_statue",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Magical crystals lighting the tap room at the Wizard's Tower Brewing Company.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "lit by magical crystals"
+          ],
+          "source_span_ref_id": "spref:session-1:p005"
+        }
+      ],
+      "importance": "low",
+      "label": "Magical crystals",
+      "node_id": "item_magical_crystals",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The rat menace that attacked Glowkindle's excavation crew in the fermentation cellar.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Giant rats had assaulted his excavation crew"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "medium",
+      "label": "Giant rats",
+      "node_id": "item_giant_rats",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The cellar area being expanded when the wall was broken through.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "low",
+      "label": "Fermentation cellar",
+      "node_id": "item_fermentation_cellar",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The prize offered to clear out the rats.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "For a healthy prize of 25 gold pieces each"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "medium",
+      "label": "25 gold pieces reward",
+      "node_id": "item_25_gold_reward",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Multiple health potions consumed during the rat fight.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "many, many, many health potions being downed"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "low",
+      "label": "Health potions",
+      "node_id": "item_health_potions",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A beautifully tiled hallway found after the combat.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "the team found a beautifully tiled hallway"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "low",
+      "label": "Beautifully tiled hallway",
+      "node_id": "item_tiled_hallway",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A mosaic on the ground that was trapped.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a trapped mosaic on the ground"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "low",
+      "label": "Trapped mosaic",
+      "node_id": "item_trapped_mosaic",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "A room full of broken alchemical tools.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a room full of broken alchemical tools"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "low",
+      "label": "Broken alchemical tools",
+      "node_id": "item_broken_alchemical_tools",
+      "node_type": "item",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The source mentions a river by placeholder name rather than a resolved proper name, leaving the local geography incomplete.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "Stone Bridge over the river [River name]"
+          ],
+          "source_span_ref_id": "spref:session-1:p002"
+        }
+      ],
+      "importance": "low",
+      "label": "Unknown river name near Stone Bridge",
+      "node_id": "mystery_001",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Glowkindle's crew broke through a wall while expanding the fermentation cellar, triggering the rat assault; the underlying structure and why it was blocked remain unclear.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "his excavation crew after they broke through a wall expanding the fermentation cellar"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "medium",
+      "label": "Origin of Glowkindle's excavation disturbance",
+      "node_id": "mystery_002",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "During the battle a 'mysterious cat owl' was thrown into the room to help, but its nature and source are unresolved.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a mysterious cat owl being tossed into the room to help"
+          ],
+          "source_span_ref_id": "spref:session-1:p006"
+        }
+      ],
+      "importance": "medium",
+      "label": "Mysterious cat owl aid in rat fight",
+      "node_id": "mystery_003",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "The party discovered a tiled hallway and a trapped mosaic, implying additional hazards and possibly hidden mechanisms in the complex.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "a beautifully tiled hallway, a trapped mosaic on the ground"
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "medium",
+      "label": "Hallway and mosaic traps in the brewery complex",
+      "node_id": "mystery_004",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "medium",
+      "corpus_ref": null,
+      "description": "Karsemine encountered another resident of the tower described only as a flaming magma infused spider monstrosity; its identity and intent are unknown.",
+      "evidence_refs": [
+        {
+          "anchor_quotes": [
+            "another resident of the shatter mages tower",
+            "Some kind of flaming magma infused spider monstrosity."
+          ],
+          "source_span_ref_id": "spref:session-1:p008"
+        }
+      ],
+      "importance": "high",
+      "label": "Identity of the shatter mages tower resident",
+      "node_id": "mystery_005",
+      "node_type": "mystery",
+      "proposed_action": "create",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": []
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/baergrom/README.md",
+        "ref_id": "baergrom",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Baergrom",
+      "node_id": "node:baergrom",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/bonogo/README.md",
+        "ref_id": "bonogo",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Bonogo",
+      "node_id": "node:bonogo",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/caelynn/README.md",
+        "ref_id": "caelynn",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Caelynn",
+      "node_id": "node:caelynn",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/ephanna/README.md",
+        "ref_id": "ephanna",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Ephanna",
+      "node_id": "node:ephanna",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/karsemine/README.md",
+        "ref_id": "karsemine",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Karsemine",
+      "node_id": "node:karsemine",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": "Longmont Campaign/Campaign 1/PCs/stafl/README.md",
+        "ref_id": "stafl",
+        "resolution": "resolved",
+        "type": "pc"
+      },
+      "description": "Deterministic party context anchor",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Stafl",
+      "node_id": "node:stafl",
+      "node_type": "character",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence"
+      ]
+    },
+    {
+      "confidence": "high",
+      "context_anchor": true,
+      "corpus_ref": {
+        "hub_path": null,
+        "ref_id": "heroes_party",
+        "resolution": "proposed",
+        "type": "faction"
+      },
+      "description": "Deterministic party-collective anchor (members travel together this session).",
+      "evidence_refs": [],
+      "importance": "high",
+      "label": "Heroes / party",
+      "node_id": "node:heroes-party",
+      "node_type": "group",
+      "proposed_action": "anchor",
+      "semantic_state": {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted"
+      },
+      "warnings": [
+        "context_anchor_no_session_evidence",
+        "party_name_binding_deferred"
+      ]
+    }
+  ],
+  "preview_id": "candidate-preview:longmont-c1:session-1:category",
+  "proposed_writes": [],
+  "schema": "dmb_candidate_graph_preview_v0",
+  "session_id": "session-1",
+  "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-1"
+  ],
+  "status": "preview",
+  "version": "0.1"
+}

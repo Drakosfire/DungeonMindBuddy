@@ -1,0 +1,92 @@
+{
+  "artifacts": {
+    "preview_union_store": {
+      "exists": true,
+      "kind": "preview_union_store",
+      "preview_only": true,
+      "schema": "dmb_union_supergraph_store_v0",
+      "sha256": "sha256:06e0163f7f2ac5b265ac41d61bfc0675818b8b8ca5ef3c1fb2178c424ffdf1f1",
+      "uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/preview_union_store.json"
+    },
+    "projection_payload": {
+      "exists": true,
+      "kind": "projection_payload",
+      "preview_only": true,
+      "schema": "dmb_recap_graph_projection_v0",
+      "sha256": "sha256:e510967de1124cff13526df3d62930815d4505f67ba8dc2d75e7b0af3a92de16",
+      "uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/projection_payload.json"
+    }
+  },
+  "campaign_id": "longmont-c1",
+  "created_at": "2026-06-30T22:36:55Z",
+  "diagnostics": {
+    "agent_interaction_connected": false,
+    "approved_memory_write": false,
+    "candidate_extraction": true,
+    "canon_promotion": false,
+    "corpus_mutation": false,
+    "llm_extraction": true,
+    "manual_gold": false,
+    "mirathorn_world_merged": true,
+    "preview_import": true,
+    "preview_only": true,
+    "production_retrieval": false,
+    "runtime_projection_connected": true,
+    "vocabulary_ablation_dogfood": true
+  },
+  "errors": [],
+  "health": {
+    "candidate_graph_valid": true,
+    "deferred_count": 0,
+    "edge_count": 65,
+    "estimated_cost_usd": null,
+    "evidence_ref_count": 241,
+    "highlightable_evidence_ref_count": 241,
+    "model_id": null,
+    "node_count": 112,
+    "openable_evidence_ref_count": 241,
+    "preview_union_store_valid": true,
+    "resolvable_evidence_ref_count": 241
+  },
+  "next_actions": [
+    "open_projection_preview",
+    "manual_gm_dogfood_review"
+  ],
+  "projection": null,
+  "run_id": "graph-ingest:longmont-c1:session-1:vocabulary-ablation-projection-dogfood",
+  "schema": "dmb_graph_ingest_run_manifest_v0",
+  "session_id": "session-1",
+  "source": {
+    "candidate_graph_uri": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json",
+    "normalized_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md",
+    "normalized_recap_sha256": "sha256:b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+    "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+    "source_domain": "recap",
+    "source_label": "C1S1 vocabulary ablation projection dogfood",
+    "source_span_index_uri": "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/source_span_index.json"
+  },
+  "status": "preview_union_store_ready",
+  "steps": [
+    {
+      "artifact_refs": [],
+      "id": "validate_candidate_graph",
+      "label": "Validate vocabulary-ablation candidate graph",
+      "state": "complete"
+    },
+    {
+      "artifact_refs": [],
+      "id": "adapt_preview_union_store",
+      "label": "Adapt candidate graph(s) to preview union store",
+      "state": "complete"
+    },
+    {
+      "artifact_refs": [],
+      "id": "load_projection",
+      "label": "Load union-supergraph projection",
+      "state": "complete"
+    }
+  ],
+  "updated_at": "2026-06-30T22:36:55Z",
+  "version": "0.1",
+  "warnings": []
+}

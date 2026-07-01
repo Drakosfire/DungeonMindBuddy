@@ -13,7 +13,13 @@ import type {
   GoldReviewSessionSummary,
   VocabularyAblationDogfoodResponse,
 } from "../../api/types";
+import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
+import {
+  resolveInitialReviewCampaignId,
+  sessionsForReviewCampaign,
+  syncReviewCampaignUrl,
+} from "../sessionCampaignContext";
 import { GraphGoldEvidenceDiff } from "./GraphGoldEvidenceDiff";
 import { GraphGoldReviewMissTables } from "./GraphGoldReviewMissTables";
 import { GraphGoldReviewRunPicker } from "./GraphGoldReviewRunPicker";
@@ -39,6 +45,9 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
   const [sessions, setSessions] = useState<GoldReviewSessionSummary[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
+    resolveInitialReviewCampaignId(context.campaignId),
+  );
   const [selectedSessionId, setSelectedSessionId] = useState(
     requestedSessionId ?? fallbackSessionId,
   );
@@ -54,12 +63,24 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
   const [vocabStatus, setVocabStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [vocabError, setVocabError] = useState<string | null>(null);
 
-  const showVocabularyAblation = selectedSessionId === "session-23";
+  const campaignSessions = useMemo(
+    () => sessionsForReviewCampaign(sessions, selectedCampaignId),
+    [selectedCampaignId, sessions],
+  );
 
   const selectedSession = useMemo(
-    () => sessions.find((session) => session.session_id === selectedSessionId),
-    [sessions, selectedSessionId],
+    () => campaignSessions.find((session) => session.session_id === selectedSessionId),
+    [campaignSessions, selectedSessionId],
   );
+
+  const effectiveCampaignId = useMemo(() => {
+    if (selectedSession?.campaign_id) {
+      return selectedSession.campaign_id;
+    }
+    return selectedCampaignId;
+  }, [selectedCampaignId, selectedSession?.campaign_id]);
+
+  const showVocabularyAblation = selectedSessionId === "session-23";
 
   useEffect(() => {
     let cancelled = false;
@@ -69,13 +90,16 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
       .then((response) => {
         if (cancelled) return;
         setSessions(response.sessions);
+        const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
+        const visibleSessions = sessionsForReviewCampaign(response.sessions, initialCampaignId);
         const nextSessionId = pickDefaultSession(
-          response.sessions,
+          visibleSessions,
           requestedSessionId,
           fallbackSessionId,
         );
+        setSelectedCampaignId(initialCampaignId);
         setSelectedSessionId(nextSessionId);
-        const session = response.sessions.find((item) => item.session_id === nextSessionId);
+        const session = visibleSessions.find((item) => item.session_id === nextSessionId);
         setSelectedManifestPath(pickDefaultManifestPath(session));
         setSessionsLoaded(true);
       })
@@ -88,10 +112,10 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [fallbackSessionId, requestedSessionId]);
+  }, [context.campaignId, fallbackSessionId, requestedSessionId]);
 
   const loadCompare = useCallback(async () => {
-    if (!selectedSessionId) return;
+    if (!selectedSessionId || !selectedSession) return;
     setCompareStatus("loading");
     setCompareError(null);
     setSelection(null);
@@ -100,7 +124,7 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     setEvidenceError(null);
     try {
       const response = await getGoldReviewCompare({
-        campaignId: context.campaignId,
+        campaignId: effectiveCampaignId,
         sessionId: selectedSessionId,
         manifestPath: selectedManifestPath ?? undefined,
       });
@@ -115,7 +139,7 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
       }
       setCompareError(error instanceof Error ? error.message : "Failed to load comparison.");
     }
-  }, [context.campaignId, selectedManifestPath, selectedSessionId]);
+  }, [effectiveCampaignId, selectedManifestPath, selectedSession, selectedSessionId]);
 
   useEffect(() => {
     if (!sessionsLoaded) return;
@@ -133,7 +157,7 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     setVocabStatus("loading");
     setVocabError(null);
     void getGoldReviewVocabularyAblation({
-      campaignId: context.campaignId,
+      campaignId: effectiveCampaignId,
       sessionId: selectedSessionId,
     })
       .then((response) => {
@@ -156,12 +180,28 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, selectedSessionId, sessionsLoaded, showVocabularyAblation]);
+  }, [effectiveCampaignId, selectedSessionId, sessionsLoaded, showVocabularyAblation]);
+
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaignId(campaignId);
+    syncReviewCampaignUrl(campaignId);
+    const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
+    const stillVisible = visibleSessions.some((session) => session.session_id === selectedSessionId);
+    if (stillVisible) {
+      syncGoldReviewUrl(selectedSessionId, campaignId);
+      return;
+    }
+    const nextSessionId = pickDefaultSession(visibleSessions, null, fallbackSessionId);
+    setSelectedSessionId(nextSessionId);
+    const session = visibleSessions.find((item) => item.session_id === nextSessionId);
+    setSelectedManifestPath(pickDefaultManifestPath(session));
+    syncGoldReviewUrl(nextSessionId, campaignId);
+  };
 
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSessionId(sessionId);
-    syncGoldReviewUrl(sessionId);
-    const session = sessions.find((item) => item.session_id === sessionId);
+    syncGoldReviewUrl(sessionId, selectedCampaignId);
+    const session = campaignSessions.find((item) => item.session_id === sessionId);
     setSelectedManifestPath(pickDefaultManifestPath(session));
   };
 
@@ -170,12 +210,12 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
   };
 
   useEffect(() => {
-    if (!selection || !selectedSessionId) return;
+    if (!selection || !selectedSessionId || !selectedSession) return;
     let cancelled = false;
     setEvidenceStatus("loading");
     setEvidenceError(null);
     void getGoldReviewEvidence({
-      campaignId: context.campaignId,
+      campaignId: effectiveCampaignId,
       sessionId: selectedSessionId,
       manifestPath: selectedManifestPath ?? undefined,
       objectKind: selection.objectKind,
@@ -195,7 +235,7 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, selectedManifestPath, selectedSessionId, selection]);
+  }, [effectiveCampaignId, selectedManifestPath, selectedSession, selectedSessionId, selection]);
 
   if (!sessionsLoaded) {
     return <p className="plan-projection-empty">Loading graph gold review…</p>;
@@ -220,11 +260,14 @@ export function GraphGoldReviewModule({ context }: GraphGoldReviewModuleProps) {
 
       {sessionsError ? <p className="graph-gold-review-error">{sessionsError}</p> : null}
 
-      <GraphGoldReviewSessionPicker
-        sessions={sessions}
-        selectedSessionId={selectedSessionId}
-        onSelect={handleSessionSelect}
-      />
+      <div className="graph-gold-review-controls">
+        <ReviewCampaignPicker selectedCampaignId={selectedCampaignId} onSelect={handleCampaignSelect} />
+        <GraphGoldReviewSessionPicker
+          sessions={campaignSessions}
+          selectedSessionId={selectedSessionId}
+          onSelect={handleSessionSelect}
+        />
+      </div>
 
       <GraphGoldReviewRunPicker
         runs={selectedSession?.available_runs ?? []}

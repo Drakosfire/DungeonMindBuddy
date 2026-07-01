@@ -136,6 +136,7 @@ def resolve_latest_preview_union_graph_ingest_run(
     session_id: str,
     source_recap_path: str | None = None,
     source_recap_sha256: str | None = None,
+    include_eval_roots: bool = True,
 ) -> GraphIngestRunSummary:
     runs = discover_graph_ingest_runs(
         root,
@@ -144,6 +145,7 @@ def resolve_latest_preview_union_graph_ingest_run(
         source_recap_path=source_recap_path,
         source_recap_sha256=source_recap_sha256,
         require_preview_union_store=True,
+        include_eval_roots=include_eval_roots,
     )
     if not runs:
         raise GraphIngestRunRegistryError(

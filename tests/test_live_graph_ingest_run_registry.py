@@ -26,6 +26,7 @@ FIXTURE_DIR = (
     Path(__file__).resolve().parents[1]
     / "tests/fixtures/graph_memory/category_preview_runner"
 )
+ROOT = Path(__file__).resolve().parents[1]
 RECAP_PATH = FIXTURE_DIR / "session_24_normalized_recap.md"
 CANDIDATE_PATH = FIXTURE_DIR / "candidate_graph_fixture.json"
 
@@ -147,6 +148,22 @@ def test_registry_latest_raises_when_no_ready_run(
 
     assert excinfo.value.status_code == 404
     assert "no preview_union_store_ready graph-ingest run found" in str(excinfo.value)
+
+
+def test_registry_discovers_checked_in_session_1_eval_dogfood() -> None:
+    runs = discover_graph_ingest_runs(
+        ROOT,
+        campaign_id="longmont-c1",
+        session_id="session-1",
+        require_preview_union_store=True,
+        include_eval_roots=True,
+    )
+    assert runs
+    assert runs[0].manifest_path.endswith(
+        "session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json"
+    )
+    assert runs[0].node_count >= 30
+    assert runs[0].edge_count >= 20
 
 
 def _candidate_ready_run(

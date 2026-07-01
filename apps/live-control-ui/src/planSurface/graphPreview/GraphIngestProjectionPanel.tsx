@@ -214,6 +214,8 @@ export function GraphIngestProjectionPanel({
             selectedSessionId={sessionId}
             onSelectSession={() => undefined}
             sessionOptions={[sessionId]}
+            selectedCampaignId={context.campaignId}
+            onSelectCampaign={() => undefined}
           />
         </div>
       ) : null}

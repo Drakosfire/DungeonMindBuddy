@@ -44,6 +44,7 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 | Path | Notes |
 |------|-------|
 | `artifacts/graph_ingest_runs/session_24_manual_projection_dogfood/` | Manual gold → preview union store dogfood |
+| `artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/` | C1S1 ablation candidate → preview union store + Mirathorn world merge |
 | `out/graph_memory/runs/` | Local runtime graph-ingest output (gitignored when populated) |
 | `runs/live_extractor_prompt_harness/` | Gitignored prompt renders |
 | `runs/live_recap_ingest/` | Gitignored live ingest bundles |

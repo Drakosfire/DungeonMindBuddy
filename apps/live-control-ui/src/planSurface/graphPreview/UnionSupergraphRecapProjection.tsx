@@ -8,6 +8,7 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "./GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState } from "./recapGraphNodeRuntime";
+import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { RecapProjectionSource } from "./RecapGraphModule";
 
 interface UnionSupergraphRecapProjectionProps {
@@ -15,6 +16,8 @@ interface UnionSupergraphRecapProjectionProps {
   selectedSessionId: string;
   onSelectSession: (sessionId: string) => void;
   sessionOptions: string[];
+  selectedCampaignId?: string;
+  onSelectCampaign?: (campaignId: string) => void;
   onOpenLegacy?: () => void;
   projectionSource?: RecapProjectionSource;
 }
@@ -134,6 +137,8 @@ export function UnionSupergraphRecapProjection({
   selectedSessionId,
   onSelectSession,
   sessionOptions,
+  selectedCampaignId = "longmont-c2",
+  onSelectCampaign = () => undefined,
   onOpenLegacy,
   projectionSource = "default-preview-source",
 }: UnionSupergraphRecapProjectionProps) {
@@ -218,6 +223,7 @@ export function UnionSupergraphRecapProjection({
       </header>
 
       <div className="recap-reader-toolbar">
+        <ReviewCampaignPicker selectedCampaignId={selectedCampaignId} onSelect={onSelectCampaign} />
         <label className="graph-preview-run-picker">
           <span>Focus session</span>
           <select

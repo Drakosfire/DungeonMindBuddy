@@ -22,6 +22,7 @@ REGISTRY_VERSION = "0.1"
 
 INGEST_RUNS_REL = "evals/graph_memory_layer/runs/live_recap_ingest"
 GRAPH_ARTIFACTS_REL = "evals/graph_memory_layer/artifacts/category_graph_model_study"
+EVAL_GRAPH_INGEST_RUNS_REL = "evals/graph_memory_layer/artifacts/graph_ingest_runs"
 LAST_COHORT_MIRROR_REL = "evals/artifacts/category_graph_model_study/last_cohort_summary.json"
 
 _SAFE_ARTIFACT_ID = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
@@ -291,6 +292,84 @@ def _graph_run_from_cohort_entry(entry: Mapping[str, Any]) -> GraphRunRef | None
     )
 
 
+def _record_from_eval_graph_ingest_manifest(
+    root: Path, manifest_path: Path
+) -> RecapArtifactRecord | None:
+    if not manifest_path.is_file():
+        return None
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if str(payload.get("status") or "") != "preview_union_store_ready":
+        return None
+    campaign_id = str(payload.get("campaign_id") or "").strip()
+    session_id = normalize_session_id(str(payload.get("session_id") or ""))
+    if not campaign_id or not session_id:
+        return None
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    source_recap_path = str(source.get("normalized_recap_path") or "").replace("\\", "/")
+    if not source_recap_path:
+        return None
+    run_uri = _rel_posix(root, manifest_path.parent)
+    manifest_uri = _rel_posix(root, manifest_path)
+    source_span_index_uri = str(source.get("source_span_index_uri") or "").replace("\\", "/")
+    if not source_span_index_uri:
+        source_span_index_uri = f"{run_uri}/source_span_index.json"
+    health = payload.get("health") if isinstance(payload.get("health"), dict) else {}
+    now = _utc_now_iso()
+    return RecapArtifactRecord(
+        artifact_id=f"{campaign_id}/{session_id}",
+        campaign_id=campaign_id,
+        session_id=session_id,
+        source_artifact_id=str(source.get("source_artifact_id") or "") or None,
+        source_recap_path=source_recap_path,
+        breadcrumb_seed_path=_breadcrumb_seed_path(source_recap_path),
+        session_memory_records_path=_session_memory_path(source_recap_path),
+        run_bundle_uri=run_uri,
+        run_manifest_uri=manifest_uri,
+        source_span_index_uri=source_span_index_uri,
+        provenance_index_uri=None,
+        graph_run_refs=[
+            GraphRunRef(
+                run_uri=run_uri,
+                model_id=str(health.get("model_id") or "") or None,
+                canonical_ir_valid=bool(health.get("preview_union_store_valid"))
+                if health.get("preview_union_store_valid") is not None
+                else None,
+            )
+        ],
+        default_graph_run_uri=run_uri,
+        source_sha256=str(source.get("normalized_recap_sha256") or "") or None,
+        registered_at=now,
+        updated_at=now,
+        registry_source="explicit",
+    )
+
+
+def _merge_eval_dogfood_record(
+    existing: RecapArtifactRecord, incoming: RecapArtifactRecord
+) -> RecapArtifactRecord:
+    merged_refs = list(existing.graph_run_refs)
+    seen = {ref.run_uri for ref in merged_refs}
+    for ref in incoming.graph_run_refs:
+        if ref.run_uri in seen:
+            continue
+        seen.add(ref.run_uri)
+        merged_refs.append(ref)
+    return existing.model_copy(
+        update={
+            "run_bundle_uri": incoming.run_bundle_uri or existing.run_bundle_uri,
+            "run_manifest_uri": incoming.run_manifest_uri or existing.run_manifest_uri,
+            "source_span_index_uri": incoming.source_span_index_uri or existing.source_span_index_uri,
+            "graph_run_refs": merged_refs,
+            "default_graph_run_uri": incoming.default_graph_run_uri or existing.default_graph_run_uri,
+            "source_sha256": incoming.source_sha256 or existing.source_sha256,
+            "updated_at": incoming.updated_at,
+        }
+    )
+
+
 def _record_from_run_bundle(root: Path, bundle_dir: Path) -> RecapArtifactRecord | None:
     manifest_path = bundle_dir / "run_manifest.json"
     if not manifest_path.is_file():
@@ -384,6 +463,18 @@ def sync_recap_artifacts_registry(root: Path | None = None) -> RecapArtifactsReg
             record = _normalized_recap_record_from_path(base, recap_path)
             if record is not None:
                 records_by_id.setdefault(record.artifact_id, record)
+
+    eval_ingest_root = base / EVAL_GRAPH_INGEST_RUNS_REL
+    if eval_ingest_root.is_dir():
+        for manifest_path in sorted(eval_ingest_root.rglob("graph_ingest_run_manifest.json")):
+            record = _record_from_eval_graph_ingest_manifest(base, manifest_path)
+            if record is None:
+                continue
+            existing = records_by_id.get(record.artifact_id)
+            if existing is None:
+                records_by_id[record.artifact_id] = record
+            else:
+                records_by_id[record.artifact_id] = _merge_eval_dogfood_record(existing, record)
 
     for cohort in _collect_cohort_summaries(base):
         session_number = cohort.get("session")

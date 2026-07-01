@@ -117,6 +117,20 @@ def test_upsert_explicit_record(registry_path: Path) -> None:
     assert any(r.artifact_id == "longmont-c2/session-99" for r in records)
 
 
+def test_sync_merges_session_1_eval_projection_dogfood(registry_path: Path) -> None:
+    document = sync_recap_artifacts_registry(ROOT)
+    record = next(
+        (r for r in document.records if r.campaign_id == "longmont-c1" and r.session_id == "session-1"),
+        None,
+    )
+    assert record is not None
+    assert record.run_manifest_uri.endswith(
+        "session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json"
+    )
+    assert record.graph_run_refs
+    assert record.source_span_index_uri.endswith("source_span_index.json")
+
+
 def test_get_recap_artifacts_api(client: TestClient, registry_path: Path) -> None:
     response = client.get(
         "/api/live/graph-preview/artifacts",
