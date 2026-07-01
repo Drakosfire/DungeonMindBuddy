@@ -50,24 +50,67 @@ function goldCounts(variant: ManualReviewVariantDetail | undefined): {
 
 function NodePill({ node }: { node: ManualReviewNode }) {
   return (
-    <li className="manual-review-pill" title={node.description ?? undefined}>
-      <span className="manual-review-pill-label">{node.label}</span>
-      <span className="manual-review-pill-type">{node.node_type}</span>
-      {node.confidence ? <span className="manual-review-pill-confidence">{node.confidence}</span> : null}
+    <li className="manual-review-pill manual-review-pill-detailed">
+      <div className="manual-review-pill-row">
+        <span className="manual-review-pill-label">{node.label}</span>
+        <span className="manual-review-pill-type">{node.node_type}</span>
+        {node.confidence ? (
+          <span className="manual-review-pill-confidence">confidence: {node.confidence}</span>
+        ) : null}
+        {node.importance ? (
+          <span className="manual-review-pill-importance">importance: {node.importance}</span>
+        ) : null}
+      </div>
+      {node.description ? <p className="manual-review-pill-description">{node.description}</p> : null}
+      {node.anchor_quotes.length ? (
+        <blockquote className="manual-review-pill-evidence">
+          {node.anchor_quotes.map((quote, index) => (
+            <span key={index}>&ldquo;{quote}&rdquo;</span>
+          ))}
+        </blockquote>
+      ) : null}
     </li>
   );
 }
 
 function EdgePill({ edge }: { edge: ManualReviewEdge }) {
   return (
-    <li className="manual-review-pill manual-review-pill-edge">
-      <span className="manual-review-pill-label">
-        {edge.from_label ?? edge.from_node_id} <span className="manual-review-pill-predicate">{edge.relationship_type}</span>{" "}
-        {edge.to_label ?? edge.to_node_id}
-      </span>
-      {edge.predicate_family ? <span className="manual-review-pill-type">{edge.predicate_family}</span> : null}
-      {edge.confidence ? <span className="manual-review-pill-confidence">{edge.confidence}</span> : null}
+    <li className="manual-review-pill manual-review-pill-edge manual-review-pill-detailed">
+      <div className="manual-review-pill-row">
+        <span className="manual-review-pill-label">
+          {edge.from_label ?? edge.from_node_id}{" "}
+          <span className="manual-review-pill-predicate">{edge.relationship_type}</span>{" "}
+          {edge.to_label ?? edge.to_node_id}
+        </span>
+      </div>
+      <div className="manual-review-pill-row">
+        {edge.predicate_family ? <span className="manual-review-pill-type">{edge.predicate_family}</span> : null}
+        {edge.confidence ? (
+          <span className="manual-review-pill-confidence">confidence: {edge.confidence}</span>
+        ) : null}
+      </div>
+      {edge.anchor_quotes.length ? (
+        <blockquote className="manual-review-pill-evidence">
+          {edge.anchor_quotes.map((quote, index) => (
+            <span key={index}>&ldquo;{quote}&rdquo;</span>
+          ))}
+        </blockquote>
+      ) : null}
     </li>
+  );
+}
+
+function PromptPanel({ pass, promptText }: { pass: ManualReviewPassId; promptText: string }) {
+  return (
+    <section className="manual-review-prompt-panel" aria-label="Vocabulary prompt for active pass">
+      <header className="manual-review-column-header">
+        <h4>Vocabulary prompt</h4>
+        <span className="manual-review-column-meta">{PASS_LABELS[pass]} pass</span>
+      </header>
+      <pre className="manual-review-prompt-text">
+        {promptText.trim() ? promptText : "(No vocabulary context rendered for this pass.)"}
+      </pre>
+    </section>
   );
 }
 
@@ -210,10 +253,7 @@ export function ManualReviewModule() {
         <p className="plan-surface-kicker">Vocabulary ablation dogfood · developer tool</p>
         <h2>Baseline vs vocabulary-assisted graph review</h2>
         <p className="manual-review-lede">
-          Read-only, pass-by-pass comparison of the checked-in vocabulary-ablation manual-review
-          artifact: the vocabulary prompt shown to the model for a pass, next to what each variant
-          actually extracted for that pass. This is a diagnostic surface, not a promotion path — no
-          writes, no corpus mutation, no canon changes.
+          Prompt, baseline, and vocabulary-assisted extraction for the active pass — side by side. Read-only diagnostic surface, no writes.
         </p>
       </header>
 
@@ -259,14 +299,9 @@ export function ManualReviewModule() {
             ))}
           </div>
 
-          <section className="manual-review-prompt-panel" aria-label="Vocabulary prompt for active pass">
-            <h3>Vocabulary prompt — {PASS_LABELS[activePass]}</h3>
-            <pre className="manual-review-prompt-text">
-              {promptText.trim() ? promptText : "(No vocabulary context rendered for this pass.)"}
-            </pre>
-          </section>
+          <PromptPanel pass={activePass} promptText={promptText} />
 
-          <div className="manual-review-columns">
+          <div className="manual-review-columns" aria-label="Baseline vs vocabulary-assisted extraction">
             <VariantColumn
               variantName={BASELINE_VARIANT}
               variant={bedDetail.variants[BASELINE_VARIANT]}

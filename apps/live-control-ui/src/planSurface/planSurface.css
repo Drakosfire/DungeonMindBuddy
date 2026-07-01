@@ -2678,32 +2678,28 @@ body.plan-toolbox-open {
 }
 
 .manual-review-prompt-panel {
-  border: 1px solid var(--border, #2a3142);
+  border: 1px solid rgba(122, 162, 247, 0.28);
   border-radius: var(--radius, 10px);
-  background: rgba(18, 20, 26, 0.55);
-  padding: 0.85rem 1rem;
-}
-
-.manual-review-prompt-panel h3 {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+  background: rgba(122, 162, 247, 0.06);
+  padding: 0.75rem;
 }
 
 .manual-review-prompt-text {
-  margin: 0;
+  margin: 0.4rem 0 0;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.8rem;
-  max-height: 16rem;
-  overflow: auto;
+  font-size: 0.78rem;
   color: var(--fg, #e8eaef);
+  max-height: 11rem;
+  overflow: auto;
 }
 
 .manual-review-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
+  align-items: start;
 }
 
 .manual-review-column {
@@ -2711,7 +2707,7 @@ body.plan-toolbox-open {
   border-radius: var(--radius, 10px);
   background: rgba(18, 20, 26, 0.4);
   padding: 0.75rem;
-  min-height: 260px;
+  min-height: 320px;
   max-height: 60vh;
   overflow: auto;
 }
@@ -2747,12 +2743,21 @@ body.plan-toolbox-open {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.5);
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.manual-review-pill-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.manual-review-pill-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
 }
 
 .manual-review-pill-label {
@@ -2782,6 +2787,34 @@ body.plan-toolbox-open {
   font-size: 0.72rem;
 }
 
+.manual-review-pill-importance {
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.14);
+  color: #eab308;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.manual-review-pill-description {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.manual-review-pill-evidence {
+  margin: 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid rgba(122, 162, 247, 0.35);
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.76rem;
+  font-style: italic;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .manual-review-pill-edge .manual-review-pill-label {
   font-weight: 500;
 }
@@ -2807,7 +2840,7 @@ body.plan-toolbox-open {
   margin: 0.35rem 0 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 640px) {
   .manual-review-columns {
     grid-template-columns: 1fr;
   }

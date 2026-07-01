@@ -78,6 +78,7 @@ class ManualReviewNode(BaseModel):
     importance: str | None = None
     corpus_ref: str | dict[str, Any] | None = None
     evidence_span_ids: list[str] = Field(default_factory=list)
+    anchor_quotes: list[str] = Field(default_factory=list)
 
 
 class ManualReviewEdge(BaseModel):
@@ -90,6 +91,7 @@ class ManualReviewEdge(BaseModel):
     predicate_family: str | None = None
     confidence: str | None = None
     evidence_span_ids: list[str] = Field(default_factory=list)
+    anchor_quotes: list[str] = Field(default_factory=list)
 
 
 class ManualReviewVariantDetail(BaseModel):
@@ -152,6 +154,18 @@ def _evidence_span_ids(evidence_refs: Any) -> list[str]:
     return span_ids
 
 
+def _evidence_anchor_quotes(evidence_refs: Any) -> list[str]:
+    quotes: list[str] = []
+    if not isinstance(evidence_refs, list):
+        return quotes
+    for ref in evidence_refs:
+        if isinstance(ref, Mapping):
+            for quote in ref.get("anchor_quotes") or []:
+                if quote:
+                    quotes.append(str(quote))
+    return quotes
+
+
 def _pass_name_for_node_type(node_type: str) -> str | None:
     return _PASS_NAME_FOR_NODE_CLASS.get(node_type_class(node_type))
 
@@ -168,6 +182,7 @@ def _build_node(raw: Mapping[str, Any]) -> ManualReviewNode:
         importance=raw.get("importance"),
         corpus_ref=raw.get("corpus_ref"),
         evidence_span_ids=_evidence_span_ids(raw.get("evidence_refs")),
+        anchor_quotes=_evidence_anchor_quotes(raw.get("evidence_refs")),
     )
 
 
@@ -184,6 +199,7 @@ def _build_edge(raw: Mapping[str, Any], label_by_id: Mapping[str, str]) -> Manua
         predicate_family=raw.get("predicate_family"),
         confidence=raw.get("confidence"),
         evidence_span_ids=_evidence_span_ids(raw.get("evidence_refs")),
+        anchor_quotes=_evidence_anchor_quotes(raw.get("evidence_refs")),
     )
 
 

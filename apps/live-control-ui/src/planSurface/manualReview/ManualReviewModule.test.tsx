@@ -64,6 +64,7 @@ function bedDetail(): ManualReviewBedDetail {
             importance: "high",
             corpus_ref: null,
             evidence_span_ids: ["spref:c1s1-recap:002"],
+            anchor_quotes: ["it's tavern The River's Edge Pub run by Grishna the Half-orc"],
           },
         ],
         edges: [
@@ -77,6 +78,7 @@ function bedDetail(): ManualReviewBedDetail {
             predicate_family: "location_hierarchy",
             confidence: "medium",
             evidence_span_ids: ["spref:c1s1-recap:002"],
+            anchor_quotes: ["It has the Stone Bridge over the river"],
           },
         ],
         node_kinds: { character: 1 },
@@ -100,6 +102,7 @@ function bedDetail(): ManualReviewBedDetail {
             importance: "high",
             corpus_ref: null,
             evidence_span_ids: ["spref:c1s1-recap:002"],
+            anchor_quotes: [],
           },
         ],
         edges: [],
@@ -128,6 +131,13 @@ describe("ManualReviewModule", () => {
 
     const columns = screen.getAllByText("Grishna");
     expect(columns).toHaveLength(2);
+
+    expect(await screen.findByText("Half-orc proprietor of The River's Edge Pub.")).toBeInTheDocument();
+    expect(screen.getAllByText(/confidence: medium/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/importance: high/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/it's tavern The River's Edge Pub run by Grishna the Half-orc/),
+    ).toBeInTheDocument();
   });
 
   it("switches to the edge pass and shows edge pills with resolved labels", async () => {
@@ -144,6 +154,7 @@ describe("ManualReviewModule", () => {
       ".manual-review-column",
     ) as HTMLElement;
     expect(within(baselineColumn).getByText(/contains/)).toBeInTheDocument();
+    expect(within(baselineColumn).getByText(/It has the Stone Bridge over the river/)).toBeInTheDocument();
   });
 
   it("shows an error state when the beds request fails", async () => {

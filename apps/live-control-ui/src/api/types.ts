@@ -1620,6 +1620,7 @@ export interface ManualReviewNode {
   importance?: string | null;
   corpus_ref?: string | Record<string, unknown> | null;
   evidence_span_ids: string[];
+  anchor_quotes: string[];
 }
 
 export interface ManualReviewEdge {
@@ -1632,6 +1633,7 @@ export interface ManualReviewEdge {
   predicate_family?: string | null;
   confidence?: string | null;
   evidence_span_ids: string[];
+  anchor_quotes: string[];
 }
 
 export interface ManualReviewVariantDetail {
