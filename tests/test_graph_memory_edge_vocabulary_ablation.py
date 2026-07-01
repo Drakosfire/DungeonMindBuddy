@@ -61,23 +61,32 @@ def _edge_template() -> str:
 
 
 def test_default_edge_extraction_context_omits_vocabulary_context():
-    prompt, diagnostics = build_edge_pass_prompt(_edge_template(), [], options=_options())
+    prompt, diagnostics, encounter_job_diag = build_edge_pass_prompt(
+        _edge_template(), [], options=_options()
+    )
 
     assert "Vocabulary context for edge extraction" not in prompt
     assert diagnostics == {"enabled": False}
+    assert encounter_job_diag == {
+        "enabled": False,
+        "guidance_added": False,
+        "reason": "option_disabled",
+    }
 
 
 def test_packet_ignored_unless_enabled():
-    prompt, diagnostics = build_edge_pass_prompt(
+    prompt, diagnostics, encounter_job_diag = build_edge_pass_prompt(
         _edge_template(), [], options=_options(edge_vocabulary_packet=_packet())
     )
 
     assert "Vocabulary context for edge extraction" not in prompt
     assert diagnostics == {"enabled": False}
+    assert encounter_job_diag["enabled"] is False
+    assert encounter_job_diag["reason"] == "option_disabled"
 
 
 def test_packet_included_when_enabled():
-    prompt, diagnostics = build_edge_pass_prompt(
+    prompt, diagnostics, encounter_job_diag = build_edge_pass_prompt(
         _edge_template(),
         [],
         options=_options(enable_edge_vocabulary_packet=True, edge_vocabulary_packet=_packet()),
@@ -88,6 +97,8 @@ def test_packet_included_when_enabled():
     assert "occurred_at" in prompt
     assert diagnostics["enabled"] is True
     assert diagnostics["packet_id"] == "packet:vocab:edge-ablation"
+    assert encounter_job_diag["enabled"] is False
+    assert encounter_job_diag["reason"] == "option_disabled"
 
 
 def test_node_pass_and_staged_default_context_are_not_modified():
