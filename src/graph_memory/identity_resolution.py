@@ -50,7 +50,7 @@ NODE_TYPE_CLASS: dict[str, str] = {
     # phenomena / temporal
     "event": "phenomenon", "warning": "phenomenon", "session": "phenomenon",
     "campaign": "phenomenon", "phenomenon": "phenomenon",
-    "unresolved_phenomenon": "phenomenon",
+    "unresolved_phenomenon": "phenomenon", "combat_encounter": "phenomenon",
     # objects
     "item": "object", "statblock": "object", "roll-table": "object", "roll_table": "object",
     # structural
