@@ -61,6 +61,8 @@ import type {
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
   VocabularyAblationDogfoodResponse,
+  ManualReviewBedDetail,
+  ManualReviewBedsResponse,
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
@@ -333,6 +335,16 @@ export async function getGoldReviewVocabularyAblation(
   });
   return apiFetch<VocabularyAblationDogfoodResponse>(
     `/api/live/graph-preview/gold-review/vocabulary-ablation?${params.toString()}`,
+  );
+}
+
+export async function getManualReviewBeds(): Promise<ManualReviewBedsResponse> {
+  return apiFetch<ManualReviewBedsResponse>("/api/live/graph-preview/manual-review/beds");
+}
+
+export async function getManualReviewBed(bedId: string): Promise<ManualReviewBedDetail> {
+  return apiFetch<ManualReviewBedDetail>(
+    `/api/live/graph-preview/manual-review/beds/${encodeURIComponent(bedId)}`,
   );
 }
 

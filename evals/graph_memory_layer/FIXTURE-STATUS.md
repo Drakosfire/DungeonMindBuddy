@@ -55,6 +55,7 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 |------|-------|
 | `examples/static_preview_graph_ui_prototype/` | HTML prototype for GM preview UX |
 | `examples/static_extractor_output_comparison_report/` | Static candidate-vs-gold report fixture |
+| `artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.json` | Per-bed (C1S1, Mirathorn) baseline vs edge_and_node_packet candidate graphs + per-pass vocabulary prompt text. Served read-only by `apps/live_control_server/services/graph_manual_review.py` (`/api/live/graph-preview/manual-review/beds[/...]`) and rendered by the Plan surface "Vocabulary Review" tool (`apps/live-control-ui/src/planSurface/manualReview/`). |
 
 ## Recap ingest fixtures (mechanical, no LLM)
 

@@ -40,6 +40,13 @@ from apps.live_control_server.services.graph_gold_review import (
     discover_gold_review_sessions,
     load_vocabulary_ablation_dogfood,
 )
+from apps.live_control_server.services.graph_manual_review import (
+    GraphManualReviewError,
+    ManualReviewBedDetail,
+    ManualReviewBedsResponse,
+    discover_manual_review_beds,
+    load_manual_review_bed,
+)
 from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRegistryError,
     RecapArtifactsListResponse,
@@ -272,6 +279,24 @@ def get_gold_review_vocabulary_ablation(
             root=repo_root(),
         )
     except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/manual-review/beds", response_model=ManualReviewBedsResponse)
+def get_manual_review_beds() -> dict[str, Any]:
+    try:
+        response = discover_manual_review_beds(repo_root())
+    except GraphManualReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/manual-review/beds/{bed_id}", response_model=ManualReviewBedDetail)
+def get_manual_review_bed(bed_id: str) -> dict[str, Any]:
+    try:
+        response = load_manual_review_bed(repo_root(), bed_id)
+    except GraphManualReviewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
 

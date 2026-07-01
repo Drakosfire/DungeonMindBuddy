@@ -1594,6 +1594,74 @@ export interface VocabularyAblationDogfoodResponse {
   partition?: VocabularyAblationPartition;
 }
 
+export interface ManualReviewBedSummary {
+  bed_id: string;
+  campaign_id?: string | null;
+  session_id?: string | null;
+  source_label?: string | null;
+  variant_names: string[];
+}
+
+export interface ManualReviewBedsResponse {
+  schema_version: "dmb_graph_manual_review_beds_v1";
+  version: string;
+  generated_at?: string | null;
+  model_id?: string | null;
+  beds: ManualReviewBedSummary[];
+}
+
+export interface ManualReviewNode {
+  node_id: string;
+  label: string;
+  node_type: string;
+  pass_name?: string | null;
+  description?: string | null;
+  confidence?: string | null;
+  importance?: string | null;
+  corpus_ref?: string | Record<string, unknown> | null;
+  evidence_span_ids: string[];
+}
+
+export interface ManualReviewEdge {
+  edge_id: string;
+  from_node_id: string;
+  to_node_id: string;
+  from_label?: string | null;
+  to_label?: string | null;
+  relationship_type: string;
+  predicate_family?: string | null;
+  confidence?: string | null;
+  evidence_span_ids: string[];
+}
+
+export interface ManualReviewVariantDetail {
+  variant_name: string;
+  node_count: number;
+  edge_count: number;
+  cost_usd?: number | null;
+  nodes: ManualReviewNode[];
+  edges: ManualReviewEdge[];
+  node_kinds: Record<string, number>;
+  edge_predicates: Record<string, number>;
+  gold_comparison: Record<string, unknown>;
+  party_context: Record<string, unknown>;
+}
+
+export interface ManualReviewBedDetail {
+  schema_version: "dmb_graph_manual_review_bed_v1";
+  version: string;
+  bed_id: string;
+  campaign_id?: string | null;
+  session_id?: string | null;
+  source_label?: string | null;
+  generated_at?: string | null;
+  model_id?: string | null;
+  node_prompt_contexts: Record<string, string>;
+  edge_prompt_context: string;
+  variant_names: string[];
+  variants: Record<string, ManualReviewVariantDetail>;
+}
+
 export interface GraphFocusOverlay {
   focus_session_id?: string | null;
   focused_evidence_ref_ids: string[];
