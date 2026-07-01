@@ -153,6 +153,7 @@ class CategoryGraphExtractionOptions:
     node_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
+    enable_encounter_job_edge_guidance: bool = False
 
 
 @dataclass(frozen=True)
@@ -768,7 +769,7 @@ def build_edge_pass_prompt(
     nodes: Sequence[Mapping[str, Any]],
     *,
     options: CategoryGraphExtractionOptions,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
     nodes_json = json.dumps([_edge_prompt_node_summary(n) for n in nodes], indent=2)
     prompt = edge_prompt_template.replace("(injected at runtime)", nodes_json)
     diagnostics = {"enabled": False}
@@ -776,7 +777,77 @@ def build_edge_pass_prompt(
         edge_vocab_context = render_edge_vocabulary_context(options.edge_vocabulary_packet)
         prompt = f"{prompt}\n\n{edge_vocab_context.context_text}\n"
         diagnostics = edge_vocab_context.diagnostics
-    return prompt, diagnostics
+
+    encounter_job_edge_diag: dict[str, Any] = {
+        "enabled": False,
+        "guidance_added": False,
+        "reason": "option_disabled",
+    }
+    if options.enable_encounter_job_edge_guidance:
+        encounter_job_guidance, encounter_job_edge_diag = render_encounter_job_edge_guidance(nodes)
+        if encounter_job_guidance:
+            prompt = f"{prompt}\n\n{encounter_job_guidance}\n"
+    return prompt, diagnostics, encounter_job_edge_diag
+
+
+def render_encounter_job_edge_guidance(
+    nodes: Sequence[Mapping[str, Any]],
+) -> tuple[str, dict[str, Any]]:
+    encounter_job_nodes = [
+        n
+        for n in nodes
+        if str(n.get("node_type") or "").strip() in {"quest", "combat_encounter"}
+    ]
+    quest_node_ids = [str(n.get("node_id")) for n in encounter_job_nodes if n.get("node_type") == "quest"]
+    combat_encounter_node_ids = [
+        str(n.get("node_id"))
+        for n in encounter_job_nodes
+        if n.get("node_type") == "combat_encounter"
+    ]
+    if not encounter_job_nodes:
+        return "", {
+            "enabled": True,
+            "guidance_added": False,
+            "reason": "no_encounter_or_quest_nodes",
+            "quest_node_ids": [],
+            "combat_encounter_node_ids": [],
+        }
+
+    summaries = [_edge_prompt_node_summary(n) for n in encounter_job_nodes]
+    nodes_json = json.dumps(summaries, indent=2, sort_keys=True)
+    guidance = (
+        "## Encounter/job edge guidance\n\n"
+        "The consolidated node list includes durable `quest` and/or `combat_encounter` nodes.\n\n"
+        "Use these nodes as relationship targets when the source text supports the edge. Do not create new nodes.\n\n"
+        "Do not duplicate deterministic party context edges. If an edge from `node:heroes-party` to a quest or combat encounter is already obvious from party context, omit it unless the source explicitly names a different subject or stronger relation.\n\n"
+        "Do not emit generic `node:heroes-party -> quest` or `node:heroes-party -> combat_encounter` edges when deterministic party attachment already covers them. Prefer more specific source-supported edges: encounter location, adversaries, mission targets, consequences, employers, and explicitly named non-party participants.\n\n"
+        "Use existing predicates only. Do not invent relationship_type values.\n\n"
+        "### Encounter/job nodes available for edge binding\n\n"
+        f"```json\n{nodes_json}\n```\n\n"
+        "For `combat_encounter` nodes:\n\n"
+        "- Link encounter to location with `located_in` when the source states where the fight, defense, battle, ambush, or confrontation occurs.\n"
+        "  Direction: `combat_encounter -> location`.\n"
+        "- Link adversary/creature/group actors to the encounter with `participates_in` when the source says they fought, attacked, defended, swarmed, ambushed, or appeared in the fight.\n"
+        "  Direction: `actor/group -> combat_encounter`.\n"
+        "- Link notable objects or hazards to the encounter with `present_at` only when they are materially present in the scene.\n"
+        "  Direction: `object/hazard -> combat_encounter`.\n"
+        "- Link encounter consequences with `results_in` only when the source explicitly states a durable outcome.\n"
+        "  Direction: `combat_encounter -> outcome/quest/thread/condition node`.\n\n"
+        "For `quest` nodes:\n\n"
+        "- Link quest to the target/problem/objective with `mission_targets` when the source states what must be cleared, rescued, defended, delivered, found, investigated, or stopped.\n"
+        "  Direction: `quest -> target node`.\n"
+        "- Link quest to its focus/location/context with `mission_focus` when the source frames a location, institution, warning, or mystery as the focus of the work.\n"
+        "  Direction: `quest -> focus node`.\n"
+        "- Link explicit subject actors to quests with `pursues` only when the source names them and no deterministic party edge already covers the generic party case.\n"
+        "  Direction: `actor/party -> quest`.\n"
+        "- Use `hires` or `commands` for employer/authority-to-quest relationships only when the catalog supports the exact predicate and the source explicitly supports the relationship. If no catalog predicate fits, omit the edge."
+    )
+    return guidance, {
+        "enabled": True,
+        "guidance_added": True,
+        "quest_node_ids": quest_node_ids,
+        "combat_encounter_node_ids": combat_encounter_node_ids,
+    }
 
 
 def _edge_prompt_node_summary(node: Mapping[str, Any]) -> dict[str, Any]:
@@ -1073,7 +1144,7 @@ def run_category_pipeline(
             session=options.session_number,
             enable_party_participation_attachment=options.enable_party_participation_attachment,
         )
-    edge_prompt, edge_vocabulary_diag = build_edge_pass_prompt(
+    edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
         prompts[_prompt_key(EDGE_PASS_NAME)],
         consolidated["nodes"],
         options=options,
@@ -1140,6 +1211,7 @@ def run_category_pipeline(
             "extraction_mode": "category_decomposed",
             "model_id": model_id,
             "edge_vocabulary_ablation": edge_vocabulary_diag,
+            "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             **PREVIEW_DIAGNOSTICS,
         },
