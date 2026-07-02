@@ -8,7 +8,7 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
-import { attachSourceSpanDataAttributes } from "./sourceSpanHighlight";
+import { attachSourceSpanDataAttributes, type SourceSpanDomOverlay } from "./sourceSpanHighlight";
 
 export interface GraphProjectionReaderProps {
   markdown: string;
@@ -23,6 +23,8 @@ export interface GraphProjectionReaderProps {
   documentLabel?: string;
   resetKey?: string | null;
   nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
+  sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
+  selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
 }
 
@@ -34,6 +36,7 @@ function ReadOnlyTiptapRecap({
   sourceSpans,
   selectedEvidenceSpanId,
   nodeDeltaPresentations,
+  sourceSpanDeltaOverlays,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -42,6 +45,7 @@ function ReadOnlyTiptapRecap({
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
   nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
+  sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
   const content = useMemo(
@@ -66,11 +70,11 @@ function ReadOnlyTiptapRecap({
   useEffect(() => {
     const root = readerRef.current;
     if (!root) return;
-    const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId);
+    const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
     if (highlighted && typeof highlighted.scrollIntoView === "function") {
       highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-  }, [content, sourceSpans, selectedEvidenceSpanId]);
+  }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
   return (
     <div className="union-supergraph-tiptap-reader" ref={readerRef}>
@@ -92,6 +96,8 @@ export function GraphProjectionReader({
   documentLabel = "Projected recap",
   resetKey,
   nodeDeltaPresentations,
+  sourceSpanDeltaOverlays,
+  selectedSourceSpanId,
   onActiveNodeChange,
 }: GraphProjectionReaderProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
@@ -136,6 +142,7 @@ export function GraphProjectionReader({
 
   const explorerOpen = explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
+  const effectiveSelectedSpanId = selectedSourceSpanId ?? selectedEvidenceSpanId;
 
   return (
     <div className={rootClassName}>
@@ -165,8 +172,9 @@ export function GraphProjectionReader({
             activeNodeId={activeNodeId}
             onSelectNode={openExplorer}
             sourceSpans={sourceSpans}
-            selectedEvidenceSpanId={selectedEvidenceSpanId}
+            selectedEvidenceSpanId={effectiveSelectedSpanId}
             nodeDeltaPresentations={nodeDeltaPresentations}
+            sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
           />
         </article>
         {explorerOpen && activeNode ? (
