@@ -36,8 +36,30 @@ function emptyCounts<T extends string>(values: T[]): Record<T, number> {
   return Object.fromEntries(values.map((value) => [value, 0])) as Record<T, number>;
 }
 
+const OBJECT_KIND_ALIASES: Record<string, GraphReviewDeltaObjectKind> = {
+  node: "node",
+  nodes: "node",
+  edge: "edge",
+  edges: "edge",
+  mention: "mention",
+  mentions: "mention",
+  source_span: "source_span",
+  source_spans: "source_span",
+  beat: "beat",
+  beats: "beat",
+  proposed_write: "write",
+  proposed_writes: "write",
+  write: "write",
+  writes: "write",
+  ignored_item: "ignored_item",
+  ignored_items: "ignored_item",
+  deferred_item: "deferred_item",
+  deferred_items: "deferred_item",
+};
+
 function normalizeObjectKind(kind: string | null | undefined, warnings: string[]): GraphReviewDeltaObjectKind {
-  if (kind === "node" || kind === "edge" || kind === "mention" || kind === "source_span") return kind;
+  const normalized = kind ? OBJECT_KIND_ALIASES[kind] : undefined;
+  if (normalized) return normalized;
   warnings.push(`Unknown object kind ${kind || "(missing)"}; normalized to unknown.`);
   return "unknown";
 }

@@ -77,36 +77,59 @@ describe("buildGraphReviewDeltaIndex", () => {
   });
 
   it("emits matched deltas with gold and live refs", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "node", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l: { object_kind: "node", object_id: "live-node-1", label: "Lysandra", payload: {} } } }, match_pairs: { node: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }] } }), liveProjection: projection, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "nodes", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l: { object_kind: "nodes", object_id: "live-node-1", label: "Lysandra", payload: {} } } }, match_pairs: { nodes: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }] } }), liveProjection: projection, goldLane, liveLane });
     expect(index.deltas).toHaveLength(1);
     expect(index.deltas[0].status).toBe("matched");
     expect(index.deltas[0].laneObjectRefs.map((ref) => ref.laneRole)).toEqual(["gold", "live"]);
   });
 
   it("emits gold_only for unmatched gold objects", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "edge", object_id: "gold-edge-1", label: "North Gate defense chain", payload: {} } }, live: {} } }), liveProjection: null, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "edges", object_id: "gold-edge-1", label: "North Gate defense chain", payload: {} } }, live: {} } }), liveProjection: null, goldLane, liveLane });
     expect(index.deltas[0].status).toBe("gold_only");
   });
 
   it("emits live_only for unmatched live objects", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: {}, live: { l: { object_kind: "node", object_id: "live-node-1", label: "Tripod Null-Calf", payload: {} } } } }), liveProjection: projection, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: {}, live: { l: { object_kind: "nodes", object_id: "live-node-1", label: "Tripod Null-Calf", payload: {} } } } }), liveProjection: projection, goldLane, liveLane });
     expect(index.deltas[0].status).toBe("live_only");
   });
 
   it("emits comparator_uncertain when a pair references a missing object", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "node", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: {} }, match_pairs: { node: [{ gold_id: "gold-node-1", live_id: "live-node-42", score: 0.1 }] } }), liveProjection: null, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "nodes", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: {} }, match_pairs: { nodes: [{ gold_id: "gold-node-1", live_id: "live-node-42", score: 0.1 }] } }), liveProjection: null, goldLane, liveLane });
     expect(index.deltas.some((delta) => delta.status === "comparator_uncertain")).toBe(true);
     expect(index.deltas[0].summary).toContain("missing live object live-node-42");
   });
 
   it("emits comparator_uncertain for duplicate pairs", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "node", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l1: { object_kind: "node", object_id: "live-node-1", label: "Lysandra", payload: {} }, l2: { object_kind: "node", object_id: "live-node-2", label: "Lysandra II", payload: {} } } }, match_pairs: { node: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }, { gold_id: "gold-node-1", live_id: "live-node-2", score: 0.8 }] } }), liveProjection: null, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "nodes", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l1: { object_kind: "nodes", object_id: "live-node-1", label: "Lysandra", payload: {} }, l2: { object_kind: "nodes", object_id: "live-node-2", label: "Lysandra II", payload: {} } } }, match_pairs: { nodes: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }, { gold_id: "gold-node-1", live_id: "live-node-2", score: 0.8 }] } }), liveProjection: null, goldLane, liveLane });
     expect(index.deltas.some((delta) => delta.status === "comparator_uncertain" && delta.summary.includes("duplicate gold object"))).toBe(true);
   });
 
   it("attaches live projection node source span refs", () => {
-    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "node", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l: { object_kind: "node", object_id: "live-node-1", label: "Lysandra", payload: {} } } }, match_pairs: { node: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }] } }), liveProjection: projection, goldLane, liveLane });
+    const index = buildGraphReviewDeltaIndex({ compare: compare({ object_index: { gold: { g: { object_kind: "nodes", object_id: "gold-node-1", label: "Lysandra", payload: {} } }, live: { l: { object_kind: "nodes", object_id: "live-node-1", label: "Lysandra", payload: {} } } }, match_pairs: { nodes: [{ gold_id: "gold-node-1", live_id: "live-node-1", score: 0.9 }] } }), liveProjection: projection, goldLane, liveLane });
     expect(index.deltas[0].primarySourceSpanRefId).toBe("source-span-12");
+  });
+
+  it("normalizes plural backend object sections without noisy unknown warnings", () => {
+    const index = buildGraphReviewDeltaIndex({
+      compare: compare({
+        object_index: {
+          gold: {
+            beat: { object_kind: "beats", object_id: "gold-beat-1", label: "Gate defense beat", payload: {} },
+          },
+          live: {
+            write: { object_kind: "proposed_writes", object_id: "live-write-1", label: "Candidate write", payload: {} },
+          },
+        },
+      }),
+      liveProjection: null,
+      goldLane,
+      liveLane,
+    });
+
+    expect(index.deltas.map((delta) => delta.objectKind).sort()).toEqual(["beat", "write"]);
+    expect(index.countsByObjectKind.beat).toBe(1);
+    expect(index.countsByObjectKind.write).toBe(1);
+    expect(index.warnings).toEqual([]);
   });
 
   it("initializes all count keys", () => {
@@ -116,7 +139,7 @@ describe("buildGraphReviewDeltaIndex", () => {
   });
 
   it("sorts deltas deterministically", () => {
-    const input = compare({ object_index: { gold: { b: { object_kind: "node", object_id: "b", label: "B", payload: {} }, a: { object_kind: "node", object_id: "a", label: "A", payload: {} } }, live: { c: { object_kind: "node", object_id: "c", label: "C", payload: {} } } } });
+    const input = compare({ object_index: { gold: { b: { object_kind: "nodes", object_id: "b", label: "B", payload: {} }, a: { object_kind: "nodes", object_id: "a", label: "A", payload: {} } }, live: { c: { object_kind: "nodes", object_id: "c", label: "C", payload: {} } } } });
     const first = buildGraphReviewDeltaIndex({ compare: input, liveProjection: null, goldLane, liveLane }).deltas.map((delta) => delta.deltaId);
     const second = buildGraphReviewDeltaIndex({ compare: input, liveProjection: null, goldLane, liveLane }).deltas.map((delta) => delta.deltaId);
     expect(first).toEqual(second);

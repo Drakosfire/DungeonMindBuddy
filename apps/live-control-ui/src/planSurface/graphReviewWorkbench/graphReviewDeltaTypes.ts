@@ -10,7 +10,16 @@ export type GraphReviewDeltaStatus =
   | "changed_edges"
   | "comparator_uncertain";
 
-export type GraphReviewDeltaObjectKind = "node" | "edge" | "mention" | "source_span" | "unknown";
+export type GraphReviewDeltaObjectKind =
+  | "node"
+  | "edge"
+  | "mention"
+  | "source_span"
+  | "beat"
+  | "write"
+  | "ignored_item"
+  | "deferred_item"
+  | "unknown";
 
 export interface GraphReviewLaneObjectRef {
   laneId: string;
@@ -65,5 +74,9 @@ export const GRAPH_REVIEW_DELTA_OBJECT_KINDS: GraphReviewDeltaObjectKind[] = [
   "edge",
   "mention",
   "source_span",
+  "beat",
+  "write",
+  "ignored_item",
+  "deferred_item",
   "unknown",
 ];
