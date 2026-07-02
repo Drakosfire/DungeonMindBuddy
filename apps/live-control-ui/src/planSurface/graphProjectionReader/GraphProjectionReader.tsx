@@ -21,6 +21,7 @@ export interface GraphProjectionReaderProps {
   sourceNote?: string;
   className?: string;
   documentLabel?: string;
+  resetKey?: string | null;
 }
 
 function ReadOnlyTiptapRecap({
@@ -85,6 +86,7 @@ export function GraphProjectionReader({
   sourceNote,
   className,
   documentLabel = "Projected recap",
+  resetKey,
 }: GraphProjectionReaderProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
   const activeNodeId = explorerTrail.at(-1) ?? null;
@@ -94,7 +96,7 @@ export function GraphProjectionReader({
   useEffect(() => {
     setExplorerTrail([]);
     setSelectedEvidenceSpanId(null);
-  }, [markdown, graphId]);
+  }, [markdown, graphId, resetKey]);
 
   const openExplorer = (nodeId: string) => {
     setExplorerTrail([nodeId]);

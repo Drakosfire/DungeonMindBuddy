@@ -2987,3 +2987,53 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #ffb4b4;
   padding: 0.75rem;
 }
+
+.graph-review-live-projection-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 1rem;
+}
+
+.graph-review-live-projection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.graph-review-live-projection-header h3 {
+  margin: 0.15rem 0 0;
+}
+
+.graph-review-live-projection-header p,
+.graph-review-live-projection-status {
+  color: var(--fg-mute);
+}
+
+.graph-review-live-projection-header > span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  max-width: 24rem;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-live-projection-status {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem;
+}
+
+.graph-review-live-projection-status > p:first-child {
+  margin-top: 0;
+  color: var(--fg);
+}
+
+.graph-review-live-projection-reader {
+  margin-top: 1rem;
+}
