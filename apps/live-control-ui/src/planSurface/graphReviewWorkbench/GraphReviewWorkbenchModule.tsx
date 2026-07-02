@@ -12,6 +12,7 @@ import {
 } from "../sessionCampaignContext";
 import { GraphReviewLaneCards } from "./GraphReviewLaneCards";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
+import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewMetricPanel } from "./GraphReviewMetricPanel";
 import {
   goldSessionToLane,
@@ -186,6 +187,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
       <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
 
+      <GraphReviewLiveProjectionPanel
+        campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
+        sessionId={selectedSession?.session_id ?? selectedSessionId}
+        liveRun={selectedLiveRun}
+      />
+
       <GraphReviewMetricPanel
         compare={compare}
         compareStatus={compareStatus}
@@ -193,14 +200,6 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         selection={selection}
         onSelect={setSelection}
       />
-
-      <section className="graph-review-source-placeholder" aria-label="Source-context projection placeholder">
-        <p className="plan-surface-kicker">Coming next</p>
-        <h3>Source-context projection</h3>
-        <p>
-          Source-context projection is the next Workbench slice. This PR only mounts lane selection and existing comparison metrics; it does not render recap Markdown or inline graph pills yet.
-        </p>
-      </section>
     </div>
   );
 }
