@@ -5,6 +5,7 @@ import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
 import { GraphGoldReviewModule } from "../graphGoldReview/GraphGoldReviewModule";
+import { GraphReviewWorkbenchModule } from "../graphReviewWorkbench/GraphReviewWorkbenchModule";
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor } from "../types";
@@ -80,6 +81,9 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   }
   if (toolId === "graph-gold-review") {
     return <GraphGoldReviewModule context={context} />;
+  }
+  if (toolId === "graph-review") {
+    return <GraphReviewWorkbenchModule context={context} />;
   }
   if (toolId === "manual-review") {
     return <ManualReviewModule />;

@@ -38,6 +38,7 @@ export function createPlanSurfaceConfig(planView: PlanViewProjection): SurfaceCo
       { id: "recap", label: "Recap", size: "wide" },
       { id: "graph-preview", label: "Graph Preview", size: "wide" },
       { id: "graph-gold-review", label: "Graph Gold Review", size: "wide" },
+      { id: "graph-review", label: "Graph Review", size: "wide" },
       { id: "manual-review", label: "Vocabulary Review", size: "wide" },
       { id: "party-registry", label: "Party Registry", size: "wide" },
       { id: "statblock", label: "Statblock", size: "wide" },
