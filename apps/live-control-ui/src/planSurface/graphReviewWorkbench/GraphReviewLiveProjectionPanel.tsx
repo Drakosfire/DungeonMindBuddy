@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getGoldReviewEvidence, getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GraphIngestRunSummary, GraphReviewLane, ManualReviewBedDetail, ManualReviewBedSummary, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GoldReviewSessionSummary, GraphIngestRunSummary, GraphReviewLane, ManualReviewBedDetail, ManualReviewBedSummary, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
+import { GraphReviewReferenceLanePanel } from "./GraphReviewReferenceLanePanel";
 import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
 import { GraphReviewSourceSpanInspectorPanel } from "./GraphReviewSourceSpanInspectorPanel";
 import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryPanel";
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
+import { GraphReviewTwoLaneShell, type GraphReviewTwoLaneLayoutMode } from "./GraphReviewTwoLaneShell";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
+import { buildPrimaryLiveLaneView, buildReferenceLaneView } from "./graphReviewReferenceLaneUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
 import { buildSourceSpanDeltaIndex, statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
@@ -22,6 +25,7 @@ interface GraphReviewLiveProjectionPanelProps {
   campaignId: string;
   sessionId: string;
   liveRun: GraphIngestRunSummary | null;
+  selectedSession?: GoldReviewSessionSummary | null;
   compare?: GoldReviewCompareResponse | null;
   compareStatus?: "idle" | "loading" | "ready" | "error";
   goldLane?: GraphReviewLane | null;
@@ -55,6 +59,7 @@ export function GraphReviewLiveProjectionPanel({
   campaignId,
   sessionId,
   liveRun,
+  selectedSession = null,
   compare = null,
   compareStatus = "idle",
   goldLane = null,
@@ -78,6 +83,7 @@ export function GraphReviewLiveProjectionPanel({
   const [evidenceStatus, setEvidenceStatus] = useState<EvidenceStatus>("idle");
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [selectedVariantInventoryRowId, setSelectedVariantInventoryRowId] = useState<string | null>(null);
+  const [twoLaneLayoutMode, setTwoLaneLayoutMode] = useState<GraphReviewTwoLaneLayoutMode>("single");
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -284,6 +290,22 @@ export function GraphReviewLiveProjectionPanel({
 
   const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
 
+  const primaryLaneView = useMemo(
+    () => buildPrimaryLiveLaneView(liveRun),
+    [liveRun],
+  );
+
+  const referenceLaneView = useMemo(
+    () =>
+      buildReferenceLaneView({
+        selectedSession: selectedSession ?? null,
+        compare: compare ?? null,
+        selectedVariantLaneView,
+        preferredReference: "auto",
+      }),
+    [selectedSession, compare, selectedVariantLaneView],
+  );
+
   return (
     <section className="graph-review-live-projection-panel" aria-label="Selected live lane source projection">
       <header className="graph-review-live-projection-header">
@@ -349,22 +371,31 @@ export function GraphReviewLiveProjectionPanel({
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <GraphProjectionReader
-            markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-            nodeViews={projection.node_views}
-            sourceSpans={paragraphSourceSpans}
-            mentionsCount={projection.mentions.length}
-            graphId={projection.graph_id}
-            title="Selected live lane projection"
-            subtitle={`Projected source view for ${runIdentity}`}
-            sourceNote={`Live lane · ${liveRun.vocabulary_mode ?? "unknown"} vocabulary · ${liveRun.extraction_profile ?? "unknown"} profile`}
-            className="graph-review-live-projection-reader"
-            documentLabel="Selected live lane projected source"
-            resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
-            nodeDeltaPresentations={readerNodeDeltaPresentations}
-            sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
-            selectedSourceSpanId={selectedSourceSpanId}
-            onActiveNodeChange={setSelectedDeltaNodeId}
+          <GraphReviewTwoLaneShell
+            primaryLane={primaryLaneView}
+            referenceLane={referenceLaneView}
+            layoutMode={twoLaneLayoutMode}
+            onLayoutModeChange={setTwoLaneLayoutMode}
+            primary={(
+              <GraphProjectionReader
+                markdown={projection.markdown ?? FALLBACK_MARKDOWN}
+                nodeViews={projection.node_views}
+                sourceSpans={paragraphSourceSpans}
+                mentionsCount={projection.mentions.length}
+                graphId={projection.graph_id}
+                title="Selected live lane projection"
+                subtitle={`Projected source view for ${runIdentity}`}
+                sourceNote={`Live lane · ${liveRun.vocabulary_mode ?? "unknown"} vocabulary · ${liveRun.extraction_profile ?? "unknown"} profile`}
+                className="graph-review-live-projection-reader"
+                documentLabel="Selected live lane projected source"
+                resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
+                nodeDeltaPresentations={readerNodeDeltaPresentations}
+                sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
+                selectedSourceSpanId={selectedSourceSpanId}
+                onActiveNodeChange={setSelectedDeltaNodeId}
+              />
+            )}
+            reference={<GraphReviewReferenceLanePanel referenceLane={referenceLaneView} />}
           />
           <GraphReviewDeltaInspectorPanel
             selectedNodeId={selectedDeltaNodeId}
