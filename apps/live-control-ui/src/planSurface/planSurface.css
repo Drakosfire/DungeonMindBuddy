@@ -3407,3 +3407,117 @@ body.plan-toolbox-open .plan-agent-shell {
   justify-content: space-between;
   gap: 0.75rem;
 }
+
+.graph-review-evidence-split-panel {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.04);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.graph-review-evidence-split-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.graph-review-evidence-split-header h3 {
+  margin: 0.1rem 0 0;
+}
+
+.graph-review-evidence-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.graph-review-evidence-side-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.75);
+  max-height: 34rem;
+  overflow: auto;
+}
+
+.graph-review-evidence-side-card[data-side="gold"] {
+  border-left: 4px solid rgba(245, 158, 11, 0.65);
+}
+
+.graph-review-evidence-side-card[data-side="live"] {
+  border-left: 4px solid rgba(14, 165, 233, 0.65);
+}
+
+.graph-review-evidence-side-card dl,
+.graph-review-evidence-entry dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.65rem 0;
+}
+
+.graph-review-evidence-side-card dt,
+.graph-review-evidence-entry dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.graph-review-evidence-side-card dd,
+.graph-review-evidence-entry dd {
+  margin: 0.15rem 0 0;
+}
+
+.graph-review-evidence-side-card pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.graph-review-evidence-entry-list {
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.graph-review-evidence-entry {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.graph-review-evidence-entry header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.graph-review-evidence-inspect-button {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: rgba(219, 234, 254, 0.7);
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.graph-review-evidence-inspect-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.graph-review-evidence-empty,
+.graph-review-evidence-note {
+  color: #475569;
+  margin: 0;
+}

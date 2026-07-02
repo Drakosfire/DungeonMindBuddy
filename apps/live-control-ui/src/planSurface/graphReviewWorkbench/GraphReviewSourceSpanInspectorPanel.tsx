@@ -1,10 +1,13 @@
 import type { GraphReviewContextualDelta, GraphReviewLaneObjectRef } from "./graphReviewDeltaTypes";
+import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import type { GraphReviewSourceSpanDeltaPresentation } from "./graphReviewSourceSpanOverlayUtils";
 import { statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
 
 interface GraphReviewSourceSpanInspectorPanelProps {
   selectedSourceSpanId: string | null;
   presentation?: GraphReviewSourceSpanDeltaPresentation | null;
+  onSelectEvidenceDelta?: (deltaId: string) => void;
+  selectedEvidenceDeltaId?: string | null;
 }
 
 function formatRef(ref: GraphReviewLaneObjectRef): string {
@@ -23,9 +26,19 @@ function UniqueList({ values, emptyLabel = "—" }: { values: string[]; emptyLab
   );
 }
 
-function DeltaDetails({ delta }: { delta: GraphReviewContextualDelta }) {
+function DeltaDetails({
+  delta,
+  onSelectEvidenceDelta,
+  selectedEvidenceDeltaId,
+}: {
+  delta: GraphReviewContextualDelta;
+  onSelectEvidenceDelta?: (deltaId: string) => void;
+  selectedEvidenceDeltaId?: string | null;
+}) {
+  const evidenceSelection = buildEvidenceSelectionForDelta(delta);
+  const canInspectEvidence = evidenceSelection.status !== "no_object_ref";
   return (
-    <article className="graph-review-source-span-delta-list-item">
+    <article className="graph-review-source-span-delta-list-item" data-selected-evidence={delta.deltaId === selectedEvidenceDeltaId ? "true" : "false"}>
       <header>
         <strong>{delta.status}</strong>
         <span>{delta.objectKind}</span>
@@ -49,6 +62,16 @@ function DeltaDetails({ delta }: { delta: GraphReviewContextualDelta }) {
           <dd>{delta.comparatorReason || "—"}</dd>
         </div>
       </dl>
+      {onSelectEvidenceDelta ? (
+        <button
+          className="graph-review-evidence-inspect-button"
+          type="button"
+          disabled={!canInspectEvidence}
+          onClick={() => onSelectEvidenceDelta(delta.deltaId)}
+        >
+          Inspect gold/live evidence
+        </button>
+      ) : null}
     </article>
   );
 }
@@ -56,6 +79,8 @@ function DeltaDetails({ delta }: { delta: GraphReviewContextualDelta }) {
 export function GraphReviewSourceSpanInspectorPanel({
   selectedSourceSpanId,
   presentation = null,
+  onSelectEvidenceDelta,
+  selectedEvidenceDeltaId = null,
 }: GraphReviewSourceSpanInspectorPanelProps) {
   if (!selectedSourceSpanId) {
     return (
@@ -96,7 +121,14 @@ export function GraphReviewSourceSpanInspectorPanel({
       </dl>
       <p className="graph-review-source-span-inspector-note">Display summaries are navigation aids, not evidence.</p>
       <div className="graph-review-source-span-delta-list">
-        {presentation.deltas.length ? presentation.deltas.map((delta) => <DeltaDetails key={delta.deltaId} delta={delta} />) : <p>No contextual deltas are attached to this source span.</p>}
+        {presentation.deltas.length ? presentation.deltas.map((delta) => (
+          <DeltaDetails
+            key={delta.deltaId}
+            delta={delta}
+            onSelectEvidenceDelta={onSelectEvidenceDelta}
+            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+          />
+        )) : <p>No contextual deltas are attached to this source span.</p>}
       </div>
     </aside>
   );

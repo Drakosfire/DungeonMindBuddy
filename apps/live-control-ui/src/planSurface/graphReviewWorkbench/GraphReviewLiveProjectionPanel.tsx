@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GraphIngestRunSummary, GraphReviewLane, UnionSupergraphProjectionResponse } from "../../api/types";
+import { getGoldReviewEvidence, getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
+import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GraphIngestRunSummary, GraphReviewLane, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
+import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
 import { GraphReviewSourceSpanInspectorPanel } from "./GraphReviewSourceSpanInspectorPanel";
 import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
+import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
 import { buildSourceSpanDeltaIndex, statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
 
@@ -22,6 +24,7 @@ interface GraphReviewLiveProjectionPanelProps {
 }
 
 type ProjectionStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
+type EvidenceStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
 
 const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did not return projected recap Markdown.`;
 
@@ -49,6 +52,10 @@ export function GraphReviewLiveProjectionPanel({
   const [projectionError, setProjectionError] = useState<string | null>(null);
   const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(null);
   const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<string | null>(null);
+  const [selectedEvidenceDeltaId, setSelectedEvidenceDeltaId] = useState<string | null>(null);
+  const [evidenceDiff, setEvidenceDiff] = useState<GoldReviewEvidenceDiffResponse | null>(null);
+  const [evidenceStatus, setEvidenceStatus] = useState<EvidenceStatus>("idle");
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -101,6 +108,7 @@ export function GraphReviewLiveProjectionPanel({
 
   useEffect(() => {
     setSelectedSourceSpanId(null);
+    setSelectedEvidenceDeltaId(null);
   }, [liveRunKey, projection?.graph_id]);
 
   const paragraphSourceSpans = useMemo(
@@ -164,6 +172,79 @@ export function GraphReviewLiveProjectionPanel({
       ),
     [sourceSpanDeltaIndex],
   );
+
+
+  const selectedEvidenceDelta = useMemo(
+    () => deltaIndex.deltas.find((delta) => delta.deltaId === selectedEvidenceDeltaId) ?? null,
+    [deltaIndex.deltas, selectedEvidenceDeltaId],
+  );
+
+  const evidenceSelection = useMemo(
+    () => buildEvidenceSelectionForDelta(selectedEvidenceDelta),
+    [selectedEvidenceDelta],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setEvidenceDiff(null);
+    setEvidenceError(null);
+
+    if (!selectedEvidenceDeltaId) {
+      setEvidenceStatus("idle");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (evidenceSelection.status !== "queryable") {
+      setEvidenceStatus("unavailable");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!liveRun) {
+      setEvidenceStatus("unavailable");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setEvidenceStatus("loading");
+
+    void getGoldReviewEvidence({
+      campaignId,
+      sessionId,
+      manifestPath: liveRun.manifest_path,
+      objectKind: evidenceSelection.queryObjectKind!,
+      objectId: evidenceSelection.queryObjectId!,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setEvidenceDiff(response);
+        setEvidenceStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setEvidenceDiff(null);
+        setEvidenceStatus("error");
+        setEvidenceError(error instanceof Error ? error.message : "Failed to load gold/live evidence.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    campaignId,
+    sessionId,
+    liveRun,
+    liveRun?.manifest_path,
+    selectedEvidenceDeltaId,
+    evidenceSelection.status,
+    evidenceSelection.queryObjectKind,
+    evidenceSelection.queryObjectId,
+  ]);
 
   const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
 
@@ -253,6 +334,8 @@ export function GraphReviewLiveProjectionPanel({
             selectedNodeId={selectedDeltaNodeId}
             selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] : null}
             presentation={selectedDeltaNodeId ? nodeDeltaPresentations[selectedDeltaNodeId] : null}
+            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
           />
           <GraphReviewSourceSpanRail
             index={sourceSpanDeltaIndex}
@@ -262,6 +345,15 @@ export function GraphReviewLiveProjectionPanel({
           <GraphReviewSourceSpanInspectorPanel
             selectedSourceSpanId={selectedSourceSpanId}
             presentation={selectedSourceSpanId ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId] : null}
+            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+          />
+          <GraphReviewEvidenceSplitPanel
+            selection={evidenceSelection}
+            evidence={evidenceDiff}
+            status={evidenceStatus}
+            errorMessage={evidenceError}
+            onClearSelection={() => setSelectedEvidenceDeltaId(null)}
           />
         </>
       ) : null}
@@ -271,6 +363,8 @@ export function GraphReviewLiveProjectionPanel({
           deltaIndex={deltaIndex}
           compareReady={compareStatus === "ready"}
           projectionReady={projectionStatus === "ready"}
+          onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+          selectedEvidenceDeltaId={selectedEvidenceDeltaId}
         />
       ) : null}
     </section>

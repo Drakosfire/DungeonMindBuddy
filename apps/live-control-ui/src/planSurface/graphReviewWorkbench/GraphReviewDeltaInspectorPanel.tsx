@@ -1,12 +1,15 @@
 import type { GraphProjectionNodeView } from "../../api/types";
 import type { GraphReviewContextualDelta, GraphReviewLaneObjectRef } from "./graphReviewDeltaTypes";
 import type { GraphReviewNodeDeltaPresentation } from "./graphReviewPillOverlayUtils";
+import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { statusLabelForPill } from "./graphReviewPillOverlayUtils";
 
 interface GraphReviewDeltaInspectorPanelProps {
   selectedNodeId: string | null;
   selectedNode?: GraphProjectionNodeView | null;
   presentation?: GraphReviewNodeDeltaPresentation | null;
+  onSelectEvidenceDelta?: (deltaId: string) => void;
+  selectedEvidenceDeltaId?: string | null;
 }
 
 function formatRef(ref: GraphReviewLaneObjectRef): string {
@@ -25,12 +28,24 @@ function UniqueList({ values, emptyLabel = "—" }: { values: string[]; emptyLab
   );
 }
 
-function DeltaDetails({ delta, primary }: { delta: GraphReviewContextualDelta; primary: boolean }) {
+function DeltaDetails({
+  delta,
+  primary,
+  onSelectEvidenceDelta,
+  selectedEvidenceDeltaId,
+}: {
+  delta: GraphReviewContextualDelta;
+  primary: boolean;
+  onSelectEvidenceDelta?: (deltaId: string) => void;
+  selectedEvidenceDeltaId?: string | null;
+}) {
   const matchScores = delta.laneObjectRefs
     .map((ref) => ref.matchScore)
     .filter((score): score is number => typeof score === "number");
+  const evidenceSelection = buildEvidenceSelectionForDelta(delta);
+  const canInspectEvidence = evidenceSelection.status !== "no_object_ref";
   return (
-    <article className="graph-review-delta-inspector-delta" data-primary={primary ? "true" : "false"}>
+    <article className="graph-review-delta-inspector-delta" data-primary={primary ? "true" : "false"} data-selected-evidence={delta.deltaId === selectedEvidenceDeltaId ? "true" : "false"}>
       <header>
         <strong>{primary ? "Primary delta" : "Related delta"}</strong>
         <span>{delta.status}</span>
@@ -64,6 +79,16 @@ function DeltaDetails({ delta, primary }: { delta: GraphReviewContextualDelta; p
           <dd>{delta.comparatorReason || "—"}</dd>
         </div>
       </dl>
+      {onSelectEvidenceDelta ? (
+        <button
+          className="graph-review-evidence-inspect-button"
+          type="button"
+          disabled={!canInspectEvidence}
+          onClick={() => onSelectEvidenceDelta(delta.deltaId)}
+        >
+          Inspect gold/live evidence
+        </button>
+      ) : null}
     </article>
   );
 }
@@ -72,6 +97,8 @@ export function GraphReviewDeltaInspectorPanel({
   selectedNodeId,
   selectedNode = null,
   presentation = null,
+  onSelectEvidenceDelta,
+  selectedEvidenceDeltaId = null,
 }: GraphReviewDeltaInspectorPanelProps) {
   if (!selectedNodeId) {
     return (
@@ -139,7 +166,13 @@ export function GraphReviewDeltaInspectorPanel({
       <p className="graph-review-delta-inspector-note">Display summaries are navigation aids, not evidence.</p>
       <div className="graph-review-delta-inspector-deltas">
         {presentation.deltas.map((delta) => (
-          <DeltaDetails key={delta.deltaId} delta={delta} primary={delta.deltaId === primaryDelta?.deltaId} />
+          <DeltaDetails
+            key={delta.deltaId}
+            delta={delta}
+            primary={delta.deltaId === primaryDelta?.deltaId}
+            onSelectEvidenceDelta={onSelectEvidenceDelta}
+            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+          />
         ))}
       </div>
     </aside>
