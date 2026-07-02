@@ -3109,3 +3109,137 @@ body.plan-toolbox-open .plan-agent-shell {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+.recap-node-token[data-delta-status="matched"] {
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45);
+}
+
+.recap-node-token[data-delta-status="live_only"] {
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.65);
+}
+
+.recap-node-token[data-delta-status="comparator_uncertain"] {
+  border-style: dashed;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.7);
+}
+
+.graph-review-pill-delta-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.graph-review-delta-inspector-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.graph-review-delta-inspector-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.graph-review-delta-inspector-panel h3,
+.graph-review-delta-inspector-panel p {
+  margin-top: 0;
+}
+
+.graph-review-delta-inspector-panel header > span {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.graph-review-delta-inspector-panel header > span[data-delta-status="matched"] {
+  color: rgb(21, 128, 61);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.graph-review-delta-inspector-panel header > span[data-delta-status="live_only"] {
+  color: rgb(180, 83, 9);
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.graph-review-delta-inspector-panel header > span[data-delta-status="comparator_uncertain"] {
+  color: rgb(161, 98, 7);
+  background: rgba(234, 179, 8, 0.16);
+}
+
+.graph-review-delta-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.graph-review-delta-inspector-grid dt {
+  color: rgb(71, 85, 105);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-review-delta-inspector-grid dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-delta-inspector-list {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.graph-review-delta-inspector-note {
+  margin: 0.85rem 0;
+  color: rgb(71, 85, 105);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.graph-review-delta-inspector-deltas {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.graph-review-delta-inspector-delta {
+  padding: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.graph-review-delta-inspector-delta[data-primary="true"] {
+  border-color: rgba(59, 130, 246, 0.38);
+}
+
+.graph-review-delta-inspector-delta > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.graph-review-delta-inspector-delta > header span {
+  color: rgb(71, 85, 105);
+  font-size: 0.75rem;
+  font-weight: 700;
+}

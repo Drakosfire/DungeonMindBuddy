@@ -2,16 +2,24 @@ import { useSyncExternalStore } from "react";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 
+export interface RecapGraphNodeDeltaPresentation {
+  status: "matched" | "live_only" | "comparator_uncertain" | "unclassified";
+  label: string;
+  summary?: string | null;
+}
+
 export interface RecapGraphNodeRuntimeState {
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  deltaByNodeId?: Record<string, RecapGraphNodeDeltaPresentation>;
 }
 
 const defaultState: RecapGraphNodeRuntimeState = {
   nodeViews: {},
   activeNodeId: null,
   onSelectNode: () => undefined,
+  deltaByNodeId: {},
 };
 
 let runtimeState: RecapGraphNodeRuntimeState = defaultState;

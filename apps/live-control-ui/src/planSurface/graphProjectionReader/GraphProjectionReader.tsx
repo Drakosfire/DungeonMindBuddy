@@ -7,7 +7,7 @@ import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../a
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
-import { setRecapGraphNodeRuntimeState } from "../graphPreview/recapGraphNodeRuntime";
+import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import { attachSourceSpanDataAttributes } from "./sourceSpanHighlight";
 
 export interface GraphProjectionReaderProps {
@@ -22,6 +22,8 @@ export interface GraphProjectionReaderProps {
   className?: string;
   documentLabel?: string;
   resetKey?: string | null;
+  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
+  onActiveNodeChange?: (nodeId: string | null) => void;
 }
 
 function ReadOnlyTiptapRecap({
@@ -31,6 +33,7 @@ function ReadOnlyTiptapRecap({
   onSelectNode,
   sourceSpans,
   selectedEvidenceSpanId,
+  nodeDeltaPresentations,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -38,6 +41,7 @@ function ReadOnlyTiptapRecap({
   onSelectNode: (nodeId: string) => void;
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
+  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
   const content = useMemo(
@@ -56,8 +60,8 @@ function ReadOnlyTiptapRecap({
   }, [content, editor]);
 
   useEffect(() => {
-    setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode });
-  }, [nodeViews, activeNodeId, onSelectNode]);
+    setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode, deltaByNodeId: nodeDeltaPresentations ?? {} });
+  }, [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations]);
 
   useEffect(() => {
     const root = readerRef.current;
@@ -87,6 +91,8 @@ export function GraphProjectionReader({
   className,
   documentLabel = "Projected recap",
   resetKey,
+  nodeDeltaPresentations,
+  onActiveNodeChange,
 }: GraphProjectionReaderProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
   const activeNodeId = explorerTrail.at(-1) ?? null;
@@ -96,10 +102,12 @@ export function GraphProjectionReader({
   useEffect(() => {
     setExplorerTrail([]);
     setSelectedEvidenceSpanId(null);
-  }, [markdown, graphId, resetKey]);
+    onActiveNodeChange?.(null);
+  }, [markdown, graphId, resetKey, onActiveNodeChange]);
 
   const openExplorer = (nodeId: string) => {
     setExplorerTrail([nodeId]);
+    onActiveNodeChange?.(nodeId);
   };
 
   const pushExplorer = (nodeId: string) => {
@@ -109,14 +117,21 @@ export function GraphProjectionReader({
       }
       return [...trail, nodeId];
     });
+    onActiveNodeChange?.(nodeId);
   };
 
   const popExplorer = () => {
-    setExplorerTrail((trail) => (trail.length > 1 ? trail.slice(0, -1) : trail));
+    setExplorerTrail((trail) => {
+      if (trail.length <= 1) return trail;
+      const nextTrail = trail.slice(0, -1);
+      onActiveNodeChange?.(nextTrail.at(-1) ?? null);
+      return nextTrail;
+    });
   };
 
   const closeExplorer = () => {
     setExplorerTrail([]);
+    onActiveNodeChange?.(null);
   };
 
   const explorerOpen = explorerTrail.length > 0;
@@ -151,6 +166,7 @@ export function GraphProjectionReader({
             onSelectNode={openExplorer}
             sourceSpans={sourceSpans}
             selectedEvidenceSpanId={selectedEvidenceSpanId}
+            nodeDeltaPresentations={nodeDeltaPresentations}
           />
         </article>
         {explorerOpen && activeNode ? (

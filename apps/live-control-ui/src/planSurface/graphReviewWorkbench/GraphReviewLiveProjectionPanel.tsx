@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
 import type { GoldReviewCompareResponse, GraphIngestRunSummary, GraphReviewLane, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
+import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
 
 interface GraphReviewLiveProjectionPanelProps {
   campaignId: string;
@@ -42,6 +44,7 @@ export function GraphReviewLiveProjectionPanel({
   const [projection, setProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
   const [projectionStatus, setProjectionStatus] = useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(null);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -111,6 +114,26 @@ export function GraphReviewLiveProjectionPanel({
     [compare, projection, goldLane, liveLane],
   );
 
+  const nodeDeltaPresentations = useMemo(
+    () => buildLiveNodeDeltaPresentationIndex(deltaIndex.deltas),
+    [deltaIndex.deltas],
+  );
+
+  const readerNodeDeltaPresentations = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(nodeDeltaPresentations).map(([nodeId, presentation]) => [
+          nodeId,
+          {
+            status: presentation.status,
+            label: statusLabelForPill(presentation.status),
+            summary: presentation.primaryDelta?.summary ?? null,
+          },
+        ]),
+      ),
+    [nodeDeltaPresentations],
+  );
+
   const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
 
   return (
@@ -177,19 +200,28 @@ export function GraphReviewLiveProjectionPanel({
       ) : null}
 
       {projectionStatus === "ready" && projection && liveRun ? (
-        <GraphProjectionReader
-          markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-          nodeViews={projection.node_views}
-          sourceSpans={paragraphSourceSpans}
-          mentionsCount={projection.mentions.length}
-          graphId={projection.graph_id}
-          title="Selected live lane projection"
-          subtitle={`Projected source view for ${runIdentity}`}
-          sourceNote={`Live lane · ${liveRun.vocabulary_mode ?? "unknown"} vocabulary · ${liveRun.extraction_profile ?? "unknown"} profile`}
-          className="graph-review-live-projection-reader"
-          documentLabel="Selected live lane projected source"
-          resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
-        />
+        <>
+          <GraphProjectionReader
+            markdown={projection.markdown ?? FALLBACK_MARKDOWN}
+            nodeViews={projection.node_views}
+            sourceSpans={paragraphSourceSpans}
+            mentionsCount={projection.mentions.length}
+            graphId={projection.graph_id}
+            title="Selected live lane projection"
+            subtitle={`Projected source view for ${runIdentity}`}
+            sourceNote={`Live lane · ${liveRun.vocabulary_mode ?? "unknown"} vocabulary · ${liveRun.extraction_profile ?? "unknown"} profile`}
+            className="graph-review-live-projection-reader"
+            documentLabel="Selected live lane projected source"
+            resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
+            nodeDeltaPresentations={readerNodeDeltaPresentations}
+            onActiveNodeChange={setSelectedDeltaNodeId}
+          />
+          <GraphReviewDeltaInspectorPanel
+            selectedNodeId={selectedDeltaNodeId}
+            selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] : null}
+            presentation={selectedDeltaNodeId ? nodeDeltaPresentations[selectedDeltaNodeId] : null}
+          />
+        </>
       ) : null}
 
       {(compareStatus === "ready" || projectionStatus === "ready" || projectionStatus === "error" || projectionStatus === "unavailable") ? (

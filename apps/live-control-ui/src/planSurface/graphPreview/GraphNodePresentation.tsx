@@ -78,23 +78,34 @@ export function GraphNodeToken({
   label,
   pinned,
   onSelect,
+  deltaStatus,
+  deltaLabel,
+  deltaSummary,
 }: {
   presentation: RecapNodePresentation;
   label: string;
   pinned: boolean;
   onSelect: () => void;
+  deltaStatus?: "matched" | "live_only" | "comparator_uncertain" | "unclassified";
+  deltaLabel?: string;
+  deltaSummary?: string | null;
 }) {
   const role = presentation.role || presentation.kind || "node";
   const focusSession = presentation.planningChips.some((chip) => chip.tone === "evidence");
+  const normalizedDeltaStatus = deltaStatus ?? "unclassified";
   return (
     <span className="recap-node-token-wrap">
       <button
         type="button"
-        className={`recap-node-token role-${roleClass(role)}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}`}
+        className={`recap-node-token role-${roleClass(role)} delta-${normalizedDeltaStatus}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}`}
         data-graph-node-id={presentation.nodeId}
+        data-delta-status={normalizedDeltaStatus}
         onClick={onSelect}
       >
         {label}
+        {deltaStatus && deltaStatus !== "unclassified" ? (
+          <span className="graph-review-pill-delta-badge">{deltaLabel ?? deltaStatus}</span>
+        ) : null}
       </button>
       <span className="recap-node-hover-card recap-planning-card" role="tooltip">
         <strong>{presentation.label}</strong>
@@ -112,6 +123,11 @@ export function GraphNodeToken({
         {presentation.knownBefore ? (
           <PlanningScanSection title="Known before">
             <small>{presentation.knownBefore}</small>
+          </PlanningScanSection>
+        ) : null}
+        {deltaStatus && deltaStatus !== "unclassified" ? (
+          <PlanningScanSection title="Graph review delta">
+            <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
           </PlanningScanSection>
         ) : null}
         {presentation.threadHints.length ? (
