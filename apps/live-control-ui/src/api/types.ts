@@ -1277,6 +1277,66 @@ export interface IngestionSourceBundle {
   diagnostics: string[];
 }
 
+export type GraphReviewLaneRole = "gold" | "live" | "variant" | "reference";
+
+export type GraphReviewLaneSourceKind =
+  | "gold_fixture"
+  | "graph_ingest_run"
+  | "manual_review_variant"
+  | "projection_payload";
+
+export type GraphReviewLaneStatus =
+  | "available"
+  | "missing_projection"
+  | "failed"
+  | "stale"
+  | "unknown";
+
+export type GraphReviewVocabularyMode =
+  | "none"
+  | "node"
+  | "edge"
+  | "node_and_edge"
+  | "dynamic"
+  | "unknown";
+
+export type GraphReviewLaneCounts = {
+  nodes: number;
+  edges: number;
+  beats?: number;
+  evidenceRefs?: number;
+};
+
+export type GraphReviewLaneMetadata = {
+  runId?: string;
+  generatedAt?: string;
+  modelId?: string;
+  extractionProfile?: string;
+  extractionMode?: string;
+  vocabularyMode?: GraphReviewVocabularyMode;
+  runnerOptions?: Record<string, unknown>;
+  diagnostics?: Record<string, unknown>;
+};
+
+export type GraphReviewLane = {
+  laneId: string;
+  role: GraphReviewLaneRole;
+  sourceKind: GraphReviewLaneSourceKind;
+  label: string;
+  campaignId: string;
+  sessionId: string;
+
+  manifestPath?: string;
+  artifactPath?: string;
+  goldPath?: string;
+  previewUnionPath?: string;
+
+  status: GraphReviewLaneStatus;
+
+  counts: GraphReviewLaneCounts;
+  metadata: GraphReviewLaneMetadata;
+};
+
 export interface GraphPreviewAnchorQuoteMatch {
   quote: string;
   char_start: number;
