@@ -3521,3 +3521,58 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #475569;
   margin: 0;
 }
+
+.graph-review-variant-lane-panel,
+.graph-review-variant-inventory-panel,
+.graph-review-variant-object-inspector-panel {
+  border: 1px solid var(--plan-border-subtle, #d9d2c5);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-block: 1rem;
+  background: var(--plan-surface-card, #fffaf2);
+}
+
+.graph-review-variant-lane-card {
+  border: 1px dashed var(--plan-border-subtle, #d9d2c5);
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.graph-review-variant-selector-grid,
+.graph-review-variant-object-grid,
+.graph-review-variant-inventory-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.graph-review-variant-warning,
+.graph-review-variant-note {
+  color: var(--plan-muted-text, #6f604c);
+  font-size: 0.9rem;
+}
+
+.graph-review-variant-inventory-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(70px, 0.5fr) minmax(140px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(160px, 1.4fr);
+  gap: 0.5rem;
+  align-items: start;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid var(--plan-border-subtle, #d9d2c5);
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.graph-review-variant-inventory-row.is-selected {
+  outline: 2px solid var(--plan-accent, #8671d9);
+}
+
+.graph-review-variant-inventory-status {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
