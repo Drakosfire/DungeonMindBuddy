@@ -1512,6 +1512,17 @@ export interface GraphIngestRunSummary {
   edge_count: number;
   evidence_ref_count: number;
   next_actions: string[];
+  run_id?: string | null;
+  run_label: string;
+  generated_at?: string | null;
+  model_id?: string | null;
+  model_provider?: string | null;
+  extraction_profile?: string | null;
+  extraction_mode?: string | null;
+  vocabulary_mode: GraphReviewVocabularyMode;
+  runner_options_summary: Record<string, string | number | boolean | null>;
+  diagnostics_summary: Record<string, string | number | boolean | null>;
+  preview_union_available: boolean;
 }
 
 export interface GraphIngestRunsResponse {

@@ -233,8 +233,12 @@ def test_build_recap_graph_preview_bundle_threads_profile_without_extraction(
     assert status["status"] == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value
     assert status["candidate_graph_path"] is None
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
-    assert status["graph_extraction_profile_options"]["enable_encounter_job_pass"] is True
-    manifest = json.loads((tmp_path / status["manifest_path"]).read_text(encoding="utf-8"))
+    assert (
+        status["graph_extraction_profile_options"]["enable_encounter_job_pass"] is True
+    )
+    manifest = json.loads(
+        (tmp_path / status["manifest_path"]).read_text(encoding="utf-8")
+    )
     assert manifest["diagnostics"]["candidate_extraction"] is False
     assert not (tmp_path / status["run_dir"] / "pass_outputs.json").exists()
 
@@ -250,7 +254,9 @@ def test_build_recap_graph_preview_bundle_unknown_profile_fails_closed(
     source = tmp_path / "normalized.md"
     source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="unsupported graph_extraction_profile: surprise_me"):
+    with pytest.raises(
+        ValueError, match="unsupported graph_extraction_profile: surprise_me"
+    ):
         build_recap_graph_preview_bundle(
             repo_root=tmp_path,
             campaign_id="longmont-c2",
@@ -261,10 +267,14 @@ def test_build_recap_graph_preview_bundle_unknown_profile_fails_closed(
             graph_extraction_profile="surprise_me",
         )
 
-    assert not list((tmp_path / "out/graph_memory/runs").glob("**/candidate_graph.json"))
+    assert not list(
+        (tmp_path / "out/graph_memory/runs").glob("**/candidate_graph.json")
+    )
 
 
-def _service_fake_runner_with_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def _service_fake_runner_with_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
 
     actual_runner = ingest_service.run_graph_preview_extraction
@@ -273,7 +283,9 @@ def _service_fake_runner_with_candidate(tmp_path: Path, monkeypatch: pytest.Monk
     def fake_runner(options: GraphPreviewRunnerOptions):
         calls.append(options)
         candidate = tmp_path / "service_fake_candidate.json"
-        candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        candidate.write_text(
+            CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+        )
         return actual_runner(
             GraphPreviewRunnerOptions(
                 campaign_id=options.campaign_id,
@@ -340,7 +352,10 @@ def test_build_recap_graph_preview_bundle_skips_mismatched_profile_reuse(
 
     assert calls
     assert calls[0].graph_extraction_profile == "category_encounter_job_preview"
-    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
 
 
@@ -365,7 +380,10 @@ def test_build_recap_graph_preview_bundle_reuses_matching_profile_run(
     )
 
     assert calls == []
-    assert status["manifest_path"] == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert (
+        status["manifest_path"]
+        == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
 
 
@@ -378,7 +396,9 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
     manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
     manifest["diagnostics"].pop("graph_extraction_profile", None)
     manifest["diagnostics"].pop("graph_extraction_profile_options", None)
-    old_result.manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+    )
 
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
     default_status = ingest_service.build_recap_graph_preview_bundle(
@@ -389,7 +409,10 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
         extract_graph=True,
     )
     assert calls == []
-    assert default_status["manifest_path"] == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert (
+        default_status["manifest_path"]
+        == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
 
     encounter_status = ingest_service.build_recap_graph_preview_bundle(
         repo_root=tmp_path,
@@ -400,8 +423,13 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
         graph_extraction_profile="category_encounter_job_preview",
     )
     assert calls
-    assert encounter_status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
-    assert encounter_status["graph_extraction_profile"] == "category_encounter_job_preview"
+    assert (
+        encounter_status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+    assert (
+        encounter_status["graph_extraction_profile"] == "category_encounter_job_preview"
+    )
 
 
 def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing_run(
@@ -412,7 +440,9 @@ def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing
     )
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
     explicit_candidate = tmp_path / "explicit_candidate.json"
-    explicit_candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    explicit_candidate.write_text(
+        CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
     status = ingest_service.build_recap_graph_preview_bundle(
         repo_root=tmp_path,
@@ -426,7 +456,10 @@ def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing
 
     assert calls
     assert calls[0].candidate_graph_path == explicit_candidate.resolve()
-    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
 
 
@@ -452,5 +485,173 @@ def test_build_recap_graph_preview_bundle_force_graph_run_ignores_matching_reuse
     )
 
     assert calls
-    assert status["manifest_path"] != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
+
+
+def test_registry_summary_exposes_graph_review_run_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/metadata"
+    )
+    payload = _read_manifest(result.manifest_path)
+    payload["source"]["source_label"] = "Session 24 recap"
+    payload["health"]["model_id"] = "gpt-test"
+    payload["metadata"] = {
+        "extraction_profile": "anchor_quote_n3",
+        "provider": "openai",
+    }
+    payload["runner_options"] = {"vocabulary_mode": "node", "temperature": 0.2}
+    payload["warnings"] = ["check this"]
+    payload["errors"] = []
+    payload["next_actions"] = ["review projection"]
+    _write_manifest(result.manifest_path, payload)
+
+    run = discover_graph_ingest_runs(tmp_path, require_preview_union_store=True)[0]
+
+    assert run.run_id == payload["run_id"]
+    assert run.generated_at == payload["updated_at"]
+    assert run.model_id == "gpt-test"
+    assert run.model_provider == "openai"
+    assert run.extraction_profile == "anchor_quote_n3"
+    assert run.vocabulary_mode.value == "node"
+    assert run.runner_options_summary["temperature"] == 0.2
+    assert run.diagnostics_summary["preview_only"] is True
+    assert run.diagnostics_summary["warnings_count"] == 1
+    assert run.diagnostics_summary["next_actions_count"] == 1
+    assert run.preview_union_available is True
+    assert (
+        run.run_label
+        == "Session 24 recap · anchor_quote_n3 · vocab:node · gpt-test · preview_union_store_ready"
+    )
+    assert str(tmp_path) not in run.run_label
+
+
+def test_registry_summary_defaults_missing_metadata_to_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/defaults"
+    )
+    payload = _read_manifest(result.manifest_path)
+    payload["health"].pop("model_id", None)
+    _write_manifest(result.manifest_path, payload)
+
+    run = discover_graph_ingest_runs(tmp_path)[0]
+
+    assert run.run_id == payload["run_id"]
+    assert run.model_id is None
+    assert run.model_provider is None
+    assert run.extraction_profile is None
+    assert run.vocabulary_mode.value == "unknown"
+    assert run.runner_options_summary == {}
+    assert run.preview_union_available is False
+    assert "None" not in run.run_label
+
+
+@pytest.mark.parametrize(
+    ("metadata", "expected"),
+    [
+        ({"vocabulary_mode": "dynamic"}, "dynamic"),
+        ({"node_vocabulary": True, "edge_vocabulary": True}, "node_and_edge"),
+        ({"node_vocabulary_enabled": True}, "node"),
+        ({"use_edge_vocabulary": True}, "edge"),
+        ({"use_vocabulary": False}, "none"),
+        ({"vocabulary_path": "contains-vocabulary-word"}, "unknown"),
+    ],
+)
+def test_registry_summary_infers_vocabulary_modes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    metadata: dict[str, object],
+    expected: str,
+) -> None:
+    result = _candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        f"out/graph_memory/runs/vocab-{expected.replace('_', '-')}",
+    )
+    payload = _read_manifest(result.manifest_path)
+    payload["metadata"] = metadata
+    _write_manifest(result.manifest_path, payload)
+
+    run = discover_graph_ingest_runs(tmp_path)[0]
+
+    assert run.vocabulary_mode.value == expected
+
+
+def test_registry_summary_sanitizes_runner_options_and_diagnostics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/sanitize"
+    )
+    payload = _read_manifest(result.manifest_path)
+    payload["runner_options"] = {
+        "model_id": "gpt-test",
+        "max_passes": 3,
+        "prompt": "do not expose",
+        "source_text": "also do not expose",
+        "extraction_profile": "category_encounter_job_preview",
+        "long": "x" * 241,
+        "nested": {"model_provider": "openai", "prompt": "nope"},
+        "nodes": [{"id": "n1"}],
+    }
+    payload["diagnostics"] = {
+        **payload["diagnostics"],
+        "candidate_extraction": False,
+        "runner_options": {"temperature": 0.1, "prompt": "nope"},
+    }
+    payload.pop("extraction", None)
+    payload["diagnostics"].pop("extraction_mode", None)
+    payload["warnings"] = ["warning one", "warning two"]
+    payload["errors"] = ["error one"]
+    _write_manifest(result.manifest_path, payload)
+
+    run = discover_graph_ingest_runs(tmp_path)[0]
+
+    assert run.extraction_mode == "none"
+    assert run.runner_options_summary == {
+        "model_id": "gpt-test",
+        "max_passes": 3,
+        "extraction_profile": "category_encounter_job_preview",
+        "nested.model_provider": "openai",
+        "temperature": 0.1,
+    }
+    assert run.diagnostics_summary["candidate_extraction"] is False
+    assert run.diagnostics_summary["warnings_count"] == 2
+    assert run.diagnostics_summary["errors_count"] == 1
+    assert "prompt" not in run.runner_options_summary
+    assert "source_text" not in run.runner_options_summary
+    assert "long" not in run.runner_options_summary
+
+
+def test_registry_summary_ignores_malformed_optional_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/malformed-metadata"
+    )
+    payload = _read_manifest(result.manifest_path)
+    payload["metadata"] = ["not", "a", "dict"]
+    payload["runner_options"] = {"extraction_profile": {"not": "scalar"}}
+    payload["vocabulary"] = {"mode": ["dynamic"]}
+    _write_manifest(result.manifest_path, payload)
+
+    runs = discover_graph_ingest_runs(tmp_path)
+
+    assert len(runs) == 1
+    assert runs[0].extraction_profile is None
+    assert runs[0].vocabulary_mode.value == "unknown"
+
+
+def _read_manifest(manifest_path: Path) -> dict[str, object]:
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def _write_manifest(manifest_path: Path, payload: dict[str, object]) -> None:
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")

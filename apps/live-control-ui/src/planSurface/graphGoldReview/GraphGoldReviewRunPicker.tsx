@@ -8,7 +8,8 @@ interface GraphGoldReviewRunPickerProps {
 
 function runLabel(run: GraphIngestRunSummary, index: number): string {
   const stamp = run.updated_at ?? run.created_at ?? "unknown time";
-  return `#${index + 1} · ${run.status} · ${stamp}`;
+  const label = run.run_label || `#${index + 1} · ${run.status}`;
+  return `#${index + 1} · ${label} · ${stamp}`;
 }
 
 export function GraphGoldReviewRunPicker({

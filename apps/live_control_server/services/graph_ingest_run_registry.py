@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.graph_review_lanes import (
+    GraphReviewVocabularyMode,
+)
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestRunManifest,
@@ -53,6 +56,21 @@ class GraphIngestRunSummary(BaseModel):
     edge_count: int = 0
     evidence_ref_count: int = 0
     next_actions: list[str] = Field(default_factory=list)
+    run_id: str | None = None
+    run_label: str
+    generated_at: str | None = None
+    model_id: str | None = None
+    model_provider: str | None = None
+    extraction_profile: str | None = None
+    extraction_mode: str | None = None
+    vocabulary_mode: GraphReviewVocabularyMode = GraphReviewVocabularyMode.UNKNOWN
+    runner_options_summary: dict[str, str | int | float | bool | None] = Field(
+        default_factory=dict
+    )
+    diagnostics_summary: dict[str, str | int | float | bool | None] = Field(
+        default_factory=dict
+    )
+    preview_union_available: bool = False
 
 
 class GraphIngestRunsResponse(BaseModel):
@@ -91,7 +109,9 @@ def discover_graph_ingest_runs(
         )
 
     summaries: list[tuple[GraphIngestRunSummary, float]] = []
-    for search_root in _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots):
+    for search_root in _graph_ingest_search_roots(
+        repo, include_eval_roots=include_eval_roots
+    ):
         if not search_root.exists():
             continue
         for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
@@ -102,7 +122,9 @@ def discover_graph_ingest_runs(
                 continue
             if session_id is not None and summary.session_id != session_id:
                 continue
-            if (source_recap_path is not None or source_recap_sha256 is not None) and not _manifest_matches_source_recap(
+            if (
+                source_recap_path is not None or source_recap_sha256 is not None
+            ) and not _manifest_matches_source_recap(
                 repo,
                 manifest_path,
                 source_recap_path=source_recap_path,
@@ -175,7 +197,11 @@ def _manifest_matches_source_recap(
             if isinstance(payload.get("artifacts"), dict)
             else None,
         ]
-        if any(value == source_recap_sha256 for value in actual_hashes if isinstance(value, str)):
+        if any(
+            value == source_recap_sha256
+            for value in actual_hashes
+            if isinstance(value, str)
+        ):
             return True
     if not source_recap_path:
         return False
@@ -184,7 +210,11 @@ def _manifest_matches_source_recap(
         source.get("input_path_record"),
     ]
     expected = _normalize_repo_path(repo, source_recap_path)
-    return any(_normalize_repo_path(repo, value) == expected for value in raw_values if isinstance(value, str))
+    return any(
+        _normalize_repo_path(repo, value) == expected
+        for value in raw_values
+        if isinstance(value, str)
+    )
 
 
 def _normalize_repo_path(repo: Path, value: str) -> str:
@@ -197,7 +227,9 @@ def _normalize_repo_path(repo: Path, value: str) -> str:
     return path.as_posix().lstrip("./")
 
 
-def _graph_ingest_search_roots(repo: Path, *, include_eval_roots: bool = False) -> list[Path]:
+def _graph_ingest_search_roots(
+    repo: Path, *, include_eval_roots: bool = False
+) -> list[Path]:
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV)
     values = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
     if include_eval_roots:
@@ -222,6 +254,9 @@ def _summarize_manifest(
     except (OSError, json.JSONDecodeError, ValidationError, ValueError):
         return None
 
+    metadata = _extract_graph_run_metadata(
+        manifest, payload, safe_manifest_path, repo, preview_path
+    )
     return GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
         run_dir=_repo_relative(safe_manifest_path.parent, repo),
@@ -236,7 +271,310 @@ def _summarize_manifest(
         edge_count=manifest.health.edge_count,
         evidence_ref_count=manifest.health.evidence_ref_count,
         next_actions=list(manifest.next_actions),
+        **metadata,
     )
+
+
+ScalarSummaryValue = str | int | float | bool | None
+_SAFE_RUNNER_OPTION_KEYS = {
+    "extraction_profile",
+    "extraction_mode",
+    "max_passes",
+    "pass_count",
+    "temperature",
+    "model_id",
+    "model_provider",
+    "vocabulary_mode",
+    "node_vocabulary",
+    "edge_vocabulary",
+    "dynamic_vocabulary",
+    "include_eval_roots",
+    "extract_graph",
+    "force_graph_run",
+    "graph_extraction_profile",
+}
+_DIAGNOSTICS_BOOLEAN_KEYS = (
+    "preview_only",
+    "candidate_extraction",
+    "preview_import",
+    "canon_promotion",
+    "approved_memory_write",
+    "corpus_mutation",
+    "production_retrieval",
+    "agent_interaction_connected",
+    "runtime_projection_connected",
+)
+_HEALTH_SUMMARY_KEYS = (
+    "candidate_graph_valid",
+    "preview_union_store_valid",
+    "node_count",
+    "edge_count",
+    "beat_count",
+    "evidence_ref_count",
+    "resolvable_evidence_ref_count",
+    "openable_evidence_ref_count",
+    "highlightable_evidence_ref_count",
+    "estimated_cost_usd",
+)
+
+
+def _extract_graph_run_metadata(
+    manifest: GraphIngestRunManifest,
+    payload: dict[str, Any],
+    safe_manifest_path: Path,
+    repo: Path,
+    preview_union_store_path: str | None,
+) -> dict[str, Any]:
+    extraction_profile = _first_scalar_string(
+        payload,
+        [
+            ("extraction_profile",),
+            ("metadata", "extraction_profile"),
+            ("runner_options", "extraction_profile"),
+            ("diagnostics", "extraction_profile"),
+            ("source", "extraction_profile"),
+            ("profile", "id"),
+            ("profile", "name"),
+        ],
+    )
+    extraction_mode = _first_scalar_string(
+        payload,
+        [
+            ("extraction_mode",),
+            ("metadata", "extraction_mode"),
+            ("runner_options", "extraction_mode"),
+            ("diagnostics", "extraction_mode"),
+            ("extraction", "mode"),
+            ("extraction", "kind"),
+        ],
+    ) or _infer_extraction_mode(manifest, payload)
+    model_id = manifest.health.model_id or _first_scalar_string(
+        payload,
+        [
+            ("model_id",),
+            ("metadata", "model_id"),
+            ("runner_options", "model_id"),
+            ("diagnostics", "model_id"),
+            ("extraction", "model_id"),
+        ],
+    )
+    model_provider = _first_scalar_string(
+        payload,
+        [
+            ("model_provider",),
+            ("provider",),
+            ("metadata", "model_provider"),
+            ("metadata", "provider"),
+            ("runner_options", "model_provider"),
+            ("runner_options", "provider"),
+            ("extraction", "model_provider"),
+            ("extraction", "provider"),
+        ],
+    )
+    vocabulary_mode = _extract_vocabulary_mode(payload)
+    return {
+        "run_id": manifest.run_id,
+        "run_label": _build_run_label(
+            safe_manifest_path,
+            repo,
+            manifest,
+            extraction_profile,
+            extraction_mode,
+            vocabulary_mode,
+            model_id,
+        ),
+        "generated_at": manifest.updated_at or manifest.created_at,
+        "model_id": model_id,
+        "model_provider": model_provider,
+        "extraction_profile": extraction_profile,
+        "extraction_mode": extraction_mode,
+        "vocabulary_mode": vocabulary_mode,
+        "runner_options_summary": _runner_options_summary(payload),
+        "diagnostics_summary": _diagnostics_summary(manifest),
+        "preview_union_available": preview_union_store_path is not None
+        and manifest.health.preview_union_store_valid is True,
+    }
+
+
+def _first_scalar_string(
+    payload: dict[str, Any], paths: list[tuple[str, ...]]
+) -> str | None:
+    for path in paths:
+        value: Any = payload
+        for key in path:
+            if not isinstance(value, dict):
+                value = None
+                break
+            value = value.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _infer_extraction_mode(
+    manifest: GraphIngestRunManifest, payload: dict[str, Any]
+) -> str | None:
+    if any(
+        key in payload
+        for key in ("category_passes", "pass_outputs", "pass_outputs_metadata")
+    ):
+        return "category"
+    extraction = payload.get("extraction")
+    if isinstance(extraction, dict) and any(
+        key in extraction
+        for key in ("category_passes", "pass_outputs", "pass_outputs_metadata")
+    ):
+        return "category"
+    if manifest.diagnostics.candidate_extraction is False:
+        return "none"
+    return None
+
+
+def _extract_vocabulary_mode(payload: dict[str, Any]) -> GraphReviewVocabularyMode:
+    explicit = _first_scalar_string(
+        payload,
+        [
+            ("vocabulary_mode",),
+            ("metadata", "vocabulary_mode"),
+            ("runner_options", "vocabulary_mode"),
+            ("diagnostics", "vocabulary_mode"),
+            ("vocabulary", "mode"),
+        ],
+    )
+    if explicit in {mode.value for mode in GraphReviewVocabularyMode}:
+        return GraphReviewVocabularyMode(explicit)
+    scopes = [payload] + [
+        payload.get(key)
+        for key in ("metadata", "runner_options", "diagnostics", "vocabulary")
+    ]
+
+    def flag(names: tuple[str, ...]) -> bool | None:
+        for scope in scopes:
+            if isinstance(scope, dict):
+                for name in names:
+                    if isinstance(scope.get(name), bool):
+                        return scope[name]
+        return None
+
+    if (
+        flag(
+            (
+                "dynamic_vocabulary",
+                "dynamic_vocabulary_enabled",
+                "use_dynamic_vocabulary",
+            )
+        )
+        is True
+    ):
+        return GraphReviewVocabularyMode.DYNAMIC
+    node = (
+        flag(("node_vocabulary", "node_vocabulary_enabled", "use_node_vocabulary"))
+        is True
+    )
+    edge = (
+        flag(("edge_vocabulary", "edge_vocabulary_enabled", "use_edge_vocabulary"))
+        is True
+    )
+    if node and edge:
+        return GraphReviewVocabularyMode.NODE_AND_EDGE
+    if node:
+        return GraphReviewVocabularyMode.NODE
+    if edge:
+        return GraphReviewVocabularyMode.EDGE
+    if flag(("vocabulary_enabled", "use_vocabulary")) is False:
+        return GraphReviewVocabularyMode.NONE
+    return GraphReviewVocabularyMode.UNKNOWN
+
+
+def _json_safe_scalar_summary(
+    source: Any, *, safe_keys: set[str] | None = None
+) -> dict[str, ScalarSummaryValue]:
+    summary: dict[str, ScalarSummaryValue] = {}
+    if not isinstance(source, dict):
+        return summary
+    for key, value in source.items():
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                flat_key = f"{key}.{child_key}"
+                if (
+                    safe_keys is not None
+                    and child_key not in safe_keys
+                    and flat_key not in safe_keys
+                ):
+                    continue
+                if isinstance(child_value, str) and len(child_value) <= 240:
+                    summary[flat_key] = child_value
+                elif isinstance(child_value, (int, float, bool)) or child_value is None:
+                    summary[flat_key] = child_value
+            continue
+        if safe_keys is not None and key not in safe_keys:
+            continue
+        if isinstance(value, str) and len(value) <= 240:
+            summary[key] = value
+        elif isinstance(value, (int, float, bool)) or value is None:
+            summary[key] = value
+    return summary
+
+
+def _runner_options_summary(payload: dict[str, Any]) -> dict[str, ScalarSummaryValue]:
+    summary: dict[str, ScalarSummaryValue] = {}
+    sources = [
+        payload.get(key) for key in ("runner_options", "options", "extraction_options")
+    ]
+    for parent in (payload.get("metadata"), payload.get("diagnostics")):
+        if isinstance(parent, dict):
+            sources.append(parent.get("runner_options"))
+    for source in sources:
+        summary.update(
+            _json_safe_scalar_summary(source, safe_keys=_SAFE_RUNNER_OPTION_KEYS)
+        )
+    return summary
+
+
+def _diagnostics_summary(
+    manifest: GraphIngestRunManifest,
+) -> dict[str, ScalarSummaryValue]:
+    summary: dict[str, ScalarSummaryValue] = {}
+    for key in _DIAGNOSTICS_BOOLEAN_KEYS:
+        value = getattr(manifest.diagnostics, key, None)
+        if isinstance(value, bool):
+            summary[key] = value
+    for key in _HEALTH_SUMMARY_KEYS:
+        value = getattr(manifest.health, key, None)
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            summary[key] = value
+    summary["warnings_count"] = len(manifest.warnings)
+    summary["errors_count"] = len(manifest.errors)
+    summary["next_actions_count"] = len(manifest.next_actions)
+    return summary
+
+
+def _build_run_label(
+    safe_manifest_path: Path,
+    repo: Path,
+    manifest: GraphIngestRunManifest,
+    extraction_profile: str | None,
+    extraction_mode: str | None,
+    vocabulary_mode: GraphReviewVocabularyMode,
+    model_id: str | None,
+) -> str:
+    parts: list[str] = []
+    if manifest.source.source_label:
+        parts.append(manifest.source.source_label)
+    elif manifest.run_id:
+        parts.append(manifest.run_id)
+    else:
+        parts.append(_repo_relative(safe_manifest_path.parent, repo).split("/")[-1])
+    if extraction_profile:
+        parts.append(extraction_profile)
+    elif extraction_mode:
+        parts.append(extraction_mode)
+    if vocabulary_mode != GraphReviewVocabularyMode.UNKNOWN:
+        parts.append(f"vocab:{vocabulary_mode.value}")
+    if model_id:
+        parts.append(model_id)
+    parts.append(manifest.status.value)
+    return " · ".join(part for part in parts if part)
 
 
 def _preview_union_store_path(
