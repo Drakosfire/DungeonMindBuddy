@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getGoldReviewEvidence, getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GraphIngestRunSummary, GraphReviewLane, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GraphIngestRunSummary, GraphReviewLane, ManualReviewBedDetail, ManualReviewBedSummary, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
 import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
 import { GraphReviewSourceSpanInspectorPanel } from "./GraphReviewSourceSpanInspectorPanel";
 import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
+import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryPanel";
+import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
+import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
 import { buildSourceSpanDeltaIndex, statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
+import type { GraphReviewManualVariantLaneView, GraphReviewManualVariantSelection } from "./graphReviewVariantReferenceUtils";
+import { buildVariantLiveInventoryIndex } from "./graphReviewVariantReferenceUtils";
 
 interface GraphReviewLiveProjectionPanelProps {
   campaignId: string;
@@ -21,6 +26,14 @@ interface GraphReviewLiveProjectionPanelProps {
   compareStatus?: "idle" | "loading" | "ready" | "error";
   goldLane?: GraphReviewLane | null;
   liveLane?: GraphReviewLane | null;
+  manualBeds?: ManualReviewBedSummary[];
+  manualBedsStatus?: "idle" | "loading" | "ready" | "error";
+  manualBedsError?: string | null;
+  selectedManualBed?: ManualReviewBedDetail | null;
+  selectedVariantLaneView?: GraphReviewManualVariantLaneView | null;
+  selectedManualVariant?: GraphReviewManualVariantSelection | null;
+  onSelectManualBedId?: (bedId: string | null) => void;
+  onSelectManualVariantName?: (variantName: string | null) => void;
 }
 
 type ProjectionStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
@@ -46,6 +59,14 @@ export function GraphReviewLiveProjectionPanel({
   compareStatus = "idle",
   goldLane = null,
   liveLane = null,
+  manualBeds = [],
+  manualBedsStatus = "idle",
+  manualBedsError = null,
+  selectedManualBed = null,
+  selectedVariantLaneView = null,
+  selectedManualVariant = null,
+  onSelectManualBedId = () => undefined,
+  onSelectManualVariantName = () => undefined,
 }: GraphReviewLiveProjectionPanelProps) {
   const [projection, setProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
   const [projectionStatus, setProjectionStatus] = useState<ProjectionStatus>("idle");
@@ -56,6 +77,7 @@ export function GraphReviewLiveProjectionPanel({
   const [evidenceDiff, setEvidenceDiff] = useState<GoldReviewEvidenceDiffResponse | null>(null);
   const [evidenceStatus, setEvidenceStatus] = useState<EvidenceStatus>("idle");
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [selectedVariantInventoryRowId, setSelectedVariantInventoryRowId] = useState<string | null>(null);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -158,6 +180,20 @@ export function GraphReviewLiveProjectionPanel({
       }),
     [paragraphSourceSpans, deltaIndex.deltas],
   );
+
+  const variantInventoryIndex = useMemo(
+    () => buildVariantLiveInventoryIndex({ variant: selectedVariantLaneView?.variant ?? null, compare: compare ?? null }),
+    [selectedVariantLaneView?.variant, compare],
+  );
+
+  const selectedVariantInventoryRow = useMemo(
+    () => variantInventoryIndex.rows.find((row) => row.rowId === selectedVariantInventoryRowId) ?? null,
+    [variantInventoryIndex.rows, selectedVariantInventoryRowId],
+  );
+
+  useEffect(() => {
+    setSelectedVariantInventoryRowId(null);
+  }, [selectedVariantLaneView?.lane.laneId, liveRunKey]);
 
   const sourceSpanDeltaOverlays = useMemo(
     () =>
@@ -355,6 +391,47 @@ export function GraphReviewLiveProjectionPanel({
             errorMessage={evidenceError}
             onClearSelection={() => setSelectedEvidenceDeltaId(null)}
           />
+          <GraphReviewVariantLanePanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            beds={manualBeds}
+            bedsStatus={manualBedsStatus}
+            bedsError={manualBedsError}
+            selectedBed={selectedManualBed}
+            selectedLaneView={selectedVariantLaneView}
+            selectedVariant={selectedManualVariant}
+            onSelectBedId={onSelectManualBedId}
+            onSelectVariantName={onSelectManualVariantName}
+          />
+          <GraphReviewVariantInventoryPanel
+            index={variantInventoryIndex}
+            selectedRowId={selectedVariantInventoryRowId}
+            onSelectRow={setSelectedVariantInventoryRowId}
+          />
+          <GraphReviewVariantObjectInspectorPanel selectedRow={selectedVariantInventoryRow} />
+        </>
+      ) : null}
+
+      {projectionStatus !== "ready" ? (
+        <>
+          <GraphReviewVariantLanePanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            beds={manualBeds}
+            bedsStatus={manualBedsStatus}
+            bedsError={manualBedsError}
+            selectedBed={selectedManualBed}
+            selectedLaneView={selectedVariantLaneView}
+            selectedVariant={selectedManualVariant}
+            onSelectBedId={onSelectManualBedId}
+            onSelectVariantName={onSelectManualVariantName}
+          />
+          <GraphReviewVariantInventoryPanel
+            index={variantInventoryIndex}
+            selectedRowId={selectedVariantInventoryRowId}
+            onSelectRow={setSelectedVariantInventoryRowId}
+          />
+          <GraphReviewVariantObjectInspectorPanel selectedRow={selectedVariantInventoryRow} />
         </>
       ) : null}
 

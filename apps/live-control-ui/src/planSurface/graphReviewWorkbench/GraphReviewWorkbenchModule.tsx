@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getGoldReviewCompare, getGoldReviewSessions, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GoldReviewSessionSummary } from "../../api/types";
+import { getGoldReviewCompare, getGoldReviewSessions, getManualReviewBed, getManualReviewBeds, LiveApiError } from "../../api/liveApi";
+import type { GoldReviewCompareResponse, GoldReviewSessionSummary, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import type { PlanContextDescriptor } from "../types";
@@ -20,6 +20,7 @@ import {
   pickDefaultWorkbenchRun,
   pickDefaultWorkbenchSession,
 } from "./graphReviewWorkbenchUtils";
+import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
@@ -50,6 +51,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [compareStatus, setCompareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [compareError, setCompareError] = useState<string | null>(null);
   const [selection, setSelection] = useState<GoldReviewSelection | null>(null);
+  const [manualBeds, setManualBeds] = useState<ManualReviewBedSummary[]>([]);
+  const [manualBedsStatus, setManualBedsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [manualBedsError, setManualBedsError] = useState<string | null>(null);
+  const [selectedManualBedId, setSelectedManualBedId] = useState<string | null>(null);
+  const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
+  const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
 
   const campaignSessions = useMemo(
     () => sessionsForReviewCampaign(sessions, selectedCampaignId),
@@ -68,6 +75,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
   const goldLane = useMemo(() => (selectedSession ? goldSessionToLane(selectedSession) : null), [selectedSession]);
   const liveLane = useMemo(() => (selectedLiveRun ? graphIngestRunToLane(selectedLiveRun) : null), [selectedLiveRun]);
+  const selectedVariantLaneView = useMemo(
+    () => selectedManualBed && selectedManualVariantName ? manualVariantToLaneView({ bed: selectedManualBed, variantName: selectedManualVariantName }) : null,
+    [selectedManualBed, selectedManualVariantName],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +109,38 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       cancelled = true;
     };
   }, [context.campaignId, fallbackSessionId, requestedSessionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setManualBedsStatus("loading");
+    setManualBedsError(null);
+    void getManualReviewBeds().then((response) => {
+      if (cancelled) return;
+      setManualBeds(response.beds);
+      setManualBedsStatus("ready");
+    }).catch((error) => {
+      if (cancelled) return;
+      setManualBeds([]);
+      setManualBedsStatus("error");
+      setManualBedsError(error instanceof Error ? error.message : "Failed to load manual review beds.");
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedManualBed(null);
+    setSelectedManualVariantName(null);
+    if (!selectedManualBedId) return () => { cancelled = true; };
+    void getManualReviewBed(selectedManualBedId).then((bed) => {
+      if (cancelled) return;
+      setSelectedManualBed(bed);
+    }).catch(() => {
+      if (cancelled) return;
+      setSelectedManualBed(null);
+    });
+    return () => { cancelled = true; };
+  }, [selectedManualBedId]);
 
   const loadCompare = useCallback(async () => {
     if (!selectedSession || !selectedLiveRun) {
@@ -195,6 +238,14 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         compareStatus={compareStatus}
         goldLane={goldLane}
         liveLane={liveLane}
+        manualBeds={manualBeds}
+        manualBedsStatus={manualBedsStatus}
+        manualBedsError={manualBedsError}
+        selectedManualBed={selectedManualBed}
+        selectedVariantLaneView={selectedVariantLaneView}
+        selectedManualVariant={selectedManualBedId && selectedManualVariantName ? { bedId: selectedManualBedId, variantName: selectedManualVariantName } : null}
+        onSelectManualBedId={setSelectedManualBedId}
+        onSelectManualVariantName={setSelectedManualVariantName}
       />
 
       <GraphReviewMetricPanel
