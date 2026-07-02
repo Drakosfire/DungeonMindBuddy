@@ -32,6 +32,14 @@ interface GraphIngestProjectionPanelProps {
   sourceRecapSha256?: string;
 }
 
+function displayMetadataValue(value: string | null | undefined): string {
+  return value?.trim() || "Unknown";
+}
+
+function displayBoolean(value: boolean): string {
+  return value ? "Yes" : "No";
+}
+
 function friendlyProjectionError(error: unknown): string {
   if (error instanceof LiveApiError) {
     if (error.status === 404) return "The latest graph-ingest run disappeared or its projection artifact is missing.";
@@ -163,6 +171,42 @@ export function GraphIngestProjectionPanel({
             <div>
               <dt>Status</dt>
               <dd>{latestGraphRun.status}</dd>
+            </div>
+            <div>
+              <dt>Run label</dt>
+              <dd>{displayMetadataValue(latestGraphRun.run_label)}</dd>
+            </div>
+            <div>
+              <dt>Run ID</dt>
+              <dd>{displayMetadataValue(latestGraphRun.run_id)}</dd>
+            </div>
+            <div>
+              <dt>Generated at</dt>
+              <dd>{displayMetadataValue(latestGraphRun.generated_at)}</dd>
+            </div>
+            <div>
+              <dt>Model</dt>
+              <dd>{displayMetadataValue(latestGraphRun.model_id)}</dd>
+            </div>
+            <div>
+              <dt>Provider</dt>
+              <dd>{displayMetadataValue(latestGraphRun.model_provider)}</dd>
+            </div>
+            <div>
+              <dt>Extraction profile</dt>
+              <dd>{displayMetadataValue(latestGraphRun.extraction_profile)}</dd>
+            </div>
+            <div>
+              <dt>Extraction mode</dt>
+              <dd>{displayMetadataValue(latestGraphRun.extraction_mode)}</dd>
+            </div>
+            <div>
+              <dt>Vocabulary mode</dt>
+              <dd>{displayMetadataValue(latestGraphRun.vocabulary_mode)}</dd>
+            </div>
+            <div>
+              <dt>Preview union available</dt>
+              <dd>{displayBoolean(latestGraphRun.preview_union_available)}</dd>
             </div>
             <div>
               <dt>Manifest path</dt>
