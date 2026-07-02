@@ -90,4 +90,61 @@ describe("sourceSpanHighlight", () => {
 
     expect(root.querySelectorAll<HTMLElement>("p")[2].dataset.sourceSpanId).toBe("ordinal");
   });
+
+  it("adds delta status data and classes for overlay spans", () => {
+    const root = renderRoot("<p>Matched paragraph.</p><p>Live-only paragraph.</p><p>Uncertain paragraph.</p><p>Mixed paragraph.</p>");
+
+    attachSourceSpanDataAttributes(
+      root,
+      [
+        span({ span_id: "matched", text_excerpt: "Matched paragraph." }),
+        span({ span_id: "live", text_excerpt: "Live-only paragraph." }),
+        span({ span_id: "uncertain", text_excerpt: "Uncertain paragraph." }),
+        span({ span_id: "mixed", text_excerpt: "Mixed paragraph." }),
+      ],
+      null,
+      {
+        matched: { status: "matched", label: "Matched" },
+        live: { status: "live_only", label: "Live-only" },
+        uncertain: { status: "comparator_uncertain", label: "Uncertain" },
+        mixed: { status: "mixed", label: "Mixed" },
+      },
+    );
+
+    const paragraphs = root.querySelectorAll<HTMLElement>("p");
+    expect(paragraphs[0].dataset.deltaStatus).toBe("matched");
+    expect(paragraphs[0]).toHaveClass("recap-source-span-delta-matched");
+    expect(paragraphs[1]).toHaveClass("recap-source-span-delta-live-only");
+    expect(paragraphs[2]).toHaveClass("recap-source-span-delta-uncertain");
+    expect(paragraphs[3]).toHaveClass("recap-source-span-delta-mixed");
+  });
+
+  it("clears stale delta status and classes on rerun", () => {
+    const root = renderRoot(
+      '<p data-source-span-id="stale" data-delta-status="matched" data-delta-label="Matched" class="recap-source-span-delta recap-source-span-delta-matched">Old paragraph.</p><p>New paragraph.</p>',
+    );
+
+    attachSourceSpanDataAttributes(root, [span({ span_id: "new", text_excerpt: "New paragraph." })], null);
+
+    const paragraphs = root.querySelectorAll<HTMLElement>("p");
+    expect(paragraphs[0].dataset.deltaStatus).toBeUndefined();
+    expect(paragraphs[0].dataset.deltaLabel).toBeUndefined();
+    expect(paragraphs[0]).not.toHaveClass("recap-source-span-delta");
+    expect(paragraphs[0]).not.toHaveClass("recap-source-span-delta-matched");
+  });
+
+  it("does not add overlay classes for unclassified spans and preserves selected highlight", () => {
+    const root = renderRoot("<p>Unclassified paragraph.</p>");
+
+    const highlighted = attachSourceSpanDataAttributes(
+      root,
+      [span({ span_id: "span-1", text_excerpt: "Unclassified paragraph." })],
+      "span-1",
+      { "span-1": { status: "unclassified", label: "Unclassified" } },
+    );
+
+    expect(highlighted).toHaveClass("recap-source-span-highlight");
+    expect(highlighted).not.toHaveClass("recap-source-span-delta");
+    expect(highlighted?.dataset.deltaStatus).toBeUndefined();
+  });
 });

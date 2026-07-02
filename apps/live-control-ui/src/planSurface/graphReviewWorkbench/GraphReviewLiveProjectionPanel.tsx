@@ -5,8 +5,11 @@ import type { GoldReviewCompareResponse, GraphIngestRunSummary, GraphReviewLane,
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
+import { GraphReviewSourceSpanInspectorPanel } from "./GraphReviewSourceSpanInspectorPanel";
+import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
+import { buildSourceSpanDeltaIndex, statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
 
 interface GraphReviewLiveProjectionPanelProps {
   campaignId: string;
@@ -45,6 +48,7 @@ export function GraphReviewLiveProjectionPanel({
   const [projectionStatus, setProjectionStatus] = useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
   const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(null);
+  const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<string | null>(null);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -95,6 +99,10 @@ export function GraphReviewLiveProjectionPanel({
     };
   }, [campaignId, sessionId, liveRun, liveRunKey]);
 
+  useEffect(() => {
+    setSelectedSourceSpanId(null);
+  }, [liveRunKey, projection?.graph_id]);
+
   const paragraphSourceSpans = useMemo(
     () =>
       (projection?.source_spans ?? [])
@@ -132,6 +140,29 @@ export function GraphReviewLiveProjectionPanel({
         ]),
       ),
     [nodeDeltaPresentations],
+  );
+
+  const sourceSpanDeltaIndex = useMemo(
+    () =>
+      buildSourceSpanDeltaIndex({
+        sourceSpans: paragraphSourceSpans,
+        deltas: deltaIndex.deltas,
+      }),
+    [paragraphSourceSpans, deltaIndex.deltas],
+  );
+
+  const sourceSpanDeltaOverlays = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(sourceSpanDeltaIndex.spansById).map(([sourceSpanId, presentation]) => [
+          sourceSpanId,
+          {
+            status: presentation.status,
+            label: statusLabelForSourceSpan(presentation.status),
+          },
+        ]),
+      ),
+    [sourceSpanDeltaIndex],
   );
 
   const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
@@ -214,12 +245,23 @@ export function GraphReviewLiveProjectionPanel({
             documentLabel="Selected live lane projected source"
             resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
             nodeDeltaPresentations={readerNodeDeltaPresentations}
+            sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
+            selectedSourceSpanId={selectedSourceSpanId}
             onActiveNodeChange={setSelectedDeltaNodeId}
           />
           <GraphReviewDeltaInspectorPanel
             selectedNodeId={selectedDeltaNodeId}
             selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] : null}
             presentation={selectedDeltaNodeId ? nodeDeltaPresentations[selectedDeltaNodeId] : null}
+          />
+          <GraphReviewSourceSpanRail
+            index={sourceSpanDeltaIndex}
+            selectedSourceSpanId={selectedSourceSpanId}
+            onSelectSourceSpan={setSelectedSourceSpanId}
+          />
+          <GraphReviewSourceSpanInspectorPanel
+            selectedSourceSpanId={selectedSourceSpanId}
+            presentation={selectedSourceSpanId ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId] : null}
           />
         </>
       ) : null}

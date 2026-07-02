@@ -3243,3 +3243,167 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.75rem;
   font-weight: 700;
 }
+
+.recap-source-span-delta {
+  border-left: 3px solid rgba(100, 116, 139, 0.45);
+  padding-left: 0.75rem;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.recap-source-span-delta-matched {
+  border-left-color: rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.recap-source-span-delta-live-only {
+  border-left-color: rgba(245, 158, 11, 0.62);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.recap-source-span-delta-uncertain {
+  border-left-color: rgba(217, 119, 6, 0.72);
+  border-left-style: dashed;
+  background: rgba(217, 119, 6, 0.05);
+}
+
+.recap-source-span-delta-mixed {
+  border-left-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.04);
+}
+
+.graph-review-source-span-rail,
+.graph-review-source-span-inspector-panel {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.025);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.graph-review-source-span-rail > header,
+.graph-review-source-span-inspector-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.graph-review-source-span-clear {
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #334155;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.graph-review-source-span-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.graph-review-source-span-count-grid span,
+.graph-review-source-span-status {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #334155;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.graph-review-source-span-row-list,
+.graph-review-source-span-delta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.graph-review-source-span-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  padding: 0.65rem;
+}
+
+.graph-review-source-span-row:hover,
+.graph-review-source-span-row[data-selected="true"] {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.graph-review-source-span-row-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+  color: #334155;
+}
+
+.graph-review-source-span-row-main strong,
+.graph-review-source-span-row-main em,
+.graph-review-source-span-row-main small {
+  overflow-wrap: anywhere;
+}
+
+.graph-review-source-span-row-main em,
+.graph-review-source-span-row-main small {
+  color: #64748b;
+  font-style: normal;
+}
+
+.graph-review-source-span-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.graph-review-source-span-inspector-grid div {
+  min-width: 0;
+}
+
+.graph-review-source-span-inspector-grid dt {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.graph-review-source-span-inspector-grid dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-source-span-inspector-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.graph-review-source-span-inspector-note {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.graph-review-source-span-delta-list-item {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.75rem;
+}
+
+.graph-review-source-span-delta-list-item > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
