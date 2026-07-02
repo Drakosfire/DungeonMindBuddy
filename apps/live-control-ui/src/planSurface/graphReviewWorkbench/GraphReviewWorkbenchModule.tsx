@@ -191,6 +191,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
         sessionId={selectedSession?.session_id ?? selectedSessionId}
         liveRun={selectedLiveRun}
+        compare={compare}
+        compareStatus={compareStatus}
+        goldLane={goldLane}
+        liveLane={liveLane}
       />
 
       <GraphReviewMetricPanel
