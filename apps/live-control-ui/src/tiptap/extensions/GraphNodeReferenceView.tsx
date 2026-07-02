@@ -9,9 +9,10 @@ import { useRecapGraphNodeRuntimeState } from "../../planSurface/graphPreview/re
 import type { GraphNodeReferenceAttrs } from "./GraphNodeReferenceNode";
 
 export function GraphNodeReferenceView({ node }: NodeViewProps) {
-  const { nodeViews, activeNodeId, onSelectNode } = useRecapGraphNodeRuntimeState();
+  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useRecapGraphNodeRuntimeState();
   const attrs = node.attrs as GraphNodeReferenceAttrs;
   const presentation = presentationForNodeId(nodeViews, attrs.nodeId, attrs.label);
+  const delta = deltaByNodeId?.[attrs.nodeId];
 
   return (
     <NodeViewWrapper as="span" className="graph-node-reference-view">
@@ -20,6 +21,9 @@ export function GraphNodeReferenceView({ node }: NodeViewProps) {
         label={attrs.label || attrs.nodeId}
         pinned={activeNodeId === attrs.nodeId}
         onSelect={() => onSelectNode(attrs.nodeId)}
+        deltaStatus={delta?.status}
+        deltaLabel={delta?.label}
+        deltaSummary={delta?.summary}
       />
     </NodeViewWrapper>
   );
