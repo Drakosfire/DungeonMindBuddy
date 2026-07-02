@@ -3037,3 +3037,75 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-review-live-projection-reader {
   margin-top: 1rem;
 }
+
+.graph-review-delta-summary-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.graph-review-delta-summary-panel h3 {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.graph-review-delta-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.65rem;
+  margin: 0.85rem 0;
+}
+
+.graph-review-delta-count-card {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.graph-review-delta-count-card span,
+.graph-review-delta-note {
+  color: #aab5c7;
+  font-size: 0.88rem;
+}
+
+.graph-review-delta-count-card strong {
+  color: #f8fafc;
+  font-size: 1.2rem;
+}
+
+.graph-review-delta-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-review-delta-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(4rem, auto) 1fr minmax(10rem, auto);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.55rem;
+  color: #dbe4f0;
+  font-size: 0.88rem;
+}
+
+.graph-review-delta-status {
+  justify-self: start;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

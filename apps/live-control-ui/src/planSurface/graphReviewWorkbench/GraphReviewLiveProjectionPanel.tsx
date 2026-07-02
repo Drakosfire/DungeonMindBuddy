@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
-import type { GraphIngestRunSummary, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { GoldReviewCompareResponse, GraphIngestRunSummary, GraphReviewLane, UnionSupergraphProjectionResponse } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
+import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 
 interface GraphReviewLiveProjectionPanelProps {
   campaignId: string;
   sessionId: string;
   liveRun: GraphIngestRunSummary | null;
+  compare?: GoldReviewCompareResponse | null;
+  compareStatus?: "idle" | "loading" | "ready" | "error";
+  goldLane?: GraphReviewLane | null;
+  liveLane?: GraphReviewLane | null;
 }
 
 type ProjectionStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
@@ -24,7 +30,15 @@ function metadataValue(value: string | null | undefined): string {
   return value && value.trim() ? value : "—";
 }
 
-export function GraphReviewLiveProjectionPanel({ campaignId, sessionId, liveRun }: GraphReviewLiveProjectionPanelProps) {
+export function GraphReviewLiveProjectionPanel({
+  campaignId,
+  sessionId,
+  liveRun,
+  compare = null,
+  compareStatus = "idle",
+  goldLane = null,
+  liveLane = null,
+}: GraphReviewLiveProjectionPanelProps) {
   const [projection, setProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
   const [projectionStatus, setProjectionStatus] = useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
@@ -84,6 +98,17 @@ export function GraphReviewLiveProjectionPanel({ campaignId, sessionId, liveRun 
         .filter((span) => span.kind === "paragraph")
         .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0)),
     [projection?.source_spans],
+  );
+
+  const deltaIndex = useMemo(
+    () =>
+      buildGraphReviewDeltaIndex({
+        compare: compare ?? null,
+        liveProjection: projection,
+        goldLane: goldLane ?? null,
+        liveLane: liveLane ?? null,
+      }),
+    [compare, projection, goldLane, liveLane],
   );
 
   const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
@@ -164,6 +189,14 @@ export function GraphReviewLiveProjectionPanel({ campaignId, sessionId, liveRun 
           className="graph-review-live-projection-reader"
           documentLabel="Selected live lane projected source"
           resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
+        />
+      ) : null}
+
+      {(compareStatus === "ready" || projectionStatus === "ready" || projectionStatus === "error" || projectionStatus === "unavailable") ? (
+        <GraphReviewDeltaSummaryPanel
+          deltaIndex={deltaIndex}
+          compareReady={compareStatus === "ready"}
+          projectionReady={projectionStatus === "ready"}
         />
       ) : null}
     </section>
