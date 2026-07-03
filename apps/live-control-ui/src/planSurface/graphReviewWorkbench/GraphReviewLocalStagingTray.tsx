@@ -31,7 +31,7 @@ export function GraphReviewLocalStagingTray({
     >
       <header>
         <p className="plan-surface-kicker">Local staging</p>
-        <h3>Local staged proposals</h3>
+        <h3>1. Local staged proposals</h3>
         <p>
           Draft only. No gold fixture, graph state, or corpus file has been
           changed.

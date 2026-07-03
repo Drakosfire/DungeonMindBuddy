@@ -1,10 +1,13 @@
+import { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commitGraphGoldAuthoringPreview, prepareGraphGoldAuthoringPreview } from "../../api/liveApi";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
+import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringVerifyCommitResponse } from "../../api/types";
 import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthoringState";
+import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 
 vi.mock("../../api/liveApi", async () => {
   const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
@@ -57,6 +60,43 @@ const commitResponse = {
   changed_counts: { nodes_added: 1, nodes_asserted: 0, edges_added: 0, link_intents_recorded: 0, operations_skipped: 0 },
 };
 
+
+function PanelHarness({
+  proposals,
+  onReloadAndVerifyCommit,
+  onShowCommittedObject,
+  canShowCommittedObject,
+}: {
+  proposals: GraphReviewLocalAuthoringProposal[];
+  onReloadAndVerifyCommit?: (commitResponse: GraphGoldAuthoringCommitResponse) => Promise<GraphGoldAuthoringVerifyCommitResponse>;
+  onShowCommittedObject?: (targetId: string) => void;
+  canShowCommittedObject?: (targetId: string) => boolean;
+}) {
+  const workflow = useGraphReviewAuthorDraftWorkflow({
+    campaignId: "longmont-c1",
+    sessionId: "session-1",
+    initialProposals: proposals,
+    onReloadAndVerifyCommit,
+  });
+  useEffect(() => {
+    workflow.setLocalProposals(proposals);
+  }, [proposals, workflow.setLocalProposals]);
+  return (
+    <GraphReviewAuthoringPreparePreviewPanel
+      campaignId="longmont-c1"
+      sessionId="session-1"
+      workflow={workflow}
+      onReloadAndVerifyCommit={onReloadAndVerifyCommit}
+      onShowCommittedObject={onShowCommittedObject}
+      canShowCommittedObject={canShowCommittedObject}
+    />
+  );
+}
+
+function renderPanel(props: Parameters<typeof PanelHarness>[0]) {
+  return render(<PanelHarness {...props} />);
+}
+
 describe("GraphReviewAuthoringPreparePreviewPanel", () => {
   beforeEach(() => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockReset();
@@ -65,7 +105,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
 
   it("sends accepted-local proposals and renders operation cards with collapsed payload", async () => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} />);
+    renderPanel({ proposals: [acceptedProposal] });
 
     expect(screen.queryByText(/Save|Apply|Merge/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
@@ -81,7 +121,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
 
   it("renders blocking diagnostics and no-files-changed copy", async () => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue({ ...readyResponse, validation_status: "blocked", proposed_operations: [], proposal_counts: { ...readyResponse.proposal_counts, candidate_operations: 0, blocked: 1 }, blocking_errors: [{ code: "empty_proposals", message: "No local proposals were provided.", severity: "error", source_proposal_id: null }], preview_summary: "Preview blocked. Resolve diagnostics before a future write step." });
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[]} />);
+    renderPanel({ proposals: [] });
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     expect((await screen.findAllByText(/Preview blocked/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/No files were changed/).length).toBeGreaterThan(0);
@@ -91,7 +131,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
   it("requires explicit confirmation before committing and renders commit summary", async () => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
     vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} />);
+    renderPanel({ proposals: [acceptedProposal] });
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     const commitButton = await screen.findByRole("button", { name: "Commit prepared preview" });
     expect(commitButton).toBeDisabled();
@@ -100,6 +140,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
     await waitFor(() => expect(commitGraphGoldAuthoringPreview).toHaveBeenCalled());
     expect(commitGraphGoldAuthoringPreview).toHaveBeenCalledWith(expect.objectContaining({ campaign_id: "longmont-c1", session_id: "session-1", expected_prepare_fingerprint: "prepared-fingerprint-1", proposals: [expect.objectContaining({ proposal_id: "local-1" })] }));
     expect(await screen.findByText("Committed. Gold fixture updated and backup created.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Commit prepared preview" })).toBeDisabled();
     expect(screen.getByText("graph-gold-authoring-test")).toBeInTheDocument();
     expect(screen.getByText("gold/backups/candidate_graph_gold.backup.json")).toBeInTheDocument();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
@@ -107,7 +148,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
 
   it("does not show commit controls when prepare is blocked", async () => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue({ ...readyResponse, validation_status: "blocked", proposed_operations: [], proposal_counts: { ...readyResponse.proposal_counts, candidate_operations: 0, blocked: 1 }, blocking_errors: [{ code: "empty_proposals", message: "No local proposals were provided.", severity: "error", source_proposal_id: null }], preview_summary: "Preview blocked. Resolve diagnostics before a future write step." });
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[]} />);
+    renderPanel({ proposals: [] });
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     await screen.findByText("No local proposals were provided.");
     expect(screen.queryByRole("button", { name: "Commit prepared preview" })).not.toBeInTheDocument();
@@ -115,10 +156,10 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
 
   it("clears the prepared commit controls when local proposals change after prepare", async () => {
     vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
-    const { rerender } = render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} />);
+    const { rerender } = renderPanel({ proposals: [acceptedProposal] });
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     expect(await screen.findByRole("button", { name: "Commit prepared preview" })).toBeDisabled();
-    rerender(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[{ ...acceptedProposal, proposalId: "local-2", suggestedLabel: "Changed Preview" }]} />);
+    rerender(<PanelHarness proposals={[{ ...acceptedProposal, proposalId: "local-2", suggestedLabel: "Changed Preview" }]} />);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Commit prepared preview" })).not.toBeInTheDocument());
     expect(screen.getByText("Accept local proposals, then prepare a read-only write preview.")).toBeInTheDocument();
   });
@@ -136,7 +177,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
       checked_operations: [{ operation_id: "preview:node:local-1", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:local-1", verification_status: "found_in_gold_projection", summary: "Committed node found in gold projection." }],
       diagnostics: [],
     });
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    renderPanel({ proposals: [acceptedProposal], onReloadAndVerifyCommit });
     expect(screen.queryByRole("button", { name: "Reload gold projection" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
@@ -165,7 +206,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
       ],
       diagnostics: [{ code: "operation_missing", message: "Missing edge", operation_id: "c", severity: "error" }],
     });
-    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    renderPanel({ proposals: [acceptedProposal], onReloadAndVerifyCommit });
     await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
     await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
     await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
@@ -175,6 +216,41 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
     expect(screen.getByText("No identity link was written.")).toBeInTheDocument();
     expect(screen.getByText(/Status: missing/)).toBeInTheDocument();
     expect(screen.getByText("Missing edge")).toBeInTheDocument();
+  });
+
+
+  it("only shows committed object actions for projection-visible verified targets", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const onReloadAndVerifyCommit = vi.fn().mockResolvedValue({
+      schema: "dmb_graph_gold_authoring_verify_commit_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      commit_id: "graph-gold-authoring-test",
+      verification_status: "partial",
+      checked_operations: [
+        { operation_id: "visible", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:visible", verification_status: "found_in_gold_projection", summary: "Visible node found." },
+        { operation_id: "stale", operation_type: "add_node", source_proposal_id: "local-2", target_id: "authored:node:stale", verification_status: "found_in_gold_projection", summary: "Stale node missing from current projection." },
+        { operation_id: "fixture", operation_type: "add_node", source_proposal_id: "local-3", target_id: "authored:node:fixture", verification_status: "found_in_fixture_only", summary: "Fixture-only node." },
+      ],
+      diagnostics: [],
+    });
+    const onShowCommittedObject = vi.fn();
+    renderPanel({
+      proposals: [acceptedProposal],
+      onReloadAndVerifyCommit,
+      onShowCommittedObject,
+      canShowCommittedObject: (targetId) => targetId === "authored:node:visible",
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
+    await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Reload gold projection" }));
+    const showButton = await screen.findByRole("button", { name: "Show authored:node:visible" });
+    expect(screen.queryByRole("button", { name: "Show authored:node:stale" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show authored:node:fixture" })).not.toBeInTheDocument();
+    await userEvent.click(showButton);
+    expect(onShowCommittedObject).toHaveBeenCalledWith("authored:node:visible");
   });
 
 });

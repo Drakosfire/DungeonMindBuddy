@@ -3,13 +3,14 @@ import type { GraphGoldAuthoringVerifyCommitResponse } from "../../api/types";
 interface Props {
   verificationResponse: GraphGoldAuthoringVerifyCommitResponse;
   onShowCommittedObject?: (targetId: string) => void;
+  canShowCommittedObject?: (targetId: string) => boolean;
 }
 
 function title(operationType: string): string {
   return operationType.split("_").map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ");
 }
 
-export function GraphReviewCommitVerificationPanel({ verificationResponse, onShowCommittedObject }: Props) {
+export function GraphReviewCommitVerificationPanel({ verificationResponse, onShowCommittedObject, canShowCommittedObject }: Props) {
   const verificationCopy = verificationResponse.verification_status === "verified"
     ? "Gold projection reloaded. Committed changes verified."
     : verificationResponse.verification_status === "missing"
@@ -27,7 +28,7 @@ export function GraphReviewCommitVerificationPanel({ verificationResponse, onSho
             {operation.target_id ? <> Target: {operation.target_id}</> : null}
             <p>{operation.summary}</p>
             {operation.verification_status === "recorded_event_only" && operation.operation_type === "link_existing_intent" ? <p>No identity link was written.</p> : null}
-            {operation.target_id && operation.verification_status === "found_in_gold_projection" && onShowCommittedObject ? <button type="button" onClick={() => onShowCommittedObject(operation.target_id!)}>Show {operation.target_id}</button> : null}
+            {operation.target_id && operation.verification_status === "found_in_gold_projection" && onShowCommittedObject && (canShowCommittedObject?.(operation.target_id) ?? true) ? <button type="button" onClick={() => onShowCommittedObject(operation.target_id!)}>Show {operation.target_id}</button> : null}
           </li>
         ))}
       </ul>
