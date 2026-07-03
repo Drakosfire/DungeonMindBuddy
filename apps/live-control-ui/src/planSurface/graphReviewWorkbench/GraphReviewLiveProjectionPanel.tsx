@@ -620,6 +620,7 @@ export function GraphReviewLiveProjectionPanel({
                 setSelectedRelationship(null);
                 setSelectedDeltaNodeId(selection.nodeId);
               }}
+              onSelectText={setSelectedText}
             />
           </div>
           <GraphReviewSelectedObjectPanel
