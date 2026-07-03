@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, Literal, Union
 
@@ -157,8 +159,28 @@ class GraphGoldAuthoringPrepareResponse(BaseModel):
     blocking_errors: list[GraphGoldAuthoringPrepareDiagnostic] = Field(default_factory=list)
     warnings: list[GraphGoldAuthoringPrepareDiagnostic] = Field(default_factory=list)
     preview_summary: str
+    prepare_fingerprint: str
     write_performed: Literal[False] = False
 
+
+
+def graph_gold_authoring_prepare_fingerprint(
+    *,
+    campaign_id: str,
+    session_id: str,
+    proposals: list[GraphGoldAuthoringLocalProposal],
+    proposed_operations: list[GraphGoldAuthoringPreviewOperation],
+    validation_status: str,
+) -> str:
+    payload = {
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "proposals": [p.model_dump(mode="json") for p in proposals],
+        "proposed_operations": [o.model_dump(mode="json") for o in proposed_operations],
+        "validation_status": validation_status,
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 def _diag(code: str, message: str, proposal_id: str | None, severity: Literal["error", "warning", "info"] = "warning") -> GraphGoldAuthoringPrepareDiagnostic:
     return GraphGoldAuthoringPrepareDiagnostic(code=code, message=message, source_proposal_id=proposal_id, severity=severity)
@@ -246,4 +268,5 @@ def prepare_graph_gold_authoring_preview(request: GraphGoldAuthoringPrepareReque
 
     status: Literal["ready", "ready_with_warnings", "blocked"] = "blocked" if errors or counts.candidate_operations == 0 else ("ready_with_warnings" if warnings else "ready")
     summary = "Preview blocked. Resolve diagnostics before a future write step." if status == "blocked" else f"Preview prepared with {counts.candidate_operations} proposed operation(s). No files were changed."
-    return GraphGoldAuthoringPrepareResponse(campaign_id=request.campaign_id, session_id=request.session_id, fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json", validation_status=status, proposal_counts=counts, normalized_proposals=normalized, proposed_operations=operations, blocking_errors=errors, warnings=warnings, preview_summary=summary, write_performed=False)
+    fingerprint = graph_gold_authoring_prepare_fingerprint(campaign_id=request.campaign_id, session_id=request.session_id, proposals=request.proposals, proposed_operations=operations, validation_status=status)
+    return GraphGoldAuthoringPrepareResponse(campaign_id=request.campaign_id, session_id=request.session_id, fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json", validation_status=status, proposal_counts=counts, normalized_proposals=normalized, proposed_operations=operations, blocking_errors=errors, warnings=warnings, preview_summary=summary, prepare_fingerprint=fingerprint, write_performed=False)

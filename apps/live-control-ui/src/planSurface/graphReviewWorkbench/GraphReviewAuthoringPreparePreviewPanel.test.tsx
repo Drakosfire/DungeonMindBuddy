@@ -35,6 +35,7 @@ const readyResponse = {
   blocking_errors: [],
   warnings: [],
   preview_summary: "Preview prepared with 1 proposed operation(s). No files were changed.",
+  prepare_fingerprint: "prepared-fingerprint-1",
   write_performed: false as const,
 };
 
@@ -96,7 +97,7 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
     await userEvent.click(screen.getByLabelText("I understand this will write to the gold fixture and create a backup."));
     await userEvent.click(commitButton);
     await waitFor(() => expect(commitGraphGoldAuthoringPreview).toHaveBeenCalled());
-    expect(commitGraphGoldAuthoringPreview).toHaveBeenCalledWith(expect.objectContaining({ campaign_id: "longmont-c1", session_id: "session-1", proposals: [expect.objectContaining({ proposal_id: "local-1" })] }));
+    expect(commitGraphGoldAuthoringPreview).toHaveBeenCalledWith(expect.objectContaining({ campaign_id: "longmont-c1", session_id: "session-1", expected_prepare_fingerprint: "prepared-fingerprint-1", proposals: [expect.objectContaining({ proposal_id: "local-1" })] }));
     expect(await screen.findByText("Committed. Gold fixture updated and backup created.")).toBeInTheDocument();
     expect(screen.getByText("graph-gold-authoring-test")).toBeInTheDocument();
     expect(screen.getByText("gold/backups/candidate_graph_gold.backup.json")).toBeInTheDocument();
@@ -110,4 +111,15 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
     await screen.findByText("No local proposals were provided.");
     expect(screen.queryByRole("button", { name: "Commit prepared preview" })).not.toBeInTheDocument();
   });
+
+  it("clears the prepared commit controls when local proposals change after prepare", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    const { rerender } = render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} />);
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    expect(await screen.findByRole("button", { name: "Commit prepared preview" })).toBeDisabled();
+    rerender(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[{ ...acceptedProposal, proposalId: "local-2", suggestedLabel: "Changed Preview" }]} />);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Commit prepared preview" })).not.toBeInTheDocument());
+    expect(screen.getByText("Accept local proposals, then prepare a read-only write preview.")).toBeInTheDocument();
+  });
+
 });

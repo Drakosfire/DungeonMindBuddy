@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { commitGraphGoldAuthoringPreview, prepareGraphGoldAuthoringPreview } from "../../api/liveApi";
-import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringPrepareResponse } from "../../api/types";
+import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringPrepareRequest, GraphGoldAuthoringPrepareResponse } from "../../api/types";
 import { buildGraphGoldAuthoringPrepareRequest } from "./graphReviewAuthoringPrepareApi";
 import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthoringState";
 
@@ -23,20 +23,33 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
   const [commitStatus, setCommitStatus] = useState<"idle" | "loading" | "success" | "blocked" | "error">("idle");
   const [commitResponse, setCommitResponse] = useState<GraphGoldAuthoringCommitResponse | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [preparedRequest, setPreparedRequest] = useState<GraphGoldAuthoringPrepareRequest | null>(null);
+  const proposalSignature = useMemo(() => JSON.stringify({ campaignId, sessionId, proposals }), [campaignId, sessionId, proposals]);
+
+  useEffect(() => {
+    if (!response) return;
+    setStatus("idle");
+    setResponse(null);
+    setPreparedRequest(null);
+    setCommitConfirmed(false);
+    setCommitStatus("idle");
+    setCommitResponse(null);
+    setCommitError(null);
+  }, [proposalSignature]);
 
   const prepare = async () => {
     setStatus("loading");
     setError(null);
     setResponse(null);
     try {
-      const result = await prepareGraphGoldAuthoringPreview(
-        buildGraphGoldAuthoringPrepareRequest({
-          campaignId,
-          sessionId,
-          proposals: proposals.filter((proposal) => proposal.status !== "rejected_local"),
-        }),
-      );
+      const request = buildGraphGoldAuthoringPrepareRequest({
+        campaignId,
+        sessionId,
+        proposals: proposals.filter((proposal) => proposal.status !== "rejected_local"),
+      });
+      const result = await prepareGraphGoldAuthoringPreview(request);
       setResponse(result);
+      setPreparedRequest(request);
       setStatus(result.validation_status === "blocked" ? "blocked" : "ready");
       setCommitConfirmed(false);
       setCommitStatus("idle");
@@ -49,7 +62,7 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
   };
 
   const commit = async () => {
-    if (!response || response.validation_status === "blocked" || !commitConfirmed) return;
+    if (!response || !preparedRequest || response.validation_status === "blocked" || !commitConfirmed) return;
     setCommitStatus("loading");
     setCommitError(null);
     setCommitResponse(null);
@@ -58,8 +71,9 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
         schema: "dmb_graph_gold_authoring_commit_request_v1",
         campaign_id: campaignId,
         session_id: sessionId,
-        proposals: buildGraphGoldAuthoringPrepareRequest({ campaignId, sessionId, proposals: proposals.filter((proposal) => proposal.status !== "rejected_local") }).proposals,
-        expected_prepare_fingerprint: response ? undefined : undefined,
+        fixture_version: preparedRequest.fixture_version,
+        proposals: preparedRequest.proposals,
+        expected_prepare_fingerprint: response.prepare_fingerprint,
       });
       setCommitResponse(result);
       setCommitStatus(result.commit_status === "blocked" ? "blocked" : "success");
@@ -107,7 +121,7 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
                 <input type="checkbox" checked={commitConfirmed} onChange={(event) => setCommitConfirmed(event.target.checked)} />
                 I understand this will write to the gold fixture and create a backup.
               </label>
-              <button type="button" onClick={commit} disabled={!commitConfirmed || commitStatus === "loading"}>Commit prepared preview</button>
+              <button type="button" onClick={commit} disabled={!preparedRequest || !commitConfirmed || commitStatus === "loading"}>Commit prepared preview</button>
               {commitStatus === "loading" ? <p role="status">Committing prepared preview…</p> : null}
               {commitStatus === "success" && commitResponse ? <p role="status">Committed. Gold fixture updated and backup created.</p> : null}
               {commitStatus === "blocked" ? <p role="status">Commit blocked. No files were changed.</p> : null}
@@ -130,7 +144,6 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
                   <h5>Skipped operations</h5>
                   <ul>{commitResponse.skipped_operations.map((operation) => <li key={operation.operation_id}>{operation.reason}</li>)}</ul>
                   {commitResponse.diagnostics.length ? <ul>{commitResponse.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${index}`}>{diagnostic.message}</li>)}</ul> : null}
-                  {commitResponse.commit_status !== "blocked" ? <button type="button">Reload gold projection</button> : null}
                 </div>
               ) : null}
             </section>

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -18,7 +17,6 @@ from apps.live_control_server.services.graph_gold_authoring_prepare import (
     GraphGoldAuthoringLocalProposal,
     GraphGoldAuthoringPrepareDiagnostic,
     GraphGoldAuthoringPrepareRequest,
-    GraphGoldAuthoringPreviewOperation,
     prepare_graph_gold_authoring_preview,
 )
 from apps.live_control_server.services.graph_gold_review import GraphGoldReviewError, _session_entry
@@ -88,17 +86,6 @@ class GraphGoldAuthoringCommitResponse(BaseModel):
     changed_counts: GraphGoldAuthoringCommitChangedCounts = Field(default_factory=GraphGoldAuthoringCommitChangedCounts)
 
 
-def prepare_fingerprint(request: GraphGoldAuthoringCommitRequest, operations: list[GraphGoldAuthoringPreviewOperation], validation_status: str) -> str:
-    payload = {
-        "campaign_id": request.campaign_id,
-        "session_id": request.session_id,
-        "proposals": [p.model_dump(mode="json") for p in request.proposals],
-        "proposed_operations": [o.model_dump(mode="json") for o in operations],
-        "validation_status": validation_status,
-    }
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
-
 
 def _rel(root: Path, path: Path) -> str:
     return str(path.resolve().relative_to(root.resolve()))
@@ -134,7 +121,7 @@ def commit_graph_gold_authoring_preview(request: GraphGoldAuthoringCommitRequest
 
     prepare_request = GraphGoldAuthoringPrepareRequest(campaign_id=request.campaign_id, session_id=request.session_id, fixture_version=request.fixture_version, proposals=request.proposals)
     prepare = prepare_graph_gold_authoring_preview(prepare_request, root=repo)
-    fingerprint = prepare_fingerprint(request, prepare.proposed_operations, prepare.validation_status)
+    fingerprint = prepare.prepare_fingerprint
     if request.expected_prepare_fingerprint and request.expected_prepare_fingerprint != fingerprint:
         return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag("prepare_fingerprint_mismatch", "Prepared preview fingerprint changed; no files were changed.", severity="error")])
     skipped = [GraphGoldAuthoringSkippedOperation(operation_id=o.operation_id, operation_type=o.operation_type, source_proposal_id=o.source_proposal_id, reason="prepare blocked or ignored this operation", diagnostics=o.diagnostics) for o in prepare.proposed_operations if o.operation_type in {"blocked", "ignored"}]

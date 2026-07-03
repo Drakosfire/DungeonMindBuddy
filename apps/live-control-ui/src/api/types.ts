@@ -2122,5 +2122,6 @@ export interface GraphGoldAuthoringPrepareResponse {
   blocking_errors: GraphGoldAuthoringPrepareDiagnostic[];
   warnings: GraphGoldAuthoringPrepareDiagnostic[];
   preview_summary: string;
+  prepare_fingerprint: string;
   write_performed: false;
 }
