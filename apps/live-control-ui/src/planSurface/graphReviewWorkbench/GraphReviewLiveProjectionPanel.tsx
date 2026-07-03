@@ -26,7 +26,6 @@ import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryP
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
-import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildSourceSpanDeltaIndex } from "./graphReviewSourceSpanOverlayUtils";
@@ -92,10 +91,9 @@ export function GraphReviewLiveProjectionPanel({
   const [projectionStatus, setProjectionStatus] =
     useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
-  const [selectedNodeViewModel, setSelectedNodeViewModel] = useState<{
-    laneRole: "gold" | "live";
-    nodeId: string;
-  } | null>(null);
+  const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(
+    null,
+  );
   const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<
     string | null
   >(null);
@@ -200,7 +198,6 @@ export function GraphReviewLiveProjectionPanel({
   useEffect(() => {
     setSelectedSourceSpanId(null);
     setSelectedEvidenceDeltaId(null);
-    setSelectedNodeViewModel(null);
   }, [liveRunKey, projection?.graph_id]);
 
   const paragraphSourceSpans = useMemo(
@@ -461,9 +458,6 @@ export function GraphReviewLiveProjectionPanel({
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
                 onActiveObjectChange={setActiveLaneObject}
-                onSelectNode={(nodeId) =>
-                  setSelectedNodeViewModel({ laneRole: "gold", nodeId })
-                }
               />
             ) : null}
             <GraphReviewProjectionLane
@@ -478,45 +472,19 @@ export function GraphReviewLiveProjectionPanel({
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
               onActiveObjectChange={setActiveLaneObject}
-              onSelectNode={(nodeId) =>
-                setSelectedNodeViewModel({ laneRole: "live", nodeId })
-              }
+              onSelectNode={setSelectedDeltaNodeId}
             />
           </div>
           <GraphReviewDeltaInspectorPanel
-            selectedNodeId={selectedNodeViewModel?.nodeId ?? null}
+            selectedNodeId={selectedDeltaNodeId}
             selectedNode={
-              selectedNodeViewModel?.laneRole === "gold"
-                ? goldProjection?.node_views[selectedNodeViewModel.nodeId] ?? null
-                : selectedNodeViewModel?.laneRole === "live"
-                  ? projection.node_views[selectedNodeViewModel.nodeId] ?? null
-                  : null
+              selectedDeltaNodeId
+                ? projection.node_views[selectedDeltaNodeId]
+                : null
             }
             presentation={null}
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
             selectedEvidenceDeltaId={selectedEvidenceDeltaId}
-          />
-          <ExistingObjectResolverPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            laneRole={selectedNodeViewModel?.laneRole ?? "live"}
-            selectedNode={
-              selectedNodeViewModel?.laneRole === "gold"
-                ? goldProjection?.node_views[selectedNodeViewModel.nodeId] ?? null
-                : selectedNodeViewModel?.laneRole === "live"
-                  ? projection.node_views[selectedNodeViewModel.nodeId] ?? null
-                  : null
-            }
-            projectionGraphId={
-              selectedNodeViewModel?.laneRole === "gold"
-                ? goldProjection?.graph_id ?? null
-                : selectedNodeViewModel?.laneRole === "live"
-                  ? projection.graph_id ?? null
-                  : null
-            }
-            liveRunManifestPath={
-              selectedNodeViewModel?.laneRole === "live" ? liveRun.manifest_path : null
-            }
           />
           <GraphReviewSourceSpanRail
             index={sourceSpanDeltaIndex}

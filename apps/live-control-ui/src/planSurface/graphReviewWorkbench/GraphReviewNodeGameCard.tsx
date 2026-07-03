@@ -11,8 +11,7 @@ export function GraphReviewNodeGameCard({ node, onShowRelationships }: { node: G
       <p><strong>Appears in:</strong> {node.appearsIn.join(", ")}</p>
       <section><h5>Available</h5>{node.availableSurfaces.map((surface) => <button key={surface.kind} type="button">{surface.label}</button>)}</section>
       <section><h5>Connected to</h5><ul>{node.relationships.map((rel) => <li key={`${rel.label}-${rel.target}`}>{rel.label} → {rel.target}</li>)}</ul></section>
-      <div className="graph-review-card-actions"><button type="button" onClick={onShowRelationships}>Show relationships</button><button type="button">Find existing object</button><button type="button" onClick={() => setDebugOpen((open) => !open)}>Evidence / Debug</button></div>
-      <p className="graph-review-existing-object-note">Resolver suggestions are read-only. No link or merge has been written.</p>
+      <div className="graph-review-card-actions"><button type="button" onClick={onShowRelationships}>Show relationships</button><button type="button">Link existing object</button><button type="button" onClick={() => setDebugOpen((open) => !open)}>Evidence / Debug</button></div>
       {debugOpen ? <p className="graph-review-debug-panel">Debug placeholder: source spans, extractor pass, scores, and raw IDs will live here.</p> : null}
     </article>
   );
