@@ -116,7 +116,6 @@ describe("GraphReviewProjectionLane", () => {
     expect(token).toHaveAttribute("data-delta-status", "matched");
   });
 
-
   it("reports clicked node selection with lane role", () => {
     const onSelectObject = vi.fn();
     render(
@@ -145,7 +144,10 @@ describe("GraphReviewProjectionLane", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Tripod Null-Calf/i }));
-    expect(onSelectObject).toHaveBeenCalledWith({ laneRole: "gold", nodeId: "node:tripod-null-calf" });
+    expect(onSelectObject).toHaveBeenCalledWith({
+      laneRole: "gold",
+      nodeId: "node:tripod-null-calf",
+    });
   });
 
   it("highlights a matched live counterpart when the gold token is hovered", () => {
@@ -206,5 +208,59 @@ describe("GraphReviewProjectionLane", () => {
     const tokens = screen.getAllByRole("button", { name: /Tripod Null-Calf/i });
     fireEvent.mouseEnter(tokens[0]);
     expect(tokens[1]).toHaveAttribute("data-counterpart-highlighted", "true");
+  });
+
+  it("reports selected prose text with the source lane role for gold and live lanes", () => {
+    const onSelectGoldText = vi.fn();
+    const onSelectLiveText = vi.fn();
+    const selectionSpy = vi
+      .spyOn(window, "getSelection")
+      .mockReturnValue({ toString: () => "Tripod Null-Calf" } as Selection);
+
+    render(
+      <div>
+        <GraphReviewProjectionLane
+          laneRole="gold"
+          title="Gold Fixture · read-only"
+          markdown="The Tripod Null-Calf threatened the North Gate."
+          nodeViews={{}}
+          mentions={[]}
+          mentionsCount={0}
+          deltaIndex={deltaIndex}
+          activeObject={null}
+          onActiveObjectChange={vi.fn()}
+          onSelectText={onSelectGoldText}
+        />
+        <GraphReviewProjectionLane
+          laneRole="live"
+          title="Live Run · read-only"
+          markdown="The Tripod Null-Calf reached the North Gate."
+          nodeViews={{}}
+          mentions={[]}
+          mentionsCount={0}
+          deltaIndex={deltaIndex}
+          activeObject={null}
+          onActiveObjectChange={vi.fn()}
+          onSelectText={onSelectLiveText}
+        />
+      </div>,
+    );
+
+    const documents = screen.getAllByText(/Tripod Null-Calf/);
+    fireEvent.mouseUp(documents[0].closest("article")!);
+    expect(onSelectGoldText).toHaveBeenCalledWith({
+      laneRole: "gold",
+      text: "Tripod Null-Calf",
+      sourceOffsets: null,
+    });
+
+    fireEvent.mouseUp(documents[1].closest("article")!);
+    expect(onSelectLiveText).toHaveBeenCalledWith({
+      laneRole: "live",
+      text: "Tripod Null-Calf",
+      sourceOffsets: null,
+    });
+
+    selectionSpy.mockRestore();
   });
 });
