@@ -1,9 +1,9 @@
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import app
+from apps.live_control_server.services import graph_existing_object_resolver as resolver_module
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
     GraphReviewResolverSelectedNode,
@@ -11,7 +11,7 @@ from apps.live_control_server.services.graph_existing_object_resolver import (
 )
 
 
-def _request(**node_overrides):
+def _request(live_run_manifest_path=None, **node_overrides):
     node = {
         "node_id": "selected-stone-bridge",
         "label": "Stone Bridge",
@@ -29,6 +29,7 @@ def _request(**node_overrides):
         session_id="session-1",
         lane_role="live",
         selected_node=GraphReviewResolverSelectedNode(**node),
+        live_run_manifest_path=live_run_manifest_path,
     )
 
 
@@ -57,6 +58,38 @@ def test_incompatible_kind_reduces_confidence_or_requires_manual_review():
     incompatible = resolve_existing_object_candidates(_request(kind="character")).candidates[0]
     assert incompatible.score < exact.score
     assert incompatible.suggested_action in {"manual_review_needed", "link_existing_later"}
+
+
+def test_selected_live_candidate_is_excluded(monkeypatch):
+    def fake_live_candidates(repo, manifest_path):
+        return [
+            {
+                "candidate_id": "live-node-1",
+                "label": "Live Only X",
+                "kind": "location",
+                "role": "source_evidence",
+                "aliases": [],
+                "source_domains": ["live_projection"],
+                "adjacent_labels": [],
+                "source": "live_projection",
+            },
+            {
+                "candidate_id": "live-node-2",
+                "label": "Live Only X",
+                "kind": "location",
+                "role": "source_evidence",
+                "aliases": [],
+                "source_domains": ["live_projection"],
+                "adjacent_labels": [],
+                "source": "live_projection",
+            },
+        ]
+
+    monkeypatch.setattr(resolver_module, "_candidate_dicts_from_live", fake_live_candidates)
+    request = _request(node_id="live-node-1", label="Live Only X", live_run_manifest_path="fake.json")
+    response = resolve_existing_object_candidates(request)
+    assert all(candidate.candidate_id != "live-node-1" for candidate in response.candidates)
+    assert any(candidate.candidate_id == "live-node-2" for candidate in response.candidates)
 
 
 def test_endpoint_does_not_mutate_gold_fixture_file():

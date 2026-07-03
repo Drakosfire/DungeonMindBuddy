@@ -92,9 +92,10 @@ export function GraphReviewLiveProjectionPanel({
   const [projectionStatus, setProjectionStatus] =
     useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
-  const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(
-    null,
-  );
+  const [selectedNodeViewModel, setSelectedNodeViewModel] = useState<{
+    laneRole: "gold" | "live";
+    nodeId: string;
+  } | null>(null);
   const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<
     string | null
   >(null);
@@ -199,6 +200,7 @@ export function GraphReviewLiveProjectionPanel({
   useEffect(() => {
     setSelectedSourceSpanId(null);
     setSelectedEvidenceDeltaId(null);
+    setSelectedNodeViewModel(null);
   }, [liveRunKey, projection?.graph_id]);
 
   const paragraphSourceSpans = useMemo(
@@ -459,6 +461,9 @@ export function GraphReviewLiveProjectionPanel({
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
                 onActiveObjectChange={setActiveLaneObject}
+                onSelectNode={(nodeId) =>
+                  setSelectedNodeViewModel({ laneRole: "gold", nodeId })
+                }
               />
             ) : null}
             <GraphReviewProjectionLane
@@ -473,15 +478,19 @@ export function GraphReviewLiveProjectionPanel({
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
               onActiveObjectChange={setActiveLaneObject}
-              onSelectNode={setSelectedDeltaNodeId}
+              onSelectNode={(nodeId) =>
+                setSelectedNodeViewModel({ laneRole: "live", nodeId })
+              }
             />
           </div>
           <GraphReviewDeltaInspectorPanel
-            selectedNodeId={selectedDeltaNodeId}
+            selectedNodeId={selectedNodeViewModel?.nodeId ?? null}
             selectedNode={
-              selectedDeltaNodeId
-                ? projection.node_views[selectedDeltaNodeId]
-                : null
+              selectedNodeViewModel?.laneRole === "gold"
+                ? goldProjection?.node_views[selectedNodeViewModel.nodeId] ?? null
+                : selectedNodeViewModel?.laneRole === "live"
+                  ? projection.node_views[selectedNodeViewModel.nodeId] ?? null
+                  : null
             }
             presentation={null}
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
@@ -490,10 +499,24 @@ export function GraphReviewLiveProjectionPanel({
           <ExistingObjectResolverPanel
             campaignId={campaignId}
             sessionId={sessionId}
-            laneRole="live"
-            selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] ?? null : null}
-            projectionGraphId={projection.graph_id ?? null}
-            liveRunManifestPath={liveRun.manifest_path}
+            laneRole={selectedNodeViewModel?.laneRole ?? "live"}
+            selectedNode={
+              selectedNodeViewModel?.laneRole === "gold"
+                ? goldProjection?.node_views[selectedNodeViewModel.nodeId] ?? null
+                : selectedNodeViewModel?.laneRole === "live"
+                  ? projection.node_views[selectedNodeViewModel.nodeId] ?? null
+                  : null
+            }
+            projectionGraphId={
+              selectedNodeViewModel?.laneRole === "gold"
+                ? goldProjection?.graph_id ?? null
+                : selectedNodeViewModel?.laneRole === "live"
+                  ? projection.graph_id ?? null
+                  : null
+            }
+            liveRunManifestPath={
+              selectedNodeViewModel?.laneRole === "live" ? liveRun.manifest_path : null
+            }
           />
           <GraphReviewSourceSpanRail
             index={sourceSpanDeltaIndex}

@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getGoldGraphProjection,
   getUnionSupergraphProjection,
+  resolveGraphReviewExistingObjectCandidates,
 } from "../../api/liveApi";
 import type {
   GraphIngestRunSummary,
@@ -20,6 +21,7 @@ vi.mock("../../api/liveApi", async () => {
     ...actual,
     getGoldGraphProjection: vi.fn(),
     getUnionSupergraphProjection: vi.fn(),
+    resolveGraphReviewExistingObjectCandidates: vi.fn(),
   };
 });
 
@@ -97,6 +99,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockReset();
     vi.mocked(getGoldGraphProjection).mockResolvedValue({
       ...projection,
       source_kind: "gold_fixture",
@@ -171,6 +174,56 @@ describe("GraphReviewLiveProjectionPanel", () => {
       0,
     );
   });
+
+
+  it("preserves gold lane selection when resolver runs from a gold pill", async () => {
+    const nodeView = {
+      node_id: "gold-node-1",
+      label: "Gold Node",
+      kind: "location",
+      role: "source_evidence",
+      aliases: [],
+      source_domains: ["gold_fixture"],
+      evidence_badges: [],
+      adjacency: [],
+      anchored_to_focus_session: true,
+      summary: "Gold-side node",
+    };
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(getGoldGraphProjection).mockResolvedValue({
+      ...projection,
+      graph_id: "gold-graph-a",
+      markdown: "Gold Node",
+      node_views: { "gold-node-1": nodeView },
+      mentions: [{ mention_id: "m-gold", node_id: "gold-node-1", label: "Gold Node", start_offset: 0, end_offset: 9, evidence_ref_ids: [] }],
+      source_kind: "gold_fixture",
+      gold_fixture_id: "fixture-a",
+      gold_fixture_relpath: "gold/session-23.json",
+    });
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      selected_node_id: "gold-node-1",
+      selected_label: "Gold Node",
+      candidates: [],
+      warnings: [],
+    });
+
+    render(<GraphReviewLiveProjectionPanel campaignId="longmont-c2" sessionId="session-23" liveRun={baseRun} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Gold Node/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Find existing object" }));
+
+    await waitFor(() => expect(resolveGraphReviewExistingObjectCandidates).toHaveBeenCalled());
+    expect(vi.mocked(resolveGraphReviewExistingObjectCandidates).mock.calls[0][0]).toMatchObject({
+      lane_role: "gold",
+      projection_graph_id: "gold-graph-a",
+      live_run_manifest_path: null,
+      selected_node: { node_id: "gold-node-1", label: "Gold Node" },
+    });
+  });
+
 
   it("renders a friendly error for failed projection loading", async () => {
     vi.mocked(getUnionSupergraphProjection).mockRejectedValue(

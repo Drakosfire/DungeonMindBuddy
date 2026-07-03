@@ -41,10 +41,24 @@ describe("ExistingObjectResolverPanel", () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({ schema: "dmb_graph_review_existing_object_resolver_response_v1", campaign_id: "longmont-c1", session_id: "session-1", selected_node_id: "node_tripod", selected_label: "Tripod Null-Calf", candidates: [], warnings: [] });
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "Find existing object" }));
-    expect(screen.getByText("Checking existing campaign objects…")).toBeInTheDocument();
+    expect(screen.getByText("Checking same-session graph sources…")).toBeInTheDocument();
     await waitFor(() => expect(resolveGraphReviewExistingObjectCandidates).toHaveBeenCalled());
     expect(vi.mocked(resolveGraphReviewExistingObjectCandidates).mock.calls[0][0]).toMatchObject({ lane_role: "live", selected_node: { label: "Tripod Null-Calf", adjacent_labels: ["North Gate"] } });
   });
+
+  it("preserves gold lane context without sending a live manifest path", async () => {
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({ schema: "dmb_graph_review_existing_object_resolver_response_v1", campaign_id: "longmont-c1", session_id: "session-1", selected_node_id: "node_tripod", selected_label: "Tripod Null-Calf", candidates: [], warnings: [] });
+    render(<ExistingObjectResolverPanel campaignId="longmont-c1" sessionId="session-1" laneRole="gold" selectedNode={node} projectionGraphId="gold-graph" liveRunManifestPath={null} />);
+    expect(screen.getByText(/same-session gold\/live graph sources/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Find existing object" }));
+    await waitFor(() => expect(resolveGraphReviewExistingObjectCandidates).toHaveBeenCalled());
+    expect(vi.mocked(resolveGraphReviewExistingObjectCandidates).mock.calls[0][0]).toMatchObject({
+      lane_role: "gold",
+      projection_graph_id: "gold-graph",
+      live_run_manifest_path: null,
+    });
+  });
+
 
   it("renders candidate cards and local review-only selection without write actions", async () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({ schema: "dmb_graph_review_existing_object_resolver_response_v1", campaign_id: "longmont-c1", session_id: "session-1", selected_node_id: "node_tripod", selected_label: "Tripod Null-Calf", warnings: [], candidates: [{ candidate_id: "gold-tripod", label: "Tripod Null-Calf", kind: "Threat", role: "Siege scout", confidence: "high", score: 0.92, reason: "exact label match, same kind", source: "gold_fixture", suggested_action: "link_existing_later", existing_object_ref: { source: "gold_fixture", object_id: "gold-tripod" }, matched_features: ["exact label match", "same kind"] }] });

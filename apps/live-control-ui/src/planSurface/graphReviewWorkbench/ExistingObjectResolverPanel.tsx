@@ -93,11 +93,12 @@ export function ExistingObjectResolverPanel({
   return (
     <aside className="graph-review-existing-object-resolver" aria-label="Existing object resolver suggestions">
       <p className="plan-surface-kicker">Existing-object resolver</p>
-      <h3>Check existing campaign objects</h3>
+      <h3>Check same-session graph sources</h3>
+      <p>Resolver v1 checks same-session gold/live graph sources. Campaign-wide search is not available yet.</p>
       <p>Resolver suggestions are read-only. No link or merge has been written.</p>
       <button type="button" onClick={runResolver} disabled={status === "loading"}>Find existing object</button>
-      {status === "idle" ? <p>Check whether this object already exists in the campaign graph.</p> : null}
-      {status === "loading" ? <p role="status">Checking existing campaign objects…</p> : null}
+      {status === "idle" ? <p>Check whether this object already appears in same-session graph sources.</p> : null}
+      {status === "loading" ? <p role="status">Checking same-session graph sources…</p> : null}
       {status === "error" ? <p role="alert">{error ?? "Could not load resolver suggestions."}</p> : null}
       {status === "ready" && response ? (
         <div>

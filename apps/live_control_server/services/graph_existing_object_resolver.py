@@ -206,8 +206,9 @@ def resolve_existing_object_candidates(
     if not source_rows:
         warnings.append("No resolver sources were available; no campaign-wide identity search was performed.")
     candidates: list[GraphReviewExistingObjectCandidate] = []
+    selected_source = "gold_fixture" if request.lane_role == "gold" else "live_projection"
     for row in source_rows:
-        if row["candidate_id"] == request.selected_node.node_id and row["source"] == request.lane_role:
+        if row["candidate_id"] == request.selected_node.node_id and row["source"] == selected_source:
             continue
         score, matched, reasons = _score(request.selected_node, row)
         if score < 0.2:
