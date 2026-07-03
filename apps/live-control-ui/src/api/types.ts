@@ -1942,3 +1942,125 @@ export interface PartyRegistrySessionRosterWriteCommitResponse {
   backup_relpath?: string | null;
   diagnostics: string[];
 }
+
+export type GraphGoldAuthoringProposalStatus = "staged" | "accepted_local" | "rejected_local";
+export type GraphGoldAuthoringProposalType = "node_from_span" | "node_assertion" | "relationship_assertion" | "existing_object_link_intent";
+export type GraphGoldAuthoringLaneRole = "gold" | "live";
+
+export interface GraphGoldAuthoringRelationshipNodeRef {
+  lane_role: GraphGoldAuthoringLaneRole;
+  node_id: string;
+  label: string;
+}
+
+export interface GraphGoldAuthoringLocalProposalBase {
+  proposal_id: string;
+  proposal_type: GraphGoldAuthoringProposalType;
+  created_at_iso: string;
+  status: GraphGoldAuthoringProposalStatus;
+}
+
+export interface GraphGoldAuthoringNodeFromSpanProposal extends GraphGoldAuthoringLocalProposalBase {
+  proposal_type: "node_from_span";
+  lane_role: GraphGoldAuthoringLaneRole;
+  source_text: string;
+  source_offsets?: { start: number; end: number } | null;
+  suggested_label: string;
+  suggested_kind?: string | null;
+}
+
+export interface GraphGoldAuthoringNodeAssertionProposal extends GraphGoldAuthoringLocalProposalBase {
+  proposal_type: "node_assertion";
+  lane_role: GraphGoldAuthoringLaneRole;
+  node_id: string;
+  label: string;
+  kind?: string | null;
+  role?: string | null;
+}
+
+export interface GraphGoldAuthoringRelationshipAssertionProposal extends GraphGoldAuthoringLocalProposalBase {
+  proposal_type: "relationship_assertion";
+  lane_role: GraphGoldAuthoringLaneRole | "mixed";
+  source_node: GraphGoldAuthoringRelationshipNodeRef;
+  target_node: GraphGoldAuthoringRelationshipNodeRef;
+  predicate: string;
+}
+
+export interface GraphGoldAuthoringExistingObjectLinkIntentProposal extends GraphGoldAuthoringLocalProposalBase {
+  proposal_type: "existing_object_link_intent";
+  selected_node: GraphGoldAuthoringRelationshipNodeRef;
+  candidate: {
+    candidate_id: string;
+    label: string;
+    source: GraphReviewExistingObjectCandidate["source"];
+    confidence: GraphReviewExistingObjectCandidate["confidence"];
+    score?: number | null;
+  };
+}
+
+export type GraphGoldAuthoringLocalProposal =
+  | GraphGoldAuthoringNodeFromSpanProposal
+  | GraphGoldAuthoringNodeAssertionProposal
+  | GraphGoldAuthoringRelationshipAssertionProposal
+  | GraphGoldAuthoringExistingObjectLinkIntentProposal;
+
+export interface GraphGoldAuthoringPrepareRequest {
+  schema: "dmb_graph_gold_authoring_prepare_request_v1";
+  campaign_id: string;
+  session_id: string;
+  fixture_version?: string | null;
+  proposals: GraphGoldAuthoringLocalProposal[];
+  include_rejected?: boolean;
+}
+
+export interface GraphGoldAuthoringPrepareDiagnostic {
+  code: string;
+  message: string;
+  source_proposal_id?: string | null;
+  severity: "error" | "warning" | "info";
+}
+
+export interface GraphGoldAuthoringProposalCounts {
+  total: number;
+  accepted_local: number;
+  staged: number;
+  rejected_local: number;
+  candidate_operations: number;
+  ignored: number;
+  blocked: number;
+}
+
+export interface GraphGoldAuthoringNormalizedProposal {
+  proposal_id: string;
+  proposal_type: GraphGoldAuthoringProposalType;
+  status: GraphGoldAuthoringProposalStatus;
+  eligible_for_operation: boolean;
+  summary: string;
+  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
+}
+
+export interface GraphGoldAuthoringPreviewOperation {
+  operation_id: string;
+  operation_type: "add_node" | "assert_node" | "add_edge" | "link_existing_intent" | "ignored" | "blocked";
+  source_proposal_id: string;
+  label: string;
+  summary: string;
+  gold_shape_preview?: Record<string, unknown> | null;
+  requires_manual_review: boolean;
+  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
+}
+
+export interface GraphGoldAuthoringPrepareResponse {
+  schema: "dmb_graph_gold_authoring_prepare_response_v1";
+  campaign_id: string;
+  session_id: string;
+  fixture_relpath?: string | null;
+  validation_status: "ready" | "ready_with_warnings" | "blocked";
+  proposal_counts: GraphGoldAuthoringProposalCounts;
+  normalized_proposals: GraphGoldAuthoringNormalizedProposal[];
+  proposed_operations: GraphGoldAuthoringPreviewOperation[];
+  blocking_errors: GraphGoldAuthoringPrepareDiagnostic[];
+  warnings: GraphGoldAuthoringPrepareDiagnostic[];
+  preview_summary: string;
+  write_performed: false;
+}
