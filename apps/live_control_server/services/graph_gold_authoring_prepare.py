@@ -160,8 +160,16 @@ class GraphGoldAuthoringPrepareResponse(BaseModel):
     warnings: list[GraphGoldAuthoringPrepareDiagnostic] = Field(default_factory=list)
     preview_summary: str
     prepare_fingerprint: str
+    fixture_state_fingerprint: str
     write_performed: Literal[False] = False
 
+
+def graph_gold_authoring_fixture_bytes_fingerprint(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def graph_gold_authoring_fixture_state_fingerprint(fixture_path: Path) -> str:
+    return graph_gold_authoring_fixture_bytes_fingerprint(fixture_path.read_bytes())
 
 
 def graph_gold_authoring_prepare_fingerprint(
@@ -201,6 +209,9 @@ def prepare_graph_gold_authoring_preview(request: GraphGoldAuthoringPrepareReque
     entry = _session_entry(request.session_id)
     if entry["campaign_id"] is not None and entry["campaign_id"] != request.campaign_id:
         raise GraphGoldReviewError(f"session {request.session_id} belongs to {entry['campaign_id']}, not {request.campaign_id}", status_code=422)
+    fixture_relpath = str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json"
+    fixture_path = _repo / fixture_relpath
+    fixture_state_fingerprint = graph_gold_authoring_fixture_state_fingerprint(fixture_path)
     # Read fixture context without writing it; future slices may use contents for richer diffs.
     entry["load_gold_graph_dict"]()
 
@@ -269,4 +280,4 @@ def prepare_graph_gold_authoring_preview(request: GraphGoldAuthoringPrepareReque
     status: Literal["ready", "ready_with_warnings", "blocked"] = "blocked" if errors or counts.candidate_operations == 0 else ("ready_with_warnings" if warnings else "ready")
     summary = "Preview blocked. Resolve diagnostics before a future write step." if status == "blocked" else f"Preview prepared with {counts.candidate_operations} proposed operation(s). No files were changed."
     fingerprint = graph_gold_authoring_prepare_fingerprint(campaign_id=request.campaign_id, session_id=request.session_id, proposals=request.proposals, proposed_operations=operations, validation_status=status)
-    return GraphGoldAuthoringPrepareResponse(campaign_id=request.campaign_id, session_id=request.session_id, fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json", validation_status=status, proposal_counts=counts, normalized_proposals=normalized, proposed_operations=operations, blocking_errors=errors, warnings=warnings, preview_summary=summary, prepare_fingerprint=fingerprint, write_performed=False)
+    return GraphGoldAuthoringPrepareResponse(campaign_id=request.campaign_id, session_id=request.session_id, fixture_relpath=fixture_relpath, validation_status=status, proposal_counts=counts, normalized_proposals=normalized, proposed_operations=operations, blocking_errors=errors, warnings=warnings, preview_summary=summary, prepare_fingerprint=fingerprint, fixture_state_fingerprint=fixture_state_fingerprint, write_performed=False)

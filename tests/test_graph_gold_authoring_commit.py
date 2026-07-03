@@ -8,6 +8,10 @@ from apps.live_control_server.services.graph_gold_authoring_commit import (
     GraphGoldAuthoringCommitRequest,
     commit_graph_gold_authoring_preview,
 )
+from apps.live_control_server.services.graph_gold_authoring_prepare import (
+    GraphGoldAuthoringPrepareRequest,
+    prepare_graph_gold_authoring_preview,
+)
 from apps.live_control_server.services.graph_gold_review import GraphGoldReviewError
 
 FIXTURE_REL = Path("evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json")
@@ -42,6 +46,22 @@ def request(proposals, **overrides):
     return GraphGoldAuthoringCommitRequest(**data)
 
 
+def prepared_request(root: Path, proposals, **overrides):
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request(proposals), root=root)
+    return request(
+        proposals,
+        expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+        expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+        **overrides,
+    )
+
+
+def prepare_request(proposals, **overrides):
+    data = {"campaign_id":"longmont-c1", "session_id":"session-1", "proposals": proposals}
+    data.update(overrides)
+    return GraphGoldAuthoringPrepareRequest(**data)
+
+
 def load_fixture(root: Path):
     return json.loads((root / FIXTURE_REL).read_text())
 
@@ -49,7 +69,7 @@ def load_fixture(root: Path):
 def test_blocked_prepare_prevents_commit_and_does_not_mutate(tmp_path):
     root = temp_root(tmp_path)
     before = (root / FIXTURE_REL).read_bytes()
-    response = commit_graph_gold_authoring_preview(request([]), root=root)
+    response = commit_graph_gold_authoring_preview(prepared_request(root, []), root=root)
     assert response.commit_status == "blocked"
     assert response.backup_relpath is None
     assert (root / FIXTURE_REL).read_bytes() == before
@@ -57,7 +77,7 @@ def test_blocked_prepare_prevents_commit_and_does_not_mutate(tmp_path):
 
 def test_accepted_node_from_span_commits_node_backup_and_event(tmp_path):
     root = temp_root(tmp_path)
-    response = commit_graph_gold_authoring_preview(request([node_span()]), root=root)
+    response = commit_graph_gold_authoring_preview(prepared_request(root, [node_span()]), root=root)
     assert response.commit_status == "committed"
     assert response.changed_counts.nodes_added == 1
     assert response.commit_id
@@ -73,7 +93,7 @@ def test_accepted_node_from_span_commits_node_backup_and_event(tmp_path):
 def test_link_intent_records_intent_but_writes_no_identity_link(tmp_path):
     root = temp_root(tmp_path)
     before_edges = len(load_fixture(root)["edges"])
-    response = commit_graph_gold_authoring_preview(request([link_intent()]), root=root)
+    response = commit_graph_gold_authoring_preview(prepared_request(root, [link_intent()]), root=root)
     assert response.changed_counts.link_intents_recorded == 1
     assert response.applied_operations[0].status == "recorded_intent"
     assert len(load_fixture(root)["edges"]) == before_edges
@@ -82,10 +102,10 @@ def test_link_intent_records_intent_but_writes_no_identity_link(tmp_path):
 def test_self_relationship_and_unknown_predicate_block_without_mutation(tmp_path):
     root = temp_root(tmp_path)
     before = (root / FIXTURE_REL).read_bytes()
-    response = commit_graph_gold_authoring_preview(request([relationship(target_node={"lane_role":"live","node_id":"node:heroes-party","label":"Heroes / Party"})]), root=root)
+    response = commit_graph_gold_authoring_preview(prepared_request(root, [relationship(target_node={"lane_role":"live","node_id":"node:heroes-party","label":"Heroes / Party"})]), root=root)
     assert response.commit_status == "blocked"
     assert (root / FIXTURE_REL).read_bytes() == before
-    response2 = commit_graph_gold_authoring_preview(request([relationship(predicate="canonizes")]), root=root)
+    response2 = commit_graph_gold_authoring_preview(prepared_request(root, [relationship(predicate="canonizes")]), root=root)
     assert response2.commit_status == "blocked"
     assert (root / FIXTURE_REL).read_bytes() == before
 
@@ -104,9 +124,9 @@ def test_unsupported_fixture_version_and_campaign_mismatch_raise_without_mutatio
 
 def test_duplicate_commit_does_not_duplicate_authored_node(tmp_path):
     root = temp_root(tmp_path)
-    first = commit_graph_gold_authoring_preview(request([node_span()]), root=root)
+    first = commit_graph_gold_authoring_preview(prepared_request(root, [node_span()]), root=root)
     assert first.changed_counts.nodes_added == 1
-    second = commit_graph_gold_authoring_preview(request([node_span()]), root=root)
+    second = commit_graph_gold_authoring_preview(prepared_request(root, [node_span()]), root=root)
     assert second.commit_status == "blocked"
     assert [n.get("node_id") for n in load_fixture(root)["nodes"]].count("authored:node:local-1") == 1
 
@@ -120,9 +140,72 @@ def test_fingerprint_mismatch_blocks_without_mutation(tmp_path):
     assert (root / FIXTURE_REL).read_bytes() == before
 
 
+def test_missing_expected_fingerprints_block_without_mutation(tmp_path):
+    root = temp_root(tmp_path)
+    before = (root / FIXTURE_REL).read_bytes()
+
+    response = commit_graph_gold_authoring_preview(request([node_span()]), root=root)
+
+    assert response.commit_status == "blocked"
+    assert any(d.code == "missing_prepare_fingerprint" for d in response.diagnostics)
+    assert response.backup_relpath is None
+    assert response.event_log_relpath is None
+    assert (root / FIXTURE_REL).read_bytes() == before
+
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request([node_span()]), root=root)
+    response2 = commit_graph_gold_authoring_preview(
+        request([node_span()], expected_prepare_fingerprint=prepare_response.prepare_fingerprint),
+        root=root,
+    )
+
+    assert response2.commit_status == "blocked"
+    assert any(d.code == "missing_fixture_state_fingerprint" for d in response2.diagnostics)
+    assert response2.backup_relpath is None
+    assert response2.event_log_relpath is None
+    assert (root / FIXTURE_REL).read_bytes() == before
+
+
+def test_stale_fixture_fingerprint_blocks_without_mutation_backup_or_event(tmp_path):
+    root = temp_root(tmp_path)
+    fixture_path = root / FIXTURE_REL
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request([node_span()]), root=root)
+    externally_mutated = json.dumps({"nodes": [], "edges": [], "external_change": True}, indent=2).encode("utf-8")
+    fixture_path.write_bytes(externally_mutated)
+
+    response = commit_graph_gold_authoring_preview(
+        request(
+            [node_span()],
+            expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+            expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+        ),
+        root=root,
+    )
+
+    assert response.commit_status == "blocked"
+    assert any(d.code == "fixture_state_fingerprint_mismatch" for d in response.diagnostics)
+    assert response.backup_relpath is None
+    assert response.event_log_relpath is None
+    assert fixture_path.read_bytes() == externally_mutated
+
+
+def test_matching_fixture_fingerprint_allows_commit(tmp_path):
+    root = temp_root(tmp_path)
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request([node_span()]), root=root)
+    response = commit_graph_gold_authoring_preview(
+        request(
+            [node_span()],
+            expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+            expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+        ),
+        root=root,
+    )
+    assert response.commit_status == "committed"
+    assert response.changed_counts.nodes_added == 1
+
+
 def test_add_edge_and_fixture_reloadable_as_json(tmp_path):
     root = temp_root(tmp_path)
-    response = commit_graph_gold_authoring_preview(request([relationship()]), root=root)
+    response = commit_graph_gold_authoring_preview(prepared_request(root, [relationship()]), root=root)
     assert response.changed_counts.edges_added == 1
     graph = load_fixture(root)
     assert any(e["edge_id"] == "authored:edge:local-3" for e in graph["edges"])

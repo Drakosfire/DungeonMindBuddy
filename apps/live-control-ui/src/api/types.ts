@@ -2057,6 +2057,7 @@ export interface GraphGoldAuthoringCommitRequest {
   fixture_version?: string | null;
   proposals: GraphGoldAuthoringLocalProposal[];
   expected_prepare_fingerprint?: string | null;
+  expected_fixture_state_fingerprint?: string | null;
   commit_message?: string | null;
   operator_note?: string | null;
 }
@@ -2157,5 +2158,6 @@ export interface GraphGoldAuthoringPrepareResponse {
   warnings: GraphGoldAuthoringPrepareDiagnostic[];
   preview_summary: string;
   prepare_fingerprint: string;
+  fixture_state_fingerprint: string;
   write_performed: false;
 }

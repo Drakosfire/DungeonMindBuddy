@@ -179,7 +179,7 @@ export function useGraphReviewAuthorDraftWorkflow({
     setCommitError(null);
     setCommitResponse(null);
     try {
-      const result = await commitGraphGoldAuthoringPreview({ schema: "dmb_graph_gold_authoring_commit_request_v1", campaign_id: campaignId, session_id: sessionId, fixture_version: preparedRequest.fixture_version, proposals: preparedRequest.proposals, expected_prepare_fingerprint: prepareResponse.prepare_fingerprint });
+      const result = await commitGraphGoldAuthoringPreview({ schema: "dmb_graph_gold_authoring_commit_request_v1", campaign_id: campaignId, session_id: sessionId, fixture_version: preparedRequest.fixture_version, proposals: preparedRequest.proposals, expected_prepare_fingerprint: prepareResponse.prepare_fingerprint, expected_fixture_state_fingerprint: prepareResponse.fixture_state_fingerprint });
       setCommitResponse(result);
       setCommitStatus(result.commit_status === "blocked" ? "blocked" : "success");
       setVerificationStatus("idle");
