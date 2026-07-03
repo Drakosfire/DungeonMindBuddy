@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { prepareGraphGoldAuthoringPreview } from "../../api/liveApi";
-import type { GraphGoldAuthoringPrepareResponse } from "../../api/types";
+import { commitGraphGoldAuthoringPreview, prepareGraphGoldAuthoringPreview } from "../../api/liveApi";
+import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringPrepareRequest, GraphGoldAuthoringPrepareResponse } from "../../api/types";
 import { buildGraphGoldAuthoringPrepareRequest } from "./graphReviewAuthoringPrepareApi";
 import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthoringState";
 
@@ -19,24 +19,67 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "blocked" | "error">("idle");
   const [response, setResponse] = useState<GraphGoldAuthoringPrepareResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [commitConfirmed, setCommitConfirmed] = useState(false);
+  const [commitStatus, setCommitStatus] = useState<"idle" | "loading" | "success" | "blocked" | "error">("idle");
+  const [commitResponse, setCommitResponse] = useState<GraphGoldAuthoringCommitResponse | null>(null);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [preparedRequest, setPreparedRequest] = useState<GraphGoldAuthoringPrepareRequest | null>(null);
+  const proposalSignature = useMemo(() => JSON.stringify({ campaignId, sessionId, proposals }), [campaignId, sessionId, proposals]);
+
+  useEffect(() => {
+    if (!response) return;
+    setStatus("idle");
+    setResponse(null);
+    setPreparedRequest(null);
+    setCommitConfirmed(false);
+    setCommitStatus("idle");
+    setCommitResponse(null);
+    setCommitError(null);
+  }, [proposalSignature]);
 
   const prepare = async () => {
     setStatus("loading");
     setError(null);
     setResponse(null);
     try {
-      const result = await prepareGraphGoldAuthoringPreview(
-        buildGraphGoldAuthoringPrepareRequest({
-          campaignId,
-          sessionId,
-          proposals: proposals.filter((proposal) => proposal.status !== "rejected_local"),
-        }),
-      );
+      const request = buildGraphGoldAuthoringPrepareRequest({
+        campaignId,
+        sessionId,
+        proposals: proposals.filter((proposal) => proposal.status !== "rejected_local"),
+      });
+      const result = await prepareGraphGoldAuthoringPreview(request);
       setResponse(result);
+      setPreparedRequest(request);
       setStatus(result.validation_status === "blocked" ? "blocked" : "ready");
+      setCommitConfirmed(false);
+      setCommitStatus("idle");
+      setCommitResponse(null);
+      setCommitError(null);
     } catch (prepareError) {
       setStatus("error");
       setError(prepareError instanceof Error ? prepareError.message : "Could not prepare write preview.");
+    }
+  };
+
+  const commit = async () => {
+    if (!response || !preparedRequest || response.validation_status === "blocked" || !commitConfirmed) return;
+    setCommitStatus("loading");
+    setCommitError(null);
+    setCommitResponse(null);
+    try {
+      const result = await commitGraphGoldAuthoringPreview({
+        schema: "dmb_graph_gold_authoring_commit_request_v1",
+        campaign_id: campaignId,
+        session_id: sessionId,
+        fixture_version: preparedRequest.fixture_version,
+        proposals: preparedRequest.proposals,
+        expected_prepare_fingerprint: response.prepare_fingerprint,
+      });
+      setCommitResponse(result);
+      setCommitStatus(result.commit_status === "blocked" ? "blocked" : "success");
+    } catch (commitErrorValue) {
+      setCommitStatus("error");
+      setCommitError(commitErrorValue instanceof Error ? commitErrorValue.message : "Could not commit prepared preview.");
     }
   };
 
@@ -69,6 +112,42 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
           <p>{response.preview_summary}</p>
           {response.blocking_errors.length ? <div><h4>Blocking diagnostics</h4><ul>{response.blocking_errors.map((diagnostic) => <li key={`${diagnostic.code}-${diagnostic.source_proposal_id}`}>{diagnostic.message}</li>)}</ul></div> : null}
           {response.warnings.length ? <div><h4>Warnings</h4><ul>{response.warnings.map((diagnostic, index) => <li key={`${diagnostic.code}-${diagnostic.source_proposal_id}-${index}`}>{diagnostic.message}</li>)}</ul></div> : null}
+          {response.validation_status !== "blocked" ? (
+            <section className="graph-review-authoring-commit" aria-label="Commit prepared preview">
+              <h4>Commit prepared preview</h4>
+              <p>This preview is ready to commit. Committing will write the gold fixture and create a backup.</p>
+              <p><strong>This will write the gold fixture and create a backup.</strong></p>
+              <label>
+                <input type="checkbox" checked={commitConfirmed} onChange={(event) => setCommitConfirmed(event.target.checked)} />
+                I understand this will write to the gold fixture and create a backup.
+              </label>
+              <button type="button" onClick={commit} disabled={!preparedRequest || !commitConfirmed || commitStatus === "loading"}>Commit prepared preview</button>
+              {commitStatus === "loading" ? <p role="status">Committing prepared preview…</p> : null}
+              {commitStatus === "success" && commitResponse ? <p role="status">Committed. Gold fixture updated and backup created.</p> : null}
+              {commitStatus === "blocked" ? <p role="status">Commit blocked. No files were changed.</p> : null}
+              {commitStatus === "error" ? <p role="alert">Could not commit prepared preview. {commitError}</p> : null}
+              {commitResponse ? (
+                <div>
+                  <dl className="graph-review-lane-meta">
+                    <div><dt>Commit id</dt><dd>{commitResponse.commit_id}</dd></div>
+                    <div><dt>Fixture relpath</dt><dd>{commitResponse.fixture_relpath}</dd></div>
+                    <div><dt>Backup relpath</dt><dd>{commitResponse.backup_relpath ?? "No backup written"}</dd></div>
+                    <div><dt>Event log relpath</dt><dd>{commitResponse.event_log_relpath ?? "No event written"}</dd></div>
+                    <div><dt>Nodes added</dt><dd>{commitResponse.changed_counts.nodes_added}</dd></div>
+                    <div><dt>Nodes asserted</dt><dd>{commitResponse.changed_counts.nodes_asserted}</dd></div>
+                    <div><dt>Edges added</dt><dd>{commitResponse.changed_counts.edges_added}</dd></div>
+                    <div><dt>Link intents recorded</dt><dd>{commitResponse.changed_counts.link_intents_recorded}</dd></div>
+                    <div><dt>Operations skipped</dt><dd>{commitResponse.changed_counts.operations_skipped}</dd></div>
+                  </dl>
+                  <h5>Applied operations</h5>
+                  <ul>{commitResponse.applied_operations.map((operation) => <li key={operation.operation_id}>{operation.summary}</li>)}</ul>
+                  <h5>Skipped operations</h5>
+                  <ul>{commitResponse.skipped_operations.map((operation) => <li key={operation.operation_id}>{operation.reason}</li>)}</ul>
+                  {commitResponse.diagnostics.length ? <ul>{commitResponse.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${index}`}>{diagnostic.message}</li>)}</ul> : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           <div className="graph-review-authoring-operation-list">
             {response.proposed_operations.map((operation) => (
               <article key={operation.operation_id} className="graph-review-authoring-operation-card">

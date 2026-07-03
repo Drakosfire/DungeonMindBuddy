@@ -2050,6 +2050,66 @@ export interface GraphGoldAuthoringPreviewOperation {
   diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
 }
 
+export interface GraphGoldAuthoringCommitRequest {
+  schema: "dmb_graph_gold_authoring_commit_request_v1";
+  campaign_id: string;
+  session_id: string;
+  fixture_version?: string | null;
+  proposals: GraphGoldAuthoringLocalProposal[];
+  expected_prepare_fingerprint?: string | null;
+  commit_message?: string | null;
+  operator_note?: string | null;
+}
+
+export interface GraphGoldAuthoringCommitChangedCounts {
+  nodes_added: number;
+  nodes_asserted: number;
+  edges_added: number;
+  link_intents_recorded: number;
+  operations_skipped: number;
+}
+
+export interface GraphGoldAuthoringCommittedOperation {
+  operation_id: string;
+  operation_type: string;
+  source_proposal_id: string;
+  status: "applied" | "recorded_assertion" | "recorded_intent";
+  target_id?: string | null;
+  summary: string;
+}
+
+export interface GraphGoldAuthoringSkippedOperation {
+  operation_id: string;
+  operation_type: string;
+  source_proposal_id: string;
+  reason: string;
+  diagnostics: GraphGoldAuthoringPrepareDiagnostic[];
+}
+
+export interface GraphGoldAuthoringCommitDiagnostic {
+  code: string;
+  message: string;
+  source_proposal_id?: string | null;
+  severity: "error" | "warning" | "info";
+}
+
+export interface GraphGoldAuthoringCommitResponse {
+  schema: "dmb_graph_gold_authoring_commit_response_v1";
+  campaign_id: string;
+  session_id: string;
+  fixture_relpath: string;
+  backup_relpath?: string | null;
+  event_log_relpath?: string | null;
+  commit_id: string;
+  committed_at_iso: string;
+  commit_status: "committed" | "blocked" | "partial";
+  prepare_fingerprint: string;
+  applied_operations: GraphGoldAuthoringCommittedOperation[];
+  skipped_operations: GraphGoldAuthoringSkippedOperation[];
+  diagnostics: GraphGoldAuthoringCommitDiagnostic[];
+  changed_counts: GraphGoldAuthoringCommitChangedCounts;
+}
+
 export interface GraphGoldAuthoringPrepareResponse {
   schema: "dmb_graph_gold_authoring_prepare_response_v1";
   campaign_id: string;
@@ -2062,5 +2122,6 @@ export interface GraphGoldAuthoringPrepareResponse {
   blocking_errors: GraphGoldAuthoringPrepareDiagnostic[];
   warnings: GraphGoldAuthoringPrepareDiagnostic[];
   preview_summary: string;
+  prepare_fingerprint: string;
   write_performed: false;
 }
