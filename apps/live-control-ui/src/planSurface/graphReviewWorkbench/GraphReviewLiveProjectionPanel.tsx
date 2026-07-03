@@ -26,7 +26,9 @@ import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryP
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
+import { GraphReviewSelectedObjectPanel } from "./GraphReviewSelectedObjectPanel";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
+import { resolveGraphReviewSelectedNode, type GraphReviewSelectedNode, type GraphReviewSelectedRelationship } from "./graphReviewSelectionUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildSourceSpanDeltaIndex } from "./graphReviewSourceSpanOverlayUtils";
 import type {
@@ -94,6 +96,8 @@ export function GraphReviewLiveProjectionPanel({
   const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(
     null,
   );
+  const [selectedNode, setSelectedNode] = useState<GraphReviewSelectedNode | null>(null);
+  const [selectedRelationship, setSelectedRelationship] = useState<GraphReviewSelectedRelationship | null>(null);
   const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<
     string | null
   >(null);
@@ -198,6 +202,8 @@ export function GraphReviewLiveProjectionPanel({
   useEffect(() => {
     setSelectedSourceSpanId(null);
     setSelectedEvidenceDeltaId(null);
+    setSelectedNode(null);
+    setSelectedRelationship(null);
   }, [liveRunKey, projection?.graph_id]);
 
   const paragraphSourceSpans = useMemo(
@@ -327,6 +333,17 @@ export function GraphReviewLiveProjectionPanel({
     evidenceSelection.queryObjectKind,
     evidenceSelection.queryObjectId,
   ]);
+
+
+  const selectedNodeViewModel = useMemo(
+    () =>
+      resolveGraphReviewSelectedNode(
+        selectedNode,
+        { goldProjection, liveProjection: projection },
+        deltaIndex,
+      ),
+    [selectedNode, goldProjection, projection, deltaIndex],
+  );
 
   const runIdentity =
     liveRun?.run_label || liveRun?.manifest_path || "selected run";
@@ -458,6 +475,7 @@ export function GraphReviewLiveProjectionPanel({
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
                 onActiveObjectChange={setActiveLaneObject}
+                onSelectObject={(selection) => { setSelectedNode(selection); setSelectedRelationship(null); setSelectedDeltaNodeId(selection.nodeId); }}
               />
             ) : null}
             <GraphReviewProjectionLane
@@ -472,9 +490,19 @@ export function GraphReviewLiveProjectionPanel({
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
               onActiveObjectChange={setActiveLaneObject}
-              onSelectNode={setSelectedDeltaNodeId}
+              onSelectObject={(selection) => { setSelectedNode(selection); setSelectedRelationship(null); setSelectedDeltaNodeId(selection.nodeId); }}
             />
           </div>
+          <GraphReviewSelectedObjectPanel
+            selectedNode={selectedNodeViewModel}
+            selectedRelationship={selectedRelationship}
+            onSelectRelationship={(relationship) =>
+              selectedNodeViewModel
+                ? setSelectedRelationship({ laneRole: selectedNodeViewModel.laneRole, sourceNodeId: selectedNodeViewModel.node.node_id, adjacentNodeId: relationship.node_id, edgeId: relationship.edge_id })
+                : undefined
+            }
+            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+          />
           <GraphReviewDeltaInspectorPanel
             selectedNodeId={selectedDeltaNodeId}
             selectedNode={

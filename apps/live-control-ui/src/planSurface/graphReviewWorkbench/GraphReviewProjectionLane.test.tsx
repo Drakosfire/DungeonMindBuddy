@@ -116,6 +116,38 @@ describe("GraphReviewProjectionLane", () => {
     expect(token).toHaveAttribute("data-delta-status", "matched");
   });
 
+
+  it("reports clicked node selection with lane role", () => {
+    const onSelectObject = vi.fn();
+    render(
+      <GraphReviewProjectionLane
+        laneRole="gold"
+        title="Gold Fixture · read-only"
+        markdown="The Tripod Null-Calf threatened the North Gate."
+        nodeViews={{ "node:tripod-null-calf": tripodNode }}
+        mentions={[
+          {
+            mention_id: "m1",
+            node_id: "node:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            start_offset: 4,
+            end_offset: 21,
+            evidence_ref_ids: [],
+            anchor_status: "anchored",
+          },
+        ]}
+        mentionsCount={1}
+        deltaIndex={deltaIndex}
+        activeObject={null}
+        onActiveObjectChange={vi.fn()}
+        onSelectObject={onSelectObject}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Tripod Null-Calf/i }));
+    expect(onSelectObject).toHaveBeenCalledWith({ laneRole: "gold", nodeId: "node:tripod-null-calf" });
+  });
+
   it("highlights a matched live counterpart when the gold token is hovered", () => {
     function Harness() {
       const [activeObject, setActiveObject] = useState<{

@@ -1,18 +1,67 @@
 import { useState } from "react";
-import type { GraphReviewGameNode } from "./graphReviewAuthoringMockData";
+import type { GraphProjectionAdjacencyCandidate } from "../../api/types";
+import { GraphReviewRelationshipChips } from "./GraphReviewRelationshipChips";
+import { gameSummaryForNode, type GraphReviewSelectedNodeViewModel } from "./graphReviewSelectionUtils";
 
-export function GraphReviewNodeGameCard({ node, onShowRelationships }: { node: GraphReviewGameNode; onShowRelationships: () => void }) {
+function statusCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
+  if (viewModel.status === "matched") return "Matched with the other lane.";
+  if (viewModel.status === "gold_only") return "Present only in the gold fixture.";
+  if (viewModel.status === "live_only") return "Present only in the selected live run.";
+  if (viewModel.status === "comparator_uncertain") return "Comparator uncertain; inspect evidence if needed.";
+  if (viewModel.status.startsWith("changed_")) return "Matched object with changed projected details.";
+  return "No comparison status is available yet.";
+}
+
+export function GraphReviewNodeGameCard({
+  viewModel,
+  selectedEdgeId,
+  onSelectRelationship,
+  onSelectEvidenceDelta,
+}: {
+  viewModel: GraphReviewSelectedNodeViewModel;
+  selectedEdgeId: string | null;
+  onSelectRelationship: (relationship: GraphProjectionAdjacencyCandidate) => void;
+  onSelectEvidenceDelta?: (deltaId: string | null) => void;
+}) {
   const [debugOpen, setDebugOpen] = useState(false);
+  const node = viewModel.node;
   return (
     <article className="graph-review-node-game-card" aria-label={`${node.label} game card`}>
+      <p className="plan-surface-kicker">{viewModel.laneRole === "gold" ? "Gold Fixture · read-only" : "Live Run · read-only"}</p>
       <h4>{node.label}</h4>
-      <p className="graph-review-game-kind">{node.gameKind}</p>
-      <p>{node.summary}</p>
-      <p><strong>Appears in:</strong> {node.appearsIn.join(", ")}</p>
-      <section><h5>Available</h5>{node.availableSurfaces.map((surface) => <button key={surface.kind} type="button">{surface.label}</button>)}</section>
-      <section><h5>Connected to</h5><ul>{node.relationships.map((rel) => <li key={`${rel.label}-${rel.target}`}>{rel.label} → {rel.target}</li>)}</ul></section>
-      <div className="graph-review-card-actions"><button type="button" onClick={onShowRelationships}>Show relationships</button><button type="button">Link existing object</button><button type="button" onClick={() => setDebugOpen((open) => !open)}>Evidence / Debug</button></div>
-      {debugOpen ? <p className="graph-review-debug-panel">Debug placeholder: source spans, extractor pass, scores, and raw IDs will live here.</p> : null}
+      <p className="graph-review-game-kind">{[node.kind, node.role].filter(Boolean).join(" / ") || "Graph object"}</p>
+      <p>{gameSummaryForNode(node)}</p>
+
+      <section>
+        <h5>Review status</h5>
+        <p>{statusCopy(viewModel)}</p>
+        {viewModel.counterpart ? <p><strong>Counterpart:</strong> {viewModel.counterpart.label} ({viewModel.counterpart.laneRole})</p> : null}
+      </section>
+
+      <section>
+        <h5>Connected objects / relationships</h5>
+        <GraphReviewRelationshipChips
+          sourceLabel={node.label}
+          relationships={node.adjacency}
+          selectedEdgeId={selectedEdgeId}
+          onSelect={onSelectRelationship}
+        />
+      </section>
+
+      <section>
+        <h5>Useful surfaces</h5>
+        <div className="graph-review-card-actions">
+          <button type="button" onClick={() => onSelectEvidenceDelta?.(viewModel.deltaId ?? null)} disabled={!viewModel.deltaId}>Open evidence/debug</button>
+          <button type="button" disabled={!viewModel.counterpart}>Highlight counterpart</button>
+          <button type="button" disabled>Statblock unavailable</button>
+          <button type="button" disabled>Encounter note unavailable</button>
+        </div>
+      </section>
+
+      <details className="graph-review-debug-panel" open={debugOpen} onToggle={(event) => setDebugOpen(event.currentTarget.open)}>
+        <summary>Evidence / Debug</summary>
+        <p>{node.evidence_badges.length} evidence badge{node.evidence_badges.length === 1 ? "" : "s"}; {node.source_domains.length ? node.source_domains.join(", ") : "no source domains"}.</p>
+      </details>
     </article>
   );
 }
