@@ -33,16 +33,8 @@ import { GraphReviewSelectedObjectPanel } from "./GraphReviewSelectedObjectPanel
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
-import {
-  GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
-  createExistingObjectLinkIntentProposal,
-  createGraphReviewLocalAuthoringIdFactory,
-  createNodeAssertionProposal,
-  createNodeFromSpanProposal,
-  createRelationshipAssertionProposal,
-  updateLocalProposalStatus,
-  type GraphReviewLocalAuthoringProposal,
-} from "./graphReviewLocalAuthoringState";
+import { GRAPH_REVIEW_RELATIONSHIP_PREDICATES } from "./graphReviewLocalAuthoringState";
+import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import {
   resolveGraphReviewSelectedNode,
@@ -143,29 +135,11 @@ export function GraphReviewLiveProjectionPanel({
     laneRole: "gold" | "live";
     nodeId: string;
   } | null>(null);
-  const [authorMode, setAuthorMode] = useState<"review" | "author_draft">(
-    "review",
-  );
-  const [selectedText, setSelectedText] = useState<{
-    laneRole: "gold" | "live";
-    text: string;
-    sourceOffsets: { start: number; end: number } | null;
-  } | null>(null);
-  const [relationshipSource, setRelationshipSource] =
-    useState<GraphReviewSelectedNode | null>(null);
-  const [relationshipPredicate, setRelationshipPredicate] = useState(
-    GRAPH_REVIEW_RELATIONSHIP_PREDICATES[0],
-  );
-  const [localProposals, setLocalProposals] = useState<
-    GraphReviewLocalAuthoringProposal[]
-  >([]);
-  const [localProposalFactory] = useState(() =>
-    createGraphReviewLocalAuthoringIdFactory(),
-  );
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
     : "";
+
 
   useEffect(() => {
     let cancelled = false;
@@ -272,15 +246,20 @@ export function GraphReviewLiveProjectionPanel({
     }
   }, [reloadGoldProjection]);
 
+  const authorDraft = useGraphReviewAuthorDraftWorkflow({
+    campaignId,
+    sessionId,
+    onReloadAndVerifyCommit: reloadGoldProjectionAndVerifyCommit,
+  });
+  const { authorMode } = authorDraft;
+
   useEffect(() => {
     setSelectedSourceSpanId(null);
     setSelectedEvidenceDeltaId(null);
     setSelectedNode(null);
     setSelectedRelationship(null);
-    setSelectedText(null);
-    setRelationshipSource(null);
-    setLocalProposals([]);
-  }, [liveRunKey, projection?.graph_id, sessionId]);
+    authorDraft.resetLocalDraft();
+  }, [authorDraft.resetLocalDraft, liveRunKey, projection?.graph_id, sessionId]);
 
   const paragraphSourceSpans = useMemo(
     () =>
@@ -424,30 +403,17 @@ export function GraphReviewLiveProjectionPanel({
     liveRun?.run_label || liveRun?.manifest_path || "selected run";
 
   const stageNodeFromSelection = () => {
-    if (!selectedText?.text.trim()) return;
-    setLocalProposals((current) => [
-      ...current,
-      createNodeFromSpanProposal(localProposalFactory, {
-        laneRole: selectedText.laneRole,
-        sourceText: selectedText.text.trim(),
-        sourceOffsets: selectedText.sourceOffsets,
-        suggestedLabel: selectedText.text.trim(),
-        suggestedKind: null,
-      }),
-    ]);
+    authorDraft.stageNodeFromSpan();
   };
   const stageNodeAssertion = () => {
     if (!selectedNodeViewModel) return;
-    setLocalProposals((current) => [
-      ...current,
-      createNodeAssertionProposal(localProposalFactory, {
+    authorDraft.stageNodeAssertion({
         laneRole: selectedNodeViewModel.laneRole,
         nodeId: selectedNodeViewModel.node.node_id,
         label: selectedNodeViewModel.node.label,
         kind: selectedNodeViewModel.node.kind ?? null,
         role: selectedNodeViewModel.node.role ?? null,
-      }),
-    ]);
+    });
   };
   const nodeRef = (selection: GraphReviewSelectedNode) => {
     const node =
@@ -463,18 +429,15 @@ export function GraphReviewLiveProjectionPanel({
       : null;
   };
   const stageRelationship = () => {
-    if (!relationshipSource || !selectedNode) return;
-    const sourceNode = nodeRef(relationshipSource);
+    if (!authorDraft.relationshipDraftSource || !selectedNode) return;
+    const sourceNode = nodeRef(authorDraft.relationshipDraftSource);
     const targetNode = nodeRef(selectedNode);
     if (!sourceNode || !targetNode) return;
-    setLocalProposals((current) => [
-      ...current,
-      createRelationshipAssertionProposal(localProposalFactory, {
-        sourceNode,
-        targetNode,
-        predicate: relationshipPredicate,
-      }),
-    ]);
+    authorDraft.stageRelationshipAssertion({
+      sourceNode,
+      targetNode,
+      predicate: authorDraft.relationshipPredicate,
+    });
   };
 
   return (
@@ -503,14 +466,14 @@ export function GraphReviewLiveProjectionPanel({
         <button
           type="button"
           aria-pressed={authorMode === "review"}
-          onClick={() => setAuthorMode("review")}
+          onClick={() => authorDraft.setAuthorMode("review")}
         >
           Review
         </button>
         <button
           type="button"
           aria-pressed={authorMode === "author_draft"}
-          onClick={() => setAuthorMode("author_draft")}
+          onClick={() => authorDraft.setAuthorMode("author_draft")}
         >
           Author Draft
         </button>
@@ -636,7 +599,7 @@ export function GraphReviewLiveProjectionPanel({
                   setSelectedRelationship(null);
                   setSelectedDeltaNodeId(selection.nodeId);
                 }}
-                onSelectText={setSelectedText}
+                onSelectText={authorDraft.setSelectedText}
               />
             ) : null}
             <GraphReviewProjectionLane
@@ -656,7 +619,7 @@ export function GraphReviewLiveProjectionPanel({
                 setSelectedRelationship(null);
                 setSelectedDeltaNodeId(selection.nodeId);
               }}
-              onSelectText={setSelectedText}
+              onSelectText={authorDraft.setSelectedText}
             />
           </div>
           <GraphReviewSelectedObjectPanel
@@ -684,13 +647,13 @@ export function GraphReviewLiveProjectionPanel({
               <button
                 type="button"
                 onClick={stageNodeFromSelection}
-                disabled={!selectedText?.text.trim()}
+                disabled={!authorDraft.selectedText?.text.trim()}
               >
                 Stage node from selection
               </button>
-              {selectedText?.text ? (
+              {authorDraft.selectedText?.text ? (
                 <p>
-                  Selected {selectedText.laneRole} text: “{selectedText.text}”
+                  Selected {authorDraft.selectedText.laneRole} text: “{authorDraft.selectedText.text}”
                   (offset approximate/unanchored)
                 </p>
               ) : null}
@@ -706,7 +669,7 @@ export function GraphReviewLiveProjectionPanel({
               <button
                 type="button"
                 onClick={() =>
-                  selectedNode && setRelationshipSource(selectedNode)
+                  selectedNode && authorDraft.setRelationshipDraftSource(selectedNode)
                 }
                 disabled={!selectedNode}
               >
@@ -715,10 +678,10 @@ export function GraphReviewLiveProjectionPanel({
               <label>
                 Predicate{" "}
                 <select
-                  value={relationshipPredicate}
+                  value={authorDraft.relationshipPredicate}
                   onChange={(event) =>
-                    setRelationshipPredicate(
-                      event.target.value as typeof relationshipPredicate,
+                    authorDraft.setRelationshipPredicate(
+                      event.target.value as typeof authorDraft.relationshipPredicate,
                     )
                   }
                 >
@@ -733,17 +696,17 @@ export function GraphReviewLiveProjectionPanel({
                 type="button"
                 onClick={stageRelationship}
                 disabled={
-                  !relationshipSource ||
+                  !authorDraft.relationshipDraftSource ||
                   !selectedNode ||
-                  relationshipSource.nodeId === selectedNode.nodeId
+                  authorDraft.relationshipDraftSource.nodeId === selectedNode.nodeId
                 }
               >
                 Stage relationship
               </button>
-              {relationshipSource ? (
+              {authorDraft.relationshipDraftSource ? (
                 <p>
-                  Relationship source: {relationshipSource.laneRole}:
-                  {relationshipSource.nodeId}
+                  Relationship source: {authorDraft.relationshipDraftSource.laneRole}:
+                  {authorDraft.relationshipDraftSource.nodeId}
                 </p>
               ) : null}
             </section>
@@ -762,41 +725,31 @@ export function GraphReviewLiveProjectionPanel({
             onStageLinkIntent={
               authorMode === "author_draft" && selectedNodeViewModel
                 ? (candidate) =>
-                    setLocalProposals((current) => [
-                      ...current,
-                      createExistingObjectLinkIntentProposal(
-                        localProposalFactory,
-                        {
-                          selectedNode: {
-                            laneRole: selectedNodeViewModel.laneRole,
-                            nodeId: selectedNodeViewModel.node.node_id,
-                            label: selectedNodeViewModel.node.label,
-                          },
-                          candidate: {
-                            ...candidate,
-                            candidateId: candidate.candidate_id,
-                          },
-                        },
-                      ),
-                    ])
+                    authorDraft.stageExistingObjectLinkIntent({
+                      selectedNode: {
+                        laneRole: selectedNodeViewModel.laneRole,
+                        nodeId: selectedNodeViewModel.node.node_id,
+                        label: selectedNodeViewModel.node.label,
+                      },
+                      candidate: {
+                        ...candidate,
+                        candidateId: candidate.candidate_id,
+                      },
+                    })
                 : undefined
             }
           />
           {authorMode === "author_draft" ? (
             <>
               <GraphReviewLocalStagingTray
-                proposals={localProposals}
-                onUpdateStatus={(proposalId, status) =>
-                  setLocalProposals((current) =>
-                    updateLocalProposalStatus(current, proposalId, status),
-                  )
-                }
-                onReset={() => setLocalProposals([])}
+                proposals={authorDraft.localProposals}
+                onUpdateStatus={authorDraft.updateProposalStatus}
+                onReset={authorDraft.resetLocalDraft}
               />
               <GraphReviewAuthoringPreparePreviewPanel
                 campaignId={campaignId}
                 sessionId={sessionId}
-                proposals={localProposals}
+                workflow={authorDraft}
                 onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
                 onShowCommittedObject={(targetId) => {
                   if (goldProjection?.node_views[targetId]) {
