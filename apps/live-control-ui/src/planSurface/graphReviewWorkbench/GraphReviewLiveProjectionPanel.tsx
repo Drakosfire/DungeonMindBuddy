@@ -223,6 +223,17 @@ export function GraphReviewLiveProjectionPanel({
     };
   }, [campaignId, sessionId]);
 
+
+  const selectGoldNodeCard = useCallback((targetId: string, projectionOverride?: GoldGraphProjectionResponse | null) => {
+    const sourceProjection = projectionOverride ?? goldProjection;
+    if (!sourceProjection?.node_views[targetId]) return false;
+    setActiveLaneObject({ laneRole: "gold", nodeId: targetId });
+    setSelectedDeltaNodeId(targetId);
+    setSelectedNode({ laneRole: "gold", nodeId: targetId });
+    setSelectedRelationship(null);
+    return true;
+  }, [goldProjection]);
+
   const reloadGoldProjectionAndVerifyCommit = useCallback(async (commitResponse: GraphGoldAuthoringCommitResponse): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
     try {
       const refreshed = await reloadGoldProjection();
@@ -235,8 +246,7 @@ export function GraphReviewLiveProjectionPanel({
       });
       const firstVisible = verification.checked_operations.find((operation) => operation.verification_status === "found_in_gold_projection" && operation.target_id && refreshed.node_views[operation.target_id]);
       if (firstVisible?.target_id) {
-        setActiveLaneObject({ laneRole: "gold", nodeId: firstVisible.target_id });
-        setSelectedDeltaNodeId(firstVisible.target_id);
+        selectGoldNodeCard(firstVisible.target_id, refreshed);
       }
       return verification;
     } catch (error) {
@@ -244,7 +254,7 @@ export function GraphReviewLiveProjectionPanel({
       setGoldProjectionError(friendlyProjectionError(error));
       throw error;
     }
-  }, [reloadGoldProjection]);
+  }, [reloadGoldProjection, selectGoldNodeCard]);
 
   const authorDraft = useGraphReviewAuthorDraftWorkflow({
     campaignId,
@@ -752,11 +762,9 @@ export function GraphReviewLiveProjectionPanel({
                 workflow={authorDraft}
                 onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
                 onShowCommittedObject={(targetId) => {
-                  if (goldProjection?.node_views[targetId]) {
-                    setActiveLaneObject({ laneRole: "gold", nodeId: targetId });
-                    setSelectedDeltaNodeId(targetId);
-                  }
+                  selectGoldNodeCard(targetId);
                 }}
+                canShowCommittedObject={(targetId) => Boolean(goldProjection?.node_views[targetId])}
               />
             </>
           ) : null}

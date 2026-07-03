@@ -1,33 +1,22 @@
 import { GraphReviewCommitSummaryPanel } from "./GraphReviewCommitSummaryPanel";
-import { useEffect } from "react";
-
 import { GraphReviewCommitVerificationPanel } from "./GraphReviewCommitVerificationPanel";
 import type { GraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
-import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringVerifyCommitResponse } from "../../api/types";
-import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthoringState";
 
 interface Props {
   campaignId: string;
   sessionId: string;
-  proposals?: GraphReviewLocalAuthoringProposal[];
-  workflow?: GraphReviewAuthorDraftWorkflow;
+  workflow: GraphReviewAuthorDraftWorkflow;
   onReloadAndVerifyCommit?: (commitResponse: GraphGoldAuthoringCommitResponse) => Promise<GraphGoldAuthoringVerifyCommitResponse>;
   onShowCommittedObject?: (targetId: string) => void;
+  canShowCommittedObject?: (targetId: string) => boolean;
 }
 
 function title(operationType: string): string {
   return operationType.split("_").map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ");
 }
 
-export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId, proposals = [], workflow, onReloadAndVerifyCommit, onShowCommittedObject }: Props) {
-  const fallbackWorkflow = useGraphReviewAuthorDraftWorkflow({ campaignId, sessionId, onReloadAndVerifyCommit, initialProposals: proposals });
-  const draft = workflow ?? fallbackWorkflow;
-  const visibleProposals = workflow ? draft.localProposals : proposals;
-
-  useEffect(() => {
-    if (!workflow) draft.setLocalProposals(proposals);
-  }, [draft.setLocalProposals, proposals, workflow]);
+export function GraphReviewAuthoringPreparePreviewPanel({ workflow: draft, onReloadAndVerifyCommit, onShowCommittedObject, canShowCommittedObject }: Props) {
 
   return (
     <section className="graph-review-authoring-prepare-preview" aria-label="Prepare write preview panel">
@@ -67,7 +56,7 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
                 <input type="checkbox" checked={draft.commitConfirmed} onChange={(event) => draft.setCommitConfirmed(event.target.checked)} />
                 I understand this will write to the gold fixture and create a backup.
               </label>
-              <button type="button" onClick={draft.commitPreparedPreview} disabled={!draft.preparedRequest || !draft.commitConfirmed || draft.commitStatus === "loading"}>Commit prepared preview</button>
+              <button type="button" onClick={draft.commitPreparedPreview} disabled={!draft.preparedRequest || !draft.commitConfirmed || draft.commitStatus === "loading" || draft.commitStatus === "success"}>Commit prepared preview</button>
               {draft.commitStatus === "loading" ? <p role="status">Committing prepared preview…</p> : null}
               {draft.commitStatus === "success" && draft.commitResponse ? <p role="status">Committed. Gold fixture updated and backup created.</p> : null}
               {draft.commitStatus === "blocked" ? <p role="status">Commit blocked. No files were changed.</p> : null}
@@ -77,13 +66,13 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
                   <GraphReviewCommitSummaryPanel commitResponse={draft.commitResponse} />
                   {draft.commitResponse.commit_status !== "blocked" && onReloadAndVerifyCommit ? (
                     <section aria-label="Reload and verify committed changes">
-                      <h4>4. Verify</h4>
+                      <h4>4. Verify committed changes</h4>
                       <button type="button" onClick={draft.reloadAndVerifyCommit} disabled={draft.verificationStatus === "loading"}>Reload gold projection</button>
                     </section>
                   ) : null}
                   {draft.verificationStatus === "loading" ? <p role="status">Reloading gold projection…</p> : null}
                   {draft.verificationStatus === "error" ? <p role="alert">Could not verify committed changes. {draft.verificationError}</p> : null}
-                  {draft.verificationResponse ? <GraphReviewCommitVerificationPanel verificationResponse={draft.verificationResponse} onShowCommittedObject={onShowCommittedObject} /> : null}
+                  {draft.verificationResponse ? <GraphReviewCommitVerificationPanel verificationResponse={draft.verificationResponse} onShowCommittedObject={onShowCommittedObject} canShowCommittedObject={canShowCommittedObject} /> : null}
                 </>
               ) : null}
             </section>
@@ -102,7 +91,6 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
           </div>
         </div>
       ) : null}
-      <p className="sr-only">Local proposal count: {visibleProposals.length}</p>
     </section>
   );
 }

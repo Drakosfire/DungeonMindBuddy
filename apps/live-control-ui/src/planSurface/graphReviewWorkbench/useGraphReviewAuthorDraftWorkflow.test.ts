@@ -107,11 +107,40 @@ describe("useGraphReviewAuthorDraftWorkflow", () => {
     expect(result.current.verificationResponse).toEqual(verificationResponse);
   });
 
-  it("reset clears the local draft", () => {
-    const { result } = renderWorkflow();
+  it("preparing again clears old commit and verification state", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const verificationResponse = { schema: "dmb_graph_gold_authoring_verify_commit_response_v1" as const, campaign_id: "longmont-c1", session_id: "session-1", commit_id: "graph-gold-authoring-test", verification_status: "verified" as const, checked_operations: [], diagnostics: [] };
+    const { result } = renderWorkflow(vi.fn().mockResolvedValue(verificationResponse));
     act(() => result.current.stageNodeAssertion({ laneRole: "live", nodeId: "node-1", label: "Node One", kind: null, role: null }));
+    await act(async () => result.current.preparePreview());
+    act(() => result.current.setCommitConfirmed(true));
+    await act(async () => result.current.commitPreparedPreview());
+    await act(async () => result.current.reloadAndVerifyCommit());
+    expect(result.current.commitResponse).not.toBeNull();
+    expect(result.current.verificationResponse).not.toBeNull();
+    await act(async () => result.current.preparePreview());
+    expect(result.current.commitResponse).toBeNull();
+    expect(result.current.verificationResponse).toBeNull();
+    expect(result.current.commitConfirmed).toBe(false);
+  });
+
+  it("reset clears the complete local draft and prepared workflow", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(prepareResponse);
+    const { result } = renderWorkflow();
+    act(() => result.current.setSelectedText({ laneRole: "live", text: "Tripod Null-Calf", sourceOffsets: null }));
+    act(() => result.current.setRelationshipDraftSource({ laneRole: "live", nodeId: "node-source" }));
+    act(() => result.current.stageNodeAssertion({ laneRole: "live", nodeId: "node-1", label: "Node One", kind: null, role: null }));
+    await act(async () => result.current.preparePreview());
+    act(() => result.current.setCommitConfirmed(true));
     expect(result.current.localProposals).toHaveLength(1);
     act(() => result.current.resetLocalDraft());
     expect(result.current.localProposals).toEqual([]);
+    expect(result.current.selectedText).toBeNull();
+    expect(result.current.relationshipDraftSource).toBeNull();
+    expect(result.current.prepareResponse).toBeNull();
+    expect(result.current.commitResponse).toBeNull();
+    expect(result.current.verificationResponse).toBeNull();
+    expect(result.current.commitConfirmed).toBe(false);
   });
 });
