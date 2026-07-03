@@ -34,7 +34,15 @@ interface GraphReviewProjectionLaneProps {
   onActiveObjectChange: (
     active: { laneRole: GraphReviewProjectionLaneRole; nodeId: string } | null,
   ) => void;
-  onSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void;
+  onSelectObject?: (selection: {
+    laneRole: GraphReviewProjectionLaneRole;
+    nodeId: string;
+  }) => void;
+  onSelectText?: (selection: {
+    laneRole: GraphReviewProjectionLaneRole;
+    text: string;
+    sourceOffsets: { start: number; end: number } | null;
+  }) => void;
 }
 
 interface NodeDecoration {
@@ -103,7 +111,10 @@ function renderMentionToken({
   decorations: Record<string, NodeDecoration>;
   activeObject: GraphReviewProjectionLaneProps["activeObject"];
   onActiveObjectChange: GraphReviewProjectionLaneProps["onActiveObjectChange"];
-  propsOnSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void;
+  propsOnSelectObject?: (selection: {
+    laneRole: GraphReviewProjectionLaneRole;
+    nodeId: string;
+  }) => void;
   nodeId: string;
   label: string;
   key: string;
@@ -163,7 +174,10 @@ function renderInlineRange(
   decorations: Record<string, NodeDecoration>,
   activeObject: GraphReviewProjectionLaneProps["activeObject"],
   onActiveObjectChange: GraphReviewProjectionLaneProps["onActiveObjectChange"],
-  propsOnSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void,
+  propsOnSelectObject?: (selection: {
+    laneRole: GraphReviewProjectionLaneRole;
+    nodeId: string;
+  }) => void,
 ) {
   const parts: ReactNode[] = [];
   const anchoredMentions = mentions
@@ -306,6 +320,15 @@ export function GraphReviewProjectionLane(
       ) : null}
       <article
         className="graph-review-projection-document"
+        onMouseUp={() => {
+          const selected = window.getSelection()?.toString().trim() ?? "";
+          if (selected)
+            props.onSelectText?.({
+              laneRole: props.laneRole,
+              text: selected,
+              sourceOffsets: null,
+            });
+        }}
         data-testid={
           props.laneRole === "live" ? "graph-projection-reader" : undefined
         }
