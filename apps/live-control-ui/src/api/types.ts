@@ -1815,6 +1815,13 @@ export interface UnionSupergraphProjectionResponse {
   }>;
 }
 
+export interface GoldGraphProjectionResponse extends UnionSupergraphProjectionResponse {
+  source_kind: "gold_fixture";
+  fixture_version?: string | null;
+  gold_fixture_id: string;
+  gold_fixture_relpath: string;
+}
+
 export interface PartyRegistryMemberRow {
   slug: string;
   kind: string;

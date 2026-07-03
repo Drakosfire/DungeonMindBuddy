@@ -34,8 +34,10 @@ from apps.live_control_server.services.graph_gold_review import (
     GoldReviewEvidenceDiffResponse,
     GoldReviewSessionsResponse,
     GraphGoldReviewError,
+    GoldGraphProjectionResponse,
     VocabularyAblationDogfoodResponse,
     build_gold_review_evidence_diff,
+    build_gold_graph_projection,
     compare_gold_review,
     discover_gold_review_sessions,
     load_vocabulary_ablation_dogfood,
@@ -260,6 +262,24 @@ def get_gold_review_evidence(
             object_kind=object_kind,
             object_id=object_id,
             manifest_path=manifest_path,
+            root=repo_root(),
+        )
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get("/gold-review/projection", response_model=GoldGraphProjectionResponse)
+def get_gold_review_projection(
+    campaign_id: Annotated[str, Query()],
+    session_id: Annotated[str, Query()],
+    fixture_version: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        response = build_gold_graph_projection(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            fixture_version=fixture_version,
             root=repo_root(),
         )
     except GraphGoldReviewError as exc:

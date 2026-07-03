@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
@@ -42,6 +43,17 @@ from evals.graph_memory_layer.mirathorn_city_candidate_graph_gold_fixture import
 )
 from graph_memory import identity_resolution as ir
 from graph_memory.ingestion.graph_ingest_run import GraphIngestRunManifest
+from graph_memory.projection import GraphFocusOverlay
+from graph_memory.projection.focus_overlay import GraphProjectionEvidenceBadge
+from graph_memory.projection.node_view import (
+    GraphProjectionAdjacencyCandidate,
+    GraphProjectionNodeView,
+)
+from graph_memory.projection.recap_projection import (
+    RecapGraphProjection,
+    RecapProjectionMention,
+    RecapProjectionSourceSpan,
+)
 from src.graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
 
 COMPARISON_SCHEMA = "dmb_graph_gold_review_compare_v1"
@@ -221,6 +233,15 @@ class VocabularyAblationDogfoodResponse(BaseModel):
     variant_setup: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class GoldGraphProjectionResponse(RecapGraphProjection):
+    """Projection-compatible payload for rendering a gold fixture as prose."""
+
+    source_kind: Literal["gold_fixture"] = "gold_fixture"
+    fixture_version: str | None = None
+    gold_fixture_id: str
+    gold_fixture_relpath: str
+
+
 def discover_gold_review_sessions(root: Path | None = None) -> list[GoldReviewSessionSummary]:
     repo = (root or repo_root()).resolve()
     summaries: list[GoldReviewSessionSummary] = []
@@ -388,6 +409,80 @@ def build_gold_review_evidence_diff(
     )
 
 
+def build_gold_graph_projection(
+    *,
+    campaign_id: str,
+    session_id: str,
+    fixture_version: str | None = None,
+    root: Path | None = None,
+) -> GoldGraphProjectionResponse:
+    """Build a read-only projection payload from a candidate graph gold fixture."""
+
+    _repo = (root or repo_root()).resolve()
+    entry = _session_entry(session_id)
+    entry_campaign = entry["campaign_id"]
+    if entry_campaign is not None and entry_campaign != campaign_id:
+        raise GraphGoldReviewError(
+            f"session {session_id} belongs to {entry_campaign}, not {campaign_id}",
+            status_code=422,
+        )
+
+    gold_graph = entry["load_gold_graph_dict"]()
+    gold_parts = parts_from_raw_graph(gold_graph)
+    markdown = _load_gold_normalized_recap(entry["fixture_key"])
+    anchor_lookup = _resolved_anchor_lookup(entry["fixture_key"])
+
+    source_spans = [
+        RecapProjectionSourceSpan(
+            span_id=str(item["source_anchor_id"]),
+            kind="gold_evidence_anchor",
+            text_excerpt=str(item.get("preview_snippet") or item.get("paragraph_text") or "")[:240] or None,
+            line_start=item.get("line_start") if isinstance(item.get("line_start"), int) else None,
+            line_end=item.get("line_end") if isinstance(item.get("line_end"), int) else None,
+        )
+        for item in anchor_lookup.values()
+    ]
+    node_views = _build_gold_node_views(gold_parts, anchor_lookup, session_id=session_id)
+    mentions = _build_gold_mentions(gold_parts, anchor_lookup, markdown)
+    focused_node_ids = sorted(
+        node_id
+        for node_id, view in node_views.items()
+        if view.anchored_to_focus_session or any(badge.is_focus_session_evidence for badge in view.evidence_badges)
+    )
+    focused_edge_ids = sorted(
+        str(edge.get("edge_id"))
+        for edge in gold_parts.get("edges", [])
+        if isinstance(edge, dict) and edge.get("edge_id")
+    )
+    focused_evidence_ref_ids = sorted(
+        {
+            evidence_ref_id
+            for view in node_views.values()
+            for badge in view.evidence_badges
+            for evidence_ref_id in [badge.evidence_ref_id]
+        }
+    )
+
+    return GoldGraphProjectionResponse(
+        campaign_id=campaign_id,
+        session_id=session_id,
+        graph_id=str(gold_graph.get("preview_id") or entry["gold_fixture_id"]),
+        markdown=markdown,
+        focus=GraphFocusOverlay(
+            focus_session_id=session_id,
+            focused_evidence_ref_ids=focused_evidence_ref_ids,
+            focused_edge_ids=focused_edge_ids,
+            focused_node_ids=focused_node_ids,
+        ),
+        node_views=node_views,
+        mentions=mentions,
+        source_spans=source_spans,
+        fixture_version=fixture_version,
+        gold_fixture_id=entry["gold_fixture_id"],
+        gold_fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json",
+    )
+
+
 def load_live_candidate_graph_dict(repo: Path, manifest_path: str) -> dict[str, Any]:
     safe_manifest = _resolve_repo_path(repo, manifest_path)
     payload = json.loads(safe_manifest.read_text(encoding="utf-8"))
@@ -528,9 +623,11 @@ def _build_match_pairs(
         if score_kind == "node":
             score_fn = ir.node_match_score
         elif score_kind == "edge":
-            score_fn = lambda g, c: ir.edge_match_score(g, c, gold_nidx, cand_nidx)
+            def score_fn(g: Any, c: Any) -> float:
+                return ir.edge_match_score(g, c, gold_nidx, cand_nidx)
         elif score_kind == "beat":
-            score_fn = lambda g, c: ir.beat_match_score(g, c, gold_nidx, cand_nidx)
+            def score_fn(g: Any, c: Any) -> float:
+                return ir.beat_match_score(g, c, gold_nidx, cand_nidx)
         elif score_kind == "write":
 
             def write_score(g: Any, c: Any) -> float:
@@ -599,9 +696,11 @@ def _best_live_match(
     if score_kind == "node":
         score_fn = ir.node_match_score
     elif score_kind == "edge":
-        score_fn = lambda g, c: ir.edge_match_score(g, c, gold_nidx, cand_nidx)
+        def score_fn(g: Any, c: Any) -> float:
+            return ir.edge_match_score(g, c, gold_nidx, cand_nidx)
     elif score_kind == "beat":
-        score_fn = lambda g, c: ir.beat_match_score(g, c, gold_nidx, cand_nidx)
+        def score_fn(g: Any, c: Any) -> float:
+            return ir.beat_match_score(g, c, gold_nidx, cand_nidx)
     elif score_kind == "write":
 
         def write_score(g: Any, c: Any) -> float:
@@ -655,6 +754,20 @@ def _evidence_side(
     )
 
 
+def resolve_gold_evidence_refs_bulk(
+    fixture_key: str,
+    refs: list[Any],
+) -> dict[str, GoldReviewEvidenceResolvedRef]:
+    """Resolve gold evidence refs by source anchor id without mutating fixtures."""
+
+    resolved = _resolve_evidence_refs(fixture_key, refs)
+    return {
+        item.source_anchor_id: item
+        for item in resolved
+        if item.source_anchor_id is not None
+    }
+
+
 def _resolve_evidence_refs(
     fixture_key: str,
     refs: list[Any],
@@ -679,6 +792,191 @@ def _resolve_evidence_refs(
             )
         )
     return out
+
+
+def _load_gold_normalized_recap(fixture_key: str) -> str:
+    if fixture_key == "session-1":
+        from evals.graph_memory_layer.session_1_recap_ingest_fixture import (
+            load_expected_normalized_recap,
+        )
+    elif fixture_key == "session-22":
+        from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
+            load_expected_normalized_recap,
+        )
+    elif fixture_key == "session-23":
+        from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
+            load_expected_normalized_recap,
+        )
+    elif fixture_key == "mirathorn-city":
+        from evals.graph_memory_layer.mirathorn_city_world_doc_fixture import (
+            load_source_doc as load_expected_normalized_recap,
+        )
+    else:
+        raise GraphGoldReviewError(f"no recap fixture for session: {fixture_key}", status_code=404)
+    return load_expected_normalized_recap()
+
+
+def _build_gold_node_views(
+    gold_parts: dict[str, list[Any]],
+    anchor_lookup: dict[str, dict[str, Any]],
+    *,
+    session_id: str,
+) -> dict[str, GraphProjectionNodeView]:
+    nodes = [node for node in gold_parts.get("nodes", []) if isinstance(node, dict)]
+    edges = [edge for edge in gold_parts.get("edges", []) if isinstance(edge, dict)]
+    node_views: dict[str, GraphProjectionNodeView] = {}
+    for node in nodes:
+        node_id = str(node.get("node_id") or "")
+        if not node_id:
+            continue
+        badges = _gold_evidence_badges(node.get("evidence_refs") or [], anchor_lookup, session_id=session_id)
+        node_views[node_id] = GraphProjectionNodeView(
+            node_id=node_id,
+            label=str(node.get("label") or node_id),
+            kind=str(node.get("kind") or node.get("node_type") or "entity"),
+            role=str(node.get("role") or (node.get("semantic_state") or {}).get("evidence_role") or "candidate"),
+            aliases=[str(alias) for alias in node.get("aliases") or []],
+            source_domains=["gold_fixture"],
+            evidence_badges=badges,
+            adjacency=[],
+            suggested_expansions=[],
+            anchored_to_focus_session=bool(badges),
+            summary=str(node.get("description") or "") or None,
+        )
+    for edge in edges:
+        edge_id = str(edge.get("edge_id") or "")
+        from_id = str(edge.get("from_node_id") or edge.get("source_node_id") or "")
+        to_id = str(edge.get("to_node_id") or edge.get("target_node_id") or "")
+        predicate = str(edge.get("relationship_type") or edge.get("predicate") or "related_to")
+        edge_refs = [
+            str(ref.get("source_anchor_id") or ref.get("source_span_ref_id") or ref.get("label") or "")
+            for ref in edge.get("evidence_refs") or []
+            if isinstance(ref, dict)
+        ]
+        for node_id, adjacent_id, direction in ((from_id, to_id, "outgoing"), (to_id, from_id, "incoming")):
+            if node_id not in node_views or adjacent_id not in node_views:
+                continue
+            adjacent = node_views[adjacent_id]
+            node_views[node_id].adjacency.append(
+                GraphProjectionAdjacencyCandidate(
+                    edge_id=edge_id,
+                    node_id=adjacent_id,
+                    label=adjacent.label,
+                    kind=adjacent.kind,
+                    predicate=predicate,
+                    direction=direction,
+                    anchored_to_focus_session=True,
+                    source_domains=["gold_fixture"],
+                    evidence_ref_ids=[ref for ref in edge_refs if ref],
+                    edge_label=str(edge.get("label") or "") or None,
+                    session_ids=[session_id],
+                )
+            )
+    return node_views
+
+
+def _gold_evidence_badges(
+    refs: list[Any],
+    anchor_lookup: dict[str, dict[str, Any]],
+    *,
+    session_id: str,
+) -> list[GraphProjectionEvidenceBadge]:
+    badges: list[GraphProjectionEvidenceBadge] = []
+    for index, ref in enumerate(refs):
+        if not isinstance(ref, dict):
+            continue
+        anchor_id = str(ref.get("source_anchor_id") or ref.get("source_span_ref_id") or f"gold-ref:{index}")
+        resolved = anchor_lookup.get(anchor_id) or {}
+        badges.append(
+            GraphProjectionEvidenceBadge(
+                evidence_ref_id=anchor_id,
+                source_artifact_id=str(ref.get("source_artifact_id") or ""),
+                source_domain="gold_fixture",
+                evidence_role=str(ref.get("evidence_role") or "source_evidence"),
+                is_focus_session_evidence=True,
+                can_open_source=bool(ref.get("can_open_source", True)),
+                can_highlight_span=bool(ref.get("can_highlight_span", True)),
+                label=str(ref.get("label") or resolved.get("label") or anchor_id),
+                session_id=session_id,
+                source_span_ref_id=str(ref.get("source_span_ref_id") or "") or None,
+            )
+        )
+    return badges
+
+
+def _build_gold_mentions(
+    gold_parts: dict[str, list[Any]],
+    anchor_lookup: dict[str, dict[str, Any]],
+    markdown: str,
+) -> list[RecapProjectionMention]:
+    mentions: list[RecapProjectionMention] = []
+    for node in gold_parts.get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("node_id") or "")
+        label = str(node.get("label") or node_id)
+        evidence_ids: list[str] = []
+        status = "unanchored"
+        start: int | None = None
+        end: int | None = None
+        for ref in node.get("evidence_refs") or []:
+            if not isinstance(ref, dict):
+                continue
+            anchor_id = str(ref.get("source_anchor_id") or "")
+            evidence_ids.append(anchor_id)
+            resolved = anchor_lookup.get(anchor_id) or {}
+            anchor = _locate_gold_anchor(markdown, label, resolved)
+            if anchor[0] == "anchored":
+                status, start, end = anchor
+                break
+            if status == "unanchored" and anchor[0] == "ambiguous":
+                status, start, end = anchor
+        mentions.append(
+            RecapProjectionMention(
+                mention_id=f"gold-mention:{node_id}:{start if start is not None else status}",
+                node_id=node_id,
+                label=label,
+                start_offset=start,
+                end_offset=end,
+                evidence_ref_ids=[item for item in evidence_ids if item],
+                anchor_status=status,
+                source_kind="gold_fixture",
+            )
+        )
+    return sorted(mentions, key=lambda item: item.start_offset if item.start_offset is not None else 10**9)
+
+
+def _locate_gold_anchor(
+    markdown: str,
+    label: str,
+    resolved: dict[str, Any],
+) -> tuple[str, int | None, int | None]:
+    candidates = [
+        str(resolved.get("preview_snippet") or ""),
+        str(resolved.get("paragraph_text") or ""),
+    ]
+    paragraph = str(resolved.get("paragraph_text") or "")
+    paragraph_start = markdown.find(paragraph) if paragraph else -1
+    if label and paragraph_start >= 0:
+        label_start = paragraph.lower().find(label.lower())
+        if label_start >= 0:
+            start = paragraph_start + label_start
+            return ("anchored", start, start + len(label))
+    if label:
+        label_matches = [match.start() for match in re.finditer(re.escape(label), markdown, flags=re.IGNORECASE)]
+        if len(label_matches) == 1:
+            start = label_matches[0]
+            return ("anchored", start, start + len(label))
+        if len(label_matches) > 1:
+            return ("ambiguous", None, None)
+    for candidate in candidates:
+        snippet = " ".join(candidate.split())
+        if not snippet:
+            continue
+        start = markdown.find(snippet)
+        if start >= 0:
+            return ("anchored", start, start + len(snippet))
+    return ("unanchored", None, None)
 
 
 def _resolved_anchor_lookup(fixture_key: str) -> dict[str, dict[str, Any]]:
