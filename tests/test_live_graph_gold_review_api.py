@@ -18,6 +18,9 @@ from evals.graph_memory_layer.graph_preview_runner import (
 from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
     load_gold_candidate_graph_dict,
 )
+from evals.graph_memory_layer.session_1_recap_ingest_fixture import (
+    load_expected_normalized_recap as load_session_1_expected_normalized_recap,
+)
 from evals.graph_memory_layer.session_23_recap_ingest_fixture import load_expected_normalized_recap
 from graph_memory.ingestion.graph_ingest_run import GraphIngestRunStatus
 from graph_memory.union_supergraph.preview_run_materialize import (
@@ -113,6 +116,91 @@ def test_gold_review_evidence_endpoint_returns_side_by_side_payload(
     assert payload["live"]["object_id"] == "node:lysandro"
     assert payload["gold"]["evidence"]
     assert payload["live"]["evidence"]
+
+
+def test_gold_review_projection_endpoint_renders_session_1_gold_recap_read_only() -> None:
+    fixture_path = REPO_ROOT / "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json"
+    before = fixture_path.read_bytes()
+
+    response = _client().get(
+        "/api/live/graph-preview/gold-review/projection",
+        params={"campaign_id": "longmont-c1", "session_id": "session-1"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_kind"] == "gold_fixture"
+    assert payload["campaign_id"] == "longmont-c1"
+    assert payload["session_id"] == "session-1"
+    assert payload["gold_fixture_relpath"] == (
+        "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json"
+    )
+    assert payload["markdown"] == load_session_1_expected_normalized_recap()
+    assert "node:heroes-party" in payload["node_views"]
+    assert payload["node_views"]["node:heroes-party"]["label"] == "Heroes / Party"
+    assert any(
+        mention["node_id"] == "node:heroes-party"
+        and mention["anchor_status"] == "anchored"
+        and isinstance(mention["start_offset"], int)
+        for mention in payload["mentions"]
+    )
+    assert fixture_path.read_bytes() == before
+
+
+def test_gold_review_projection_rejects_unsupported_fixture_version() -> None:
+    response = _client().get(
+        "/api/live/graph-preview/gold-review/projection",
+        params={
+            "campaign_id": "longmont-c1",
+            "session_id": "session-1",
+            "fixture_version": "not-a-real-version",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "fixture_version selection is not supported yet" in response.json()["detail"]
+
+
+def test_gold_review_projection_keeps_unanchored_nodes_non_fatal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = graph_gold_review_module._session_entry("session-1")["load_gold_graph_dict"]()
+
+    def _load_gold_graph_with_unanchored_node() -> dict[str, object]:
+        graph = json.loads(json.dumps(original))
+        graph["nodes"].append(
+            {
+                "node_id": "node:unanchored-test",
+                "label": "Unanchored Test Node",
+                "node_type": "npc",
+                "evidence_refs": [
+                    {
+                        "source_anchor_id": "anchor:not-in-session-1-markdown",
+                        "source_artifact_id": "source-artifact:session-1-normalized-recap",
+                        "label": "missing",
+                    }
+                ],
+            }
+        )
+        return graph
+
+    monkeypatch.setitem(
+        graph_gold_review_module._session_entry("session-1"),
+        "load_gold_graph_dict",
+        _load_gold_graph_with_unanchored_node,
+    )
+
+    payload = graph_gold_review_module.build_gold_graph_projection(
+        campaign_id="longmont-c1",
+        session_id="session-1",
+    ).model_dump(mode="json")
+
+    assert "node:unanchored-test" in payload["node_views"]
+    mention = next(
+        item for item in payload["mentions"] if item["node_id"] == "node:unanchored-test"
+    )
+    assert mention["anchor_status"] == "unanchored"
+    assert mention["start_offset"] is None
 
 
 def test_gold_review_vocabulary_ablation_endpoint_loads_session_23_artifact() -> None:

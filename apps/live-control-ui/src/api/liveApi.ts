@@ -57,6 +57,7 @@ import type {
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
   GraphIngestRunsResponse,
+  GoldGraphProjectionResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
@@ -393,6 +394,23 @@ export async function getDefaultUnionSupergraphProjection(
   previewSource = defaultUnionSupergraphPreviewSource,
 ): Promise<UnionSupergraphProjectionResponse> {
   return getUnionSupergraphProjection({ sessionId, previewSource });
+}
+
+export interface GoldGraphProjectionQuery {
+  campaignId: string;
+  sessionId: string;
+}
+
+export async function getGoldGraphProjection(
+  query: GoldGraphProjectionQuery,
+): Promise<GoldGraphProjectionResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  return apiFetch<GoldGraphProjectionResponse>(
+    `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+  );
 }
 
 export async function getSourceBundle(
