@@ -419,6 +419,11 @@ def build_gold_graph_projection(
     """Build a read-only projection payload from a candidate graph gold fixture."""
 
     _repo = (root or repo_root()).resolve()
+    if fixture_version is not None:
+        raise GraphGoldReviewError(
+            "fixture_version selection is not supported yet; omit fixture_version",
+            status_code=422,
+        )
     entry = _session_entry(session_id)
     entry_campaign = entry["campaign_id"]
     if entry_campaign is not None and entry_campaign != campaign_id:
@@ -477,7 +482,7 @@ def build_gold_graph_projection(
         node_views=node_views,
         mentions=mentions,
         source_spans=source_spans,
-        fixture_version=fixture_version,
+        fixture_version=None,
         gold_fixture_id=entry["gold_fixture_id"],
         gold_fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json",
     )

@@ -186,12 +186,11 @@ describe("liveApi artifact/capability helpers", () => {
     await getGoldGraphProjection({
       campaignId: "longmont-c1",
       sessionId: "session-1",
-      fixtureVersion: "v1",
     });
 
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe(
-      "/api/live/graph-preview/gold-review/projection?campaign_id=longmont-c1&session_id=session-1&fixture_version=v1",
+      "/api/live/graph-preview/gold-review/projection?campaign_id=longmont-c1&session_id=session-1",
     );
     expect(String(url)).not.toContain("/author");
     expect(String(url)).not.toContain("/write");

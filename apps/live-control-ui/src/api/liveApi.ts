@@ -399,7 +399,6 @@ export async function getDefaultUnionSupergraphProjection(
 export interface GoldGraphProjectionQuery {
   campaignId: string;
   sessionId: string;
-  fixtureVersion?: string | null;
 }
 
 export async function getGoldGraphProjection(
@@ -409,7 +408,6 @@ export async function getGoldGraphProjection(
     campaign_id: query.campaignId,
     session_id: query.sessionId,
   });
-  if (query.fixtureVersion) params.set("fixture_version", query.fixtureVersion);
   return apiFetch<GoldGraphProjectionResponse>(
     `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
   );

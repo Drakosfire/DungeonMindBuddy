@@ -147,6 +147,20 @@ def test_gold_review_projection_endpoint_renders_session_1_gold_recap_read_only(
     assert fixture_path.read_bytes() == before
 
 
+def test_gold_review_projection_rejects_unsupported_fixture_version() -> None:
+    response = _client().get(
+        "/api/live/graph-preview/gold-review/projection",
+        params={
+            "campaign_id": "longmont-c1",
+            "session_id": "session-1",
+            "fixture_version": "not-a-real-version",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "fixture_version selection is not supported yet" in response.json()["detail"]
+
+
 def test_gold_review_projection_keeps_unanchored_nodes_non_fatal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
