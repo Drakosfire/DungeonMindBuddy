@@ -3728,6 +3728,15 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .graph-review-authoring-hero p { max-width: 72rem; }
 
+.graph-review-authoring-demo-note,
+.graph-review-authoring-empty-state {
+  border-left: 3px solid rgba(251, 191, 36, 0.85);
+  border-radius: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  background: rgba(251, 191, 36, 0.11);
+  color: var(--plan-text, #e2e8f0);
+}
+
 .graph-review-authoring-mode-strip,
 .graph-review-authoring-lane-badges,
 .graph-review-card-actions,

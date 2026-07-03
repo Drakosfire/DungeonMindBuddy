@@ -27,7 +27,9 @@ export function GraphReviewAuthoringWorkbenchModule() {
   const [proposals, setProposals] = useState(mockAuthoringProposals);
 
   const acceptedProposalCount = useMemo(() => proposals.filter((proposal) => proposal.status === "accepted").length, [proposals]);
-  const selectedRelationship = mockRelationships.find((relationship) => relationship.id === selectedRelationshipId) ?? mockRelationships[0];
+  const selectedRelationship = selectedRelationshipId
+    ? mockRelationships.find((relationship) => relationship.id === selectedRelationshipId) ?? null
+    : null;
   const lanes = mockAuthoringLanes.map((lane) => lane.laneId === "left" ? { ...lane, activeInteractionMode: activeMode, stagedProposalCount: stagedProposalCount(proposals) } : lane);
 
   const changeProposalStatus = (id: string, status: GraphReviewProposalStatus) => {
@@ -37,9 +39,10 @@ export function GraphReviewAuthoringWorkbenchModule() {
   return (
     <section className="graph-review-authoring-workbench" aria-label="Graph Review and Gold Authoring visual skeleton">
       <header className="graph-review-authoring-hero">
-        <p className="plan-surface-kicker">Prose-first authoring walkthrough</p>
+        <p className="plan-surface-kicker">Visual walkthrough / mock UX scaffold — no live data, no writes</p>
         <h2>Graph Review + Gold Authoring Workbench</h2>
         <p>Read the campaign chronicle first. Graph meaning is woven into the prose; editing is explicit and safe; evidence/debug stays behind deliberate drill-in.</p>
+        <p className="graph-review-authoring-demo-note">This panel uses demo-only Gold Draft, Live Run, proposal counts, and game objects to validate the future authoring experience. The real Workbench controls remain below.</p>
       </header>
       <GraphReviewWorkbenchModeStrip activeMode={activeMode} onModeChange={setActiveMode} />
       <div className="graph-review-authoring-layout">
@@ -57,8 +60,11 @@ export function GraphReviewAuthoringWorkbenchModule() {
           <button type="button" onClick={() => setRightRailOpen((open) => !open)}>{rightRailOpen ? "Collapse inspector" : "Inspector"}</button>
           {rightRailOpen ? (
             <div className="graph-review-authoring-rail-content">
+              {!selectedNodeOpen && !selectedRelationship ? (
+                <p className="graph-review-authoring-empty-state">Select a pill or relationship to inspect game-facing details.</p>
+              ) : null}
               {selectedNodeOpen ? <GraphReviewNodeGameCard node={mockTripodNode} onShowRelationships={() => setSelectedRelationshipId("rel_tripod_gate")} /> : null}
-              <GraphReviewRelationshipCard relationship={selectedRelationship} />
+              {selectedRelationship ? <GraphReviewRelationshipCard relationship={selectedRelationship} /> : null}
             </div>
           ) : null}
         </aside>

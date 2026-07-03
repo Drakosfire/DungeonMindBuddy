@@ -5,10 +5,19 @@ import { GraphReviewNodeGameCard } from "./GraphReviewNodeGameCard";
 import { mockTripodNode } from "./graphReviewAuthoringMockData";
 
 describe("GraphReviewAuthoringWorkbenchModule", () => {
-  it("starts with the inspector rail collapsed", () => {
+  it("starts with the inspector rail collapsed and labels the walkthrough as mock-only", () => {
     render(<GraphReviewAuthoringWorkbenchModule />);
     expect(screen.getByRole("button", { name: "Inspector" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Tripod Null-Calf game card")).not.toBeInTheDocument();
+    expect(screen.getByText(/Visual walkthrough \/ mock UX scaffold — no live data, no writes/i)).toBeInTheDocument();
+    expect(screen.getByText(/demo-only Gold Draft, Live Run, proposal counts, and game objects/i)).toBeInTheDocument();
+  });
+
+  it("shows an empty inspector state when opened without a selection", () => {
+    render(<GraphReviewAuthoringWorkbenchModule />);
+    fireEvent.click(screen.getByRole("button", { name: "Inspector" }));
+    expect(screen.getByText("Select a pill or relationship to inspect game-facing details.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Tripod Null-Calf threatens North Gate" })).not.toBeInTheDocument();
   });
 
   it("renders source and mutability in lane headers", () => {
