@@ -164,8 +164,12 @@ class GraphGoldAuthoringPrepareResponse(BaseModel):
     write_performed: Literal[False] = False
 
 
+def graph_gold_authoring_fixture_bytes_fingerprint(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
 def graph_gold_authoring_fixture_state_fingerprint(fixture_path: Path) -> str:
-    return hashlib.sha256(fixture_path.read_bytes()).hexdigest()
+    return graph_gold_authoring_fixture_bytes_fingerprint(fixture_path.read_bytes())
 
 
 def graph_gold_authoring_prepare_fingerprint(

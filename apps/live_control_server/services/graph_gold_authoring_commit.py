@@ -17,7 +17,7 @@ from apps.live_control_server.services.graph_gold_authoring_prepare import (
     GraphGoldAuthoringLocalProposal,
     GraphGoldAuthoringPrepareDiagnostic,
     GraphGoldAuthoringPrepareRequest,
-    graph_gold_authoring_fixture_state_fingerprint,
+    graph_gold_authoring_fixture_bytes_fingerprint,
     prepare_graph_gold_authoring_preview,
 )
 from apps.live_control_server.services.graph_gold_review import GraphGoldReviewError, _session_entry
@@ -121,16 +121,21 @@ def commit_graph_gold_authoring_preview(request: GraphGoldAuthoringCommitRequest
     fixture_path = repo / fixture_relpath
     commit_id = "graph-gold-authoring-" + uuid.uuid4().hex[:12]
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    try:
-        current_fixture_state_fingerprint = graph_gold_authoring_fixture_state_fingerprint(fixture_path)
-    except FileNotFoundError as exc:
-        raise GraphGoldReviewError(f"path does not exist: {fixture_relpath}", status_code=404) from exc
 
     prepare_request = GraphGoldAuthoringPrepareRequest(campaign_id=request.campaign_id, session_id=request.session_id, fixture_version=request.fixture_version, proposals=request.proposals)
     prepare = prepare_graph_gold_authoring_preview(prepare_request, root=repo)
     fingerprint = prepare.prepare_fingerprint
+    if not request.expected_prepare_fingerprint:
+        return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag("missing_prepare_fingerprint", "Commit requires an expected prepare fingerprint from a prepared preview; no files were changed.", severity="error")])
     if request.expected_prepare_fingerprint and request.expected_prepare_fingerprint != fingerprint:
         return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag("prepare_fingerprint_mismatch", "Prepared preview fingerprint changed; no files were changed.", severity="error")])
+    if not request.expected_fixture_state_fingerprint:
+        return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag("missing_fixture_state_fingerprint", "Commit requires an expected fixture-state fingerprint from a prepared preview; no files were changed.", severity="error")])
+    try:
+        original = fixture_path.read_bytes()
+    except FileNotFoundError as exc:
+        raise GraphGoldReviewError(f"path does not exist: {fixture_relpath}", status_code=404) from exc
+    current_fixture_state_fingerprint = graph_gold_authoring_fixture_bytes_fingerprint(original)
     if request.expected_fixture_state_fingerprint and request.expected_fixture_state_fingerprint != current_fixture_state_fingerprint:
         return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag("fixture_state_fingerprint_mismatch", "Gold fixture changed since prepare; no files were changed. Prepare a fresh preview before committing.", severity="error")])
     skipped = [GraphGoldAuthoringSkippedOperation(operation_id=o.operation_id, operation_type=o.operation_type, source_proposal_id=o.source_proposal_id, reason="prepare blocked or ignored this operation", diagnostics=o.diagnostics) for o in prepare.proposed_operations if o.operation_type in {"blocked", "ignored"}]
@@ -138,10 +143,9 @@ def commit_graph_gold_authoring_preview(request: GraphGoldAuthoringCommitRequest
         return _commit_blocked_response(request, fixture_relpath, commit_id, now, fingerprint, [_diag(e.code, e.message, e.source_proposal_id, e.severity) for e in prepare.blocking_errors] or [_diag("prepare_blocked", "Commit blocked. No files were changed.", severity="error")], skipped)
 
     try:
-        original = fixture_path.read_bytes()
         graph = json.loads(original.decode("utf-8"))
-    except FileNotFoundError as exc:
-        raise GraphGoldReviewError(f"path does not exist: {fixture_relpath}", status_code=404) from exc
+    except json.JSONDecodeError as exc:
+        raise GraphGoldReviewError("gold fixture must be valid JSON", status_code=422) from exc
     if not isinstance(graph.get("nodes"), list) or not isinstance(graph.get("edges"), list):
         raise GraphGoldReviewError("gold fixture must contain nodes and edges arrays", status_code=422)
 
