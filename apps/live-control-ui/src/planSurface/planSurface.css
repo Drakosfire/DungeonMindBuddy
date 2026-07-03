@@ -3969,3 +3969,16 @@ body.plan-toolbox-open .plan-agent-shell {
     grid-template-columns: 1fr;
   }
 }
+
+.graph-review-selected-object-panel {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.graph-review-muted {
+  color: #94a3b8;
+}

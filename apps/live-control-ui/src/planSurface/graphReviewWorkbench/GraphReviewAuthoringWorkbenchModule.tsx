@@ -7,6 +7,7 @@ import { GraphReviewRelationshipChips } from "./GraphReviewRelationshipChips";
 import { GraphReviewWorkbenchLaneHeader } from "./GraphReviewWorkbenchLaneHeader";
 import { GraphReviewWorkbenchModeStrip } from "./GraphReviewWorkbenchModeStrip";
 import { mockAuthoringLanes, mockAuthoringProposals, mockRecapPassage, mockRelationships, mockTripodNode } from "./graphReviewAuthoringMockData";
+import type { GraphProjectionAdjacencyCandidate, GraphProjectionNodeView } from "../../api/types";
 import type { GraphReviewInteractionMode, GraphReviewProposalStatus } from "./graphReviewAuthoringState";
 import { stagedProposalCount, updateProposalStatus } from "./graphReviewAuthoringState";
 
@@ -27,8 +28,33 @@ export function GraphReviewAuthoringWorkbenchModule() {
   const [proposals, setProposals] = useState(mockAuthoringProposals);
 
   const acceptedProposalCount = useMemo(() => proposals.filter((proposal) => proposal.status === "accepted").length, [proposals]);
+  const mockAdjacency: GraphProjectionAdjacencyCandidate[] = mockRelationships.map((relationship) => ({
+    edge_id: relationship.id,
+    node_id: `node_${relationship.target.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+    label: relationship.target,
+    kind: "campaign object",
+    predicate: relationship.predicate,
+    direction: relationship.source === mockTripodNode.label ? "outgoing" : "incoming",
+    anchored_to_focus_session: true,
+    source_domains: ["mock"],
+    evidence_ref_ids: [relationship.id],
+    session_ids: ["mock-session"],
+  }));
+  const mockNodeView: GraphProjectionNodeView = {
+    node_id: mockTripodNode.id,
+    label: mockTripodNode.label,
+    kind: "Threat",
+    role: mockTripodNode.gameKind,
+    aliases: [],
+    source_domains: ["mock"],
+    evidence_badges: [],
+    adjacency: mockAdjacency,
+    anchored_to_focus_session: true,
+    summary: mockTripodNode.summary,
+  };
+  const mockViewModel = { laneRole: "gold" as const, node: mockNodeView, status: "matched" as const, deltaId: "mock-delta", counterpart: { laneRole: "live" as const, nodeId: mockTripodNode.id, label: mockTripodNode.label, node: mockNodeView } };
   const selectedRelationship = selectedRelationshipId
-    ? mockRelationships.find((relationship) => relationship.id === selectedRelationshipId) ?? null
+    ? mockAdjacency.find((relationship) => relationship.edge_id === selectedRelationshipId) ?? null
     : null;
   const lanes = mockAuthoringLanes.map((lane) => lane.laneId === "left" ? { ...lane, activeInteractionMode: activeMode, stagedProposalCount: stagedProposalCount(proposals) } : lane);
 
@@ -51,7 +77,7 @@ export function GraphReviewAuthoringWorkbenchModule() {
             <section key={lane.laneId} className="graph-review-authoring-lane">
               <GraphReviewWorkbenchLaneHeader lane={lane} onModeChange={setActiveMode} />
               <MockProjectedProse laneTitle={lane.title} acceptedProposalCount={lane.laneId === "left" ? acceptedProposalCount : 0} onNodeSelect={() => { setSelectedNodeOpen(true); setRightRailOpen(true); }} />
-              <GraphReviewRelationshipChips relationships={mockRelationships} selectedId={selectedRelationshipId} onSelect={(id) => { setSelectedRelationshipId(id); setRightRailOpen(true); }} />
+              <GraphReviewRelationshipChips sourceLabel={mockTripodNode.label} relationships={mockAdjacency} selectedEdgeId={selectedRelationshipId} onSelect={(relationship) => { setSelectedRelationshipId(relationship.edge_id); setRightRailOpen(true); }} />
             </section>
           ))}
           <GraphReviewAuthoringStagingTray proposals={proposals} onStatusChange={changeProposalStatus} />
@@ -63,8 +89,8 @@ export function GraphReviewAuthoringWorkbenchModule() {
               {!selectedNodeOpen && !selectedRelationship ? (
                 <p className="graph-review-authoring-empty-state">Select a pill or relationship to inspect game-facing details.</p>
               ) : null}
-              {selectedNodeOpen ? <GraphReviewNodeGameCard node={mockTripodNode} onShowRelationships={() => setSelectedRelationshipId("rel_tripod_gate")} /> : null}
-              {selectedRelationship ? <GraphReviewRelationshipCard relationship={selectedRelationship} /> : null}
+              {selectedNodeOpen ? <GraphReviewNodeGameCard viewModel={mockViewModel} selectedEdgeId={selectedRelationshipId} onSelectRelationship={(relationship) => setSelectedRelationshipId(relationship.edge_id)} /> : null}
+              {selectedRelationship ? <GraphReviewRelationshipCard sourceNode={mockNodeView} relationship={selectedRelationship} /> : null}
             </div>
           ) : null}
         </aside>

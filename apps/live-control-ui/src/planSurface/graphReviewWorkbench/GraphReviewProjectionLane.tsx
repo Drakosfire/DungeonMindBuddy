@@ -34,7 +34,7 @@ interface GraphReviewProjectionLaneProps {
   onActiveObjectChange: (
     active: { laneRole: GraphReviewProjectionLaneRole; nodeId: string } | null,
   ) => void;
-  onSelectNode?: (nodeId: string) => void;
+  onSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void;
 }
 
 interface NodeDecoration {
@@ -93,7 +93,7 @@ function renderMentionToken({
   decorations,
   activeObject,
   onActiveObjectChange,
-  propsOnSelectNode,
+  propsOnSelectObject,
   nodeId,
   label,
   key,
@@ -103,7 +103,7 @@ function renderMentionToken({
   decorations: Record<string, NodeDecoration>;
   activeObject: GraphReviewProjectionLaneProps["activeObject"];
   onActiveObjectChange: GraphReviewProjectionLaneProps["onActiveObjectChange"];
-  propsOnSelectNode?: (nodeId: string) => void;
+  propsOnSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void;
   nodeId: string;
   label: string;
   key: string;
@@ -141,7 +141,7 @@ function renderMentionToken({
         })
       }
       onBlur={() => onActiveObjectChange(null)}
-      onClick={() => propsOnSelectNode?.(nodeId)}
+      onClick={() => propsOnSelectObject?.({ laneRole, nodeId })}
     >
       {label}
       {decoration.status !== "unknown" ? (
@@ -163,7 +163,7 @@ function renderInlineRange(
   decorations: Record<string, NodeDecoration>,
   activeObject: GraphReviewProjectionLaneProps["activeObject"],
   onActiveObjectChange: GraphReviewProjectionLaneProps["onActiveObjectChange"],
-  propsOnSelectNode?: (nodeId: string) => void,
+  propsOnSelectObject?: (selection: { laneRole: GraphReviewProjectionLaneRole; nodeId: string }) => void,
 ) {
   const parts: ReactNode[] = [];
   const anchoredMentions = mentions
@@ -197,7 +197,7 @@ function renderInlineRange(
         decorations,
         activeObject,
         onActiveObjectChange,
-        propsOnSelectNode,
+        propsOnSelectObject,
         nodeId: mention.node_id,
         label: mention.label || fallbackLabel,
         key: mention.mention_id || `${mention.node_id}-${start}`,
@@ -245,7 +245,7 @@ function renderMarkdownBlocks(
         decorations,
         props.activeObject,
         props.onActiveObjectChange,
-        props.onSelectNode,
+        props.onSelectObject,
       );
       if (level === 1) blocks.push(<h2 key={start}>{content}</h2>);
       else if (level === 2) blocks.push(<h3 key={start}>{content}</h3>);
@@ -264,7 +264,7 @@ function renderMarkdownBlocks(
           decorations,
           props.activeObject,
           props.onActiveObjectChange,
-          props.onSelectNode,
+          props.onSelectObject,
         )}
       </p>,
     );

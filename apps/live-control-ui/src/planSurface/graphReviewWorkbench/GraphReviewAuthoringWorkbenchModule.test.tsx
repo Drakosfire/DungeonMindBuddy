@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GraphReviewAuthoringWorkbenchModule } from "./GraphReviewAuthoringWorkbenchModule";
 import { GraphReviewNodeGameCard } from "./GraphReviewNodeGameCard";
 import { mockTripodNode } from "./graphReviewAuthoringMockData";
+import type { GraphProjectionNodeView } from "../../api/types";
 
 describe("GraphReviewAuthoringWorkbenchModule", () => {
   it("starts with the inspector rail collapsed and labels the walkthrough as mock-only", () => {
@@ -28,7 +29,7 @@ describe("GraphReviewAuthoringWorkbenchModule", () => {
 
   it("opens a readable relationship card from a chip", () => {
     render(<GraphReviewAuthoringWorkbenchModule />);
-    fireEvent.click(screen.getAllByRole("button", { name: "threatens → North Gate" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Tripod Null-Calf threatens North Gate" })[0]);
     expect(screen.getByRole("heading", { name: "Tripod Null-Calf threatens North Gate" })).toBeInTheDocument();
   });
 
@@ -44,7 +45,25 @@ describe("GraphReviewAuthoringWorkbenchModule", () => {
 
 describe("GraphReviewNodeGameCard", () => {
   it("renders available surfaces before Evidence / Debug", () => {
-    const { container } = render(<GraphReviewNodeGameCard node={mockTripodNode} onShowRelationships={() => undefined} />);
-    expect(container.textContent?.indexOf("Open statblock")).toBeLessThan(container.textContent?.indexOf("Evidence / Debug") ?? 0);
+    const node: GraphProjectionNodeView = {
+      node_id: mockTripodNode.id,
+      label: mockTripodNode.label,
+      kind: "Threat",
+      role: mockTripodNode.gameKind,
+      aliases: [],
+      source_domains: ["mock"],
+      evidence_badges: [],
+      adjacency: [],
+      anchored_to_focus_session: true,
+      summary: mockTripodNode.summary,
+    };
+    const { container } = render(
+      <GraphReviewNodeGameCard
+        viewModel={{ laneRole: "gold", node, status: "matched", deltaId: "mock", counterpart: null }}
+        selectedEdgeId={null}
+        onSelectRelationship={() => undefined}
+      />,
+    );
+    expect(container.textContent?.indexOf("Statblock unavailable")).toBeLessThan(container.textContent?.indexOf("Evidence / Debug") ?? 0);
   });
 });
