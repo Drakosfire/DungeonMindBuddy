@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type {
   GraphProjectionNodeView,
   RecapProjectionSourceSpan,
+  UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { presentationForNodeId } from "../graphPreview/GraphNodePresentation";
 import type {
@@ -11,6 +12,11 @@ import type {
 
 export type GraphReviewProjectionLaneRole = "gold" | "live";
 
+type ProjectionMention =
+  UnionSupergraphProjectionResponse["mentions"][number] & {
+    anchor_status?: string | null;
+  };
+
 interface GraphReviewProjectionLaneProps {
   laneRole: GraphReviewProjectionLaneRole;
   title: string;
@@ -18,6 +24,7 @@ interface GraphReviewProjectionLaneProps {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans?: RecapProjectionSourceSpan[];
+  mentions: ProjectionMention[];
   mentionsCount: number;
   deltaIndex: GraphReviewDeltaIndex;
   activeObject: {
@@ -36,8 +43,6 @@ interface NodeDecoration {
   summary: string | null;
   counterpartNodeId: string | null;
 }
-
-const graphNodePattern = /\[([^\]]+)\]\(dmb-node:([^\)]+)\)/g;
 
 function statusLabel(status: NodeDecoration["status"]): string {
   if (status === "gold_only") return "Gold-only";
@@ -72,8 +77,87 @@ function buildNodeDecorations(
   return decorations;
 }
 
-function renderInline(
+function isAnchoredMention(mention: ProjectionMention): boolean {
+  if (mention.anchor_status && mention.anchor_status !== "anchored")
+    return false;
+  return (
+    typeof mention.start_offset === "number" &&
+    typeof mention.end_offset === "number" &&
+    mention.end_offset > mention.start_offset
+  );
+}
+
+function renderMentionToken({
+  laneRole,
+  nodeViews,
+  decorations,
+  activeObject,
+  onActiveObjectChange,
+  propsOnSelectNode,
+  nodeId,
+  label,
+  key,
+}: {
+  laneRole: GraphReviewProjectionLaneRole;
+  nodeViews: Record<string, GraphProjectionNodeView>;
+  decorations: Record<string, NodeDecoration>;
+  activeObject: GraphReviewProjectionLaneProps["activeObject"];
+  onActiveObjectChange: GraphReviewProjectionLaneProps["onActiveObjectChange"];
+  propsOnSelectNode?: (nodeId: string) => void;
+  nodeId: string;
+  label: string;
+  key: string;
+}) {
+  const decoration = decorations[nodeId] ?? {
+    status: "unknown" as const,
+    label: "Unknown",
+    summary: null,
+    counterpartNodeId: null,
+  };
+  const presentation = presentationForNodeId(nodeViews, nodeId, label);
+  const counterpartHighlighted =
+    activeObject?.laneRole !== laneRole && activeObject?.nodeId === nodeId;
+  const activeHere =
+    activeObject?.laneRole === laneRole && activeObject?.nodeId === nodeId;
+  return (
+    <button
+      key={key}
+      type="button"
+      className={`recap-node-token graph-review-projection-token role-${presentation.role || presentation.kind || "node"} delta-${decoration.status}${activeHere ? " pinned" : ""}${counterpartHighlighted ? " counterpart-highlighted" : ""}`}
+      data-graph-node-id={nodeId}
+      data-delta-status={decoration.status}
+      data-counterpart-highlighted={counterpartHighlighted ? "true" : undefined}
+      onMouseEnter={() =>
+        onActiveObjectChange({
+          laneRole,
+          nodeId: decoration.counterpartNodeId ?? nodeId,
+        })
+      }
+      onMouseLeave={() => onActiveObjectChange(null)}
+      onFocus={() =>
+        onActiveObjectChange({
+          laneRole,
+          nodeId: decoration.counterpartNodeId ?? nodeId,
+        })
+      }
+      onBlur={() => onActiveObjectChange(null)}
+      onClick={() => propsOnSelectNode?.(nodeId)}
+    >
+      {label}
+      {decoration.status !== "unknown" ? (
+        <span className="graph-review-pill-delta-badge">
+          {decoration.label}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function renderInlineRange(
   text: string,
+  rangeStart: number,
+  rangeEnd: number,
+  mentions: ProjectionMention[],
   laneRole: GraphReviewProjectionLaneRole,
   nodeViews: Record<string, GraphProjectionNodeView>,
   decorations: Record<string, NodeDecoration>,
@@ -82,63 +166,52 @@ function renderInline(
   propsOnSelectNode?: (nodeId: string) => void,
 ) {
   const parts: ReactNode[] = [];
-  let lastIndex = 0;
-  for (const match of text.matchAll(graphNodePattern)) {
-    const index = match.index ?? 0;
-    const [raw, label, nodeId] = match;
-    if (index > lastIndex)
-      parts.push(
-        <span key={`t-${lastIndex}`}>{text.slice(lastIndex, index)}</span>,
-      );
-    const decoration = decorations[nodeId] ?? {
-      status: "unknown",
-      label: "Unknown",
-      summary: null,
-      counterpartNodeId: null,
-    };
-    const presentation = presentationForNodeId(nodeViews, nodeId, label);
-    const counterpartHighlighted =
-      activeObject?.laneRole !== laneRole && activeObject?.nodeId === nodeId;
-    const activeHere =
-      activeObject?.laneRole === laneRole && activeObject?.nodeId === nodeId;
-    parts.push(
-      <button
-        key={`${nodeId}-${index}`}
-        type="button"
-        className={`recap-node-token graph-review-projection-token role-${presentation.role || presentation.kind || "node"} delta-${decoration.status}${activeHere ? " pinned" : ""}${counterpartHighlighted ? " counterpart-highlighted" : ""}`}
-        data-graph-node-id={nodeId}
-        data-delta-status={decoration.status}
-        data-counterpart-highlighted={
-          counterpartHighlighted ? "true" : undefined
-        }
-        onMouseEnter={() =>
-          onActiveObjectChange({
-            laneRole,
-            nodeId: decoration.counterpartNodeId ?? nodeId,
-          })
-        }
-        onMouseLeave={() => onActiveObjectChange(null)}
-        onFocus={() =>
-          onActiveObjectChange({
-            laneRole,
-            nodeId: decoration.counterpartNodeId ?? nodeId,
-          })
-        }
-        onBlur={() => onActiveObjectChange(null)}
-        onClick={() => propsOnSelectNode?.(nodeId)}
-      >
-        {label}
-        {decoration.status !== "unknown" ? (
-          <span className="graph-review-pill-delta-badge">
-            {decoration.label}
-          </span>
-        ) : null}
-      </button>,
+  const anchoredMentions = mentions
+    .filter((mention) => isAnchoredMention(mention))
+    .filter(
+      (mention) =>
+        mention.start_offset! >= rangeStart && mention.end_offset! <= rangeEnd,
+    )
+    .sort(
+      (left, right) =>
+        left.start_offset! - right.start_offset! ||
+        left.end_offset! - right.end_offset!,
     );
-    lastIndex = index + raw.length;
+
+  let cursor = rangeStart;
+  for (const mention of anchoredMentions) {
+    const start = mention.start_offset!;
+    const end = mention.end_offset!;
+    if (start < cursor) continue;
+    if (start > cursor)
+      parts.push(
+        <span key={`t-${cursor}`}>
+          {text.slice(cursor - rangeStart, start - rangeStart)}
+        </span>,
+      );
+    const fallbackLabel = text.slice(start - rangeStart, end - rangeStart);
+    parts.push(
+      renderMentionToken({
+        laneRole,
+        nodeViews,
+        decorations,
+        activeObject,
+        onActiveObjectChange,
+        propsOnSelectNode,
+        nodeId: mention.node_id,
+        label: mention.label || fallbackLabel,
+        key: mention.mention_id || `${mention.node_id}-${start}`,
+      }),
+    );
+    cursor = end;
   }
-  if (lastIndex < text.length)
-    parts.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+
+  if (cursor < rangeEnd)
+    parts.push(
+      <span key={`t-${cursor}`}>
+        {text.slice(cursor - rangeStart, rangeEnd - rangeStart)}
+      </span>,
+    );
   return parts;
 }
 
@@ -146,14 +219,27 @@ function renderMarkdownBlocks(
   props: GraphReviewProjectionLaneProps,
   decorations: Record<string, NodeDecoration>,
 ) {
-  return props.markdown.split(/\n{2,}/).map((block, index) => {
-    const trimmed = block.trim();
-    if (!trimmed) return null;
+  const markdown = props.markdown;
+  const blocks: ReactNode[] = [];
+  const blockPattern = /\S[\s\S]*?(?=\n{2,}|$)/g;
+  for (const match of markdown.matchAll(blockPattern)) {
+    const rawBlock = match[0];
+    const blockStart = match.index ?? 0;
+    const leadingWhitespace = rawBlock.match(/^\s*/)?.[0].length ?? 0;
+    const trailingWhitespace = rawBlock.match(/\s*$/)?.[0].length ?? 0;
+    const start = blockStart + leadingWhitespace;
+    const end = blockStart + rawBlock.length - trailingWhitespace;
+    const trimmed = markdown.slice(start, end);
+    if (!trimmed) continue;
     const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
       const level = heading[1].length;
-      const content = renderInline(
-        heading[2],
+      const contentStart = start + heading[1].length + 1;
+      const content = renderInlineRange(
+        markdown.slice(contentStart, end),
+        contentStart,
+        end,
+        props.mentions,
         props.laneRole,
         props.nodeViews,
         decorations,
@@ -161,14 +247,18 @@ function renderMarkdownBlocks(
         props.onActiveObjectChange,
         props.onSelectNode,
       );
-      if (level === 1) return <h2 key={index}>{content}</h2>;
-      if (level === 2) return <h3 key={index}>{content}</h3>;
-      return <h4 key={index}>{content}</h4>;
+      if (level === 1) blocks.push(<h2 key={start}>{content}</h2>);
+      else if (level === 2) blocks.push(<h3 key={start}>{content}</h3>);
+      else blocks.push(<h4 key={start}>{content}</h4>);
+      continue;
     }
-    return (
-      <p key={index}>
-        {renderInline(
-          trimmed.replace(/\n/g, " "),
+    blocks.push(
+      <p key={start}>
+        {renderInlineRange(
+          markdown.slice(start, end),
+          start,
+          end,
+          props.mentions,
           props.laneRole,
           props.nodeViews,
           decorations,
@@ -176,19 +266,19 @@ function renderMarkdownBlocks(
           props.onActiveObjectChange,
           props.onSelectNode,
         )}
-      </p>
+      </p>,
     );
-  });
+  }
+  return blocks;
 }
 
 export function GraphReviewProjectionLane(
   props: GraphReviewProjectionLaneProps,
 ) {
   const decorations = buildNodeDecorations(props.deltaIndex, props.laneRole);
-  const unanchoredCount = Math.max(
-    0,
-    props.mentionsCount - Object.keys(props.nodeViews).length,
-  );
+  const unanchoredCount = props.mentions.filter(
+    (mention) => !isAnchoredMention(mention),
+  ).length;
   return (
     <section
       className="graph-review-projection-lane"

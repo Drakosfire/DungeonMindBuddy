@@ -453,6 +453,7 @@ export function GraphReviewLiveProjectionPanel({
                 markdown={goldProjection.markdown ?? FALLBACK_MARKDOWN}
                 nodeViews={goldProjection.node_views}
                 sourceSpans={goldProjection.source_spans}
+                mentions={goldProjection.mentions}
                 mentionsCount={goldProjection.mentions.length}
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
@@ -466,6 +467,7 @@ export function GraphReviewLiveProjectionPanel({
               markdown={projection.markdown ?? FALLBACK_MARKDOWN}
               nodeViews={projection.node_views}
               sourceSpans={paragraphSourceSpans}
+              mentions={projection.mentions}
               mentionsCount={projection.mentions.length}
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
