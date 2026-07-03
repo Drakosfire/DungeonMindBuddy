@@ -10,6 +10,7 @@ import {
   sessionsForReviewCampaign,
   syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
+import { GraphReviewAuthoringWorkbenchModule } from "./GraphReviewAuthoringWorkbenchModule";
 import { GraphReviewLaneCards } from "./GraphReviewLaneCards";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
@@ -208,13 +209,15 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     <div className="graph-review-workbench-root">
       <header className="graph-review-workbench-header">
         <div>
-          <p className="plan-surface-kicker">Read-only developer tool</p>
+          <p className="plan-surface-kicker">Prose-first review tool</p>
           <h2>Graph Review Workbench</h2>
           <p className="graph-review-workbench-lede">
-            Compare expected graph behavior and live graph-ingest output as review lanes. This read-only shell uses existing gold-review metrics while the source-context projection reader is being built.
+            Compare graph readings through recap prose first, with gold authoring state staged safely before backend write paths arrive.
           </p>
         </div>
       </header>
+
+      <GraphReviewAuthoringWorkbenchModule />
 
       {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 
