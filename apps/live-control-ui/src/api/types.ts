@@ -1822,6 +1822,53 @@ export interface GoldGraphProjectionResponse extends UnionSupergraphProjectionRe
   gold_fixture_relpath: string;
 }
 
+export interface GraphReviewResolverSelectedNode {
+  node_id: string;
+  label: string;
+  kind?: string | null;
+  role?: string | null;
+  aliases: string[];
+  summary?: string | null;
+  source_domains: string[];
+  adjacent_labels: string[];
+  evidence_ref_ids: string[];
+}
+
+export interface GraphReviewExistingObjectResolverRequest {
+  schema: "dmb_graph_review_existing_object_resolver_request_v1";
+  campaign_id: string;
+  session_id: string;
+  lane_role: "gold" | "live";
+  selected_node: GraphReviewResolverSelectedNode;
+  projection_graph_id?: string | null;
+  live_run_manifest_path?: string | null;
+}
+
+export interface GraphReviewExistingObjectCandidate {
+  candidate_id: string;
+  label: string;
+  kind?: string | null;
+  role?: string | null;
+  confidence: "high" | "medium" | "low";
+  score: number;
+  reason: string;
+  source: "gold_fixture" | "live_projection" | "union_supergraph" | "manual_review_variant" | "unknown";
+  suggested_action: "link_existing_later" | "create_new_later" | "manual_review_needed";
+  existing_object_ref?: Record<string, string> | null;
+  matched_features: string[];
+}
+
+export interface GraphReviewExistingObjectResolverResponse {
+  schema: "dmb_graph_review_existing_object_resolver_response_v1";
+  campaign_id: string;
+  session_id: string;
+  selected_node_id: string;
+  selected_label: string;
+  candidates: GraphReviewExistingObjectCandidate[];
+  warnings: string[];
+}
+
+
 export interface PartyRegistryMemberRow {
   slug: string;
   kind: string;

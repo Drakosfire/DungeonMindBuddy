@@ -58,6 +58,8 @@ import type {
   GraphIngestLatestRunResponse,
   GraphIngestRunsResponse,
   GoldGraphProjectionResponse,
+  GraphReviewExistingObjectResolverRequest,
+  GraphReviewExistingObjectResolverResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
@@ -394,6 +396,16 @@ export async function getDefaultUnionSupergraphProjection(
   previewSource = defaultUnionSupergraphPreviewSource,
 ): Promise<UnionSupergraphProjectionResponse> {
   return getUnionSupergraphProjection({ sessionId, previewSource });
+}
+
+
+export async function resolveGraphReviewExistingObjectCandidates(
+  request: GraphReviewExistingObjectResolverRequest,
+): Promise<GraphReviewExistingObjectResolverResponse> {
+  return apiFetch<GraphReviewExistingObjectResolverResponse>(
+    "/api/live/graph-preview/existing-object-resolver/candidates",
+    { method: "POST", body: JSON.stringify(request) },
+  );
 }
 
 export interface GoldGraphProjectionQuery {

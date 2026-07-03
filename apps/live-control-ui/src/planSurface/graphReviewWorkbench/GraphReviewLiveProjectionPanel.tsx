@@ -26,6 +26,7 @@ import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryP
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
+import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import { buildSourceSpanDeltaIndex } from "./graphReviewSourceSpanOverlayUtils";
@@ -485,6 +486,14 @@ export function GraphReviewLiveProjectionPanel({
             presentation={null}
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
             selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+          />
+          <ExistingObjectResolverPanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            laneRole="live"
+            selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] ?? null : null}
+            projectionGraphId={projection.graph_id ?? null}
+            liveRunManifestPath={liveRun.manifest_path}
           />
           <GraphReviewSourceSpanRail
             index={sourceSpanDeltaIndex}
