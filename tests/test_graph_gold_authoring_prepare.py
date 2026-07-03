@@ -112,6 +112,8 @@ def test_fixture_file_bytes_unchanged_after_prepare():
     before = path.read_bytes()
     response = prepare([node_span(), relationship(), link_intent()])
     assert response.write_performed is False
+    assert isinstance(response.fixture_state_fingerprint, str)
+    assert len(response.fixture_state_fingerprint) >= 32
     assert path.read_bytes() == before
 
 

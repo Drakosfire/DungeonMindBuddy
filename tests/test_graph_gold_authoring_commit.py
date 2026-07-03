@@ -8,6 +8,10 @@ from apps.live_control_server.services.graph_gold_authoring_commit import (
     GraphGoldAuthoringCommitRequest,
     commit_graph_gold_authoring_preview,
 )
+from apps.live_control_server.services.graph_gold_authoring_prepare import (
+    GraphGoldAuthoringPrepareRequest,
+    prepare_graph_gold_authoring_preview,
+)
 from apps.live_control_server.services.graph_gold_review import GraphGoldReviewError
 
 FIXTURE_REL = Path("evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json")
@@ -40,6 +44,12 @@ def request(proposals, **overrides):
     data = {"campaign_id":"longmont-c1", "session_id":"session-1", "proposals": proposals}
     data.update(overrides)
     return GraphGoldAuthoringCommitRequest(**data)
+
+
+def prepare_request(proposals, **overrides):
+    data = {"campaign_id":"longmont-c1", "session_id":"session-1", "proposals": proposals}
+    data.update(overrides)
+    return GraphGoldAuthoringPrepareRequest(**data)
 
 
 def load_fixture(root: Path):
@@ -118,6 +128,44 @@ def test_fingerprint_mismatch_blocks_without_mutation(tmp_path):
     assert response.commit_status == "blocked"
     assert any(d.code == "prepare_fingerprint_mismatch" for d in response.diagnostics)
     assert (root / FIXTURE_REL).read_bytes() == before
+
+
+def test_stale_fixture_fingerprint_blocks_without_mutation_backup_or_event(tmp_path):
+    root = temp_root(tmp_path)
+    fixture_path = root / FIXTURE_REL
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request([node_span()]), root=root)
+    externally_mutated = json.dumps({"nodes": [], "edges": [], "external_change": True}, indent=2).encode("utf-8")
+    fixture_path.write_bytes(externally_mutated)
+
+    response = commit_graph_gold_authoring_preview(
+        request(
+            [node_span()],
+            expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+            expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+        ),
+        root=root,
+    )
+
+    assert response.commit_status == "blocked"
+    assert any(d.code == "fixture_state_fingerprint_mismatch" for d in response.diagnostics)
+    assert response.backup_relpath is None
+    assert response.event_log_relpath is None
+    assert fixture_path.read_bytes() == externally_mutated
+
+
+def test_matching_fixture_fingerprint_allows_commit(tmp_path):
+    root = temp_root(tmp_path)
+    prepare_response = prepare_graph_gold_authoring_preview(prepare_request([node_span()]), root=root)
+    response = commit_graph_gold_authoring_preview(
+        request(
+            [node_span()],
+            expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+            expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+        ),
+        root=root,
+    )
+    assert response.commit_status == "committed"
+    assert response.changed_counts.nodes_added == 1
 
 
 def test_add_edge_and_fixture_reloadable_as_json(tmp_path):

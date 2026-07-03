@@ -23,6 +23,7 @@ const prepareResponse = {
   warnings: [],
   preview_summary: "Preview prepared with 1 proposed operation(s). No files were changed.",
   prepare_fingerprint: "prepared-fingerprint-1",
+  fixture_state_fingerprint: "fixture-fingerprint-1",
   write_performed: false as const,
 };
 
@@ -101,7 +102,7 @@ describe("useGraphReviewAuthorDraftWorkflow", () => {
     await act(async () => result.current.preparePreview());
     act(() => result.current.setCommitConfirmed(true));
     await act(async () => result.current.commitPreparedPreview());
-    expect(commitGraphGoldAuthoringPreview).toHaveBeenCalledWith(expect.objectContaining({ expected_prepare_fingerprint: "prepared-fingerprint-1", proposals: result.current.preparedRequest?.proposals }));
+    expect(commitGraphGoldAuthoringPreview).toHaveBeenCalledWith(expect.objectContaining({ expected_prepare_fingerprint: "prepared-fingerprint-1", expected_fixture_state_fingerprint: "fixture-fingerprint-1", proposals: result.current.preparedRequest?.proposals }));
     await act(async () => result.current.reloadAndVerifyCommit());
     expect(onReloadAndVerifyCommit).toHaveBeenCalledWith(commitResponse);
     expect(result.current.verificationResponse).toEqual(verificationResponse);
