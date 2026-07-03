@@ -39,6 +39,11 @@ from apps.live_control_server.services.graph_gold_authoring_commit import (
     GraphGoldAuthoringCommitResponse,
     commit_graph_gold_authoring_preview,
 )
+from apps.live_control_server.services.graph_gold_authoring_verify import (
+    GraphGoldAuthoringVerifyCommitRequest,
+    GraphGoldAuthoringVerifyCommitResponse,
+    verify_graph_gold_authoring_commit,
+)
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
     GraphReviewExistingObjectResolverResponse,
@@ -266,6 +271,17 @@ def post_gold_authoring_commit(
 ) -> dict[str, Any]:
     try:
         response = commit_graph_gold_authoring_preview(request, root=repo_root())
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post("/gold-authoring/verify-commit", response_model=GraphGoldAuthoringVerifyCommitResponse)
+def post_gold_authoring_verify_commit(
+    request: GraphGoldAuthoringVerifyCommitRequest,
+) -> dict[str, Any]:
+    try:
+        response = verify_graph_gold_authoring_commit(request, root=repo_root())
     except GraphGoldReviewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
