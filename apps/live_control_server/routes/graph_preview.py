@@ -29,6 +29,11 @@ from apps.live_control_server.services.union_supergraph_projection_adapter impor
     build_recap_only_projection_payload,
     build_plan_union_supergraph_projection_payload,
 )
+from apps.live_control_server.services.graph_existing_object_resolver import (
+    GraphReviewExistingObjectResolverRequest,
+    GraphReviewExistingObjectResolverResponse,
+    resolve_existing_object_candidates,
+)
 from apps.live_control_server.services.graph_gold_review import (
     GoldReviewCompareResponse,
     GoldReviewEvidenceDiffResponse,
@@ -221,6 +226,17 @@ def get_union_supergraph_projection(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/existing-object-resolver/candidates", response_model=GraphReviewExistingObjectResolverResponse)
+def post_existing_object_resolver_candidates(
+    request: GraphReviewExistingObjectResolverRequest,
+) -> dict[str, Any]:
+    try:
+        response = resolve_existing_object_candidates(request, root=repo_root())
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
 
 
 @router.get("/gold-review/sessions", response_model=GoldReviewSessionsResponse)
