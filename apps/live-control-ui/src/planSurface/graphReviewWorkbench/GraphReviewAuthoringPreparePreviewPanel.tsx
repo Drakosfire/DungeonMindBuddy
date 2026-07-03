@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { commitGraphGoldAuthoringPreview, prepareGraphGoldAuthoringPreview } from "../../api/liveApi";
-import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringPrepareRequest, GraphGoldAuthoringPrepareResponse } from "../../api/types";
+import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringPrepareRequest, GraphGoldAuthoringPrepareResponse, GraphGoldAuthoringVerifyCommitResponse } from "../../api/types";
 import { buildGraphGoldAuthoringPrepareRequest } from "./graphReviewAuthoringPrepareApi";
 import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthoringState";
 
@@ -9,13 +9,15 @@ interface Props {
   campaignId: string;
   sessionId: string;
   proposals: GraphReviewLocalAuthoringProposal[];
+  onReloadAndVerifyCommit?: (commitResponse: GraphGoldAuthoringCommitResponse) => Promise<GraphGoldAuthoringVerifyCommitResponse>;
+  onShowCommittedObject?: (targetId: string) => void;
 }
 
 function title(operationType: string): string {
   return operationType.split("_").map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ");
 }
 
-export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId, proposals }: Props) {
+export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId, proposals, onReloadAndVerifyCommit, onShowCommittedObject }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "blocked" | "error">("idle");
   const [response, setResponse] = useState<GraphGoldAuthoringPrepareResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,9 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
   const [commitResponse, setCommitResponse] = useState<GraphGoldAuthoringCommitResponse | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [preparedRequest, setPreparedRequest] = useState<GraphGoldAuthoringPrepareRequest | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [verificationResponse, setVerificationResponse] = useState<GraphGoldAuthoringVerifyCommitResponse | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const proposalSignature = useMemo(() => JSON.stringify({ campaignId, sessionId, proposals }), [campaignId, sessionId, proposals]);
 
   useEffect(() => {
@@ -35,6 +40,9 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
     setCommitStatus("idle");
     setCommitResponse(null);
     setCommitError(null);
+    setVerificationStatus("idle");
+    setVerificationResponse(null);
+    setVerificationError(null);
   }, [proposalSignature]);
 
   const prepare = async () => {
@@ -55,6 +63,9 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
       setCommitStatus("idle");
       setCommitResponse(null);
       setCommitError(null);
+      setVerificationStatus("idle");
+      setVerificationResponse(null);
+      setVerificationError(null);
     } catch (prepareError) {
       setStatus("error");
       setError(prepareError instanceof Error ? prepareError.message : "Could not prepare write preview.");
@@ -77,11 +88,37 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
       });
       setCommitResponse(result);
       setCommitStatus(result.commit_status === "blocked" ? "blocked" : "success");
+      setVerificationStatus("idle");
+      setVerificationResponse(null);
+      setVerificationError(null);
     } catch (commitErrorValue) {
       setCommitStatus("error");
       setCommitError(commitErrorValue instanceof Error ? commitErrorValue.message : "Could not commit prepared preview.");
     }
   };
+
+
+  const reloadAndVerify = async () => {
+    if (!commitResponse || !onReloadAndVerifyCommit) return;
+    setVerificationStatus("loading");
+    setVerificationError(null);
+    try {
+      const result = await onReloadAndVerifyCommit(commitResponse);
+      setVerificationResponse(result);
+      setVerificationStatus("ready");
+    } catch (verifyErrorValue) {
+      setVerificationStatus("error");
+      setVerificationError(verifyErrorValue instanceof Error ? verifyErrorValue.message : "Could not reload and verify gold projection.");
+    }
+  };
+
+  const verificationCopy = verificationResponse?.verification_status === "verified"
+    ? "Gold projection reloaded. Committed changes verified."
+    : verificationResponse?.verification_status === "missing"
+      ? "Gold projection reloaded, but expected committed changes were not found."
+      : verificationResponse
+        ? "Gold projection reloaded. Some committed changes are fixture-only or event-only."
+        : null;
 
   return (
     <section className="graph-review-authoring-prepare-preview" aria-label="Prepare write preview panel">
@@ -144,6 +181,29 @@ export function GraphReviewAuthoringPreparePreviewPanel({ campaignId, sessionId,
                   <h5>Skipped operations</h5>
                   <ul>{commitResponse.skipped_operations.map((operation) => <li key={operation.operation_id}>{operation.reason}</li>)}</ul>
                   {commitResponse.diagnostics.length ? <ul>{commitResponse.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${index}`}>{diagnostic.message}</li>)}</ul> : null}
+                  {commitResponse.commit_status !== "blocked" && onReloadAndVerifyCommit ? (
+                    <button type="button" onClick={reloadAndVerify} disabled={verificationStatus === "loading"}>Reload gold projection</button>
+                  ) : null}
+                  {verificationStatus === "loading" ? <p role="status">Reloading gold projection…</p> : null}
+                  {verificationStatus === "error" ? <p role="alert">Could not verify committed changes. {verificationError}</p> : null}
+                  {verificationResponse ? (
+                    <section aria-label="Verified committed changes">
+                      <h5>Verified committed changes</h5>
+                      {verificationCopy ? <p role="status">{verificationCopy}</p> : null}
+                      <ul>
+                        {verificationResponse.checked_operations.map((operation) => (
+                          <li key={operation.operation_id}>
+                            <strong>{title(operation.operation_type)}</strong> — Status: {operation.verification_status.replaceAll("_", " ")}
+                            {operation.target_id ? <> Target: {operation.target_id}</> : null}
+                            <p>{operation.summary}</p>
+                            {operation.verification_status === "recorded_event_only" && operation.operation_type === "link_existing_intent" ? <p>No identity link was written.</p> : null}
+                            {operation.target_id && operation.verification_status === "found_in_gold_projection" && onShowCommittedObject ? <button type="button" onClick={() => onShowCommittedObject(operation.target_id!)}>Show {operation.target_id}</button> : null}
+                          </li>
+                        ))}
+                      </ul>
+                      {verificationResponse.diagnostics.length ? <ul>{verificationResponse.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${index}`}>{diagnostic.message}</li>)}</ul> : null}
+                    </section>
+                  ) : null}
                 </div>
               ) : null}
             </section>

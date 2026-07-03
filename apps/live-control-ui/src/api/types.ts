@@ -2110,6 +2110,40 @@ export interface GraphGoldAuthoringCommitResponse {
   changed_counts: GraphGoldAuthoringCommitChangedCounts;
 }
 
+export interface GraphGoldAuthoringVerifyCommitRequest {
+  schema: "dmb_graph_gold_authoring_verify_commit_request_v1";
+  campaign_id: string;
+  session_id: string;
+  commit_id: string;
+  applied_operations: GraphGoldAuthoringCommittedOperation[];
+}
+
+export interface GraphGoldAuthoringVerifiedOperation {
+  operation_id: string;
+  operation_type: string;
+  source_proposal_id: string;
+  target_id?: string | null;
+  verification_status: "found_in_gold_projection" | "found_in_fixture_only" | "recorded_event_only" | "not_expected_in_projection" | "missing";
+  summary: string;
+}
+
+export interface GraphGoldAuthoringVerifyDiagnostic {
+  code: string;
+  message: string;
+  operation_id?: string | null;
+  severity: "error" | "warning" | "info";
+}
+
+export interface GraphGoldAuthoringVerifyCommitResponse {
+  schema: "dmb_graph_gold_authoring_verify_commit_response_v1";
+  campaign_id: string;
+  session_id: string;
+  commit_id: string;
+  verification_status: "verified" | "partial" | "missing" | "blocked";
+  checked_operations: GraphGoldAuthoringVerifiedOperation[];
+  diagnostics: GraphGoldAuthoringVerifyDiagnostic[];
+}
+
 export interface GraphGoldAuthoringPrepareResponse {
   schema: "dmb_graph_gold_authoring_prepare_response_v1";
   campaign_id: string;

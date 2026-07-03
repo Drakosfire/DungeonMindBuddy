@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
   getUnionSupergraphProjection,
+  verifyGraphGoldAuthoringCommit,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
   GoldGraphProjectionResponse,
+  GraphGoldAuthoringCommitResponse,
+  GraphGoldAuthoringVerifyCommitResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionSummary,
@@ -209,6 +212,15 @@ export function GraphReviewLiveProjectionPanel({
     };
   }, [campaignId, sessionId, liveRun, liveRunKey]);
 
+  const reloadGoldProjection = useCallback(async () => {
+    setGoldProjectionStatus("loading");
+    setGoldProjectionError(null);
+    const response = await getGoldGraphProjection({ campaignId, sessionId });
+    setGoldProjection(response);
+    setGoldProjectionStatus("ready");
+    return response;
+  }, [campaignId, sessionId]);
+
   useEffect(() => {
     let cancelled = false;
     setGoldProjection(null);
@@ -236,6 +248,29 @@ export function GraphReviewLiveProjectionPanel({
       cancelled = true;
     };
   }, [campaignId, sessionId]);
+
+  const reloadGoldProjectionAndVerifyCommit = useCallback(async (commitResponse: GraphGoldAuthoringCommitResponse): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
+    try {
+      const refreshed = await reloadGoldProjection();
+      const verification = await verifyGraphGoldAuthoringCommit({
+        schema: "dmb_graph_gold_authoring_verify_commit_request_v1",
+        campaign_id: commitResponse.campaign_id,
+        session_id: commitResponse.session_id,
+        commit_id: commitResponse.commit_id,
+        applied_operations: commitResponse.applied_operations,
+      });
+      const firstVisible = verification.checked_operations.find((operation) => operation.verification_status === "found_in_gold_projection" && operation.target_id && refreshed.node_views[operation.target_id]);
+      if (firstVisible?.target_id) {
+        setActiveLaneObject({ laneRole: "gold", nodeId: firstVisible.target_id });
+        setSelectedDeltaNodeId(firstVisible.target_id);
+      }
+      return verification;
+    } catch (error) {
+      setGoldProjectionStatus("error");
+      setGoldProjectionError(friendlyProjectionError(error));
+      throw error;
+    }
+  }, [reloadGoldProjection]);
 
   useEffect(() => {
     setSelectedSourceSpanId(null);
@@ -762,6 +797,13 @@ export function GraphReviewLiveProjectionPanel({
                 campaignId={campaignId}
                 sessionId={sessionId}
                 proposals={localProposals}
+                onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
+                onShowCommittedObject={(targetId) => {
+                  if (goldProjection?.node_views[targetId]) {
+                    setActiveLaneObject({ laneRole: "gold", nodeId: targetId });
+                    setSelectedDeltaNodeId(targetId);
+                  }
+                }}
               />
             </>
           ) : null}

@@ -9,6 +9,60 @@ import type { GraphReviewLocalAuthoringProposal } from "./graphReviewLocalAuthor
 vi.mock("../../api/liveApi", async () => {
   const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
   return { ...actual, prepareGraphGoldAuthoringPreview: vi.fn(), commitGraphGoldAuthoringPreview: vi.fn() };
+
+  it("shows reload after commit and renders verification results", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const onReloadAndVerifyCommit = vi.fn().mockResolvedValue({
+      schema: "dmb_graph_gold_authoring_verify_commit_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      commit_id: "graph-gold-authoring-test",
+      verification_status: "verified",
+      checked_operations: [{ operation_id: "preview:node:local-1", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:local-1", verification_status: "found_in_gold_projection", summary: "Committed node found in gold projection." }],
+      diagnostics: [],
+    });
+    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    expect(screen.queryByRole("button", { name: "Reload gold projection" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
+    await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
+    const reloadButton = await screen.findByRole("button", { name: "Reload gold projection" });
+    await userEvent.click(reloadButton);
+    await waitFor(() => expect(onReloadAndVerifyCommit).toHaveBeenCalledWith(commitResponse));
+    expect(await screen.findByText("Gold projection reloaded. Committed changes verified.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: found in gold projection/)).toBeInTheDocument();
+    expect(screen.queryByText(/LLM|Identity resolved|Canon merged/)).not.toBeInTheDocument();
+  });
+
+  it("renders fixture-only, event-only, and missing verification honestly", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const onReloadAndVerifyCommit = vi.fn().mockResolvedValue({
+      schema: "dmb_graph_gold_authoring_verify_commit_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      commit_id: "graph-gold-authoring-test",
+      verification_status: "partial",
+      checked_operations: [
+        { operation_id: "a", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:local-1", verification_status: "found_in_fixture_only", summary: "Committed node found in gold fixture, but not anchored in projection." },
+        { operation_id: "b", operation_type: "link_existing_intent", source_proposal_id: "local-2", target_id: null, verification_status: "recorded_event_only", summary: "Recorded in authoring event log only; no identity link was written." },
+        { operation_id: "c", operation_type: "add_edge", source_proposal_id: "local-3", target_id: "authored:edge:missing", verification_status: "missing", summary: "Committed edge was not found in the gold fixture or projection." },
+      ],
+      diagnostics: [{ code: "operation_missing", message: "Missing edge", operation_id: "c", severity: "error" }],
+    });
+    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
+    await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Reload gold projection" }));
+    expect(await screen.findByText("Gold projection reloaded. Some committed changes are fixture-only or event-only.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: found in fixture only/)).toBeInTheDocument();
+    expect(screen.getByText("No identity link was written.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: missing/)).toBeInTheDocument();
+    expect(screen.getByText("Missing edge")).toBeInTheDocument();
+  });
+
 });
 
 const acceptedProposal: GraphReviewLocalAuthoringProposal = {
@@ -120,6 +174,60 @@ describe("GraphReviewAuthoringPreparePreviewPanel", () => {
     rerender(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[{ ...acceptedProposal, proposalId: "local-2", suggestedLabel: "Changed Preview" }]} />);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Commit prepared preview" })).not.toBeInTheDocument());
     expect(screen.getByText("Accept local proposals, then prepare a read-only write preview.")).toBeInTheDocument();
+  });
+
+
+  it("shows reload after commit and renders verification results", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const onReloadAndVerifyCommit = vi.fn().mockResolvedValue({
+      schema: "dmb_graph_gold_authoring_verify_commit_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      commit_id: "graph-gold-authoring-test",
+      verification_status: "verified",
+      checked_operations: [{ operation_id: "preview:node:local-1", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:local-1", verification_status: "found_in_gold_projection", summary: "Committed node found in gold projection." }],
+      diagnostics: [],
+    });
+    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    expect(screen.queryByRole("button", { name: "Reload gold projection" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
+    await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
+    const reloadButton = await screen.findByRole("button", { name: "Reload gold projection" });
+    await userEvent.click(reloadButton);
+    await waitFor(() => expect(onReloadAndVerifyCommit).toHaveBeenCalledWith(commitResponse));
+    expect(await screen.findByText("Gold projection reloaded. Committed changes verified.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: found in gold projection/)).toBeInTheDocument();
+    expect(screen.queryByText(/LLM|Identity resolved|Canon merged/)).not.toBeInTheDocument();
+  });
+
+  it("renders fixture-only, event-only, and missing verification honestly", async () => {
+    vi.mocked(prepareGraphGoldAuthoringPreview).mockResolvedValue(readyResponse);
+    vi.mocked(commitGraphGoldAuthoringPreview).mockResolvedValue(commitResponse);
+    const onReloadAndVerifyCommit = vi.fn().mockResolvedValue({
+      schema: "dmb_graph_gold_authoring_verify_commit_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      commit_id: "graph-gold-authoring-test",
+      verification_status: "partial",
+      checked_operations: [
+        { operation_id: "a", operation_type: "add_node", source_proposal_id: "local-1", target_id: "authored:node:local-1", verification_status: "found_in_fixture_only", summary: "Committed node found in gold fixture, but not anchored in projection." },
+        { operation_id: "b", operation_type: "link_existing_intent", source_proposal_id: "local-2", target_id: null, verification_status: "recorded_event_only", summary: "Recorded in authoring event log only; no identity link was written." },
+        { operation_id: "c", operation_type: "add_edge", source_proposal_id: "local-3", target_id: "authored:edge:missing", verification_status: "missing", summary: "Committed edge was not found in the gold fixture or projection." },
+      ],
+      diagnostics: [{ code: "operation_missing", message: "Missing edge", operation_id: "c", severity: "error" }],
+    });
+    render(<GraphReviewAuthoringPreparePreviewPanel campaignId="longmont-c1" sessionId="session-1" proposals={[acceptedProposal]} onReloadAndVerifyCommit={onReloadAndVerifyCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: "Prepare write preview" }));
+    await userEvent.click(await screen.findByLabelText("I understand this will write to the gold fixture and create a backup."));
+    await userEvent.click(screen.getByRole("button", { name: "Commit prepared preview" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Reload gold projection" }));
+    expect(await screen.findByText("Gold projection reloaded. Some committed changes are fixture-only or event-only.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: found in fixture only/)).toBeInTheDocument();
+    expect(screen.getByText("No identity link was written.")).toBeInTheDocument();
+    expect(screen.getByText(/Status: missing/)).toBeInTheDocument();
+    expect(screen.getByText("Missing edge")).toBeInTheDocument();
   });
 
 });
