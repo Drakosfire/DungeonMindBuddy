@@ -3728,17 +3728,6 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .graph-review-authoring-hero p { max-width: 72rem; }
 
-.graph-review-authoring-demo-note,
-.graph-review-authoring-empty-state {
-  border-left: 3px solid rgba(251, 191, 36, 0.85);
-  border-radius: 0.45rem;
-  padding: 0.65rem 0.8rem;
-  background: rgba(251, 191, 36, 0.11);
-  color: var(--plan-text, #e2e8f0);
-}
-
-.graph-review-authoring-mode-strip,
-.graph-review-authoring-lane-badges,
 .graph-review-card-actions,
 .graph-review-relationship-chips {
   display: flex;
@@ -3747,12 +3736,9 @@ body.plan-toolbox-open .plan-agent-shell {
   align-items: center;
 }
 
-.graph-review-authoring-mode-strip button,
-.graph-review-authoring-lane-badges button,
 .graph-review-card-actions button,
 .graph-review-relationship-chips button,
-.graph-review-node-game-card button,
-.graph-review-authoring-rail > button {
+.graph-review-node-game-card button {
   border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
@@ -3761,27 +3747,11 @@ body.plan-toolbox-open .plan-agent-shell {
   cursor: pointer;
 }
 
-.graph-review-authoring-mode-strip button[aria-pressed="true"],
 .graph-review-relationship-chips button[aria-pressed="true"] {
   border-color: rgba(125, 211, 252, 0.85);
   background: rgba(14, 165, 233, 0.22);
 }
 
-.graph-review-authoring-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: start;
-}
-
-.graph-review-authoring-lanes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.graph-review-authoring-lane,
-.graph-review-authoring-staging-tray,
 .graph-review-node-game-card,
 .graph-review-relationship-card {
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -3790,91 +3760,41 @@ body.plan-toolbox-open .plan-agent-shell {
   background: rgba(15, 23, 42, 0.42);
 }
 
-.graph-review-authoring-lane-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-}
-
-.graph-review-authoring-lane-badges span {
-  border-radius: 999px;
-  padding: 0.25rem 0.55rem;
-  background: rgba(148, 163, 184, 0.14);
-  font-size: 0.82rem;
-}
-
-.graph-review-authoring-prose {
-  font-size: 1.02rem;
-  line-height: 1.8;
-}
-
-.graph-review-prose-pill {
-  border: 1px solid rgba(251, 191, 36, 0.62);
-  border-radius: 999px;
-  margin: 0 0.15rem;
-  padding: 0.08rem 0.45rem;
-  background: rgba(251, 191, 36, 0.16);
-  color: inherit;
-  cursor: pointer;
-}
-
-.graph-review-prose-note,
 .graph-review-game-kind,
 .graph-review-debug-panel {
   color: var(--muted-text, #94a3b8);
   font-size: 0.9rem;
 }
 
-.graph-review-authoring-staging-tray {
-  grid-column: 1 / -1;
+.graph-review-advanced-accordion {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.graph-review-advanced-accordion > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted-text, #94a3b8);
+  list-style: revert;
+}
+
+.graph-review-advanced-accordion-description {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+
+.graph-review-advanced-accordion-body {
   display: grid;
-  gap: 0.75rem;
-}
-
-.graph-review-authoring-proposal {
-  border: 1px dashed rgba(148, 163, 184, 0.32);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-}
-
-.graph-review-authoring-proposal[data-status="accepted"] { border-color: rgba(34, 197, 94, 0.65); }
-.graph-review-authoring-proposal[data-status="rejected"] { opacity: 0.62; }
-.graph-review-authoring-proposal[data-status="edited"] { border-color: rgba(251, 191, 36, 0.75); }
-
-.graph-review-authoring-rail {
-  position: sticky;
-  top: 1rem;
-  width: 4.5rem;
-}
-
-.graph-review-authoring-rail[data-open="true"] {
-  width: min(26rem, 32vw);
-}
-
-.graph-review-authoring-rail-content {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .graph-review-node-game-card section {
   margin-top: 0.75rem;
-}
-
-@media (max-width: 1100px) {
-  .graph-review-authoring-layout,
-  .graph-review-authoring-lanes {
-    grid-template-columns: 1fr;
-  }
-
-  .graph-review-authoring-rail,
-  .graph-review-authoring-rail[data-open="true"] {
-    width: 100%;
-    position: static;
-  }
 }
 
 .graph-review-comparison-summary-strip {
@@ -3921,12 +3841,7 @@ body.plan-toolbox-open .plan-agent-shell {
   margin-bottom: 0.8rem;
 }
 
-.graph-review-projection-lane header h3 {
-  margin: 0;
-}
-
-.graph-review-projection-lane header p,
-.graph-review-projection-lane header span {
+.graph-review-projection-lane header p {
   margin: 0;
   color: #94a3b8;
 }
@@ -3952,16 +3867,16 @@ body.plan-toolbox-open .plan-agent-shell {
   box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.65);
 }
 
+.recap-node-token[data-delta-status^="changed_"] {
+  border-style: dotted;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.65);
+}
+
 .recap-node-token.counterpart-highlighted,
 .recap-node-token[data-counterpart-highlighted="true"] {
   outline: 2px solid rgba(96, 165, 250, 0.95);
   outline-offset: 2px;
   filter: brightness(1.12);
-}
-
-.graph-review-projection-warning {
-  margin: 0 0 0.75rem;
-  color: #facc15;
 }
 
 @media (max-width: 980px) {

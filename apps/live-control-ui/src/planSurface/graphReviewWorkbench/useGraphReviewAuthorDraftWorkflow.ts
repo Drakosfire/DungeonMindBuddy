@@ -23,7 +23,7 @@ import {
   type GraphReviewLocalAuthoringProposalStatus,
   type GraphReviewRelationshipNodeRef,
 } from "./graphReviewLocalAuthoringState";
-import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
+import type { GraphReviewProjectionLaneRole } from "./graphReviewDeltaTypes";
 import type { GraphReviewSelectedNode } from "./graphReviewSelectionUtils";
 
 export type GraphReviewAuthorMode = "review" | "author_draft";

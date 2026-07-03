@@ -5,12 +5,14 @@ import type {
   GraphReviewLaneRole,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import type {
   GraphReviewContextualDelta,
   GraphReviewDeltaIndex,
   GraphReviewDeltaObjectKind,
   GraphReviewDeltaStatus,
   GraphReviewLaneObjectRef,
+  GraphReviewProjectionLaneRole,
 } from "./graphReviewDeltaTypes";
 import { GRAPH_REVIEW_DELTA_OBJECT_KINDS, GRAPH_REVIEW_DELTA_STATUSES } from "./graphReviewDeltaTypes";
 
@@ -170,6 +172,45 @@ function makeDelta(args: {
     confidence: args.status === "comparator_uncertain" ? "low" : "high",
     metadata: args.metadata,
   };
+}
+
+const DELTA_STATUS_TOKEN_LABEL: Record<GraphReviewDeltaStatus, string> = {
+  matched: "Matched",
+  gold_only: "Gold-only",
+  live_only: "Live-only",
+  comparator_uncertain: "Uncertain",
+  changed_type: "Changed",
+  changed_label: "Changed",
+  changed_evidence: "Changed",
+  changed_edges: "Changed",
+};
+
+/**
+ * Per-lane node delta presentation, keyed by this lane's node id, for
+ * GraphProjectionReader's `nodeDeltaPresentations` prop. Includes the
+ * counterpart node id in the *other* lane so hover/selection can resolve
+ * "the same object over there" for cross-lane highlighting.
+ */
+export function buildNodeDeltaPresentationIndex(
+  deltaIndex: GraphReviewDeltaIndex,
+  laneRole: GraphReviewProjectionLaneRole,
+): Record<string, RecapGraphNodeDeltaPresentation> {
+  const counterpartRole: GraphReviewProjectionLaneRole = laneRole === "gold" ? "live" : "gold";
+  const presentations: Record<string, RecapGraphNodeDeltaPresentation> = {};
+  for (const delta of deltaIndex.deltas) {
+    const laneRef = delta.laneObjectRefs.find((ref) => ref.laneRole === laneRole && ref.objectKind === "node");
+    if (!laneRef) continue;
+    const counterpartRef = delta.laneObjectRefs.find(
+      (ref) => ref.laneRole === counterpartRole && ref.objectKind === "node",
+    );
+    presentations[laneRef.objectId] = {
+      status: delta.status,
+      label: DELTA_STATUS_TOKEN_LABEL[delta.status] ?? delta.status,
+      summary: delta.summary,
+      counterpartNodeId: counterpartRef?.objectId ?? null,
+    };
+  }
+  return presentations;
 }
 
 export function buildGraphReviewDeltaIndex(input: BuildGraphReviewDeltaIndexInput): GraphReviewDeltaIndex {

@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 from apps.live_control_server.services.graph_gold_authoring_commit import GraphGoldAuthoringCommitRequest, commit_graph_gold_authoring_preview
+from apps.live_control_server.services.graph_gold_authoring_prepare import GraphGoldAuthoringPrepareRequest, prepare_graph_gold_authoring_preview
 from apps.live_control_server.services.graph_gold_authoring_verify import GraphGoldAuthoringVerifyCommitRequest, verify_graph_gold_authoring_commit
 from apps.live_control_server.services.graph_gold_review import build_gold_graph_projection
 
@@ -32,8 +33,20 @@ def link_intent(**overrides):
     data.update(overrides); return data
 
 
-def commit_request(proposals):
-    return GraphGoldAuthoringCommitRequest(campaign_id="longmont-c1", session_id="session-1", proposals=proposals)
+def commit_request(root: Path, proposals):
+    # Commit blocks without prepare/fixture-state fingerprints (PR #269 stale-fixture guard);
+    # mirror the real prepare-before-commit flow so these tests exercise a non-blocked commit.
+    prepare_response = prepare_graph_gold_authoring_preview(
+        GraphGoldAuthoringPrepareRequest(campaign_id="longmont-c1", session_id="session-1", proposals=proposals),
+        root=root,
+    )
+    return GraphGoldAuthoringCommitRequest(
+        campaign_id="longmont-c1",
+        session_id="session-1",
+        proposals=proposals,
+        expected_prepare_fingerprint=prepare_response.prepare_fingerprint,
+        expected_fixture_state_fingerprint=prepare_response.fixture_state_fingerprint,
+    )
 
 
 def verify_request(response):
@@ -42,7 +55,7 @@ def verify_request(response):
 
 def test_commit_add_node_then_verify_reports_fixture_or_projection(tmp_path):
     root = temp_root(tmp_path)
-    commit = commit_graph_gold_authoring_preview(commit_request([node_span()]), root=root)
+    commit = commit_graph_gold_authoring_preview(commit_request(root, [node_span()]), root=root)
     verify = verify_graph_gold_authoring_commit(verify_request(commit), root=root)
     assert verify.verification_status in {"verified", "partial"}
     assert verify.checked_operations[0].verification_status in {"found_in_gold_projection", "found_in_fixture_only"}
@@ -51,7 +64,7 @@ def test_commit_add_node_then_verify_reports_fixture_or_projection(tmp_path):
 
 def test_commit_add_edge_then_verify_reports_fixture_or_projection(tmp_path):
     root = temp_root(tmp_path)
-    commit = commit_graph_gold_authoring_preview(commit_request([relationship()]), root=root)
+    commit = commit_graph_gold_authoring_preview(commit_request(root, [relationship()]), root=root)
     verify = verify_graph_gold_authoring_commit(verify_request(commit), root=root)
     assert verify.checked_operations[0].verification_status in {"found_in_gold_projection", "found_in_fixture_only"}
 
@@ -59,7 +72,7 @@ def test_commit_add_edge_then_verify_reports_fixture_or_projection(tmp_path):
 def test_link_intent_verifies_event_only_without_identity_link(tmp_path):
     root = temp_root(tmp_path)
     before_edges = len(json.loads((root / FIXTURE_REL).read_text())["edges"])
-    commit = commit_graph_gold_authoring_preview(commit_request([link_intent()]), root=root)
+    commit = commit_graph_gold_authoring_preview(commit_request(root, [link_intent()]), root=root)
     verify = verify_graph_gold_authoring_commit(verify_request(commit), root=root)
     assert verify.checked_operations[0].verification_status == "recorded_event_only"
     assert "no identity link was written" in verify.checked_operations[0].summary
@@ -68,7 +81,7 @@ def test_link_intent_verifies_event_only_without_identity_link(tmp_path):
 
 def test_blocked_or_unknown_commit_verifies_cleanly(tmp_path):
     root = temp_root(tmp_path)
-    blocked = commit_graph_gold_authoring_preview(commit_request([]), root=root)
+    blocked = commit_graph_gold_authoring_preview(commit_request(root, []), root=root)
     verify = verify_graph_gold_authoring_commit(verify_request(blocked), root=root)
     assert verify.verification_status == "blocked"
     unknown = GraphGoldAuthoringVerifyCommitRequest(campaign_id="longmont-c1", session_id="session-1", commit_id="missing", applied_operations=[])
@@ -78,7 +91,7 @@ def test_blocked_or_unknown_commit_verifies_cleanly(tmp_path):
 
 def test_verify_is_read_only_and_missing_target_is_diagnostic(tmp_path):
     root = temp_root(tmp_path)
-    commit = commit_graph_gold_authoring_preview(commit_request([node_span()]), root=root)
+    commit = commit_graph_gold_authoring_preview(commit_request(root, [node_span()]), root=root)
     before = (root / FIXTURE_REL).read_bytes()
     payload = commit.model_copy(deep=True)
     payload.applied_operations[0].target_id = "authored:node:missing"
@@ -90,7 +103,7 @@ def test_verify_is_read_only_and_missing_target_is_diagnostic(tmp_path):
 
 def test_projection_builder_loads_committed_fixture_after_node_and_edge(tmp_path):
     root = temp_root(tmp_path)
-    commit_graph_gold_authoring_preview(commit_request([node_span(proposal_id="local-node")]), root=root)
-    commit_graph_gold_authoring_preview(commit_request([relationship(proposal_id="local-edge")]), root=root)
+    commit_graph_gold_authoring_preview(commit_request(root, [node_span(proposal_id="local-node")]), root=root)
+    commit_graph_gold_authoring_preview(commit_request(root, [relationship(proposal_id="local-edge")]), root=root)
     projection = build_gold_graph_projection(campaign_id="longmont-c1", session_id="session-1", root=root)
     assert projection.node_views

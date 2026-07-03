@@ -24,20 +24,8 @@ vi.mock("../../api/liveApi", async () => {
 });
 
 vi.mock("../graphProjectionReader/GraphProjectionReader", () => ({
-  GraphProjectionReader: ({
-    title,
-    subtitle,
-    markdown,
-  }: {
-    title: string;
-    subtitle: string;
-    markdown: string;
-  }) => (
-    <div data-testid="graph-projection-reader">
-      <h2>{title}</h2>
-      <p>{subtitle}</p>
-      <article>{markdown}</article>
-    </div>
+  GraphProjectionReader: ({ markdown }: { markdown: string }) => (
+    <article>{markdown}</article>
   ),
 }));
 

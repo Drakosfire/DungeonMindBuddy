@@ -10,7 +10,7 @@ import {
   sessionsForReviewCampaign,
   syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
-import { GraphReviewAuthoringWorkbenchModule } from "./GraphReviewAuthoringWorkbenchModule";
+import { GraphReviewAdvancedAccordion } from "./GraphReviewAdvancedAccordion";
 import { GraphReviewLaneCards } from "./GraphReviewLaneCards";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
@@ -217,8 +217,6 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         </div>
       </header>
 
-      <GraphReviewAuthoringWorkbenchModule />
-
       {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 
       <GraphReviewLanePicker
@@ -231,7 +229,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         onManifestSelect={setSelectedManifestPath}
       />
 
-      <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
+      <GraphReviewAdvancedAccordion
+        title="Advanced: gold & live lane details"
+        description="Identifiers, paths, and counts for the selected gold fixture and live run. Prose review below is the primary surface."
+      >
+        <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
+      </GraphReviewAdvancedAccordion>
 
       <GraphReviewLiveProjectionPanel
         campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
@@ -252,13 +255,18 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         onSelectManualVariantName={setSelectedManualVariantName}
       />
 
-      <GraphReviewMetricPanel
-        compare={compare}
-        compareStatus={compareStatus}
-        compareError={compareError}
-        selection={selection}
-        onSelect={setSelection}
-      />
+      <GraphReviewAdvancedAccordion
+        title="Advanced: gold vs. live recall & misses"
+        description="Scorecard and miss tables for this comparison. Diagnostic navigation aid, not the primary review surface."
+      >
+        <GraphReviewMetricPanel
+          compare={compare}
+          compareStatus={compareStatus}
+          compareError={compareError}
+          selection={selection}
+          onSelect={setSelection}
+        />
+      </GraphReviewAdvancedAccordion>
     </div>
   );
 }

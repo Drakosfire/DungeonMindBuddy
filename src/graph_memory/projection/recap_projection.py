@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -171,6 +172,37 @@ def build_recap_graph_projection(
     )
 
 
+def embed_markdown_node_links(
+    markdown: str,
+    spans: Sequence[tuple[int, int, str, str]],
+) -> str:
+    """Splice ``[label](dmb-node:node_id)`` links into ``markdown`` at each span.
+
+    ``spans`` entries are ``(start, end, label, node_id)`` tuples. This is the single
+    place both the live union-supergraph projection and the gold fixture projection
+    embed graph-node mentions into markdown, so the frontend (``GraphProjectionReader``)
+    only ever has to parse one contract: markdown link syntax, never a parallel
+    character-offset table. Callers own anchor-resolution and must pass
+    already-non-overlapping spans; overlapping spans are dropped defensively (first span
+    by start offset wins) so a bad caller can't corrupt the document.
+    """
+    if not markdown or not spans:
+        return markdown
+
+    accepted: list[tuple[int, int, str, str]] = []
+    last_end = -1
+    for start, end, label, node_id in sorted(spans, key=lambda item: item[0]):
+        if start < last_end or start < 0 or end <= start or end > len(markdown):
+            continue
+        accepted.append((start, end, label, node_id))
+        last_end = end
+
+    projected = markdown
+    for start, end, label, node_id in sorted(accepted, key=lambda item: item[0], reverse=True):
+        projected = f"{projected[:start]}[{label}](dmb-node:{node_id}){projected[end:]}"
+    return projected
+
+
 def _project_markdown_mentions(
     store: UnionSupergraphStore,
     markdown: str | None,
@@ -179,8 +211,7 @@ def _project_markdown_mentions(
         return markdown, []
 
     mentions: list[RecapProjectionMention] = []
-    projected = markdown
-    replacements: list[tuple[int, int, str, str]] = []
+    spans: list[tuple[int, int, str, str]] = []
     occupied: list[tuple[int, int]] = []
 
     aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
@@ -194,8 +225,7 @@ def _project_markdown_mentions(
             if any(start < used_end and end > used_start for used_start, used_end in occupied):
                 continue
             label = match.group(0)
-            replacement = f"[{label}](dmb-node:{node_id})"
-            replacements.append((start, end, replacement, node_id))
+            spans.append((start, end, label, node_id))
             occupied.append((start, end))
             mentions.append(
                 RecapProjectionMention(
@@ -208,9 +238,7 @@ def _project_markdown_mentions(
                 )
             )
 
-    for start, end, replacement, _node_id in sorted(replacements, reverse=True):
-        projected = f"{projected[:start]}{replacement}{projected[end:]}"
-
+    projected = embed_markdown_node_links(markdown, spans)
     return projected, sorted(mentions, key=lambda mention: mention.start_offset or 0)
 
 

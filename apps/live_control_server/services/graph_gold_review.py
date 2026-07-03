@@ -53,6 +53,7 @@ from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
     RecapProjectionMention,
     RecapProjectionSourceSpan,
+    embed_markdown_node_links,
 )
 from src.graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
 
@@ -434,7 +435,7 @@ def build_gold_graph_projection(
 
     gold_graph = entry["load_gold_graph_dict"]()
     gold_parts = parts_from_raw_graph(gold_graph)
-    markdown = _load_gold_normalized_recap(entry["fixture_key"])
+    normalized_markdown = _load_gold_normalized_recap(entry["fixture_key"])
     anchor_lookup = _resolved_anchor_lookup(entry["fixture_key"])
 
     source_spans = [
@@ -448,7 +449,21 @@ def build_gold_graph_projection(
         for item in anchor_lookup.values()
     ]
     node_views = _build_gold_node_views(gold_parts, anchor_lookup, session_id=session_id)
-    mentions = _build_gold_mentions(gold_parts, anchor_lookup, markdown)
+    mentions = _build_gold_mentions(gold_parts, anchor_lookup, normalized_markdown)
+    # Align with the live union-supergraph projection contract: embed
+    # `[label](dmb-node:id)` links for every anchored mention so the frontend
+    # (GraphProjectionReader) parses one markdown-link contract for both lanes,
+    # instead of reconciling this offset table against unlinked prose.
+    markdown = embed_markdown_node_links(
+        normalized_markdown,
+        [
+            (mention.start_offset, mention.end_offset, mention.label, mention.node_id)
+            for mention in mentions
+            if mention.anchor_status == "anchored"
+            and mention.start_offset is not None
+            and mention.end_offset is not None
+        ],
+    )
     focused_node_ids = sorted(
         node_id
         for node_id, view in node_views.items()

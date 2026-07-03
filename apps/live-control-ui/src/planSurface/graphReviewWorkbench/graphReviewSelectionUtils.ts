@@ -4,8 +4,11 @@ import type {
   GraphProjectionNodeView,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
-import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
-import type { GraphReviewDeltaIndex, GraphReviewDeltaStatus } from "./graphReviewDeltaTypes";
+import type {
+  GraphReviewDeltaIndex,
+  GraphReviewDeltaStatus,
+  GraphReviewProjectionLaneRole,
+} from "./graphReviewDeltaTypes";
 
 export interface GraphReviewSelectedNode {
   laneRole: GraphReviewProjectionLaneRole;

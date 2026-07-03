@@ -81,14 +81,23 @@ export function GraphNodeToken({
   deltaStatus,
   deltaLabel,
   deltaSummary,
+  highlighted,
+  onHoverChange,
 }: {
   presentation: RecapNodePresentation;
   label: string;
   pinned: boolean;
   onSelect: () => void;
-  deltaStatus?: "matched" | "live_only" | "comparator_uncertain" | "unclassified";
+  // Left open (rather than a closed union) so any delta-status vocabulary
+  // (e.g. the graph review workbench's gold_only/changed_* statuses) can
+  // flow through without this shared component depending on that taxonomy.
+  deltaStatus?: string;
   deltaLabel?: string;
   deltaSummary?: string | null;
+  // True when this node is the cross-lane counterpart of a node currently
+  // hovered/focused in a sibling reader (e.g. the gold/live two-lane review).
+  highlighted?: boolean;
+  onHoverChange?: (hovering: boolean) => void;
 }) {
   const role = presentation.role || presentation.kind || "node";
   const focusSession = presentation.planningChips.some((chip) => chip.tone === "evidence");
@@ -97,10 +106,15 @@ export function GraphNodeToken({
     <span className="recap-node-token-wrap">
       <button
         type="button"
-        className={`recap-node-token role-${roleClass(role)} delta-${normalizedDeltaStatus}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}`}
+        className={`recap-node-token role-${roleClass(role)} delta-${normalizedDeltaStatus}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}${highlighted ? " counterpart-highlighted" : ""}`}
         data-graph-node-id={presentation.nodeId}
         data-delta-status={normalizedDeltaStatus}
+        data-counterpart-highlighted={highlighted ? "true" : undefined}
         onClick={onSelect}
+        onMouseEnter={() => onHoverChange?.(true)}
+        onMouseLeave={() => onHoverChange?.(false)}
+        onFocus={() => onHoverChange?.(true)}
+        onBlur={() => onHoverChange?.(false)}
       >
         {label}
         {deltaStatus && deltaStatus !== "unclassified" ? (

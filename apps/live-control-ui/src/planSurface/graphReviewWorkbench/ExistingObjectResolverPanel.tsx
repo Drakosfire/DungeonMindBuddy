@@ -8,7 +8,7 @@ import type {
   GraphReviewExistingObjectResolverResponse,
   GraphReviewResolverSelectedNode,
 } from "../../api/types";
-import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
+import type { GraphReviewProjectionLaneRole } from "./graphReviewDeltaTypes";
 
 export function buildResolverSelectedNode(
   node: GraphProjectionNodeView,

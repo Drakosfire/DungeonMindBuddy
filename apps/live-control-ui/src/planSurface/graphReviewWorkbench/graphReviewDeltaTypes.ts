@@ -1,5 +1,11 @@
 import type { GraphReviewLaneRole } from "../../api/types";
 
+// Which side of the two-lane review a projected node/relationship belongs to.
+// Lives here (rather than on a specific lane-rendering component) because
+// delta indexing, selection state, and the authoring workflow all need it
+// independent of which component renders a given lane.
+export type GraphReviewProjectionLaneRole = "gold" | "live";
+
 export type GraphReviewDeltaStatus =
   | "matched"
   | "gold_only"

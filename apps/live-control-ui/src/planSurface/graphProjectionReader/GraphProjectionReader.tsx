@@ -7,7 +7,7 @@ import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../a
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
-import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
+import { RecapGraphNodeRuntimeProvider, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import { attachSourceSpanDataAttributes, type SourceSpanDomOverlay } from "./sourceSpanHighlight";
 
 export interface GraphProjectionReaderProps {
@@ -26,6 +26,14 @@ export interface GraphProjectionReaderProps {
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
+  /** Cross-lane hover: id of a node that should render as "counterpart highlighted" here. */
+  highlightedNodeId?: string | null;
+  /** Cross-lane hover: fires with the hovered node id (or null on hover-out) from within this reader. */
+  onHoverNode?: (nodeId: string | null) => void;
+  /** Fires with the selected text when the reader viewport reports a non-empty text selection. */
+  onSelectText?: (text: string) => void;
+  /** Suppress the built-in floating GraphNodeExplorer panel, e.g. when a host page renders its own object inspector. */
+  disableInlineExplorer?: boolean;
 }
 
 function ReadOnlyTiptapRecap({
@@ -37,6 +45,8 @@ function ReadOnlyTiptapRecap({
   selectedEvidenceSpanId,
   nodeDeltaPresentations,
   sourceSpanDeltaOverlays,
+  highlightedNodeId,
+  onHoverNode,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -46,6 +56,8 @@ function ReadOnlyTiptapRecap({
   selectedEvidenceSpanId: string | null;
   nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
+  highlightedNodeId?: string | null;
+  onHoverNode?: (nodeId: string | null) => void;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
   const content = useMemo(
@@ -64,10 +76,6 @@ function ReadOnlyTiptapRecap({
   }, [content, editor]);
 
   useEffect(() => {
-    setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode, deltaByNodeId: nodeDeltaPresentations ?? {} });
-  }, [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations]);
-
-  useEffect(() => {
     const root = readerRef.current;
     if (!root) return;
     const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
@@ -76,10 +84,24 @@ function ReadOnlyTiptapRecap({
     }
   }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
+  const runtimeValue = useMemo(
+    () => ({
+      nodeViews,
+      activeNodeId,
+      onSelectNode,
+      deltaByNodeId: nodeDeltaPresentations ?? {},
+      highlightedNodeId: highlightedNodeId ?? null,
+      onHoverNode,
+    }),
+    [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations, highlightedNodeId, onHoverNode],
+  );
+
   return (
-    <div className="union-supergraph-tiptap-reader" ref={readerRef}>
-      <EditorContent editor={editor} />
-    </div>
+    <RecapGraphNodeRuntimeProvider value={runtimeValue}>
+      <div className="union-supergraph-tiptap-reader" ref={readerRef}>
+        <EditorContent editor={editor} />
+      </div>
+    </RecapGraphNodeRuntimeProvider>
   );
 }
 
@@ -99,6 +121,10 @@ export function GraphProjectionReader({
   sourceSpanDeltaOverlays,
   selectedSourceSpanId,
   onActiveNodeChange,
+  highlightedNodeId,
+  onHoverNode,
+  onSelectText,
+  disableInlineExplorer = false,
 }: GraphProjectionReaderProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
   const activeNodeId = explorerTrail.at(-1) ?? null;
@@ -140,7 +166,7 @@ export function GraphProjectionReader({
     onActiveNodeChange?.(null);
   };
 
-  const explorerOpen = explorerTrail.length > 0;
+  const explorerOpen = !disableInlineExplorer && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
   const effectiveSelectedSpanId = selectedSourceSpanId ?? selectedEvidenceSpanId;
 
@@ -165,7 +191,18 @@ export function GraphProjectionReader({
       ) : null}
 
       <div className={`recap-reader-layout union-supergraph-layout${explorerOpen ? " graph-explorer-open" : ""}`}>
-        <article className="recap-reader-document union-supergraph-recap-document" aria-label={documentLabel}>
+        <article
+          className="recap-reader-document union-supergraph-recap-document"
+          aria-label={documentLabel}
+          onMouseUp={
+            onSelectText
+              ? () => {
+                  const selected = window.getSelection()?.toString().trim() ?? "";
+                  if (selected) onSelectText(selected);
+                }
+              : undefined
+          }
+        >
           <ReadOnlyTiptapRecap
             markdown={markdown}
             nodeViews={nodeViews}
@@ -175,6 +212,8 @@ export function GraphProjectionReader({
             selectedEvidenceSpanId={effectiveSelectedSpanId}
             nodeDeltaPresentations={nodeDeltaPresentations}
             sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
+            highlightedNodeId={highlightedNodeId}
+            onHoverNode={onHoverNode}
           />
         </article>
         {explorerOpen && activeNode ? (

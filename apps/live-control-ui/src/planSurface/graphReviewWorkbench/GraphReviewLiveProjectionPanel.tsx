@@ -20,6 +20,9 @@ import type {
   ManualReviewBedSummary,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import type { SourceSpanDomOverlay } from "../graphProjectionReader/sourceSpanHighlight";
+import { GraphReviewAdvancedAccordion } from "./GraphReviewAdvancedAccordion";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
 import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
@@ -28,14 +31,13 @@ import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryPanel";
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
-import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewSelectedObjectPanel } from "./GraphReviewSelectedObjectPanel";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GRAPH_REVIEW_RELATIONSHIP_PREDICATES } from "./graphReviewLocalAuthoringState";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
-import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
+import { buildGraphReviewDeltaIndex, buildNodeDeltaPresentationIndex } from "./graphReviewDeltaUtils";
 import {
   resolveGraphReviewSelectedNode,
   type GraphReviewSelectedNode,
@@ -297,6 +299,23 @@ export function GraphReviewLiveProjectionPanel({
         deltas: deltaIndex.deltas,
       }),
     [paragraphSourceSpans, deltaIndex.deltas],
+  );
+
+  const liveSourceSpanDeltaOverlays = useMemo(() => {
+    const overlays: Record<string, SourceSpanDomOverlay> = {};
+    for (const [spanId, presentation] of Object.entries(sourceSpanDeltaIndex.spansById)) {
+      overlays[spanId] = { status: presentation.status, label: presentation.label };
+    }
+    return overlays;
+  }, [sourceSpanDeltaIndex]);
+
+  const goldNodeDeltaPresentations = useMemo(
+    () => buildNodeDeltaPresentationIndex(deltaIndex, "gold"),
+    [deltaIndex],
+  );
+  const liveNodeDeltaPresentations = useMemo(
+    () => buildNodeDeltaPresentationIndex(deltaIndex, "live"),
+    [deltaIndex],
   );
 
   const variantInventoryIndex = useMemo(
@@ -588,49 +607,92 @@ export function GraphReviewLiveProjectionPanel({
               </p>
             ) : null}
             {goldProjectionStatus === "ready" && goldProjection ? (
-              <GraphReviewProjectionLane
-                laneRole="gold"
-                title="Gold Fixture · read-only"
-                subtitle={
-                  goldProjection.fixture_version
-                    ? `Fixture ${goldProjection.fixture_version}`
-                    : goldProjection.gold_fixture_relpath
-                }
-                markdown={goldProjection.markdown ?? FALLBACK_MARKDOWN}
-                nodeViews={goldProjection.node_views}
-                sourceSpans={goldProjection.source_spans}
-                mentions={goldProjection.mentions}
-                mentionsCount={goldProjection.mentions.length}
-                deltaIndex={deltaIndex}
-                activeObject={activeLaneObject}
-                onActiveObjectChange={setActiveLaneObject}
-                onSelectObject={(selection) => {
-                  setSelectedNode(selection);
-                  setSelectedRelationship(null);
-                  setSelectedDeltaNodeId(selection.nodeId);
-                }}
-                onSelectText={authorDraft.setSelectedText}
-              />
+              <section
+                className="graph-review-projection-lane"
+                aria-label="Gold fixture source projection"
+                data-lane-role="gold"
+              >
+                <header>
+                  <p className="plan-surface-kicker">Gold Fixture · read-only</p>
+                </header>
+                <GraphProjectionReader
+                  markdown={goldProjection.markdown ?? FALLBACK_MARKDOWN}
+                  nodeViews={goldProjection.node_views}
+                  sourceSpans={goldProjection.source_spans}
+                  nodeDeltaPresentations={goldNodeDeltaPresentations}
+                  disableInlineExplorer
+                  resetKey={`gold:${goldProjection.graph_id ?? ""}`}
+                  highlightedNodeId={
+                    activeLaneObject && activeLaneObject.laneRole !== "gold"
+                      ? activeLaneObject.nodeId
+                      : null
+                  }
+                  onHoverNode={(nodeId) => {
+                    if (!nodeId) {
+                      setActiveLaneObject(null);
+                      return;
+                    }
+                    setActiveLaneObject({
+                      laneRole: "gold",
+                      nodeId: goldNodeDeltaPresentations[nodeId]?.counterpartNodeId ?? nodeId,
+                    });
+                  }}
+                  onActiveNodeChange={(nodeId) => {
+                    if (!nodeId) return;
+                    setSelectedNode({ laneRole: "gold", nodeId });
+                    setSelectedRelationship(null);
+                    setSelectedDeltaNodeId(nodeId);
+                  }}
+                  onSelectText={(text) =>
+                    authorDraft.setSelectedText({ laneRole: "gold", text, sourceOffsets: null })
+                  }
+                />
+              </section>
             ) : null}
-            <GraphReviewProjectionLane
-              laneRole="live"
-              title="Live Run · read-only"
-              subtitle={runIdentity}
-              markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-              nodeViews={projection.node_views}
-              sourceSpans={paragraphSourceSpans}
-              mentions={projection.mentions}
-              mentionsCount={projection.mentions.length}
-              deltaIndex={deltaIndex}
-              activeObject={activeLaneObject}
-              onActiveObjectChange={setActiveLaneObject}
-              onSelectObject={(selection) => {
-                setSelectedNode(selection);
-                setSelectedRelationship(null);
-                setSelectedDeltaNodeId(selection.nodeId);
-              }}
-              onSelectText={authorDraft.setSelectedText}
-            />
+            <section
+              className="graph-review-projection-lane"
+              aria-label="Selected live lane source projection"
+              data-lane-role="live"
+              data-testid="graph-projection-reader"
+            >
+              <header>
+                <p className="plan-surface-kicker">Live Run · read-only</p>
+              </header>
+              <GraphProjectionReader
+                markdown={projection.markdown ?? FALLBACK_MARKDOWN}
+                nodeViews={projection.node_views}
+                sourceSpans={paragraphSourceSpans}
+                nodeDeltaPresentations={liveNodeDeltaPresentations}
+                sourceSpanDeltaOverlays={liveSourceSpanDeltaOverlays}
+                selectedSourceSpanId={selectedSourceSpanId}
+                disableInlineExplorer
+                resetKey={liveRunKey}
+                highlightedNodeId={
+                  activeLaneObject && activeLaneObject.laneRole !== "live"
+                    ? activeLaneObject.nodeId
+                    : null
+                }
+                onHoverNode={(nodeId) => {
+                  if (!nodeId) {
+                    setActiveLaneObject(null);
+                    return;
+                  }
+                  setActiveLaneObject({
+                    laneRole: "live",
+                    nodeId: liveNodeDeltaPresentations[nodeId]?.counterpartNodeId ?? nodeId,
+                  });
+                }}
+                onActiveNodeChange={(nodeId) => {
+                  if (!nodeId) return;
+                  setSelectedNode({ laneRole: "live", nodeId });
+                  setSelectedRelationship(null);
+                  setSelectedDeltaNodeId(nodeId);
+                }}
+                onSelectText={(text) =>
+                  authorDraft.setSelectedText({ laneRole: "live", text, sourceOffsets: null })
+                }
+              />
+            </section>
           </div>
           <GraphReviewSelectedObjectPanel
             selectedNode={selectedNodeViewModel}
@@ -768,99 +830,83 @@ export function GraphReviewLiveProjectionPanel({
               />
             </>
           ) : null}
-          <GraphReviewDeltaInspectorPanel
-            selectedNodeId={selectedDeltaNodeId}
-            selectedNode={
-              selectedDeltaNodeId
-                ? projection.node_views[selectedDeltaNodeId]
-                : null
-            }
-            presentation={null}
-            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
-            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
-          />
-          <GraphReviewSourceSpanRail
-            index={sourceSpanDeltaIndex}
-            selectedSourceSpanId={selectedSourceSpanId}
-            onSelectSourceSpan={setSelectedSourceSpanId}
-          />
-          <GraphReviewSourceSpanInspectorPanel
-            selectedSourceSpanId={selectedSourceSpanId}
-            presentation={
-              selectedSourceSpanId
-                ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId]
-                : null
-            }
-            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
-            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
-          />
-          <GraphReviewEvidenceSplitPanel
-            selection={evidenceSelection}
-            evidence={evidenceDiff}
-            status={evidenceStatus}
-            errorMessage={evidenceError}
-            onClearSelection={() => setSelectedEvidenceDeltaId(null)}
-          />
-          <GraphReviewVariantLanePanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            beds={manualBeds}
-            bedsStatus={manualBedsStatus}
-            bedsError={manualBedsError}
-            selectedBed={selectedManualBed}
-            selectedLaneView={selectedVariantLaneView}
-            selectedVariant={selectedManualVariant}
-            onSelectBedId={onSelectManualBedId}
-            onSelectVariantName={onSelectManualVariantName}
-          />
-          <GraphReviewVariantInventoryPanel
-            index={variantInventoryIndex}
-            selectedRowId={selectedVariantInventoryRowId}
-            onSelectRow={setSelectedVariantInventoryRowId}
-          />
-          <GraphReviewVariantObjectInspectorPanel
-            selectedRow={selectedVariantInventoryRow}
-          />
         </>
       ) : null}
 
-      {projectionStatus !== "ready" ? (
-        <>
-          <GraphReviewVariantLanePanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            beds={manualBeds}
-            bedsStatus={manualBedsStatus}
-            bedsError={manualBedsError}
-            selectedBed={selectedManualBed}
-            selectedLaneView={selectedVariantLaneView}
-            selectedVariant={selectedManualVariant}
-            onSelectBedId={onSelectManualBedId}
-            onSelectVariantName={onSelectManualVariantName}
-          />
-          <GraphReviewVariantInventoryPanel
-            index={variantInventoryIndex}
-            selectedRowId={selectedVariantInventoryRowId}
-            onSelectRow={setSelectedVariantInventoryRowId}
-          />
-          <GraphReviewVariantObjectInspectorPanel
-            selectedRow={selectedVariantInventoryRow}
-          />
-        </>
-      ) : null}
-
-      {compareStatus === "ready" ||
-      projectionStatus === "ready" ||
-      projectionStatus === "error" ||
-      projectionStatus === "unavailable" ? (
-        <GraphReviewDeltaSummaryPanel
-          deltaIndex={deltaIndex}
-          compareReady={compareStatus === "ready"}
-          projectionReady={projectionStatus === "ready"}
-          onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
-          selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+      <GraphReviewAdvancedAccordion
+        title="Advanced: deltas, evidence & variant inventory"
+        description="Diagnostic drill-in for this run: delta/evidence detail and manual-review variant inventory. Prose review, object cards, and authoring above remain the primary surface."
+      >
+        {projectionStatus === "ready" && projection ? (
+          <>
+            <GraphReviewDeltaInspectorPanel
+              selectedNodeId={selectedDeltaNodeId}
+              selectedNode={
+                selectedDeltaNodeId
+                  ? projection.node_views[selectedDeltaNodeId]
+                  : null
+              }
+              presentation={null}
+              onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+              selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+            />
+            <GraphReviewSourceSpanRail
+              index={sourceSpanDeltaIndex}
+              selectedSourceSpanId={selectedSourceSpanId}
+              onSelectSourceSpan={setSelectedSourceSpanId}
+            />
+            <GraphReviewSourceSpanInspectorPanel
+              selectedSourceSpanId={selectedSourceSpanId}
+              presentation={
+                selectedSourceSpanId
+                  ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId]
+                  : null
+              }
+              onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+              selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+            />
+            <GraphReviewEvidenceSplitPanel
+              selection={evidenceSelection}
+              evidence={evidenceDiff}
+              status={evidenceStatus}
+              errorMessage={evidenceError}
+              onClearSelection={() => setSelectedEvidenceDeltaId(null)}
+            />
+          </>
+        ) : null}
+        <GraphReviewVariantLanePanel
+          campaignId={campaignId}
+          sessionId={sessionId}
+          beds={manualBeds}
+          bedsStatus={manualBedsStatus}
+          bedsError={manualBedsError}
+          selectedBed={selectedManualBed}
+          selectedLaneView={selectedVariantLaneView}
+          selectedVariant={selectedManualVariant}
+          onSelectBedId={onSelectManualBedId}
+          onSelectVariantName={onSelectManualVariantName}
         />
-      ) : null}
+        <GraphReviewVariantInventoryPanel
+          index={variantInventoryIndex}
+          selectedRowId={selectedVariantInventoryRowId}
+          onSelectRow={setSelectedVariantInventoryRowId}
+        />
+        <GraphReviewVariantObjectInspectorPanel
+          selectedRow={selectedVariantInventoryRow}
+        />
+        {compareStatus === "ready" ||
+        projectionStatus === "ready" ||
+        projectionStatus === "error" ||
+        projectionStatus === "unavailable" ? (
+          <GraphReviewDeltaSummaryPanel
+            deltaIndex={deltaIndex}
+            compareReady={compareStatus === "ready"}
+            projectionReady={projectionStatus === "ready"}
+            onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+            selectedEvidenceDeltaId={selectedEvidenceDeltaId}
+          />
+        ) : null}
+      </GraphReviewAdvancedAccordion>
     </section>
   );
 }

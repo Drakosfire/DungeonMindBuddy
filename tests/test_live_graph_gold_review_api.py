@@ -135,14 +135,33 @@ def test_gold_review_projection_endpoint_renders_session_1_gold_recap_read_only(
     assert payload["gold_fixture_relpath"] == (
         "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json"
     )
-    assert payload["markdown"] == load_session_1_expected_normalized_recap()
     assert "node:heroes-party" in payload["node_views"]
     assert payload["node_views"]["node:heroes-party"]["label"] == "Heroes / Party"
-    assert any(
-        mention["node_id"] == "node:heroes-party"
-        and mention["anchor_status"] == "anchored"
-        and isinstance(mention["start_offset"], int)
+    heroes_party_mention = next(
+        mention
         for mention in payload["mentions"]
+        if mention["node_id"] == "node:heroes-party"
+    )
+    assert heroes_party_mention["anchor_status"] == "anchored"
+    assert isinstance(heroes_party_mention["start_offset"], int)
+    # Gold markdown embeds `[label](dmb-node:id)` links for every anchored mention,
+    # matching the live union-supergraph projection contract (GraphProjectionReader
+    # parses markdown link syntax, not a parallel offset table).
+    assert (
+        f"[{heroes_party_mention['label']}](dmb-node:node:heroes-party)"
+        in payload["markdown"]
+    )
+    assert payload["markdown"] != load_session_1_expected_normalized_recap()
+    anchored_mentions = [
+        mention for mention in payload["mentions"] if mention["anchor_status"] == "anchored"
+    ]
+    assert anchored_mentions
+    # Some anchored mentions overlap (e.g. a collective "Heroes / Party" evidence span
+    # covers individual character names too); overlap-dropping keeps the document
+    # well-formed, so at least one embedded link is required rather than all of them.
+    assert any(
+        f"[{mention['label']}](dmb-node:{mention['node_id']})" in payload["markdown"]
+        for mention in anchored_mentions
     )
     assert fixture_path.read_bytes() == before
 
