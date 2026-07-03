@@ -29,6 +29,11 @@ from apps.live_control_server.services.union_supergraph_projection_adapter impor
     build_recap_only_projection_payload,
     build_plan_union_supergraph_projection_payload,
 )
+from apps.live_control_server.services.graph_gold_authoring_prepare import (
+    GraphGoldAuthoringPrepareRequest,
+    GraphGoldAuthoringPrepareResponse,
+    prepare_graph_gold_authoring_preview,
+)
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
     GraphReviewExistingObjectResolverResponse,
@@ -234,6 +239,17 @@ def post_existing_object_resolver_candidates(
 ) -> dict[str, Any]:
     try:
         response = resolve_existing_object_candidates(request, root=repo_root())
+    except GraphGoldReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post("/gold-authoring/prepare", response_model=GraphGoldAuthoringPrepareResponse)
+def post_gold_authoring_prepare(
+    request: GraphGoldAuthoringPrepareRequest,
+) -> dict[str, Any]:
+    try:
+        response = prepare_graph_gold_authoring_preview(request, root=repo_root())
     except GraphGoldReviewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")

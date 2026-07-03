@@ -60,6 +60,8 @@ import type {
   GoldGraphProjectionResponse,
   GraphReviewExistingObjectResolverRequest,
   GraphReviewExistingObjectResolverResponse,
+  GraphGoldAuthoringPrepareRequest,
+  GraphGoldAuthoringPrepareResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
@@ -411,6 +413,15 @@ export async function resolveGraphReviewExistingObjectCandidates(
 export interface GoldGraphProjectionQuery {
   campaignId: string;
   sessionId: string;
+}
+
+export async function prepareGraphGoldAuthoringPreview(
+  request: GraphGoldAuthoringPrepareRequest,
+): Promise<GraphGoldAuthoringPrepareResponse> {
+  return apiFetch<GraphGoldAuthoringPrepareResponse>(
+    "/api/live/graph-preview/gold-authoring/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
 }
 
 export async function getGoldGraphProjection(

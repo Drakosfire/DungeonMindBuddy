@@ -29,6 +29,7 @@ import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewSelectedObjectPanel } from "./GraphReviewSelectedObjectPanel";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
+import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import {
   GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
   createExistingObjectLinkIntentProposal,
@@ -747,15 +748,22 @@ export function GraphReviewLiveProjectionPanel({
             }
           />
           {authorMode === "author_draft" ? (
-            <GraphReviewLocalStagingTray
-              proposals={localProposals}
-              onUpdateStatus={(proposalId, status) =>
-                setLocalProposals((current) =>
-                  updateLocalProposalStatus(current, proposalId, status),
-                )
-              }
-              onReset={() => setLocalProposals([])}
-            />
+            <>
+              <GraphReviewLocalStagingTray
+                proposals={localProposals}
+                onUpdateStatus={(proposalId, status) =>
+                  setLocalProposals((current) =>
+                    updateLocalProposalStatus(current, proposalId, status),
+                  )
+                }
+                onReset={() => setLocalProposals([])}
+              />
+              <GraphReviewAuthoringPreparePreviewPanel
+                campaignId={campaignId}
+                sessionId={sessionId}
+                proposals={localProposals}
+              />
+            </>
           ) : null}
           <GraphReviewDeltaInspectorPanel
             selectedNodeId={selectedDeltaNodeId}
