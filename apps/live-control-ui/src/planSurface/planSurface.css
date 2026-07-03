@@ -3876,3 +3876,96 @@ body.plan-toolbox-open .plan-agent-shell {
     position: static;
   }
 }
+
+.graph-review-comparison-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin: 1rem 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.54);
+  color: #cbd5e1;
+}
+
+.graph-review-comparison-summary-strip strong {
+  color: #f8fafc;
+}
+
+.graph-review-comparison-summary-strip span:not(:last-child)::after {
+  content: "·";
+  margin-left: 0.55rem;
+  color: #64748b;
+}
+
+.graph-review-real-two-lane-projections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.graph-review-projection-lane {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.graph-review-projection-lane header {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.8rem;
+}
+
+.graph-review-projection-lane header h3 {
+  margin: 0;
+}
+
+.graph-review-projection-lane header p,
+.graph-review-projection-lane header span {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.graph-review-projection-document {
+  display: grid;
+  gap: 0.75rem;
+  line-height: 1.7;
+}
+
+.graph-review-projection-document h2,
+.graph-review-projection-document h3,
+.graph-review-projection-document h4,
+.graph-review-projection-document p {
+  margin: 0;
+}
+
+.graph-review-projection-token {
+  margin: 0 0.12rem;
+}
+
+.recap-node-token[data-delta-status="gold_only"] {
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.65);
+}
+
+.recap-node-token.counterpart-highlighted,
+.recap-node-token[data-counterpart-highlighted="true"] {
+  outline: 2px solid rgba(96, 165, 250, 0.95);
+  outline-offset: 2px;
+  filter: brightness(1.12);
+}
+
+.graph-review-projection-warning {
+  margin: 0 0 0.75rem;
+  color: #facc15;
+}
+
+@media (max-width: 980px) {
+  .graph-review-real-two-lane-projections {
+    grid-template-columns: 1fr;
+  }
+}

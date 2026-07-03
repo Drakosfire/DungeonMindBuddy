@@ -1,24 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getGoldReviewEvidence, getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GoldReviewEvidenceDiffResponse, GoldReviewSessionSummary, GraphIngestRunSummary, GraphReviewLane, ManualReviewBedDetail, ManualReviewBedSummary, UnionSupergraphProjectionResponse } from "../../api/types";
-import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import {
+  getGoldGraphProjection,
+  getGoldReviewEvidence,
+  getUnionSupergraphProjection,
+  LiveApiError,
+} from "../../api/liveApi";
+import type {
+  GoldGraphProjectionResponse,
+  GoldReviewCompareResponse,
+  GoldReviewEvidenceDiffResponse,
+  GoldReviewSessionSummary,
+  GraphIngestRunSummary,
+  GraphReviewLane,
+  ManualReviewBedDetail,
+  ManualReviewBedSummary,
+  UnionSupergraphProjectionResponse,
+} from "../../api/types";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
-import { GraphReviewReferenceLanePanel } from "./GraphReviewReferenceLanePanel";
 import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
 import { GraphReviewSourceSpanInspectorPanel } from "./GraphReviewSourceSpanInspectorPanel";
 import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryPanel";
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
-import { GraphReviewTwoLaneShell, type GraphReviewTwoLaneLayoutMode } from "./GraphReviewTwoLaneShell";
+import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
-import { buildPrimaryLiveLaneView, buildReferenceLaneView } from "./graphReviewReferenceLaneUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
-import { buildLiveNodeDeltaPresentationIndex, statusLabelForPill } from "./graphReviewPillOverlayUtils";
-import { buildSourceSpanDeltaIndex, statusLabelForSourceSpan } from "./graphReviewSourceSpanOverlayUtils";
-import type { GraphReviewManualVariantLaneView, GraphReviewManualVariantSelection } from "./graphReviewVariantReferenceUtils";
+import { buildSourceSpanDeltaIndex } from "./graphReviewSourceSpanOverlayUtils";
+import type {
+  GraphReviewManualVariantLaneView,
+  GraphReviewManualVariantSelection,
+} from "./graphReviewVariantReferenceUtils";
 import { buildVariantLiveInventoryIndex } from "./graphReviewVariantReferenceUtils";
 
 interface GraphReviewLiveProjectionPanelProps {
@@ -59,7 +73,6 @@ export function GraphReviewLiveProjectionPanel({
   campaignId,
   sessionId,
   liveRun,
-  selectedSession = null,
   compare = null,
   compareStatus = "idle",
   goldLane = null,
@@ -73,17 +86,37 @@ export function GraphReviewLiveProjectionPanel({
   onSelectManualBedId = () => undefined,
   onSelectManualVariantName = () => undefined,
 }: GraphReviewLiveProjectionPanelProps) {
-  const [projection, setProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
-  const [projectionStatus, setProjectionStatus] = useState<ProjectionStatus>("idle");
+  const [projection, setProjection] =
+    useState<UnionSupergraphProjectionResponse | null>(null);
+  const [projectionStatus, setProjectionStatus] =
+    useState<ProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
-  const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(null);
-  const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<string | null>(null);
-  const [selectedEvidenceDeltaId, setSelectedEvidenceDeltaId] = useState<string | null>(null);
-  const [evidenceDiff, setEvidenceDiff] = useState<GoldReviewEvidenceDiffResponse | null>(null);
+  const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(
+    null,
+  );
+  const [selectedSourceSpanId, setSelectedSourceSpanId] = useState<
+    string | null
+  >(null);
+  const [selectedEvidenceDeltaId, setSelectedEvidenceDeltaId] = useState<
+    string | null
+  >(null);
+  const [evidenceDiff, setEvidenceDiff] =
+    useState<GoldReviewEvidenceDiffResponse | null>(null);
   const [evidenceStatus, setEvidenceStatus] = useState<EvidenceStatus>("idle");
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
-  const [selectedVariantInventoryRowId, setSelectedVariantInventoryRowId] = useState<string | null>(null);
-  const [twoLaneLayoutMode, setTwoLaneLayoutMode] = useState<GraphReviewTwoLaneLayoutMode>("single");
+  const [selectedVariantInventoryRowId, setSelectedVariantInventoryRowId] =
+    useState<string | null>(null);
+  const [goldProjection, setGoldProjection] =
+    useState<GoldGraphProjectionResponse | null>(null);
+  const [goldProjectionStatus, setGoldProjectionStatus] =
+    useState<ProjectionStatus>("idle");
+  const [goldProjectionError, setGoldProjectionError] = useState<string | null>(
+    null,
+  );
+  const [activeLaneObject, setActiveLaneObject] = useState<{
+    laneRole: "gold" | "live";
+    nodeId: string;
+  } | null>(null);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
@@ -135,6 +168,34 @@ export function GraphReviewLiveProjectionPanel({
   }, [campaignId, sessionId, liveRun, liveRunKey]);
 
   useEffect(() => {
+    let cancelled = false;
+    setGoldProjection(null);
+    setGoldProjectionError(null);
+    if (!campaignId || !sessionId) {
+      setGoldProjectionStatus("idle");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setGoldProjectionStatus("loading");
+    void getGoldGraphProjection({ campaignId, sessionId })
+      .then((response) => {
+        if (cancelled) return;
+        setGoldProjection(response);
+        setGoldProjectionStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setGoldProjection(null);
+        setGoldProjectionStatus("error");
+        setGoldProjectionError(friendlyProjectionError(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, sessionId]);
+
+  useEffect(() => {
     setSelectedSourceSpanId(null);
     setSelectedEvidenceDeltaId(null);
   }, [liveRunKey, projection?.graph_id]);
@@ -158,26 +219,6 @@ export function GraphReviewLiveProjectionPanel({
     [compare, projection, goldLane, liveLane],
   );
 
-  const nodeDeltaPresentations = useMemo(
-    () => buildLiveNodeDeltaPresentationIndex(deltaIndex.deltas),
-    [deltaIndex.deltas],
-  );
-
-  const readerNodeDeltaPresentations = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(nodeDeltaPresentations).map(([nodeId, presentation]) => [
-          nodeId,
-          {
-            status: presentation.status,
-            label: statusLabelForPill(presentation.status),
-            summary: presentation.primaryDelta?.summary ?? null,
-          },
-        ]),
-      ),
-    [nodeDeltaPresentations],
-  );
-
   const sourceSpanDeltaIndex = useMemo(
     () =>
       buildSourceSpanDeltaIndex({
@@ -188,12 +229,19 @@ export function GraphReviewLiveProjectionPanel({
   );
 
   const variantInventoryIndex = useMemo(
-    () => buildVariantLiveInventoryIndex({ variant: selectedVariantLaneView?.variant ?? null, compare: compare ?? null }),
+    () =>
+      buildVariantLiveInventoryIndex({
+        variant: selectedVariantLaneView?.variant ?? null,
+        compare: compare ?? null,
+      }),
     [selectedVariantLaneView?.variant, compare],
   );
 
   const selectedVariantInventoryRow = useMemo(
-    () => variantInventoryIndex.rows.find((row) => row.rowId === selectedVariantInventoryRowId) ?? null,
+    () =>
+      variantInventoryIndex.rows.find(
+        (row) => row.rowId === selectedVariantInventoryRowId,
+      ) ?? null,
     [variantInventoryIndex.rows, selectedVariantInventoryRowId],
   );
 
@@ -201,23 +249,11 @@ export function GraphReviewLiveProjectionPanel({
     setSelectedVariantInventoryRowId(null);
   }, [selectedVariantLaneView?.lane.laneId, liveRunKey]);
 
-  const sourceSpanDeltaOverlays = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(sourceSpanDeltaIndex.spansById).map(([sourceSpanId, presentation]) => [
-          sourceSpanId,
-          {
-            status: presentation.status,
-            label: statusLabelForSourceSpan(presentation.status),
-          },
-        ]),
-      ),
-    [sourceSpanDeltaIndex],
-  );
-
-
   const selectedEvidenceDelta = useMemo(
-    () => deltaIndex.deltas.find((delta) => delta.deltaId === selectedEvidenceDeltaId) ?? null,
+    () =>
+      deltaIndex.deltas.find(
+        (delta) => delta.deltaId === selectedEvidenceDeltaId,
+      ) ?? null,
     [deltaIndex.deltas, selectedEvidenceDeltaId],
   );
 
@@ -271,7 +307,11 @@ export function GraphReviewLiveProjectionPanel({
         if (cancelled) return;
         setEvidenceDiff(null);
         setEvidenceStatus("error");
-        setEvidenceError(error instanceof Error ? error.message : "Failed to load gold/live evidence.");
+        setEvidenceError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load gold/live evidence.",
+        );
       });
 
     return () => {
@@ -288,33 +328,22 @@ export function GraphReviewLiveProjectionPanel({
     evidenceSelection.queryObjectId,
   ]);
 
-  const runIdentity = liveRun?.run_label || liveRun?.manifest_path || "selected run";
-
-  const primaryLaneView = useMemo(
-    () => buildPrimaryLiveLaneView(liveRun),
-    [liveRun],
-  );
-
-  const referenceLaneView = useMemo(
-    () =>
-      buildReferenceLaneView({
-        selectedSession: selectedSession ?? null,
-        compare: compare ?? null,
-        selectedVariantLaneView,
-        preferredReference: "auto",
-      }),
-    [selectedSession, compare, selectedVariantLaneView],
-  );
+  const runIdentity =
+    liveRun?.run_label || liveRun?.manifest_path || "selected run";
 
   return (
-    <section className="graph-review-live-projection-panel" aria-label="Selected live lane source projection">
+    <section
+      className="graph-review-live-projection-panel"
+      aria-label="Selected live lane source projection"
+    >
       <header className="graph-review-live-projection-header">
         <div>
           <p className="plan-surface-kicker">Selected live lane</p>
           <h3>Source projection</h3>
           <p>
-            Read-only projected source Markdown for the selected graph-ingest run. Graph chips are candidate graph behavior;
-            source text remains the review surface.
+            Read-only projected source Markdown for the selected graph-ingest
+            run. Graph chips are candidate graph behavior; source text remains
+            the review surface.
           </p>
         </div>
         {liveRun ? <span>{runIdentity}</span> : null}
@@ -328,7 +357,10 @@ export function GraphReviewLiveProjectionPanel({
 
       {projectionStatus === "unavailable" && liveRun ? (
         <div className="graph-review-live-projection-status" role="status">
-          <p>Selected live run does not have a preview-union projection available yet.</p>
+          <p>
+            Selected live run does not have a preview-union projection available
+            yet.
+          </p>
           <dl className="graph-review-lane-meta">
             <div>
               <dt>Run label</dt>
@@ -352,55 +384,105 @@ export function GraphReviewLiveProjectionPanel({
             </div>
             <div>
               <dt>Next actions</dt>
-              <dd>{liveRun.next_actions.length ? liveRun.next_actions.join("; ") : "—"}</dd>
+              <dd>
+                {liveRun.next_actions.length
+                  ? liveRun.next_actions.join("; ")
+                  : "—"}
+              </dd>
             </div>
           </dl>
         </div>
       ) : null}
 
       {projectionStatus === "loading" ? (
-        <p className="graph-review-live-projection-status" role="status">Loading selected live lane projection…</p>
+        <p className="graph-review-live-projection-status" role="status">
+          Loading selected live lane projection…
+        </p>
       ) : null}
 
       {projectionStatus === "error" && liveRun ? (
         <div className="graph-review-error" role="alert">
-          <p>{projectionError ?? "Failed to load selected live lane projection."}</p>
+          <p>
+            {projectionError ?? "Failed to load selected live lane projection."}
+          </p>
           <p>Selected run: {runIdentity}</p>
         </div>
       ) : null}
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <GraphReviewTwoLaneShell
-            primaryLane={primaryLaneView}
-            referenceLane={referenceLaneView}
-            layoutMode={twoLaneLayoutMode}
-            onLayoutModeChange={setTwoLaneLayoutMode}
-            primary={(
-              <GraphProjectionReader
-                markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-                nodeViews={projection.node_views}
-                sourceSpans={paragraphSourceSpans}
-                mentionsCount={projection.mentions.length}
-                graphId={projection.graph_id}
-                title="Selected live lane projection"
-                subtitle={`Projected source view for ${runIdentity}`}
-                sourceNote={`Live lane · ${liveRun.vocabulary_mode ?? "unknown"} vocabulary · ${liveRun.extraction_profile ?? "unknown"} profile`}
-                className="graph-review-live-projection-reader"
-                documentLabel="Selected live lane projected source"
-                resetKey={`${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}`}
-                nodeDeltaPresentations={readerNodeDeltaPresentations}
-                sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
-                selectedSourceSpanId={selectedSourceSpanId}
-                onActiveNodeChange={setSelectedDeltaNodeId}
+          <div
+            className="graph-review-comparison-summary-strip"
+            aria-label="Gold vs live comparison summary"
+          >
+            <strong>Gold vs Live</strong>
+            <span>
+              {compareStatus === "loading"
+                ? "Compare loading…"
+                : `${deltaIndex.countsByObjectKind.node} indexed nodes`}
+            </span>
+            <span>{deltaIndex.countsByStatus.matched} matched</span>
+            <span>{deltaIndex.countsByStatus.gold_only} gold-only</span>
+            <span>{deltaIndex.countsByStatus.live_only} live-only</span>
+            {compareStatus === "error" ? (
+              <span>Compare unavailable</span>
+            ) : null}
+          </div>
+
+          <div className="graph-review-real-two-lane-projections">
+            {goldProjectionStatus === "loading" ? (
+              <p className="graph-review-live-projection-status" role="status">
+                Loading gold fixture projection…
+              </p>
+            ) : null}
+            {goldProjectionStatus === "error" ? (
+              <p className="graph-review-error" role="alert">
+                {goldProjectionError ??
+                  "Failed to load gold fixture projection."}
+              </p>
+            ) : null}
+            {goldProjectionStatus === "ready" && goldProjection ? (
+              <GraphReviewProjectionLane
+                laneRole="gold"
+                title="Gold Fixture · read-only"
+                subtitle={
+                  goldProjection.fixture_version
+                    ? `Fixture ${goldProjection.fixture_version}`
+                    : goldProjection.gold_fixture_relpath
+                }
+                markdown={goldProjection.markdown ?? FALLBACK_MARKDOWN}
+                nodeViews={goldProjection.node_views}
+                sourceSpans={goldProjection.source_spans}
+                mentions={goldProjection.mentions}
+                mentionsCount={goldProjection.mentions.length}
+                deltaIndex={deltaIndex}
+                activeObject={activeLaneObject}
+                onActiveObjectChange={setActiveLaneObject}
               />
-            )}
-            reference={<GraphReviewReferenceLanePanel referenceLane={referenceLaneView} />}
-          />
+            ) : null}
+            <GraphReviewProjectionLane
+              laneRole="live"
+              title="Live Run · read-only"
+              subtitle={runIdentity}
+              markdown={projection.markdown ?? FALLBACK_MARKDOWN}
+              nodeViews={projection.node_views}
+              sourceSpans={paragraphSourceSpans}
+              mentions={projection.mentions}
+              mentionsCount={projection.mentions.length}
+              deltaIndex={deltaIndex}
+              activeObject={activeLaneObject}
+              onActiveObjectChange={setActiveLaneObject}
+              onSelectNode={setSelectedDeltaNodeId}
+            />
+          </div>
           <GraphReviewDeltaInspectorPanel
             selectedNodeId={selectedDeltaNodeId}
-            selectedNode={selectedDeltaNodeId ? projection.node_views[selectedDeltaNodeId] : null}
-            presentation={selectedDeltaNodeId ? nodeDeltaPresentations[selectedDeltaNodeId] : null}
+            selectedNode={
+              selectedDeltaNodeId
+                ? projection.node_views[selectedDeltaNodeId]
+                : null
+            }
+            presentation={null}
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
             selectedEvidenceDeltaId={selectedEvidenceDeltaId}
           />
@@ -411,7 +493,11 @@ export function GraphReviewLiveProjectionPanel({
           />
           <GraphReviewSourceSpanInspectorPanel
             selectedSourceSpanId={selectedSourceSpanId}
-            presentation={selectedSourceSpanId ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId] : null}
+            presentation={
+              selectedSourceSpanId
+                ? sourceSpanDeltaIndex.spansById[selectedSourceSpanId]
+                : null
+            }
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
             selectedEvidenceDeltaId={selectedEvidenceDeltaId}
           />
@@ -439,7 +525,9 @@ export function GraphReviewLiveProjectionPanel({
             selectedRowId={selectedVariantInventoryRowId}
             onSelectRow={setSelectedVariantInventoryRowId}
           />
-          <GraphReviewVariantObjectInspectorPanel selectedRow={selectedVariantInventoryRow} />
+          <GraphReviewVariantObjectInspectorPanel
+            selectedRow={selectedVariantInventoryRow}
+          />
         </>
       ) : null}
 
@@ -462,11 +550,16 @@ export function GraphReviewLiveProjectionPanel({
             selectedRowId={selectedVariantInventoryRowId}
             onSelectRow={setSelectedVariantInventoryRowId}
           />
-          <GraphReviewVariantObjectInspectorPanel selectedRow={selectedVariantInventoryRow} />
+          <GraphReviewVariantObjectInspectorPanel
+            selectedRow={selectedVariantInventoryRow}
+          />
         </>
       ) : null}
 
-      {(compareStatus === "ready" || projectionStatus === "ready" || projectionStatus === "error" || projectionStatus === "unavailable") ? (
+      {compareStatus === "ready" ||
+      projectionStatus === "ready" ||
+      projectionStatus === "error" ||
+      projectionStatus === "unavailable" ? (
         <GraphReviewDeltaSummaryPanel
           deltaIndex={deltaIndex}
           compareReady={compareStatus === "ready"}
