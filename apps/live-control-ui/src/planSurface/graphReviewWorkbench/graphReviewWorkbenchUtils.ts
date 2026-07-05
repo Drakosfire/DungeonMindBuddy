@@ -1,7 +1,14 @@
-import type { GoldReviewSessionSummary, GraphIngestRunSummary, GraphReviewLane } from "../../api/types";
+import type {
+  GoldReviewSessionSummary,
+  GraphIngestRunSummary,
+  GraphReviewLane,
+} from "../../api/types";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 
-function countFrom(counts: Record<string, number> | undefined, ...keys: string[]): number | undefined {
+function countFrom(
+  counts: Record<string, number> | undefined,
+  ...keys: string[]
+): number | undefined {
   for (const key of keys) {
     const value = counts?.[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -17,7 +24,9 @@ export function yesNo(value: boolean | null | undefined): string {
   return value ? "Yes" : "No";
 }
 
-export function goldSessionToLane(session: GoldReviewSessionSummary): GraphReviewLane {
+export function goldSessionToLane(
+  session: GoldReviewSessionSummary,
+): GraphReviewLane {
   return {
     laneId: `gold:${session.campaign_id}:${session.session_id}:${session.gold_fixture_id}`,
     role: "gold",
@@ -27,12 +36,20 @@ export function goldSessionToLane(session: GoldReviewSessionSummary): GraphRevie
     sessionId: session.session_id,
     manifestPath: session.gold_manifest_path,
     goldPath: session.gold_graph_path,
-    status: session.gold_manifest_path && session.gold_graph_path ? "available" : "unknown",
+    status:
+      session.gold_manifest_path && session.gold_graph_path
+        ? "available"
+        : "unknown",
     counts: {
       nodes: countFrom(session.gold_counts, "nodes", "node_count") ?? 0,
       edges: countFrom(session.gold_counts, "edges", "edge_count") ?? 0,
       beats: countFrom(session.gold_counts, "beats", "beat_count"),
-      evidenceRefs: countFrom(session.gold_counts, "evidence_refs", "evidence_ref_count", "evidenceRefs"),
+      evidenceRefs: countFrom(
+        session.gold_counts,
+        "evidence_refs",
+        "evidence_ref_count",
+        "evidenceRefs",
+      ),
     },
     metadata: {
       vocabularyMode: "unknown",
@@ -43,7 +60,9 @@ export function goldSessionToLane(session: GoldReviewSessionSummary): GraphRevie
   };
 }
 
-export function graphIngestRunToLane(run: GraphIngestRunSummary): GraphReviewLane {
+export function graphIngestRunToLane(
+  run: GraphIngestRunSummary,
+): GraphReviewLane {
   return {
     laneId: `live:${run.campaign_id}:${run.session_id}:${run.manifest_path}`,
     role: "live",
@@ -62,7 +81,8 @@ export function graphIngestRunToLane(run: GraphIngestRunSummary): GraphReviewLan
     },
     metadata: {
       runId: run.run_id ?? undefined,
-      generatedAt: run.generated_at ?? run.updated_at ?? run.created_at ?? undefined,
+      generatedAt:
+        run.generated_at ?? run.updated_at ?? run.created_at ?? undefined,
       modelId: run.model_id ?? undefined,
       extractionProfile: run.extraction_profile ?? undefined,
       extractionMode: run.extraction_mode ?? undefined,
@@ -73,24 +93,38 @@ export function graphIngestRunToLane(run: GraphIngestRunSummary): GraphReviewLan
   };
 }
 
+export function hasReviewableProjection(
+  session: GoldReviewSessionSummary,
+): boolean {
+  return session.available_runs.some((run) => run.preview_union_available);
+}
+
 export function pickDefaultWorkbenchSession(
   sessions: GoldReviewSessionSummary[],
   requestedSessionId: string | null = requestedSessionFromLocation(),
   fallbackSessionId?: string,
 ): GoldReviewSessionSummary | null {
   if (!sessions.length) return null;
+  const reviewableSessions = sessions.filter(hasReviewableProjection);
+  const pickFrom = reviewableSessions.length ? reviewableSessions : sessions;
   if (requestedSessionId) {
-    const requested = sessions.find((session) => session.session_id === requestedSessionId);
+    const requested = pickFrom.find(
+      (session) => session.session_id === requestedSessionId,
+    );
     if (requested) return requested;
   }
   if (fallbackSessionId) {
-    const fallback = sessions.find((session) => session.session_id === fallbackSessionId);
+    const fallback = pickFrom.find(
+      (session) => session.session_id === fallbackSessionId,
+    );
     if (fallback) return fallback;
   }
-  return sessions[0];
+  return pickFrom[0];
 }
 
-export function pickDefaultWorkbenchRun(runs: GraphIngestRunSummary[]): GraphIngestRunSummary | null {
+export function pickDefaultWorkbenchRun(
+  runs: GraphIngestRunSummary[],
+): GraphIngestRunSummary | null {
   if (!runs.length) return null;
   return runs.find((run) => run.preview_union_available) ?? runs[0];
 }

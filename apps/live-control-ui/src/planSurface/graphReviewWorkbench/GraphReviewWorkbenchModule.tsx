@@ -224,7 +224,11 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         </div>
       </header>
 
-      <GraphReviewAuthoringWorkbenchModule />
+      <details className="graph-review-dev-scaffold">
+        <summary>Advanced / Debug: Mock UX Scaffold</summary>
+        <p>Developer-only scaffold for seeded interaction prototypes. The review path below is the GM-facing workflow.</p>
+        <GraphReviewAuthoringWorkbenchModule />
+      </details>
 
       {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 

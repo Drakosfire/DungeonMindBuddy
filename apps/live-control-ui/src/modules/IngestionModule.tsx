@@ -857,7 +857,6 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const hasGraphSourceBundle = hasState(latestResult, "graph_source_bundle_ready");
   const hasPreviewUnionStore = hasState(latestResult, "preview_union_store_ready");
   const hasNormalizedRecap = hasApplied;
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
