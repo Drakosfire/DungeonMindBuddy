@@ -123,14 +123,16 @@ export function ExistingObjectResolverPanel({
       className="graph-review-existing-object-resolver"
       aria-label="Existing object resolver suggestions"
     >
-      <p className="plan-surface-kicker">Existing-object resolver</p>
-      <h3>Check same-session graph sources</h3>
+      <p className="plan-surface-kicker">Find existing object</p>
+      <h3>Check for existing match</h3>
       <p>
-        Resolver v1 checks same-session gold/live graph sources. Campaign-wide
-        search is not available yet.
+        DungeonBuddy checks same-session gold/live graph sources to see whether
+        this selected object may already correspond to a known object.
+        Campaign-wide search is not available yet.
       </p>
       <p>
-        Resolver suggestions are read-only. No link or merge has been written.
+        Suggestions are read-only. In Author Draft, you can stage a link intent
+        for later prepare/commit review. No link or merge is written here.
       </p>
       <button
         type="button"
@@ -160,66 +162,69 @@ export function ExistingObjectResolverPanel({
           ))}
           {response.candidates.length === 0 ? (
             <p>
-              No likely existing objects found. This may be new, or resolver
+              No likely existing objects found. This may be new, or match
               sources may be incomplete.
             </p>
           ) : null}
           {response.candidates.length ? <h4>Likely existing objects</h4> : null}
-          {response.candidates.map((candidate) => (
-            <article
-              key={`${candidate.source}-${candidate.candidate_id}`}
-              className="graph-review-existing-object-candidate"
-              data-selected={
-                candidate.candidate_id === selectedCandidateId
-                  ? "true"
-                  : "false"
-              }
-            >
-              <h5>{candidate.label}</h5>
-              <p>
-                {[candidate.kind, candidate.role].filter(Boolean).join(" / ") ||
-                  "Object"}
-              </p>
-              <p>
-                {candidate.confidence[0].toUpperCase() +
-                  candidate.confidence.slice(1)}{" "}
-                confidence · {candidate.score.toFixed(2)}
-              </p>
-              <p>
-                <strong>Reason:</strong> {candidate.reason}
-              </p>
-              <p>
-                <strong>Source:</strong> {sourceLabel(candidate.source)}
-              </p>
-              <p>
-                <strong>Suggested action:</strong>{" "}
-                {actionLabel(candidate.suggested_action)}
-              </p>
-              {candidate.matched_features.length ? (
-                <p>
-                  <strong>Matched features:</strong>{" "}
-                  {candidate.matched_features.join(", ")}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setSelectedCandidateId(candidate.candidate_id)}
+          <div className="graph-review-existing-object-candidate-list">
+            {response.candidates.map((candidate) => (
+              <article
+                key={`${candidate.source}-${candidate.candidate_id}`}
+                className="graph-review-existing-object-candidate"
+                data-selected={
+                  candidate.candidate_id === selectedCandidateId
+                    ? "true"
+                    : "false"
+                }
               >
-                Review candidate
-              </button>
-              {onStageLinkIntent ? (
-                <div className="graph-review-local-link-intent-action">
-                  <button
-                    type="button"
-                    onClick={() => onStageLinkIntent(candidate)}
-                  >
-                    Stage link intent
-                  </button>
-                  <p>Draft only — no link will be written.</p>
-                </div>
-              ) : null}
-            </article>
-          ))}
+                <h5>{candidate.label}</h5>
+                <p>
+                  {[candidate.kind, candidate.role]
+                    .filter(Boolean)
+                    .join(" / ") || "Object"}
+                </p>
+                <p>
+                  {candidate.confidence[0].toUpperCase() +
+                    candidate.confidence.slice(1)}{" "}
+                  confidence · {candidate.score.toFixed(2)}
+                </p>
+                <p>
+                  <strong>Reason:</strong> {candidate.reason}
+                </p>
+                <p>
+                  <strong>Source:</strong> {sourceLabel(candidate.source)}
+                </p>
+                <p>
+                  <strong>Suggested action:</strong>{" "}
+                  {actionLabel(candidate.suggested_action)}
+                </p>
+                {candidate.matched_features.length ? (
+                  <p>
+                    <strong>Matched features:</strong>{" "}
+                    {candidate.matched_features.join(", ")}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setSelectedCandidateId(candidate.candidate_id)}
+                >
+                  Review candidate
+                </button>
+                {onStageLinkIntent ? (
+                  <div className="graph-review-local-link-intent-action">
+                    <button
+                      type="button"
+                      onClick={() => onStageLinkIntent(candidate)}
+                    >
+                      Stage link intent
+                    </button>
+                    <p>Draft only — no link will be written.</p>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
           {selectedCandidateId ? (
             <p>
               Selected suggestion for review only. No link has been written.

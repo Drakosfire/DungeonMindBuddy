@@ -235,9 +235,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(dialog).toHaveTextContent(
       "Alden guards the western gate and knows the patrol routes.",
     );
-    expect(dialog).toHaveTextContent(
-      "Resolver suggestions are read-only. No link or merge has been written.",
-    );
+    expect(dialog).toHaveTextContent("No link or merge is written here.");
     expect(
       screen.queryByRole("button", { name: "Highlight counterpart" }),
     ).not.toBeInTheDocument();
@@ -312,6 +310,10 @@ describe("GraphReviewLiveProjectionPanel", () => {
     );
     expect(
       screen.getByRole("button", { name: "Stage as possible gold node" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Relationship type")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nothing is written until Prepare and Commit/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Use as relationship source" }),

@@ -124,6 +124,17 @@ export function GraphReviewProjectedInteractionSurface({
           >
             <h4>Author Draft actions</h4>
             <p>
+              Author Draft lets you stage local corrections before anything is
+              written.
+            </p>
+            <p>
+              For a node, Stage node assertion records that this selected object
+              should exist in reviewed gold memory. For a relationship: choose
+              Use as relationship source on one object, click a second object as
+              the target, choose the relationship type, then stage the
+              relationship locally. Nothing is written until Prepare and Commit.
+            </p>
+            <p>
               Draft only. Staging is local; no gold fixture, graph state, or
               corpus file has changed.
             </p>
@@ -136,7 +147,7 @@ export function GraphReviewProjectedInteractionSurface({
               Use as relationship source
             </button>
             <label>
-              Predicate{" "}
+              Relationship type{" "}
               <select
                 value={relationshipPredicate}
                 onChange={(event) =>
@@ -169,10 +180,12 @@ export function GraphReviewProjectedInteractionSurface({
         ) : null}
 
         <section className="graph-review-projected-resolver-section">
-          <h4>Resolver</h4>
+          <h4>Find existing object</h4>
           <p>
-            Resolver suggestions are read-only. No link or merge has been
-            written.
+            DungeonBuddy can check whether this selected object may already
+            exist in the reviewed graph. Suggestions are read-only. In Author
+            Draft, you can stage a link intent for later prepare/commit review.
+            No link or merge is written here.
           </p>
           {resolver ?? null}
         </section>
