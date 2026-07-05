@@ -29,11 +29,10 @@ import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryP
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
-import { GraphReviewSelectedObjectPanel } from "./GraphReviewSelectedObjectPanel";
+import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
-import { GRAPH_REVIEW_RELATIONSHIP_PREDICATES } from "./graphReviewLocalAuthoringState";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import {
@@ -135,11 +134,12 @@ export function GraphReviewLiveProjectionPanel({
     laneRole: "gold" | "live";
     nodeId: string;
   } | null>(null);
+  const [projectedInteractionOpen, setProjectedInteractionOpen] =
+    useState(false);
 
   const liveRunKey = liveRun
     ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
     : "";
-
 
   useEffect(() => {
     let cancelled = false;
@@ -223,38 +223,54 @@ export function GraphReviewLiveProjectionPanel({
     };
   }, [campaignId, sessionId]);
 
+  const selectGoldNodeCard = useCallback(
+    (
+      targetId: string,
+      projectionOverride?: GoldGraphProjectionResponse | null,
+    ) => {
+      const sourceProjection = projectionOverride ?? goldProjection;
+      if (!sourceProjection?.node_views[targetId]) return false;
+      setActiveLaneObject({ laneRole: "gold", nodeId: targetId });
+      setSelectedDeltaNodeId(targetId);
+      setSelectedNode({ laneRole: "gold", nodeId: targetId });
+      setSelectedRelationship(null);
+      setProjectedInteractionOpen(true);
+      return true;
+    },
+    [goldProjection],
+  );
 
-  const selectGoldNodeCard = useCallback((targetId: string, projectionOverride?: GoldGraphProjectionResponse | null) => {
-    const sourceProjection = projectionOverride ?? goldProjection;
-    if (!sourceProjection?.node_views[targetId]) return false;
-    setActiveLaneObject({ laneRole: "gold", nodeId: targetId });
-    setSelectedDeltaNodeId(targetId);
-    setSelectedNode({ laneRole: "gold", nodeId: targetId });
-    setSelectedRelationship(null);
-    return true;
-  }, [goldProjection]);
-
-  const reloadGoldProjectionAndVerifyCommit = useCallback(async (commitResponse: GraphGoldAuthoringCommitResponse): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
-    try {
-      const refreshed = await reloadGoldProjection();
-      const verification = await verifyGraphGoldAuthoringCommit({
-        schema: "dmb_graph_gold_authoring_verify_commit_request_v1",
-        campaign_id: commitResponse.campaign_id,
-        session_id: commitResponse.session_id,
-        commit_id: commitResponse.commit_id,
-        applied_operations: commitResponse.applied_operations,
-      });
-      const firstVisible = verification.checked_operations.find((operation) => operation.verification_status === "found_in_gold_projection" && operation.target_id && refreshed.node_views[operation.target_id]);
-      if (firstVisible?.target_id) {
-        selectGoldNodeCard(firstVisible.target_id, refreshed);
+  const reloadGoldProjectionAndVerifyCommit = useCallback(
+    async (
+      commitResponse: GraphGoldAuthoringCommitResponse,
+    ): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
+      try {
+        const refreshed = await reloadGoldProjection();
+        const verification = await verifyGraphGoldAuthoringCommit({
+          schema: "dmb_graph_gold_authoring_verify_commit_request_v1",
+          campaign_id: commitResponse.campaign_id,
+          session_id: commitResponse.session_id,
+          commit_id: commitResponse.commit_id,
+          applied_operations: commitResponse.applied_operations,
+        });
+        const firstVisible = verification.checked_operations.find(
+          (operation) =>
+            operation.verification_status === "found_in_gold_projection" &&
+            operation.target_id &&
+            refreshed.node_views[operation.target_id],
+        );
+        if (firstVisible?.target_id) {
+          selectGoldNodeCard(firstVisible.target_id, refreshed);
+        }
+        return verification;
+      } catch (error) {
+        setGoldProjectionStatus("error");
+        setGoldProjectionError(friendlyProjectionError(error));
+        throw error;
       }
-      return verification;
-    } catch (error) {
-      setGoldProjectionStatus("error");
-      setGoldProjectionError(friendlyProjectionError(error));
-      throw error;
-    }
-  }, [reloadGoldProjection, selectGoldNodeCard]);
+    },
+    [reloadGoldProjection, selectGoldNodeCard],
+  );
 
   const authorDraft = useGraphReviewAuthorDraftWorkflow({
     campaignId,
@@ -268,8 +284,14 @@ export function GraphReviewLiveProjectionPanel({
     setSelectedEvidenceDeltaId(null);
     setSelectedNode(null);
     setSelectedRelationship(null);
+    setProjectedInteractionOpen(false);
     authorDraft.resetLocalDraft();
-  }, [authorDraft.resetLocalDraft, liveRunKey, projection?.graph_id, sessionId]);
+  }, [
+    authorDraft.resetLocalDraft,
+    liveRunKey,
+    projection?.graph_id,
+    sessionId,
+  ]);
 
   const paragraphSourceSpans = useMemo(
     () =>
@@ -418,11 +440,11 @@ export function GraphReviewLiveProjectionPanel({
   const stageNodeAssertion = () => {
     if (!selectedNodeViewModel) return;
     authorDraft.stageNodeAssertion({
-        laneRole: selectedNodeViewModel.laneRole,
-        nodeId: selectedNodeViewModel.node.node_id,
-        label: selectedNodeViewModel.node.label,
-        kind: selectedNodeViewModel.node.kind ?? null,
-        role: selectedNodeViewModel.node.role ?? null,
+      laneRole: selectedNodeViewModel.laneRole,
+      nodeId: selectedNodeViewModel.node.node_id,
+      label: selectedNodeViewModel.node.label,
+      kind: selectedNodeViewModel.node.kind ?? null,
+      role: selectedNodeViewModel.node.role ?? null,
     });
   };
   const nodeRef = (selection: GraphReviewSelectedNode) => {
@@ -595,6 +617,7 @@ export function GraphReviewLiveProjectionPanel({
                   setSelectedNode(selection);
                   setSelectedRelationship(null);
                   setSelectedDeltaNodeId(selection.nodeId);
+                  setProjectedInteractionOpen(true);
                 }}
                 onSelectText={authorDraft.setSelectedText}
               />
@@ -615,13 +638,19 @@ export function GraphReviewLiveProjectionPanel({
                 setSelectedNode(selection);
                 setSelectedRelationship(null);
                 setSelectedDeltaNodeId(selection.nodeId);
+                setProjectedInteractionOpen(true);
               }}
               onSelectText={authorDraft.setSelectedText}
             />
           </div>
-          <GraphReviewSelectedObjectPanel
+          <GraphReviewProjectedInteractionSurface
+            open={projectedInteractionOpen}
             selectedNode={selectedNodeViewModel}
             selectedRelationship={selectedRelationship}
+            authorMode={authorMode}
+            relationshipDraftSource={authorDraft.relationshipDraftSource}
+            relationshipPredicate={authorDraft.relationshipPredicate}
+            onClose={() => setProjectedInteractionOpen(false)}
             onSelectRelationship={(relationship) =>
               selectedNodeViewModel
                 ? setSelectedRelationship({
@@ -633,13 +662,50 @@ export function GraphReviewLiveProjectionPanel({
                 : undefined
             }
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
+            onStageNodeAssertion={stageNodeAssertion}
+            onUseAsRelationshipSource={() =>
+              selectedNode &&
+              authorDraft.setRelationshipDraftSource(selectedNode)
+            }
+            onRelationshipPredicateChange={authorDraft.setRelationshipPredicate}
+            onStageRelationship={stageRelationship}
+            resolver={
+              <ExistingObjectResolverPanel
+                campaignId={campaignId}
+                sessionId={sessionId}
+                laneRole={selectedNodeViewModel?.laneRole ?? "live"}
+                selectedNode={selectedNodeViewModel?.node ?? null}
+                projectionGraphId={
+                  selectedNodeViewModel?.laneRole === "gold"
+                    ? (goldProjection?.graph_id ?? null)
+                    : projection.graph_id
+                }
+                liveRunManifestPath={liveRun.manifest_path}
+                onStageLinkIntent={
+                  authorMode === "author_draft" && selectedNodeViewModel
+                    ? (candidate) =>
+                        authorDraft.stageExistingObjectLinkIntent({
+                          selectedNode: {
+                            laneRole: selectedNodeViewModel.laneRole,
+                            nodeId: selectedNodeViewModel.node.node_id,
+                            label: selectedNodeViewModel.node.label,
+                          },
+                          candidate: {
+                            ...candidate,
+                            candidateId: candidate.candidate_id,
+                          },
+                        })
+                    : undefined
+                }
+              />
+            }
           />
           {authorMode === "author_draft" ? (
             <section
               className="graph-review-author-draft-actions"
-              aria-label="Author Draft local actions"
+              aria-label="Author Draft text-selection actions"
             >
-              <h3>Author Draft local actions</h3>
+              <h3>Author Draft text-selection actions</h3>
               <p>Local staging is ephemeral and not saved.</p>
               <button
                 type="button"
@@ -650,92 +716,13 @@ export function GraphReviewLiveProjectionPanel({
               </button>
               {authorDraft.selectedText?.text ? (
                 <p>
-                  Selected {authorDraft.selectedText.laneRole} text: “{authorDraft.selectedText.text}”
-                  (offset approximate/unanchored)
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={stageNodeAssertion}
-                disabled={!selectedNodeViewModel}
-              >
-                {selectedNodeViewModel?.laneRole === "live"
-                  ? "Stage as possible gold node"
-                  : "Stage node assertion"}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  selectedNode && authorDraft.setRelationshipDraftSource(selectedNode)
-                }
-                disabled={!selectedNode}
-              >
-                Use as relationship source
-              </button>
-              <label>
-                Predicate{" "}
-                <select
-                  value={authorDraft.relationshipPredicate}
-                  onChange={(event) =>
-                    authorDraft.setRelationshipPredicate(
-                      event.target.value as typeof authorDraft.relationshipPredicate,
-                    )
-                  }
-                >
-                  {GRAPH_REVIEW_RELATIONSHIP_PREDICATES.map((predicate) => (
-                    <option key={predicate} value={predicate}>
-                      {predicate}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={stageRelationship}
-                disabled={
-                  !authorDraft.relationshipDraftSource ||
-                  !selectedNode ||
-                  authorDraft.relationshipDraftSource.nodeId === selectedNode.nodeId
-                }
-              >
-                Stage relationship
-              </button>
-              {authorDraft.relationshipDraftSource ? (
-                <p>
-                  Relationship source: {authorDraft.relationshipDraftSource.laneRole}:
-                  {authorDraft.relationshipDraftSource.nodeId}
+                  Selected {authorDraft.selectedText.laneRole} text: “
+                  {authorDraft.selectedText.text}” (offset
+                  approximate/unanchored)
                 </p>
               ) : null}
             </section>
           ) : null}
-          <ExistingObjectResolverPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            laneRole={selectedNodeViewModel?.laneRole ?? "live"}
-            selectedNode={selectedNodeViewModel?.node ?? null}
-            projectionGraphId={
-              selectedNodeViewModel?.laneRole === "gold"
-                ? (goldProjection?.graph_id ?? null)
-                : projection.graph_id
-            }
-            liveRunManifestPath={liveRun.manifest_path}
-            onStageLinkIntent={
-              authorMode === "author_draft" && selectedNodeViewModel
-                ? (candidate) =>
-                    authorDraft.stageExistingObjectLinkIntent({
-                      selectedNode: {
-                        laneRole: selectedNodeViewModel.laneRole,
-                        nodeId: selectedNodeViewModel.node.node_id,
-                        label: selectedNodeViewModel.node.label,
-                      },
-                      candidate: {
-                        ...candidate,
-                        candidateId: candidate.candidate_id,
-                      },
-                    })
-                : undefined
-            }
-          />
           {authorMode === "author_draft" ? (
             <>
               <GraphReviewLocalStagingTray
@@ -751,7 +738,9 @@ export function GraphReviewLiveProjectionPanel({
                 onShowCommittedObject={(targetId) => {
                   selectGoldNodeCard(targetId);
                 }}
-                canShowCommittedObject={(targetId) => Boolean(goldProjection?.node_views[targetId])}
+                canShowCommittedObject={(targetId) =>
+                  Boolean(goldProjection?.node_views[targetId])
+                }
               />
             </>
           ) : null}
