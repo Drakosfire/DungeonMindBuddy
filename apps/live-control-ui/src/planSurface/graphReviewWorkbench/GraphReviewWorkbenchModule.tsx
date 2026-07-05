@@ -30,10 +30,16 @@ interface GraphReviewWorkbenchModuleProps {
 function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
-  params.set("tool", "graph-review");
   params.set("session", sessionId);
   params.set("campaign", campaignId);
-  window.history.replaceState({}, "", `/plan?${params.toString()}`);
+  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
+  if (surfacePath === "/plan") {
+    params.set("tool", "graph-review");
+  } else {
+    params.delete("tool");
+  }
+  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {

@@ -13,6 +13,7 @@ import type {
 } from "./api/types";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
+import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
@@ -20,13 +21,14 @@ import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan";
+type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/surface" || path === "/live-control") return "surface";
   if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   if (path === "/plan") return "plan";
+  if (path === "/ingest") return "ingest";
   return "index";
 }
 
@@ -42,7 +44,12 @@ function MirewardIndex() {
         <a className="launcher-card primary" href="/plan">
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
-          <span>Intentional planning canvas with ingestion, statblock tools, and reference-chip navigation.</span>
+          <span>Intentional planning canvas with session prep, statblock tools, and reference-chip navigation.</span>
+        </a>
+        <a className="launcher-card" href="/ingest">
+          <span className="launcher-kicker">Ingest</span>
+          <strong>Memory Ingest</strong>
+          <span>Convert source artifacts into reviewed campaign memory.</span>
         </a>
         <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/live-play.html">
           <span className="launcher-kicker">Live Play</span>
@@ -238,6 +245,8 @@ export function App() {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
     content = <PlanSurfacePage />;
+  } else if (route === "ingest") {
+    content = <MemoryIngestPage />;
   } else {
     content = <LiveControlApp />;
   }
