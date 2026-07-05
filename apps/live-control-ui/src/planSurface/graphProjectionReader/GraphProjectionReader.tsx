@@ -8,6 +8,7 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
+import { stripLeadingYamlFrontmatter } from "./projectionMarkdownPreprocessing";
 import { attachSourceSpanDataAttributes, type SourceSpanDomOverlay } from "./sourceSpanHighlight";
 
 export interface GraphProjectionReaderProps {
@@ -48,9 +49,15 @@ function ReadOnlyTiptapRecap({
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
-  const content = useMemo(
-    () => markdownToTiptapDoc(markdown, { parseGraphNodeLinks: true }).doc as Content,
+  const projectionMarkdown = useMemo(
+    () => stripLeadingYamlFrontmatter(markdown).markdown,
     [markdown],
+  );
+  const content = useMemo(
+    () =>
+      markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true })
+        .doc as Content,
+    [projectionMarkdown],
   );
   const editor = useEditor({
     extensions: [StarterKit, GraphNodeReferenceNode],

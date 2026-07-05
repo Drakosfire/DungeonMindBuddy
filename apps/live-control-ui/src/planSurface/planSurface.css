@@ -2959,6 +2959,27 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.8rem;
 }
 
+.graph-review-lane-card-summary {
+  margin: 0 0 0.65rem;
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.graph-review-lane-details {
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  padding-top: 0.65rem;
+}
+
+.graph-review-lane-details summary {
+  cursor: pointer;
+  color: var(--fg-mute);
+  font-weight: 700;
+}
+
+.graph-review-lane-details .graph-review-lane-meta {
+  margin-top: 0.65rem;
+}
+
 .graph-review-lane-meta {
   display: grid;
   grid-template-columns: minmax(7rem, 0.45fr) 1fr;
@@ -2995,31 +3016,8 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 1rem;
 }
 
-.graph-review-live-projection-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.85rem;
-}
-
-.graph-review-live-projection-header h3 {
-  margin: 0.15rem 0 0;
-}
-
-.graph-review-live-projection-header p,
 .graph-review-live-projection-status {
   color: var(--fg-mute);
-}
-
-.graph-review-live-projection-header > span {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--accent);
-  padding: 0.2rem 0.55rem;
-  font-size: 0.8rem;
-  max-width: 24rem;
-  overflow-wrap: anywhere;
 }
 
 .graph-review-live-projection-status {
