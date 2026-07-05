@@ -30,10 +30,16 @@ interface GraphReviewWorkbenchModuleProps {
 function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
-  params.set("tool", "graph-review");
   params.set("session", sessionId);
   params.set("campaign", campaignId);
-  window.history.replaceState({}, "", `/plan?${params.toString()}`);
+  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
+  if (surfacePath === "/plan") {
+    params.set("tool", "graph-review");
+  } else {
+    params.delete("tool");
+  }
+  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
@@ -212,7 +218,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           <p className="plan-surface-kicker">Prose-first review tool</p>
           <h2>Graph Review Workbench</h2>
           <p className="graph-review-workbench-lede">
-            Compare graph readings through recap prose first, with gold authoring state staged safely before backend write paths arrive.
+            Compare graph readings through recap prose first, stage reviewed gold corrections safely, then prepare, commit, reload,
+            and verify changes with provenance.
           </p>
         </div>
       </header>

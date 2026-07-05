@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +20,16 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
     vi.mocked(liveApi.getPlanView).mockResolvedValue(mockPlanView);
+    vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
+      schema_version: "dmb_graph_gold_review_sessions_v1",
+      version: "test",
+      sessions: [],
+    });
+    vi.mocked(liveApi.getManualReviewBeds).mockResolvedValue({
+      schema_version: "dmb_graph_manual_review_beds_v1",
+      version: "test",
+      beds: [],
+    });
     vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
     vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
   });
@@ -29,6 +39,7 @@ describe("App inspector integration", () => {
 
     expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
+    expect(screen.getByRole("link", { name: /ingest memory ingest/i })).toHaveAttribute("href", "/ingest");
     expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",
@@ -65,9 +76,27 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByText(/preparing Session 23 · ingesting Session 21/i)).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
+    const toolbox = screen.getByRole("navigation", { name: "Toolbox tools" });
+    expect(toolbox).toBeInTheDocument();
+    expect(within(toolbox).queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
+    expect(within(toolbox).queryByRole("button", { name: "Graph Preview" })).not.toBeInTheDocument();
+    expect(within(toolbox).queryByRole("button", { name: "Graph Gold Review" })).not.toBeInTheDocument();
+    expect(within(toolbox).queryByRole("button", { name: "Graph Review" })).not.toBeInTheDocument();
+    expect(within(toolbox).queryByRole("button", { name: "Vocabulary Review" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
+  });
+
+  it("renders memory ingest from /ingest", async () => {
+    window.history.pushState({}, "", "/ingest");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Memory Ingest" })).toBeInTheDocument();
+    expect(screen.getByText(/Convert source artifacts into reviewed campaign memory/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
+    expect(await screen.findByText(/No gold-review sessions are available/i)).toBeInTheDocument();
+    expect(liveApi.getPlanView).toHaveBeenCalled();
+    expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {

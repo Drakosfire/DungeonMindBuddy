@@ -17,11 +17,7 @@ describe("planSurfaceConfig", () => {
     const config = createPlanSurfaceConfig(mockPlanView);
     expect(config.id).toBe("plan");
     expect(config.tools.map((tool) => tool.id)).toEqual([
-      "ingest-recap",
       "recap",
-      "graph-preview",
-      "graph-gold-review",
-      "manual-review",
       "party-registry",
       "statblock",
     ]);

@@ -44,6 +44,84 @@ code {
   max-width: min(1440px, calc(100% - 2rem));
 }
 
+.app-wrap:has(.ingest-surface-root) {
+  max-width: min(1440px, calc(100% - 2rem));
+}
+
+.ingest-surface-root {
+  display: grid;
+  gap: 20px;
+}
+
+.ingest-surface-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 340px);
+  gap: 16px;
+  align-items: start;
+  padding: 18px;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #171b24;
+}
+
+.ingest-surface-kicker {
+  margin: 0 0 8px;
+  color: #7aa2f7;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ingest-surface-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3.25rem);
+  line-height: 1;
+}
+
+.ingest-surface-header p {
+  margin: 10px 0 0;
+  color: #c8cedb;
+}
+
+.ingest-surface-advanced {
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #12141a;
+  color: #c8cedb;
+}
+
+.ingest-surface-advanced summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.ingest-surface-advanced dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 12px 12px;
+}
+
+.ingest-surface-advanced dl div {
+  display: grid;
+  gap: 2px;
+}
+
+.ingest-surface-advanced dt {
+  color: #9aa3b5;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ingest-surface-advanced dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .app-site-nav {
   position: sticky;
   top: 10px;
@@ -1749,6 +1827,10 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  .ingest-surface-header {
+    grid-template-columns: 1fr;
+  }
+
   .app-site-nav {
     position: static;
   }

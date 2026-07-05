@@ -1,4 +1,4 @@
-/** Campaign selection for graph review surfaces on Plan. */
+/** Campaign selection for graph review surfaces. */
 
 import type { RecapArtifactRecord } from "../api/types";
 
@@ -38,7 +38,9 @@ export function syncReviewCampaignUrl(campaignId: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
   params.set("campaign", campaignId);
-  window.history.replaceState({}, "", `/plan?${params.toString()}`);
+  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
+  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 export function resolveSessionRecapContext(

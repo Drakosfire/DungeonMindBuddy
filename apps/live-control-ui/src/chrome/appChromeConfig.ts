@@ -1,4 +1,4 @@
-export type AppRouteKey = "index" | "surface" | "tiptap-callout-spike" | "plan";
+export type AppRouteKey = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -59,6 +59,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Plan",
   },
   {
+    route: "ingest",
+    href: "/ingest",
+    label: "Ingest",
+  },
+  {
     route: "tiptap-callout-spike",
     href: "/tiptap-callout-spike",
     label: "Tiptap Spike",
@@ -69,5 +74,6 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   index: "Mireward local tools",
   surface: "Live Control",
   plan: "Plan",
+  ingest: "Memory Ingest",
   "tiptap-callout-spike": "Tiptap callout bridge",
 };

@@ -7,6 +7,26 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [TODO] Ingest Surface follow-ups after PR 11D
+
+### Top priority reader regressions
+
+- Fix GraphProjectionReader frontmatter leak in Gold Fixture lane and check Live Run lane.
+- Remove stale single-lane header block above the two-lane Graph Review layout.
+
+### Interaction redesign
+
+- Remove duplicate inline GraphNodeExplorer hover/popover vs. far-below node game card.
+- Replace click/hover behavior with a single projected object interaction component.
+- Explore modal/pane/overlay pattern for selected node, selected span, resolver, stage-node, and relationship actions.
+- Pull authoring actions near the point of selection.
+- Revisit local staged proposal visibility in prose.
+
+### Future ingestion flow
+
+- Build Tiptap-backed processed markdown reader with graph projection overlay.
+- Dogfood complete flow: source artifact -> prepared human-readable markdown -> node projection overlay -> Author Draft -> prepare -> commit -> reload -> verify.
+
 ## [DOING] Graph memory encounter/job extraction spike — real-data dogfood complete, Yellow verdict — captured 2026-07-01
 
 **Context:** PRs #232–#244 built a gated runtime preview profile (`graph_extraction_profile = "category_encounter_job_preview"`) adding `quest`/`combat_encounter` node types, an optional `encounter_job_pass`, deterministic party participation attachment, and opt-in encounter/job edge guidance — validated first against a synthetic fixture (PR #242 Glowkindle). This entry captures the first **real-recap** dogfood against C1S1 (Stonebridge/Glowkindle rats), run via the actual runtime path (`recap_graph_preview_ingest.py::build_recap_graph_preview_bundle`), not a fixture bypass. Full writeup: `Docs/Reports/GRAPH-MEMORY-RUNTIME-ENCOUNTER-JOB-DOGFOOD-C1S1.md`.
