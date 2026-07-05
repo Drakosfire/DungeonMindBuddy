@@ -170,6 +170,10 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.getAllByText("Live Run · read-only").length).toBeGreaterThan(
       0,
     );
+    expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Source projection" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a friendly error for failed projection loading", async () => {

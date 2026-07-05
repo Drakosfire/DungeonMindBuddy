@@ -453,21 +453,8 @@ export function GraphReviewLiveProjectionPanel({
   return (
     <section
       className="graph-review-live-projection-panel"
-      aria-label="Selected live lane source projection"
+      aria-label="Gold and live source projections"
     >
-      <header className="graph-review-live-projection-header">
-        <div>
-          <p className="plan-surface-kicker">Selected live lane</p>
-          <h3>Source projection</h3>
-          <p>
-            Read-only projected source Markdown for the selected graph-ingest
-            run. Graph chips are candidate graph behavior; source text remains
-            the review surface.
-          </p>
-        </div>
-        {liveRun ? <span>{runIdentity}</span> : null}
-      </header>
-
       <div
         className="graph-review-author-draft-mode-bar"
         aria-label="Mode switch"

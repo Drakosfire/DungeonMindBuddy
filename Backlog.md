@@ -7,12 +7,12 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [TODO] Ingest Surface follow-ups after PR 11D
+## [TODO] Ingest Surface follow-ups after PR 11E
 
-### Top priority reader regressions
+### Reader regressions addressed in PR 11E
 
-- Fix GraphProjectionReader frontmatter leak in Gold Fixture lane and check Live Run lane.
-- Remove stale single-lane header block above the two-lane Graph Review layout.
+- Leading YAML frontmatter is stripped in the shared projection reader path for Gold Fixture and Live Run prose.
+- The stale single-lane "Selected live lane / Source projection" header no longer renders above the two-lane layout.
 
 ### Interaction redesign
 

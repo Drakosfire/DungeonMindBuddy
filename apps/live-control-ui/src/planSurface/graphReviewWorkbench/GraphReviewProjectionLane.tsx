@@ -9,6 +9,7 @@ import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
 } from "./graphReviewDeltaTypes";
+import { normalizeProjectionMarkdown } from "../graphProjectionReader/projectionMarkdownPreprocessing";
 
 export type GraphReviewProjectionLaneRole = "gold" | "live";
 
@@ -290,7 +291,13 @@ export function GraphReviewProjectionLane(
   props: GraphReviewProjectionLaneProps,
 ) {
   const decorations = buildNodeDecorations(props.deltaIndex, props.laneRole);
-  const unanchoredCount = props.mentions.filter(
+  const projection = normalizeProjectionMarkdown(props.markdown, props.mentions);
+  const laneProps = {
+    ...props,
+    markdown: projection.markdown,
+    mentions: projection.mentions,
+  };
+  const unanchoredCount = laneProps.mentions.filter(
     (mention) => !isAnchoredMention(mention),
   ).length;
   return (
@@ -333,7 +340,7 @@ export function GraphReviewProjectionLane(
           props.laneRole === "live" ? "graph-projection-reader" : undefined
         }
       >
-        {renderMarkdownBlocks(props, decorations)}
+        {renderMarkdownBlocks(laneProps, decorations)}
       </article>
     </section>
   );

@@ -150,6 +150,45 @@ describe("GraphReviewProjectionLane", () => {
     });
   });
 
+  it("strips leading frontmatter while preserving mention tokens and body dividers", () => {
+    const frontmatter =
+      '---\ntitle: "Session 1"\ndocument_class: play\ncanon_layer: campaign\n---\n\n';
+    const body =
+      "The Tripod Null-Calf threatened the North Gate.\n\n---\n\nThe gate held.";
+    const mentionStart = frontmatter.length + 4;
+    const mentionEnd = frontmatter.length + 21;
+
+    render(
+      <GraphReviewProjectionLane
+        laneRole="gold"
+        title="Gold Fixture read-only"
+        markdown={`${frontmatter}${body}`}
+        nodeViews={{ "node:tripod-null-calf": tripodNode }}
+        mentions={[
+          {
+            mention_id: "m1",
+            node_id: "node:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            start_offset: mentionStart,
+            end_offset: mentionEnd,
+            evidence_ref_ids: [],
+            anchor_status: "anchored",
+          },
+        ]}
+        mentionsCount={1}
+        deltaIndex={deltaIndex}
+        activeObject={null}
+        onActiveObjectChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/document_class/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Tripod Null-Calf/i }),
+    ).toHaveAttribute("data-graph-node-id", "node:tripod-null-calf");
+    expect(screen.getByText("---")).toBeInTheDocument();
+  });
+
   it("highlights a matched live counterpart when the gold token is hovered", () => {
     function Harness() {
       const [activeObject, setActiveObject] = useState<{
