@@ -49,6 +49,8 @@ function ReadOnlyTiptapRecap({
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
+  // This TipTap reader consumes inline graph-node links, not structured mention offsets;
+  // GraphReviewProjectionLane owns offset rebasing for overlay-style graph pills.
   const projectionMarkdown = useMemo(
     () => stripLeadingYamlFrontmatter(markdown).markdown,
     [markdown],
