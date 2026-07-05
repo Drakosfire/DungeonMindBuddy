@@ -3980,3 +3980,77 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-review-muted {
   color: #94a3b8;
 }
+
+.graph-review-projected-interaction-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  background: rgba(2, 6, 23, 0.48);
+  overflow: auto;
+}
+
+.graph-review-projected-interaction-surface {
+  width: min(46rem, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border: 1px solid rgba(125, 211, 252, 0.38);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.97);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 1rem;
+}
+
+.graph-review-projected-interaction-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  padding-bottom: 0.75rem;
+}
+
+.graph-review-projected-interaction-header h3 {
+  margin: 0.15rem 0;
+}
+
+.graph-review-projected-interaction-header button,
+.graph-review-projected-author-actions button {
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  cursor: pointer;
+}
+
+.graph-review-lane-badge {
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  background: rgba(14, 165, 233, 0.16);
+  color: #bae6fd;
+}
+
+.graph-review-projected-author-actions,
+.graph-review-projected-resolver-section {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 0.85rem;
+  padding: 0.85rem;
+  background: rgba(30, 41, 59, 0.48);
+  display: grid;
+  gap: 0.65rem;
+}
+
+@media (max-width: 720px) {
+  .graph-review-projected-interaction-backdrop {
+    padding: 0.75rem;
+  }
+
+  .graph-review-projected-interaction-surface {
+    max-height: calc(100vh - 1.5rem);
+  }
+}

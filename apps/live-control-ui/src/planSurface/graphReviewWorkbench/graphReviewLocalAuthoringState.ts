@@ -153,3 +153,5 @@ export const GRAPH_REVIEW_RELATIONSHIP_PREDICATES = [
   "caused_by",
   "protects",
 ] as const;
+export type GraphReviewRelationshipPredicate =
+  (typeof GRAPH_REVIEW_RELATIONSHIP_PREDICATES)[number];
