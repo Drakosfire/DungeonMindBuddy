@@ -218,7 +218,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           <p className="plan-surface-kicker">Prose-first review tool</p>
           <h2>Graph Review Workbench</h2>
           <p className="graph-review-workbench-lede">
-            Compare graph readings through recap prose first, with gold authoring state staged safely before backend write paths arrive.
+            Compare graph readings through recap prose first, stage reviewed gold corrections safely, then prepare, commit, reload,
+            and verify changes with provenance.
           </p>
         </div>
       </header>
