@@ -108,6 +108,7 @@ export function GraphReviewProjectedInteractionSurface({
           selectedEdgeId={relationship?.edge_id ?? null}
           onSelectRelationship={onSelectRelationship}
           onSelectEvidenceDelta={onSelectEvidenceDelta}
+          showUsefulSurfaces={false}
         />
         {relationship ? (
           <GraphReviewRelationshipCard

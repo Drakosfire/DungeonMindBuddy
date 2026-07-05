@@ -235,6 +235,18 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(dialog).toHaveTextContent(
       "Alden guards the western gate and knows the patrol routes.",
     );
+    expect(dialog).toHaveTextContent(
+      "Resolver suggestions are read-only. No link or merge has been written.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Highlight counterpart" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Statblock unavailable" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Encounter note unavailable" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText("Selected graph object"),
     ).not.toBeInTheDocument();
