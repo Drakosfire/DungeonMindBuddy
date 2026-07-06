@@ -277,6 +277,12 @@ export function buildManualObjectRef(label: string): GraphObjectAuthoringObjectR
   };
 }
 
+export function isValidObjectRef(
+  ref: GraphObjectAuthoringObjectRef | null | undefined,
+): ref is GraphObjectAuthoringObjectRef {
+  return Boolean(ref && ref.label.trim().length > 0);
+}
+
 export const GRAPH_OBJECT_AUTHORING_LINK_EXISTING_OPERATION_OPTIONS: {
   value: GraphObjectAuthoringLinkExistingOperation;
   label: string;
@@ -309,7 +315,7 @@ export function buildGraphObjectAuthoringLinkExistingProposal(
   formState: GraphObjectAuthoringLinkExistingFormState,
   localProposalId: string = createLocalGraphObjectProposalId(),
 ): GraphObjectAuthoringLinkExistingProposal | null {
-  if (!formState.existingObjectRef) {
+  if (!isValidObjectRef(formState.existingObjectRef)) {
     return null;
   }
 
@@ -380,8 +386,8 @@ export function buildGraphObjectAuthoringRelationshipProposal(
   localProposalId: string = createLocalGraphObjectProposalId(),
 ): GraphObjectAuthoringRelationshipProposal | null {
   if (
-    !formState.sourceObjectRef ||
-    !formState.targetObjectRef ||
+    !isValidObjectRef(formState.sourceObjectRef) ||
+    !isValidObjectRef(formState.targetObjectRef) ||
     !formState.relationshipType.trim()
   ) {
     return null;

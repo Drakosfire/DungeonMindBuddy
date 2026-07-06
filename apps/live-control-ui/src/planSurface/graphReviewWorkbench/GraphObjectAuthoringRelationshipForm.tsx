@@ -39,17 +39,19 @@ export function GraphObjectAuthoringRelationshipForm({
       />
       <div className="graph-object-authoring-field">
         <label htmlFor="graph-object-authoring-relationship-type">Relationship type</label>
-        <select
+        <input
           id="graph-object-authoring-relationship-type"
+          type="text"
+          list="graph-object-authoring-relationship-type-suggestions"
+          placeholder="e.g. has_member, or type a custom relationship"
           value={formState.relationshipType}
           onChange={(event) => onChange("relationshipType", event.target.value)}
-        >
+        />
+        <datalist id="graph-object-authoring-relationship-type-suggestions">
           {GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
+            <option key={option} value={option} />
           ))}
-        </select>
+        </datalist>
       </div>
       <GraphObjectAuthoringObjectRefPicker
         label="Target object"

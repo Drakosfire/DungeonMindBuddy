@@ -8,11 +8,12 @@ import { GraphObjectAuthoringRelationshipForm } from "./GraphObjectAuthoringRela
 import { GraphObjectAuthoringSelectedSource } from "./GraphObjectAuthoringSelectedSource";
 import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
 import { GraphObjectAuthoringVisibilitySection } from "./GraphObjectAuthoringVisibilitySection";
-import type {
-  GraphObjectAuthoringFormState,
-  GraphObjectAuthoringLinkExistingFormState,
-  GraphObjectAuthoringProposal,
-  GraphObjectAuthoringRelationshipFormState,
+import {
+  isValidObjectRef,
+  type GraphObjectAuthoringFormState,
+  type GraphObjectAuthoringLinkExistingFormState,
+  type GraphObjectAuthoringProposal,
+  type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
 
 type GraphObjectAuthoringSelectionMode = "object" | "link_existing";
@@ -71,10 +72,12 @@ export function GraphObjectAuthoringSurface({
   }, [selectedSource]);
 
   const canStage = Boolean(selectedSource && formState.label.trim());
-  const canStageLinkExisting = Boolean(selectedSource && linkExistingFormState?.existingObjectRef);
+  const canStageLinkExisting = Boolean(
+    selectedSource && isValidObjectRef(linkExistingFormState?.existingObjectRef),
+  );
   const canStageRelationship = Boolean(
-    relationshipFormState?.sourceObjectRef &&
-      relationshipFormState?.targetObjectRef &&
+    isValidObjectRef(relationshipFormState?.sourceObjectRef) &&
+      isValidObjectRef(relationshipFormState?.targetObjectRef) &&
       relationshipFormState?.relationshipType.trim(),
   );
 

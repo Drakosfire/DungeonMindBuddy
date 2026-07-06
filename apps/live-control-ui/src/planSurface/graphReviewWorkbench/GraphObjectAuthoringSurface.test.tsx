@@ -159,6 +159,23 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
   });
 
+  it("keeps link-existing staging disabled when manual entry is selected but the label is blank", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
+
+    fireEvent.change(screen.getByLabelText("Existing object"), {
+      target: { value: "manual" },
+    });
+
+    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "   " },
+    });
+    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
+  });
+
   it("stages a relationship proposal between the inspected node and a manual ref without requiring a selection", () => {
     render(<Harness />);
 
@@ -185,6 +202,46 @@ describe("GraphObjectAuthoringSurface", () => {
 
   it("disables relationship staging until both object refs are chosen", () => {
     render(<Harness />);
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
+  });
+
+  it("keeps relationship staging disabled when a manual ref is selected but the label is blank", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship type"), {
+      target: { value: "has_member" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
+
+    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
+    fireEvent.change(manualInputs[manualInputs.length - 1], { target: { value: "   " } });
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
+  });
+
+  it("clears the manual object input after staging so stale text does not leak into the next proposal", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), { target: { value: "manual" } });
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship type"), {
+      target: { value: "has_member" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    // The relationship section stays mounted after staging. Re-selecting manual
+    // entry for a fresh proposal must not resurrect the previous typed label.
+    fireEvent.change(screen.getByLabelText("Source object"), { target: { value: "manual" } });
+    expect(screen.getByPlaceholderText("Type a label for an object not staged yet")).toHaveValue("");
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
   });
 

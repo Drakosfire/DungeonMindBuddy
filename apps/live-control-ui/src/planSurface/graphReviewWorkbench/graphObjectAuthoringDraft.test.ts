@@ -13,6 +13,7 @@ import {
   createDefaultGraphObjectAuthoringLinkExistingFormState,
   createDefaultGraphObjectAuthoringRelationshipFormState,
   dedupeAliasesCaseInsensitive,
+  isValidObjectRef,
   parseAliasesText,
 } from "./graphObjectAuthoringDraft";
 
@@ -178,9 +179,39 @@ describe("buildObjectRefFromObjectProposal / buildObjectRefFromInspectedNode / b
   });
 });
 
+describe("isValidObjectRef", () => {
+  it("rejects null and undefined refs", () => {
+    expect(isValidObjectRef(null)).toBe(false);
+    expect(isValidObjectRef(undefined)).toBe(false);
+  });
+
+  it("rejects a manual ref with a blank or whitespace-only label", () => {
+    expect(isValidObjectRef(buildManualObjectRef(""))).toBe(false);
+    expect(isValidObjectRef(buildManualObjectRef("   "))).toBe(false);
+  });
+
+  it("accepts a manual ref with a non-blank label", () => {
+    expect(isValidObjectRef(buildManualObjectRef("Questionable Company"))).toBe(true);
+  });
+
+  it("accepts refs from staged proposals and inspected nodes", () => {
+    expect(
+      isValidObjectRef(buildObjectRefFromInspectedNode({ node_id: "alden", label: "Alden" })),
+    ).toBe(true);
+  });
+});
+
 describe("buildGraphObjectAuthoringLinkExistingProposal", () => {
   it("returns null when no existing object ref has been chosen", () => {
     const formState = createDefaultGraphObjectAuthoringLinkExistingFormState();
+    expect(buildGraphObjectAuthoringLinkExistingProposal(baseSelection, formState)).toBeNull();
+  });
+
+  it("returns null when the chosen ref is a manual entry with a blank label", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringLinkExistingFormState(),
+      existingObjectRef: buildManualObjectRef("   "),
+    };
     expect(buildGraphObjectAuthoringLinkExistingProposal(baseSelection, formState)).toBeNull();
   });
 
@@ -212,6 +243,24 @@ describe("buildGraphObjectAuthoringRelationshipProposal", () => {
   it("returns null when source or target object refs are missing", () => {
     const formState = createDefaultGraphObjectAuthoringRelationshipFormState();
     expect(buildGraphObjectAuthoringRelationshipProposal(formState)).toBeNull();
+  });
+
+  it("returns null when the source or target ref is a manual entry with a blank label", () => {
+    const blankSourceFormState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: buildManualObjectRef(""),
+      targetObjectRef: targetRef,
+      relationshipType: "has_member",
+    };
+    expect(buildGraphObjectAuthoringRelationshipProposal(blankSourceFormState)).toBeNull();
+
+    const blankTargetFormState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: buildManualObjectRef("   "),
+      relationshipType: "has_member",
+    };
+    expect(buildGraphObjectAuthoringRelationshipProposal(blankTargetFormState)).toBeNull();
   });
 
   it("stages a relationship proposal between source and target object refs", () => {

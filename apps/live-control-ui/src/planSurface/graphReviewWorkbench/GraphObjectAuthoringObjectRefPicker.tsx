@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
   buildManualObjectRef,
@@ -67,10 +67,13 @@ export function GraphObjectAuthoringObjectRefPicker({
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   manualPlaceholder?: string;
 }) {
-  const [manualLabel, setManualLabel] = useState(value?.refKind === "manual_ref" ? value.label : "");
   const objectProposals = stagedObjectProposals(proposals);
   const sortedExistingNodes = useMemo(() => dedupeAndSortNodes(existingNodes), [existingNodes]);
   const showManualInput = value?.refKind === "manual_ref";
+  // Derived entirely from `value` (no local echo state) so a parent-driven reset
+  // (e.g. after staging clears the form) can never leave stale manual input behind
+  // in an always-mounted picker instance.
+  const manualLabelValue = value?.refKind === "manual_ref" ? value.label : "";
 
   const selectedOptionValue: string = (() => {
     if (!value) return encodeOptionValue({ source: "empty" });
@@ -90,7 +93,7 @@ export function GraphObjectAuthoringObjectRefPicker({
       return;
     }
     if (rawValue === "manual") {
-      onChange(manualLabel.trim() ? buildManualObjectRef(manualLabel) : buildManualObjectRef(""));
+      onChange(buildManualObjectRef(manualLabelValue));
       return;
     }
     if (rawValue.startsWith("local_proposal:")) {
@@ -155,11 +158,8 @@ export function GraphObjectAuthoringObjectRefPicker({
         <input
           type="text"
           placeholder={manualPlaceholder}
-          value={manualLabel}
-          onChange={(event) => {
-            setManualLabel(event.target.value);
-            onChange(buildManualObjectRef(event.target.value));
-          }}
+          value={manualLabelValue}
+          onChange={(event) => onChange(buildManualObjectRef(event.target.value))}
         />
       ) : null}
       {value ? (
