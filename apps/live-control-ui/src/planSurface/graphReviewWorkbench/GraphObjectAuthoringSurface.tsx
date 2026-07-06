@@ -4,6 +4,7 @@ import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringLinkExistingSection } from "./GraphObjectAuthoringLinkExistingSection";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
+import { GraphObjectAuthoringPrepareCommitPanel } from "./GraphObjectAuthoringPrepareCommitPanel";
 import { GraphObjectAuthoringRelationshipForm } from "./GraphObjectAuthoringRelationshipForm";
 import { GraphObjectAuthoringSelectedSource } from "./GraphObjectAuthoringSelectedSource";
 import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
@@ -43,6 +44,13 @@ export interface GraphObjectAuthoringSurfaceProps {
   ) => void;
   onStageRelationshipProposal?: () => void;
 
+  campaignId?: string;
+  sessionId?: string;
+  campaignRel?: string | null;
+  sourceRunId?: string | null;
+  sourceGraphId?: string | null;
+  onCommittedProposals?: (localProposalIds: string[]) => void;
+
   existingNodes?: GraphObjectAuthoringInspectedNode[];
 }
 
@@ -59,6 +67,12 @@ export function GraphObjectAuthoringSurface({
   relationshipFormState,
   onRelationshipFieldChange,
   onStageRelationshipProposal,
+  campaignId,
+  sessionId,
+  campaignRel,
+  sourceRunId,
+  sourceGraphId,
+  onCommittedProposals,
   existingNodes = [],
 }: GraphObjectAuthoringSurfaceProps) {
   const [selectionMode, setSelectionMode] = useState<GraphObjectAuthoringSelectionMode>("object");
@@ -215,6 +229,18 @@ export function GraphObjectAuthoringSurface({
       ) : null}
 
       <GraphObjectAuthoringStagingTray proposals={proposals} onRemove={onRemoveProposal} />
+
+      {campaignId && sessionId && onCommittedProposals ? (
+        <GraphObjectAuthoringPrepareCommitPanel
+          campaignId={campaignId}
+          sessionId={sessionId}
+          campaignRel={campaignRel}
+          sourceRunId={sourceRunId}
+          sourceGraphId={sourceGraphId}
+          proposals={proposals}
+          onCommitted={onCommittedProposals}
+        />
+      ) : null}
     </section>
   );
 }

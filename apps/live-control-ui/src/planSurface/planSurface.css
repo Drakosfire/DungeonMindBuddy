@@ -4386,6 +4386,99 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #64748b;
 }
 
+.graph-object-authoring-prepare-commit-panel {
+  margin-top: 1rem;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 0.85rem;
+  padding: 0.85rem;
+  background: rgba(15, 23, 42, 0.44);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.graph-object-authoring-prepare-commit-panel header h4 {
+  margin: 0;
+}
+
+.graph-object-authoring-prepare-commit-hint {
+  margin: 0.35rem 0 0;
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
+
+.graph-object-authoring-prepare-commit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.graph-object-authoring-prepare-commit-actions button {
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  background: rgba(14, 165, 233, 0.14);
+  color: inherit;
+  cursor: pointer;
+}
+
+.graph-object-authoring-prepare-commit-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.graph-object-authoring-prepare-preview,
+.graph-object-authoring-commit-summary {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-object-authoring-commit-summary--success {
+  border-top-color: rgba(74, 222, 128, 0.45);
+  background: rgba(22, 101, 52, 0.18);
+  border-radius: 0.65rem;
+  padding: 0.75rem;
+}
+
+.graph-object-authoring-commit-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.graph-object-authoring-commit-summary-dismiss {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.graph-object-authoring-commit-success-lead {
+  margin: 0;
+  color: #bbf7d0;
+}
+
+.graph-object-authoring-prepare-preview h5,
+.graph-object-authoring-commit-summary h5 {
+  margin: 0;
+}
+
+.graph-object-authoring-no-mutation-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  color: #94a3b8;
+}
+
+.graph-object-authoring-prepare-commit-error {
+  margin: 0;
+  color: #fca5a5;
+}
+
 .graph-review-projection-document h2,
 .graph-review-projection-document h3,
 .graph-review-projection-document h4,
