@@ -250,6 +250,99 @@ describe("GraphReviewLiveProjectionPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("preserves gold-vs-live compare decorations on the live lane when authoring mode is off", async () => {
+    const goldNodeViews = {
+      "gold:alden": {
+        node_id: "gold:alden",
+        label: "Alden",
+        kind: "npc" as const,
+        role: "gate warden",
+        summary: null,
+        aliases: [],
+        source_domains: [],
+        evidence_badges: [],
+        adjacency: [],
+      },
+    };
+    const liveNodeViews = {
+      "live:alden": {
+        ...goldNodeViews["gold:alden"],
+        node_id: "live:alden",
+      },
+    };
+    const goldProjectionPayload: UnionSupergraphProjectionResponse = {
+      ...projection,
+      markdown: "The party met [Alden](dmb-node:gold:alden) at the gate.",
+      node_views: goldNodeViews,
+      mentions: [],
+    };
+    const liveProjectionPayload: UnionSupergraphProjectionResponse = {
+      ...projection,
+      markdown: "The party met [Alden](dmb-node:live:alden) at the gate.",
+      node_views: liveNodeViews,
+      mentions: [],
+    };
+
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(liveProjectionPayload);
+    vi.mocked(getGoldGraphProjection).mockResolvedValue({
+      ...goldProjectionPayload,
+      source_kind: "gold_fixture",
+      gold_fixture_id: "fixture-a",
+      gold_fixture_relpath: "gold/session-23.json",
+    });
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: true,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+
+    const liveReader = screen.getByLabelText("Live run prose");
+    expect(liveReader).toHaveAttribute("data-lane-role", "live");
+    const livePill = await waitFor(() => {
+      const pill = within(liveReader)
+        .getAllByRole("button", { name: /Alden/ })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    expect(livePill).toHaveAttribute("data-delta-status");
+    expect(
+      liveReader.querySelector(".union-supergraph-tiptap-reader"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-authoring-action")).not.toBeInTheDocument();
+  });
+
+  it("switches the live lane to the Tiptap authoring reader once authoring mode is enabled", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: true,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(
+      document.querySelector(".union-supergraph-tiptap-reader"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
+
+    await waitFor(() => {
+      expect(
+        document.querySelector(".union-supergraph-tiptap-reader"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+  });
+
   it("does not render diagnostic panels on the main surface", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
 
