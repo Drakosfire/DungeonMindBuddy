@@ -190,9 +190,8 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getUnionSupergraphProjection).not.toHaveBeenCalledWith(
       expect.objectContaining({ useLatestGraphIngest: true }),
     );
-    expect(screen.getAllByText("Live Run · read-only").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.queryByText("Live Run · read-only")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Source projection" }),

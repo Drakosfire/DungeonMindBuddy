@@ -9,12 +9,12 @@ import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionCon
 import { ProjectionProvider } from "../projection/projectionContext";
 import type { PlanContextDescriptor } from "../types";
 import {
+  goldReviewSessionLabel,
   resolveInitialReviewCampaignId,
   sessionsForReviewCampaign,
-  syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
-import { GraphReviewLaneCards } from "./GraphReviewLaneCards";
-import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
+import { GraphReviewLoadBar } from "./GraphReviewLoadBar";
+import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import {
@@ -29,6 +29,12 @@ interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
 }
 
+interface AppliedSelection {
+  campaignId: string;
+  sessionId: string;
+  manifestPath: string | null;
+}
+
 function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
@@ -39,6 +45,39 @@ function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
   window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
+function buildDefaultDraft(
+  sessions: GoldReviewSessionSummary[],
+  campaignId: string,
+  requestedSessionId: string | null,
+  fallbackSessionId: string,
+): AppliedSelection | null {
+  const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
+  const session = pickDefaultWorkbenchSession(
+    visibleSessions,
+    requestedSessionId,
+    fallbackSessionId,
+  );
+  if (!session) return null;
+  const run = pickDefaultWorkbenchRun(
+    session.available_runs.filter((entry) => entry.preview_union_available),
+  );
+  return {
+    campaignId,
+    sessionId: session.session_id,
+    manifestPath: run?.manifest_path ?? null,
+  };
+}
+
+function formatAppliedLoadLabel(
+  session: GoldReviewSessionSummary | null,
+  liveRun: GoldReviewSessionSummary["available_runs"][number] | null,
+): string | null {
+  if (!session) return null;
+  const sessionLabel = goldReviewSessionLabel(session);
+  const runLabel = liveRun?.run_label?.trim() || liveRun?.run_id || null;
+  return runLabel ? `${sessionLabel} · ${runLabel}` : sessionLabel;
+}
+
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
@@ -47,11 +86,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [sessions, setSessions] = useState<GoldReviewSessionSummary[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
-  const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
+  const [appliedSelection, setAppliedSelection] = useState<AppliedSelection | null>(null);
+  const [draftCampaignId, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
-  const [selectedSessionId, setSelectedSessionId] = useState(requestedSessionId ?? fallbackSessionId);
-  const [selectedManifestPath, setSelectedManifestPath] = useState<string | null>(null);
+  const [draftSessionId, setDraftSessionId] = useState("");
+  const [draftManifestPath, setDraftManifestPath] = useState<string | null>(null);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [compare, setCompare] = useState<GoldReviewCompareResponse | null>(null);
   const [compareStatus, setCompareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [compareError, setCompareError] = useState<string | null>(null);
@@ -63,26 +104,76 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
   const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
 
-  const campaignSessions = useMemo(
-    () => sessionsForReviewCampaign(sessions, selectedCampaignId),
-    [selectedCampaignId, sessions],
+  const appliedCampaignSessions = useMemo(
+    () =>
+      appliedSelection
+        ? sessionsForReviewCampaign(sessions, appliedSelection.campaignId)
+        : [],
+    [appliedSelection, sessions],
   );
 
-  const selectedSession = useMemo(
-    () => campaignSessions.find((session) => session.session_id === selectedSessionId) ?? null,
-    [campaignSessions, selectedSessionId],
+  const appliedSession = useMemo(
+    () =>
+      appliedSelection
+        ? appliedCampaignSessions.find(
+            (session) => session.session_id === appliedSelection.sessionId,
+          ) ?? null
+        : null,
+    [appliedCampaignSessions, appliedSelection],
   );
 
-  const selectedLiveRun = useMemo(() => {
-    if (!selectedSession) return null;
-    return selectedSession.available_runs.find((run) => run.manifest_path === selectedManifestPath) ?? null;
-  }, [selectedManifestPath, selectedSession]);
+  const appliedLiveRun = useMemo(() => {
+    if (!appliedSession || !appliedSelection?.manifestPath) return null;
+    return (
+      appliedSession.available_runs.find(
+        (run) => run.manifest_path === appliedSelection.manifestPath,
+      ) ?? null
+    );
+  }, [appliedSelection, appliedSession]);
 
-  const goldLane = useMemo(() => (selectedSession ? goldSessionToLane(selectedSession) : null), [selectedSession]);
-  const liveLane = useMemo(() => (selectedLiveRun ? graphIngestRunToLane(selectedLiveRun) : null), [selectedLiveRun]);
+  const draftCampaignSessions = useMemo(
+    () => sessionsForReviewCampaign(sessions, draftCampaignId),
+    [draftCampaignId, sessions],
+  );
+
+  const draftSession = useMemo(
+    () =>
+      draftCampaignSessions.find((session) => session.session_id === draftSessionId) ??
+      null,
+    [draftCampaignSessions, draftSessionId],
+  );
+
+  const draftLiveRun = useMemo(() => {
+    if (!draftSession) return null;
+    return (
+      draftSession.available_runs.find(
+        (run) => run.manifest_path === draftManifestPath,
+      ) ?? null
+    );
+  }, [draftManifestPath, draftSession]);
+
+  const goldLane = useMemo(
+    () => (appliedSession ? goldSessionToLane(appliedSession) : null),
+    [appliedSession],
+  );
+  const liveLane = useMemo(
+    () => (appliedLiveRun ? graphIngestRunToLane(appliedLiveRun) : null),
+    [appliedLiveRun],
+  );
   const selectedVariantLaneView = useMemo(
-    () => selectedManualBed && selectedManualVariantName ? manualVariantToLaneView({ bed: selectedManualBed, variantName: selectedManualVariantName }) : null,
+    () =>
+      selectedManualBed && selectedManualVariantName
+        ? manualVariantToLaneView({
+            bed: selectedManualBed,
+            variantName: selectedManualVariantName,
+          })
+        : null,
     [selectedManualBed, selectedManualVariantName],
+  );
+
+  const loadBarSummary = useMemo(
+    () => formatAppliedLoadLabel(appliedSession, appliedLiveRun),
+    [appliedLiveRun, appliedSession],
   );
 
   useEffect(() => {
@@ -93,14 +184,20 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       .then((response) => {
         if (cancelled) return;
         const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
-        const visibleSessions = sessionsForReviewCampaign(response.sessions, initialCampaignId);
-        const initialSession = pickDefaultWorkbenchSession(visibleSessions, requestedSessionId, fallbackSessionId);
-        const initialRun = pickDefaultWorkbenchRun(initialSession?.available_runs ?? []);
         setSessions(response.sessions);
-        setSelectedCampaignId(initialCampaignId);
-        if (initialSession) {
-          setSelectedSessionId(initialSession.session_id);
-          setSelectedManifestPath(initialRun?.manifest_path ?? null);
+        const defaultDraft = buildDefaultDraft(
+          response.sessions,
+          initialCampaignId,
+          requestedSessionId,
+          fallbackSessionId,
+        );
+        if (defaultDraft) {
+          setDraftCampaignId(defaultDraft.campaignId);
+          setDraftSessionId(defaultDraft.sessionId);
+          setDraftManifestPath(defaultDraft.manifestPath);
+        }
+        if (requestedSessionId && defaultDraft) {
+          setAppliedSelection(defaultDraft);
         }
         setSessionsLoaded(true);
       })
@@ -119,17 +216,21 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     let cancelled = false;
     setManualBedsStatus("loading");
     setManualBedsError(null);
-    void getManualReviewBeds().then((response) => {
-      if (cancelled) return;
-      setManualBeds(response.beds);
-      setManualBedsStatus("ready");
-    }).catch((error) => {
-      if (cancelled) return;
-      setManualBeds([]);
-      setManualBedsStatus("error");
-      setManualBedsError(error instanceof Error ? error.message : "Failed to load manual review beds.");
-    });
-    return () => { cancelled = true; };
+    void getManualReviewBeds()
+      .then((response) => {
+        if (cancelled) return;
+        setManualBeds(response.beds);
+        setManualBedsStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setManualBeds([]);
+        setManualBedsStatus("error");
+        setManualBedsError(error instanceof Error ? error.message : "Failed to load manual review beds.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -137,18 +238,22 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     setSelectedManualBed(null);
     setSelectedManualVariantName(null);
     if (!selectedManualBedId) return () => { cancelled = true; };
-    void getManualReviewBed(selectedManualBedId).then((bed) => {
-      if (cancelled) return;
-      setSelectedManualBed(bed);
-    }).catch(() => {
-      if (cancelled) return;
-      setSelectedManualBed(null);
-    });
-    return () => { cancelled = true; };
+    void getManualReviewBed(selectedManualBedId)
+      .then((bed) => {
+        if (cancelled) return;
+        setSelectedManualBed(bed);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSelectedManualBed(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedManualBedId]);
 
   const loadCompare = useCallback(async () => {
-    if (!selectedSession || !selectedLiveRun) {
+    if (!appliedSession || !appliedLiveRun) {
       setCompare(null);
       setCompareStatus("idle");
       setCompareError(null);
@@ -160,41 +265,86 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     setSelection(null);
     try {
       const response = await getGoldReviewCompare({
-        campaignId: selectedSession.campaign_id,
-        sessionId: selectedSession.session_id,
-        manifestPath: selectedLiveRun.manifest_path,
+        campaignId: appliedSession.campaign_id,
+        sessionId: appliedSession.session_id,
+        manifestPath: appliedLiveRun.manifest_path,
       });
       setCompare(response);
       setCompareStatus("ready");
     } catch (error) {
       setCompare(null);
       setCompareStatus("error");
-      setCompareError(error instanceof LiveApiError || error instanceof Error ? error.message : "Failed to load comparison.");
+      setCompareError(
+        error instanceof LiveApiError || error instanceof Error
+          ? error.message
+          : "Failed to load comparison.",
+      );
     }
-  }, [selectedLiveRun, selectedSession]);
+  }, [appliedLiveRun, appliedSession]);
 
   useEffect(() => {
     if (!sessionsLoaded) return;
     void loadCompare();
   }, [loadCompare, sessionsLoaded]);
 
-  const handleCampaignSelect = (campaignId: string) => {
-    setSelectedCampaignId(campaignId);
-    syncReviewCampaignUrl(campaignId);
-    const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
-    const nextSession = visibleSessions.some((session) => session.session_id === selectedSessionId)
-      ? visibleSessions.find((session) => session.session_id === selectedSessionId) ?? null
-      : pickDefaultWorkbenchSession(visibleSessions, null, fallbackSessionId);
-    setSelectedSessionId(nextSession?.session_id ?? "");
-    setSelectedManifestPath(pickDefaultWorkbenchRun(nextSession?.available_runs ?? [])?.manifest_path ?? null);
-    if (nextSession) syncGraphReviewUrl(nextSession.session_id, campaignId);
+  const openLoadDialog = () => {
+    if (appliedSelection) {
+      setDraftCampaignId(appliedSelection.campaignId);
+      setDraftSessionId(appliedSelection.sessionId);
+      setDraftManifestPath(appliedSelection.manifestPath);
+    } else {
+      const defaultDraft = buildDefaultDraft(
+        sessions,
+        resolveInitialReviewCampaignId(context.campaignId),
+        requestedSessionId,
+        fallbackSessionId,
+      );
+      if (defaultDraft) {
+        setDraftCampaignId(defaultDraft.campaignId);
+        setDraftSessionId(defaultDraft.sessionId);
+        setDraftManifestPath(defaultDraft.manifestPath);
+      }
+    }
+    setLoadDialogOpen(true);
   };
 
-  const handleSessionSelect = (sessionId: string) => {
-    const session = campaignSessions.find((item) => item.session_id === sessionId) ?? null;
-    setSelectedSessionId(sessionId);
-    setSelectedManifestPath(pickDefaultWorkbenchRun(session?.available_runs ?? [])?.manifest_path ?? null);
-    syncGraphReviewUrl(sessionId, selectedCampaignId);
+  const handleDraftCampaignSelect = (campaignId: string) => {
+    const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
+    const nextSession = pickDefaultWorkbenchSession(
+      visibleSessions,
+      null,
+      fallbackSessionId,
+    );
+    setDraftCampaignId(campaignId);
+    setDraftSessionId(nextSession?.session_id ?? "");
+    setDraftManifestPath(
+      pickDefaultWorkbenchRun(
+        (nextSession?.available_runs ?? []).filter((run) => run.preview_union_available),
+      )?.manifest_path ?? null,
+    );
+  };
+
+  const handleDraftSessionSelect = (sessionId: string) => {
+    const session =
+      draftCampaignSessions.find((item) => item.session_id === sessionId) ?? null;
+    setDraftSessionId(sessionId);
+    setDraftManifestPath(
+      pickDefaultWorkbenchRun(
+        (session?.available_runs ?? []).filter((run) => run.preview_union_available),
+      )?.manifest_path ?? null,
+    );
+  };
+
+  const handleApplyLoad = () => {
+    if (!draftSession || !draftLiveRun) return;
+    const nextApplied: AppliedSelection = {
+      campaignId: draftCampaignId,
+      sessionId: draftSession.session_id,
+      manifestPath: draftLiveRun.manifest_path,
+    };
+    setAppliedSelection(nextApplied);
+    syncGraphReviewUrl(nextApplied.sessionId, nextApplied.campaignId);
+    setLoadDialogOpen(false);
   };
 
   if (!sessionsLoaded) {
@@ -209,6 +359,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     );
   }
 
+  const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
+
   return (
     <ProjectionProvider config={toolboxConfig}>
       <div className="graph-review-workbench-root">
@@ -216,55 +368,66 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           <div>
             <p className="plan-surface-kicker">Prose-first review tool</p>
             <h2>Graph Review Workbench</h2>
-            <p className="graph-review-workbench-lede">
-              Compare graph readings through recap prose first, stage reviewed gold corrections safely, then prepare, commit, reload,
-              and verify changes with provenance.
-            </p>
           </div>
         </header>
 
         {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 
-        <GraphReviewLanePicker
-          sessions={sessions}
-          selectedCampaignId={selectedCampaignId}
-          selectedSessionId={selectedSessionId}
-          selectedManifestPath={selectedManifestPath}
-          onCampaignSelect={handleCampaignSelect}
-          onSessionSelect={handleSessionSelect}
-          onManifestSelect={setSelectedManifestPath}
+        <GraphReviewLoadBar
+          loaded={hasAppliedLoad}
+          summaryLabel={loadBarSummary}
+          onOpenLoad={openLoadDialog}
         />
 
-        <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
+        {!hasAppliedLoad ? (
+          <p className="plan-projection-empty graph-review-load-empty">
+            Load a session to compare gold and ingested recap prose side by side.
+          </p>
+        ) : (
+          <GraphReviewLiveStateProvider
+            campaignId={appliedSession!.campaign_id}
+            sessionId={appliedSession!.session_id}
+            liveRun={appliedLiveRun}
+            selectedSession={appliedSession}
+            compare={compare}
+            compareStatus={compareStatus}
+            compareError={compareError}
+            goldLane={goldLane}
+            liveLane={liveLane}
+            manualBeds={manualBeds}
+            manualBedsStatus={manualBedsStatus}
+            manualBedsError={manualBedsError}
+            selectedManualBed={selectedManualBed}
+            selectedVariantLaneView={selectedVariantLaneView}
+            selectedManualVariant={
+              selectedManualBedId && selectedManualVariantName
+                ? { bedId: selectedManualBedId, variantName: selectedManualVariantName }
+                : null
+            }
+            onSelectManualBedId={setSelectedManualBedId}
+            onSelectManualVariantName={setSelectedManualVariantName}
+            selection={selection}
+            onSelectSelection={setSelection}
+          >
+            <GraphReviewLiveProjectionPanel />
+            <AdaptiveProjectionContainer config={toolboxConfig} />
+          </GraphReviewLiveStateProvider>
+        )}
 
-        <GraphReviewLiveStateProvider
-          campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
-          sessionId={selectedSession?.session_id ?? selectedSessionId}
-          liveRun={selectedLiveRun}
-          selectedSession={selectedSession}
-          compare={compare}
-          compareStatus={compareStatus}
-          compareError={compareError}
-          goldLane={goldLane}
-          liveLane={liveLane}
-          manualBeds={manualBeds}
-          manualBedsStatus={manualBedsStatus}
-          manualBedsError={manualBedsError}
-          selectedManualBed={selectedManualBed}
-          selectedVariantLaneView={selectedVariantLaneView}
-          selectedManualVariant={
-            selectedManualBedId && selectedManualVariantName
-              ? { bedId: selectedManualBedId, variantName: selectedManualVariantName }
-              : null
-          }
-          onSelectManualBedId={setSelectedManualBedId}
-          onSelectManualVariantName={setSelectedManualVariantName}
-          selection={selection}
-          onSelectSelection={setSelection}
-        >
-          <GraphReviewLiveProjectionPanel />
-          <AdaptiveProjectionContainer config={toolboxConfig} />
-        </GraphReviewLiveStateProvider>
+        <GraphReviewLoadSurface
+          open={loadDialogOpen}
+          sessions={sessions}
+          draftCampaignId={draftCampaignId}
+          draftSessionId={draftSessionId}
+          draftManifestPath={draftManifestPath}
+          draftSession={draftSession}
+          draftLiveRun={draftLiveRun}
+          onClose={() => setLoadDialogOpen(false)}
+          onLoad={handleApplyLoad}
+          onCampaignSelect={handleDraftCampaignSelect}
+          onSessionSelect={handleDraftSessionSelect}
+          onManifestSelect={setDraftManifestPath}
+        />
       </div>
     </ProjectionProvider>
   );

@@ -74,7 +74,10 @@ export function MemoryIngestPage() {
           <div>
             <p className="ingest-surface-kicker">Ingest</p>
             <h1 id="memory-ingest-title">Memory Ingest</h1>
-            <p>Convert source artifacts into reviewed campaign memory.</p>
+            <p>
+              Review extracted graph runs against gold. Open the toolbox for recap ingestion, diagnostics, or
+              gold authoring.
+            </p>
           </div>
           <details className="ingest-surface-advanced">
             <summary>Advanced</summary>
@@ -94,8 +97,10 @@ export function MemoryIngestPage() {
                 </dd>
               </div>
               <div>
-                <dt>Legacy Plan tools</dt>
-                <dd>Graph and ingest review entries are archived from the Plan toolbox.</dd>
+                <dt>Toolbox</dt>
+                <dd>
+                  Ingest Recap, Diagnostics, and Author Draft live in the Tools drawer on this page.
+                </dd>
               </div>
             </dl>
           </details>

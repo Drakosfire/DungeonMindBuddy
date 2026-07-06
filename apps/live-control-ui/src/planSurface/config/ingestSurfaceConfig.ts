@@ -13,6 +13,11 @@ export function createIngestSurfaceConfig(
     context,
     tools: [
       {
+        id: "ingest-recap",
+        label: "Ingest Recap",
+        size: "wide",
+      },
+      {
         id: "graph-review-diagnostics",
         label: "Diagnostics",
         size: "wide",

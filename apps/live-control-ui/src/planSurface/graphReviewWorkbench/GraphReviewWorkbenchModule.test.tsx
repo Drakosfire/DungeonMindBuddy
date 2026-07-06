@@ -6,24 +6,6 @@ import * as liveApi from "../../api/liveApi";
 import type { PlanContextDescriptor } from "../types";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
-vi.mock("../graphProjectionReader/GraphProjectionReader", () => ({
-  GraphProjectionReader: ({
-    title,
-    subtitle,
-    markdown,
-  }: {
-    title: string;
-    subtitle: string;
-    markdown: string;
-  }) => (
-    <div data-testid="graph-projection-reader">
-      <h2>{title}</h2>
-      <p>{subtitle}</p>
-      <article>{markdown}</article>
-    </div>
-  ),
-}));
-
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 24,
@@ -70,119 +52,122 @@ const sessionWithRun = {
   ],
 };
 
+function mockWorkbenchApis() {
+  vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
+    schema_version: "dmb_graph_gold_review_sessions_v1",
+    version: "0.1",
+    sessions: [sessionWithRun],
+  });
+  vi.spyOn(liveApi, "getManualReviewBeds").mockResolvedValue({
+    schema_version: "dmb_graph_manual_review_beds_v1",
+    version: "0.1",
+    beds: [],
+  });
+  vi.spyOn(liveApi, "getGoldReviewCompare").mockResolvedValue({
+    schema_version: "dmb_graph_gold_review_compare_v1",
+    version: "0.1",
+    session_id: "session-23",
+    campaign_id: "longmont-c2",
+    gold_fixture_id: "gold-23",
+    gold_manifest_path: "m23",
+    gold_graph_path: "g23",
+    live_run: null,
+    comparison: {
+      scores: {
+        node_recall: 0,
+        edge_recall: 0,
+        beat_recall: 0,
+        proposed_write_recall: 0,
+      },
+      coverage: {
+        missing_gold_nodes: [],
+        gold_nodes_total: 0,
+        candidate_nodes_total: 0,
+        matched_nodes: [],
+      },
+      soft_misses: [],
+    },
+    object_index: { gold: {}, live: {} },
+    match_pairs: {},
+  });
+  vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    graph_id: "graph-a",
+    markdown: "Alden watched Bera.",
+    focus: {
+      focus_session_id: "session-23",
+      focused_evidence_ref_ids: [],
+      focused_edge_ids: [],
+      focused_node_ids: [],
+    },
+    node_views: {
+      alden: {
+        node_id: "alden",
+        label: "Alden",
+        kind: "npc",
+        role: "gate warden",
+        summary: "Alden guards the western gate.",
+        aliases: [],
+        source_domains: [],
+        evidence_badges: [],
+        adjacency: [],
+      },
+      bera: {
+        node_id: "bera",
+        label: "Bera",
+        kind: "npc",
+        role: "scout",
+        summary: "Bera scouts the old road.",
+        aliases: [],
+        source_domains: [],
+        evidence_badges: [],
+        adjacency: [],
+      },
+    },
+    source_spans: [],
+    mentions: [
+      {
+        mention_id: "m-alden",
+        node_id: "alden",
+        label: "Alden",
+        start_offset: 0,
+        end_offset: 5,
+        anchor_status: "anchored",
+      },
+      {
+        mention_id: "m-bera",
+        node_id: "bera",
+        label: "Bera",
+        start_offset: 14,
+        end_offset: 18,
+        anchor_status: "anchored",
+      },
+    ],
+  });
+  vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    graph_id: "gold-graph",
+    markdown: "Gold prose",
+    focus: {
+      focus_session_id: "session-23",
+      focused_evidence_ref_ids: [],
+      focused_edge_ids: [],
+      focused_node_ids: [],
+    },
+    node_views: {},
+    source_spans: [],
+    mentions: [],
+    source_kind: "gold_fixture",
+    gold_fixture_id: "gold-23",
+    gold_fixture_relpath: "gold/session-23.json",
+  });
+}
+
 describe("GraphReviewWorkbenchModule", () => {
   beforeEach(() => {
-    window.history.replaceState({}, "", "/ingest?session=session-23");
-    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_sessions_v1",
-      version: "0.1",
-      sessions: [sessionWithRun],
-    });
-    vi.spyOn(liveApi, "getManualReviewBeds").mockResolvedValue({
-      schema_version: "dmb_graph_manual_review_beds_v1",
-      version: "0.1",
-      beds: [],
-    });
-    vi.spyOn(liveApi, "getGoldReviewCompare").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_compare_v1",
-      version: "0.1",
-      session_id: "session-23",
-      campaign_id: "longmont-c2",
-      gold_fixture_id: "gold-23",
-      gold_manifest_path: "m23",
-      gold_graph_path: "g23",
-      live_run: null,
-      comparison: {
-        scores: {
-          node_recall: 0,
-          edge_recall: 0,
-          beat_recall: 0,
-          proposed_write_recall: 0,
-        },
-        coverage: {
-          missing_gold_nodes: [],
-          gold_nodes_total: 0,
-          candidate_nodes_total: 0,
-          matched_nodes: [],
-        },
-        soft_misses: [],
-      },
-      object_index: { gold: {}, live: {} },
-      match_pairs: {},
-    });
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "graph-a",
-      markdown: "Alden watched Bera.",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {
-        alden: {
-          node_id: "alden",
-          label: "Alden",
-          kind: "npc",
-          role: "gate warden",
-          summary: "Alden guards the western gate.",
-          aliases: [],
-          source_domains: [],
-          evidence_badges: [],
-          adjacency: [],
-        },
-        bera: {
-          node_id: "bera",
-          label: "Bera",
-          kind: "npc",
-          role: "scout",
-          summary: "Bera scouts the old road.",
-          aliases: [],
-          source_domains: [],
-          evidence_badges: [],
-          adjacency: [],
-        },
-      },
-      source_spans: [],
-      mentions: [
-        {
-          mention_id: "m-alden",
-          node_id: "alden",
-          label: "Alden",
-          start_offset: 0,
-          end_offset: 5,
-          anchor_status: "anchored",
-        },
-        {
-          mention_id: "m-bera",
-          node_id: "bera",
-          label: "Bera",
-          start_offset: 14,
-          end_offset: 18,
-          anchor_status: "anchored",
-        },
-      ],
-    });
-    vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "gold-graph",
-      markdown: "Gold prose",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {},
-      source_spans: [],
-      mentions: [],
-      source_kind: "gold_fixture",
-      gold_fixture_id: "gold-23",
-      gold_fixture_relpath: "gold/session-23.json",
-    });
+    mockWorkbenchApis();
   });
 
   afterEach(() => {
@@ -190,24 +175,55 @@ describe("GraphReviewWorkbenchModule", () => {
     document.body.classList.remove("plan-toolbox-open");
   });
 
-  it("shows only pickers, lane cards, and prose by default", async () => {
+  it("starts empty on a fresh visit without a session query param", async () => {
+    window.history.replaceState({}, "", "/ingest");
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load session" })).toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByText(/Load a session to compare gold and ingested recap prose/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
+  });
+
+  it("auto-loads when a session query param is present", async () => {
+    window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
 
-    expect(screen.queryByText("Mock UX Scaffold")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Gold-vs-live smoke alarms" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Author Draft text-selection actions"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(screen.getByText("Session 23 · Run A")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
   });
 
-  it("opens toolbox with Diagnostics and Author Draft tools", async () => {
+  it("loads prose after choosing a session in the load dialog", async () => {
     const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest");
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load session" })).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Load session" }));
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+  });
+
+  it("opens toolbox with Ingest Recap, Diagnostics, and Author Draft tools", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
@@ -216,13 +232,14 @@ describe("GraphReviewWorkbenchModule", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
+    expect(screen.getByRole("button", { name: "Ingest Recap" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Author Draft" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Recap" })).not.toBeInTheDocument();
   });
 
   it("opens diagnostics content from the toolbox", async () => {
     const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
@@ -239,6 +256,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("author draft toolbox enables relationship staging from projected pills", async () => {
     const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
@@ -267,7 +285,7 @@ describe("GraphReviewWorkbenchModule", () => {
     ).toBeEnabled();
   });
 
-  it("preserves tool query param when changing session", async () => {
+  it("preserves tool query param when applying a new session from the load dialog", async () => {
     const user = userEvent.setup();
     window.history.replaceState(
       {},
@@ -295,8 +313,13 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
 
+    await user.click(screen.getByRole("button", { name: "Change" }));
     await user.click(screen.getByRole("tab", { name: /Session 22/i }));
+    await user.click(screen.getByRole("button", { name: "Load" }));
 
+    await waitFor(() =>
+      expect(window.location.search).toContain("session=session-22"),
+    );
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
   });
 });

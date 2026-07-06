@@ -14,7 +14,6 @@ export function GraphReviewLiveProjectionPanel() {
     campaignId,
     sessionId,
     liveRun,
-    compareStatus,
     projection,
     projectionStatus,
     projectionError,
@@ -109,24 +108,6 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <div
-            className="graph-review-comparison-summary-strip"
-            aria-label="Gold vs live comparison summary"
-          >
-            <strong>Gold vs Live</strong>
-            <span>
-              {compareStatus === "loading"
-                ? "Compare loading…"
-                : `${deltaIndex.countsByObjectKind.node} indexed nodes`}
-            </span>
-            <span>{deltaIndex.countsByStatus.matched} matched</span>
-            <span>{deltaIndex.countsByStatus.gold_only} gold-only</span>
-            <span>{deltaIndex.countsByStatus.live_only} live-only</span>
-            {compareStatus === "error" ? (
-              <span>Compare unavailable</span>
-            ) : null}
-          </div>
-
           <div className="graph-review-real-two-lane-projections">
             {goldProjectionStatus === "loading" ? (
               <p className="graph-review-live-projection-status" role="status">
@@ -163,6 +144,7 @@ export function GraphReviewLiveProjectionPanel() {
                   setProjectedInteractionOpen(true);
                 }}
                 onSelectText={authorDraft.setSelectedText}
+                readerMode
               />
             ) : null}
             <GraphReviewProjectionLane
@@ -184,6 +166,7 @@ export function GraphReviewLiveProjectionPanel() {
                 setProjectedInteractionOpen(true);
               }}
               onSelectText={authorDraft.setSelectedText}
+              readerMode
             />
           </div>
           <GraphReviewProjectedInteractionSurface

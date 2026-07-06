@@ -114,6 +114,102 @@ describe("GraphReviewProjectionLane", () => {
       "node:tripod-null-calf",
     );
     expect(token).toHaveAttribute("data-delta-status", "matched");
+    expect(screen.queryByText("Matched")).not.toBeInTheDocument();
+  });
+
+  it("hides lane header metadata in reader mode", () => {
+    render(
+      <GraphReviewProjectionLane
+        laneRole="gold"
+        title="Gold Fixture · read-only"
+        subtitle="evals/graph_memory_layer/examples/session_23.json"
+        markdown="The Tripod Null-Calf threatened the North Gate."
+        nodeViews={{ "node:tripod-null-calf": tripodNode }}
+        mentions={[
+          {
+            mention_id: "m1",
+            node_id: "node:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            start_offset: 4,
+            end_offset: 21,
+            evidence_ref_ids: [],
+            anchor_status: "anchored",
+          },
+        ]}
+        mentionsCount={1}
+        deltaIndex={deltaIndex}
+        activeObject={null}
+        onActiveObjectChange={vi.fn()}
+        readerMode
+      />,
+    );
+
+    expect(screen.queryByText("Gold Fixture · read-only")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/projected graph mention/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Tripod Null-Calf/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows delta badges only for mismatched pills", () => {
+    const goldOnlyDeltaIndex: GraphReviewDeltaIndex = {
+      ...deltaIndex,
+      countsByStatus: {
+        ...deltaIndex.countsByStatus,
+        matched: 0,
+        gold_only: 1,
+      },
+      deltas: [
+        {
+          deltaId: "gold-only:node:tripod",
+          objectKind: "node",
+          status: "gold_only",
+          laneObjectRefs: [
+            {
+              laneId: "gold",
+              laneRole: "gold",
+              objectKind: "node",
+              objectId: "node:tripod-null-calf",
+              label: "Tripod Null-Calf",
+            },
+          ],
+          label: "Tripod Null-Calf",
+          summary: "Gold-only node: Tripod Null-Calf",
+          sourceSpanRefIds: [],
+          evidenceRefIds: [],
+        },
+      ],
+    };
+
+    render(
+      <GraphReviewProjectionLane
+        laneRole="gold"
+        title="Gold Fixture · read-only"
+        markdown="The Tripod Null-Calf threatened the North Gate."
+        nodeViews={{ "node:tripod-null-calf": tripodNode }}
+        mentions={[
+          {
+            mention_id: "m1",
+            node_id: "node:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            start_offset: 4,
+            end_offset: 21,
+            evidence_ref_ids: [],
+            anchor_status: "anchored",
+          },
+        ]}
+        mentionsCount={1}
+        deltaIndex={goldOnlyDeltaIndex}
+        activeObject={null}
+        onActiveObjectChange={vi.fn()}
+      />,
+    );
+
+    const token = screen.getByRole("button", { name: /Tripod Null-Calf/i });
+    expect(token).toHaveAttribute("data-delta-status", "gold_only");
+    expect(screen.getByText("Gold-only")).toBeInTheDocument();
   });
 
   it("reports clicked node selection with lane role", () => {

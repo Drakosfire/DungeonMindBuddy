@@ -44,6 +44,7 @@ interface GraphReviewProjectionLaneProps {
     text: string;
     sourceOffsets: { start: number; end: number } | null;
   }) => void;
+  readerMode?: boolean;
 }
 
 interface NodeDecoration {
@@ -156,7 +157,7 @@ function renderMentionToken({
       onClick={() => propsOnSelectObject?.({ laneRole, nodeId })}
     >
       {label}
-      {decoration.status !== "unknown" ? (
+      {decoration.status !== "unknown" && decoration.status !== "matched" ? (
         <span className="graph-review-pill-delta-badge">
           {decoration.label}
         </span>
@@ -300,30 +301,37 @@ export function GraphReviewProjectionLane(
   const unanchoredCount = laneProps.mentions.filter(
     (mention) => !isAnchoredMention(mention),
   ).length;
+  const readerMode = props.readerMode ?? false;
+  const ariaLabel =
+    props.laneRole === "gold" ? "Gold fixture prose" : "Live run prose";
   return (
     <section
       className="graph-review-projection-lane"
-      aria-label={props.title}
+      aria-label={readerMode ? ariaLabel : props.title}
       data-lane-role={props.laneRole}
     >
-      <header>
-        <p className="plan-surface-kicker">
-          {props.laneRole === "gold"
-            ? "Gold Fixture · read-only"
-            : "Live Run · read-only"}
-        </p>
-        <h3>{props.title}</h3>
-        {props.subtitle ? <p>{props.subtitle}</p> : null}
-        <span>
-          {props.mentionsCount} projected graph mention
-          {props.mentionsCount === 1 ? "" : "s"}
-        </span>
-      </header>
-      {unanchoredCount ? (
-        <p className="graph-review-projection-warning">
-          {unanchoredCount} {props.laneRole} object
-          {unanchoredCount === 1 ? " is" : "s are"} unanchored in this recap.
-        </p>
+      {!readerMode ? (
+        <>
+          <header>
+            <p className="plan-surface-kicker">
+              {props.laneRole === "gold"
+                ? "Gold Fixture · read-only"
+                : "Live Run · read-only"}
+            </p>
+            <h3>{props.title}</h3>
+            {props.subtitle ? <p>{props.subtitle}</p> : null}
+            <span>
+              {props.mentionsCount} projected graph mention
+              {props.mentionsCount === 1 ? "" : "s"}
+            </span>
+          </header>
+          {unanchoredCount ? (
+            <p className="graph-review-projection-warning">
+              {unanchoredCount} {props.laneRole} object
+              {unanchoredCount === 1 ? " is" : "s are"} unanchored in this recap.
+            </p>
+          ) : null}
+        </>
       ) : null}
       <article
         className="graph-review-projection-document"
