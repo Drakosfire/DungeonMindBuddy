@@ -399,6 +399,118 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
   });
 
+  it("lets the user target an existing graph object without first clicking to inspect it", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMention);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: false,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
+
+    // "Alden" is already loaded as part of the projection's node views. It must be
+    // targetable from the relationship picker even though no pill has been clicked.
+    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
+    const existingOption = within(sourcePicker).getByRole("option", { name: /Alden/ });
+    expect(existingOption).toBeInTheDocument();
+
+    fireEvent.change(sourcePicker, { target: { value: "existing_node:alden" } });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "relationship");
+    expect(stagedProposal).toHaveTextContent("Alden");
+    expect(stagedProposal).toHaveTextContent("Questionable Company");
+  });
+
+  it("stages a link-existing and a relationship proposal alongside object drafts", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMention);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: false,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
+
+    const liveReader = screen.getByTestId("graph-projection-reader");
+    const aldenPill = await waitFor(() => {
+      const pill = within(liveReader)
+        .getAllByRole("button", { name: /Alden/ })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(aldenPill);
+    fireEvent.click(screen.getByRole("button", { name: "Close selected object" }));
+
+    // Relationship authoring is available even without a highlighted text selection,
+    // and can target any existing graph object already loaded in the projection
+    // ("Alden"), not just the last-inspected one.
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:alden" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    const relationshipProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(relationshipProposal).toHaveAttribute("data-proposal-kind", "relationship");
+    expect(relationshipProposal).toHaveTextContent("Alden");
+    expect(relationshipProposal).toHaveTextContent("Questionable Company");
+    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+
+    // Now select the "gang" text span and stage a link-existing proposal against
+    // the same inspected node, alongside the relationship proposal above.
+    const proseMirror = liveReader.querySelector(".ProseMirror") as HTMLElement;
+    const paragraph = proseMirror.querySelector("p") as HTMLElement;
+    const textNode = paragraph.firstChild as Text;
+    const startIndex = textNode.textContent!.indexOf("party");
+    const range = document.createRange();
+    range.setStart(textNode, startIndex);
+    range.setEnd(textNode, startIndex + "party".length);
+    const domSelection = window.getSelection();
+    domSelection?.removeAllRanges();
+    domSelection?.addRange(range);
+    fireEvent.mouseUp(proseMirror);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-authoring-action")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("graph-authoring-action"));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
+    fireEvent.change(screen.getByLabelText("Existing object"), {
+      target: { value: "existing_node:alden" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
+
+    const stagedProposals = screen.getAllByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposals).toHaveLength(2);
+    const linkExistingProposal = stagedProposals.find(
+      (node) => node.getAttribute("data-proposal-kind") === "link_existing",
+    );
+    expect(linkExistingProposal).toBeTruthy();
+    expect(linkExistingProposal).toHaveTextContent("party");
+    expect(linkExistingProposal).toHaveTextContent("Alden");
+  });
+
   it("does not render diagnostic panels on the main surface", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
 

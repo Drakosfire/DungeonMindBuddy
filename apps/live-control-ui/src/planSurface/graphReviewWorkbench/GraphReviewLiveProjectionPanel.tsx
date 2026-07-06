@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import type { GraphProjectionNodeView } from "../../api/types";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
+import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
@@ -12,6 +14,18 @@ const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did
 
 function metadataValue(value: string | null | undefined): string {
   return value && value.trim() ? value : "—";
+}
+
+function toExistingNodeOptions(
+  nodeViews: Record<string, GraphProjectionNodeView> | undefined,
+): GraphObjectAuthoringInspectedNode[] {
+  if (!nodeViews) return [];
+  return Object.values(nodeViews).map((node) => ({
+    node_id: node.node_id,
+    label: node.label,
+    kind: node.kind,
+    role: node.role,
+  }));
 }
 
 export function GraphReviewLiveProjectionPanel() {
@@ -48,6 +62,13 @@ export function GraphReviewLiveProjectionPanel() {
   const { authorMode } = authorDraft;
   const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
   const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft();
+  const existingGraphObjectNodes = useMemo(
+    () => [
+      ...toExistingNodeOptions(projection?.node_views),
+      ...toExistingNodeOptions(goldProjection?.node_views),
+    ],
+    [projection, goldProjection],
+  );
 
   return (
     <section
@@ -237,6 +258,13 @@ export function GraphReviewLiveProjectionPanel() {
               onFormFieldChange={graphObjectAuthoringDraft.updateFormField}
               onStageProposal={graphObjectAuthoringDraft.stageProposal}
               onRemoveProposal={graphObjectAuthoringDraft.removeProposal}
+              linkExistingFormState={graphObjectAuthoringDraft.linkExistingFormState}
+              onLinkExistingFieldChange={graphObjectAuthoringDraft.updateLinkExistingField}
+              onStageLinkExistingProposal={graphObjectAuthoringDraft.stageLinkExistingProposal}
+              relationshipFormState={graphObjectAuthoringDraft.relationshipFormState}
+              onRelationshipFieldChange={graphObjectAuthoringDraft.updateRelationshipField}
+              onStageRelationshipProposal={graphObjectAuthoringDraft.stageRelationshipProposal}
+              existingNodes={existingGraphObjectNodes}
             />
           ) : null}
           <GraphReviewProjectedInteractionSurface

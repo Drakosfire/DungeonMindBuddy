@@ -55,7 +55,21 @@ export interface GraphObjectAuthoringFormState {
   visibility: GraphObjectAuthoringVisibility;
 }
 
-export interface GraphObjectAuthoringProposal {
+interface GraphObjectAuthoringVisibilityPreview {
+  visibility: GraphObjectAuthoringVisibility;
+  revealState: "unrevealed" | "partial" | "revealed";
+  visibilityNote?: string | null;
+}
+
+interface GraphObjectAuthoringProvenancePreview {
+  origin: "human_authored";
+  authoringSurface: "memory_ingest_graph_authoring";
+  sourceGraphId?: string | null;
+  sourceArtifactPath?: string | null;
+  operatorNote?: string | null;
+}
+
+export interface GraphObjectAuthoringObjectProposal {
   localProposalId: string;
   proposalKind: "object";
   status: "staged_local";
@@ -67,20 +81,67 @@ export interface GraphObjectAuthoringProposal {
     aliases: string[];
     summary?: string | null;
   };
-  visibility: {
-    visibility: GraphObjectAuthoringVisibility;
-    revealState: "unrevealed" | "partial" | "revealed";
-    visibilityNote?: string | null;
-  };
+  visibility: GraphObjectAuthoringVisibilityPreview;
   graphScopes: GraphObjectAuthoringScope[];
-  provenancePreview: {
-    origin: "human_authored";
-    authoringSurface: "memory_ingest_graph_authoring";
-    sourceGraphId?: string | null;
-    sourceArtifactPath?: string | null;
-    operatorNote?: string | null;
-  };
+  provenancePreview: GraphObjectAuthoringProvenancePreview;
 }
+
+export type GraphObjectAuthoringObjectRefKind =
+  | "existing_graph_node"
+  | "local_proposal"
+  | "manual_ref";
+
+export interface GraphObjectAuthoringObjectRef {
+  refKind: GraphObjectAuthoringObjectRefKind;
+  nodeId?: string | null;
+  localProposalId?: string | null;
+  label: string;
+  kind?: string | null;
+  role?: string | null;
+}
+
+export type GraphObjectAuthoringLinkExistingOperation =
+  | "alias"
+  | "reference"
+  | "link_existing";
+
+export interface GraphObjectAuthoringLinkExistingProposal {
+  localProposalId: string;
+  proposalKind: "link_existing";
+  status: "staged_local";
+  selection: GraphAuthoringSelection;
+  selectedText: string;
+  normalizedSelectedText: string;
+  existingObjectRef: GraphObjectAuthoringObjectRef;
+  operation: GraphObjectAuthoringLinkExistingOperation;
+  aliasText?: string | null;
+  visibility: GraphObjectAuthoringVisibilityPreview;
+  graphScopes: GraphObjectAuthoringScope[];
+  provenancePreview: GraphObjectAuthoringProvenancePreview;
+}
+
+export type GraphObjectAuthoringRelationshipDirection = "directed" | "undirected";
+
+export interface GraphObjectAuthoringRelationshipProposal {
+  localProposalId: string;
+  proposalKind: "relationship";
+  status: "staged_local";
+  selection?: GraphAuthoringSelection | null;
+  sourceObjectRef: GraphObjectAuthoringObjectRef;
+  targetObjectRef: GraphObjectAuthoringObjectRef;
+  relationshipType: string;
+  relationshipLabel?: string | null;
+  direction: GraphObjectAuthoringRelationshipDirection;
+  summary?: string | null;
+  visibility: GraphObjectAuthoringVisibilityPreview;
+  graphScopes: GraphObjectAuthoringScope[];
+  provenancePreview: GraphObjectAuthoringProvenancePreview;
+}
+
+export type GraphObjectAuthoringProposal =
+  | GraphObjectAuthoringObjectProposal
+  | GraphObjectAuthoringLinkExistingProposal
+  | GraphObjectAuthoringRelationshipProposal;
 
 export function createDefaultGraphObjectAuthoringFormState(
   selection: GraphAuthoringSelection | null,
@@ -137,16 +198,26 @@ export function createLocalGraphObjectProposalId(): string {
   return `local-object-${Date.now()}-${localProposalCounter}`;
 }
 
+function buildVisibilityPreview(
+  visibility: GraphObjectAuthoringVisibility,
+): GraphObjectAuthoringVisibilityPreview {
+  const visibilityOption = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.find(
+    (option) => option.value === visibility,
+  );
+  return {
+    visibility,
+    revealState: "unrevealed",
+    visibilityNote: visibilityOption?.note ?? null,
+  };
+}
+
 export function buildGraphObjectAuthoringProposal(
   selection: GraphAuthoringSelection,
   formState: GraphObjectAuthoringFormState,
   localProposalId: string = createLocalGraphObjectProposalId(),
-): GraphObjectAuthoringProposal {
+): GraphObjectAuthoringObjectProposal {
   const aliases = buildProposalAliases(formState, selection);
   const label = formState.label.trim() || selection.selectedText;
-  const visibilityOption = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.find(
-    (option) => option.value === formState.visibility,
-  );
 
   return {
     localProposalId,
@@ -160,17 +231,180 @@ export function buildGraphObjectAuthoringProposal(
       aliases,
       summary: formState.summary.trim() || null,
     },
-    visibility: {
-      visibility: formState.visibility,
-      revealState: "unrevealed",
-      visibilityNote: visibilityOption?.note ?? null,
-    },
+    visibility: buildVisibilityPreview(formState.visibility),
     graphScopes: ["recap_graph", "campaign_memory_graph"],
     provenancePreview: {
       origin: "human_authored",
       authoringSurface: "memory_ingest_graph_authoring",
       sourceGraphId: selection.graphId ?? null,
       sourceArtifactPath: selection.sourceArtifactPath ?? null,
+      operatorNote: formState.operatorNote.trim() || null,
+    },
+  };
+}
+
+export function buildObjectRefFromObjectProposal(
+  proposal: GraphObjectAuthoringObjectProposal,
+): GraphObjectAuthoringObjectRef {
+  return {
+    refKind: "local_proposal",
+    localProposalId: proposal.localProposalId,
+    label: proposal.objectRef.label,
+    kind: proposal.objectRef.kind,
+    role: proposal.objectRef.role ?? null,
+  };
+}
+
+export function buildObjectRefFromInspectedNode(node: {
+  node_id: string;
+  label: string;
+  kind?: string | null;
+  role?: string | null;
+}): GraphObjectAuthoringObjectRef {
+  return {
+    refKind: "existing_graph_node",
+    nodeId: node.node_id,
+    label: node.label,
+    kind: node.kind ?? null,
+    role: node.role ?? null,
+  };
+}
+
+export function buildManualObjectRef(label: string): GraphObjectAuthoringObjectRef {
+  return {
+    refKind: "manual_ref",
+    label: label.trim(),
+  };
+}
+
+export const GRAPH_OBJECT_AUTHORING_LINK_EXISTING_OPERATION_OPTIONS: {
+  value: GraphObjectAuthoringLinkExistingOperation;
+  label: string;
+}[] = [
+  { value: "alias", label: "Alias of existing object" },
+  { value: "reference", label: "Reference to existing object" },
+  { value: "link_existing", label: "Link existing object" },
+];
+
+export interface GraphObjectAuthoringLinkExistingFormState {
+  existingObjectRef: GraphObjectAuthoringObjectRef | null;
+  operation: GraphObjectAuthoringLinkExistingOperation;
+  aliasText: string;
+  operatorNote: string;
+  visibility: GraphObjectAuthoringVisibility;
+}
+
+export function createDefaultGraphObjectAuthoringLinkExistingFormState(): GraphObjectAuthoringLinkExistingFormState {
+  return {
+    existingObjectRef: null,
+    operation: "alias",
+    aliasText: "",
+    operatorNote: "",
+    visibility: GRAPH_OBJECT_AUTHORING_DEFAULT_VISIBILITY,
+  };
+}
+
+export function buildGraphObjectAuthoringLinkExistingProposal(
+  selection: GraphAuthoringSelection,
+  formState: GraphObjectAuthoringLinkExistingFormState,
+  localProposalId: string = createLocalGraphObjectProposalId(),
+): GraphObjectAuthoringLinkExistingProposal | null {
+  if (!formState.existingObjectRef) {
+    return null;
+  }
+
+  return {
+    localProposalId,
+    proposalKind: "link_existing",
+    status: "staged_local",
+    selection,
+    selectedText: selection.selectedText,
+    normalizedSelectedText: selection.normalizedSelectedText,
+    existingObjectRef: formState.existingObjectRef,
+    operation: formState.operation,
+    aliasText: formState.aliasText.trim() || null,
+    visibility: buildVisibilityPreview(formState.visibility),
+    graphScopes: ["recap_graph", "campaign_memory_graph"],
+    provenancePreview: {
+      origin: "human_authored",
+      authoringSurface: "memory_ingest_graph_authoring",
+      sourceGraphId: selection.graphId ?? null,
+      sourceArtifactPath: selection.sourceArtifactPath ?? null,
+      operatorNote: formState.operatorNote.trim() || null,
+    },
+  };
+}
+
+export const GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS: string[] = [
+  "has_member",
+  "member_of",
+  "located_in",
+  "controls",
+  "allied_with",
+  "opposes",
+  "owns",
+  "created_by",
+  "travels_with",
+  "protects",
+  "threatens",
+  "related_to",
+];
+
+export interface GraphObjectAuthoringRelationshipFormState {
+  sourceObjectRef: GraphObjectAuthoringObjectRef | null;
+  targetObjectRef: GraphObjectAuthoringObjectRef | null;
+  relationshipType: string;
+  relationshipLabel: string;
+  direction: GraphObjectAuthoringRelationshipDirection;
+  summary: string;
+  operatorNote: string;
+  visibility: GraphObjectAuthoringVisibility;
+}
+
+export function createDefaultGraphObjectAuthoringRelationshipFormState(): GraphObjectAuthoringRelationshipFormState {
+  return {
+    sourceObjectRef: null,
+    targetObjectRef: null,
+    relationshipType: GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS[0],
+    relationshipLabel: "",
+    direction: "directed",
+    summary: "",
+    operatorNote: "",
+    visibility: GRAPH_OBJECT_AUTHORING_DEFAULT_VISIBILITY,
+  };
+}
+
+export function buildGraphObjectAuthoringRelationshipProposal(
+  formState: GraphObjectAuthoringRelationshipFormState,
+  selection: GraphAuthoringSelection | null = null,
+  localProposalId: string = createLocalGraphObjectProposalId(),
+): GraphObjectAuthoringRelationshipProposal | null {
+  if (
+    !formState.sourceObjectRef ||
+    !formState.targetObjectRef ||
+    !formState.relationshipType.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    localProposalId,
+    proposalKind: "relationship",
+    status: "staged_local",
+    selection,
+    sourceObjectRef: formState.sourceObjectRef,
+    targetObjectRef: formState.targetObjectRef,
+    relationshipType: formState.relationshipType,
+    relationshipLabel: formState.relationshipLabel.trim() || null,
+    direction: formState.direction,
+    summary: formState.summary.trim() || null,
+    visibility: buildVisibilityPreview(formState.visibility),
+    graphScopes: ["recap_graph", "campaign_memory_graph"],
+    provenancePreview: {
+      origin: "human_authored",
+      authoringSurface: "memory_ingest_graph_authoring",
+      sourceGraphId: selection?.graphId ?? null,
+      sourceArtifactPath: selection?.sourceArtifactPath ?? null,
       operatorNote: formState.operatorNote.trim() || null,
     },
   };

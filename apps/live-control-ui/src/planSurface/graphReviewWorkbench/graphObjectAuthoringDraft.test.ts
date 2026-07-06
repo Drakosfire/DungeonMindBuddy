@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
+  buildGraphObjectAuthoringLinkExistingProposal,
   buildGraphObjectAuthoringProposal,
+  buildGraphObjectAuthoringRelationshipProposal,
+  buildManualObjectRef,
+  buildObjectRefFromInspectedNode,
+  buildObjectRefFromObjectProposal,
   buildProposalAliases,
   createDefaultGraphObjectAuthoringFormState,
+  createDefaultGraphObjectAuthoringLinkExistingFormState,
+  createDefaultGraphObjectAuthoringRelationshipFormState,
   dedupeAliasesCaseInsensitive,
   parseAliasesText,
 } from "./graphObjectAuthoringDraft";
@@ -126,5 +133,118 @@ describe("buildGraphObjectAuthoringProposal", () => {
     };
     const proposal = buildGraphObjectAuthoringProposal(baseSelection, formState, "local-object-2");
     expect(proposal.visibility.visibilityNote).toMatch(/specific characters/i);
+  });
+});
+
+describe("buildObjectRefFromObjectProposal / buildObjectRefFromInspectedNode / buildManualObjectRef", () => {
+  const objectProposal = buildGraphObjectAuthoringProposal(
+    baseSelection,
+    { ...createDefaultGraphObjectAuthoringFormState(baseSelection), label: "Questionable Company", kind: "party" },
+    "local-object-3",
+  );
+
+  it("builds a local_proposal ref from a staged object proposal", () => {
+    expect(buildObjectRefFromObjectProposal(objectProposal)).toEqual({
+      refKind: "local_proposal",
+      localProposalId: "local-object-3",
+      label: "Questionable Company",
+      kind: "party",
+      role: null,
+    });
+  });
+
+  it("builds an existing_graph_node ref from an inspected node", () => {
+    expect(
+      buildObjectRefFromInspectedNode({
+        node_id: "alden",
+        label: "Alden",
+        kind: "npc",
+        role: "gate warden",
+      }),
+    ).toEqual({
+      refKind: "existing_graph_node",
+      nodeId: "alden",
+      label: "Alden",
+      kind: "npc",
+      role: "gate warden",
+    });
+  });
+
+  it("builds a manual_ref from a typed label", () => {
+    expect(buildManualObjectRef("  Bonogo  ")).toEqual({
+      refKind: "manual_ref",
+      label: "Bonogo",
+    });
+  });
+});
+
+describe("buildGraphObjectAuthoringLinkExistingProposal", () => {
+  it("returns null when no existing object ref has been chosen", () => {
+    const formState = createDefaultGraphObjectAuthoringLinkExistingFormState();
+    expect(buildGraphObjectAuthoringLinkExistingProposal(baseSelection, formState)).toBeNull();
+  });
+
+  it("stages a link-existing proposal referencing the chosen object and selected text", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringLinkExistingFormState(),
+      existingObjectRef: buildManualObjectRef("Questionable Company"),
+      operation: "alias" as const,
+    };
+    const proposal = buildGraphObjectAuthoringLinkExistingProposal(baseSelection, formState, "local-link-1");
+
+    expect(proposal).toMatchObject({
+      localProposalId: "local-link-1",
+      proposalKind: "link_existing",
+      status: "staged_local",
+      selectedText: "gang",
+      operation: "alias",
+      existingObjectRef: { refKind: "manual_ref", label: "Questionable Company" },
+      visibility: { visibility: "gm_private", revealState: "unrevealed" },
+    });
+    expect(proposal?.selection).toBe(baseSelection);
+  });
+});
+
+describe("buildGraphObjectAuthoringRelationshipProposal", () => {
+  const sourceRef = buildManualObjectRef("Questionable Company");
+  const targetRef = buildObjectRefFromInspectedNode({ node_id: "bonogo", label: "Bonogo", kind: "pc" });
+
+  it("returns null when source or target object refs are missing", () => {
+    const formState = createDefaultGraphObjectAuthoringRelationshipFormState();
+    expect(buildGraphObjectAuthoringRelationshipProposal(formState)).toBeNull();
+  });
+
+  it("stages a relationship proposal between source and target object refs", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: targetRef,
+      relationshipType: "has_member",
+      direction: "directed" as const,
+    };
+    const proposal = buildGraphObjectAuthoringRelationshipProposal(formState, null, "local-rel-1");
+
+    expect(proposal).toMatchObject({
+      localProposalId: "local-rel-1",
+      proposalKind: "relationship",
+      status: "staged_local",
+      relationshipType: "has_member",
+      direction: "directed",
+      sourceObjectRef: sourceRef,
+      targetObjectRef: targetRef,
+    });
+  });
+
+  it("carries an optional evidence selection through to provenance", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: targetRef,
+      relationshipType: "has_member",
+    };
+    const proposal = buildGraphObjectAuthoringRelationshipProposal(formState, baseSelection, "local-rel-2");
+
+    expect(proposal?.selection).toBe(baseSelection);
+    expect(proposal?.provenancePreview.sourceGraphId).toBe("graph-c1s2");
   });
 });

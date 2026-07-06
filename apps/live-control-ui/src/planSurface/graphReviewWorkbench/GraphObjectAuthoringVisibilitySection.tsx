@@ -6,20 +6,26 @@ import {
 export function GraphObjectAuthoringVisibilitySection({
   visibility,
   onChange,
+  fieldId = "graph-object-authoring-visibility",
+  fieldLabel = "Visibility",
+  sectionLabel = "Object visibility",
 }: {
   visibility: GraphObjectAuthoringVisibility;
   onChange: (visibility: GraphObjectAuthoringVisibility) => void;
+  fieldId?: string;
+  fieldLabel?: string;
+  sectionLabel?: string;
 }) {
   const selectedOption = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.find(
     (option) => option.value === visibility,
   );
 
   return (
-    <section className="graph-object-authoring-visibility-section" aria-label="Object visibility">
+    <section className="graph-object-authoring-visibility-section" aria-label={sectionLabel}>
       <div className="graph-object-authoring-field">
-        <label htmlFor="graph-object-authoring-visibility">Visibility</label>
+        <label htmlFor={fieldId}>{fieldLabel}</label>
         <select
-          id="graph-object-authoring-visibility"
+          id={fieldId}
           value={visibility}
           onChange={(event) =>
             onChange(event.target.value as GraphObjectAuthoringVisibility)

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
+import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
 
 const selection: GraphAuthoringSelection = {
@@ -15,7 +16,17 @@ const selection: GraphAuthoringSelection = {
   laneRole: "live",
 };
 
-function Harness({ initialSelection }: { initialSelection?: GraphAuthoringSelection }) {
+const defaultExistingNodes: GraphObjectAuthoringInspectedNode[] = [
+  { node_id: "bonogo", label: "Bonogo", kind: "pc", role: "rogue" },
+];
+
+function Harness({
+  initialSelection,
+  existingNodes = defaultExistingNodes,
+}: {
+  initialSelection?: GraphAuthoringSelection;
+  existingNodes?: GraphObjectAuthoringInspectedNode[];
+}) {
   const draft = useGraphObjectAuthoringDraft();
 
   return (
@@ -30,6 +41,13 @@ function Harness({ initialSelection }: { initialSelection?: GraphAuthoringSelect
         onFormFieldChange={draft.updateFormField}
         onStageProposal={draft.stageProposal}
         onRemoveProposal={draft.removeProposal}
+        linkExistingFormState={draft.linkExistingFormState}
+        onLinkExistingFieldChange={draft.updateLinkExistingField}
+        onStageLinkExistingProposal={draft.stageLinkExistingProposal}
+        relationshipFormState={draft.relationshipFormState}
+        onRelationshipFieldChange={draft.updateRelationshipField}
+        onStageRelationshipProposal={draft.stageRelationshipProposal}
+        existingNodes={existingNodes}
       />
     </div>
   );
@@ -110,5 +128,108 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "   " } });
 
     expect(screen.getByTestId("graph-object-authoring-stage-button")).toBeDisabled();
+  });
+
+  it("stages a link-existing proposal from selected text via the Link existing tab", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
+
+    fireEvent.change(screen.getByLabelText("Existing object"), {
+      target: { value: "manual" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "link_existing");
+    expect(stagedProposal).toHaveTextContent("Link existing");
+    expect(stagedProposal).toHaveTextContent("Questionable Company");
+    expect(stagedProposal).toHaveTextContent("gang");
+    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+  });
+
+  it("disables link-existing staging until an existing object ref is chosen", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
+
+    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
+  });
+
+  it("stages a relationship proposal between the inspected node and a manual ref without requiring a selection", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship type"), {
+      target: { value: "has_member" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
+    fireEvent.change(manualInputs[manualInputs.length - 1], {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "relationship");
+    expect(stagedProposal).toHaveTextContent("Bonogo");
+    expect(stagedProposal).toHaveTextContent("has_member");
+    expect(stagedProposal).toHaveTextContent("Questionable Company");
+    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+  });
+
+  it("disables relationship staging until both object refs are chosen", () => {
+    render(<Harness />);
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
+  });
+
+  it("offers every existing graph object as a target, not just a single last-inspected node", () => {
+    render(
+      <Harness
+        existingNodes={[
+          { node_id: "alden", label: "Alden", kind: "npc", role: "gate warden" },
+          { node_id: "bonogo", label: "Bonogo", kind: "pc", role: "rogue" },
+          { node_id: "grishna", label: "Grishna", kind: "npc", role: "innkeeper" },
+        ]}
+      />,
+    );
+
+    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Existing graph objects" });
+    const options = within(existingGroup).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Alden (npc)",
+      "Bonogo (pc)",
+      "Grishna (npc)",
+    ]);
+  });
+
+  it("deduplicates existing graph object candidates by node id", () => {
+    render(
+      <Harness
+        existingNodes={[
+          { node_id: "alden", label: "Alden", kind: "npc" },
+          { node_id: "alden", label: "Alden", kind: "npc" },
+        ]}
+      />,
+    );
+
+    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Existing graph objects" });
+    expect(within(existingGroup).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("keeps existing object proposal staging working alongside the new proposal kinds", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "object");
   });
 });
