@@ -6,7 +6,7 @@ vi.mock("../../api/liveApi", () => ({
   commitGraphObjectAuthoringWrite: vi.fn(),
 }));
 
-import { prepareGraphObjectAuthoringWrite } from "../../api/liveApi";
+import { prepareGraphObjectAuthoringWrite, commitGraphObjectAuthoringWrite } from "../../api/liveApi";
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
@@ -314,12 +314,12 @@ describe("GraphObjectAuthoringSurface", () => {
     );
 
     const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Existing graph objects" });
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Extracted graph" });
     const options = within(existingGroup).getAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual([
-      "Alden (npc)",
-      "Bonogo (pc)",
-      "Grishna (npc)",
+      "Alden · npc",
+      "Bonogo · pc",
+      "Grishna · npc",
     ]);
   });
 
@@ -334,7 +334,7 @@ describe("GraphObjectAuthoringSurface", () => {
     );
 
     const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Existing graph objects" });
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Extracted graph" });
     expect(within(existingGroup).getAllByRole("option")).toHaveLength(1);
   });
 
@@ -347,6 +347,50 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(stagedProposal).toHaveAttribute("data-proposal-kind", "object");
   });
 
+  it("shows overlap warning when staging duplicates authored memory label", () => {
+    render(
+      <Harness
+        existingNodes={[
+          {
+            node_id: "authored:assert-qc",
+            label: "Questionable Company",
+            kind: "party",
+            aliases: ["gang"],
+            authored: true,
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.change(screen.getByLabelText("Label"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "party" } });
+
+    expect(screen.getByTestId("graph-object-authoring-overlap-warnings")).toBeInTheDocument();
+  });
+
+  it("groups authored and extracted nodes separately in the picker", () => {
+    render(
+      <Harness
+        existingNodes={[
+          {
+            node_id: "authored:assert-qc",
+            label: "Questionable Company",
+            kind: "party",
+            aliases: ["gang"],
+            authored: true,
+          },
+          { node_id: "gang-node", label: "gang", kind: "unknown", authored: false },
+        ]}
+      />,
+    );
+
+    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
+    expect(within(sourcePicker).getByRole("group", { name: "Authored memory" })).toBeInTheDocument();
+    expect(within(sourcePicker).getByRole("group", { name: "Extracted graph" })).toBeInTheDocument();
+  });
+
   it("does not show prepare button until proposals exist and prepare/commit wiring is enabled", () => {
     render(<Harness withPrepareCommit />);
     expect(screen.queryByTestId("graph-object-authoring-prepare-button")).not.toBeInTheDocument();
@@ -355,6 +399,87 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
 
     expect(screen.getByTestId("graph-object-authoring-prepare-button")).toBeEnabled();
+  });
+
+  it("clears committed proposals from sessionStorage after successful commit", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      prepared: true,
+      campaign_id: "longmont-c1",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      current_overlay_token: "a",
+      proposed_assertions_digest: "b",
+      confirm_token: "c",
+      assertion_count: 1,
+      event_count: 2,
+      assertions_preview: [],
+      overlay_summary: {
+        existing_assertion_count: 0,
+        proposed_assertion_count: 1,
+        total_assertion_count: 1,
+        object_count: 1,
+        link_existing_count: 0,
+        relationship_count: 0,
+      },
+      diagnostics: [],
+      no_mutation_guarantees: ["Prepare wrote nothing."],
+    });
+    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue({
+      committed: true,
+      campaign_id: "longmont-c1",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      backup_path: null,
+      assertion_count: 1,
+      event_count: 2,
+      new_overlay_token: "new-token",
+      diagnostics: [],
+      no_mutation_guarantees: ["Committed authored graph memory."],
+    });
+
+    function CommitHarness() {
+      const draft = useGraphObjectAuthoringDraft({
+        campaignId: "longmont-c1",
+        sessionId: "session-2",
+      });
+      return (
+        <div>
+          <button type="button" onClick={() => draft.openWithSelection(selection)}>
+            Open with selection
+          </button>
+          <GraphObjectAuthoringSurface
+            selectedSource={draft.selectedSource}
+            formState={draft.formState}
+            proposals={draft.proposals}
+            onFormFieldChange={draft.updateFormField}
+            onStageProposal={draft.stageProposal}
+            onRemoveProposal={draft.removeProposal}
+            campaignId="longmont-c1"
+            sessionId="session-2"
+            onCommittedProposals={draft.clearCommittedProposals}
+          />
+        </div>
+      );
+    }
+
+    render(<CommitHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+    expect(
+      sessionStorage.getItem("graph-object-authoring-staged:longmont-c1:session-2"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+
+    await waitFor(() => {
+      expect(
+        sessionStorage.getItem("graph-object-authoring-staged:longmont-c1:session-2"),
+      ).toBeNull();
+    });
   });
 
   it("calls prepare API when prepare write is clicked", async () => {

@@ -8,7 +8,10 @@ import type {
   GraphObjectAuthoringCommitResponse,
   GraphObjectAuthoringPrepareResponse,
   GraphObjectAuthoringProposalPayload,
+  GraphAuthoringDiagnostic,
 } from "../../api/types";
+import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
+import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
@@ -24,6 +27,16 @@ function shortToken(token: string): string {
     return token;
   }
   return `${token.slice(0, 8)}…${token.slice(-8)}`;
+}
+
+function toOverlapWarnings(diagnostics: GraphAuthoringDiagnostic[]) {
+  return diagnostics
+    .filter((item) => item.severity === "warning" || item.severity === "info")
+    .map((item) => ({
+      code: item.code as GraphObjectAuthoringOverlapWarning["code"],
+      message: item.message,
+      localProposalId: item.local_proposal_id ?? undefined,
+    }));
 }
 
 function parseApiError(error: unknown): string {
@@ -50,6 +63,7 @@ export interface GraphObjectAuthoringPrepareCommitPanelProps {
   sourceGraphId?: string | null;
   proposals: GraphObjectAuthoringProposal[];
   onCommitted: (localProposalIds: string[]) => void;
+  onRefreshProjection?: () => Promise<unknown>;
 }
 
 export function GraphObjectAuthoringPrepareCommitPanel({
@@ -60,6 +74,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   sourceGraphId,
   proposals,
   onCommitted,
+  onRefreshProjection,
 }: GraphObjectAuthoringPrepareCommitPanelProps) {
   const [prepared, setPrepared] = useState<GraphObjectAuthoringPrepareResponse | null>(null);
   const [committed, setCommitted] = useState<GraphObjectAuthoringCommitResponse | null>(null);
@@ -68,6 +83,8 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   const [commitError, setCommitError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [refreshingProjection, setRefreshingProjection] = useState(false);
+  const [refreshProjectionError, setRefreshProjectionError] = useState<string | null>(null);
 
   const currentFingerprint = useMemo(() => proposalsFingerprint(proposals), [proposals]);
   const proposalsChangedSincePrepare =
@@ -168,8 +185,8 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         <h4>Write authored graph memory</h4>
         <p className="graph-object-authoring-prepare-commit-hint">
           Prepare a safe preview, then commit into authored campaign graph memory. Staged proposals
-          persist for this browser tab until you commit or remove them. Projection reload and
-          existing-object picker updates arrive in a later slice.
+          persist for this browser tab until you commit or remove them. After commit, refresh graph
+          review to see authored objects in the picker.
         </p>
       </header>
 
@@ -228,6 +245,10 @@ export function GraphObjectAuthoringPrepareCommitPanel({
               <li key={line}>{line}</li>
             ))}
           </ul>
+          <GraphObjectAuthoringOverlapWarnings
+            warnings={toOverlapWarnings(prepared.diagnostics)}
+            title="Prepare overlap warnings"
+          />
         </div>
       ) : null}
 
@@ -255,10 +276,36 @@ export function GraphObjectAuthoringPrepareCommitPanel({
             </button>
           </div>
           <p className="graph-object-authoring-commit-success-lead">
-            Authored graph memory was written to disk. The graph projection and Existing object
-            picker will not update until a later slice reloads authored overlay data — use manual
-            object refs or re-stage remaining proposals to continue.
+            Authored graph memory was written to disk. Reload graph review or refresh authored
+            overlay data to see it in the graph.
           </p>
+          {onRefreshProjection ? (
+            <div className="graph-object-authoring-commit-refresh-actions">
+              <button
+                type="button"
+                data-testid="graph-object-authoring-refresh-projection"
+                disabled={refreshingProjection}
+                onClick={() => {
+                  setRefreshProjectionError(null);
+                  setRefreshingProjection(true);
+                  void onRefreshProjection()
+                    .catch((error) => {
+                      setRefreshProjectionError(parseApiError(error));
+                    })
+                    .finally(() => {
+                      setRefreshingProjection(false);
+                    });
+                }}
+              >
+                {refreshingProjection ? "Refreshing graph review…" : "Refresh graph review"}
+              </button>
+            </div>
+          ) : null}
+          {refreshProjectionError ? (
+            <p className="graph-object-authoring-error" role="alert">
+              {refreshProjectionError}
+            </p>
+          ) : null}
           <p>Overlay: {committed.overlay_path}</p>
           <p>Event log: {committed.event_log_path}</p>
           {committed.backup_path ? <p>Backup: {committed.backup_path}</p> : null}

@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringLinkExistingSection } from "./GraphObjectAuthoringLinkExistingSection";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
+import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
 import { GraphObjectAuthoringPrepareCommitPanel } from "./GraphObjectAuthoringPrepareCommitPanel";
 import { GraphObjectAuthoringRelationshipForm } from "./GraphObjectAuthoringRelationshipForm";
 import { GraphObjectAuthoringSelectedSource } from "./GraphObjectAuthoringSelectedSource";
 import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
 import { GraphObjectAuthoringVisibilitySection } from "./GraphObjectAuthoringVisibilitySection";
+import {
+  buildOverlapContextFromProjection,
+  detectLinkExistingFormOverlapWarnings,
+  detectObjectFormOverlapWarnings,
+  type GraphObjectAuthoringOverlapContext,
+} from "./graphObjectAuthoringOverlap";
 import {
   isValidObjectRef,
   type GraphObjectAuthoringFormState,
@@ -50,6 +57,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   sourceRunId?: string | null;
   sourceGraphId?: string | null;
   onCommittedProposals?: (localProposalIds: string[]) => void;
+  onRefreshProjection?: () => Promise<unknown>;
 
   existingNodes?: GraphObjectAuthoringInspectedNode[];
 }
@@ -73,6 +81,7 @@ export function GraphObjectAuthoringSurface({
   sourceRunId,
   sourceGraphId,
   onCommittedProposals,
+  onRefreshProjection,
   existingNodes = [],
 }: GraphObjectAuthoringSurfaceProps) {
   const [selectionMode, setSelectionMode] = useState<GraphObjectAuthoringSelectionMode>("object");
@@ -94,6 +103,27 @@ export function GraphObjectAuthoringSurface({
       isValidObjectRef(relationshipFormState?.targetObjectRef) &&
       relationshipFormState?.relationshipType.trim(),
   );
+
+  const overlapContext: GraphObjectAuthoringOverlapContext = useMemo(
+    () => buildOverlapContextFromProjection(proposals, existingNodes),
+    [proposals, existingNodes],
+  );
+
+  const objectFormOverlapWarnings = useMemo(
+    () => detectObjectFormOverlapWarnings(formState, selectedSource, overlapContext),
+    [formState, selectedSource, overlapContext],
+  );
+
+  const linkExistingOverlapWarnings = useMemo(() => {
+    if (!selectedSource || !linkExistingFormState) {
+      return [];
+    }
+    return detectLinkExistingFormOverlapWarnings(
+      linkExistingFormState,
+      selectedSource.selectedText,
+      overlapContext,
+    );
+  }, [selectedSource, linkExistingFormState, overlapContext]);
 
   return (
     <section
@@ -141,6 +171,7 @@ export function GraphObjectAuthoringSurface({
           {selectionMode === "object" ? (
             <>
               <GraphObjectAuthoringObjectForm formState={formState} onChange={onFormFieldChange} />
+              <GraphObjectAuthoringOverlapWarnings warnings={objectFormOverlapWarnings} />
               <GraphObjectAuthoringVisibilitySection
                 visibility={formState.visibility}
                 onChange={(visibility) => onFormFieldChange("visibility", visibility)}
@@ -166,7 +197,9 @@ export function GraphObjectAuthoringSurface({
                 onChange={onLinkExistingFieldChange}
                 proposals={proposals}
                 existingNodes={existingNodes}
+                overlapContext={overlapContext}
               />
+              <GraphObjectAuthoringOverlapWarnings warnings={linkExistingOverlapWarnings} />
               <GraphObjectAuthoringVisibilitySection
                 visibility={linkExistingFormState.visibility}
                 onChange={(visibility) => onLinkExistingFieldChange("visibility", visibility)}
@@ -207,6 +240,7 @@ export function GraphObjectAuthoringSurface({
             onChange={onRelationshipFieldChange}
             proposals={proposals}
             existingNodes={existingNodes}
+            overlapContext={overlapContext}
           />
           <GraphObjectAuthoringVisibilitySection
             visibility={relationshipFormState.visibility}
@@ -228,7 +262,11 @@ export function GraphObjectAuthoringSurface({
         </section>
       ) : null}
 
-      <GraphObjectAuthoringStagingTray proposals={proposals} onRemove={onRemoveProposal} />
+      <GraphObjectAuthoringStagingTray
+        proposals={proposals}
+        onRemove={onRemoveProposal}
+        overlapContext={overlapContext}
+      />
 
       {campaignId && sessionId && onCommittedProposals ? (
         <GraphObjectAuthoringPrepareCommitPanel
@@ -239,6 +277,7 @@ export function GraphObjectAuthoringSurface({
           sourceGraphId={sourceGraphId}
           proposals={proposals}
           onCommitted={onCommittedProposals}
+          onRefreshProjection={onRefreshProjection}
         />
       ) : null}
     </section>

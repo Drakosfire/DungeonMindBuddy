@@ -154,7 +154,16 @@ describe("GraphReviewLiveProjectionPanel", () => {
   });
 
   it("loads the selected run projection by manifest and preview-union paths", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
+      ...projection,
+      authored_overlay: {
+        loaded: true,
+        assertion_count: 2,
+        projected_node_count: 1,
+        projected_relationship_count: 1,
+        diagnostics: [],
+      },
+    });
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
@@ -164,6 +173,9 @@ describe("GraphReviewLiveProjectionPanel", () => {
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
+    expect(
+      screen.getByText("Authored overlay loaded: 2 assertions · 1 object · 1 relationship"),
+    ).toBeInTheDocument();
     expect(getUnionSupergraphProjection).toHaveBeenCalledWith({
       campaignId: "longmont-c2",
       sessionId: "session-23",

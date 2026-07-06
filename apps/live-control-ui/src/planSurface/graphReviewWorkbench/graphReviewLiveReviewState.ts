@@ -171,6 +171,23 @@ export function useGraphReviewLiveReviewState({
     };
   }, [campaignId, sessionId, liveRun, liveRunKey]);
 
+  const reloadLiveProjection = useCallback(async () => {
+    if (!liveRun?.preview_union_available) {
+      throw new Error("Selected live run does not have a preview-union projection.");
+    }
+    setProjectionStatus("loading");
+    setProjectionError(null);
+    const response = await getUnionSupergraphProjection({
+      campaignId,
+      sessionId,
+      graphRunManifestPath: liveRun.manifest_path,
+      previewUnionStorePath: liveRun.preview_union_store_path ?? null,
+    });
+    setProjection(response);
+    setProjectionStatus("ready");
+    return response;
+  }, [campaignId, sessionId, liveRun]);
+
   const reloadGoldProjection = useCallback(async () => {
     setGoldProjectionStatus("loading");
     setGoldProjectionError(null);
@@ -463,6 +480,7 @@ export function useGraphReviewLiveReviewState({
     projection,
     projectionStatus,
     projectionError,
+    reloadLiveProjection,
     goldProjection,
     goldProjectionStatus,
     goldProjectionError,

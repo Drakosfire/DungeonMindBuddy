@@ -1795,6 +1795,29 @@ export interface GraphProjectionNodeView {
   suggested_expansions?: GraphProjectionSuggestedExpansion[];
   anchored_to_focus_session: boolean;
   summary?: string | null;
+  /** Authored overlay metadata (A6+) */
+  source?: string | null;
+  authored?: boolean;
+  assertion_id?: string | null;
+  visibility?: string | null;
+  graph_scope?: string[] | null;
+  source_anchor_text?: string | null;
+}
+
+export interface GraphAuthoringOverlayDiagnostic {
+  code: string;
+  message: string;
+  assertion_id?: string | null;
+  severity?: "info" | "warning" | "error";
+}
+
+export interface AuthoredOverlayProjectionSummary {
+  loaded: boolean;
+  overlay_path?: string | null;
+  assertion_count: number;
+  projected_node_count: number;
+  projected_relationship_count: number;
+  diagnostics: GraphAuthoringOverlayDiagnostic[];
 }
 
 export interface UnionSupergraphProjectionResponse {
@@ -1813,6 +1836,7 @@ export interface UnionSupergraphProjectionResponse {
     end_offset?: number | null;
     evidence_ref_ids: string[];
   }>;
+  authored_overlay?: AuthoredOverlayProjectionSummary;
 }
 
 export interface GoldGraphProjectionResponse extends UnionSupergraphProjectionResponse {

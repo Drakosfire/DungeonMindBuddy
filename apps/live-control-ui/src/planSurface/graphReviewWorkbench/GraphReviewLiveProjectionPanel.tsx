@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
+import { GraphAuthoredOverlaySummary } from "./GraphAuthoredOverlaySummary";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
@@ -25,6 +26,10 @@ function toExistingNodeOptions(
     label: node.label,
     kind: node.kind,
     role: node.role,
+    aliases: node.aliases,
+    authored:
+      node.authored === true || node.source_domains.includes("authored_overlay"),
+    sourceAnchorText: node.source_anchor_text ?? null,
   }));
 }
 
@@ -37,6 +42,7 @@ export function GraphReviewLiveProjectionPanel() {
     projection,
     projectionStatus,
     projectionError,
+    reloadLiveProjection,
     goldProjection,
     goldProjectionStatus,
     goldProjectionError,
@@ -137,6 +143,7 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
+          <GraphAuthoredOverlaySummary summary={projection.authored_overlay} />
           <div
             className={
               hasGold
@@ -269,6 +276,7 @@ export function GraphReviewLiveProjectionPanel() {
               sourceRunId={liveRun?.run_id ?? null}
               sourceGraphId={projection.graph_id}
               onCommittedProposals={graphObjectAuthoringDraft.clearCommittedProposals}
+              onRefreshProjection={reloadLiveProjection}
               existingNodes={existingGraphObjectNodes}
             />
           ) : null}

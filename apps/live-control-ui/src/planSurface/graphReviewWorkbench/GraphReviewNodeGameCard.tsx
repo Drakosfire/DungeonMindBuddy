@@ -50,6 +50,34 @@ export function GraphReviewNodeGameCard({
       <p className="graph-review-game-kind">
         {[node.kind, node.role].filter(Boolean).join(" / ") || "Graph object"}
       </p>
+      {node.authored || node.source_domains.includes("authored_overlay") ? (
+        <section className="graph-review-authored-overlay-details" aria-label="Authored overlay">
+          <h5>Authored overlay</h5>
+          <p>
+            <strong>Label:</strong> {node.label}
+          </p>
+          {node.aliases.length ? (
+            <p>
+              <strong>Aliases:</strong> {node.aliases.join(", ")}
+            </p>
+          ) : null}
+          {node.visibility ? (
+            <p>
+              <strong>Visibility:</strong> {node.visibility}
+            </p>
+          ) : null}
+          {node.source_anchor_text ? (
+            <p>
+              <strong>Source anchor:</strong> {node.source_anchor_text}
+            </p>
+          ) : null}
+          {node.assertion_id ? (
+            <p>
+              <strong>Assertion ID:</strong> {node.assertion_id}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
       <p>{gameSummaryForNode(node)}</p>
 
       <section>
