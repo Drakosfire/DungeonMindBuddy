@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
@@ -41,9 +41,39 @@ export interface UseGraphObjectAuthoringDraftResult {
     value: GraphObjectAuthoringRelationshipFormState[K],
   ) => void;
   stageRelationshipProposal: () => void;
+  clearCommittedProposals: (localProposalIds: string[]) => void;
 }
 
-export function useGraphObjectAuthoringDraft(): UseGraphObjectAuthoringDraftResult {
+export interface GraphObjectAuthoringDraftStorageScope {
+  campaignId: string;
+  sessionId: string;
+}
+
+function stagedProposalsStorageKey(scope: GraphObjectAuthoringDraftStorageScope): string {
+  return `graph-object-authoring-staged:${scope.campaignId}:${scope.sessionId}`;
+}
+
+function readStagedProposalsFromSession(
+  scope: GraphObjectAuthoringDraftStorageScope | undefined,
+): GraphObjectAuthoringProposal[] {
+  if (!scope || typeof sessionStorage === "undefined") {
+    return [];
+  }
+  try {
+    const raw = sessionStorage.getItem(stagedProposalsStorageKey(scope));
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as GraphObjectAuthoringProposal[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function useGraphObjectAuthoringDraft(
+  storageScope?: GraphObjectAuthoringDraftStorageScope,
+): UseGraphObjectAuthoringDraftResult {
   const [selectedSource, setSelectedSource] = useState<GraphAuthoringSelection | null>(null);
   const [formState, setFormState] = useState<GraphObjectAuthoringFormState>(
     createDefaultGraphObjectAuthoringFormState(null),
@@ -56,7 +86,21 @@ export function useGraphObjectAuthoringDraft(): UseGraphObjectAuthoringDraftResu
     useState<GraphObjectAuthoringRelationshipFormState>(
       createDefaultGraphObjectAuthoringRelationshipFormState(),
     );
-  const [proposals, setProposals] = useState<GraphObjectAuthoringProposal[]>([]);
+  const [proposals, setProposals] = useState<GraphObjectAuthoringProposal[]>(() =>
+    readStagedProposalsFromSession(storageScope),
+  );
+
+  useEffect(() => {
+    if (!storageScope || typeof sessionStorage === "undefined") {
+      return;
+    }
+    const key = stagedProposalsStorageKey(storageScope);
+    if (proposals.length === 0) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+    sessionStorage.setItem(key, JSON.stringify(proposals));
+  }, [proposals, storageScope]);
 
   const openWithSelection = useCallback((selection: GraphAuthoringSelection) => {
     setSelectedSource(selection);
@@ -150,6 +194,11 @@ export function useGraphObjectAuthoringDraft(): UseGraphObjectAuthoringDraftResu
     setProposals((prev) => prev.filter((proposal) => proposal.localProposalId !== localProposalId));
   }, []);
 
+  const clearCommittedProposals = useCallback((localProposalIds: string[]) => {
+    const removeSet = new Set(localProposalIds);
+    setProposals((prev) => prev.filter((proposal) => !removeSet.has(proposal.localProposalId)));
+  }, []);
+
   return {
     selectedSource,
     formState,
@@ -165,5 +214,6 @@ export function useGraphObjectAuthoringDraft(): UseGraphObjectAuthoringDraftResu
     relationshipFormState,
     updateRelationshipField,
     stageRelationshipProposal,
+    clearCommittedProposals,
   };
 }

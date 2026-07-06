@@ -108,6 +108,7 @@ const projectionWithMention: UnionSupergraphProjectionResponse = {
 
 describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
+    sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockReset();

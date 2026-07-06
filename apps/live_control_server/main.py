@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from apps.live_control_server.routes.graph_authoring import router as graph_authoring_router
 from apps.live_control_server.routes.graph_preview import router as graph_preview_router
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
     )
     application.include_router(live_router)
     application.include_router(graph_preview_router)
+    application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)
     application.include_router(party_registry_router)
 

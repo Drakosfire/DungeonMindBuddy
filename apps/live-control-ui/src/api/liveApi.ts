@@ -66,6 +66,10 @@ import type {
   GraphGoldAuthoringCommitResponse,
   GraphGoldAuthoringVerifyCommitRequest,
   GraphGoldAuthoringVerifyCommitResponse,
+  GraphObjectAuthoringCommitRequest,
+  GraphObjectAuthoringCommitResponse,
+  GraphObjectAuthoringPrepareRequest,
+  GraphObjectAuthoringPrepareResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GoldReviewSessionsResponse,
@@ -442,6 +446,24 @@ export async function verifyGraphGoldAuthoringCommit(
 ): Promise<GraphGoldAuthoringVerifyCommitResponse> {
   return apiFetch<GraphGoldAuthoringVerifyCommitResponse>(
     "/api/live/graph-preview/gold-authoring/verify-commit",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function prepareGraphObjectAuthoringWrite(
+  request: GraphObjectAuthoringPrepareRequest,
+): Promise<GraphObjectAuthoringPrepareResponse> {
+  return apiFetch<GraphObjectAuthoringPrepareResponse>(
+    "/api/live/graph-authoring/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitGraphObjectAuthoringWrite(
+  request: GraphObjectAuthoringCommitRequest,
+): Promise<GraphObjectAuthoringCommitResponse> {
+  return apiFetch<GraphObjectAuthoringCommitResponse>(
+    "/api/live/graph-authoring/commit",
     { method: "POST", body: JSON.stringify(request) },
   );
 }

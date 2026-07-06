@@ -61,7 +61,7 @@ export function GraphReviewLiveProjectionPanel() {
 
   const { authorMode } = authorDraft;
   const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
-  const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft();
+  const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft({ campaignId, sessionId });
   const existingGraphObjectNodes = useMemo(
     () => [
       ...toExistingNodeOptions(projection?.node_views),
@@ -264,6 +264,11 @@ export function GraphReviewLiveProjectionPanel() {
               relationshipFormState={graphObjectAuthoringDraft.relationshipFormState}
               onRelationshipFieldChange={graphObjectAuthoringDraft.updateRelationshipField}
               onStageRelationshipProposal={graphObjectAuthoringDraft.stageRelationshipProposal}
+              campaignId={campaignId}
+              sessionId={sessionId}
+              sourceRunId={liveRun?.run_id ?? null}
+              sourceGraphId={projection.graph_id}
+              onCommittedProposals={graphObjectAuthoringDraft.clearCommittedProposals}
               existingNodes={existingGraphObjectNodes}
             />
           ) : null}

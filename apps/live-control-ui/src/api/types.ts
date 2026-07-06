@@ -2161,3 +2161,112 @@ export interface GraphGoldAuthoringPrepareResponse {
   fixture_state_fingerprint: string;
   write_performed: false;
 }
+
+export interface GraphAuthoringDiagnostic {
+  code: string;
+  message: string;
+  local_proposal_id?: string | null;
+  severity: "error" | "warning" | "info";
+}
+
+export interface GraphObjectAuthoringProposalPayload {
+  localProposalId: string;
+  proposalKind: "object" | "link_existing" | "relationship";
+  status: "staged_local";
+  selection?: Record<string, unknown> | null;
+  objectRef?: Record<string, unknown> | null;
+  selectedText?: string | null;
+  normalizedSelectedText?: string | null;
+  existingObjectRef?: Record<string, unknown> | null;
+  operation?: string | null;
+  aliasText?: string | null;
+  sourceObjectRef?: Record<string, unknown> | null;
+  targetObjectRef?: Record<string, unknown> | null;
+  relationshipType?: string | null;
+  relationshipLabel?: string | null;
+  direction?: "directed" | "undirected" | null;
+  summary?: string | null;
+  visibility: {
+    visibility: string;
+    revealState?: string;
+    visibilityNote?: string | null;
+  };
+  graphScopes: string[];
+  provenancePreview: {
+    origin: "human_authored";
+    authoringSurface: "memory_ingest_graph_authoring";
+    sourceGraphId?: string | null;
+    sourceArtifactPath?: string | null;
+    operatorNote?: string | null;
+  };
+}
+
+export interface GraphObjectAuthoringPrepareRequest {
+  campaignId: string;
+  campaignRel?: string | null;
+  sessionId?: string | null;
+  sourceRunId?: string | null;
+  sourceGraphId?: string | null;
+  sourceProjectionId?: string | null;
+  proposals: GraphObjectAuthoringProposalPayload[];
+  operatorNote?: string | null;
+}
+
+export interface AuthoredGraphAssertionPreview {
+  assertion_id: string;
+  assertion_kind: "object" | "link_existing" | "relationship";
+  operation: string;
+  local_proposal_id: string;
+  summary: string;
+}
+
+export interface GraphAuthoringOverlaySummary {
+  existing_assertion_count: number;
+  proposed_assertion_count: number;
+  total_assertion_count: number;
+  object_count: number;
+  link_existing_count: number;
+  relationship_count: number;
+}
+
+export interface GraphObjectAuthoringPrepareResponse {
+  prepared: boolean;
+  campaign_id: string;
+  overlay_path: string;
+  event_log_path: string;
+  current_overlay_token: string;
+  proposed_assertions_digest: string;
+  confirm_token: string;
+  assertion_count: number;
+  event_count: number;
+  assertions_preview: AuthoredGraphAssertionPreview[];
+  overlay_summary: GraphAuthoringOverlaySummary;
+  diagnostics: GraphAuthoringDiagnostic[];
+  no_mutation_guarantees: string[];
+}
+
+export interface GraphObjectAuthoringCommitRequest {
+  campaignId: string;
+  campaignRel?: string | null;
+  sessionId?: string | null;
+  sourceRunId?: string | null;
+  sourceGraphId?: string | null;
+  sourceProjectionId?: string | null;
+  proposals: GraphObjectAuthoringProposalPayload[];
+  confirmToken: string;
+  currentOverlayToken: string;
+  operatorNote?: string | null;
+}
+
+export interface GraphObjectAuthoringCommitResponse {
+  committed: boolean;
+  campaign_id: string;
+  overlay_path: string;
+  event_log_path: string;
+  backup_path?: string | null;
+  assertion_count: number;
+  event_count: number;
+  new_overlay_token: string;
+  diagnostics: GraphAuthoringDiagnostic[];
+  no_mutation_guarantees: string[];
+}

@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../../api/liveApi", () => ({
+  prepareGraphObjectAuthoringWrite: vi.fn(),
+  commitGraphObjectAuthoringWrite: vi.fn(),
+}));
+
+import { prepareGraphObjectAuthoringWrite } from "../../api/liveApi";
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
@@ -23,9 +29,11 @@ const defaultExistingNodes: GraphObjectAuthoringInspectedNode[] = [
 function Harness({
   initialSelection,
   existingNodes = defaultExistingNodes,
+  withPrepareCommit = false,
 }: {
   initialSelection?: GraphAuthoringSelection;
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  withPrepareCommit?: boolean;
 }) {
   const draft = useGraphObjectAuthoringDraft();
 
@@ -47,6 +55,11 @@ function Harness({
         relationshipFormState={draft.relationshipFormState}
         onRelationshipFieldChange={draft.updateRelationshipField}
         onStageRelationshipProposal={draft.stageRelationshipProposal}
+        campaignId={withPrepareCommit ? "longmont-c1" : undefined}
+        sessionId={withPrepareCommit ? "session-2" : undefined}
+        onCommittedProposals={
+          withPrepareCommit ? draft.clearCommittedProposals : undefined
+        }
         existingNodes={existingNodes}
       />
     </div>
@@ -332,5 +345,52 @@ describe("GraphObjectAuthoringSurface", () => {
 
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(stagedProposal).toHaveAttribute("data-proposal-kind", "object");
+  });
+
+  it("does not show prepare button until proposals exist and prepare/commit wiring is enabled", () => {
+    render(<Harness withPrepareCommit />);
+    expect(screen.queryByTestId("graph-object-authoring-prepare-button")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    expect(screen.getByTestId("graph-object-authoring-prepare-button")).toBeEnabled();
+  });
+
+  it("calls prepare API when prepare write is clicked", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      prepared: true,
+      campaign_id: "longmont-c1",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      current_overlay_token: "a",
+      proposed_assertions_digest: "b",
+      confirm_token: "c",
+      assertion_count: 1,
+      event_count: 2,
+      assertions_preview: [],
+      overlay_summary: {
+        existing_assertion_count: 0,
+        proposed_assertion_count: 1,
+        total_assertion_count: 1,
+        object_count: 1,
+        link_existing_count: 0,
+        relationship_count: 0,
+      },
+      diagnostics: [],
+      no_mutation_guarantees: ["Prepare wrote nothing."],
+    });
+
+    render(<Harness withPrepareCommit />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+
+    await waitFor(() => {
+      expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Prepare wrote nothing/i)).toBeInTheDocument();
+    });
   });
 });
