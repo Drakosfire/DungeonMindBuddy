@@ -135,15 +135,22 @@ def test_gold_review_projection_endpoint_renders_session_1_gold_recap_read_only(
     assert payload["gold_fixture_relpath"] == (
         "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json"
     )
-    assert payload["markdown"] == load_session_1_expected_normalized_recap()
+    # The gold source recap has no inline dmb-node links (it's plain corpus
+    # prose); anchored mentions get one spliced into the *returned* markdown so
+    # the frontend can render pills by parsing links directly out of the text,
+    # the same way it does for the live lane. The underlying corpus fixture on
+    # disk is never touched.
+    assert payload["markdown"] != load_session_1_expected_normalized_recap()
     assert "node:heroes-party" in payload["node_views"]
     assert payload["node_views"]["node:heroes-party"]["label"] == "Heroes / Party"
-    assert any(
-        mention["node_id"] == "node:heroes-party"
-        and mention["anchor_status"] == "anchored"
-        and isinstance(mention["start_offset"], int)
-        for mention in payload["mentions"]
+    heroes_mention = next(
+        mention for mention in payload["mentions"] if mention["node_id"] == "node:heroes-party"
     )
+    assert heroes_mention["anchor_status"] == "anchored"
+    assert isinstance(heroes_mention["start_offset"], int)
+    assert isinstance(heroes_mention["end_offset"], int)
+    slice_ = payload["markdown"][heroes_mention["start_offset"] : heroes_mention["end_offset"]]
+    assert slice_ == f"[{heroes_mention['label']}](dmb-node:node:heroes-party)"
     assert fixture_path.read_bytes() == before
 
 

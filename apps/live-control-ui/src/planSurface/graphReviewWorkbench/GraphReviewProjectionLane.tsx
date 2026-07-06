@@ -2,21 +2,15 @@ import type { ReactNode } from "react";
 import type {
   GraphProjectionNodeView,
   RecapProjectionSourceSpan,
-  UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { presentationForNodeId } from "../graphPreview/GraphNodePresentation";
 import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
 } from "./graphReviewDeltaTypes";
-import { normalizeProjectionMarkdown } from "../graphProjectionReader/projectionMarkdownPreprocessing";
+import { stripLeadingYamlFrontmatter } from "../graphProjectionReader/projectionMarkdownPreprocessing";
 
 export type GraphReviewProjectionLaneRole = "gold" | "live";
-
-type ProjectionMention =
-  UnionSupergraphProjectionResponse["mentions"][number] & {
-    anchor_status?: string | null;
-  };
 
 interface GraphReviewProjectionLaneProps {
   laneRole: GraphReviewProjectionLaneRole;
@@ -25,7 +19,6 @@ interface GraphReviewProjectionLaneProps {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans?: RecapProjectionSourceSpan[];
-  mentions: ProjectionMention[];
   mentionsCount: number;
   deltaIndex: GraphReviewDeltaIndex;
   activeObject: {
@@ -85,16 +78,6 @@ function buildNodeDecorations(
     };
   }
   return decorations;
-}
-
-function isAnchoredMention(mention: ProjectionMention): boolean {
-  if (mention.anchor_status && mention.anchor_status !== "anchored")
-    return false;
-  return (
-    typeof mention.start_offset === "number" &&
-    typeof mention.end_offset === "number" &&
-    mention.end_offset > mention.start_offset
-  );
 }
 
 function renderMentionToken({
@@ -277,15 +260,10 @@ export function GraphReviewProjectionLane(
   props: GraphReviewProjectionLaneProps,
 ) {
   const decorations = buildNodeDecorations(props.deltaIndex, props.laneRole);
-  const projection = normalizeProjectionMarkdown(props.markdown, props.mentions);
   const laneProps = {
     ...props,
-    markdown: projection.markdown,
-    mentions: projection.mentions,
+    markdown: stripLeadingYamlFrontmatter(props.markdown).markdown,
   };
-  const unanchoredCount = laneProps.mentions.filter(
-    (mention) => !isAnchoredMention(mention),
-  ).length;
   const readerMode = props.readerMode ?? false;
   const ariaLabel =
     props.laneRole === "gold" ? "Gold fixture prose" : "Live run prose";
@@ -296,27 +274,19 @@ export function GraphReviewProjectionLane(
       data-lane-role={props.laneRole}
     >
       {!readerMode ? (
-        <>
-          <header>
-            <p className="plan-surface-kicker">
-              {props.laneRole === "gold"
-                ? "Gold Fixture · read-only"
-                : "Live Run · read-only"}
-            </p>
-            <h3>{props.title}</h3>
-            {props.subtitle ? <p>{props.subtitle}</p> : null}
-            <span>
-              {props.mentionsCount} projected graph mention
-              {props.mentionsCount === 1 ? "" : "s"}
-            </span>
-          </header>
-          {unanchoredCount ? (
-            <p className="graph-review-projection-warning">
-              {unanchoredCount} {props.laneRole} object
-              {unanchoredCount === 1 ? " is" : "s are"} unanchored in this recap.
-            </p>
-          ) : null}
-        </>
+        <header>
+          <p className="plan-surface-kicker">
+            {props.laneRole === "gold"
+              ? "Gold Fixture · read-only"
+              : "Live Run · read-only"}
+          </p>
+          <h3>{props.title}</h3>
+          {props.subtitle ? <p>{props.subtitle}</p> : null}
+          <span>
+            {props.mentionsCount} projected graph mention
+            {props.mentionsCount === 1 ? "" : "s"}
+          </span>
+        </header>
       ) : null}
       <article
         className="graph-review-projection-document"

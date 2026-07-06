@@ -171,6 +171,53 @@ def build_recap_graph_projection(
     )
 
 
+def splice_node_link_spans(
+    markdown: str,
+    spans: list[tuple[int, int, str, str]],
+) -> tuple[str, list[tuple[int, int] | None]]:
+    """Splice `[label](dmb-node:node_id)` at each ``(start, end, label, node_id)``
+    span (offsets given in the *original* ``markdown`` coordinates) and return the
+    resulting markdown plus, for each input span (by original list position), its
+    ``(start, end)`` offset in the *projected* string it was actually spliced into
+    (or ``None`` if the span was dropped for overlapping an earlier one).
+
+    This is the single place that turns a located mention span into the literal
+    markdown link text the frontend renders as a pill. Every consumer (live
+    auto-linking, gold anchor lookup) must go through this so mention offsets are
+    always computed against the text they actually describe — offsets computed
+    against pre-splice text drift out of alignment with every earlier span spliced
+    in ahead of them, since each replacement is longer than the span it replaces.
+    """
+    occupied: list[tuple[int, int]] = []
+    accepted: list[tuple[int, int, str, str, int]] = []
+    for index, (start, end, label, node_id) in enumerate(spans):
+        if any(start < used_end and end > used_start for used_start, used_end in occupied):
+            continue
+        occupied.append((start, end))
+        accepted.append((start, end, label, node_id, index))
+
+    accepted.sort(key=lambda item: item[0])
+
+    pieces: list[str] = []
+    projected_offsets: list[tuple[int, int] | None] = [None] * len(spans)
+    cursor = 0
+    projected_length = 0
+    for start, end, label, node_id, index in accepted:
+        prefix = markdown[cursor:start]
+        pieces.append(prefix)
+        projected_length += len(prefix)
+
+        replacement = f"[{label}](dmb-node:{node_id})"
+        mention_start = projected_length
+        pieces.append(replacement)
+        projected_length += len(replacement)
+        projected_offsets[index] = (mention_start, projected_length)
+        cursor = end
+
+    pieces.append(markdown[cursor:])
+    return "".join(pieces), projected_offsets
+
+
 def _project_markdown_mentions(
     store: UnionSupergraphStore,
     markdown: str | None,
@@ -195,42 +242,25 @@ def _project_markdown_mentions(
             matches.append((start, end, match.group(0), node_id))
 
     matches.sort(key=lambda item: item[0])
+    projected, offsets = splice_node_link_spans(markdown, matches)
 
-    # Build the projected markdown and mention offsets in a single left-to-right
-    # pass so each mention's start/end_offset describes its actual position in
-    # the *projected* string. Computing offsets against the pre-replacement
-    # markdown (as before) drifts more and more with every earlier mention,
-    # since each `[label](dmb-node:node_id)` replacement is longer than the
-    # bare alias it replaces.
-    pieces: list[str] = []
     mentions: list[RecapProjectionMention] = []
-    cursor = 0
-    projected_length = 0
-    for start, end, label, node_id in matches:
+    for (start, end, label, node_id), offset in zip(matches, offsets):
+        if offset is None:
+            continue
         node = store.nodes[node_id]
-        prefix = markdown[cursor:start]
-        pieces.append(prefix)
-        projected_length += len(prefix)
-
-        replacement = f"[{label}](dmb-node:{node_id})"
-        mention_start = projected_length
-        pieces.append(replacement)
-        projected_length += len(replacement)
-
         mentions.append(
             RecapProjectionMention(
                 mention_id=f"mention:{node_id}:{start}",
                 node_id=node_id,
                 label=label,
-                start_offset=mention_start,
-                end_offset=projected_length,
+                start_offset=offset[0],
+                end_offset=offset[1],
                 evidence_ref_ids=list(node.evidence_ref_ids),
             )
         )
-        cursor = end
 
-    pieces.append(markdown[cursor:])
-    return "".join(pieces), mentions
+    return projected, mentions
 
 
 def _build_evidence_badge(

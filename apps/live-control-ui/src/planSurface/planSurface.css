@@ -4008,11 +4008,6 @@ body.plan-toolbox-open .plan-agent-shell {
   filter: brightness(1.12);
 }
 
-.graph-review-projection-warning {
-  margin: 0 0 0.75rem;
-  color: #facc15;
-}
-
 @media (max-width: 980px) {
   .graph-review-real-two-lane-projections {
     grid-template-columns: 1fr;
