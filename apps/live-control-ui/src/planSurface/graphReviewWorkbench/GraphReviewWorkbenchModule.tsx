@@ -4,17 +4,19 @@ import { getGoldReviewCompare, getGoldReviewSessions, getManualReviewBed, getMan
 import type { GoldReviewCompareResponse, GoldReviewSessionSummary, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
+import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
+import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
+import { ProjectionProvider } from "../projection/projectionContext";
 import type { PlanContextDescriptor } from "../types";
 import {
   resolveInitialReviewCampaignId,
   sessionsForReviewCampaign,
   syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
-import { GraphReviewAuthoringWorkbenchModule } from "./GraphReviewAuthoringWorkbenchModule";
 import { GraphReviewLaneCards } from "./GraphReviewLaneCards";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
-import { GraphReviewMetricPanel } from "./GraphReviewMetricPanel";
+import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import {
   goldSessionToLane,
   graphIngestRunToLane,
@@ -34,17 +36,13 @@ function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
   params.set("campaign", campaignId);
   const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
   const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
-  if (surfacePath === "/plan") {
-    params.set("tool", "graph-review");
-  } else {
-    params.delete("tool");
-  }
   window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
+  const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
 
   const [sessions, setSessions] = useState<GoldReviewSessionSummary[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
@@ -212,64 +210,62 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   }
 
   return (
-    <div className="graph-review-workbench-root">
-      <header className="graph-review-workbench-header">
-        <div>
-          <p className="plan-surface-kicker">Prose-first review tool</p>
-          <h2>Graph Review Workbench</h2>
-          <p className="graph-review-workbench-lede">
-            Compare graph readings through recap prose first, stage reviewed gold corrections safely, then prepare, commit, reload,
-            and verify changes with provenance.
-          </p>
-        </div>
-      </header>
+    <ProjectionProvider config={toolboxConfig}>
+      <div className="graph-review-workbench-root">
+        <header className="graph-review-workbench-header">
+          <div>
+            <p className="plan-surface-kicker">Prose-first review tool</p>
+            <h2>Graph Review Workbench</h2>
+            <p className="graph-review-workbench-lede">
+              Compare graph readings through recap prose first, stage reviewed gold corrections safely, then prepare, commit, reload,
+              and verify changes with provenance.
+            </p>
+          </div>
+        </header>
 
-      <details className="graph-review-dev-scaffold">
-        <summary>Advanced / Debug: Mock UX Scaffold</summary>
-        <p>Developer-only scaffold for seeded interaction prototypes. The review path below is the GM-facing workflow.</p>
-        <GraphReviewAuthoringWorkbenchModule />
-      </details>
+        {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 
-      {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
+        <GraphReviewLanePicker
+          sessions={sessions}
+          selectedCampaignId={selectedCampaignId}
+          selectedSessionId={selectedSessionId}
+          selectedManifestPath={selectedManifestPath}
+          onCampaignSelect={handleCampaignSelect}
+          onSessionSelect={handleSessionSelect}
+          onManifestSelect={setSelectedManifestPath}
+        />
 
-      <GraphReviewLanePicker
-        sessions={sessions}
-        selectedCampaignId={selectedCampaignId}
-        selectedSessionId={selectedSessionId}
-        selectedManifestPath={selectedManifestPath}
-        onCampaignSelect={handleCampaignSelect}
-        onSessionSelect={handleSessionSelect}
-        onManifestSelect={setSelectedManifestPath}
-      />
+        <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
 
-      <GraphReviewLaneCards goldLane={goldLane} liveLane={liveLane} liveRun={selectedLiveRun} />
-
-      <GraphReviewLiveProjectionPanel
-        campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
-        sessionId={selectedSession?.session_id ?? selectedSessionId}
-        liveRun={selectedLiveRun}
-        selectedSession={selectedSession}
-        compare={compare}
-        compareStatus={compareStatus}
-        goldLane={goldLane}
-        liveLane={liveLane}
-        manualBeds={manualBeds}
-        manualBedsStatus={manualBedsStatus}
-        manualBedsError={manualBedsError}
-        selectedManualBed={selectedManualBed}
-        selectedVariantLaneView={selectedVariantLaneView}
-        selectedManualVariant={selectedManualBedId && selectedManualVariantName ? { bedId: selectedManualBedId, variantName: selectedManualVariantName } : null}
-        onSelectManualBedId={setSelectedManualBedId}
-        onSelectManualVariantName={setSelectedManualVariantName}
-      />
-
-      <GraphReviewMetricPanel
-        compare={compare}
-        compareStatus={compareStatus}
-        compareError={compareError}
-        selection={selection}
-        onSelect={setSelection}
-      />
-    </div>
+        <GraphReviewLiveStateProvider
+          campaignId={selectedSession?.campaign_id ?? selectedCampaignId}
+          sessionId={selectedSession?.session_id ?? selectedSessionId}
+          liveRun={selectedLiveRun}
+          selectedSession={selectedSession}
+          compare={compare}
+          compareStatus={compareStatus}
+          compareError={compareError}
+          goldLane={goldLane}
+          liveLane={liveLane}
+          manualBeds={manualBeds}
+          manualBedsStatus={manualBedsStatus}
+          manualBedsError={manualBedsError}
+          selectedManualBed={selectedManualBed}
+          selectedVariantLaneView={selectedVariantLaneView}
+          selectedManualVariant={
+            selectedManualBedId && selectedManualVariantName
+              ? { bedId: selectedManualBedId, variantName: selectedManualVariantName }
+              : null
+          }
+          onSelectManualBedId={setSelectedManualBedId}
+          onSelectManualVariantName={setSelectedManualVariantName}
+          selection={selection}
+          onSelectSelection={setSelection}
+        >
+          <GraphReviewLiveProjectionPanel />
+          <AdaptiveProjectionContainer config={toolboxConfig} />
+        </GraphReviewLiveStateProvider>
+      </div>
+    </ProjectionProvider>
   );
 }
