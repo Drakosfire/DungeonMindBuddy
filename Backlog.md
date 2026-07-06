@@ -19,50 +19,35 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx`, `apps/live-control-ui/src/planSurface/config/ingestSurfaceConfig.ts`, `apps/live-control-ui/src/chrome/appChromeConfig.ts`
 
-## [READY] Live-only graph load on Ingest Surface (no gold required) — captured 2026-07-05
-
-**Context:** C1S2 dogfood blocked because `_GOLD_SESSIONS` gates the load dialog. User clarified: gold comparison is optional; primary surface is reviewing ingested objects and staging Author Draft proposals (`node_from_span`, link intents) on live projection markdown.
-
-**Insight:** Backend already exposes run discovery (`GET /graph-ingest/runs`) and live projection (`GET /union-supergraph/projection?graph_run_manifest_path=…`). The workbench treats `getGoldReviewSessions()` as the only catalog — sessions with runs but no gold fixture are invisible.
-
-**Action:**
-1. **Load catalog** — derive selectable `(campaign_id, session_id)` from `getGraphIngestRuns({ requirePreviewUnionStore: true })`; gold enriches but does not gate.
-2. **Single-lane default** — no gold → live prose + object explorer only; skip compare/delta/gold lane.
-3. **Copy** — replace "Add gold fixtures" empty state and "Gold-backed sessions" picker labels.
-4. **Author Draft** — verify text-selection → `node_from_span` staging works live-only.
-5. **Dogfood proof** — C1S2 graph extract → load on `/ingest` without session-2 gold.
-
-**Surfaces when:** `/ingest` load dialog, `GraphReviewWorkbenchModule`, C1S2 graph dogfood, Author Draft on live-only sessions.
-
-**Refs:** `apps/live_control_server/routes/graph_preview.py`, `apps/live-control-ui/src/api/liveApi.ts` (`getGraphIngestRuns`), `GraphReviewWorkbenchModule.tsx`, `GraphReviewLanePicker.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `useGraphReviewAuthorDraftWorkflow.ts`
-
 ## [IDEA] C1S2 candidate graph gold (optional, for compare lane) — captured 2026-07-05
 
-**Context:** Hand-authored gold for C1S2 remains useful for recall scoring and optional two-lane compare, but is no longer a prerequisite for Ingest Surface review once live-only load lands.
+**Context:** Hand-authored gold for C1S2 remains useful for recall scoring and optional two-lane compare, but is no longer a prerequisite for Ingest Surface review — live-only load shipped 2026-07-06 (see `Backlog-DONE.md`).
 
-**Action:** Mirror `HANDOFF-c1s1-candidate-graph-gold.md` for session 2 when compare-lane quality work needs a target — defer until live-only dogfood is unblocked.
+**Action:** Mirror `HANDOFF-c1s1-candidate-graph-gold.md` for session 2 when compare-lane quality work needs a target.
 
-**Refs:** `Docs/Plans/HANDOFF-c1s1-candidate-graph-gold.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 02 - Finishing the Job.md`
+**Refs:** `Docs/Plans/HANDOFF-c1s1-candidate-graph-gold.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Stonebridge and Glowkindle Rats.md` (canonical filename mismatches its own subtitle "Finishing the Job" — likely copy-pasted from Session 1 during the dogfood; rename before treating as canon)
 
-## [TODO] Ingest Surface follow-ups after PR 11E
+## [READY] Graph Review node-info duplication + authoring-action fold distance — captured 2026-07-05
 
-### Reader regressions addressed in PR 11E
+**Context:** Carried forward from `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md` (2026-07-03 live dogfood). Still true after this session's toolbox/load-dialog/live-only work, which addressed page-level clutter but not in-lane interaction clutter.
 
-- Leading YAML frontmatter is stripped in the shared projection reader path for Gold Fixture and Live Run prose.
-- The stale single-lane "Selected live lane / Source projection" header no longer renders above the two-lane layout.
+**Insight:** Clicking a pill opens an inline `GraphNodeExplorer` popover *and* leaves a second, fuller "node game card" further down the same scroll — two overlapping presentations of the same object. Stage node/relationship actions and the existing-object resolver sit even further below that, past the node card. This is the literal "click a node, scroll, parse metadata" complaint, not yet fixed.
 
-### Interaction redesign
+**Action:** Collapse popover + game card into one surface; pull stage-node/relationship/resolver actions up near the point of selection instead of after a long scroll.
 
-- Remove duplicate inline GraphNodeExplorer hover/popover vs. far-below node game card.
-- Replace click/hover behavior with a single projected object interaction component.
-- Explore modal/pane/overlay pattern for selected node, selected span, resolver, stage-node, and relationship actions.
-- Pull authoring actions near the point of selection.
-- Revisit local staged proposal visibility in prose.
+**Surfaces when:** `GraphReviewProjectedInteractionSurface.tsx`, `GraphReviewNodeGameCard.tsx`, `ExistingObjectResolverPanel.tsx`, any further Author Draft dogfood.
 
-### Future ingestion flow
+**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` (R4/R6), `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
 
-- Build Tiptap-backed processed markdown reader with graph projection overlay.
-- Dogfood complete flow: source artifact -> prepared human-readable markdown -> node projection overlay -> Author Draft -> prepare -> commit -> reload -> verify.
+## [IDEA] Tiptap-backed processed markdown reader with graph projection overlay — captured 2026-07-05
+
+**Context:** Original "future ingestion flow" note from the PR 11E follow-ups; the complete dogfood loop (source artifact → markdown → node projection overlay → Author Draft → prepare → commit → reload → verify) is now proven end-to-end for gold-backed sessions (C1S1) and the read side is proven live-only (C1S2). The still-open piece is replacing the read-only `GraphProjectionReader` with a Tiptap-backed editable surface.
+
+**Action:** Defer until the authoring-target design question in `HANDOFF-prime-design-graph-review-workbench-authoring-next.md` is resolved — an editable reader matters more once authoring writes to corpus markdown directly rather than only to gold-fixture JSON.
+
+**Surfaces when:** designing corpus-markdown authoring writes, replacing `GraphProjectionReader.tsx`.
+
+**Refs:** `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx`, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
 
 ## [DOING] Graph memory encounter/job extraction spike — real-data dogfood complete, Yellow verdict — captured 2026-07-01
 

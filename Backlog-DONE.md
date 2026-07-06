@@ -11,6 +11,18 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Ingest Surface reader regressions after PR 11E — completed 2026-07-05
+
+**Implemented:** Leading YAML frontmatter is stripped in the shared projection reader path (`projectionMarkdownPreprocessing.ts`, consumed by `GraphProjectionReader.tsx`) for both Gold Fixture and Live Run prose. The stale single-lane "Selected live lane / Source projection" header was removed when the top-of-workbench pickers/lane-cards block was replaced by the single load button + load dialog (2026-07-05 "Load dialog for Graph Review Workbench" pass).
+
+**Refs:** `apps/live-control-ui/src/planSurface/graphProjectionReader/projectionMarkdownPreprocessing.ts`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewLoadBar.tsx`
+
+## [DONE] Live-only graph load on Ingest Surface (no gold required) — completed 2026-07-06
+
+**Implemented:** Added `GraphReviewCatalogSession` + `buildGraphReviewCatalog` (`graphReviewWorkbenchUtils.ts`) merging `getGraphIngestRuns({ requirePreviewUnionStore: true })` with `getGoldReviewSessions()` — gold enriches the catalog but no longer gates it. `GraphReviewWorkbenchModule` calls both endpoints in parallel and only calls `getGoldReviewCompare` when `hasGold`. Live-only sessions render a single prose lane (`graph-review-live-only-projections` CSS, conditional lane title "Ingested recap") instead of the two-lane gold/live layout, and `getGoldGraphProjection` is skipped entirely rather than 404ing. Author Draft staging works live-only; commit/prepare stays gated behind `hasGold` since the write path still targets gold-fixture JSON (see follow-up IDEA on authoring targets). `IngestionModule` gained its own `ReviewCampaignPicker` (previously it silently inherited the `/plan` view's campaign, which blocked cross-campaign dogfooding) and a "Review in workbench" CTA that syncs the URL and fires `GRAPH_REVIEW_RUNS_CHANGED_EVENT` so the workbench catalog refreshes without a manual reload. Dogfood proof: raw C1S2 notes → `_ingest_staging/session_2_raw_notes.md` → normalized/canonical recap → graph extract → loaded and reviewed on `/ingest` with no session-2 gold fixture.
+
+**Refs:** `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils.ts`, `GraphReviewWorkbenchModule.tsx`, `GraphReviewLanePicker.tsx`, `GraphReviewLoadSurface.tsx`, `GraphReviewLoadLaneSummary.tsx`, `GraphReviewLoadBar.tsx`, `GraphReviewLiveStateContext.tsx`, `graphReviewLiveReviewState.ts`, `GraphReviewLiveProjectionPanel.tsx`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
+
 ## [DONE] Command board — dynamic roll-tables page (corpus table crawl) — completed 2026-06-13
 
 **Implemented:** Read-only `GET /api/live/roll-tables/index` walks allowlisted Session 22 prep tables, Mireward scaffold excerpt, road tables, and wilderness d100 tables; static `roll-tables.html` renders grouped dynamic sections with inline markdown embeds/excerpts.
