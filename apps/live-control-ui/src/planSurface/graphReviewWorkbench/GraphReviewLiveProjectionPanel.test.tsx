@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -25,24 +25,6 @@ vi.mock("../../api/liveApi", async () => {
     resolveGraphReviewExistingObjectCandidates: vi.fn(),
   };
 });
-
-vi.mock("../graphProjectionReader/GraphProjectionReader", () => ({
-  GraphProjectionReader: ({
-    title,
-    subtitle,
-    markdown,
-  }: {
-    title: string;
-    subtitle: string;
-    markdown: string;
-  }) => (
-    <div data-testid="graph-projection-reader">
-      <h2>{title}</h2>
-      <p>{subtitle}</p>
-      <article>{markdown}</article>
-    </div>
-  ),
-}));
 
 const baseRun: GraphIngestRunSummary = {
   manifest_path: "artifacts/run-a/manifest.json",
@@ -190,7 +172,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getUnionSupergraphProjection).not.toHaveBeenCalledWith(
       expect.objectContaining({ useLatestGraphIngest: true }),
     );
-    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ingested recap")).toBeInTheDocument();
     expect(screen.queryByText("Live Run · read-only")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
     expect(
@@ -213,7 +195,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getGoldGraphProjection).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ingested recap")).toBeInTheDocument();
   });
 
   it("opens and closes one projected interaction surface from a graph mention", async () => {
@@ -233,8 +215,18 @@ describe("GraphReviewLiveProjectionPanel", () => {
       children: <GraphReviewLiveProjectionPanel />,
     });
 
-    await screen.findAllByRole("button", { name: /Alden/ });
-    fireEvent.click(screen.getAllByRole("button", { name: /Alden/ }).at(-1)!);
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    const liveReader = screen.getByTestId("graph-projection-reader");
+    const liveAldenPill = await waitFor(() => {
+      const pill = within(liveReader)
+        .getAllByRole("button", { name: /Alden/ })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(liveAldenPill);
 
     const dialog = screen.getByRole("dialog", { name: "Alden" });
     expect(dialog).toHaveTextContent("Selected object");

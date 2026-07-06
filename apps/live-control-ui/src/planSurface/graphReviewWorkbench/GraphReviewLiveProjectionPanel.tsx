@@ -1,4 +1,8 @@
+import { useState } from "react";
+
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
+import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
+import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
@@ -41,6 +45,8 @@ export function GraphReviewLiveProjectionPanel() {
   } = useGraphReviewLiveState();
 
   const { authorMode } = authorDraft;
+  const [confirmedAuthoringSelection, setConfirmedAuthoringSelection] =
+    useState<GraphAuthoringSelection | null>(null);
 
   return (
     <section
@@ -153,25 +159,32 @@ export function GraphReviewLiveProjectionPanel() {
                 readerMode
               />
             ) : null}
-            <GraphReviewProjectionLane
+            <GraphReviewAuthoringReader
+              key={`${campaignId}:${sessionId}:${liveRun.manifest_path}`}
+              campaignId={campaignId}
+              sessionId={sessionId}
+              graphId={projection.graph_id}
               laneRole="live"
-              title={hasGold ? "Live Run · read-only" : "Ingested recap"}
-              subtitle={runIdentity}
+              sourceArtifactPath={liveRun.manifest_path}
               markdown={projection.markdown ?? FALLBACK_MARKDOWN}
               nodeViews={projection.node_views}
               sourceSpans={paragraphSourceSpans}
-              mentionsCount={projection.mentions.length}
-              deltaIndex={deltaIndex}
-              activeObject={activeLaneObject}
-              onActiveObjectChange={setActiveLaneObject}
-              onSelectObject={(selection) => {
-                setSelectedNode(selection);
+              documentLabel={hasGold ? "Live run prose" : "Ingested recap"}
+              onInspectNode={(nodeId) => {
+                setSelectedNode({ laneRole: "live", nodeId });
                 setSelectedRelationship(null);
-                setSelectedDeltaNodeId(selection.nodeId);
+                setSelectedDeltaNodeId(nodeId);
                 setProjectedInteractionOpen(true);
               }}
-              onSelectText={authorDraft.setSelectedText}
-              readerMode
+              onGraphAuthoringSelection={(selection) => {
+                if (!selection) {
+                  setConfirmedAuthoringSelection(null);
+                }
+              }}
+              onGraphAuthoringAction={(selection) => {
+                setConfirmedAuthoringSelection(selection);
+              }}
+              confirmedSelection={confirmedAuthoringSelection}
             />
           </div>
           <GraphReviewProjectedInteractionSurface
