@@ -200,6 +200,50 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
   });
 
+  it("lists every quick relationship predicate in the type select", () => {
+    render(<Harness />);
+
+    const typeSelect = screen.getByLabelText("Relationship type") as HTMLSelectElement;
+    const optionValues = Array.from(typeSelect.options).map((option) => option.value);
+    expect(optionValues).toEqual([
+      "has_member",
+      "member_of",
+      "located_in",
+      "controls",
+      "allied_with",
+      "opposes",
+      "owns",
+      "created_by",
+      "travels_with",
+      "protects",
+      "threatens",
+      "related_to",
+      "__custom__",
+    ]);
+  });
+
+  it("stages a custom relationship predicate when Custom is selected", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship type"), {
+      target: { value: "__custom__" },
+    });
+    fireEvent.change(screen.getByLabelText("Custom relationship type"), {
+      target: { value: "same_as" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
+    fireEvent.change(manualInputs[manualInputs.length - 1], {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent("same_as");
+  });
+
   it("disables relationship staging until both object refs are chosen", () => {
     render(<Harness />);
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
