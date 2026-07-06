@@ -92,7 +92,7 @@ describe("ExistingObjectResolverPanel", () => {
       screen.getByRole("button", { name: "Find existing object" }),
     );
     expect(
-      screen.getByText("Checking same-session graph sources…"),
+      screen.getByText("Searching campaign graph scopes…"),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(resolveGraphReviewExistingObjectCandidates).toHaveBeenCalled(),
@@ -129,7 +129,7 @@ describe("ExistingObjectResolverPanel", () => {
       />,
     );
     expect(
-      screen.getByText(/same-session gold\/live graph sources/i),
+      screen.getByText(/Search across current recap, authored memory/i),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
@@ -170,6 +170,8 @@ describe("ExistingObjectResolverPanel", () => {
             object_id: "gold-tripod",
           },
           matched_features: ["exact label match", "same kind"],
+          graph_scope: "current_recap_projection",
+          source_label: "Current recap",
         },
       ],
     });
@@ -181,7 +183,7 @@ describe("ExistingObjectResolverPanel", () => {
       await screen.findByText("Likely existing objects"),
     ).toBeInTheDocument();
     const card = screen
-      .getByRole("heading", { name: "Tripod Null-Calf" })
+      .getByRole("heading", { name: /Tripod Null-Calf/i, level: 6 })
       .closest("article");
     expect(card).toBeTruthy();
     expect(
@@ -190,7 +192,7 @@ describe("ExistingObjectResolverPanel", () => {
     expect(
       within(card!).getAllByText(/exact label match/i).length,
     ).toBeGreaterThan(0);
-    expect(within(card!).getByText(/gold fixture/i)).toBeInTheDocument();
+    expect(within(card!).getByText(/Current recap · exact label match/i)).toBeInTheDocument();
     expect(within(card!).getByText(/Link existing later/i)).toBeInTheDocument();
     fireEvent.click(
       within(card!).getByRole("button", { name: "Review candidate" }),
@@ -227,6 +229,8 @@ describe("ExistingObjectResolverPanel", () => {
             object_id: "gold-tripod",
           },
           matched_features: [],
+          graph_scope: "current_recap_projection",
+          source_label: "Current recap",
         },
       ],
     });
@@ -273,7 +277,7 @@ describe("ExistingObjectResolverPanel", () => {
       expect.objectContaining({ candidate_id: "gold-tripod" }),
     );
     expect(
-      screen.getByText("Draft only — no link will be written."),
+      screen.getByText(/It does not merge identities automatically/i),
     ).toBeInTheDocument();
   });
 

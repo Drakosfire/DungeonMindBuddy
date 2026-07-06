@@ -98,6 +98,11 @@ export interface GraphObjectAuthoringObjectRef {
   label: string;
   kind?: string | null;
   role?: string | null;
+  graphScope?: string | null;
+  sourceLabel?: string | null;
+  sourceGraphId?: string | null;
+  sourcePath?: string | null;
+  visibility?: string | null;
 }
 
 export type GraphObjectAuthoringLinkExistingOperation =
@@ -260,6 +265,11 @@ export function buildObjectRefFromInspectedNode(node: {
   label: string;
   kind?: string | null;
   role?: string | null;
+  graphScope?: string | null;
+  sourceLabel?: string | null;
+  sourceGraphId?: string | null;
+  sourcePath?: string | null;
+  visibility?: string | null;
 }): GraphObjectAuthoringObjectRef {
   return {
     refKind: "existing_graph_node",
@@ -267,6 +277,38 @@ export function buildObjectRefFromInspectedNode(node: {
     label: node.label,
     kind: node.kind ?? null,
     role: node.role ?? null,
+    graphScope: node.graphScope ?? null,
+    sourceLabel: node.sourceLabel ?? null,
+    sourceGraphId: node.sourceGraphId ?? null,
+    sourcePath: node.sourcePath ?? null,
+    visibility: node.visibility ?? null,
+  };
+}
+
+export function buildObjectRefFromResolverCandidate(
+  candidate: {
+    candidate_id: string;
+    label: string;
+    kind?: string | null;
+    role?: string | null;
+    graph_scope?: string | null;
+    source_label?: string | null;
+    source_graph_id?: string | null;
+    source_path?: string | null;
+    visibility?: string | null;
+  },
+): GraphObjectAuthoringObjectRef {
+  return {
+    refKind: "existing_graph_node",
+    nodeId: candidate.candidate_id,
+    label: candidate.label,
+    kind: candidate.kind ?? null,
+    role: candidate.role ?? null,
+    graphScope: candidate.graph_scope ?? null,
+    sourceLabel: candidate.source_label ?? null,
+    sourceGraphId: candidate.source_graph_id ?? null,
+    sourcePath: candidate.source_path ?? null,
+    visibility: candidate.visibility ?? null,
   };
 }
 

@@ -4,6 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../../api/liveApi", () => ({
   prepareGraphObjectAuthoringWrite: vi.fn(),
   commitGraphObjectAuthoringWrite: vi.fn(),
+  resolveGraphReviewExistingObjectCandidates: vi.fn().mockResolvedValue({
+    schema: "dmb_graph_review_existing_object_resolver_response_v1",
+    campaign_id: "longmont-c1",
+    session_id: "session-2",
+    selected_node_id: "selection:gang",
+    selected_label: "gang",
+    candidates: [],
+    warnings: [],
+    diagnostics: [],
+    scopes_searched: [],
+  }),
 }));
 
 import { prepareGraphObjectAuthoringWrite, commitGraphObjectAuthoringWrite } from "../../api/liveApi";
@@ -314,7 +325,7 @@ describe("GraphObjectAuthoringSurface", () => {
     );
 
     const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Extracted graph" });
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
     const options = within(existingGroup).getAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual([
       "Alden · npc",
@@ -334,7 +345,7 @@ describe("GraphObjectAuthoringSurface", () => {
     );
 
     const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Extracted graph" });
+    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
     expect(within(existingGroup).getAllByRole("option")).toHaveLength(1);
   });
 
@@ -388,7 +399,7 @@ describe("GraphObjectAuthoringSurface", () => {
 
     const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
     expect(within(sourcePicker).getByRole("group", { name: "Authored memory" })).toBeInTheDocument();
-    expect(within(sourcePicker).getByRole("group", { name: "Extracted graph" })).toBeInTheDocument();
+    expect(within(sourcePicker).getByRole("group", { name: "Current recap" })).toBeInTheDocument();
   });
 
   it("does not show prepare button until proposals exist and prepare/commit wiring is enabled", () => {
