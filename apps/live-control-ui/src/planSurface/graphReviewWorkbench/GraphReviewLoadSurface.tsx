@@ -1,18 +1,21 @@
 import { useEffect } from "react";
 
-import type { GoldReviewSessionSummary } from "../../api/types";
+import type { GraphIngestRunSummary } from "../../api/types";
 import { GraphReviewLanePicker } from "./GraphReviewLanePicker";
 import { GraphReviewLoadLaneSummary } from "./GraphReviewLoadLaneSummary";
-import { hasReviewableProjection } from "./graphReviewWorkbenchUtils";
+import {
+  hasCatalogReviewableRun,
+  type GraphReviewCatalogSession,
+} from "./graphReviewWorkbenchUtils";
 
 interface GraphReviewLoadSurfaceProps {
   open: boolean;
-  sessions: GoldReviewSessionSummary[];
+  sessions: GraphReviewCatalogSession[];
   draftCampaignId: string;
   draftSessionId: string;
   draftManifestPath: string | null;
-  draftSession: GoldReviewSessionSummary | null;
-  draftLiveRun: GoldReviewSessionSummary["available_runs"][number] | null;
+  draftSession: GraphReviewCatalogSession | null;
+  draftLiveRun: GraphIngestRunSummary | null;
   onClose: () => void;
   onLoad: () => void;
   onCampaignSelect: (campaignId: string) => void;
@@ -47,7 +50,7 @@ export function GraphReviewLoadSurface({
 
   const canLoad =
     Boolean(draftSession) &&
-    hasReviewableProjection(draftSession!) &&
+    hasCatalogReviewableRun(draftSession!) &&
     Boolean(draftLiveRun?.preview_union_available);
 
   return (
@@ -66,8 +69,8 @@ export function GraphReviewLoadSurface({
       >
         <header className="graph-review-projected-interaction-header">
           <div>
-            <p className="plan-surface-kicker">Load comparison</p>
-            <h3 id="graph-review-load-surface-title">Choose session and live run</h3>
+            <p className="plan-surface-kicker">Load session</p>
+            <h3 id="graph-review-load-surface-title">Choose campaign, session, and run</h3>
           </div>
           <button type="button" aria-label="Close load dialog" onClick={onClose}>
             Close

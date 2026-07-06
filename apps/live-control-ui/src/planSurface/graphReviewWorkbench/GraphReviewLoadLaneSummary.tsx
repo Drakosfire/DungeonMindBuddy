@@ -1,9 +1,12 @@
-import type { GoldReviewSessionSummary, GraphIngestRunSummary } from "../../api/types";
-import { goldReviewSessionLabel } from "../sessionCampaignContext";
-import { goldSessionToLane, graphIngestRunToLane } from "./graphReviewWorkbenchUtils";
+import type { GraphIngestRunSummary } from "../../api/types";
+import {
+  catalogSessionLabel,
+  graphIngestRunToLane,
+  type GraphReviewCatalogSession,
+} from "./graphReviewWorkbenchUtils";
 
 interface GraphReviewLoadLaneSummaryProps {
-  session: GoldReviewSessionSummary | null;
+  session: GraphReviewCatalogSession | null;
   liveRun: GraphIngestRunSummary | null;
 }
 
@@ -11,7 +14,6 @@ export function GraphReviewLoadLaneSummary({
   session,
   liveRun,
 }: GraphReviewLoadLaneSummaryProps) {
-  const goldLane = session ? goldSessionToLane(session) : null;
   const liveLane = liveRun ? graphIngestRunToLane(liveRun) : null;
 
   return (
@@ -21,9 +23,11 @@ export function GraphReviewLoadLaneSummary({
     >
       <p>
         <strong>Gold (expected):</strong>{" "}
-        {session
-          ? `${goldReviewSessionLabel(session)} · ${goldLane?.label ?? session.gold_fixture_id}`
-          : "Choose a gold-backed session."}
+        {session?.hasGold
+          ? `${catalogSessionLabel(session)} · ${session.goldFixtureId ?? "gold fixture"}`
+          : session
+            ? "No gold fixture — live review only"
+            : "Choose a session."}
       </p>
       <p>
         <strong>Live (ingested):</strong>{" "}

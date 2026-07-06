@@ -14,6 +14,7 @@ export function GraphReviewLiveProjectionPanel() {
     campaignId,
     sessionId,
     liveRun,
+    hasGold,
     projection,
     projectionStatus,
     projectionError,
@@ -43,8 +44,8 @@ export function GraphReviewLiveProjectionPanel() {
 
   return (
     <section
-      className="graph-review-live-projection-panel"
-      aria-label="Gold and live source projections"
+      className={`graph-review-live-projection-panel${hasGold ? "" : " graph-review-live-only-projection-panel"}`}
+      aria-label={hasGold ? "Gold and live source projections" : "Ingested recap projection"}
     >
       {projectionStatus === "idle" ? (
         <p className="graph-review-live-projection-status">
@@ -108,19 +109,25 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <div className="graph-review-real-two-lane-projections">
-            {goldProjectionStatus === "loading" ? (
+          <div
+            className={
+              hasGold
+                ? "graph-review-real-two-lane-projections"
+                : "graph-review-live-only-projections"
+            }
+          >
+            {hasGold && goldProjectionStatus === "loading" ? (
               <p className="graph-review-live-projection-status" role="status">
                 Loading gold fixture projection…
               </p>
             ) : null}
-            {goldProjectionStatus === "error" ? (
+            {hasGold && goldProjectionStatus === "error" ? (
               <p className="graph-review-error" role="alert">
                 {goldProjectionError ??
                   "Failed to load gold fixture projection."}
               </p>
             ) : null}
-            {goldProjectionStatus === "ready" && goldProjection ? (
+            {hasGold && goldProjectionStatus === "ready" && goldProjection ? (
               <GraphReviewProjectionLane
                 laneRole="gold"
                 title="Gold Fixture · read-only"
@@ -148,7 +155,7 @@ export function GraphReviewLiveProjectionPanel() {
             ) : null}
             <GraphReviewProjectionLane
               laneRole="live"
-              title="Live Run · read-only"
+              title={hasGold ? "Live Run · read-only" : "Ingested recap"}
               subtitle={runIdentity}
               markdown={projection.markdown ?? FALLBACK_MARKDOWN}
               nodeViews={projection.node_views}

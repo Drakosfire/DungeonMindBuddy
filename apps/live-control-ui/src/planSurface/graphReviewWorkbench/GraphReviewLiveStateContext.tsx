@@ -12,6 +12,7 @@ export interface GraphReviewLiveStateContextValue extends GraphReviewLiveReviewS
   campaignId: string;
   sessionId: string;
   liveRun: GraphIngestRunSummary | null;
+  hasGold: boolean;
   compare: GoldReviewCompareResponse | null;
   compareStatus: "idle" | "loading" | "ready" | "error";
   compareError: string | null;
@@ -36,6 +37,7 @@ const GraphReviewLiveStateContext =
 
 export interface GraphReviewLiveStateProviderProps
   extends UseGraphReviewLiveReviewStateOptions {
+  hasGold?: boolean;
   compareError: string | null;
   selection: GoldReviewSelection | null;
   onSelectSelection: (selection: GoldReviewSelection) => void;
@@ -47,6 +49,7 @@ export function GraphReviewLiveStateProvider({
   selection,
   onSelectSelection,
   children,
+  hasGold = false,
   compare = null,
   compareStatus = "idle",
   manualBeds = [],
@@ -61,6 +64,7 @@ export function GraphReviewLiveStateProvider({
 }: GraphReviewLiveStateProviderProps) {
   const liveReviewState = useGraphReviewLiveReviewState({
     ...hookOptions,
+    hasGold,
     compare,
     compareStatus,
     manualBeds,
@@ -78,6 +82,7 @@ export function GraphReviewLiveStateProvider({
     campaignId: hookOptions.campaignId,
     sessionId: hookOptions.sessionId,
     liveRun: hookOptions.liveRun,
+    hasGold,
     compare: compare ?? null,
     compareStatus: compareStatus ?? "idle",
     compareError,

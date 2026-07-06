@@ -198,6 +198,24 @@ describe("GraphReviewLiveProjectionPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders a single live lane without fetching gold projection when hasGold is false", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: false,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(getGoldGraphProjection).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+  });
+
   it("opens and closes one projected interaction surface from a graph mention", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(
       projectionWithMention,
@@ -211,6 +229,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
+      hasGold: true,
       children: <GraphReviewLiveProjectionPanel />,
     });
 

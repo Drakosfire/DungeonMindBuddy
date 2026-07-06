@@ -19,6 +19,7 @@ export interface RenderGraphReviewLiveHarnessOptions {
   campaignId?: string;
   sessionId?: string;
   liveRun?: GraphIngestRunSummary | null;
+  hasGold?: boolean;
   context?: PlanContextDescriptor;
   children: ReactNode;
 }
@@ -27,6 +28,7 @@ export function renderGraphReviewLiveHarness({
   campaignId = "longmont-c2",
   sessionId = "session-23",
   liveRun = null,
+  hasGold = false,
   context = defaultContext,
   children,
 }: RenderGraphReviewLiveHarnessOptions): RenderResult {
@@ -37,6 +39,7 @@ export function renderGraphReviewLiveHarness({
         campaignId={campaignId}
         sessionId={sessionId}
         liveRun={liveRun}
+        hasGold={hasGold}
         compare={null}
         compareStatus="idle"
         compareError={null}

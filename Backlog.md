@@ -7,6 +7,43 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Rename Ingest Surface / Memory Ingest chrome — captured 2026-07-05
+
+**Context:** `/ingest` header simplified to static "Memory Ingest"; user noted the surface still needs a better product name now that it is a graph review workbench, not a recap-ingest landing page.
+
+**Insight:** "Memory Ingest" and route `/ingest` over-describe recap staging; the default canvas is live graph review (gold comparison optional) with recap ingest in the toolbox.
+
+**Action:** Pick a name (e.g. Graph Review, Memory Review) and align route label, `AppChrome`, `ingestSurfaceConfig`, and toolbox copy in one small UX pass.
+
+**Surfaces when:** renaming `/ingest`, editing ingest chrome, or splitting graph review into its own top-level nav item.
+
+**Refs:** `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx`, `apps/live-control-ui/src/planSurface/config/ingestSurfaceConfig.ts`, `apps/live-control-ui/src/chrome/appChromeConfig.ts`
+
+## [READY] Live-only graph load on Ingest Surface (no gold required) — captured 2026-07-05
+
+**Context:** C1S2 dogfood blocked because `_GOLD_SESSIONS` gates the load dialog. User clarified: gold comparison is optional; primary surface is reviewing ingested objects and staging Author Draft proposals (`node_from_span`, link intents) on live projection markdown.
+
+**Insight:** Backend already exposes run discovery (`GET /graph-ingest/runs`) and live projection (`GET /union-supergraph/projection?graph_run_manifest_path=…`). The workbench treats `getGoldReviewSessions()` as the only catalog — sessions with runs but no gold fixture are invisible.
+
+**Action:**
+1. **Load catalog** — derive selectable `(campaign_id, session_id)` from `getGraphIngestRuns({ requirePreviewUnionStore: true })`; gold enriches but does not gate.
+2. **Single-lane default** — no gold → live prose + object explorer only; skip compare/delta/gold lane.
+3. **Copy** — replace "Add gold fixtures" empty state and "Gold-backed sessions" picker labels.
+4. **Author Draft** — verify text-selection → `node_from_span` staging works live-only.
+5. **Dogfood proof** — C1S2 graph extract → load on `/ingest` without session-2 gold.
+
+**Surfaces when:** `/ingest` load dialog, `GraphReviewWorkbenchModule`, C1S2 graph dogfood, Author Draft on live-only sessions.
+
+**Refs:** `apps/live_control_server/routes/graph_preview.py`, `apps/live-control-ui/src/api/liveApi.ts` (`getGraphIngestRuns`), `GraphReviewWorkbenchModule.tsx`, `GraphReviewLanePicker.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `useGraphReviewAuthorDraftWorkflow.ts`
+
+## [IDEA] C1S2 candidate graph gold (optional, for compare lane) — captured 2026-07-05
+
+**Context:** Hand-authored gold for C1S2 remains useful for recall scoring and optional two-lane compare, but is no longer a prerequisite for Ingest Surface review once live-only load lands.
+
+**Action:** Mirror `HANDOFF-c1s1-candidate-graph-gold.md` for session 2 when compare-lane quality work needs a target — defer until live-only dogfood is unblocked.
+
+**Refs:** `Docs/Plans/HANDOFF-c1s1-candidate-graph-gold.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 02 - Finishing the Job.md`
+
 ## [TODO] Ingest Surface follow-ups after PR 11E
 
 ### Reader regressions addressed in PR 11E

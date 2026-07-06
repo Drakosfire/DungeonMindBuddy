@@ -13,7 +13,6 @@ import type {
   GraphGoldAuthoringVerifyCommitResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
-  GoldReviewSessionSummary,
   GraphIngestRunSummary,
   GraphReviewLane,
   ManualReviewBedDetail,
@@ -53,7 +52,7 @@ export interface UseGraphReviewLiveReviewStateOptions {
   campaignId: string;
   sessionId: string;
   liveRun: GraphIngestRunSummary | null;
-  selectedSession?: GoldReviewSessionSummary | null;
+  hasGold?: boolean;
   compare?: GoldReviewCompareResponse | null;
   compareStatus?: "idle" | "loading" | "ready" | "error";
   goldLane?: GraphReviewLane | null;
@@ -78,6 +77,7 @@ export function useGraphReviewLiveReviewState({
   campaignId,
   sessionId,
   liveRun,
+  hasGold = false,
   compare = null,
   goldLane = null,
   liveLane = null,
@@ -184,7 +184,7 @@ export function useGraphReviewLiveReviewState({
     let cancelled = false;
     setGoldProjection(null);
     setGoldProjectionError(null);
-    if (!campaignId || !sessionId) {
+    if (!hasGold || !campaignId || !sessionId) {
       setGoldProjectionStatus("idle");
       return () => {
         cancelled = true;
@@ -206,7 +206,7 @@ export function useGraphReviewLiveReviewState({
     return () => {
       cancelled = true;
     };
-  }, [campaignId, sessionId]);
+  }, [campaignId, hasGold, sessionId]);
 
   const selectGoldNodeCard = useCallback(
     (

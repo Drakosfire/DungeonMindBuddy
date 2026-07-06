@@ -1,27 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getGoldReviewCompare, getGoldReviewSessions, getManualReviewBed, getManualReviewBeds, LiveApiError } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, GoldReviewSessionSummary, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
+import {
+  getGoldReviewCompare,
+  getGoldReviewSessions,
+  getGraphIngestRuns,
+  getManualReviewBed,
+  getManualReviewBeds,
+  LiveApiError,
+} from "../../api/liveApi";
+import type { GoldReviewCompareResponse, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "../projection/projectionContext";
 import type { PlanContextDescriptor } from "../types";
-import {
-  goldReviewSessionLabel,
-  resolveInitialReviewCampaignId,
-  sessionsForReviewCampaign,
-} from "../sessionCampaignContext";
+import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
 import { GraphReviewLoadBar } from "./GraphReviewLoadBar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import {
-  goldSessionToLane,
+  buildGraphReviewCatalog,
+  catalogSessionLabel,
+  catalogSessionToGoldLane,
+  catalogSessionsForReviewCampaign,
+  type GraphReviewCatalogSession,
   graphIngestRunToLane,
+  GRAPH_REVIEW_RUNS_CHANGED_EVENT,
+  pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
-  pickDefaultWorkbenchSession,
 } from "./graphReviewWorkbenchUtils";
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 
@@ -46,36 +54,44 @@ function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
 }
 
 function buildDefaultDraft(
-  sessions: GoldReviewSessionSummary[],
+  sessions: GraphReviewCatalogSession[],
   campaignId: string,
   requestedSessionId: string | null,
   fallbackSessionId: string,
 ): AppliedSelection | null {
-  const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
-  const session = pickDefaultWorkbenchSession(
+  const visibleSessions = catalogSessionsForReviewCampaign(sessions, campaignId);
+  const session = pickDefaultCatalogSession(
     visibleSessions,
     requestedSessionId,
     fallbackSessionId,
   );
   if (!session) return null;
   const run = pickDefaultWorkbenchRun(
-    session.available_runs.filter((entry) => entry.preview_union_available),
+    session.availableRuns.filter((entry) => entry.preview_union_available),
   );
   return {
     campaignId,
-    sessionId: session.session_id,
+    sessionId: session.sessionId,
     manifestPath: run?.manifest_path ?? null,
   };
 }
 
 function formatAppliedLoadLabel(
-  session: GoldReviewSessionSummary | null,
-  liveRun: GoldReviewSessionSummary["available_runs"][number] | null,
+  session: GraphReviewCatalogSession | null,
+  liveRun: GraphReviewCatalogSession["availableRuns"][number] | null,
 ): string | null {
   if (!session) return null;
-  const sessionLabel = goldReviewSessionLabel(session);
+  const sessionLabel = catalogSessionLabel(session);
   const runLabel = liveRun?.run_label?.trim() || liveRun?.run_id || null;
   return runLabel ? `${sessionLabel} · ${runLabel}` : sessionLabel;
+}
+
+async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
+  const [runsResponse, goldResponse] = await Promise.all([
+    getGraphIngestRuns({ requirePreviewUnionStore: true }),
+    getGoldReviewSessions(),
+  ]);
+  return buildGraphReviewCatalog(runsResponse.runs, goldResponse.sessions);
 }
 
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
@@ -83,9 +99,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const requestedSessionId = requestedSessionFromLocation();
   const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
 
-  const [sessions, setSessions] = useState<GoldReviewSessionSummary[]>([]);
+  const [catalogSessions, setCatalogSessions] = useState<GraphReviewCatalogSession[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [catalogRefreshToken, setCatalogRefreshToken] = useState(0);
   const [appliedSelection, setAppliedSelection] = useState<AppliedSelection | null>(null);
   const [draftCampaignId, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
@@ -107,16 +124,16 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
-        ? sessionsForReviewCampaign(sessions, appliedSelection.campaignId)
+        ? catalogSessionsForReviewCampaign(catalogSessions, appliedSelection.campaignId)
         : [],
-    [appliedSelection, sessions],
+    [appliedSelection, catalogSessions],
   );
 
   const appliedSession = useMemo(
     () =>
       appliedSelection
         ? appliedCampaignSessions.find(
-            (session) => session.session_id === appliedSelection.sessionId,
+            (session) => session.sessionId === appliedSelection.sessionId,
           ) ?? null
         : null,
     [appliedCampaignSessions, appliedSelection],
@@ -125,20 +142,20 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const appliedLiveRun = useMemo(() => {
     if (!appliedSession || !appliedSelection?.manifestPath) return null;
     return (
-      appliedSession.available_runs.find(
+      appliedSession.availableRuns.find(
         (run) => run.manifest_path === appliedSelection.manifestPath,
       ) ?? null
     );
   }, [appliedSelection, appliedSession]);
 
   const draftCampaignSessions = useMemo(
-    () => sessionsForReviewCampaign(sessions, draftCampaignId),
-    [draftCampaignId, sessions],
+    () => catalogSessionsForReviewCampaign(catalogSessions, draftCampaignId),
+    [draftCampaignId, catalogSessions],
   );
 
   const draftSession = useMemo(
     () =>
-      draftCampaignSessions.find((session) => session.session_id === draftSessionId) ??
+      draftCampaignSessions.find((session) => session.sessionId === draftSessionId) ??
       null,
     [draftCampaignSessions, draftSessionId],
   );
@@ -146,14 +163,14 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const draftLiveRun = useMemo(() => {
     if (!draftSession) return null;
     return (
-      draftSession.available_runs.find(
+      draftSession.availableRuns.find(
         (run) => run.manifest_path === draftManifestPath,
       ) ?? null
     );
   }, [draftManifestPath, draftSession]);
 
   const goldLane = useMemo(
-    () => (appliedSession ? goldSessionToLane(appliedSession) : null),
+    () => (appliedSession ? catalogSessionToGoldLane(appliedSession) : null),
     [appliedSession],
   );
   const liveLane = useMemo(
@@ -176,41 +193,53 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     [appliedLiveRun, appliedSession],
   );
 
-  useEffect(() => {
-    let cancelled = false;
+  const refreshCatalog = useCallback(async () => {
     setSessionsLoaded(false);
     setSessionsError(null);
-    void getGoldReviewSessions()
-      .then((response) => {
-        if (cancelled) return;
-        const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
-        setSessions(response.sessions);
-        const defaultDraft = buildDefaultDraft(
-          response.sessions,
-          initialCampaignId,
-          requestedSessionId,
-          fallbackSessionId,
-        );
-        if (defaultDraft) {
-          setDraftCampaignId(defaultDraft.campaignId);
-          setDraftSessionId(defaultDraft.sessionId);
-          setDraftManifestPath(defaultDraft.manifestPath);
-        }
-        if (requestedSessionId && defaultDraft) {
-          setAppliedSelection(defaultDraft);
-        }
-        setSessionsLoaded(true);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setSessions([]);
-        setSessionsError(error instanceof Error ? error.message : "Failed to load graph review sessions.");
-        setSessionsLoaded(true);
-      });
+    try {
+      const catalog = await loadGraphReviewCatalog();
+      const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
+      setCatalogSessions(catalog);
+      const defaultDraft = buildDefaultDraft(
+        catalog,
+        initialCampaignId,
+        requestedSessionId,
+        fallbackSessionId,
+      );
+      if (defaultDraft) {
+        setDraftCampaignId(defaultDraft.campaignId);
+        setDraftSessionId(defaultDraft.sessionId);
+        setDraftManifestPath(defaultDraft.manifestPath);
+      }
+      if (requestedSessionId && defaultDraft) {
+        setAppliedSelection(defaultDraft);
+      }
+      setSessionsLoaded(true);
+    } catch (error) {
+      setCatalogSessions([]);
+      setSessionsError(
+        error instanceof Error ? error.message : "Failed to load graph review sessions.",
+      );
+      setSessionsLoaded(true);
+    }
+  }, [context.campaignId, fallbackSessionId, requestedSessionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void refreshCatalog().then(() => {
+      if (cancelled) return;
+    });
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, fallbackSessionId, requestedSessionId]);
+  }, [refreshCatalog, catalogRefreshToken]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onRunsChanged = () => setCatalogRefreshToken((value) => value + 1);
+    window.addEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+    return () => window.removeEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,13 +289,20 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setSelection(null);
       return;
     }
+    if (!appliedSession.hasGold) {
+      setCompare(null);
+      setCompareStatus("idle");
+      setCompareError(null);
+      setSelection(null);
+      return;
+    }
     setCompareStatus("loading");
     setCompareError(null);
     setSelection(null);
     try {
       const response = await getGoldReviewCompare({
-        campaignId: appliedSession.campaign_id,
-        sessionId: appliedSession.session_id,
+        campaignId: appliedSession.campaignId,
+        sessionId: appliedSession.sessionId,
         manifestPath: appliedLiveRun.manifest_path,
       });
       setCompare(response);
@@ -294,7 +330,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setDraftManifestPath(appliedSelection.manifestPath);
     } else {
       const defaultDraft = buildDefaultDraft(
-        sessions,
+        catalogSessions,
         resolveInitialReviewCampaignId(context.campaignId),
         requestedSessionId,
         fallbackSessionId,
@@ -309,28 +345,28 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   };
 
   const handleDraftCampaignSelect = (campaignId: string) => {
-    const visibleSessions = sessionsForReviewCampaign(sessions, campaignId);
-    const nextSession = pickDefaultWorkbenchSession(
+    const visibleSessions = catalogSessionsForReviewCampaign(catalogSessions, campaignId);
+    const nextSession = pickDefaultCatalogSession(
       visibleSessions,
       null,
       fallbackSessionId,
     );
     setDraftCampaignId(campaignId);
-    setDraftSessionId(nextSession?.session_id ?? "");
+    setDraftSessionId(nextSession?.sessionId ?? "");
     setDraftManifestPath(
       pickDefaultWorkbenchRun(
-        (nextSession?.available_runs ?? []).filter((run) => run.preview_union_available),
+        (nextSession?.availableRuns ?? []).filter((run) => run.preview_union_available),
       )?.manifest_path ?? null,
     );
   };
 
   const handleDraftSessionSelect = (sessionId: string) => {
     const session =
-      draftCampaignSessions.find((item) => item.session_id === sessionId) ?? null;
+      draftCampaignSessions.find((item) => item.sessionId === sessionId) ?? null;
     setDraftSessionId(sessionId);
     setDraftManifestPath(
       pickDefaultWorkbenchRun(
-        (session?.available_runs ?? []).filter((run) => run.preview_union_available),
+        (session?.availableRuns ?? []).filter((run) => run.preview_union_available),
       )?.manifest_path ?? null,
     );
   };
@@ -339,7 +375,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     if (!draftSession || !draftLiveRun) return;
     const nextApplied: AppliedSelection = {
       campaignId: draftCampaignId,
-      sessionId: draftSession.session_id,
+      sessionId: draftSession.sessionId,
       manifestPath: draftLiveRun.manifest_path,
     };
     setAppliedSelection(nextApplied);
@@ -351,10 +387,11 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     return <p className="plan-projection-empty">Loading graph review sessions…</p>;
   }
 
-  if (!sessions.length && !sessionsError) {
+  if (!catalogSessions.length && !sessionsError) {
     return (
       <p className="plan-projection-empty">
-        No gold-review sessions are available yet. Add or generate gold fixtures before using the Workbench shell.
+        No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
+        paste a recap, run extraction, and materialize a preview graph.
       </p>
     );
   }
@@ -381,14 +418,14 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
         {!hasAppliedLoad ? (
           <p className="plan-projection-empty graph-review-load-empty">
-            Load a session to compare gold and ingested recap prose side by side.
+            Load an ingested session to review extracted objects in recap prose.
           </p>
         ) : (
           <GraphReviewLiveStateProvider
-            campaignId={appliedSession!.campaign_id}
-            sessionId={appliedSession!.session_id}
+            campaignId={appliedSession!.campaignId}
+            sessionId={appliedSession!.sessionId}
             liveRun={appliedLiveRun}
-            selectedSession={appliedSession}
+            hasGold={appliedSession!.hasGold}
             compare={compare}
             compareStatus={compareStatus}
             compareError={compareError}
@@ -416,7 +453,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
         <GraphReviewLoadSurface
           open={loadDialogOpen}
-          sessions={sessions}
+          sessions={catalogSessions}
           draftCampaignId={draftCampaignId}
           draftSessionId={draftSessionId}
           draftManifestPath={draftManifestPath}

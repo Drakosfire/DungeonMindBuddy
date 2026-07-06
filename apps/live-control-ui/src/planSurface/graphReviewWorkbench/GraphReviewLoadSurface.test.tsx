@@ -4,14 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 
 const sessionWithRun = {
-  session_id: "session-23",
-  session_number: 23,
-  campaign_id: "longmont-c2",
-  gold_fixture_id: "gold-23",
-  gold_manifest_path: "m23",
-  gold_graph_path: "g23",
-  gold_counts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-  available_runs: [
+  campaignId: "longmont-c2",
+  sessionId: "session-23",
+  sessionNumber: 23,
+  hasGold: true,
+  hasReviewableRun: true,
+  goldFixtureId: "gold-23",
+  goldManifestPath: "m23",
+  goldGraphPath: "g23",
+  goldCounts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
+  availableRuns: [
     {
       manifest_path: "artifacts/run-a/manifest.json",
       run_dir: "artifacts/run-a",
@@ -51,7 +53,7 @@ describe("GraphReviewLoadSurface", () => {
         draftSessionId="session-23"
         draftManifestPath="artifacts/run-a/manifest.json"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.available_runs[0]}
+        draftLiveRun={sessionWithRun.availableRuns[0]}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}
@@ -61,7 +63,7 @@ describe("GraphReviewLoadSurface", () => {
     );
 
     expect(
-      screen.getByRole("dialog", { name: "Choose session and live run" }),
+      screen.getByRole("dialog", { name: "Choose campaign, session, and run" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Gold \(expected\):/)).toBeInTheDocument();
     expect(screen.getByText(/Live \(ingested\):/)).toBeInTheDocument();
@@ -78,7 +80,7 @@ describe("GraphReviewLoadSurface", () => {
         draftSessionId="session-23"
         draftManifestPath="artifacts/run-a/manifest.json"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.available_runs[0]}
+        draftLiveRun={sessionWithRun.availableRuns[0]}
         onClose={vi.fn()}
         onLoad={onLoad}
         onCampaignSelect={vi.fn()}
@@ -100,7 +102,7 @@ describe("GraphReviewLoadSurface", () => {
         draftSessionId="session-23"
         draftManifestPath="artifacts/run-a/manifest.json"
         draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.available_runs[0]}
+        draftLiveRun={sessionWithRun.availableRuns[0]}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}

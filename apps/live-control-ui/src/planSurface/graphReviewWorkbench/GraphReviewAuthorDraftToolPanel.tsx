@@ -10,6 +10,7 @@ export function GraphReviewAuthorDraftToolPanel() {
   const {
     campaignId,
     sessionId,
+    hasGold,
     projectionStatus,
     goldProjection,
     authorDraft,
@@ -96,6 +97,7 @@ export function GraphReviewAuthorDraftToolPanel() {
       <GraphReviewAuthoringPreparePreviewPanel
         campaignId={campaignId}
         sessionId={sessionId}
+        hasGold={hasGold}
         workflow={authorDraft}
         onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
         onShowCommittedObject={(targetId) => {

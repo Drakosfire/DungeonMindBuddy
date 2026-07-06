@@ -3956,6 +3956,13 @@ body.plan-toolbox-open .plan-agent-shell {
   align-items: start;
 }
 
+.graph-review-live-only-projections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 .graph-review-projection-lane {
   min-width: 0;
   padding: 1rem;

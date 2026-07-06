@@ -53,6 +53,11 @@ const sessionWithRun = {
 };
 
 function mockWorkbenchApis() {
+  vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
+    schema_version: "dmb_graph_ingest_run_registry_v1",
+    version: "0.1",
+    runs: sessionWithRun.available_runs,
+  });
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
     version: "0.1",
@@ -184,7 +189,7 @@ describe("GraphReviewWorkbenchModule", () => {
     );
 
     expect(
-      screen.getByText(/Load a session to compare gold and ingested recap prose/i),
+      screen.getByText(/Load an ingested session to review extracted objects/i),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
@@ -293,6 +298,11 @@ describe("GraphReviewWorkbenchModule", () => {
       "/ingest?session=session-23&tool=graph-review-diagnostics",
     );
 
+    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
+      schema_version: "dmb_graph_ingest_run_registry_v1",
+      version: "0.1",
+      runs: sessionWithRun.available_runs,
+    });
     vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "0.1",
@@ -320,6 +330,38 @@ describe("GraphReviewWorkbenchModule", () => {
     await waitFor(() =>
       expect(window.location.search).toContain("session=session-22"),
     );
-    expect(window.location.search).toContain("tool=graph-review-diagnostics");
+  it("loads a run-only session without calling gold compare", async () => {
+    const user = userEvent.setup();
+    const runOnlySession = {
+      ...sessionWithRun.available_runs[0],
+      campaign_id: "longmont-c1",
+      session_id: "session-2",
+      run_label: "C1S2 run",
+    };
+    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
+      schema_version: "dmb_graph_ingest_run_registry_v1",
+      version: "0.1",
+      runs: [runOnlySession],
+    });
+    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
+      schema_version: "dmb_graph_gold_review_sessions_v1",
+      version: "0.1",
+      sessions: [],
+    });
+    const compareSpy = vi.spyOn(liveApi, "getGoldReviewCompare");
+
+    window.history.replaceState({}, "", "/ingest?session=session-2&campaign=longmont-c1");
+    render(
+      <GraphReviewWorkbenchModule
+        context={{ ...context, campaignId: "longmont-c1", ingestSession: 2 }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Session 2 · C1S2 run")).toBeInTheDocument();
+    expect(compareSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
   });
 });

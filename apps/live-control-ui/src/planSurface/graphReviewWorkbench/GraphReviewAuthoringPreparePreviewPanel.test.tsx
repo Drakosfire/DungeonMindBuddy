@@ -85,6 +85,7 @@ function PanelHarness({
     <GraphReviewAuthoringPreparePreviewPanel
       campaignId="longmont-c1"
       sessionId="session-1"
+      hasGold
       workflow={workflow}
       onReloadAndVerifyCommit={onReloadAndVerifyCommit}
       onShowCommittedObject={onShowCommittedObject}

@@ -14,6 +14,13 @@ import {
   recapSessionNumber,
   sortRecapArtifactRecords,
 } from "../planSurface/graphPreview/recapSessionLabels";
+import { useOptionalProjection } from "../planSurface/projection/projectionContext";
+import { ReviewCampaignPicker } from "../planSurface/ReviewCampaignPicker";
+import {
+  resolveInitialReviewCampaignId,
+  syncReviewCampaignUrl,
+} from "../planSurface/sessionCampaignContext";
+import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -23,6 +30,11 @@ interface IngestionModuleProps {
 const INGESTION_DRAFT_STORAGE_VERSION = 3;
 
 type IngestionSourceMode = "raw" | "processed";
+
+function isIngestSurfacePath(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.replace(/\/+$/, "") === "/ingest";
+}
 
 function corpusCitationPath(relpath: string): string {
   const trimmed = relpath.trim().replace(/^\/+/, "");
@@ -753,8 +765,15 @@ function previewSourceSignature(recapSession: number, rawText: string, slug: str
   });
 }
 
-export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
-  const storageKey = useMemo(() => draftStorageKey(campaignId, session), [campaignId, session]);
+export function IngestionModule({ campaignId: planCampaignId, session }: IngestionModuleProps) {
+  const projection = useOptionalProjection();
+  const [ingestCampaignId, setIngestCampaignId] = useState(() =>
+    resolveInitialReviewCampaignId(planCampaignId),
+  );
+  const storageKey = useMemo(
+    () => draftStorageKey(ingestCampaignId, session),
+    [ingestCampaignId, session],
+  );
   const requestedRecapSession = requestedRecapSessionFromLocation();
   const initialRecapSession = requestedRecapSession ?? defaultRecapSession(session);
   const [activeStep, setActiveStep] = useState<number>(1);
@@ -785,7 +804,16 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const lastToastKeyRef = useRef<string | null>(null);
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
-  const terminalCampaign = campaignNumberFromId(campaignId);
+  const terminalCampaign = campaignNumberFromId(ingestCampaignId);
+
+  function handleIngestCampaignSelect(nextCampaignId: string) {
+    if (nextCampaignId === ingestCampaignId) return;
+    invalidateInFlightHydrateInspect();
+    setIngestCampaignId(nextCampaignId);
+    syncReviewCampaignUrl(nextCampaignId);
+    setHydrated(false);
+    window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+  }
 
   function invalidateInFlightHydrateInspect() {
     hydrateInspectGenerationRef.current += 1;
@@ -1052,7 +1080,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         const inspectGeneration = hydrateInspectGenerationRef.current;
         const inspected = await postRecapIngest({
           operation: "inspect_status",
-          campaign_id: campaignId,
+          campaign_id: ingestCampaignId,
           session: defaultRecap,
           slug: initialSlug.trim() || undefined,
           title: initialTitle.trim() || undefined,
@@ -1108,7 +1136,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [storageKey, session, campaignId, requestedRecapSession]);
+  }, [storageKey, session, ingestCampaignId, requestedRecapSession]);
 
   useEffect(() => {
     if (!hydrated || recapSession !== 22) {
@@ -1123,7 +1151,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
-    void getRecapArtifacts(campaignId)
+    void getRecapArtifacts(ingestCampaignId)
       .then((response) => {
         if (cancelled) return;
         const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
@@ -1138,7 +1166,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, hydrated]);
+  }, [ingestCampaignId, hydrated]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -1285,7 +1313,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const inspected = await postRecapIngest({
         operation: "inspect_status",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: sessionNumber,
         title: titleFromArtifact(record) || undefined,
       });
@@ -1359,7 +1387,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       const result = applyAutomatedResult(
         await postRecapIngest({
           operation: "generate_recap_memory",
-          campaign_id: campaignId,
+          campaign_id: ingestCampaignId,
           session: recapSession,
           slug: effectiveSlug || undefined,
           title: effectiveTitle || undefined,
@@ -1424,7 +1452,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       const result = applyAutomatedResult(
         await postRecapIngest({
           operation: "generate_recap_memory",
-          campaign_id: campaignId,
+          campaign_id: ingestCampaignId,
           session: recapSession,
           raw_text: sourceMode === "raw" ? rawText : undefined,
           slug: effectiveSlug || undefined,
@@ -1501,7 +1529,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "stage_preview",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         raw_text: rawText,
         slug: effectiveSlug || undefined,
@@ -1546,7 +1574,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "apply_normalize",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
@@ -1591,7 +1619,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "build_frontmatter_seed",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
@@ -1633,7 +1661,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "run_breadcrumb_ingest",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
@@ -1675,7 +1703,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "materialize_session_memory",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
@@ -1718,7 +1746,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "build_graph_preview_bundle",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
@@ -1743,7 +1771,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "materialize_preview_supergraph",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
@@ -1772,6 +1800,16 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     }
   }
 
+  function openGraphReviewWorkbench() {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("session", `session-${recapSession}`);
+    params.set("campaign", ingestCampaignId);
+    window.history.replaceState({}, "", `/ingest?${params.toString()}`);
+    window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+    projection?.close();
+  }
+
   function openRecapView() {
     if (typeof window !== "undefined") {
       window.location.assign(`/plan?tool=recap&session=session-${recapSession}`);
@@ -1791,7 +1829,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
     try {
       const result = await postRecapIngest({
         operation: "reconcile_normalized_recap",
-        campaign_id: campaignId,
+        campaign_id: ingestCampaignId,
         session: recapSession,
         keep_basename: keepBasename,
       });
@@ -1858,10 +1896,16 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         <div>
           <h2 className="module-title">Raw Recap Ingestion</h2>
           <p className="module-muted">Operator prep tool over the PR92 ingestion orchestrator.</p>
-          <p className="module-muted">
-            Campaign: <strong>{campaignId}</strong> · Live workspace session:{" "}
-            <strong>{session}</strong>
-          </p>
+          <div className="ingestion-module-header-meta">
+            <ReviewCampaignPicker
+              selectedCampaignId={ingestCampaignId}
+              onSelect={handleIngestCampaignSelect}
+              className="graph-preview-run-picker ingestion-campaign-picker"
+            />
+            <p className="module-muted">
+              Live workspace session: <strong>{session}</strong>
+            </p>
+          </div>
         </div>
         <button type="button" className="wizard-step-chip" onClick={() => resetWizardFlow(1)}>
           Clear flow
@@ -2069,6 +2113,15 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
                 )}
               </button>
             ) : null}
+            {isIngestSurfacePath() && hasPreviewUnionStore ? (
+              <button
+                type="button"
+                className="primary"
+                onClick={openGraphReviewWorkbench}
+              >
+                Review in workbench
+              </button>
+            ) : null}
             <button
               type="button"
               className={processedSourceReady ? undefined : "primary"}
@@ -2206,9 +2259,11 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
               <button type="button" onClick={materializePreviewSupergraph} disabled={!canMaterializePreviewSupergraph}>
                 {isMaterializingPreviewSupergraph ? "Materializing Preview Supergraph..." : "Materialize Preview Supergraph"}
               </button>
-              <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
-                Open Graph Preview
-              </button>
+              {!isIngestSurfacePath() ? (
+                <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
+                  Open Graph Preview
+                </button>
+              ) : null}
             </div>
             <div className="ingestion-action-explainer">
               {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}

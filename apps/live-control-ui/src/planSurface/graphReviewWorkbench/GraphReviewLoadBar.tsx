@@ -20,7 +20,7 @@ export function GraphReviewLoadBar({
         </>
       ) : (
         <>
-          <p>Choose a session and live run to compare.</p>
+          <p>Load an ingested session to review extracted objects in recap prose.</p>
           <button type="button" onClick={onOpenLoad}>
             Load session
           </button>
