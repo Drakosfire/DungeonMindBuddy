@@ -8,12 +8,20 @@ import {
   type GraphObjectAuthoringObjectRef,
   type GraphObjectAuthoringProposal,
 } from "./graphObjectAuthoringDraft";
+import {
+  findPickerCrossGroupHint,
+  formatPickerNodeLabel,
+  type GraphObjectAuthoringOverlapContext,
+} from "./graphObjectAuthoringOverlap";
 
 export interface GraphObjectAuthoringInspectedNode {
   node_id: string;
   label: string;
   kind?: string | null;
   role?: string | null;
+  aliases?: string[];
+  authored?: boolean;
+  sourceAnchorText?: string | null;
 }
 
 type PickerOptionValue =
@@ -52,12 +60,22 @@ function dedupeAndSortNodes(
   return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label));
 }
 
+function formatStagedProposalLabel(proposal: GraphObjectAuthoringObjectProposal): string {
+  const kindSuffix = proposal.objectRef.kind ? ` · ${proposal.objectRef.kind}` : "";
+  const aliasSuffix =
+    proposal.objectRef.aliases.length > 0
+      ? ` · aliases: ${proposal.objectRef.aliases.join(", ")}`
+      : "";
+  return `${proposal.objectRef.label}${kindSuffix}${aliasSuffix}`;
+}
+
 export function GraphObjectAuthoringObjectRefPicker({
   label,
   value,
   onChange,
   proposals,
   existingNodes = [],
+  overlapContext,
   manualPlaceholder = "Type a label for an object not staged yet",
 }: {
   label: string;
@@ -65,15 +83,30 @@ export function GraphObjectAuthoringObjectRefPicker({
   onChange: (ref: GraphObjectAuthoringObjectRef | null) => void;
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  overlapContext?: GraphObjectAuthoringOverlapContext;
   manualPlaceholder?: string;
 }) {
   const objectProposals = stagedObjectProposals(proposals);
   const sortedExistingNodes = useMemo(() => dedupeAndSortNodes(existingNodes), [existingNodes]);
+  const authoredNodes = useMemo(
+    () => sortedExistingNodes.filter((node) => node.authored),
+    [sortedExistingNodes],
+  );
+  const extractedNodes = useMemo(
+    () => sortedExistingNodes.filter((node) => !node.authored),
+    [sortedExistingNodes],
+  );
   const showManualInput = value?.refKind === "manual_ref";
-  // Derived entirely from `value` (no local echo state) so a parent-driven reset
-  // (e.g. after staging clears the form) can never leave stale manual input behind
-  // in an always-mounted picker instance.
   const manualLabelValue = value?.refKind === "manual_ref" ? value.label : "";
+
+  const selectedExistingNode =
+    value?.refKind === "existing_graph_node" && value.nodeId
+      ? sortedExistingNodes.find((node) => node.node_id === value.nodeId) ?? null
+      : null;
+  const crossGroupHint =
+    overlapContext && selectedExistingNode
+      ? findPickerCrossGroupHint(selectedExistingNode, overlapContext)
+      : null;
 
   const selectedOptionValue: string = (() => {
     if (!value) return encodeOptionValue({ source: "empty" });
@@ -134,19 +167,31 @@ export function GraphObjectAuthoringObjectRefPicker({
                     localProposalId: proposal.localProposalId,
                   })}
                 >
-                  {proposal.objectRef.label}
+                  {formatStagedProposalLabel(proposal)}
                 </option>
               ))}
             </optgroup>
           ) : null}
-          {sortedExistingNodes.length ? (
-            <optgroup label="Existing graph objects">
-              {sortedExistingNodes.map((node) => (
+          {authoredNodes.length ? (
+            <optgroup label="Authored memory">
+              {authoredNodes.map((node) => (
                 <option
                   key={node.node_id}
                   value={encodeOptionValue({ source: "existing_node", nodeId: node.node_id })}
                 >
-                  {node.kind ? `${node.label} (${node.kind})` : node.label}
+                  {formatPickerNodeLabel(node)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          {extractedNodes.length ? (
+            <optgroup label="Extracted graph">
+              {extractedNodes.map((node) => (
+                <option
+                  key={node.node_id}
+                  value={encodeOptionValue({ source: "existing_node", nodeId: node.node_id })}
+                >
+                  {formatPickerNodeLabel(node)}
                 </option>
               ))}
             </optgroup>
@@ -167,6 +212,9 @@ export function GraphObjectAuthoringObjectRefPicker({
           Selected: {value.label || "—"}{" "}
           <span className="graph-object-authoring-ref-picker-kind">({value.refKind.replaceAll("_", " ")})</span>
         </p>
+      ) : null}
+      {crossGroupHint ? (
+        <p className="graph-object-authoring-ref-picker-cross-group-hint">{crossGroupHint}</p>
       ) : null}
     </div>
   );

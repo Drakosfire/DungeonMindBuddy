@@ -4386,6 +4386,37 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #64748b;
 }
 
+.graph-object-authoring-ref-picker-cross-group-hint {
+  margin: 0;
+  color: #fbbf24;
+  font-size: 0.78rem;
+}
+
+.graph-object-authoring-overlap-warnings {
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 0.65rem;
+  background: rgba(251, 191, 36, 0.08);
+  padding: 0.55rem 0.7rem;
+}
+
+.graph-object-authoring-overlap-warnings-title {
+  margin: 0 0 0.35rem;
+  color: #fcd34d;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.graph-object-authoring-overlap-warnings ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #fde68a;
+  font-size: 0.78rem;
+}
+
+.graph-object-authoring-overlap-warnings li + li {
+  margin-top: 0.2rem;
+}
+
 .graph-object-authoring-prepare-commit-panel {
   margin-top: 1rem;
   border: 1px solid rgba(125, 211, 252, 0.28);
@@ -4461,6 +4492,44 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-object-authoring-commit-success-lead {
   margin: 0;
   color: #bbf7d0;
+}
+
+.graph-object-authoring-commit-refresh-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.graph-authored-overlay-summary {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+}
+
+.graph-authored-overlay-summary--loaded {
+  color: #a7f3d0;
+}
+
+.graph-authored-overlay-summary--missing {
+  color: #94a3b8;
+}
+
+.graph-authored-overlay-summary--error {
+  color: #fecaca;
+}
+
+.graph-review-authored-overlay-details {
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(22, 101, 52, 0.12);
+}
+
+.graph-review-authored-overlay-details h5 {
+  margin: 0 0 0.35rem;
+}
+
+.graph-review-authored-overlay-details p {
+  margin: 0.15rem 0;
 }
 
 .graph-object-authoring-prepare-preview h5,

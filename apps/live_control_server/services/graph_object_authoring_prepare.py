@@ -30,6 +30,9 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
 )
+from apps.live_control_server.services.graph_object_authoring_overlap import (
+    detect_prepare_overlap_warnings,
+)
 
 STABLE_ASSERTION_TIMESTAMP = "1970-01-01T00:00:00Z"
 CONFIRM_TOKEN_KIND = "graph_authoring_commit_confirmation_v1"
@@ -595,6 +598,11 @@ def prepare_graph_object_authoring_write(
     if not assertions:
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
 
+    overlap_warnings = detect_prepare_overlap_warnings(
+        request,
+        existing_overlay=existing_overlay,
+    )
+
     confirm_token = build_confirm_token(
         campaign_id=request.campaign_id,
         overlay_path=str(overlay_path),
@@ -618,6 +626,6 @@ def prepare_graph_object_authoring_write(
         event_count=event_count,
         assertions_preview=preview,
         overlay_summary=summary,
-        diagnostics=[],
+        diagnostics=overlap_warnings,
         no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_PREPARE),
     )

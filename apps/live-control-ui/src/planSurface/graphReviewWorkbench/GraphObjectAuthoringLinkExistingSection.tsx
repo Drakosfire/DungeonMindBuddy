@@ -7,6 +7,7 @@ import {
   GraphObjectAuthoringObjectRefPicker,
   type GraphObjectAuthoringInspectedNode,
 } from "./GraphObjectAuthoringObjectRefPicker";
+import type { GraphObjectAuthoringOverlapContext } from "./graphObjectAuthoringOverlap";
 
 export function GraphObjectAuthoringLinkExistingSection({
   selectedText,
@@ -14,6 +15,7 @@ export function GraphObjectAuthoringLinkExistingSection({
   onChange,
   proposals,
   existingNodes = [],
+  overlapContext,
 }: {
   selectedText: string;
   formState: GraphObjectAuthoringLinkExistingFormState;
@@ -23,6 +25,7 @@ export function GraphObjectAuthoringLinkExistingSection({
   ) => void;
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   return (
     <section className="graph-object-authoring-link-existing-section" aria-label="Link to existing object">
@@ -37,6 +40,7 @@ export function GraphObjectAuthoringLinkExistingSection({
         onChange={(ref) => onChange("existingObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">
         <label htmlFor="graph-object-authoring-link-existing-operation">Operation</label>

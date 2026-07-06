@@ -295,8 +295,14 @@ def build_plan_union_supergraph_projection_payload(
     preview_source: str | None = None,
     graph_run_manifest_path: Path | None = None,
     preview_union_store_path: Path | None = None,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
 ) -> dict[str, Any]:
     """Build a JSON-safe projection payload for future API route integration."""
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        enrich_projection_payload_with_authored_overlay,
+    )
 
     projection = build_plan_union_supergraph_projection(
         session_id=session_id,
@@ -305,15 +311,27 @@ def build_plan_union_supergraph_projection_payload(
         graph_run_manifest_path=graph_run_manifest_path,
         preview_union_store_path=preview_union_store_path,
     )
-    return projection.model_dump(mode="json")
+    payload = projection.model_dump(mode="json")
+    return enrich_projection_payload_with_authored_overlay(
+        payload,
+        campaign_id=projection.campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+    )
 
 
 def build_recap_only_projection_payload(
     *,
     campaign_id: str,
     session_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
 ) -> dict[str, Any]:
     """Build a recap-first payload when graph projection artifacts do not exist yet."""
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        enrich_projection_payload_with_authored_overlay,
+    )
 
     markdown = _load_corpus_normalized_recap_markdown(
         campaign_id=campaign_id,
@@ -333,7 +351,13 @@ def build_recap_only_projection_payload(
         mentions=[],
         source_spans=[],
     )
-    return projection.model_dump(mode="json")
+    payload = projection.model_dump(mode="json")
+    return enrich_projection_payload_with_authored_overlay(
+        payload,
+        campaign_id=campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+    )
 
 
 def _build_preview_store(preview_source: str, *, focus_session_id: str) -> Any:

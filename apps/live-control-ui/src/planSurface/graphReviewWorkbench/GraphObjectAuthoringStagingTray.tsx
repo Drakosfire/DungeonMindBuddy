@@ -5,6 +5,11 @@ import {
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipProposal,
 } from "./graphObjectAuthoringDraft";
+import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
+import {
+  detectProposalOverlapWarnings,
+  type GraphObjectAuthoringOverlapContext,
+} from "./graphObjectAuthoringOverlap";
 
 function visibilityLabel(
   visibility: GraphObjectAuthoringProposal["visibility"]["visibility"],
@@ -89,9 +94,11 @@ function RelationshipProposalCard({
 export function GraphObjectAuthoringStagingTray({
   proposals,
   onRemove,
+  overlapContext,
 }: {
   proposals: GraphObjectAuthoringProposal[];
   onRemove: (localProposalId: string) => void;
+  overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   return (
     <section className="graph-object-authoring-staging-tray" aria-label="Staged graph object drafts">
@@ -122,6 +129,12 @@ export function GraphObjectAuthoringStagingTray({
               ) : null}
               {proposal.proposalKind === "relationship" ? (
                 <RelationshipProposalCard proposal={proposal} />
+              ) : null}
+              {overlapContext ? (
+                <GraphObjectAuthoringOverlapWarnings
+                  warnings={detectProposalOverlapWarnings(proposal, overlapContext)}
+                  title="Possible duplicates for this draft"
+                />
               ) : null}
               <button
                 type="button"

@@ -255,6 +255,36 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     expect(screen.queryByTestId("graph-object-authoring-prepare-button")).not.toBeInTheDocument();
   });
 
+  it("renders prepare overlap warnings from diagnostics", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      ...prepareResponse,
+      diagnostics: [
+        {
+          code: "authored_overlay_possible_duplicate_alias",
+          message: 'Possible duplicate: "gang" is already an alias of authored object "Questionable Company".',
+          local_proposal_id: "local-object-1",
+          severity: "warning",
+        },
+      ],
+    });
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-overlap-warnings")).toBeInTheDocument();
+      expect(screen.getByText(/already an alias of authored object/i)).toBeInTheDocument();
+    });
+  });
+
   it("shows stale overlay message on commit failure", async () => {
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
     vi.mocked(commitGraphObjectAuthoringWrite).mockRejectedValue(

@@ -330,6 +330,9 @@ describe("GraphReviewWorkbenchModule", () => {
     await waitFor(() =>
       expect(window.location.search).toContain("session=session-22"),
     );
+    expect(window.location.search).toContain("tool=graph-review-diagnostics");
+  });
+
   it("loads a run-only session without calling gold compare", async () => {
     const user = userEvent.setup();
     const runOnlySession = {

@@ -8,6 +8,7 @@ import {
   GraphObjectAuthoringObjectRefPicker,
   type GraphObjectAuthoringInspectedNode,
 } from "./GraphObjectAuthoringObjectRefPicker";
+import type { GraphObjectAuthoringOverlapContext } from "./graphObjectAuthoringOverlap";
 
 const CUSTOM_RELATIONSHIP_TYPE_VALUE = "__custom__";
 
@@ -26,6 +27,7 @@ export function GraphObjectAuthoringRelationshipForm({
   onChange,
   proposals,
   existingNodes = [],
+  overlapContext,
 }: {
   formState: GraphObjectAuthoringRelationshipFormState;
   onChange: <K extends keyof GraphObjectAuthoringRelationshipFormState>(
@@ -34,6 +36,7 @@ export function GraphObjectAuthoringRelationshipForm({
   ) => void;
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   const relationshipTypeSelect = relationshipTypeSelectValue(formState.relationshipType);
   const usingCustomRelationshipType = relationshipTypeSelect === CUSTOM_RELATIONSHIP_TYPE_VALUE;
@@ -51,6 +54,7 @@ export function GraphObjectAuthoringRelationshipForm({
         onChange={(ref) => onChange("sourceObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">
         <label htmlFor="graph-object-authoring-relationship-type">Relationship type</label>
@@ -92,6 +96,7 @@ export function GraphObjectAuthoringRelationshipForm({
         onChange={(ref) => onChange("targetObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">
         <label htmlFor="graph-object-authoring-relationship-direction">Direction</label>
