@@ -253,3 +253,70 @@ def test_authored_node_ids_are_stable() -> None:
     first = build_authored_projection_node_views(overlay)
     second = build_authored_projection_node_views(overlay)
     assert list(first.keys()) == list(second.keys()) == [authored_object_node_id("assert-stable-id")]
+
+
+def test_unresolved_link_existing_does_not_create_phantom_node() -> None:
+    link = link_existing_assertion(
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "missing-node-id",
+            "label": "Ghost",
+            "kind": "entity",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    diagnostics: list = []
+    node_views = build_authored_projection_node_views(
+        overlay,
+        base_node_views={},
+        existing_node_ids=set(),
+        diagnostics=diagnostics,
+    )
+    assert node_views == {}
+    assert any(item.code == "authored_overlay_assertion_unresolved_ref" for item in diagnostics)
+
+
+def test_malformed_overlay_returns_schema_error_diagnostic(store: GraphAuthoringOverlayStore) -> None:
+    overlay_path = store.overlay_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    overlay_path.parent.mkdir(parents=True, exist_ok=True)
+    overlay_path.write_text(
+        (
+            '{"schema_version":"dmb.authored_graph_overlay.v1",'
+            '"campaign_id":"longmont-c1",'
+            '"created_at":"2026-07-06T12:00:00Z",'
+            '"updated_at":"2026-07-06T12:00:00Z",'
+            '"assertions":[{"assertion_id":"bad","status":"not-valid"}]}'
+        ),
+        encoding="utf-8",
+    )
+    overlay, summary = load_authored_overlay_for_review(
+        campaign_id=CAMPAIGN_ID,
+        campaign_rel=TEST_CAMPAIGN_REL,
+        corpus_root=store.corpus_root,
+    )
+    assert overlay is None
+    assert summary.loaded is False
+    assert any(item.code == "authored_overlay_schema_error" for item in summary.diagnostics)
+
+
+def test_gold_projection_does_not_enrich_with_authored_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import graph_gold_review
+
+    def _fail_if_called(*_args, **_kwargs) -> None:
+        raise AssertionError("gold fixture projection must not load authored overlay")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_authoring_overlay_projection.enrich_projection_payload_with_authored_overlay",
+        _fail_if_called,
+    )
+
+    response = graph_gold_review.build_gold_graph_projection(
+        campaign_id="longmont-c1",
+        session_id="session-1",
+    )
+    dumped = response.model_dump(mode="json")
+    assert "authored_overlay" not in dumped

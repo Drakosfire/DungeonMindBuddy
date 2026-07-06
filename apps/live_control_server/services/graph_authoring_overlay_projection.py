@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from apps.live_control_server.models.graph_authoring_overlay import (
     AuthoredGraphAssertion,
@@ -93,7 +93,7 @@ def load_authored_overlay_for_review(
         )
     try:
         overlay = store.load_overlay(campaign_id, campaign_rel=campaign_rel)
-    except GraphAuthoringOverlayStoreError as exc:
+    except (GraphAuthoringOverlayStoreError, ValidationError) as exc:
         return None, AuthoredOverlayProjectionSummary(
             loaded=False,
             overlay_path=str(overlay_path),
@@ -286,7 +286,7 @@ def build_authored_projection_node_views(
             context="link_existing",
         )
         if manual_node_id is None:
-            manual_node_id = authored_manual_node_id(ref.label, ref.kind)
+            continue
         aliases = [alias_text] if alias_text else []
         if ref.label not in aliases:
             aliases.insert(0, ref.label)
@@ -470,25 +470,11 @@ def apply_authored_overlay_to_graph_review_projection(
         )
 
     active_count = sum(1 for item in overlay.assertions if item.status == "authored")
-    object_count = sum(
-        1
-        for item in overlay.assertions
-        if item.status == "authored" and item.assertion_kind == "object"
-    )
-    relationship_count = sum(
-        1
-        for item in overlay.assertions
-        if item.status == "authored" and item.assertion_kind == "relationship"
-    )
     result_summary = AuthoredOverlayProjectionSummary(
         loaded=True,
         overlay_path=summary.overlay_path if summary else None,
         assertion_count=active_count,
-        projected_node_count=object_count + sum(
-            1
-            for item in overlay.assertions
-            if item.status == "authored" and item.assertion_kind == "link_existing"
-        ),
+        projected_node_count=len(authored_nodes),
         projected_relationship_count=len(relationship_views),
         diagnostics=diagnostics,
     )

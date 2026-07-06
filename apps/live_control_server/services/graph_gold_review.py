@@ -469,11 +469,7 @@ def build_gold_graph_projection(
         }
     )
 
-    from apps.live_control_server.services.graph_authoring_overlay_projection import (
-        enrich_projection_payload_with_authored_overlay,
-    )
-
-    response = GoldGraphProjectionResponse(
+    return GoldGraphProjectionResponse(
         campaign_id=campaign_id,
         session_id=session_id,
         graph_id=str(gold_graph.get("preview_id") or entry["gold_fixture_id"]),
@@ -491,12 +487,6 @@ def build_gold_graph_projection(
         gold_fixture_id=entry["gold_fixture_id"],
         gold_fixture_relpath=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json",
     )
-    enriched_payload = enrich_projection_payload_with_authored_overlay(
-        response.model_dump(mode="json"),
-        campaign_id=campaign_id,
-        corpus_root=root,
-    )
-    return GoldGraphProjectionResponse.model_validate(enriched_payload)
 
 
 def load_live_candidate_graph_dict(repo: Path, manifest_path: str) -> dict[str, Any]:
