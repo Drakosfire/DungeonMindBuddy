@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
+import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
-import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
 
 const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did not return projected recap Markdown.`;
 
@@ -46,17 +47,7 @@ export function GraphReviewLiveProjectionPanel() {
 
   const { authorMode } = authorDraft;
   const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
-  const [confirmedAuthoringSelection, setConfirmedAuthoringSelection] =
-    useState<GraphAuthoringSelection | null>(null);
-
-  const handleGraphAuthoringSelectionChange = useCallback(
-    (selection: GraphAuthoringSelection | null) => {
-      if (!selection) {
-        setConfirmedAuthoringSelection(null);
-      }
-    },
-    [],
-  );
+  const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft();
 
   return (
     <section
@@ -179,7 +170,7 @@ export function GraphReviewLiveProjectionPanel() {
                     const enabled = event.target.checked;
                     setGraphAuthoringModeEnabled(enabled);
                     if (!enabled) {
-                      setConfirmedAuthoringSelection(null);
+                      graphObjectAuthoringDraft.dismissSelection();
                     }
                   }}
                 />
@@ -232,14 +223,22 @@ export function GraphReviewLiveProjectionPanel() {
                   setSelectedDeltaNodeId(nodeId);
                   setProjectedInteractionOpen(true);
                 }}
-                onGraphAuthoringSelection={handleGraphAuthoringSelectionChange}
                 onGraphAuthoringAction={(selection) => {
-                  setConfirmedAuthoringSelection(selection);
+                  graphObjectAuthoringDraft.openWithSelection(selection);
                 }}
-                confirmedSelection={confirmedAuthoringSelection}
               />
             )}
           </div>
+          {graphAuthoringModeEnabled ? (
+            <GraphObjectAuthoringSurface
+              selectedSource={graphObjectAuthoringDraft.selectedSource}
+              formState={graphObjectAuthoringDraft.formState}
+              proposals={graphObjectAuthoringDraft.proposals}
+              onFormFieldChange={graphObjectAuthoringDraft.updateFormField}
+              onStageProposal={graphObjectAuthoringDraft.stageProposal}
+              onRemoveProposal={graphObjectAuthoringDraft.removeProposal}
+            />
+          ) : null}
           <GraphReviewProjectedInteractionSurface
             open={projectedInteractionOpen}
             selectedNode={selectedNodeViewModel}
