@@ -5,8 +5,12 @@ import type {
   GraphIngestRunSummary,
 } from "../../api/types";
 import {
+  buildGraphReviewCatalog,
+  catalogSessionLabel,
   goldSessionToLane,
   graphIngestRunToLane,
+  hasCatalogReviewableRun,
+  pickDefaultCatalogSession,
   pickDefaultWorkbenchRun,
   pickDefaultWorkbenchSession,
 } from "./graphReviewWorkbenchUtils";
@@ -147,5 +151,90 @@ describe("graphReviewWorkbenchUtils", () => {
     expect(lane.metadata.runId).toBeUndefined();
     expect(lane.metadata.vocabularyMode).toBe("unknown");
     expect(lane.previewUnionPath).toBeUndefined();
+  });
+
+  it("merges run-only sessions without gold metadata", () => {
+    const catalog = buildGraphReviewCatalog([
+      run({
+        campaign_id: "longmont-c1",
+        session_id: "session-2",
+        run_label: "C1S2 run",
+      }),
+    ]);
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0]).toMatchObject({
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+      sessionNumber: 2,
+      hasGold: false,
+      hasReviewableRun: true,
+      goldFixtureId: null,
+    });
+    expect(catalogSessionLabel(catalog[0])).toBe("Session 2");
+  });
+
+  it("overlays gold metadata when runs and gold sessions share a key", () => {
+    const catalog = buildGraphReviewCatalog(
+      [
+        run({
+          campaign_id: "longmont-c1",
+          session_id: "session-1",
+          run_label: "Live run",
+        }),
+      ],
+      [
+        session({
+          campaign_id: "longmont-c1",
+          session_id: "session-1",
+          session_number: 1,
+          gold_fixture_id: "gold-1",
+          available_runs: [],
+        }),
+      ],
+    );
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0]).toMatchObject({
+      hasGold: true,
+      hasReviewableRun: true,
+      goldFixtureId: "gold-1",
+    });
+    expect(catalog[0].availableRuns).toHaveLength(1);
+  });
+
+  it("includes gold-only sessions without preview-ready runs", () => {
+    const catalog = buildGraphReviewCatalog(
+      [],
+      [
+        session({
+          campaign_id: "longmont-c2",
+          session_id: "session-99",
+          session_number: 99,
+          available_runs: [run({ preview_union_available: false })],
+        }),
+      ],
+    );
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0].hasGold).toBe(true);
+    expect(hasCatalogReviewableRun(catalog[0])).toBe(false);
+  });
+
+  it("picks default catalog sessions with reviewable runs first", () => {
+    const catalog = buildGraphReviewCatalog(
+      [
+        run({ session_id: "session-2", campaign_id: "longmont-c1" }),
+        run({
+          session_id: "session-21",
+          campaign_id: "longmont-c2",
+          preview_union_available: false,
+        }),
+      ],
+      [session({ session_id: "session-23", campaign_id: "longmont-c2" })],
+    );
+    expect(
+      pickDefaultCatalogSession(catalog, "session-2", "session-21")?.sessionId,
+    ).toBe("session-2");
+    expect(
+      pickDefaultCatalogSession(catalog, null, "session-21")?.sessionId,
+    ).toBe("session-2");
   });
 });

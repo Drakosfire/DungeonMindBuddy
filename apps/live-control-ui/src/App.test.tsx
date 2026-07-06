@@ -20,6 +20,11 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
     vi.mocked(liveApi.getPlanView).mockResolvedValue(mockPlanView);
+    vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
+      schema_version: "dmb_graph_ingest_run_registry_v1",
+      version: "test",
+      runs: [],
+    });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "test",
@@ -92,10 +97,11 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Memory Ingest" })).toBeInTheDocument();
-    expect(screen.getByText(/Convert source artifacts into reviewed campaign memory/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
-    expect(await screen.findByText(/No gold-review sessions are available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No preview-ready graph runs are available/i)).toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
+    expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
   });
 

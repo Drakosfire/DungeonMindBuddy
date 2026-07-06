@@ -53,6 +53,7 @@ from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
     RecapProjectionMention,
     RecapProjectionSourceSpan,
+    splice_node_link_spans,
 )
 from src.graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
 
@@ -448,7 +449,7 @@ def build_gold_graph_projection(
         for item in anchor_lookup.values()
     ]
     node_views = _build_gold_node_views(gold_parts, anchor_lookup, session_id=session_id)
-    mentions = _build_gold_mentions(gold_parts, anchor_lookup, markdown)
+    markdown, mentions = _build_gold_mentions(gold_parts, anchor_lookup, markdown)
     focused_node_ids = sorted(
         node_id
         for node_id, view in node_views.items()
@@ -913,8 +914,19 @@ def _build_gold_mentions(
     gold_parts: dict[str, list[Any]],
     anchor_lookup: dict[str, dict[str, Any]],
     markdown: str,
-) -> list[RecapProjectionMention]:
-    mentions: list[RecapProjectionMention] = []
+) -> tuple[str, list[RecapProjectionMention]]:
+    """Locate each gold node's label in the recap text and splice a literal
+    `[label](dmb-node:node_id)` link into the returned markdown for every
+    anchored node — the same representation the live lane's projection uses.
+    A frontend that renders pills by parsing `dmb-node:` links directly out of
+    the markdown (rather than trusting separately-computed offsets) then works
+    identically for both lanes, and unanchored/ambiguous nodes simply don't
+    appear as a link in the text, which is an honest reflection of "this object
+    isn't textually anchored in this recap."
+    """
+    anchored_spans: list[tuple[int, int, str, str]] = []
+    pending: list[tuple[str, str, list[str], str, int | None]] = []
+
     for node in gold_parts.get("nodes", []):
         if not isinstance(node, dict):
             continue
@@ -936,19 +948,43 @@ def _build_gold_mentions(
                 break
             if status == "unanchored" and anchor[0] == "ambiguous":
                 status, start, end = anchor
+
+        span_index: int | None = None
+        if status == "anchored" and start is not None and end is not None:
+            span_index = len(anchored_spans)
+            anchored_spans.append((start, end, label, node_id))
+        pending.append((node_id, label, evidence_ids, status, span_index))
+
+    projected_markdown, offsets = splice_node_link_spans(markdown, anchored_spans)
+
+    mentions: list[RecapProjectionMention] = []
+    for node_id, label, evidence_ids, status, span_index in pending:
+        start_offset: int | None = None
+        end_offset: int | None = None
+        effective_status = status
+        if span_index is not None:
+            offset = offsets[span_index]
+            if offset is not None:
+                start_offset, end_offset = offset
+            else:
+                # Overlapped an earlier node's anchored span; it was dropped
+                # rather than corrupt the splice, so it isn't actually linked.
+                effective_status = "ambiguous"
         mentions.append(
             RecapProjectionMention(
-                mention_id=f"gold-mention:{node_id}:{start if start is not None else status}",
+                mention_id=f"gold-mention:{node_id}:{start_offset if start_offset is not None else effective_status}",
                 node_id=node_id,
                 label=label,
-                start_offset=start,
-                end_offset=end,
+                start_offset=start_offset,
+                end_offset=end_offset,
                 evidence_ref_ids=[item for item in evidence_ids if item],
-                anchor_status=status,
+                anchor_status=effective_status,
                 source_kind="gold_fixture",
             )
         )
-    return sorted(mentions, key=lambda item: item.start_offset if item.start_offset is not None else 10**9)
+    return projected_markdown, sorted(
+        mentions, key=lambda item: item.start_offset if item.start_offset is not None else 10**9
+    )
 
 
 def _locate_gold_anchor(

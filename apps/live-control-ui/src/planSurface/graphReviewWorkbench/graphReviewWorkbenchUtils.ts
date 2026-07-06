@@ -4,6 +4,132 @@ import type {
   GraphReviewLane,
 } from "../../api/types";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
+import { goldReviewSessionLabel } from "../sessionCampaignContext";
+
+export interface GraphReviewCatalogSession {
+  campaignId: string;
+  sessionId: string;
+  sessionNumber: number | null;
+  availableRuns: GraphIngestRunSummary[];
+  hasGold: boolean;
+  hasReviewableRun: boolean;
+  goldFixtureId: string | null;
+  goldManifestPath: string | null;
+  goldGraphPath: string | null;
+  goldCounts: Record<string, number>;
+}
+
+function parseSessionNumber(sessionId: string): number | null {
+  const match = sessionId.match(/^session-(\d+)$/i);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function catalogSessionKey(campaignId: string, sessionId: string): string {
+  return `${campaignId}::${sessionId}`;
+}
+
+export function catalogSessionLabel(session: GraphReviewCatalogSession): string {
+  return goldReviewSessionLabel({
+    session_id: session.sessionId,
+    session_number: session.sessionNumber,
+  });
+}
+
+export function hasCatalogReviewableRun(
+  session: GraphReviewCatalogSession,
+): boolean {
+  return session.availableRuns.some((run) => run.preview_union_available);
+}
+
+export function buildGraphReviewCatalog(
+  runs: GraphIngestRunSummary[],
+  goldSessions: GoldReviewSessionSummary[] = [],
+): GraphReviewCatalogSession[] {
+  const byKey = new Map<string, GraphReviewCatalogSession>();
+
+  for (const goldSession of goldSessions) {
+    if (!goldSession.campaign_id) continue;
+    const key = catalogSessionKey(goldSession.campaign_id, goldSession.session_id);
+    byKey.set(key, {
+      campaignId: goldSession.campaign_id,
+      sessionId: goldSession.session_id,
+      sessionNumber: goldSession.session_number ?? parseSessionNumber(goldSession.session_id),
+      availableRuns: [...goldSession.available_runs],
+      hasGold: true,
+      hasReviewableRun: goldSession.available_runs.some(
+        (run) => run.preview_union_available,
+      ),
+      goldFixtureId: goldSession.gold_fixture_id,
+      goldManifestPath: goldSession.gold_manifest_path,
+      goldGraphPath: goldSession.gold_graph_path,
+      goldCounts: { ...goldSession.gold_counts },
+    });
+  }
+
+  for (const ingestRun of runs) {
+    const key = catalogSessionKey(ingestRun.campaign_id, ingestRun.session_id);
+    const existing = byKey.get(key);
+    if (existing) {
+      const mergedRuns = new Map<string, GraphIngestRunSummary>();
+      for (const entry of [...existing.availableRuns, ingestRun]) {
+        mergedRuns.set(entry.manifest_path, entry);
+      }
+      existing.availableRuns = Array.from(mergedRuns.values());
+      existing.hasReviewableRun = existing.availableRuns.some(
+        (run) => run.preview_union_available,
+      );
+      continue;
+    }
+    byKey.set(key, {
+      campaignId: ingestRun.campaign_id,
+      sessionId: ingestRun.session_id,
+      sessionNumber: parseSessionNumber(ingestRun.session_id),
+      availableRuns: [ingestRun],
+      hasGold: false,
+      hasReviewableRun: ingestRun.preview_union_available,
+      goldFixtureId: null,
+      goldManifestPath: null,
+      goldGraphPath: null,
+      goldCounts: {},
+    });
+  }
+
+  return Array.from(byKey.values()).sort((left, right) => {
+    const campaignCompare = left.campaignId.localeCompare(right.campaignId);
+    if (campaignCompare !== 0) return campaignCompare;
+    const leftNumber = left.sessionNumber ?? Number.MAX_SAFE_INTEGER;
+    const rightNumber = right.sessionNumber ?? Number.MAX_SAFE_INTEGER;
+    if (leftNumber !== rightNumber) return leftNumber - rightNumber;
+    return left.sessionId.localeCompare(right.sessionId);
+  });
+}
+
+export const GRAPH_REVIEW_RUNS_CHANGED_EVENT = "dmb:graph-runs-changed";
+
+export function catalogSessionsForReviewCampaign(
+  sessions: GraphReviewCatalogSession[],
+  selectedCampaignId: string,
+): GraphReviewCatalogSession[] {
+  return sessions.filter((session) => session.campaignId === selectedCampaignId);
+}
+
+export function catalogSessionToGoldLane(
+  session: GraphReviewCatalogSession,
+): GraphReviewLane | null {
+  if (!session.hasGold || !session.goldFixtureId) return null;
+  return goldSessionToLane({
+    session_id: session.sessionId,
+    session_number: session.sessionNumber ?? 0,
+    campaign_id: session.campaignId,
+    gold_fixture_id: session.goldFixtureId,
+    gold_manifest_path: session.goldManifestPath ?? "",
+    gold_graph_path: session.goldGraphPath ?? "",
+    gold_counts: session.goldCounts,
+    available_runs: session.availableRuns,
+  });
+}
 
 function countFrom(
   counts: Record<string, number> | undefined,
@@ -116,6 +242,29 @@ export function pickDefaultWorkbenchSession(
   if (fallbackSessionId) {
     const fallback = pickFrom.find(
       (session) => session.session_id === fallbackSessionId,
+    );
+    if (fallback) return fallback;
+  }
+  return pickFrom[0];
+}
+
+export function pickDefaultCatalogSession(
+  sessions: GraphReviewCatalogSession[],
+  requestedSessionId: string | null = requestedSessionFromLocation(),
+  fallbackSessionId?: string,
+): GraphReviewCatalogSession | null {
+  if (!sessions.length) return null;
+  const reviewableSessions = sessions.filter(hasCatalogReviewableRun);
+  const pickFrom = reviewableSessions.length ? reviewableSessions : sessions;
+  if (requestedSessionId) {
+    const requested = pickFrom.find(
+      (session) => session.sessionId === requestedSessionId,
+    );
+    if (requested) return requested;
+  }
+  if (fallbackSessionId) {
+    const fallback = pickFrom.find(
+      (session) => session.sessionId === fallbackSessionId,
     );
     if (fallback) return fallback;
   }

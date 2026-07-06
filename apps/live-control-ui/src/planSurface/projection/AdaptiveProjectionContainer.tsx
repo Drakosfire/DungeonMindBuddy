@@ -68,7 +68,11 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         if (inferredSessionId) {
           params.set("session", inferredSessionId);
         }
-        window.history.pushState({}, "", `/plan?${params.toString()}`);
+        window.history.pushState(
+          {},
+          "",
+          `${window.location.pathname}?${params.toString()}`,
+        );
       }
       openTool(toolId);
     },

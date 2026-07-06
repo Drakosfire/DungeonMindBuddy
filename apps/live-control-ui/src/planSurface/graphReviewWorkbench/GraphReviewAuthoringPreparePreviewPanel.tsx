@@ -6,6 +6,7 @@ import type { GraphGoldAuthoringCommitResponse, GraphGoldAuthoringVerifyCommitRe
 interface Props {
   campaignId: string;
   sessionId: string;
+  hasGold?: boolean;
   workflow: GraphReviewAuthorDraftWorkflow;
   onReloadAndVerifyCommit?: (commitResponse: GraphGoldAuthoringCommitResponse) => Promise<GraphGoldAuthoringVerifyCommitResponse>;
   onShowCommittedObject?: (targetId: string) => void;
@@ -16,7 +17,30 @@ function title(operationType: string): string {
   return operationType.split("_").map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ");
 }
 
-export function GraphReviewAuthoringPreparePreviewPanel({ workflow: draft, onReloadAndVerifyCommit, onShowCommittedObject, canShowCommittedObject }: Props) {
+export function GraphReviewAuthoringPreparePreviewPanel({
+  hasGold = false,
+  workflow: draft,
+  onReloadAndVerifyCommit,
+  onShowCommittedObject,
+  canShowCommittedObject,
+}: Props) {
+  if (!hasGold) {
+    return (
+      <section
+        className="graph-review-authoring-prepare-preview"
+        aria-label="Prepare write preview panel"
+      >
+        <header>
+          <p className="plan-surface-kicker">Author Draft workflow</p>
+          <h3>2. Prepare preview</h3>
+        </header>
+        <p className="plan-projection-empty">
+          Gold fixture required to commit authoring changes. Local staging above
+          is ephemeral until a gold fixture exists for this session.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="graph-review-authoring-prepare-preview" aria-label="Prepare write preview panel">

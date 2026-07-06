@@ -51,11 +51,10 @@ export function GraphReviewLaneCards({ goldLane, liveLane, liveRun }: GraphRevie
         </header>
         {goldLane ? (
           <>
-            <p className="graph-review-lane-card-summary">
-              {goldLane.counts.nodes} nodes / {goldLane.counts.edges} edges /{" "}
-              {goldLane.counts.evidenceRefs} evidence refs
-            </p>
             <LaneDetails summary="Advanced lane details">
+              <Field label="Nodes" value={goldLane.counts.nodes} />
+              <Field label="Edges" value={goldLane.counts.edges} />
+              <Field label="Evidence refs" value={goldLane.counts.evidenceRefs} />
               <Field label="Role" value={goldLane.role} />
               <Field label="Source kind" value={goldLane.sourceKind} />
               <Field label="Campaign" value={goldLane.campaignId} />
@@ -81,11 +80,10 @@ export function GraphReviewLaneCards({ goldLane, liveLane, liveRun }: GraphRevie
         </header>
         {liveLane && liveRun ? (
           <>
-            <p className="graph-review-lane-card-summary">
-              {liveLane.counts.nodes} nodes / {liveLane.counts.edges} edges /{" "}
-              {liveLane.counts.evidenceRefs} evidence refs
-            </p>
             <LaneDetails summary="Advanced run details">
+              <Field label="Nodes" value={liveLane.counts.nodes} />
+              <Field label="Edges" value={liveLane.counts.edges} />
+              <Field label="Evidence refs" value={liveLane.counts.evidenceRefs} />
               <Field label="Role" value={liveLane.role} />
               <Field label="Source kind" value={liveLane.sourceKind} />
               <Field label="Run label" value={unknownIfBlank(liveRun.run_label)} />

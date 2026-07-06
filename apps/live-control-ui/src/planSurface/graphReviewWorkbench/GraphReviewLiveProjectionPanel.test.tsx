@@ -11,6 +11,7 @@ import type {
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
+import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 
 vi.mock("../../api/liveApi", async () => {
   const actual =
@@ -97,7 +98,7 @@ const projection: UnionSupergraphProjectionResponse = {
 
 const projectionWithMention: UnionSupergraphProjectionResponse = {
   ...projection,
-  markdown: "The party met Alden at the gate.",
+  markdown: "The party met [Alden](dmb-node:alden) at the gate.",
   node_views: {
     alden: {
       node_id: "alden",
@@ -137,13 +138,10 @@ describe("GraphReviewLiveProjectionPanel", () => {
   });
 
   it("renders an empty state when no live run is selected", () => {
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={null}
-      />,
-    );
+    renderGraphReviewLiveHarness({
+      liveRun: null,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
 
     expect(
       screen.getByText(
@@ -154,17 +152,14 @@ describe("GraphReviewLiveProjectionPanel", () => {
   });
 
   it("renders unavailable metadata and does not call the projection API", () => {
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={{
-          ...baseRun,
-          preview_union_available: false,
-          next_actions: ["Generate preview union"],
-        }}
-      />,
-    );
+    renderGraphReviewLiveHarness({
+      liveRun: {
+        ...baseRun,
+        preview_union_available: false,
+        next_actions: ["Generate preview union"],
+      },
+      children: <GraphReviewLiveProjectionPanel />,
+    });
 
     expect(
       screen.getByText(
@@ -178,13 +173,10 @@ describe("GraphReviewLiveProjectionPanel", () => {
   it("loads the selected run projection by manifest and preview-union paths", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
 
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={baseRun}
-      />,
-    );
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -198,13 +190,30 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getUnionSupergraphProjection).not.toHaveBeenCalledWith(
       expect.objectContaining({ useLatestGraphIngest: true }),
     );
-    expect(screen.getAllByText("Live Run · read-only").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.queryByText("Live Run · read-only")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Source projection" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders a single live lane without fetching gold projection when hasGold is false", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: false,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(getGoldGraphProjection).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
   });
 
   it("opens and closes one projected interaction surface from a graph mention", async () => {
@@ -218,13 +227,11 @@ describe("GraphReviewLiveProjectionPanel", () => {
       gold_fixture_relpath: "gold/session-23.json",
     });
 
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={baseRun}
-      />,
-    );
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: true,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
 
     await screen.findAllByRole("button", { name: /Alden/ });
     fireEvent.click(screen.getAllByRole("button", { name: /Alden/ }).at(-1)!);
@@ -240,15 +247,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
       screen.queryByRole("button", { name: "Highlight counterpart" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Statblock unavailable" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Encounter note unavailable" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Selected graph object"),
-    ).not.toBeInTheDocument();
-    expect(
       screen.queryByRole("button", { name: "Stage node assertion" }),
     ).not.toBeInTheDocument();
 
@@ -260,72 +258,23 @@ describe("GraphReviewLiveProjectionPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows Author Draft selected-object actions and relationship staging flow", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
-      ...projectionWithMention,
-      markdown: "Alden watched Bera.",
-      node_views: {
-        ...projectionWithMention.node_views,
-        bera: {
-          ...projectionWithMention.node_views.alden,
-          node_id: "bera",
-          label: "Bera",
-          role: "scout",
-          summary: "Bera scouts the old road.",
-        },
-      },
-      mentions: [
-        {
-          mention_id: "m-alden",
-          node_id: "alden",
-          label: "Alden",
-          start_offset: 0,
-          end_offset: 5,
-          anchor_status: "anchored",
-        },
-        {
-          mention_id: "m-bera",
-          node_id: "bera",
-          label: "Bera",
-          start_offset: 14,
-          end_offset: 18,
-          anchor_status: "anchored",
-        },
-      ],
+  it("does not render diagnostic panels on the main surface", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      children: <GraphReviewLiveProjectionPanel />,
     });
 
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={baseRun}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Author Draft" }));
-    await screen.findAllByRole("button", { name: /Alden/ });
-    fireEvent.click(screen.getAllByRole("button", { name: /Alden/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Alden" })).toHaveTextContent(
-      "Draft only. Staging is local; no gold fixture, graph state, or corpus file has changed.",
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("button", { name: "Stage as possible gold node" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Relationship type")).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Gold-vs-live smoke alarms" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Nothing is written until Prepare and Commit/),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Use as relationship source" }),
-    );
-
-    fireEvent.click(screen.getAllByRole("button", { name: /Bera/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Bera" })).toHaveTextContent(
-      "Relationship source: live:alden",
-    );
-    expect(
-      screen.getByRole("button", { name: "Stage relationship" }),
-    ).toBeEnabled();
+      screen.queryByText("Author Draft text-selection actions"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a friendly error for failed projection loading", async () => {
@@ -333,13 +282,10 @@ describe("GraphReviewLiveProjectionPanel", () => {
       new Error("Projection fixture missing"),
     );
 
-    render(
-      <GraphReviewLiveProjectionPanel
-        campaignId="longmont-c2"
-        sessionId="session-23"
-        liveRun={baseRun}
-      />,
-    );
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(

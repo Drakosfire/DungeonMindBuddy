@@ -101,6 +101,10 @@ export function useProjection(): ProjectionContextValue {
   return context;
 }
 
+export function useOptionalProjection(): ProjectionContextValue | null {
+  return useContext(ProjectionContext);
+}
+
 export function projectionContainerClass(size: ProjectionSize | undefined): string {
   if (size === "fullscreen") return "plan-projection-container plan-projection-fullscreen";
   if (size === "wide") return "plan-projection-container plan-projection-wide";

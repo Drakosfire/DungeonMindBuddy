@@ -1,4 +1,4 @@
-export type SurfaceMode = "plan" | "build" | "combat" | "play";
+export type SurfaceMode = "plan" | "ingest" | "build" | "combat" | "play";
 
 export type ProjectionKind = "tool" | "content";
 

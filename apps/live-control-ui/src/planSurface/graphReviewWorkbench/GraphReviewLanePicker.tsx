@@ -1,12 +1,15 @@
-import type { GoldReviewSessionSummary } from "../../api/types";
+import type { GraphIngestRunSummary } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import { GraphGoldReviewRunPicker } from "../graphGoldReview/GraphGoldReviewRunPicker";
-import { goldReviewSessionLabel } from "../sessionCampaignContext";
-import { sessionsForReviewCampaign } from "../sessionCampaignContext";
-import { hasReviewableProjection } from "./graphReviewWorkbenchUtils";
+import {
+  catalogSessionLabel,
+  catalogSessionsForReviewCampaign,
+  hasCatalogReviewableRun,
+  type GraphReviewCatalogSession,
+} from "./graphReviewWorkbenchUtils";
 
 interface GraphReviewLanePickerProps {
-  sessions: GoldReviewSessionSummary[];
+  sessions: GraphReviewCatalogSession[];
   selectedCampaignId: string;
   selectedSessionId: string;
   selectedManifestPath: string | null;
@@ -16,11 +19,11 @@ interface GraphReviewLanePickerProps {
 }
 
 function reviewableSessionLabel(
-  sessions: GoldReviewSessionSummary[],
+  sessions: GraphReviewCatalogSession[],
 ): string | null {
-  const reviewable = sessions.find(hasReviewableProjection);
+  const reviewable = sessions.find(hasCatalogReviewableRun);
   if (!reviewable) return null;
-  return goldReviewSessionLabel(reviewable);
+  return catalogSessionLabel(reviewable);
 }
 
 export function GraphReviewLanePicker({
@@ -32,16 +35,16 @@ export function GraphReviewLanePicker({
   onSessionSelect,
   onManifestSelect,
 }: GraphReviewLanePickerProps) {
-  const campaignSessions = sessionsForReviewCampaign(
+  const campaignSessions = catalogSessionsForReviewCampaign(
     sessions,
     selectedCampaignId,
   );
   const selectedSession = campaignSessions.find(
-    (session) => session.session_id === selectedSessionId,
+    (session) => session.sessionId === selectedSessionId,
   );
   const reviewableLabel = reviewableSessionLabel(campaignSessions);
   const selectedHasProjection = selectedSession
-    ? hasReviewableProjection(selectedSession)
+    ? hasCatalogReviewableRun(selectedSession)
     : false;
 
   return (
@@ -56,14 +59,14 @@ export function GraphReviewLanePicker({
       <div
         className="graph-gold-review-session-picker"
         role="tablist"
-        aria-label="Gold-backed sessions"
+        aria-label="Ingested sessions"
       >
         {campaignSessions.map((session) => {
-          const active = session.session_id === selectedSessionId;
-          const reviewable = hasReviewableProjection(session);
+          const active = session.sessionId === selectedSessionId;
+          const reviewable = hasCatalogReviewableRun(session);
           return (
             <button
-              key={session.session_id}
+              key={session.sessionId}
               type="button"
               role="tab"
               aria-selected={active}
@@ -73,14 +76,14 @@ export function GraphReviewLanePicker({
                   ? "graph-gold-review-pill active"
                   : "graph-gold-review-pill"
               }
-              onClick={() => reviewable && onSessionSelect(session.session_id)}
+              onClick={() => reviewable && onSessionSelect(session.sessionId)}
               title={
                 reviewable
                   ? undefined
                   : "This session has no reviewable projection."
               }
             >
-              {goldReviewSessionLabel(session)}
+              {catalogSessionLabel(session)}
               {!reviewable ? " · unavailable" : ""}
             </button>
           );
@@ -96,8 +99,8 @@ export function GraphReviewLanePicker({
         </p>
       ) : null}
       <GraphGoldReviewRunPicker
-        runs={(selectedSession?.available_runs ?? []).filter(
-          (run) => run.preview_union_available,
+        runs={(selectedSession?.availableRuns ?? []).filter(
+          (run: GraphIngestRunSummary) => run.preview_union_available,
         )}
         selectedManifestPath={selectedManifestPath}
         onSelect={onManifestSelect}

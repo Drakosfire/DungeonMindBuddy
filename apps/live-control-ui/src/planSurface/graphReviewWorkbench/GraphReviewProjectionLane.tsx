@@ -2,21 +2,15 @@ import type { ReactNode } from "react";
 import type {
   GraphProjectionNodeView,
   RecapProjectionSourceSpan,
-  UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { presentationForNodeId } from "../graphPreview/GraphNodePresentation";
 import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
 } from "./graphReviewDeltaTypes";
-import { normalizeProjectionMarkdown } from "../graphProjectionReader/projectionMarkdownPreprocessing";
+import { stripLeadingYamlFrontmatter } from "../graphProjectionReader/projectionMarkdownPreprocessing";
 
 export type GraphReviewProjectionLaneRole = "gold" | "live";
-
-type ProjectionMention =
-  UnionSupergraphProjectionResponse["mentions"][number] & {
-    anchor_status?: string | null;
-  };
 
 interface GraphReviewProjectionLaneProps {
   laneRole: GraphReviewProjectionLaneRole;
@@ -25,7 +19,6 @@ interface GraphReviewProjectionLaneProps {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans?: RecapProjectionSourceSpan[];
-  mentions: ProjectionMention[];
   mentionsCount: number;
   deltaIndex: GraphReviewDeltaIndex;
   activeObject: {
@@ -44,6 +37,7 @@ interface GraphReviewProjectionLaneProps {
     text: string;
     sourceOffsets: { start: number; end: number } | null;
   }) => void;
+  readerMode?: boolean;
 }
 
 interface NodeDecoration {
@@ -84,16 +78,6 @@ function buildNodeDecorations(
     };
   }
   return decorations;
-}
-
-function isAnchoredMention(mention: ProjectionMention): boolean {
-  if (mention.anchor_status && mention.anchor_status !== "anchored")
-    return false;
-  return (
-    typeof mention.start_offset === "number" &&
-    typeof mention.end_offset === "number" &&
-    mention.end_offset > mention.start_offset
-  );
 }
 
 function renderMentionToken({
@@ -156,7 +140,7 @@ function renderMentionToken({
       onClick={() => propsOnSelectObject?.({ laneRole, nodeId })}
     >
       {label}
-      {decoration.status !== "unknown" ? (
+      {decoration.status !== "unknown" && decoration.status !== "matched" ? (
         <span className="graph-review-pill-delta-badge">
           {decoration.label}
         </span>
@@ -165,11 +149,19 @@ function renderMentionToken({
   );
 }
 
-function renderInlineRange(
+// Matches parseRecapInlineSegments (graphPreview/recapMarkdown.ts) and
+// markdownToTiptap.ts's graphNodeReferencePattern: find `[label](dmb-node:id)`
+// links directly in the markdown text being rendered. This intentionally does
+// NOT rely on server-computed mention offsets — those have to stay byte-perfect
+// in sync with a markdown string that gets mutated in a different language, and
+// they silently miss any link the corpus author wrote by hand (the backend's
+// alias-matching pass skips text already wrapped in brackets, so no offset is
+// ever produced for it). Parsing the text we actually have renders every link
+// that's actually present, regardless of how it got there.
+const NODE_LINK_PATTERN = /\[([^\]]+)\]\(dmb-node:([^)]+)\)/g;
+
+function renderInlineText(
   text: string,
-  rangeStart: number,
-  rangeEnd: number,
-  mentions: ProjectionMention[],
   laneRole: GraphReviewProjectionLaneRole,
   nodeViews: Record<string, GraphProjectionNodeView>,
   decorations: Record<string, NodeDecoration>,
@@ -181,30 +173,16 @@ function renderInlineRange(
   }) => void,
 ) {
   const parts: ReactNode[] = [];
-  const anchoredMentions = mentions
-    .filter((mention) => isAnchoredMention(mention))
-    .filter(
-      (mention) =>
-        mention.start_offset! >= rangeStart && mention.end_offset! <= rangeEnd,
-    )
-    .sort(
-      (left, right) =>
-        left.start_offset! - right.start_offset! ||
-        left.end_offset! - right.end_offset!,
-    );
+  let cursor = 0;
 
-  let cursor = rangeStart;
-  for (const mention of anchoredMentions) {
-    const start = mention.start_offset!;
-    const end = mention.end_offset!;
-    if (start < cursor) continue;
-    if (start > cursor)
-      parts.push(
-        <span key={`t-${cursor}`}>
-          {text.slice(cursor - rangeStart, start - rangeStart)}
-        </span>,
-      );
-    const fallbackLabel = text.slice(start - rangeStart, end - rangeStart);
+  for (const match of text.matchAll(NODE_LINK_PATTERN)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (start > cursor) {
+      parts.push(<span key={`t-${cursor}`}>{text.slice(cursor, start)}</span>);
+    }
+    const label = match[1].replace(/\\]/g, "]").replace(/\\\\/g, "\\");
+    const nodeId = match[2];
     parts.push(
       renderMentionToken({
         laneRole,
@@ -213,20 +191,17 @@ function renderInlineRange(
         activeObject,
         onActiveObjectChange,
         propsOnSelectObject,
-        nodeId: mention.node_id,
-        label: mention.label || fallbackLabel,
-        key: mention.mention_id || `${mention.node_id}-${start}`,
+        nodeId,
+        label,
+        key: `${nodeId}-${start}`,
       }),
     );
     cursor = end;
   }
 
-  if (cursor < rangeEnd)
-    parts.push(
-      <span key={`t-${cursor}`}>
-        {text.slice(cursor - rangeStart, rangeEnd - rangeStart)}
-      </span>,
-    );
+  if (cursor < text.length) {
+    parts.push(<span key={`t-${cursor}`}>{text.slice(cursor)}</span>);
+  }
   return parts;
 }
 
@@ -250,11 +225,8 @@ function renderMarkdownBlocks(
     if (heading) {
       const level = heading[1].length;
       const contentStart = start + heading[1].length + 1;
-      const content = renderInlineRange(
+      const content = renderInlineText(
         markdown.slice(contentStart, end),
-        contentStart,
-        end,
-        props.mentions,
         props.laneRole,
         props.nodeViews,
         decorations,
@@ -269,11 +241,8 @@ function renderMarkdownBlocks(
     }
     blocks.push(
       <p key={start}>
-        {renderInlineRange(
+        {renderInlineText(
           markdown.slice(start, end),
-          start,
-          end,
-          props.mentions,
           props.laneRole,
           props.nodeViews,
           decorations,
@@ -291,39 +260,33 @@ export function GraphReviewProjectionLane(
   props: GraphReviewProjectionLaneProps,
 ) {
   const decorations = buildNodeDecorations(props.deltaIndex, props.laneRole);
-  const projection = normalizeProjectionMarkdown(props.markdown, props.mentions);
   const laneProps = {
     ...props,
-    markdown: projection.markdown,
-    mentions: projection.mentions,
+    markdown: stripLeadingYamlFrontmatter(props.markdown).markdown,
   };
-  const unanchoredCount = laneProps.mentions.filter(
-    (mention) => !isAnchoredMention(mention),
-  ).length;
+  const readerMode = props.readerMode ?? false;
+  const ariaLabel =
+    props.laneRole === "gold" ? "Gold fixture prose" : "Live run prose";
   return (
     <section
       className="graph-review-projection-lane"
-      aria-label={props.title}
+      aria-label={readerMode ? ariaLabel : props.title}
       data-lane-role={props.laneRole}
     >
-      <header>
-        <p className="plan-surface-kicker">
-          {props.laneRole === "gold"
-            ? "Gold Fixture · read-only"
-            : "Live Run · read-only"}
-        </p>
-        <h3>{props.title}</h3>
-        {props.subtitle ? <p>{props.subtitle}</p> : null}
-        <span>
-          {props.mentionsCount} projected graph mention
-          {props.mentionsCount === 1 ? "" : "s"}
-        </span>
-      </header>
-      {unanchoredCount ? (
-        <p className="graph-review-projection-warning">
-          {unanchoredCount} {props.laneRole} object
-          {unanchoredCount === 1 ? " is" : "s are"} unanchored in this recap.
-        </p>
+      {!readerMode ? (
+        <header>
+          <p className="plan-surface-kicker">
+            {props.laneRole === "gold"
+              ? "Gold Fixture · read-only"
+              : "Live Run · read-only"}
+          </p>
+          <h3>{props.title}</h3>
+          {props.subtitle ? <p>{props.subtitle}</p> : null}
+          <span>
+            {props.mentionsCount} projected graph mention
+            {props.mentionsCount === 1 ? "" : "s"}
+          </span>
+        </header>
       ) : null}
       <article
         className="graph-review-projection-document"

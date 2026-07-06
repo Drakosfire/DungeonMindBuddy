@@ -79,6 +79,7 @@ function mockRecapIngestWithInspect(
 
 describe("IngestionModule", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/");
     window.localStorage.clear();
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       schema_version: "dmb_recap_artifacts_registry_v1",
@@ -96,6 +97,19 @@ describe("IngestionModule", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("lets the operator choose the ingest campaign", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest");
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+
+    const campaignPicker = await screen.findByLabelText("Campaign");
+    expect(campaignPicker).toHaveValue("longmont-c2");
+
+    await user.selectOptions(campaignPicker, "longmont-c1");
+    expect(campaignPicker).toHaveValue("longmont-c1");
+    expect(window.location.search).toContain("campaign=longmont-c1");
   });
 
   it("renders editable recap/source session input", async () => {
