@@ -178,9 +178,7 @@ def _project_markdown_mentions(
     if not markdown:
         return markdown, []
 
-    mentions: list[RecapProjectionMention] = []
-    projected = markdown
-    replacements: list[tuple[int, int, str, str]] = []
+    matches: list[tuple[int, int, str, str]] = []
     occupied: list[tuple[int, int]] = []
 
     aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
@@ -193,25 +191,46 @@ def _project_markdown_mentions(
             start, end = match.span()
             if any(start < used_end and end > used_start for used_start, used_end in occupied):
                 continue
-            label = match.group(0)
-            replacement = f"[{label}](dmb-node:{node_id})"
-            replacements.append((start, end, replacement, node_id))
             occupied.append((start, end))
-            mentions.append(
-                RecapProjectionMention(
-                    mention_id=f"mention:{node_id}:{start}",
-                    node_id=node_id,
-                    label=label,
-                    start_offset=start,
-                    end_offset=end,
-                    evidence_ref_ids=list(node.evidence_ref_ids),
-                )
+            matches.append((start, end, match.group(0), node_id))
+
+    matches.sort(key=lambda item: item[0])
+
+    # Build the projected markdown and mention offsets in a single left-to-right
+    # pass so each mention's start/end_offset describes its actual position in
+    # the *projected* string. Computing offsets against the pre-replacement
+    # markdown (as before) drifts more and more with every earlier mention,
+    # since each `[label](dmb-node:node_id)` replacement is longer than the
+    # bare alias it replaces.
+    pieces: list[str] = []
+    mentions: list[RecapProjectionMention] = []
+    cursor = 0
+    projected_length = 0
+    for start, end, label, node_id in matches:
+        node = store.nodes[node_id]
+        prefix = markdown[cursor:start]
+        pieces.append(prefix)
+        projected_length += len(prefix)
+
+        replacement = f"[{label}](dmb-node:{node_id})"
+        mention_start = projected_length
+        pieces.append(replacement)
+        projected_length += len(replacement)
+
+        mentions.append(
+            RecapProjectionMention(
+                mention_id=f"mention:{node_id}:{start}",
+                node_id=node_id,
+                label=label,
+                start_offset=mention_start,
+                end_offset=projected_length,
+                evidence_ref_ids=list(node.evidence_ref_ids),
             )
+        )
+        cursor = end
 
-    for start, end, replacement, _node_id in sorted(replacements, reverse=True):
-        projected = f"{projected[:start]}{replacement}{projected[end:]}"
-
-    return projected, sorted(mentions, key=lambda mention: mention.start_offset or 0)
+    pieces.append(markdown[cursor:])
+    return "".join(pieces), mentions
 
 
 def _build_evidence_badge(

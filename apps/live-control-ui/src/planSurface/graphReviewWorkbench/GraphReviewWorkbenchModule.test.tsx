@@ -94,7 +94,7 @@ function mockWorkbenchApis() {
     campaign_id: "longmont-c2",
     session_id: "session-23",
     graph_id: "graph-a",
-    markdown: "Alden watched Bera.",
+    markdown: "[Alden](dmb-node:alden) watched [Bera](dmb-node:bera).",
     focus: {
       focus_session_id: "session-23",
       focused_evidence_ref_ids: [],

@@ -83,24 +83,14 @@ const deltaIndex: GraphReviewDeltaIndex = {
 };
 
 describe("GraphReviewProjectionLane", () => {
-  it("renders structured anchored mentions as graph tokens with delta state", () => {
+  it("renders dmb-node links found directly in the markdown as graph tokens with delta state", () => {
     render(
       <GraphReviewProjectionLane
         laneRole="gold"
         title="Gold Fixture · read-only"
-        markdown="The Tripod Null-Calf threatened the North Gate."
+        markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate."
         nodeViews={{ "node:tripod-null-calf": tripodNode }}
-        mentions={[
-          {
-            mention_id: "m1",
-            node_id: "node:tripod-null-calf",
-            label: "Tripod Null-Calf",
-            start_offset: 4,
-            end_offset: 21,
-            evidence_ref_ids: [],
-            anchor_status: "anchored",
-          },
-        ]}
+        mentions={[]}
         mentionsCount={1}
         deltaIndex={deltaIndex}
         activeObject={null}
@@ -117,25 +107,37 @@ describe("GraphReviewProjectionLane", () => {
     expect(screen.queryByText("Matched")).not.toBeInTheDocument();
   });
 
+  it("renders every dmb-node link present in the text, including ones with no matching mention entry", () => {
+    render(
+      <GraphReviewProjectionLane
+        laneRole="gold"
+        title="Gold Fixture · read-only"
+        markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) fled toward the [North Gate](dmb-node:loc_north_gate)."
+        nodeViews={{ "node:tripod-null-calf": tripodNode }}
+        mentions={[]}
+        mentionsCount={0}
+        deltaIndex={deltaIndex}
+        activeObject={null}
+        onActiveObjectChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /Tripod Null-Calf/i }),
+    ).toBeInTheDocument();
+    const gateToken = screen.getByRole("button", { name: /North Gate/i });
+    expect(gateToken).toHaveAttribute("data-graph-node-id", "loc_north_gate");
+  });
+
   it("hides lane header metadata in reader mode", () => {
     render(
       <GraphReviewProjectionLane
         laneRole="gold"
         title="Gold Fixture · read-only"
         subtitle="evals/graph_memory_layer/examples/session_23.json"
-        markdown="The Tripod Null-Calf threatened the North Gate."
+        markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate."
         nodeViews={{ "node:tripod-null-calf": tripodNode }}
-        mentions={[
-          {
-            mention_id: "m1",
-            node_id: "node:tripod-null-calf",
-            label: "Tripod Null-Calf",
-            start_offset: 4,
-            end_offset: 21,
-            evidence_ref_ids: [],
-            anchor_status: "anchored",
-          },
-        ]}
+        mentions={[]}
         mentionsCount={1}
         deltaIndex={deltaIndex}
         activeObject={null}
@@ -187,19 +189,9 @@ describe("GraphReviewProjectionLane", () => {
       <GraphReviewProjectionLane
         laneRole="gold"
         title="Gold Fixture · read-only"
-        markdown="The Tripod Null-Calf threatened the North Gate."
+        markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate."
         nodeViews={{ "node:tripod-null-calf": tripodNode }}
-        mentions={[
-          {
-            mention_id: "m1",
-            node_id: "node:tripod-null-calf",
-            label: "Tripod Null-Calf",
-            start_offset: 4,
-            end_offset: 21,
-            evidence_ref_ids: [],
-            anchor_status: "anchored",
-          },
-        ]}
+        mentions={[]}
         mentionsCount={1}
         deltaIndex={goldOnlyDeltaIndex}
         activeObject={null}
@@ -218,19 +210,9 @@ describe("GraphReviewProjectionLane", () => {
       <GraphReviewProjectionLane
         laneRole="gold"
         title="Gold Fixture · read-only"
-        markdown="The Tripod Null-Calf threatened the North Gate."
+        markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate."
         nodeViews={{ "node:tripod-null-calf": tripodNode }}
-        mentions={[
-          {
-            mention_id: "m1",
-            node_id: "node:tripod-null-calf",
-            label: "Tripod Null-Calf",
-            start_offset: 4,
-            end_offset: 21,
-            evidence_ref_ids: [],
-            anchor_status: "anchored",
-          },
-        ]}
+        mentions={[]}
         mentionsCount={1}
         deltaIndex={deltaIndex}
         activeObject={null}
@@ -250,9 +232,7 @@ describe("GraphReviewProjectionLane", () => {
     const frontmatter =
       '---\ntitle: "Session 1"\ndocument_class: play\ncanon_layer: campaign\n---\n\n';
     const body =
-      "The Tripod Null-Calf threatened the North Gate.\n\n---\n\nThe gate held.";
-    const mentionStart = frontmatter.length + 4;
-    const mentionEnd = frontmatter.length + 21;
+      "The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate.\n\n---\n\nThe gate held.";
 
     render(
       <GraphReviewProjectionLane
@@ -260,17 +240,7 @@ describe("GraphReviewProjectionLane", () => {
         title="Gold Fixture read-only"
         markdown={`${frontmatter}${body}`}
         nodeViews={{ "node:tripod-null-calf": tripodNode }}
-        mentions={[
-          {
-            mention_id: "m1",
-            node_id: "node:tripod-null-calf",
-            label: "Tripod Null-Calf",
-            start_offset: mentionStart,
-            end_offset: mentionEnd,
-            evidence_ref_ids: [],
-            anchor_status: "anchored",
-          },
-        ]}
+        mentions={[]}
         mentionsCount={1}
         deltaIndex={deltaIndex}
         activeObject={null}
@@ -296,19 +266,9 @@ describe("GraphReviewProjectionLane", () => {
           <GraphReviewProjectionLane
             laneRole="gold"
             title="Gold Fixture · read-only"
-            markdown="The Tripod Null-Calf threatened the North Gate."
+            markdown="The [Tripod Null-Calf](dmb-node:node:tripod-null-calf) threatened the North Gate."
             nodeViews={{ "node:tripod-null-calf": tripodNode }}
-            mentions={[
-              {
-                mention_id: "m1",
-                node_id: "node:tripod-null-calf",
-                label: "Tripod Null-Calf",
-                start_offset: 4,
-                end_offset: 21,
-                evidence_ref_ids: [],
-                anchor_status: "anchored",
-              },
-            ]}
+            mentions={[]}
             mentionsCount={1}
             deltaIndex={deltaIndex}
             activeObject={activeObject}
@@ -317,19 +277,9 @@ describe("GraphReviewProjectionLane", () => {
           <GraphReviewProjectionLane
             laneRole="live"
             title="Live Run · read-only"
-            markdown="The Tripod Null-Calf reached the North Gate."
+            markdown="The [Tripod Null-Calf](dmb-node:live:tripod-null-calf) reached the North Gate."
             nodeViews={{ "live:tripod-null-calf": liveTripodNode }}
-            mentions={[
-              {
-                mention_id: "m2",
-                node_id: "live:tripod-null-calf",
-                label: "Tripod Null-Calf",
-                start_offset: 4,
-                end_offset: 21,
-                evidence_ref_ids: [],
-                anchor_status: "anchored",
-              },
-            ]}
+            mentions={[]}
             mentionsCount={1}
             deltaIndex={deltaIndex}
             activeObject={activeObject}

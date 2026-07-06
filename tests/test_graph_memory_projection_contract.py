@@ -170,6 +170,30 @@ def test_build_recap_graph_projection_projects_markdown_mentions(
     ]
 
 
+def test_build_recap_graph_projection_mention_offsets_match_projected_markdown(
+    store: UnionSupergraphStore,
+) -> None:
+    """Regression: mention offsets must describe positions in the returned
+    markdown, not the pre-replacement text. Repeated aliases previously drifted
+    further out of alignment with every earlier `[label](dmb-node:id)` splice."""
+
+    projection = build_recap_graph_projection(
+        store,
+        session_id="session-23",
+        markdown=(
+            "Caelynn looked toward Mirathorn. Then Caelynn walked with "
+            "Mirathorn to the gate near Mirathorn again."
+        ),
+    )
+
+    assert len(projection.mentions) == 5
+    for mention in projection.mentions:
+        assert mention.start_offset is not None
+        assert mention.end_offset is not None
+        slice_ = (projection.markdown or "")[mention.start_offset : mention.end_offset]
+        assert slice_ == f"[{mention.label}](dmb-node:{mention.node_id})"
+
+
 def test_recap_projection_contains_global_pc_caelynn_node_view(
     store: UnionSupergraphStore,
 ) -> None:

@@ -98,7 +98,7 @@ const projection: UnionSupergraphProjectionResponse = {
 
 const projectionWithMention: UnionSupergraphProjectionResponse = {
   ...projection,
-  markdown: "The party met Alden at the gate.",
+  markdown: "The party met [Alden](dmb-node:alden) at the gate.",
   node_views: {
     alden: {
       node_id: "alden",
