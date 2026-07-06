@@ -9,6 +9,18 @@ import {
   type GraphObjectAuthoringInspectedNode,
 } from "./GraphObjectAuthoringObjectRefPicker";
 
+const CUSTOM_RELATIONSHIP_TYPE_VALUE = "__custom__";
+
+function isKnownRelationshipType(value: string): boolean {
+  return GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS.includes(value);
+}
+
+function relationshipTypeSelectValue(relationshipType: string): string {
+  return isKnownRelationshipType(relationshipType)
+    ? relationshipType
+    : CUSTOM_RELATIONSHIP_TYPE_VALUE;
+}
+
 export function GraphObjectAuthoringRelationshipForm({
   formState,
   onChange,
@@ -23,6 +35,9 @@ export function GraphObjectAuthoringRelationshipForm({
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
 }) {
+  const relationshipTypeSelect = relationshipTypeSelectValue(formState.relationshipType);
+  const usingCustomRelationshipType = relationshipTypeSelect === CUSTOM_RELATIONSHIP_TYPE_VALUE;
+
   return (
     <section className="graph-object-authoring-relationship-form" aria-label="Stage a relationship">
       <p className="graph-object-authoring-relationship-lede">
@@ -39,19 +54,37 @@ export function GraphObjectAuthoringRelationshipForm({
       />
       <div className="graph-object-authoring-field">
         <label htmlFor="graph-object-authoring-relationship-type">Relationship type</label>
-        <input
+        <select
           id="graph-object-authoring-relationship-type"
-          type="text"
-          list="graph-object-authoring-relationship-type-suggestions"
-          placeholder="e.g. has_member, or type a custom relationship"
-          value={formState.relationshipType}
-          onChange={(event) => onChange("relationshipType", event.target.value)}
-        />
-        <datalist id="graph-object-authoring-relationship-type-suggestions">
+          value={relationshipTypeSelect}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            if (nextValue === CUSTOM_RELATIONSHIP_TYPE_VALUE) {
+              if (isKnownRelationshipType(formState.relationshipType)) {
+                onChange("relationshipType", "");
+              }
+              return;
+            }
+            onChange("relationshipType", nextValue);
+          }}
+        >
           {GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS.map((option) => (
-            <option key={option} value={option} />
+            <option key={option} value={option}>
+              {option}
+            </option>
           ))}
-        </datalist>
+          <option value={CUSTOM_RELATIONSHIP_TYPE_VALUE}>Custom…</option>
+        </select>
+        {usingCustomRelationshipType ? (
+          <input
+            id="graph-object-authoring-relationship-type-custom"
+            type="text"
+            aria-label="Custom relationship type"
+            placeholder="Type a custom predicate, e.g. same_as"
+            value={formState.relationshipType}
+            onChange={(event) => onChange("relationshipType", event.target.value)}
+          />
+        ) : null}
       </div>
       <GraphObjectAuthoringObjectRefPicker
         label="Target object"
