@@ -44,7 +44,7 @@ const prepareResponse = {
   overlay_path: "/tmp/overlay.json",
   event_log_path: "/tmp/events.jsonl",
   current_overlay_token: "current-token",
-  proposed_overlay_token: "proposed-token",
+  proposed_assertions_digest: "proposed-digest",
   confirm_token: "confirm-token",
   assertion_count: 1,
   event_count: 2,

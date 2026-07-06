@@ -189,6 +189,15 @@ def test_prepare_writes_nothing(store: GraphAuthoringOverlayStore) -> None:
     assert not (authoring_root / BACKUPS_DIR).exists()
 
 
+def test_prepare_returns_proposed_assertions_digest(store: GraphAuthoringOverlayStore) -> None:
+    response = prepare_graph_object_authoring_write(
+        prepare_request(),
+        corpus_root=store.corpus_root,
+    )
+    assert len(response.proposed_assertions_digest) == 64
+    assert response.proposed_assertions_digest != response.current_overlay_token
+
+
 def test_prepare_returns_confirm_token(store: GraphAuthoringOverlayStore) -> None:
     response = prepare_graph_object_authoring_write(
         prepare_request(),
@@ -208,7 +217,7 @@ def test_prepare_token_is_deterministic(store: GraphAuthoringOverlayStore) -> No
     )
     assert first.confirm_token == second.confirm_token
     assert first.current_overlay_token == second.current_overlay_token
-    assert first.proposed_overlay_token == second.proposed_overlay_token
+    assert first.proposed_assertions_digest == second.proposed_assertions_digest
     assert first.assertions_preview[0].assertion_id == second.assertions_preview[0].assertion_id
 
 

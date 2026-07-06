@@ -2235,7 +2235,7 @@ export interface GraphObjectAuthoringPrepareResponse {
   overlay_path: string;
   event_log_path: string;
   current_overlay_token: string;
-  proposed_overlay_token: string;
+  proposed_assertions_digest: string;
   confirm_token: string;
   assertion_count: number;
   event_count: number;

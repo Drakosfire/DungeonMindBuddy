@@ -41,14 +41,56 @@ NO_MUTATION_GUARANTEES_PREPARE = [
     "Candidate graph gold was not mutated.",
 ]
 
-NO_MUTATION_GUARANTEES_COMMIT = [
-    "Committed authored graph memory.",
-    "Wrote authored graph overlay.",
-    "Appended authoring event log.",
+NO_MUTATION_GUARANTEES_COMMIT_SHARED = [
     "Source markdown was not mutated.",
     "Extracted live run artifacts were not mutated.",
     "Candidate graph gold was not mutated.",
 ]
+
+NO_MUTATION_GUARANTEES_COMMIT = [
+    "Committed authored graph memory.",
+    "Wrote authored graph overlay.",
+    "Appended authoring event log.",
+    *NO_MUTATION_GUARANTEES_COMMIT_SHARED,
+]
+
+
+def commit_no_mutation_guarantees(
+    *,
+    overlay_written: bool,
+    event_log_written: bool,
+) -> list[str]:
+    guarantees: list[str] = []
+    if overlay_written and event_log_written:
+        guarantees.append("Committed authored graph memory.")
+    elif overlay_written:
+        guarantees.append("Partial commit: authored graph overlay was written.")
+    if overlay_written:
+        guarantees.append("Wrote authored graph overlay.")
+    if event_log_written:
+        guarantees.append("Appended authoring event log.")
+    elif overlay_written:
+        guarantees.append("Authoring event log was not appended.")
+    guarantees.extend(NO_MUTATION_GUARANTEES_COMMIT_SHARED)
+    return guarantees
+
+
+def validate_authoring_campaign_scope(
+    campaign_id: str,
+    campaign_rel: str | None,
+) -> None:
+    try:
+        validate_campaign_id(campaign_id)
+    except UnsafeCampaignIdError as exc:
+        raise GraphObjectAuthoringError(str(exc), code="unsafe_campaign_id") from exc
+
+    if campaign_rel is not None:
+        from apps.live_control_server.models.graph_authoring_overlay import validate_campaign_rel
+
+        try:
+            validate_campaign_rel(campaign_rel)
+        except UnsafeCampaignRelError as exc:
+            raise GraphObjectAuthoringError(str(exc), code="unsafe_campaign_rel") from exc
 
 
 class GraphObjectAuthoringError(ValueError):
@@ -214,7 +256,7 @@ class GraphObjectAuthoringPrepareResponse(BaseModel):
     overlay_path: str
     event_log_path: str
     current_overlay_token: str
-    proposed_overlay_token: str
+    proposed_assertions_digest: str
     confirm_token: str
     assertion_count: int
     event_count: int
@@ -517,21 +559,6 @@ def build_confirm_token(
     )
 
 
-def proposed_overlay_token(
-    *,
-    campaign_id: str,
-    existing_overlay_bytes: bytes | None,
-    assertions: list[AuthoredGraphAssertion],
-) -> str:
-    if existing_overlay_bytes is None:
-        base = {"campaign_id": campaign_id, "assertions": []}
-    else:
-        base = json.loads(existing_overlay_bytes.decode("utf-8"))
-    merged_assertions = [*base.get("assertions", []), *[a.model_dump(mode="json") for a in assertions]]
-    preview = {**base, "assertions": merged_assertions}
-    return stable_json_digest(preview)
-
-
 def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
     if corpus_root is None:
         from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
@@ -545,18 +572,7 @@ def prepare_graph_object_authoring_write(
     *,
     corpus_root: Path | None = None,
 ) -> GraphObjectAuthoringPrepareResponse:
-    try:
-        validate_campaign_id(request.campaign_id)
-    except UnsafeCampaignIdError as exc:
-        raise GraphObjectAuthoringError(str(exc), code="unsafe_campaign_id") from exc
-
-    if request.campaign_rel is not None:
-        from apps.live_control_server.models.graph_authoring_overlay import validate_campaign_rel
-
-        try:
-            validate_campaign_rel(request.campaign_rel)
-        except UnsafeCampaignRelError as exc:
-            raise GraphObjectAuthoringError(str(exc), code="unsafe_campaign_rel") from exc
+    validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
 
     if not request.proposals:
         raise GraphObjectAuthoringError(
@@ -569,7 +585,6 @@ def prepare_graph_object_authoring_write(
     events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
     current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
     existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
-    existing_bytes = overlay_path.read_bytes() if overlay_path.is_file() else None
 
     assertions, diagnostics = build_assertions_from_proposals(request)
     if diagnostics:
@@ -586,11 +601,7 @@ def prepare_graph_object_authoring_write(
         current_overlay_token=current_token,
         assertions=assertions,
     )
-    proposed_token = proposed_overlay_token(
-        campaign_id=request.campaign_id,
-        existing_overlay_bytes=existing_bytes,
-        assertions=assertions,
-    )
+    assertions_digest = proposed_assertions_digest(assertions)
     preview = build_assertions_preview(assertions, request.proposals)
     summary = build_overlay_summary(len(existing_overlay.assertions), assertions)
     # One batch event plus one per assertion at commit time.
@@ -601,7 +612,7 @@ def prepare_graph_object_authoring_write(
         overlay_path=str(overlay_path),
         event_log_path=str(events_path),
         current_overlay_token=current_token,
-        proposed_overlay_token=proposed_token,
+        proposed_assertions_digest=assertions_digest,
         confirm_token=confirm_token,
         assertion_count=len(assertions),
         event_count=event_count,

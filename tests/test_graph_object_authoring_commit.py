@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+from apps.live_control_server.services.graph_authoring_event_log import GraphAuthoringEventLogError
 from apps.live_control_server.services.graph_authoring_overlay_store import GraphAuthoringOverlayStore
 from apps.live_control_server.services.graph_object_authoring_commit import (
     commit_graph_object_authoring_write,
@@ -15,6 +17,7 @@ from apps.live_control_server.services.graph_object_authoring_commit import (
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringError,
+    overlay_file_token,
     prepare_graph_object_authoring_write,
 )
 from tests.test_graph_object_authoring_prepare import (
@@ -296,3 +299,65 @@ def test_commit_with_empty_proposals_fails() -> None:
     with pytest.raises(GraphObjectAuthoringError) as exc:
         commit_graph_object_authoring_write(request, corpus_root=Path("/tmp/unused"))
     assert exc.value.code == "empty_proposals"
+
+
+def test_commit_rejects_unsafe_campaign_rel(store: GraphAuthoringOverlayStore, corpus_root: Path) -> None:
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(),
+        corpus_root=corpus_root,
+    )
+    request = _commit_request_from_prepare(prepare).model_copy(
+        update={"campaign_rel": "../../../outside"},
+    )
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        commit_graph_object_authoring_write(request, corpus_root=corpus_root)
+    assert exc.value.code == "unsafe_campaign_rel"
+
+
+def test_commit_new_overlay_token_matches_written_file(
+    store: GraphAuthoringOverlayStore,
+    corpus_root: Path,
+) -> None:
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(),
+        corpus_root=corpus_root,
+    )
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(prepare),
+        corpus_root=corpus_root,
+    )
+    overlay_path = Path(response.overlay_path)
+    assert response.new_overlay_token == overlay_file_token(
+        overlay_path,
+        campaign_id=CAMPAIGN_ID,
+    )
+    assert response.new_overlay_token != prepare.proposed_assertions_digest
+
+
+def test_commit_event_log_failure_returns_partial_guarantees(
+    store: GraphAuthoringOverlayStore,
+    corpus_root: Path,
+) -> None:
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(),
+        corpus_root=corpus_root,
+    )
+    with patch(
+        "apps.live_control_server.services.graph_object_authoring_commit.append_graph_authoring_events",
+        side_effect=GraphAuthoringEventLogError("disk full"),
+    ):
+        response = commit_graph_object_authoring_write(
+            _commit_request_from_prepare(prepare),
+            corpus_root=corpus_root,
+        )
+
+    assert response.committed is False
+    assert response.event_count == 0
+    joined = " ".join(response.no_mutation_guarantees).lower()
+    assert "partial commit" in joined
+    assert "event log was not appended" in joined
+    assert "committed authored graph memory" not in joined
+    assert "appended authoring event log" not in joined
+
+    overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    assert len(overlay.assertions) == 1

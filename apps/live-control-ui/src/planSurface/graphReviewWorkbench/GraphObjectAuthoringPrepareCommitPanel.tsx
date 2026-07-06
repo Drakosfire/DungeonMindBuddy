@@ -221,10 +221,8 @@ export function GraphObjectAuthoringPrepareCommitPanel({
           </ul>
           <p>Target overlay: {prepared.overlay_path}</p>
           <p>Event log: {prepared.event_log_path}</p>
-          <p>
-            Overlay token: {shortToken(prepared.current_overlay_token)} →{" "}
-            {shortToken(prepared.proposed_overlay_token)}
-          </p>
+          <p>Current overlay token: {shortToken(prepared.current_overlay_token)}</p>
+          <p>Proposed assertions digest: {shortToken(prepared.proposed_assertions_digest)}</p>
           <ul className="graph-object-authoring-no-mutation-list">
             {prepared.no_mutation_guarantees.map((line) => (
               <li key={line}>{line}</li>
@@ -264,6 +262,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
           <p>Overlay: {committed.overlay_path}</p>
           <p>Event log: {committed.event_log_path}</p>
           {committed.backup_path ? <p>Backup: {committed.backup_path}</p> : null}
+          <p>New overlay token: {shortToken(committed.new_overlay_token)}</p>
           <p>
             {committed.assertion_count} assertion(s), {committed.event_count} event record(s)
           </p>

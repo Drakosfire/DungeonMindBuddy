@@ -13,18 +13,20 @@ from apps.live_control_server.services.graph_authoring_event_log import (
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
+    GraphAuthoringOverlayStoreError,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphAuthoringDiagnostic,
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringCommitResponse,
     GraphObjectAuthoringError,
-    NO_MUTATION_GUARANTEES_COMMIT,
     authoring_prepare_request_from_write,
     build_assertions_from_proposals,
     build_confirm_token,
+    commit_no_mutation_guarantees,
     overlay_file_token,
     stable_json_digest,
+    validate_authoring_campaign_scope,
 )
 
 
@@ -65,9 +67,14 @@ def commit_graph_object_authoring_write(
             code="empty_proposals",
         )
 
-    store = _resolve_store(corpus_root)
-    overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
+    validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
+
+    try:
+        store = _resolve_store(corpus_root)
+        overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
+        events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
+    except GraphAuthoringOverlayStoreError as exc:
+        raise GraphObjectAuthoringError(str(exc), code="invalid_campaign_scope") from exc
     current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
 
     if current_token != request.current_overlay_token:
@@ -156,7 +163,10 @@ def commit_graph_object_authoring_write(
                     severity="error",
                 )
             ],
-            no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_COMMIT),
+            no_mutation_guarantees=commit_no_mutation_guarantees(
+                overlay_written=True,
+                event_log_written=False,
+            ),
         )
 
     return GraphObjectAuthoringCommitResponse(
@@ -169,5 +179,8 @@ def commit_graph_object_authoring_write(
         event_count=len(events),
         new_overlay_token=token_after,
         diagnostics=[],
-        no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_COMMIT),
+        no_mutation_guarantees=commit_no_mutation_guarantees(
+            overlay_written=True,
+            event_log_written=True,
+        ),
     )
