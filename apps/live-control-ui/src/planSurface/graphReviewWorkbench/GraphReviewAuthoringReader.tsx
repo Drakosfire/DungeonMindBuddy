@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import type {
@@ -16,6 +18,7 @@ interface GraphReviewAuthoringReaderProps {
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans: RecapProjectionSourceSpan[];
   documentLabel?: string;
+  authoringEnabled?: boolean;
   onInspectNode: (nodeId: string) => void;
   onGraphAuthoringSelection?: (selection: GraphAuthoringSelection | null) => void;
   onGraphAuthoringAction?: (
@@ -36,11 +39,31 @@ export function GraphReviewAuthoringReader({
   nodeViews,
   sourceSpans,
   documentLabel = "Live run prose",
+  authoringEnabled = false,
   onInspectNode,
   onGraphAuthoringSelection,
   onGraphAuthoringAction,
   confirmedSelection,
 }: GraphReviewAuthoringReaderProps) {
+  const authoringContext = useMemo(
+    () => ({
+      campaignId,
+      sessionId,
+      graphId,
+      laneRole,
+      sourceArtifactPath,
+      sourceArtifactSha256,
+    }),
+    [
+      campaignId,
+      sessionId,
+      graphId,
+      laneRole,
+      sourceArtifactPath,
+      sourceArtifactSha256,
+    ],
+  );
+
   return (
     <section
       className="graph-review-projection-lane graph-review-authoring-reader-lane"
@@ -55,15 +78,8 @@ export function GraphReviewAuthoringReader({
         documentLabel={documentLabel}
         className="graph-review-authoring-reader"
         onInspectNode={onInspectNode}
-        authoringEnabled
-        authoringContext={{
-          campaignId,
-          sessionId,
-          graphId,
-          laneRole,
-          sourceArtifactPath,
-          sourceArtifactSha256,
-        }}
+        authoringEnabled={authoringEnabled}
+        authoringContext={authoringContext}
         onGraphAuthoringSelection={onGraphAuthoringSelection}
         onGraphAuthoringAction={onGraphAuthoringAction}
       />

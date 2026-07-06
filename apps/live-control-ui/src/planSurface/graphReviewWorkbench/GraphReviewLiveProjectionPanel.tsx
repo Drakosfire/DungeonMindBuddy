@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
@@ -45,8 +45,18 @@ export function GraphReviewLiveProjectionPanel() {
   } = useGraphReviewLiveState();
 
   const { authorMode } = authorDraft;
+  const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
   const [confirmedAuthoringSelection, setConfirmedAuthoringSelection] =
     useState<GraphAuthoringSelection | null>(null);
+
+  const handleGraphAuthoringSelectionChange = useCallback(
+    (selection: GraphAuthoringSelection | null) => {
+      if (!selection) {
+        setConfirmedAuthoringSelection(null);
+      }
+    },
+    [],
+  );
 
   return (
     <section
@@ -159,6 +169,29 @@ export function GraphReviewLiveProjectionPanel() {
                 readerMode
               />
             ) : null}
+            <div className="graph-authoring-mode-controls">
+              <label className="graph-authoring-mode-toggle">
+                <input
+                  type="checkbox"
+                  checked={graphAuthoringModeEnabled}
+                  data-testid="graph-authoring-mode-toggle"
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setGraphAuthoringModeEnabled(enabled);
+                    if (!enabled) {
+                      setConfirmedAuthoringSelection(null);
+                    }
+                  }}
+                />
+                <span>Author graph objects</span>
+              </label>
+              {graphAuthoringModeEnabled ? (
+                <p className="graph-authoring-mode-hint">
+                  Highlight source text in the ingested recap to capture a selection.
+                  No graph write happens until a later authoring step.
+                </p>
+              ) : null}
+            </div>
             <GraphReviewAuthoringReader
               key={`${campaignId}:${sessionId}:${liveRun.manifest_path}`}
               campaignId={campaignId}
@@ -170,17 +203,14 @@ export function GraphReviewLiveProjectionPanel() {
               nodeViews={projection.node_views}
               sourceSpans={paragraphSourceSpans}
               documentLabel={hasGold ? "Live run prose" : "Ingested recap"}
+              authoringEnabled={graphAuthoringModeEnabled}
               onInspectNode={(nodeId) => {
                 setSelectedNode({ laneRole: "live", nodeId });
                 setSelectedRelationship(null);
                 setSelectedDeltaNodeId(nodeId);
                 setProjectedInteractionOpen(true);
               }}
-              onGraphAuthoringSelection={(selection) => {
-                if (!selection) {
-                  setConfirmedAuthoringSelection(null);
-                }
-              }}
+              onGraphAuthoringSelection={handleGraphAuthoringSelectionChange}
               onGraphAuthoringAction={(selection) => {
                 setConfirmedAuthoringSelection(selection);
               }}

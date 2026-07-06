@@ -54,6 +54,30 @@ export function normalizeAuthoringSelectedText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+export function graphAuthoringSelectionsEqual(
+  left: GraphAuthoringSelection | null,
+  right: GraphAuthoringSelection | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.selectionKind === right.selectionKind &&
+    left.selectedText === right.selectedText &&
+    left.normalizedSelectedText === right.normalizedSelectedText &&
+    left.tiptapFrom === right.tiptapFrom &&
+    left.tiptapTo === right.tiptapTo &&
+    left.existingNodeId === right.existingNodeId &&
+    left.campaignId === right.campaignId &&
+    left.sessionId === right.sessionId &&
+    left.graphId === right.graphId &&
+    left.laneRole === right.laneRole
+  );
+}
+
 function tailBoundedText(text: string, maxLength: number): string {
   const trimmed = text.trim();
   if (trimmed.length <= maxLength) {

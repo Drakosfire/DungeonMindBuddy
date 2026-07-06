@@ -3993,6 +3993,32 @@ body.plan-toolbox-open .plan-agent-shell {
   line-height: 1.7;
 }
 
+.graph-authoring-mode-controls {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.graph-authoring-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.graph-authoring-mode-toggle input {
+  accent-color: #60a5fa;
+}
+
+.graph-authoring-mode-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
 .graph-authoring-selection-action-bar {
   display: flex;
   justify-content: flex-start;

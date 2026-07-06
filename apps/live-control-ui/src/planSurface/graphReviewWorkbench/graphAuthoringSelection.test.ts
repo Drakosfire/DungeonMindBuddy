@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import {
   buildGraphAuthoringSelectionFromEditor,
+  graphAuthoringSelectionsEqual,
   MAX_AUTHORING_SELECTED_TEXT_LENGTH,
   normalizeAuthoringSelectedText,
 } from "./graphAuthoringSelection";
@@ -99,6 +100,21 @@ describe("graphAuthoringSelection", () => {
     expect(buildGraphAuthoringSelectionFromEditor(editor, authoringContext)).toBeNull();
 
     editor.destroy();
+  });
+
+  it("treats equivalent selections as unchanged", () => {
+    const left = {
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+      selectionKind: "text_span" as const,
+      selectedText: "gang",
+      normalizedSelectedText: "gang",
+      tiptapFrom: 5,
+      tiptapTo: 9,
+    };
+    const right = { ...left };
+    expect(graphAuthoringSelectionsEqual(left, right)).toBe(true);
+    expect(graphAuthoringSelectionsEqual(left, { ...left, selectedText: "gate" })).toBe(false);
   });
 
   it("builds a graph_node_reference selection when a graph chip atom is selected", () => {

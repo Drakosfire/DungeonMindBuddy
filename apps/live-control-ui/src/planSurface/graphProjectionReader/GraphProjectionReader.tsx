@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,10 +8,11 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
-import type {
-  GraphAuthoringAction,
-  GraphAuthoringContext,
-  GraphAuthoringSelection,
+import {
+  graphAuthoringSelectionsEqual,
+  type GraphAuthoringAction,
+  type GraphAuthoringContext,
+  type GraphAuthoringSelection,
 } from "../graphReviewWorkbench/graphAuthoringSelection";
 import { useGraphAuthoringSelection } from "../graphReviewWorkbench/useGraphAuthoringSelection";
 import { stripLeadingYamlFrontmatter } from "./projectionMarkdownPreprocessing";
@@ -147,14 +148,19 @@ export function GraphProjectionReader({
   const activeNode = activeNodeId ? nodeViews[activeNodeId] : undefined;
   const [selectedEvidenceSpanId, setSelectedEvidenceSpanId] = useState<string | null>(null);
   const useExternalInspection = Boolean(onInspectNode);
+  const pendingAuthoringSelectionRef = useRef<GraphAuthoringSelection | null>(null);
+
+  const onGraphAuthoringSelectionRef = useRef(onGraphAuthoringSelection);
+  onGraphAuthoringSelectionRef.current = onGraphAuthoringSelection;
 
   useEffect(() => {
     setExplorerTrail([]);
     setSelectedEvidenceSpanId(null);
+    pendingAuthoringSelectionRef.current = null;
     setPendingAuthoringSelection(null);
     onActiveNodeChange?.(null);
-    onGraphAuthoringSelection?.(null);
-  }, [markdown, graphId, resetKey, onActiveNodeChange, onGraphAuthoringSelection]);
+    onGraphAuthoringSelectionRef.current?.(null);
+  }, [markdown, graphId, resetKey, onActiveNodeChange]);
 
   const openExplorer = (nodeId: string) => {
     if (onInspectNode) {
@@ -190,10 +196,14 @@ export function GraphProjectionReader({
     onActiveNodeChange?.(null);
   };
 
-  const handleAuthoringSelection = (selection: GraphAuthoringSelection | null) => {
+  const handleAuthoringSelection = useCallback((selection: GraphAuthoringSelection | null) => {
+    if (graphAuthoringSelectionsEqual(pendingAuthoringSelectionRef.current, selection)) {
+      return;
+    }
+    pendingAuthoringSelectionRef.current = selection;
     setPendingAuthoringSelection(selection);
     onGraphAuthoringSelection?.(selection);
-  };
+  }, [onGraphAuthoringSelection]);
 
   const explorerOpen = !useExternalInspection && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
