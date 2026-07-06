@@ -6,9 +6,10 @@ import hashlib
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 AUTHORED_GRAPH_OVERLAY_SCHEMA = "dmb.authored_graph_overlay.v1"
 
@@ -77,6 +78,10 @@ class UnsafeCampaignIdError(GraphAuthoringOverlayError):
     """Raised when campaign_id would escape authored overlay storage."""
 
 
+class UnsafeCampaignRelError(GraphAuthoringOverlayError):
+    """Raised when campaign_rel would escape authored overlay storage."""
+
+
 def validate_campaign_id(campaign_id: str) -> str:
     candidate = campaign_id.strip()
     if not candidate or not _SAFE_CAMPAIGN_ID.fullmatch(candidate):
@@ -85,6 +90,19 @@ def validate_campaign_id(campaign_id: str) -> str:
         raise UnsafeCampaignIdError("unsafe campaign_id for graph authoring overlay")
     if _contains_uri_scheme(candidate):
         raise UnsafeCampaignIdError("unsafe campaign_id for graph authoring overlay")
+    return candidate
+
+
+def validate_campaign_rel(campaign_rel: str) -> str:
+    candidate = campaign_rel.strip().replace("\\", "/")
+    if not candidate:
+        raise UnsafeCampaignRelError("unsafe campaign_rel for graph authoring overlay")
+    if _contains_uri_scheme(candidate):
+        raise UnsafeCampaignRelError("unsafe campaign_rel for graph authoring overlay")
+    if candidate.startswith("/"):
+        raise UnsafeCampaignRelError("unsafe campaign_rel for graph authoring overlay")
+    if ".." in PurePosixPath(candidate).parts:
+        raise UnsafeCampaignRelError("unsafe campaign_rel for graph authoring overlay")
     return candidate
 
 
@@ -109,7 +127,11 @@ def isoformat_z(value: datetime | None = None) -> str:
     return stamp.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-class GraphAuthoringSourceAnchor(BaseModel):
+class GraphAuthoringOverlayModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class GraphAuthoringSourceAnchor(GraphAuthoringOverlayModel):
     anchor_kind: GraphAuthoringSourceAnchorKind
     selected_text: str
     normalized_selected_text: str
@@ -132,7 +154,7 @@ class GraphAuthoringSourceAnchor(BaseModel):
         return self
 
 
-class GraphAuthoringProvenance(BaseModel):
+class GraphAuthoringProvenance(GraphAuthoringOverlayModel):
     origin: GraphAuthoringOrigin
     authoring_surface: GraphAuthoringSurface
     created_at: str
@@ -143,7 +165,7 @@ class GraphAuthoringProvenance(BaseModel):
     operator_note: str | None = None
 
 
-class GraphVisibilityPolicy(BaseModel):
+class GraphVisibilityPolicy(GraphAuthoringOverlayModel):
     visibility: GraphVisibility = "gm_private"
     visible_to_player_ids: list[str] = Field(default_factory=list)
     visible_to_character_ids: list[str] = Field(default_factory=list)
@@ -151,7 +173,7 @@ class GraphVisibilityPolicy(BaseModel):
     visibility_note: str | None = None
 
 
-class AuthoredGraphObjectRef(BaseModel):
+class AuthoredGraphObjectRef(GraphAuthoringOverlayModel):
     ref_kind: AuthoredGraphObjectRefKind
     node_id: str | None = None
     local_proposal_id: str | None = None
@@ -169,7 +191,7 @@ class AuthoredGraphObjectRef(BaseModel):
         return trimmed
 
 
-class AuthoredGraphAssertionBase(BaseModel):
+class AuthoredGraphAssertionBase(GraphAuthoringOverlayModel):
     assertion_id: str
     assertion_kind: AuthoredGraphAssertionKind
     operation: str
@@ -245,7 +267,7 @@ AuthoredGraphAssertion = Annotated[
 ]
 
 
-class AuthoredGraphOverlay(BaseModel):
+class AuthoredGraphOverlay(GraphAuthoringOverlayModel):
     schema_version: Literal["dmb.authored_graph_overlay.v1"] = AUTHORED_GRAPH_OVERLAY_SCHEMA
     campaign_id: str
     overlay_id: str
@@ -285,33 +307,54 @@ def default_graph_authoring_provenance(
     )
 
 
+def _payload_value(payload: Mapping[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in payload:
+            return payload[key]
+    return None
+
+
+def _payload_optional_int(payload: Mapping[str, Any], *keys: str) -> int | None:
+    value = _payload_value(payload, *keys)
+    if value is None:
+        return None
+    return int(value)
+
+
+def _payload_optional_str(payload: Mapping[str, Any], *keys: str) -> str | None:
+    value = _payload_value(payload, *keys)
+    if value is None:
+        return None
+    return str(value)
+
+
 def build_source_anchor_from_payload(payload: Mapping[str, Any]) -> GraphAuthoringSourceAnchor:
-    selected_text = str(payload.get("selected_text") or payload.get("selectedText") or "")
-    normalized = str(
-        payload.get("normalized_selected_text")
-        or payload.get("normalizedSelectedText")
-        or normalize_selected_text(selected_text)
-    )
-    before = payload.get("surrounding_text_before") or payload.get("surroundingTextBefore")
-    after = payload.get("surrounding_text_after") or payload.get("surroundingTextAfter")
+    selected_text = str(_payload_value(payload, "selected_text", "selectedText") or "")
+    normalized_raw = _payload_value(payload, "normalized_selected_text", "normalizedSelectedText")
+    normalized = str(normalized_raw if normalized_raw is not None else normalize_selected_text(selected_text))
+    before = _payload_value(payload, "surrounding_text_before", "surroundingTextBefore")
+    after = _payload_value(payload, "surrounding_text_after", "surroundingTextAfter")
     context_parts = [part for part in (before, selected_text, after) if isinstance(part, str) and part]
     context_sha256 = hash_text("\n".join(context_parts)) if context_parts else None
-    anchor = GraphAuthoringSourceAnchor(
-        anchor_kind=payload.get("anchor_kind") or payload.get("selectionKind") or "text_span",
+    anchor_kind = _payload_value(payload, "anchor_kind", "selectionKind") or "text_span"
+    return GraphAuthoringSourceAnchor(
+        anchor_kind=anchor_kind,
         selected_text=selected_text,
         normalized_selected_text=normalized,
         surrounding_text_before=before if isinstance(before, str) else None,
         surrounding_text_after=after if isinstance(after, str) else None,
-        paragraph_ordinal=payload.get("paragraph_ordinal") or payload.get("paragraphOrdinal"),
-        source_span_ref_id=payload.get("source_span_ref_id") or payload.get("sourceSpanRefId"),
-        tiptap_from=payload.get("tiptap_from") or payload.get("tiptapFrom"),
-        tiptap_to=payload.get("tiptap_to") or payload.get("tiptapTo"),
+        paragraph_ordinal=_payload_optional_int(payload, "paragraph_ordinal", "paragraphOrdinal"),
+        source_span_ref_id=_payload_optional_str(payload, "source_span_ref_id", "sourceSpanRefId"),
+        tiptap_from=_payload_optional_int(payload, "tiptap_from", "tiptapFrom"),
+        tiptap_to=_payload_optional_int(payload, "tiptap_to", "tiptapTo"),
         selected_text_sha256=hash_text(normalized) if normalized else None,
         context_sha256=context_sha256,
-        existing_graph_node_id=payload.get("existing_graph_node_id")
-        or payload.get("existingNodeId"),
+        existing_graph_node_id=_payload_optional_str(
+            payload,
+            "existing_graph_node_id",
+            "existingNodeId",
+        ),
     )
-    return anchor
 
 
 def create_empty_authored_graph_overlay(

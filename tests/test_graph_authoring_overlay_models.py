@@ -217,6 +217,25 @@ def test_build_source_anchor_from_payload_populates_hashes() -> None:
     assert anchor.tiptap_from == 10
 
 
+def test_build_source_anchor_from_payload_preserves_zero_ordinals_and_offsets() -> None:
+    anchor = build_source_anchor_from_payload(
+        {
+            "selectedText": "gang",
+            "paragraphOrdinal": 0,
+            "tiptapFrom": 0,
+            "tiptapTo": 0,
+        }
+    )
+    assert anchor.paragraph_ordinal == 0
+    assert anchor.tiptap_from == 0
+    assert anchor.tiptap_to == 0
+
+
+def test_overlay_models_reject_unknown_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        GraphVisibilityPolicy.model_validate({"visibility": "gm_private", "unexpected": True})
+
+
 def test_create_empty_overlay_has_safe_defaults() -> None:
     overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP)
     assert overlay.schema_version == "dmb.authored_graph_overlay.v1"

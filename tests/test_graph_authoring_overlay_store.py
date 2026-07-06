@@ -9,6 +9,7 @@ import pytest
 
 from apps.live_control_server.models.graph_authoring_overlay import (
     UnsafeCampaignIdError,
+    UnsafeCampaignRelError,
     create_empty_authored_graph_overlay,
     default_graph_authoring_provenance,
 )
@@ -127,6 +128,39 @@ def test_unsafe_campaign_ids_are_rejected(
 ) -> None:
     with pytest.raises(UnsafeCampaignIdError):
         store.overlay_path(unsafe_id, campaign_rel=TEST_CAMPAIGN_REL)
+
+
+@pytest.mark.parametrize(
+    "unsafe_rel",
+    [
+        "../outside",
+        "/absolute/campaign",
+        "Test Campaign/../../outside",
+        "..",
+        "",
+        "   ",
+        "file:///tmp/evil",
+    ],
+)
+def test_unsafe_campaign_rel_values_are_rejected(
+    store: GraphAuthoringOverlayStore,
+    unsafe_rel: str,
+) -> None:
+    with pytest.raises(UnsafeCampaignRelError):
+        store.overlay_path(CAMPAIGN_ID, campaign_rel=unsafe_rel)
+
+
+def test_save_overlay_rejects_campaign_rel_that_escapes_corpus_root(
+    store: GraphAuthoringOverlayStore,
+    tmp_path: Path,
+) -> None:
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP)
+    # Symlink-style escape: rel resolves outside corpus_root when joined.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    evil_rel = "../outside"
+    with pytest.raises(UnsafeCampaignRelError):
+        store.save_overlay(overlay, campaign_rel=evil_rel)
 
 
 def test_atomic_write_leaves_valid_json_on_happy_path(

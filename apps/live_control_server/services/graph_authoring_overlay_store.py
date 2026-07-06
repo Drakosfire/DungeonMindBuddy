@@ -12,9 +12,11 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     AUTHORED_GRAPH_OVERLAY_SCHEMA,
     AuthoredGraphAssertion,
     AuthoredGraphOverlay,
+    UnsafeCampaignRelError,
     create_empty_authored_graph_overlay,
     isoformat_z,
     validate_campaign_id,
+    validate_campaign_rel,
 )
 
 GRAPH_AUTHORING_DIR = "_graph_authoring"
@@ -39,19 +41,35 @@ class GraphAuthoringOverlayStore:
     def corpus_root(self) -> Path:
         return self._corpus_root
 
-    def campaign_graph_authoring_root(
+    def _resolve_campaign_directory(
         self,
         campaign_id: str,
         *,
         campaign_rel: str | None = None,
     ) -> Path:
         safe_campaign_id = validate_campaign_id(campaign_id)
-        _, rel = resolve_campaign_corpus(
-            safe_campaign_id,
-            corpus_root=self._corpus_root,
-            campaign_rel=campaign_rel,
-        )
-        return self._corpus_root / rel / GRAPH_AUTHORING_DIR
+        if campaign_rel is not None:
+            rel = validate_campaign_rel(campaign_rel)
+        else:
+            _, rel = resolve_campaign_corpus(
+                safe_campaign_id,
+                corpus_root=self._corpus_root,
+            )
+            rel = validate_campaign_rel(rel)
+        target = (self._corpus_root / rel).resolve()
+        try:
+            target.relative_to(self._corpus_root)
+        except ValueError as exc:
+            raise UnsafeCampaignRelError("campaign path escapes corpus root") from exc
+        return target
+
+    def campaign_graph_authoring_root(
+        self,
+        campaign_id: str,
+        *,
+        campaign_rel: str | None = None,
+    ) -> Path:
+        return self._resolve_campaign_directory(campaign_id, campaign_rel=campaign_rel) / GRAPH_AUTHORING_DIR
 
     def overlay_path(
         self,
