@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,8 +8,17 @@ import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferen
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
+import {
+  graphAuthoringSelectionsEqual,
+  type GraphAuthoringAction,
+  type GraphAuthoringContext,
+  type GraphAuthoringSelection,
+} from "../graphReviewWorkbench/graphAuthoringSelection";
+import { useGraphAuthoringSelection } from "../graphReviewWorkbench/useGraphAuthoringSelection";
 import { stripLeadingYamlFrontmatter } from "./projectionMarkdownPreprocessing";
 import { attachSourceSpanDataAttributes, type SourceSpanDomOverlay } from "./sourceSpanHighlight";
+
+export type { GraphAuthoringAction, GraphAuthoringSelection };
 
 export interface GraphProjectionReaderProps {
   markdown: string;
@@ -27,6 +36,14 @@ export interface GraphProjectionReaderProps {
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
+  onInspectNode?: (nodeId: string) => void;
+  authoringEnabled?: boolean;
+  authoringContext?: GraphAuthoringContext;
+  onGraphAuthoringSelection?: (selection: GraphAuthoringSelection | null) => void;
+  onGraphAuthoringAction?: (
+    selection: GraphAuthoringSelection,
+    action: GraphAuthoringAction,
+  ) => void;
 }
 
 function ReadOnlyTiptapRecap({
@@ -38,6 +55,9 @@ function ReadOnlyTiptapRecap({
   selectedEvidenceSpanId,
   nodeDeltaPresentations,
   sourceSpanDeltaOverlays,
+  authoringEnabled,
+  authoringContext,
+  onGraphAuthoringSelection,
 }: {
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -47,10 +67,11 @@ function ReadOnlyTiptapRecap({
   selectedEvidenceSpanId: string | null;
   nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
+  authoringEnabled?: boolean;
+  authoringContext?: GraphAuthoringContext;
+  onGraphAuthoringSelection?: (selection: GraphAuthoringSelection | null) => void;
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
-  // This TipTap reader consumes inline graph-node links, not structured mention offsets;
-  // GraphReviewProjectionLane owns offset rebasing for overlay-style graph pills.
   const projectionMarkdown = useMemo(
     () => stripLeadingYamlFrontmatter(markdown).markdown,
     [markdown],
@@ -66,6 +87,13 @@ function ReadOnlyTiptapRecap({
     content,
     editable: false,
     immediatelyRender: false,
+  });
+
+  useGraphAuthoringSelection({
+    editor,
+    authoringEnabled,
+    authoringContext,
+    onGraphAuthoringSelection,
   });
 
   useEffect(() => {
@@ -108,19 +136,38 @@ export function GraphProjectionReader({
   sourceSpanDeltaOverlays,
   selectedSourceSpanId,
   onActiveNodeChange,
+  onInspectNode,
+  authoringEnabled = false,
+  authoringContext,
+  onGraphAuthoringSelection,
+  onGraphAuthoringAction,
 }: GraphProjectionReaderProps) {
   const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
+  const [pendingAuthoringSelection, setPendingAuthoringSelection] = useState<GraphAuthoringSelection | null>(null);
   const activeNodeId = explorerTrail.at(-1) ?? null;
   const activeNode = activeNodeId ? nodeViews[activeNodeId] : undefined;
   const [selectedEvidenceSpanId, setSelectedEvidenceSpanId] = useState<string | null>(null);
+  const useExternalInspection = Boolean(onInspectNode);
+  const pendingAuthoringSelectionRef = useRef<GraphAuthoringSelection | null>(null);
+
+  const onGraphAuthoringSelectionRef = useRef(onGraphAuthoringSelection);
+  onGraphAuthoringSelectionRef.current = onGraphAuthoringSelection;
 
   useEffect(() => {
     setExplorerTrail([]);
     setSelectedEvidenceSpanId(null);
+    pendingAuthoringSelectionRef.current = null;
+    setPendingAuthoringSelection(null);
     onActiveNodeChange?.(null);
+    onGraphAuthoringSelectionRef.current?.(null);
   }, [markdown, graphId, resetKey, onActiveNodeChange]);
 
   const openExplorer = (nodeId: string) => {
+    if (onInspectNode) {
+      onInspectNode(nodeId);
+      onActiveNodeChange?.(nodeId);
+      return;
+    }
     setExplorerTrail([nodeId]);
     onActiveNodeChange?.(nodeId);
   };
@@ -149,9 +196,19 @@ export function GraphProjectionReader({
     onActiveNodeChange?.(null);
   };
 
-  const explorerOpen = explorerTrail.length > 0;
+  const handleAuthoringSelection = useCallback((selection: GraphAuthoringSelection | null) => {
+    if (graphAuthoringSelectionsEqual(pendingAuthoringSelectionRef.current, selection)) {
+      return;
+    }
+    pendingAuthoringSelectionRef.current = selection;
+    setPendingAuthoringSelection(selection);
+    onGraphAuthoringSelection?.(selection);
+  }, [onGraphAuthoringSelection]);
+
+  const explorerOpen = !useExternalInspection && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
   const effectiveSelectedSpanId = selectedSourceSpanId ?? selectedEvidenceSpanId;
+  const showAuthoringAction = authoringEnabled && pendingAuthoringSelection !== null;
 
   return (
     <div className={rootClassName}>
@@ -173,6 +230,23 @@ export function GraphProjectionReader({
         </p>
       ) : null}
 
+      {showAuthoringAction ? (
+        <div className="graph-authoring-selection-action-bar">
+          <button
+            type="button"
+            className="graph-authoring-selection-action"
+            data-testid="graph-authoring-action"
+            onClick={() => {
+              if (pendingAuthoringSelection) {
+                onGraphAuthoringAction?.(pendingAuthoringSelection, "author_object");
+              }
+            }}
+          >
+            Author graph object
+          </button>
+        </div>
+      ) : null}
+
       <div className={`recap-reader-layout union-supergraph-layout${explorerOpen ? " graph-explorer-open" : ""}`}>
         <article className="recap-reader-document union-supergraph-recap-document" aria-label={documentLabel}>
           <ReadOnlyTiptapRecap
@@ -184,6 +258,9 @@ export function GraphProjectionReader({
             selectedEvidenceSpanId={effectiveSelectedSpanId}
             nodeDeltaPresentations={nodeDeltaPresentations}
             sourceSpanDeltaOverlays={sourceSpanDeltaOverlays}
+            authoringEnabled={authoringEnabled}
+            authoringContext={authoringContext}
+            onGraphAuthoringSelection={handleAuthoringSelection}
           />
         </article>
         {explorerOpen && activeNode ? (

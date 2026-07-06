@@ -3993,6 +3993,99 @@ body.plan-toolbox-open .plan-agent-shell {
   line-height: 1.7;
 }
 
+.graph-authoring-mode-controls {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.graph-authoring-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.graph-authoring-mode-toggle input {
+  accent-color: #60a5fa;
+}
+
+.graph-authoring-mode-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.graph-authoring-selection-action-bar {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0.65rem 0 0.35rem;
+}
+
+.graph-authoring-selection-action {
+  border: 1px solid rgba(96, 165, 250, 0.55);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+}
+
+.graph-authoring-selection-action:hover {
+  background: rgba(37, 99, 235, 0.32);
+}
+
+.graph-authoring-selection-preview {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.graph-authoring-selection-preview-lede {
+  margin: 0 0 0.65rem;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+}
+
+.graph-authoring-selection-preview-fields {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.graph-authoring-selection-preview-fields div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.graph-authoring-selection-preview-fields dt {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-authoring-selection-preview-fields dd {
+  margin: 0;
+  color: #e2e8f0;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 0.82rem;
+  word-break: break-word;
+}
+
+.graph-review-authoring-reader-lane .recap-reader-root {
+  gap: 0.35rem;
+}
+
 .graph-review-projection-document h2,
 .graph-review-projection-document h3,
 .graph-review-projection-document h4,
