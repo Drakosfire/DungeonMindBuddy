@@ -92,7 +92,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Memory Ingest" })).toBeInTheDocument();
-    expect(screen.getByText(/Review extracted graph runs against gold/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
     expect(await screen.findByText(/No gold-review sessions are available/i)).toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
