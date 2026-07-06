@@ -4086,6 +4086,212 @@ body.plan-toolbox-open .plan-agent-shell {
   gap: 0.35rem;
 }
 
+.graph-object-authoring-surface {
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.graph-object-authoring-surface-header h3 {
+  margin: 0.2rem 0 0.15rem;
+  color: #f8fafc;
+  font-size: 1.05rem;
+}
+
+.graph-object-authoring-surface-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.graph-object-authoring-surface-empty-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.graph-object-authoring-surface-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.graph-object-authoring-surface-actions button {
+  border: 1px solid rgba(96, 165, 250, 0.55);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.24);
+  color: #dbeafe;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+}
+
+.graph-object-authoring-surface-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.graph-object-authoring-selected-source {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.graph-object-authoring-selected-source-lede {
+  margin: 0 0 0.6rem;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+
+.graph-object-authoring-selected-source-fields {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.graph-object-authoring-selected-source-fields div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.graph-object-authoring-selected-source-fields dt {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-object-authoring-selected-source-fields dd {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.graph-object-authoring-object-form,
+.graph-object-authoring-visibility-section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.graph-object-authoring-field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.graph-object-authoring-field label {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.graph-object-authoring-optional {
+  color: #64748b;
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+.graph-object-authoring-field input,
+.graph-object-authoring-field select,
+.graph-object-authoring-field textarea {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  color: #f1f5f9;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.graph-object-authoring-visibility-note {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.graph-object-authoring-staging-tray {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.graph-object-authoring-staging-tray header h4 {
+  margin: 0 0 0.15rem;
+  color: #f1f5f9;
+  font-size: 0.92rem;
+}
+
+.graph-object-authoring-staging-tray-lede {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.graph-object-authoring-staging-tray-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.graph-object-authoring-staging-tray-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-object-authoring-staging-tray-item {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  gap: 0.3rem;
+}
+
+.graph-object-authoring-staging-tray-item p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+}
+
+.graph-object-authoring-staging-tray-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.graph-object-authoring-staging-tray-item-label {
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.graph-object-authoring-staging-tray-item-kind {
+  color: #93c5fd;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.graph-object-authoring-staging-tray-item button {
+  justify-self: start;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.7rem;
+}
+
 .graph-review-projection-document h2,
 .graph-review-projection-document h3,
 .graph-review-projection-document h4,

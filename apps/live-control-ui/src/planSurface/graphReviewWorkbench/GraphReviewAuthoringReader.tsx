@@ -25,7 +25,6 @@ interface GraphReviewAuthoringReaderProps {
     selection: GraphAuthoringSelection,
     action: GraphAuthoringAction,
   ) => void;
-  confirmedSelection?: GraphAuthoringSelection | null;
 }
 
 export function GraphReviewAuthoringReader({
@@ -43,7 +42,6 @@ export function GraphReviewAuthoringReader({
   onInspectNode,
   onGraphAuthoringSelection,
   onGraphAuthoringAction,
-  confirmedSelection,
 }: GraphReviewAuthoringReaderProps) {
   const authoringContext = useMemo(
     () => ({
@@ -83,43 +81,6 @@ export function GraphReviewAuthoringReader({
         onGraphAuthoringSelection={onGraphAuthoringSelection}
         onGraphAuthoringAction={onGraphAuthoringAction}
       />
-      {confirmedSelection ? (
-        <aside
-          className="graph-authoring-selection-preview"
-          aria-label="Selected source preview"
-          data-testid="graph-authoring-selection-preview"
-        >
-          <p className="graph-authoring-selection-preview-lede">
-            Selected source ready for graph authoring. No graph write has happened.
-          </p>
-          <dl className="graph-authoring-selection-preview-fields">
-            <div>
-              <dt>Selected text</dt>
-              <dd>{confirmedSelection.selectedText}</dd>
-            </div>
-            <div>
-              <dt>Selection kind</dt>
-              <dd>{confirmedSelection.selectionKind}</dd>
-            </div>
-            <div>
-              <dt>Campaign</dt>
-              <dd>{confirmedSelection.campaignId}</dd>
-            </div>
-            <div>
-              <dt>Session</dt>
-              <dd>{confirmedSelection.sessionId}</dd>
-            </div>
-            <div>
-              <dt>Lane role</dt>
-              <dd>{confirmedSelection.laneRole ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Graph id</dt>
-              <dd>{confirmedSelection.graphId ?? "—"}</dd>
-            </div>
-          </dl>
-        </aside>
-      ) : null}
     </section>
   );
 }

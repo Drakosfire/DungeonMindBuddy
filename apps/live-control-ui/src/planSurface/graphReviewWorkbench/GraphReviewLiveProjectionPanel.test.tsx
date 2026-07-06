@@ -343,6 +343,62 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
   });
 
+  it("opens the graph object authoring surface from a Tiptap text selection and stages a local draft", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
+      ...projection,
+      markdown: "The gang arrived at the gate.",
+    });
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: false,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
+
+    await waitFor(() => {
+      expect(document.querySelector(".ProseMirror")).toBeTruthy();
+    });
+    expect(
+      screen.getByText(/Highlight source text in the recap/i),
+    ).toBeInTheDocument();
+
+    const proseMirror = document.querySelector(".ProseMirror") as HTMLElement;
+    const paragraph = proseMirror.querySelector("p") as HTMLElement;
+    const textNode = paragraph.firstChild as Text;
+    const startIndex = textNode.textContent!.indexOf("gang");
+    const range = document.createRange();
+    range.setStart(textNode, startIndex);
+    range.setEnd(textNode, startIndex + 4);
+    const domSelection = window.getSelection();
+    domSelection?.removeAllRanges();
+    domSelection?.addRange(range);
+    fireEvent.mouseUp(proseMirror);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-authoring-action")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("graph-authoring-action"));
+
+    expect(screen.getByLabelText("Label")).toHaveValue("gang");
+    expect(screen.getByLabelText("Visibility")).toHaveValue("gm_private");
+
+    fireEvent.change(screen.getByLabelText("Label"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveTextContent("Questionable Company");
+    expect(stagedProposal).toHaveTextContent("Aliases: gang");
+    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+  });
+
   it("does not render diagnostic panels on the main surface", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
 
