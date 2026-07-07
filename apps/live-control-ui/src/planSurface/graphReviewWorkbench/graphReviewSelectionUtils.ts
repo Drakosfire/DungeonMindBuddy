@@ -102,8 +102,13 @@ export function formatGraphReviewRelationshipStatement(
 
 export function gameSummaryForNode(node: GraphProjectionNodeView): string {
   if (node.summary?.trim()) return node.summary;
-  const kind = node.kind || "Graph object";
-  const role = node.role ? ` / ${node.role}` : "";
+  const kind = (node.kind || "object").toLowerCase();
   const connectionCount = node.adjacency.length;
-  return `${kind}${role} candidate with ${connectionCount} projected connection${connectionCount === 1 ? "" : "s"} in this session.`;
+  if (connectionCount > 0) {
+    return `This ${kind} has ${connectionCount} connected campaign relationship${connectionCount === 1 ? "" : "s"} in this session.`;
+  }
+  if (node.aliases.length) {
+    return `This ${kind} is also known as ${node.aliases.join(", ")}.`;
+  }
+  return "No campaign summary has been authored yet.";
 }

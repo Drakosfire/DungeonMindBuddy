@@ -62,6 +62,13 @@ describe("graphReviewSelectionUtils", () => {
   it("formats relationships and deterministic fallback summaries", () => {
     expect(formatGraphReviewRelationshipStatement("Tripod Null-Calf", goldNode.adjacency[0])).toBe("Tripod Null-Calf threatens North Gate");
     expect(formatGraphReviewRelationshipStatement("Tripod Null-Calf", { ...goldNode.adjacency[0], direction: "incoming", label: "Shepherd hymn", predicate: "empowers" })).toBe("Shepherd hymn empowers Tripod Null-Calf");
-    expect(gameSummaryForNode(goldOnlyNode)).toBe("Threat / Siege scout candidate with 0 projected connections in this session.");
+    expect(gameSummaryForNode(goldOnlyNode)).toBe("No campaign summary has been authored yet.");
+    expect(gameSummaryForNode(goldNode)).toBe("Siege scout and gate-pressure monster.");
+    expect(gameSummaryForNode({ ...goldOnlyNode, aliases: ["defenders"], summary: null })).toBe(
+      "This threat is also known as defenders.",
+    );
+    expect(gameSummaryForNode({ ...goldNode, summary: null })).toBe(
+      "This threat has 1 connected campaign relationship in this session.",
+    );
   });
 });

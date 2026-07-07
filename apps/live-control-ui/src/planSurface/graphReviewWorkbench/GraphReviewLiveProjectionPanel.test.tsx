@@ -112,6 +112,15 @@ describe("GraphReviewLiveProjectionPanel", () => {
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockReset();
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      selected_node_id: "",
+      selected_label: "",
+      candidates: [],
+      warnings: [],
+    });
     vi.mocked(getGoldGraphProjection).mockResolvedValue({
       ...projection,
       source_kind: "gold_fixture",

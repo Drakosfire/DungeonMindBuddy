@@ -13,7 +13,11 @@ export function GraphReviewRelationshipChips({
   onSelect: (relationship: GraphProjectionAdjacencyCandidate) => void;
 }) {
   if (!relationships.length) {
-    return <p className="graph-review-muted">No projected relationships available for this object yet.</p>;
+    return (
+      <p className="graph-review-muted">
+        No connected campaign relationships are projected for this node yet.
+      </p>
+    );
   }
   return (
     <div className="graph-review-relationship-chips" aria-label="Connected relationships">
