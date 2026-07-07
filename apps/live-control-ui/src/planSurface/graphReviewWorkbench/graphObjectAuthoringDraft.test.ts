@@ -305,6 +305,16 @@ describe("buildGraphObjectAuthoringRelationshipProposal", () => {
     });
   });
 
+  it("returns null when source and target are the exact same object ref", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: sourceRef,
+      relationshipType: "has_member",
+    };
+    expect(buildGraphObjectAuthoringRelationshipProposal(formState)).toBeNull();
+  });
+
   it("carries an optional evidence selection through to provenance", () => {
     const formState = {
       ...createDefaultGraphObjectAuthoringRelationshipFormState(),

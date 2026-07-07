@@ -628,11 +628,7 @@ export function buildGraphObjectAuthoringRelationshipProposal(
   selection: GraphAuthoringSelection | null = null,
   localProposalId: string = createLocalGraphObjectProposalId(),
 ): GraphObjectAuthoringRelationshipProposal | null {
-  if (
-    !isValidObjectRef(formState.sourceObjectRef) ||
-    !isValidObjectRef(formState.targetObjectRef) ||
-    !formState.relationshipType.trim()
-  ) {
+  if (!canStageRelationshipForm(formState)) {
     return null;
   }
 
