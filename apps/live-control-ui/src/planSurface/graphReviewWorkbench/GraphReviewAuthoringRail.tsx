@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
+import { buildGraphAuthoringSelectionFromRecapNode } from "./graphAuthoringSelection";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewMergeCandidatesPanel } from "./GraphReviewMergeCandidatesPanel";
@@ -205,99 +206,99 @@ export function GraphReviewAuthoringRail({
         </div>
       ) : null}
 
-      {activeTab === "modify_existing" ? (
-        <div
-          id="authoring-panel-modify-existing"
-          role="tabpanel"
-          aria-labelledby="authoring-tab-modify-existing"
-          className="graph-review-authoring-workflow-panel"
-        >
-          <section className="graph-review-authoring-modify-existing-panel">
-            <header>
-              <p className="plan-surface-kicker">Existing object</p>
-              <h3>Search existing objects</h3>
-              <p className="graph-object-authoring-surface-hint">
-                Search by name across campaign sources. Recap pill clicks do not
-                affect search — opt in below only when you want to link a pill
-                to a match.
-              </p>
-            </header>
-            {selectedAuthoringViewModel ? (
-              <div className="graph-review-existing-object-link-opt-in">
-                <label className="graph-review-existing-object-link-opt-in-label">
-                  <input
-                    type="checkbox"
-                    checked={linkRecapPillEnabled}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      setLinkRecapPillEnabled(event.target.checked)
-                    }
-                  />
-                  Link to recap pill: {selectedAuthoringViewModel.node.label}
-                </label>
-                {linkRecapPillEnabled ? (
-                  <p className="graph-review-muted">
-                    {formatGraphObjectType(
-                      selectedAuthoringViewModel.node.kind,
-                      selectedAuthoringViewModel.node.role,
-                    )}
-                    {gameSummaryForNode(selectedAuthoringViewModel.node)
-                      ? ` · ${gameSummaryForNode(selectedAuthoringViewModel.node)}`
-                      : ""}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            <ExistingObjectResolverPanel
-              campaignId={campaignId}
-              sessionId={sessionId}
-              laneRole="live"
-              linkSourceNode={
-                linkRecapPillEnabled && selectedAuthoringViewModel
-                  ? selectedAuthoringViewModel.node
-                  : null
-              }
-              mergeReviewSourceNode={
-                selectedAuthoringViewModel ? selectedAuthoringViewModel.node : null
-              }
-              projectionGraphId={projection?.graph_id ?? null}
-              liveRunManifestPath={liveRun?.manifest_path ?? null}
-              nodeViews={projection?.node_views ?? null}
-              overlayProposals={graphObjectAuthoringDraft.proposals}
-              onStageLinkIntent={
-                linkRecapPillEnabled && selectedAuthoringViewModel
-                  ? (candidate) =>
-                      authorDraft.stageExistingObjectLinkIntent({
-                        selectedNode: {
-                          laneRole: selectedAuthoringViewModel.laneRole,
-                          nodeId: selectedAuthoringViewModel.node.node_id,
-                          label: selectedAuthoringViewModel.node.label,
-                        },
-                        candidate: {
-                          ...candidate,
-                          candidateId: candidate.candidate_id,
-                        },
-                      })
-                  : undefined
-              }
-              onStageLinkIntentComplete={() => onActiveTabChange("stage_commit")}
-              onReviewMerge={(candidate) => {
-                setFocusedMergeCandidate(candidate);
-                onActiveTabChange("merge_candidates");
-              }}
-              onStageSearchMerge={(input) =>
-                graphObjectAuthoringDraft.stageMergeProposal({
-                  survivorObjectRef: input.survivorObjectRef,
-                  mergedObjectRefs: input.mergedObjectRefs,
-                  mergeReason: input.mergeReason,
-                  matchedFeatures: input.matchedFeatures,
-                  sourceGraphId: input.sourceGraphId ?? projection?.graph_id ?? null,
-                })
-              }
-              onStageSearchMergeComplete={() => onActiveTabChange("stage_commit")}
-            />
-          </section>
-        </div>
-      ) : null}
+      <div
+        id="authoring-panel-modify-existing"
+        role="tabpanel"
+        aria-labelledby="authoring-tab-modify-existing"
+        className="graph-review-authoring-workflow-panel"
+        hidden={activeTab !== "modify_existing"}
+      >
+        <section className="graph-review-authoring-modify-existing-panel">
+          <header>
+            <p className="plan-surface-kicker">Existing object</p>
+            <h3>Search existing objects</h3>
+            <p className="graph-object-authoring-surface-hint">
+              Search by name across campaign sources. Recap pill clicks do not
+              affect search — opt in below only when you want to link a pill
+              to a match.
+            </p>
+          </header>
+          {selectedAuthoringViewModel ? (
+            <div className="graph-review-existing-object-link-opt-in">
+              <label className="graph-review-existing-object-link-opt-in-label">
+                <input
+                  type="checkbox"
+                  checked={linkRecapPillEnabled}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setLinkRecapPillEnabled(event.target.checked)
+                  }
+                />
+                Link to recap pill: {selectedAuthoringViewModel.node.label}
+              </label>
+              {linkRecapPillEnabled ? (
+                <p className="graph-review-muted">
+                  {formatGraphObjectType(
+                    selectedAuthoringViewModel.node.kind,
+                    selectedAuthoringViewModel.node.role,
+                  )}
+                  {gameSummaryForNode(selectedAuthoringViewModel.node)
+                    ? ` · ${gameSummaryForNode(selectedAuthoringViewModel.node)}`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <ExistingObjectResolverPanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            laneRole="live"
+            linkSourceNode={
+              linkRecapPillEnabled && selectedAuthoringViewModel
+                ? selectedAuthoringViewModel.node
+                : null
+            }
+            mergeReviewSourceNode={
+              selectedAuthoringViewModel ? selectedAuthoringViewModel.node : null
+            }
+            projectionGraphId={projection?.graph_id ?? null}
+            liveRunManifestPath={liveRun?.manifest_path ?? null}
+            nodeViews={projection?.node_views ?? null}
+            overlayProposals={graphObjectAuthoringDraft.proposals}
+            onStageLinkIntent={
+              linkRecapPillEnabled && selectedAuthoringViewModel
+                ? (candidate) => {
+                    graphObjectAuthoringDraft.stageLinkExistingFromResolver({
+                      selection: buildGraphAuthoringSelectionFromRecapNode({
+                        campaignId,
+                        sessionId,
+                        graphId: projection?.graph_id ?? null,
+                        sourceArtifactPath: liveRun?.manifest_path ?? null,
+                        laneRole: selectedAuthoringViewModel.laneRole,
+                        node: selectedAuthoringViewModel.node,
+                      }),
+                      candidate,
+                    });
+                  }
+                : undefined
+            }
+            onStageLinkIntentComplete={() => onActiveTabChange("stage_commit")}
+            onReviewMerge={(candidate) => {
+              setFocusedMergeCandidate(candidate);
+              onActiveTabChange("merge_candidates");
+            }}
+            onStageSearchMerge={(input) =>
+              graphObjectAuthoringDraft.stageMergeProposal({
+                survivorObjectRef: input.survivorObjectRef,
+                mergedObjectRefs: input.mergedObjectRefs,
+                mergeReason: input.mergeReason,
+                matchedFeatures: input.matchedFeatures,
+                sourceGraphId: input.sourceGraphId ?? projection?.graph_id ?? null,
+              })
+            }
+            onStageSearchMergeComplete={() => onActiveTabChange("stage_commit")}
+          />
+        </section>
+      </div>
 
       {activeTab === "merge_candidates" ? (
         <div
@@ -340,26 +341,36 @@ export function GraphReviewAuthoringRail({
             {...sharedSurfaceProps}
             focusPanel="stage_overlay"
           />
-          <GraphReviewLocalStagingTray
-            proposals={authorDraft.localProposals}
-            onUpdateStatus={authorDraft.updateProposalStatus}
-            onReset={authorDraft.resetLocalDraft}
-            selectedText={authorDraft.selectedText}
-            onStageNodeFromSelection={stageNodeFromSelection}
-          />
-          <GraphReviewAuthoringPreparePreviewPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            hasGold={hasGold}
-            workflow={authorDraft}
-            onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
-            onShowCommittedObject={(targetId) => {
-              selectGoldNodeCard(targetId);
-            }}
-            canShowCommittedObject={(targetId) =>
-              Boolean(goldProjection?.node_views[targetId])
-            }
-          />
+          {hasGold || authorDraft.localProposals.length > 0 ? (
+            <details
+              className="graph-review-gold-fixture-draft-panel"
+              data-testid="graph-review-gold-fixture-draft-panel"
+            >
+              <summary>
+                Gold fixture draft (whole-graph legacy path)
+              </summary>
+              <GraphReviewLocalStagingTray
+                proposals={authorDraft.localProposals}
+                onUpdateStatus={authorDraft.updateProposalStatus}
+                onReset={authorDraft.resetLocalDraft}
+                selectedText={authorDraft.selectedText}
+                onStageNodeFromSelection={stageNodeFromSelection}
+              />
+              <GraphReviewAuthoringPreparePreviewPanel
+                campaignId={campaignId}
+                sessionId={sessionId}
+                hasGold={hasGold}
+                workflow={authorDraft}
+                onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
+                onShowCommittedObject={(targetId) => {
+                  selectGoldNodeCard(targetId);
+                }}
+                canShowCommittedObject={(targetId) =>
+                  Boolean(goldProjection?.node_views[targetId])
+                }
+              />
+            </details>
+          ) : null}
         </div>
       ) : null}
     </aside>

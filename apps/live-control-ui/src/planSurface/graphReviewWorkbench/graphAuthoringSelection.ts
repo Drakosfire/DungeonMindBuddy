@@ -216,3 +216,34 @@ export function buildGraphAuthoringSelectionFromEditor(
     tiptapTo: to,
   };
 }
+
+export function buildGraphAuthoringSelectionFromRecapNode(input: {
+  campaignId: string;
+  sessionId: string;
+  graphId?: string | null;
+  sourceArtifactPath?: string | null;
+  laneRole?: GraphAuthoringLaneRole | null;
+  node: {
+    node_id: string;
+    label: string;
+    source_anchor_text?: string | null;
+  };
+}): GraphAuthoringSelection {
+  const selectedText =
+    input.node.source_anchor_text?.trim() ||
+    input.node.label.trim() ||
+    input.node.node_id;
+
+  return {
+    campaignId: input.campaignId,
+    sessionId: input.sessionId,
+    sourceArtifactPath: input.sourceArtifactPath ?? null,
+    selectionKind: "graph_node_reference",
+    selectedText,
+    normalizedSelectedText: normalizeAuthoringSelectedText(selectedText),
+    existingNodeId: input.node.node_id,
+    existingLabel: input.node.label,
+    graphId: input.graphId ?? null,
+    laneRole: input.laneRole ?? "live",
+  };
+}

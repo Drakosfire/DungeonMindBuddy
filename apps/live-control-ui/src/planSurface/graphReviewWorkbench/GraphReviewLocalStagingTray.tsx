@@ -36,7 +36,11 @@ export function GraphReviewLocalStagingTray({
     >
       <header>
         <p className="plan-surface-kicker">Gold fixture draft</p>
-        <h3>Local staged proposals</h3>
+        <h3>Whole-graph gold proposals</h3>
+        <p className="graph-review-muted">
+          Legacy path for gold fixture edits across the full recap graph. Individual
+          object links, merges, and relationships belong in Review staged memory above.
+        </p>
         <button type="button" onClick={onReset} disabled={!proposals.length}>
           Reset local draft
         </button>

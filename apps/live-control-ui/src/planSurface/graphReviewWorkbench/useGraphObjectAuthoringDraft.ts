@@ -16,6 +16,7 @@ import {
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
+import { buildLinkExistingFormStateFromResolverCandidate } from "./graphExistingObjectIdentityWorkbench";
 
 export interface UseGraphObjectAuthoringDraftResult {
   selectedSource: GraphAuthoringSelection | null;
@@ -49,6 +50,10 @@ export interface UseGraphObjectAuthoringDraftResult {
     mergeReason: string;
     matchedFeatures: string[];
     sourceGraphId?: string | null;
+  }) => boolean;
+  stageLinkExistingFromResolver: (input: {
+    selection: GraphAuthoringSelection;
+    candidate: import("../../api/types").GraphReviewExistingObjectCandidate;
   }) => boolean;
   clearCommittedProposals: (localProposalIds: string[]) => void;
 }
@@ -240,11 +245,36 @@ export function useGraphObjectAuthoringDraft(
         ) {
           return prev;
         }
-        return [...prev, proposal];
+        const next = [...prev, proposal];
+        writeStagedProposalsToSession(storageScope, next);
+        return next;
       });
       return true;
     },
-    [proposals],
+    [proposals, storageScope],
+  );
+
+  const stageLinkExistingFromResolver = useCallback(
+    (input: {
+      selection: GraphAuthoringSelection;
+      candidate: import("../../api/types").GraphReviewExistingObjectCandidate;
+    }) => {
+      const proposal = buildGraphObjectAuthoringLinkExistingProposal(
+        input.selection,
+        buildLinkExistingFormStateFromResolverCandidate(input.candidate),
+        createLocalGraphObjectProposalId(),
+      );
+      if (!proposal) {
+        return false;
+      }
+      setProposals((prev) => {
+        const next = [...prev, proposal];
+        writeStagedProposalsToSession(storageScope, next);
+        return next;
+      });
+      return true;
+    },
+    [storageScope],
   );
 
   const removeProposal = useCallback((localProposalId: string) => {
@@ -280,6 +310,7 @@ export function useGraphObjectAuthoringDraft(
     updateRelationshipField,
     stageRelationshipProposal,
     stageMergeProposal,
+    stageLinkExistingFromResolver,
     clearCommittedProposals,
   };
 }
