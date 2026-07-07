@@ -23,6 +23,7 @@ GRAPH_AUTHORING_DIR = "_graph_authoring"
 OVERLAYS_DIR = "overlays"
 EVENTS_DIR = "events"
 BACKUPS_DIR = "backups"
+EXPORTS_DIR = "exports"
 OVERLAY_FILENAME = "authored_graph_overlay.json"
 EVENTS_FILENAME = "graph_authoring_events.jsonl"
 
@@ -102,6 +103,14 @@ class GraphAuthoringOverlayStore:
         campaign_rel: str | None = None,
     ) -> Path:
         return self.campaign_graph_authoring_root(campaign_id, campaign_rel=campaign_rel) / BACKUPS_DIR
+
+    def exports_dir(
+        self,
+        campaign_id: str,
+        *,
+        campaign_rel: str | None = None,
+    ) -> Path:
+        return self.campaign_graph_authoring_root(campaign_id, campaign_rel=campaign_rel) / EXPORTS_DIR
 
     def load_overlay(
         self,
