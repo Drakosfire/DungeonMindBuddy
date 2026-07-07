@@ -1,14 +1,6 @@
-import { useEffect, useMemo } from "react";
-
-import type { GraphProjectionNodeView } from "../../api/types";
-import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
-import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
-import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
-import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
-import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
 
 const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did not return projected recap Markdown.`;
 
@@ -16,37 +8,13 @@ function metadataValue(value: string | null | undefined): string {
   return value && value.trim() ? value : "—";
 }
 
-function toExistingNodeOptions(
-  nodeViews: Record<string, GraphProjectionNodeView> | undefined,
-): GraphObjectAuthoringInspectedNode[] {
-  if (!nodeViews) return [];
-  return Object.values(nodeViews).map((node) => ({
-    node_id: node.node_id,
-    label: node.label,
-    kind: node.kind,
-    role: node.role,
-    aliases: node.aliases,
-    authored:
-      node.authored === true || node.source_domains.includes("authored_overlay"),
-    sourceAnchorText: node.source_anchor_text ?? null,
-  }));
-}
-
-export function GraphReviewLiveProjectionPanel({
-  graphAuthoringModeEnabled: graphAuthoringModeEnabledProp,
-}: {
-  graphAuthoringModeEnabled?: boolean;
-  onGraphAuthoringModeChange?: (enabled: boolean) => void;
-} = {}) {
+export function GraphReviewLiveProjectionPanel() {
   const {
-    campaignId,
-    sessionId,
     liveRun,
     hasGold,
     projection,
     projectionStatus,
     projectionError,
-    reloadLiveProjection,
     goldProjection,
     goldProjectionStatus,
     goldProjectionError,
@@ -54,7 +22,6 @@ export function GraphReviewLiveProjectionPanel({
     paragraphSourceSpans,
     activeLaneObject,
     setActiveLaneObject,
-    selectedNode,
     setSelectedNode,
     selectedNodeViewModel,
     selectedRelationship,
@@ -63,39 +30,18 @@ export function GraphReviewLiveProjectionPanel({
     projectedInteractionOpen,
     setProjectedInteractionOpen,
     setSelectedEvidenceDeltaId,
-    authorDraft,
-    stageNodeAssertion,
-    stageRelationship,
     runIdentity,
   } = useGraphReviewLiveState();
 
-  const { authorMode } = authorDraft;
-  const graphAuthoringModeEnabled = graphAuthoringModeEnabledProp ?? false;
-  const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft({ campaignId, sessionId });
-  const { dismissSelection } = graphObjectAuthoringDraft;
-
-  useEffect(() => {
-    if (!graphAuthoringModeEnabled) {
-      dismissSelection();
-    }
-  }, [graphAuthoringModeEnabled, dismissSelection]);
-  const existingGraphObjectNodes = useMemo(
-    () => [
-      ...toExistingNodeOptions(projection?.node_views),
-      ...toExistingNodeOptions(goldProjection?.node_views),
-    ],
-    [projection, goldProjection],
-  );
-
-  const relationshipDraftSourceLabel = useMemo(() => {
-    const source = authorDraft.relationshipDraftSource;
-    if (!source) return null;
-    const nodeViews =
-      source.laneRole === "gold"
-        ? goldProjection?.node_views
-        : projection?.node_views;
-    return nodeViews?.[source.nodeId]?.label ?? null;
-  }, [authorDraft.relationshipDraftSource, goldProjection, projection]);
+  const openInspectDialog = (selection: {
+    laneRole: "gold" | "live";
+    nodeId: string;
+  }) => {
+    setSelectedNode(selection);
+    setSelectedRelationship(null);
+    setSelectedDeltaNodeId(selection.nodeId);
+    setProjectedInteractionOpen(true);
+  };
 
   return (
     <section
@@ -201,96 +147,29 @@ export function GraphReviewLiveProjectionPanel({
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
                 onActiveObjectChange={setActiveLaneObject}
-                onSelectObject={(selection) => {
-                  setSelectedNode(selection);
-                  setSelectedRelationship(null);
-                  setSelectedDeltaNodeId(selection.nodeId);
-                  setProjectedInteractionOpen(true);
-                }}
-                onSelectText={authorDraft.setSelectedText}
+                onSelectObject={openInspectDialog}
                 readerMode
               />
             ) : null}
-            {hasGold && !graphAuthoringModeEnabled ? (
-              <GraphReviewProjectionLane
-                laneRole="live"
-                title="Live Run · read-only"
-                subtitle={runIdentity}
-                markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-                nodeViews={projection.node_views}
-                sourceSpans={paragraphSourceSpans}
-                mentionsCount={projection.mentions.length}
-                deltaIndex={deltaIndex}
-                activeObject={activeLaneObject}
-                onActiveObjectChange={setActiveLaneObject}
-                onSelectObject={(selection) => {
-                  setSelectedNode(selection);
-                  setSelectedRelationship(null);
-                  setSelectedDeltaNodeId(selection.nodeId);
-                  setProjectedInteractionOpen(true);
-                }}
-                onSelectText={authorDraft.setSelectedText}
-                readerMode
-              />
-            ) : (
-              <GraphReviewAuthoringReader
-                key={`${campaignId}:${sessionId}:${liveRun.manifest_path}`}
-                campaignId={campaignId}
-                sessionId={sessionId}
-                graphId={projection.graph_id}
-                laneRole="live"
-                sourceArtifactPath={liveRun.manifest_path}
-                markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-                nodeViews={projection.node_views}
-                sourceSpans={paragraphSourceSpans}
-                documentLabel={hasGold ? "Live run prose" : "Ingested recap"}
-                authoringEnabled={graphAuthoringModeEnabled}
-                onInspectNode={(nodeId) => {
-                  setSelectedNode({ laneRole: "live", nodeId });
-                  setSelectedRelationship(null);
-                  setSelectedDeltaNodeId(nodeId);
-                  setProjectedInteractionOpen(true);
-                }}
-                onGraphAuthoringAction={(selection) => {
-                  graphObjectAuthoringDraft.openWithSelection(selection);
-                }}
-              />
-            )}
-          </div>
-          {graphAuthoringModeEnabled ? (
-            <GraphObjectAuthoringSurface
-              selectedSource={graphObjectAuthoringDraft.selectedSource}
-              formState={graphObjectAuthoringDraft.formState}
-              proposals={graphObjectAuthoringDraft.proposals}
-              onFormFieldChange={graphObjectAuthoringDraft.updateFormField}
-              onStageProposal={graphObjectAuthoringDraft.stageProposal}
-              onRemoveProposal={graphObjectAuthoringDraft.removeProposal}
-              linkExistingFormState={graphObjectAuthoringDraft.linkExistingFormState}
-              onLinkExistingFieldChange={graphObjectAuthoringDraft.updateLinkExistingField}
-              onStageLinkExistingProposal={graphObjectAuthoringDraft.stageLinkExistingProposal}
-              relationshipFormState={graphObjectAuthoringDraft.relationshipFormState}
-              onRelationshipFieldChange={graphObjectAuthoringDraft.updateRelationshipField}
-              onStageRelationshipProposal={graphObjectAuthoringDraft.stageRelationshipProposal}
-              campaignId={campaignId}
-              sessionId={sessionId}
-              sourceRunId={liveRun?.run_id ?? null}
-              sourceGraphId={projection.graph_id}
-              onCommittedProposals={graphObjectAuthoringDraft.clearCommittedProposals}
-              onRefreshProjection={reloadLiveProjection}
-              existingNodes={existingGraphObjectNodes}
+            <GraphReviewProjectionLane
               laneRole="live"
-              liveRunManifestPath={liveRun?.manifest_path ?? null}
-              projectionNodeViews={projection?.node_views}
+              title={hasGold ? "Live Run · read-only" : "Ingested recap"}
+              subtitle={runIdentity}
+              markdown={projection.markdown ?? FALLBACK_MARKDOWN}
+              nodeViews={projection.node_views}
+              sourceSpans={paragraphSourceSpans}
+              mentionsCount={projection.mentions.length}
+              deltaIndex={deltaIndex}
+              activeObject={activeLaneObject}
+              onActiveObjectChange={setActiveLaneObject}
+              onSelectObject={openInspectDialog}
+              readerMode
             />
-          ) : null}
+          </div>
           <GraphReviewProjectedInteractionSurface
             open={projectedInteractionOpen}
             selectedNode={selectedNodeViewModel}
             selectedRelationship={selectedRelationship}
-            authorMode={authorMode}
-            relationshipDraftSource={authorDraft.relationshipDraftSource}
-            relationshipDraftSourceLabel={relationshipDraftSourceLabel}
-            relationshipPredicate={authorDraft.relationshipPredicate}
             onClose={() => setProjectedInteractionOpen(false)}
             onSelectRelationship={(relationship) =>
               selectedNodeViewModel
@@ -303,44 +182,6 @@ export function GraphReviewLiveProjectionPanel({
                 : undefined
             }
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
-            onStageNodeAssertion={stageNodeAssertion}
-            onUseAsRelationshipSource={() =>
-              selectedNode &&
-              authorDraft.setRelationshipDraftSource(selectedNode)
-            }
-            onRelationshipPredicateChange={authorDraft.setRelationshipPredicate}
-            onStageRelationship={stageRelationship}
-            resolver={
-              <ExistingObjectResolverPanel
-                campaignId={campaignId}
-                sessionId={sessionId}
-                laneRole={selectedNodeViewModel?.laneRole ?? "live"}
-                selectedNode={selectedNodeViewModel?.node ?? null}
-                projectionGraphId={
-                  selectedNodeViewModel?.laneRole === "gold"
-                    ? (goldProjection?.graph_id ?? null)
-                    : projection.graph_id
-                }
-                liveRunManifestPath={liveRun.manifest_path}
-                nodeViews={projection?.node_views ?? null}
-                onStageLinkIntent={
-                  authorMode === "author_draft" && selectedNodeViewModel
-                    ? (candidate) =>
-                        authorDraft.stageExistingObjectLinkIntent({
-                          selectedNode: {
-                            laneRole: selectedNodeViewModel.laneRole,
-                            nodeId: selectedNodeViewModel.node.node_id,
-                            label: selectedNodeViewModel.node.label,
-                          },
-                          candidate: {
-                            ...candidate,
-                            candidateId: candidate.candidate_id,
-                          },
-                        })
-                    : undefined
-                }
-              />
-            }
           />
         </>
       ) : null}

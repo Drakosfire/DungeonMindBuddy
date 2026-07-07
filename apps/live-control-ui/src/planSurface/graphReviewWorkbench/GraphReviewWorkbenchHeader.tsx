@@ -2,16 +2,12 @@ interface GraphReviewWorkbenchHeaderProps {
   loaded: boolean;
   sessionLabel: string | null;
   onOpenLoad: () => void;
-  graphAuthoringEnabled?: boolean;
-  onGraphAuthoringToggle?: () => void;
 }
 
 export function GraphReviewWorkbenchHeader({
   loaded,
   sessionLabel,
   onOpenLoad,
-  graphAuthoringEnabled = false,
-  onGraphAuthoringToggle,
 }: GraphReviewWorkbenchHeaderProps) {
   return (
     <header className="graph-review-workbench-header graph-review-workbench-header--unified">
@@ -37,24 +33,6 @@ export function GraphReviewWorkbenchHeader({
         >
           Load recap
         </button>
-        {loaded && onGraphAuthoringToggle ? (
-          <button
-            type="button"
-            className={`graph-review-workbench-header-button graph-review-author-graph-button${
-              graphAuthoringEnabled ? " is-active" : ""
-            }`}
-            aria-pressed={graphAuthoringEnabled}
-            data-testid="graph-authoring-mode-toggle"
-            onClick={onGraphAuthoringToggle}
-          >
-            <span className="graph-review-author-graph-button-icon" aria-hidden="true">
-              ✦
-            </span>
-            <span>
-              {graphAuthoringEnabled ? "Authoring memory…" : "Author graph objects"}
-            </span>
-          </button>
-        ) : null}
       </div>
     </header>
   );

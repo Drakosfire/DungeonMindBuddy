@@ -1124,6 +1124,16 @@
   max-height: none;
 }
 
+.plan-projection-fullscreen .plan-projection-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.65rem 0.75rem 0.75rem;
+}
+
 .plan-projection-header {
   display: flex;
   align-items: flex-start;
@@ -4235,6 +4245,240 @@ body.plan-toolbox-open .plan-agent-shell {
   gap: 0.35rem;
 }
 
+.graph-review-author-draft-tool-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.graph-review-author-draft-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.graph-review-author-draft-layout {
+  display: grid;
+  flex: 1;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.graph-review-author-draft-layout--resizable {
+  gap: 0;
+}
+
+.graph-review-author-draft-reader-pane {
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.graph-review-author-draft-reader-pane .graph-review-authoring-reader-lane,
+.graph-review-author-draft-reader-pane .recap-reader-root,
+.graph-review-author-draft-reader-pane .union-supergraph-tiptap-reader,
+.graph-review-author-draft-reader-pane .recap-reader-document {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.graph-review-author-draft-rail {
+  align-content: start;
+  display: grid;
+  gap: 0.75rem;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.15rem 1rem 0.35rem;
+  border-left: none;
+}
+
+.graph-review-author-draft-rail > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.graph-review-author-draft-rail-section {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.graph-review-author-draft-rail-section h3,
+.graph-review-author-draft-rail-section h4 {
+  margin: 0;
+}
+
+.graph-review-author-draft-rail-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.graph-review-author-draft-resize-handle {
+  align-self: stretch;
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  width: 8px;
+}
+
+.graph-review-author-draft-resize-handle::before {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  content: "";
+  inset: 0.35rem 3px;
+  position: absolute;
+  transition: background 0.15s ease;
+}
+
+.graph-review-author-draft-resize-handle:hover::before,
+.graph-review-author-draft-resize-handle:focus-visible::before {
+  background: rgba(96, 165, 250, 0.75);
+}
+
+.graph-review-authoring-workflow-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.15rem 0 0.55rem;
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 20, 26, 0.98) 0%,
+    rgba(18, 20, 26, 0.92) 75%,
+    rgba(18, 20, 26, 0) 100%
+  );
+}
+
+.graph-review-authoring-workflow-tabs button {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+}
+
+.graph-review-authoring-workflow-tabs button.is-active {
+  border-color: rgba(96, 165, 250, 0.65);
+  background: rgba(37, 99, 235, 0.24);
+  color: #dbeafe;
+}
+
+.graph-review-authoring-workflow-panel {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.graph-review-authoring-modify-existing-panel {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.graph-review-authoring-modify-existing-panel h3 {
+  margin: 0.15rem 0 0;
+}
+
+.graph-review-authoring-selected-object-summary {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-review-authoring-selected-object-label {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.graph-review-author-draft-rail .graph-object-authoring-surface {
+  margin-top: 0;
+}
+
+.graph-review-author-draft-rail .graph-review-local-staging-tray,
+.graph-review-author-draft-rail .graph-review-authoring-prepare-preview,
+.graph-review-author-draft-rail .graph-review-existing-object-resolver {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-local-staging-pending-selection {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.graph-review-local-staging-pending-selection p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .graph-review-author-draft-layout:not(.graph-review-author-draft-layout--resizable) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, min(20rem, 46%));
+  }
+}
+
+@media (max-width: 960px) {
+  .graph-review-author-draft-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(12rem, 0.95fr) auto minmax(12rem, 1.05fr);
+  }
+
+  .graph-review-author-draft-resize-handle {
+    display: none;
+  }
+
+  .graph-review-author-draft-rail {
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    padding-top: 0.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .plan-projection-fullscreen .plan-projection-body {
+    padding: 0.5rem;
+  }
+
+  .graph-review-author-draft-layout {
+    gap: 0.55rem;
+    grid-template-rows: minmax(10rem, 0.9fr) minmax(10rem, 1.1fr);
+  }
+}
+
 .graph-object-authoring-surface {
   margin-top: 1rem;
   padding: 1rem 1.15rem;
@@ -4243,6 +4487,9 @@ body.plan-toolbox-open .plan-agent-shell {
   background: rgba(15, 23, 42, 0.55);
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .graph-object-authoring-surface-header h3 {
@@ -4291,6 +4538,9 @@ body.plan-toolbox-open .plan-agent-shell {
   background: rgba(15, 23, 42, 0.4);
   display: grid;
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .graph-object-authoring-selected-source-header {
@@ -4396,6 +4646,7 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-object-authoring-field {
   display: grid;
   gap: 0.3rem;
+  min-width: 0;
 }
 
 .graph-object-authoring-field label {
@@ -4420,6 +4671,10 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 0.4rem 0.55rem;
   font-size: 0.85rem;
   font-family: inherit;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .graph-object-authoring-visibility-note {
@@ -4527,6 +4782,7 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .graph-object-authoring-mode-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 
@@ -4577,6 +4833,7 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-object-authoring-ref-picker {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .graph-object-authoring-ref-picker label {
@@ -4585,6 +4842,7 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #cbd5e1;
   font-size: 0.8rem;
   font-weight: 600;
+  min-width: 0;
 }
 
 .graph-object-authoring-ref-picker select,
@@ -4596,6 +4854,10 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 0.4rem 0.55rem;
   font-size: 0.85rem;
   font-family: inherit;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .graph-object-authoring-ref-picker-summary {

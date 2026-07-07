@@ -25,7 +25,7 @@ export function createIngestSurfaceConfig(
       {
         id: "graph-review-author-draft",
         label: "Author Draft",
-        size: "wide",
+        size: "fullscreen",
       },
     ],
     canvas: {

@@ -26,6 +26,9 @@ describe("ingestSurfaceConfig", () => {
       "Diagnostics",
       "Author Draft",
     ]);
+    expect(
+      config.tools.find((tool) => tool.id === "graph-review-author-draft")?.size,
+    ).toBe("fullscreen");
     expect(config.canvas.documentId).toBe("ingest-surface");
   });
 });

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -12,7 +11,6 @@ import type {
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
-import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 
 vi.mock("../../api/liveApi", async () => {
@@ -108,22 +106,6 @@ const projectionWithMention: UnionSupergraphProjectionResponse = {
   ],
 };
 
-function LiveProjectionWithAuthoringHeader(): ReactNode {
-  const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
-  return (
-    <>
-      <GraphReviewWorkbenchHeader
-        loaded
-        sessionLabel="Session 23 · longmont-c2"
-        onOpenLoad={() => undefined}
-        graphAuthoringEnabled={graphAuthoringModeEnabled}
-        onGraphAuthoringToggle={() => setGraphAuthoringModeEnabled((enabled) => !enabled)}
-      />
-      <GraphReviewLiveProjectionPanel graphAuthoringModeEnabled={graphAuthoringModeEnabled} />
-    </>
-  );
-}
-
 describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
@@ -210,7 +192,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getUnionSupergraphProjection).not.toHaveBeenCalledWith(
       expect.objectContaining({ useLatestGraphIngest: true }),
     );
-    expect(screen.getByLabelText("Ingested recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
     expect(screen.queryByText("Live Run · read-only")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected live lane")).not.toBeInTheDocument();
     expect(
@@ -233,7 +215,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(getGoldGraphProjection).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Ingested recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
   });
 
   it("opens and closes one projected interaction surface from a graph mention", async () => {
@@ -272,13 +254,13 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(dialog).toHaveTextContent(
       "Alden guards the western gate and knows the patrol routes.",
     );
-    expect(dialog).toHaveTextContent("No link or merge is written here.");
     expect(
       screen.queryByRole("button", { name: "Highlight counterpart" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Stage node assertion" }),
     ).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Find existing object")).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Close selected object" }),
@@ -381,209 +363,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.queryByTestId("graph-authoring-action")).not.toBeInTheDocument();
   });
 
-  it("switches the live lane to the Tiptap authoring reader once authoring mode is enabled", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: true,
-      children: <LiveProjectionWithAuthoringHeader />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-    expect(
-      document.querySelector(".union-supergraph-tiptap-reader"),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
-
-    await waitFor(() => {
-      expect(
-        document.querySelector(".union-supergraph-tiptap-reader"),
-      ).toBeInTheDocument();
-    });
-    expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
-    expect(screen.getByLabelText("Live run prose")).toHaveClass(
-      "recap-reader-document--page-scroll",
-    );
-    expect(screen.queryByText("graph-a")).not.toBeInTheDocument();
-    expect(document.querySelector(".union-supergraph-graph-id")).not.toBeInTheDocument();
-  });
-
-  it("opens the graph object authoring surface from a Tiptap text selection and stages a local draft", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
-      ...projection,
-      markdown: "The gang arrived at the gate.",
-    });
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: false,
-      children: <LiveProjectionWithAuthoringHeader />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
-
-    await waitFor(() => {
-      expect(document.querySelector(".ProseMirror")).toBeTruthy();
-    });
-    expect(
-      screen.getByText(/Highlight source text in the recap/i),
-    ).toBeInTheDocument();
-
-    const proseMirror = document.querySelector(".ProseMirror") as HTMLElement;
-    const paragraph = proseMirror.querySelector("p") as HTMLElement;
-    const textNode = paragraph.firstChild as Text;
-    const startIndex = textNode.textContent!.indexOf("gang");
-    const range = document.createRange();
-    range.setStart(textNode, startIndex);
-    range.setEnd(textNode, startIndex + 4);
-    const domSelection = window.getSelection();
-    domSelection?.removeAllRanges();
-    domSelection?.addRange(range);
-    fireEvent.mouseUp(proseMirror);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-authoring-action")).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId("graph-authoring-action"));
-
-    expect(screen.getByLabelText("Label")).toHaveValue("gang");
-    expect(screen.getByLabelText("Visibility")).toHaveValue("gm_private");
-
-    fireEvent.change(screen.getByLabelText("Label"), {
-      target: { value: "Questionable Company" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
-
-    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposal).toHaveTextContent("Questionable Company");
-    expect(stagedProposal).toHaveTextContent("Aliases: gang");
-    expect(
-      screen.getByText(/These drafts are local until you prepare and commit them/i),
-    ).toBeInTheDocument();
-  });
-
-  it("lets the user target an existing graph object without first clicking to inspect it", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMention);
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: false,
-      children: <LiveProjectionWithAuthoringHeader />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
-
-    // "Alden" is already loaded as part of the projection's node views. It must be
-    // targetable from the relationship picker even though no pill has been clicked.
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingOption = within(sourcePicker).getByRole("option", { name: /Alden/ });
-    expect(existingOption).toBeInTheDocument();
-
-    fireEvent.change(sourcePicker, { target: { value: "existing_node:alden" } });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "Questionable Company" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
-
-    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "relationship");
-    expect(stagedProposal).toHaveTextContent("Alden");
-    expect(stagedProposal).toHaveTextContent("Questionable Company");
-  });
-
-  it("stages a link-existing and a relationship proposal alongside object drafts", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMention);
-
-    renderGraphReviewLiveHarness({
-      liveRun: baseRun,
-      hasGold: false,
-      children: <LiveProjectionWithAuthoringHeader />,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByTestId("graph-authoring-mode-toggle"));
-
-    const liveReader = screen.getByTestId("graph-projection-reader");
-    const aldenPill = await waitFor(() => {
-      const pill = within(liveReader)
-        .getAllByRole("button", { name: /Alden/ })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-    fireEvent.click(aldenPill);
-    fireEvent.click(screen.getByRole("button", { name: "Close selected object" }));
-
-    // Relationship authoring is available even without a highlighted text selection,
-    // and can target any existing graph object already loaded in the projection
-    // ("Alden"), not just the last-inspected one.
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:alden" },
-    });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "Questionable Company" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
-
-    const relationshipProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(relationshipProposal).toHaveAttribute("data-proposal-kind", "relationship");
-    expect(relationshipProposal).toHaveTextContent("Alden");
-    expect(relationshipProposal).toHaveTextContent("Questionable Company");
-    expect(
-      screen.getByText(/These drafts are local until you prepare and commit them/i),
-    ).toBeInTheDocument();
-
-    // Now select the "gang" text span and stage a link-existing proposal against
-    // the same inspected node, alongside the relationship proposal above.
-    const proseMirror = liveReader.querySelector(".ProseMirror") as HTMLElement;
-    const paragraph = proseMirror.querySelector("p") as HTMLElement;
-    const textNode = paragraph.firstChild as Text;
-    const startIndex = textNode.textContent!.indexOf("party");
-    const range = document.createRange();
-    range.setStart(textNode, startIndex);
-    range.setEnd(textNode, startIndex + "party".length);
-    const domSelection = window.getSelection();
-    domSelection?.removeAllRanges();
-    domSelection?.addRange(range);
-    fireEvent.mouseUp(proseMirror);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-authoring-action")).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId("graph-authoring-action"));
-    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
-    fireEvent.change(screen.getByLabelText("Existing object"), {
-      target: { value: "existing_node:alden" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
-
-    const stagedProposals = screen.getAllByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposals).toHaveLength(2);
-    const linkExistingProposal = stagedProposals.find(
-      (node) => node.getAttribute("data-proposal-kind") === "link_existing",
-    );
-    expect(linkExistingProposal).toBeTruthy();
-    expect(linkExistingProposal).toHaveTextContent("party");
-    expect(linkExistingProposal).toHaveTextContent("Alden");
-  });
-
   it("does not render diagnostic panels on the main surface", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
 
@@ -601,6 +380,8 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(
       screen.queryByText("Author Draft text-selection actions"),
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-object-authoring-surface")).not.toBeInTheDocument();
+    expect(document.querySelector(".union-supergraph-tiptap-reader")).not.toBeInTheDocument();
   });
 
   it("renders a friendly error for failed projection loading", async () => {
