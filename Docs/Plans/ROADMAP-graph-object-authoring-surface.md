@@ -633,7 +633,7 @@ C1S2 or another session with ingested graph material and obvious missed/underlin
 
 The dogfood report identifies interaction friction but proves the product loop end-to-end.
 
-**Status (2026-07-07):** A10a dogfood report landed (`Docs/Reports/DOGFOOD-graph-object-authoring-a10-user-stories.md`). A10b addressed the first hardening gap: authored link-existing aliases can ground selected prose after reload (`Docs/Plans/NOTE-a10b-authored-alias-prose-grounding.md`). Further A10b slices (node detail hierarchy, relationship coaching, visibility copy) remain open.
+**Status (2026-07-07):** A10a dogfood report landed (`Docs/Reports/DOGFOOD-graph-object-authoring-a10-user-stories.md`). A10b addressed authored alias prose grounding after reload (`Docs/Plans/NOTE-a10b-authored-alias-prose-grounding.md`). A10c hardens selected-node detail hierarchy so summaries, aliases, and relationships appear before overlay/debug metadata (`Docs/Plans/NOTE-a10c-node-detail-hierarchy.md`). Relationship coaching and visibility preview copy remain open.
 
 ---
 
