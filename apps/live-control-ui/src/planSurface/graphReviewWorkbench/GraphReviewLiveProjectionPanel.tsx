@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
-import { GraphAuthoredOverlaySummary } from "./GraphAuthoredOverlaySummary";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { GraphReviewAuthoringReader } from "./GraphReviewAuthoringReader";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
@@ -143,7 +142,6 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <GraphAuthoredOverlaySummary summary={projection.authored_overlay} />
           <div
             className={
               hasGold

@@ -7,6 +7,7 @@ import type {
 import {
   buildGraphReviewCatalog,
   catalogSessionLabel,
+  formatCompactAppliedLoadLabel,
   goldSessionToLane,
   graphIngestRunToLane,
   hasCatalogReviewableRun,
@@ -171,6 +172,17 @@ describe("graphReviewWorkbenchUtils", () => {
       goldFixtureId: null,
     });
     expect(catalogSessionLabel(catalog[0])).toBe("Session 2");
+  });
+
+  it("formats compact applied load labels without run pipeline metadata", () => {
+    const catalog = buildGraphReviewCatalog([
+      run({
+        campaign_id: "longmont-c1",
+        session_id: "session-1",
+        run_label: "longmont-c1 session 1 normalized recap · category_decomposed · gpt-5.4-mini",
+      }),
+    ]);
+    expect(formatCompactAppliedLoadLabel(catalog[0])).toBe("Session 1 · longmont-c1");
   });
 
   it("overlays gold metadata when runs and gold sessions share a key", () => {

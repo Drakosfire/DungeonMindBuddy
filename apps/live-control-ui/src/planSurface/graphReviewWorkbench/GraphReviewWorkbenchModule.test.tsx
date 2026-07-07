@@ -204,7 +204,7 @@ describe("GraphReviewWorkbenchModule", () => {
     );
 
     expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
-    expect(screen.getByText("Session 23 · Run A")).toBeInTheDocument();
+    expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
   });
 
@@ -363,7 +363,7 @@ describe("GraphReviewWorkbenchModule", () => {
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
-    expect(screen.getByText("Session 2 · C1S2 run")).toBeInTheDocument();
+    expect(screen.getByText("Session 2 · longmont-c1")).toBeInTheDocument();
     expect(compareSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
   });
