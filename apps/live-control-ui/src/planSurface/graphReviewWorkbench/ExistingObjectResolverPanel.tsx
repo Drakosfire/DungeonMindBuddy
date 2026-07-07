@@ -25,6 +25,7 @@ import {
   clearIdentitySelection,
   createEmptyIdentitySelection,
   formatCandidateIdentitySubline,
+  isClusterPeerOfSelection,
   isSearchMergeAlreadyStaged,
   possibleDuplicateCount,
   readStoredIdentityWorkbenchState,
@@ -38,6 +39,7 @@ import {
 } from "./graphExistingObjectIdentityWorkbench";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { GraphReviewExistingObjectIdentityCompare } from "./GraphReviewExistingObjectIdentityCompare";
+import { formatGraphObjectType } from "./graphReviewSelectionUtils";
 
 export const QUERY_SEARCH_NODE_ID = "__graph_review_query_search__";
 
@@ -308,9 +310,10 @@ export function ExistingObjectResolverPanel({
       <h3>Search campaign sources</h3>
       <p>
         Search across current recap, authored memory, party / PC data,
-        worldbuilding, campaign memory, and GM-private graph sources. Pick a
-        canonical hub and duplicate records to stage identity merges without
-        selecting a recap pill.
+        worldbuilding, campaign memory, and GM-private graph sources. Use{" "}
+        <strong>identity merge</strong> to collapse duplicate object records.
+        Recap <strong>alias links</strong> are separate and only appear when you
+        opt in to link a recap pill below.
       </p>
       <label className="graph-review-existing-object-resolver-query">
         Search phrase
@@ -363,17 +366,81 @@ export function ExistingObjectResolverPanel({
               sources may be incomplete.
             </p>
           ) : null}
-          {identitySelection.canonical || identitySelection.duplicates.length ? (
+          {response.candidates.length ? (
+            <p className="graph-review-info graph-review-existing-object-cluster-summary">
+              {response.candidates.length} result
+              {response.candidates.length === 1 ? "" : "s"}
+              {possibleDuplicateCount(response.candidates[0], allCandidates) > 0 ||
+              allCandidates.some(
+                (candidate) => possibleDuplicateCount(candidate, allCandidates) > 0,
+              )
+                ? ` · possible duplicate cluster (${allCandidates.length} related identities)`
+                : ""}
+            </p>
+          ) : null}
+          {identitySelection.canonical ||
+          identitySelection.duplicates.length ||
+          onStageSearchMerge ? (
             <section className="graph-review-existing-object-identity-selection">
               <h4>Identity selection</h4>
-              <p className="graph-review-muted">
-                {identitySelection.canonical
-                  ? `Canonical hub: ${identitySelection.canonical.label} (${identitySelection.canonical.candidate_id})`
-                  : "Choose one result as the canonical hub."}
-                {identitySelection.duplicates.length
-                  ? ` · ${identitySelection.duplicates.length} duplicate(s) selected`
-                  : ""}
+              <p className="graph-review-identity-merge-notice">
+                This stages an object identity merge, not a recap text alias link.
+                It will not edit recap text and will not delete source evidence.
               </p>
+              {identitySelection.canonical ? (
+                <div className="graph-review-identity-summary-block graph-review-identity-summary-canonical">
+                  <p className="graph-review-identity-summary-label">
+                    Canonical / survivor
+                  </p>
+                  <p className="graph-review-identity-summary-name">
+                    {identitySelection.canonical.label}
+                  </p>
+                  <p className="graph-review-muted">
+                    {formatCandidateIdentitySubline(identitySelection.canonical)}
+                  </p>
+                </div>
+              ) : (
+                <p className="graph-review-muted">
+                  Choose one search result as the canonical hub that should
+                  survive the merge.
+                </p>
+              )}
+              {identitySelection.duplicates.length ? (
+                <div className="graph-review-identity-summary-block graph-review-identity-summary-duplicates">
+                  <p className="graph-review-identity-summary-label">
+                    Will merge away
+                  </p>
+                  <ul className="graph-review-identity-summary-list">
+                    {identitySelection.duplicates.map((duplicate) => (
+                      <li key={duplicate.candidate_id}>
+                        <span className="graph-review-identity-summary-name">
+                          {duplicate.label}
+                        </span>
+                        <span className="graph-review-muted">
+                          {" "}
+                          · {formatCandidateIdentitySubline(duplicate)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : identitySelection.canonical ? (
+                <p className="graph-review-muted">
+                  Select at least one duplicate record to merge into the
+                  canonical hub.
+                </p>
+              ) : null}
+              {identitySelection.canonical && identitySelection.duplicates.length ? (
+                <p className="graph-review-identity-merge-direction">
+                  Merge direction:{" "}
+                  <strong>
+                    {identitySelection.canonical.candidate_id} ←{" "}
+                    {identitySelection.duplicates
+                      .map((item) => item.candidate_id)
+                      .join(", ")}
+                  </strong>
+                </p>
+              ) : null}
               <div className="graph-review-existing-object-identity-selection-actions">
                 <button
                   type="button"
@@ -390,15 +457,20 @@ export function ExistingObjectResolverPanel({
                   <button
                     type="button"
                     onClick={handleStageSearchMerge}
-                    disabled={mergeAlreadyStaged}
+                    disabled={mergeAlreadyStaged || !searchMergeInput}
                   >
-                    Stage merge into canonical
+                    Stage identity merge
                   </button>
                 ) : null}
               </div>
+              {onStageSearchMerge && !searchMergeInput ? (
+                <p className="graph-review-muted">
+                  Choose one canonical hub and at least one duplicate record.
+                </p>
+              ) : null}
               {stageMergeFeedback === "staged" ? (
                 <p role="status" className="graph-review-info">
-                  Identity merge staged in authored overlay. Open{" "}
+                  Identity merge staged locally in Review staged memory. Open{" "}
                   <strong>Stage &amp; commit</strong> to prepare and commit.
                 </p>
               ) : null}
@@ -433,6 +505,16 @@ export function ExistingObjectResolverPanel({
                     candidate,
                     allCandidates,
                   );
+                  const clusterSize = duplicatePeers + 1;
+                  const clusterPeer = isClusterPeerOfSelection(
+                    candidate,
+                    identitySelection,
+                  );
+                  const objectType = formatGraphObjectType(
+                    candidate.kind,
+                    candidate.role,
+                  );
+                  const aliasCount = candidate.aliases?.length ?? 0;
 
                   return (
                     <article
@@ -444,37 +526,66 @@ export function ExistingObjectResolverPanel({
                           : "false"
                       }
                       data-identity-role={selectionRole ?? "none"}
+                      data-cluster-peer={clusterPeer ? "true" : "false"}
                     >
+                      {selectionRole === "canonical" ? (
+                        <p className="graph-review-existing-object-selection-banner graph-review-existing-object-selection-banner-canonical">
+                          Selected canonical / survivor
+                        </p>
+                      ) : null}
+                      {selectionRole === "duplicate" ? (
+                        <p className="graph-review-existing-object-selection-banner graph-review-existing-object-selection-banner-duplicate">
+                          Selected duplicate / will merge away
+                        </p>
+                      ) : null}
                       <h6>{formatResolverCandidateLabel(candidate)}</h6>
                       <p className="graph-review-existing-object-candidate-id">
                         <code>{candidate.candidate_id}</code>
                       </p>
-                      <p>{formatCandidateIdentitySubline(candidate)}</p>
-                      <p>{candidate.reason}</p>
+                      <div className="graph-review-existing-object-candidate-chips">
+                        <span className="graph-review-scope-chip">
+                          {candidateScopeLabel(candidate)}
+                        </span>
+                        {objectType && objectType !== "Unknown" ? (
+                          <span className="graph-review-type-chip">{objectType}</span>
+                        ) : null}
+                        {aliasCount ? (
+                          <span className="graph-review-alias-chip">
+                            {aliasCount} alias{aliasCount === 1 ? "" : "es"}
+                          </span>
+                        ) : null}
+                        {clusterSize > 1 ? (
+                          <span className="graph-review-cluster-chip">
+                            Possible duplicate cluster: {clusterSize}
+                          </span>
+                        ) : null}
+                      </div>
+                      {aliasCount ? (
+                        <p className="graph-review-muted">
+                          <strong>Aliases:</strong> {candidate.aliases?.join(", ")}
+                        </p>
+                      ) : null}
+                      {candidate.matched_features.length ? (
+                        <p className="graph-review-muted">
+                          <strong>Matched:</strong>{" "}
+                          {candidate.matched_features.join(", ")}
+                        </p>
+                      ) : null}
                       <p>
+                        <strong>Reason:</strong> {candidate.reason}
+                      </p>
+                      <p className="graph-review-muted">
                         {candidate.confidence[0].toUpperCase() +
                           candidate.confidence.slice(1)}{" "}
                         confidence · {candidate.score.toFixed(2)}
                       </p>
-                      <p>
+                      <p className="graph-review-muted">
                         <strong>Suggested action:</strong>{" "}
                         {actionLabel(candidate.suggested_action)}
                       </p>
-                      {candidate.matched_features.length ? (
-                        <p>
-                          <strong>Matched features:</strong>{" "}
-                          {candidate.matched_features.join(", ")}
-                        </p>
-                      ) : null}
                       {candidate.authored ? (
-                        <p>
+                        <p className="graph-review-muted">
                           <strong>Authored:</strong> yes
-                        </p>
-                      ) : null}
-                      {duplicatePeers > 0 ? (
-                        <p className="graph-review-existing-object-duplicate-badge">
-                          Possible duplicate cluster ({duplicatePeers + 1}{" "}
-                          related result{duplicatePeers + 1 === 1 ? "" : "s"})
                         </p>
                       ) : null}
                       {onStageSearchMerge ? (
@@ -519,6 +630,10 @@ export function ExistingObjectResolverPanel({
                       ) : null}
                       {canStageLinkIntent ? (
                         <div className="graph-review-local-link-intent-action">
+                          <p className="graph-review-identity-link-notice">
+                            Recap alias link only — associates recap text with an
+                            existing object. This is not an identity merge.
+                          </p>
                           <button
                             type="button"
                             onClick={() => {
@@ -527,7 +642,7 @@ export function ExistingObjectResolverPanel({
                               onStageLinkIntentComplete?.();
                             }}
                           >
-                            Stage link intent
+                            Stage recap alias link
                           </button>
                           {mergeReviewSourceNode && nodeViews?.[candidate.candidate_id] ? (
                             <button
@@ -547,23 +662,23 @@ export function ExistingObjectResolverPanel({
                           ) : null}
                         {candidate.candidate_id === stagedCandidateId ? (
                           <p role="status" className="graph-review-info">
-                            Link staged in authored overlay. Open{" "}
+                            Recap alias link staged locally. Open{" "}
                             <strong>Stage &amp; commit</strong> to review and
                             prepare.
                           </p>
                         ) : (
-                          <p>
+                          <p className="graph-review-muted">
                             Links{" "}
                             <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
-                            to this existing match as an overlay link_existing
-                            draft. This is not the gold whole-graph fixture path.
+                            recap text to this existing match as a link_existing
+                            draft.
                           </p>
                         )}
                         </div>
                       ) : onStageLinkIntent ? (
                         <p className="graph-review-muted">
-                          Enable “Link to recap pill” above to stage link
-                          intents from these results.
+                          Enable “Link recap text to existing object” above to
+                          stage recap alias links from these results.
                         </p>
                       ) : null}
                     </article>

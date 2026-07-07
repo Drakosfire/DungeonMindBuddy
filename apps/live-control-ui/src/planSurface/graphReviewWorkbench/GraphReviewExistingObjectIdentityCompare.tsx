@@ -4,13 +4,16 @@ import { formatGraphObjectType } from "./graphReviewSelectionUtils";
 
 function IdentityCompareCard({
   title,
+  subtitle,
   candidate,
 }: {
   title: string;
+  subtitle: string;
   candidate: GraphReviewExistingObjectCandidate;
 }) {
   return (
     <div className="graph-review-existing-object-identity-compare-card">
+      <p className="graph-review-existing-object-identity-compare-kicker">{subtitle}</p>
       <h5>{title}</h5>
       <dl className="graph-review-existing-object-identity-compare-details">
         <div>
@@ -19,8 +22,18 @@ function IdentityCompareCard({
         </div>
         <div>
           <dt>Candidate id</dt>
-          <dd>
+          <dd className="graph-review-existing-object-candidate-id">
             <code>{candidate.candidate_id}</code>
+            <button
+              type="button"
+              className="graph-review-copy-id-button"
+              aria-label={`Copy ${candidate.candidate_id}`}
+              onClick={() => {
+                void navigator.clipboard?.writeText(candidate.candidate_id);
+              }}
+            >
+              Copy id
+            </button>
           </dd>
         </div>
         <div>
@@ -76,14 +89,23 @@ export function GraphReviewExistingObjectIdentityCompare({
       className="graph-review-existing-object-identity-compare"
       aria-label="Compare canonical and duplicate search results"
     >
-      <h4>Compare selected identity</h4>
+      <h4>Compare before staging</h4>
       <p className="graph-review-muted">
         Review the hub you want to keep versus the duplicate record that should
-        merge away. This is an object identity merge, not a recap text alias link.
+        merge away. This stages an object identity merge, not a recap text alias
+        link.
       </p>
       <div className="graph-review-existing-object-identity-compare-grid">
-        <IdentityCompareCard title="Canonical / survivor" candidate={canonical} />
-        <IdentityCompareCard title="Duplicate / merge away" candidate={duplicate} />
+        <IdentityCompareCard
+          title={canonical.label}
+          subtitle="Keep this / Survivor"
+          candidate={canonical}
+        />
+        <IdentityCompareCard
+          title={duplicate.label}
+          subtitle="Merge this away / Duplicate"
+          candidate={duplicate}
+        />
       </div>
     </section>
   );

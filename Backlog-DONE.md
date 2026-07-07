@@ -11,6 +11,24 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review — Existing Object identity workbench — completed 2026-07-07
+
+**Implemented (A10k, PR #295):** Existing Object search now shows ids/scopes, supports canonical + duplicate selection, side-by-side compare, duplicate badges, and stages `merge_objects` proposals through the authored overlay path. Follow-up canonical persistence fix landed on main after merge.
+
+**Refs:** `ExistingObjectResolverPanel.tsx`, `graphExistingObjectIdentityWorkbench.ts`, `GraphReviewAuthoringRail.tsx`, PR #295
+
+## [DONE] Graph Review — post-overlay alias propagation from authored links — completed 2026-07-07
+
+**Implemented (A10j, PR #294):** Authored `link_existing` decisions now seed projection-time alias propagation; safe exact occurrences are pillified dynamically without source markdown mutation.
+
+**Refs:** `graph_authoring_overlay_projection.py`, PR #294
+
+## [DONE] Graph Review — manual object merge review — completed 2026-07-07
+
+**Implemented (A10i, PR #293):** Added manual merge candidates, side-by-side review, staged `merge_objects` proposals, authored overlay prepare/commit support, and projection collapse/redirect behavior.
+
+**Refs:** `GraphReviewMergeCandidatesPanel.tsx`, `graphObjectAuthoringDraft.ts`, PR #293
+
 ## [DONE] Graph Review — review-only canvas + full-page authoring toolbox — completed 2026-07-07
 
 **Implemented (A10h):** Removed header **Author graph objects** toggle. Review canvas is always read-only projection lanes with inspect-only selected-object dialog (no staging actions, no resolver). Author Draft toolbox tool is `fullscreen`; `GraphReviewAuthorDraftWorkspace` splits live Tiptap recap (left) from authoring rail (right) with selected text/object, relationship source/target picking without dialog churn, `GraphObjectAuthoringSurface`, resolver, local staging tray, and prepare/commit.

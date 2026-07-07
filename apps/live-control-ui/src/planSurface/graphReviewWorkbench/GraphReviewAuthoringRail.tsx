@@ -218,9 +218,9 @@ export function GraphReviewAuthoringRail({
             <p className="plan-surface-kicker">Existing object</p>
             <h3>Search existing objects</h3>
             <p className="graph-object-authoring-surface-hint">
-              Search by name across campaign sources. Recap pill clicks do not
-              affect search — opt in below only when you want to link a pill
-              to a match.
+              Search by name across campaign sources. Use identity merge to
+              collapse duplicate records. Recap alias links are separate — opt in
+              below only when you want to associate recap text with a match.
             </p>
           </header>
           {selectedAuthoringViewModel ? (
@@ -233,10 +233,12 @@ export function GraphReviewAuthoringRail({
                     setLinkRecapPillEnabled(event.target.checked)
                   }
                 />
-                Link to recap pill: {selectedAuthoringViewModel.node.label}
+                Link recap text to existing object:{" "}
+                {selectedAuthoringViewModel.node.label}
               </label>
               {linkRecapPillEnabled ? (
                 <p className="graph-review-muted">
+                  Recap alias link only — not an object identity merge.{" "}
                   {formatGraphObjectType(
                     selectedAuthoringViewModel.node.kind,
                     selectedAuthoringViewModel.node.role,

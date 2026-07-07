@@ -13,6 +13,7 @@ import {
   canStageSearchMerge,
   clearIdentitySelection,
   createEmptyIdentitySelection,
+  isClusterPeerOfSelection,
   isSearchMergeAlreadyStaged,
   possibleDuplicateCount,
   rehydrateIdentitySelection,
@@ -123,6 +124,14 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     ]);
   });
 
+  it("highlights cluster peers of the current identity selection", () => {
+    let state = createEmptyIdentitySelection();
+    state = setCanonicalCandidate(state, lysandraParty);
+    expect(isClusterPeerOfSelection(lysandraSession, state)).toBe(true);
+    expect(isClusterPeerOfSelection(lysandraMemory, state)).toBe(true);
+    expect(isClusterPeerOfSelection(lysandraParty, state)).toBe(false);
+  });
+
   it("builds merge stage input for search-selected identity pairs", () => {
     let state = createEmptyIdentitySelection();
     state = setCanonicalCandidate(state, lysandraParty);
@@ -131,7 +140,7 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     const input = buildSearchMergeStageInput(state, "graph-live-1");
     expect(input).toMatchObject({
       mergeReason:
-        "Search result identity merge: node:lysandra → party:captain_lysandra_ironveil",
+        "Search result identity merge: party:captain_lysandra_ironveil ← node:lysandra",
       sourceGraphId: "graph-live-1",
     });
     expect(input?.survivorObjectRef.nodeId).toBe("party:captain_lysandra_ironveil");

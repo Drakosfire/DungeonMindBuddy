@@ -100,12 +100,12 @@ export function buildSearchMergeReason(
 ): string {
   if (duplicates.length === 1) {
     return (
-      `Search result identity merge: ${duplicates[0].candidate_id} → ` +
-      `${canonical.candidate_id}`
+      `Search result identity merge: ${canonical.candidate_id} ← ` +
+      `${duplicates[0].candidate_id}`
     );
   }
   const duplicateIds = duplicates.map((item) => item.candidate_id).join(", ");
-  return `Search result identity merge: ${duplicateIds} → ${canonical.candidate_id}`;
+  return `Search result identity merge: ${canonical.candidate_id} ← ${duplicateIds}`;
 }
 
 export function collectSearchMergeMatchedFeatures(
@@ -204,6 +204,31 @@ export function possibleDuplicateCount(
     }
     return candidateClusterKeys(other).some((key) => keys.has(key));
   }).length;
+}
+
+export function sharesClusterKeys(
+  left: GraphReviewExistingObjectCandidate,
+  right: GraphReviewExistingObjectCandidate,
+): boolean {
+  const leftKeys = new Set(candidateClusterKeys(left));
+  return candidateClusterKeys(right).some((key) => leftKeys.has(key));
+}
+
+export function isClusterPeerOfSelection(
+  candidate: GraphReviewExistingObjectCandidate,
+  state: ExistingObjectIdentitySelectionState,
+): boolean {
+  const selected = [
+    ...(state.canonical ? [state.canonical] : []),
+    ...state.duplicates,
+  ];
+  if (!selected.length) {
+    return false;
+  }
+  if (selected.some((item) => item.candidate_id === candidate.candidate_id)) {
+    return false;
+  }
+  return selected.some((item) => sharesClusterKeys(item, candidate));
 }
 
 export function formatCandidateIdentitySubline(

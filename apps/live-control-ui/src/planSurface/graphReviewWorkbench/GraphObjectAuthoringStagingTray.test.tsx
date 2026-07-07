@@ -134,6 +134,8 @@ describe("GraphObjectAuthoringStagingTray", () => {
     );
 
     expect(screen.getByText(/Tripod Null-Calf ← Tripod Null Calf/i)).toBeInTheDocument();
-    expect(screen.getByText(/No objects have been deleted/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local only until commit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Survivor id:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Merge-away ids:/i)).toBeInTheDocument();
   });
 });
