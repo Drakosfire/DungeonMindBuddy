@@ -23,13 +23,21 @@ function laneBadgeCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
   return parts.join(" · ");
 }
 
+const VISIBILITY_FRIENDLY_COPY: Record<string, string> = {
+  gm_private: "GM private",
+  gm: "GM private",
+  table_known: "Table known",
+  table: "Table",
+  player_visible: "Player visible",
+  player: "Player",
+  character_specific: "Character-specific",
+  character: "Character",
+  hidden_until_revealed: "Hidden until revealed",
+};
+
 function friendlyVisibilityCopy(visibility: string): string {
-  const normalized = visibility.trim().toLowerCase().replace(/_/g, " ");
-  if (normalized === "gm private" || normalized === "gm") return "GM private";
-  if (normalized === "table") return "Table";
-  if (normalized === "player") return "Player";
-  if (normalized === "character") return "Character";
-  return visibility;
+  const key = visibility.trim().toLowerCase();
+  return VISIBILITY_FRIENDLY_COPY[key] ?? visibility;
 }
 
 function statusCopy(viewModel: GraphReviewSelectedNodeViewModel): string {

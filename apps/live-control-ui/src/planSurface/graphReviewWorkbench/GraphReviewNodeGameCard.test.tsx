@@ -201,6 +201,34 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.getByText(/Grounded from source phrase: “gang”/)).toBeInTheDocument();
   });
 
+  it("renders friendly visibility copy for graph authoring enum values", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { visibility: "player_visible" })}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const aliasNote = screen.getByLabelText("Aliases and memory");
+    expect(within(aliasNote).getByText("Visibility: Player visible")).toBeInTheDocument();
+    expect(within(aliasNote).queryByText(/player_visible/i)).not.toBeInTheDocument();
+  });
+
+  it("renders table_known visibility as friendly copy in the primary card", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { visibility: "table_known" })}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const aliasNote = screen.getByLabelText("Aliases and memory");
+    expect(within(aliasNote).getByText("Visibility: Table known")).toBeInTheDocument();
+    expect(within(aliasNote).queryByText(/table_known/i)).not.toBeInTheDocument();
+  });
+
   it("uses inspect evidence/source action copy instead of open evidence/debug", () => {
     render(
       <GraphReviewNodeGameCard
