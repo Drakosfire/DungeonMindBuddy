@@ -270,6 +270,32 @@ describe("GraphReviewLiveProjectionPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders gold and live projection lanes side by side in the two-lane layout", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(getGoldGraphProjection).mockResolvedValue({
+      ...projection,
+      source_kind: "gold_fixture",
+      gold_fixture_id: "fixture-a",
+      gold_fixture_relpath: "gold/session-23.json",
+    });
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      hasGold: true,
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-projection-layout")).toBeInTheDocument(),
+    );
+
+    const layout = screen.getByTestId("graph-review-projection-layout");
+    expect(layout).toHaveClass("graph-review-real-two-lane-projections");
+    expect(within(layout).getByLabelText("Gold fixture prose")).toBeInTheDocument();
+    expect(within(layout).getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(layout.querySelectorAll(".graph-review-projection-lane")).toHaveLength(2);
+  });
+
   it("preserves gold-vs-live compare decorations on the live lane when authoring mode is off", async () => {
     const goldNodeViews = {
       "gold:alden": {

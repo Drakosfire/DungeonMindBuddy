@@ -4046,7 +4046,6 @@ body.plan-toolbox-open .plan-agent-shell {
   display: grid;
   gap: 0.35rem;
   margin-bottom: 0.65rem;
-  grid-column: 1 / -1;
 }
 
 .graph-authoring-mode-toggle {

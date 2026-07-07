@@ -142,24 +142,50 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
+          <div className="graph-authoring-mode-controls">
+            <label className="graph-authoring-mode-toggle">
+              <input
+                type="checkbox"
+                checked={graphAuthoringModeEnabled}
+                data-testid="graph-authoring-mode-toggle"
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  setGraphAuthoringModeEnabled(enabled);
+                  if (!enabled) {
+                    graphObjectAuthoringDraft.dismissSelection();
+                  }
+                }}
+              />
+              <span>Author graph objects</span>
+            </label>
+            {graphAuthoringModeEnabled ? (
+              <p className="graph-authoring-mode-hint">
+                Highlight source text in the ingested recap to capture a selection.
+                No graph write happens until a later authoring step.
+              </p>
+            ) : null}
+          </div>
+          {hasGold && goldProjectionStatus === "loading" ? (
+            <p className="graph-review-live-projection-status" role="status">
+              Loading gold fixture projection…
+            </p>
+          ) : null}
+          {hasGold && goldProjectionStatus === "error" ? (
+            <div className="graph-review-error" role="alert">
+              <p>
+                {goldProjectionError ??
+                  "Failed to load gold fixture projection."}
+              </p>
+            </div>
+          ) : null}
           <div
             className={
               hasGold
                 ? "graph-review-real-two-lane-projections"
                 : "graph-review-live-only-projections"
             }
+            data-testid="graph-review-projection-layout"
           >
-            {hasGold && goldProjectionStatus === "loading" ? (
-              <p className="graph-review-live-projection-status" role="status">
-                Loading gold fixture projection…
-              </p>
-            ) : null}
-            {hasGold && goldProjectionStatus === "error" ? (
-              <p className="graph-review-error" role="alert">
-                {goldProjectionError ??
-                  "Failed to load gold fixture projection."}
-              </p>
-            ) : null}
             {hasGold && goldProjectionStatus === "ready" && goldProjection ? (
               <GraphReviewProjectionLane
                 laneRole="gold"
@@ -186,29 +212,6 @@ export function GraphReviewLiveProjectionPanel() {
                 readerMode
               />
             ) : null}
-            <div className="graph-authoring-mode-controls">
-              <label className="graph-authoring-mode-toggle">
-                <input
-                  type="checkbox"
-                  checked={graphAuthoringModeEnabled}
-                  data-testid="graph-authoring-mode-toggle"
-                  onChange={(event) => {
-                    const enabled = event.target.checked;
-                    setGraphAuthoringModeEnabled(enabled);
-                    if (!enabled) {
-                      graphObjectAuthoringDraft.dismissSelection();
-                    }
-                  }}
-                />
-                <span>Author graph objects</span>
-              </label>
-              {graphAuthoringModeEnabled ? (
-                <p className="graph-authoring-mode-hint">
-                  Highlight source text in the ingested recap to capture a selection.
-                  No graph write happens until a later authoring step.
-                </p>
-              ) : null}
-            </div>
             {hasGold && !graphAuthoringModeEnabled ? (
               <GraphReviewProjectionLane
                 laneRole="live"
