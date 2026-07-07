@@ -324,6 +324,11 @@ def _build_object_ref(payload: dict[str, Any]) -> AuthoredGraphObjectRef:
         label=parsed.label,
         kind=parsed.kind,
         role=parsed.role,
+        candidate_graph_scope=parsed.graph_scope,
+        source_label=parsed.source_label,
+        source_graph_id=parsed.source_graph_id,
+        source_path=parsed.source_path,
+        source_visibility=parsed.visibility,
     )
 
 

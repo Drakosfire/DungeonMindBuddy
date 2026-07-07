@@ -213,6 +213,109 @@ def test_prepare_accepts_cross_scope_object_ref_metadata(store: GraphAuthoringOv
     assert response.overlay_summary.relationship_count == 1
 
 
+def test_build_object_ref_persists_cross_scope_source_metadata() -> None:
+    request = prepare_request(
+        proposals=[
+            link_existing_proposal(
+                existingObjectRef={
+                    "refKind": "existing_graph_node",
+                    "nodeId": "party:bonogo",
+                    "label": "Bonogo",
+                    "kind": "pc",
+                    "graphScope": "party_pc",
+                    "sourceLabel": "Party / PCs",
+                    "sourceGraphId": "longmont-c2:party",
+                    "sourcePath": "_party_registry.json",
+                    "visibility": "table_known",
+                }
+            ),
+            relationship_proposal(
+                targetObjectRef={
+                    "refKind": "existing_graph_node",
+                    "nodeId": "loc_mirathorn",
+                    "label": "Mirathorn",
+                    "kind": "location",
+                    "graphScope": "worldbuilding",
+                    "sourceLabel": "Worldbuilding",
+                }
+            ),
+        ]
+    )
+    assertions, diagnostics = build_assertions_from_proposals(request)
+    assert not diagnostics
+    link_ref = assertions[0].existing_object_ref
+    assert link_ref.candidate_graph_scope == "party_pc"
+    assert link_ref.source_label == "Party / PCs"
+    assert link_ref.source_graph_id == "longmont-c2:party"
+    assert link_ref.source_path == "_party_registry.json"
+    assert link_ref.source_visibility == "table_known"
+
+    target_ref = assertions[1].target_object_ref
+    assert target_ref.candidate_graph_scope == "worldbuilding"
+    assert target_ref.source_label == "Worldbuilding"
+    assert target_ref.source_graph_id is None
+    assert target_ref.source_path is None
+    assert target_ref.source_visibility is None
+
+
+def test_commit_persists_cross_scope_object_ref_metadata(store: GraphAuthoringOverlayStore) -> None:
+    from apps.live_control_server.services.graph_object_authoring_commit import (
+        GraphObjectAuthoringCommitRequest,
+        commit_graph_object_authoring_write,
+    )
+
+    prepare_response = prepare_graph_object_authoring_write(
+        prepare_request(
+            proposals=[
+                link_existing_proposal(
+                    existingObjectRef={
+                        "refKind": "existing_graph_node",
+                        "nodeId": "party:bonogo",
+                        "label": "Bonogo",
+                        "kind": "pc",
+                        "graphScope": "party_pc",
+                        "sourceLabel": "Party / PCs",
+                    }
+                )
+            ]
+        ),
+        corpus_root=store.corpus_root,
+    )
+    commit_response = commit_graph_object_authoring_write(
+        GraphObjectAuthoringCommitRequest.model_validate(
+            {
+                "campaignId": CAMPAIGN_ID,
+                "campaignRel": TEST_CAMPAIGN_REL,
+                "sessionId": "session-2",
+                "proposals": [
+                    link_existing_proposal(
+                        existingObjectRef={
+                            "refKind": "existing_graph_node",
+                            "nodeId": "party:bonogo",
+                            "label": "Bonogo",
+                            "kind": "pc",
+                            "graphScope": "party_pc",
+                            "sourceLabel": "Party / PCs",
+                        }
+                    )
+                ],
+                "confirmToken": prepare_response.confirm_token,
+                "currentOverlayToken": prepare_response.current_overlay_token,
+            }
+        ),
+        corpus_root=store.corpus_root,
+    )
+    assert commit_response.committed is True
+
+    overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    link_assertion = next(
+        item for item in overlay.assertions if item.assertion_kind == "link_existing"
+    )
+    ref = link_assertion.existing_object_ref
+    assert ref.candidate_graph_scope == "party_pc"
+    assert ref.source_label == "Party / PCs"
+
+
 def test_prepare_writes_nothing(store: GraphAuthoringOverlayStore) -> None:
     campaign_dir = store.corpus_root / TEST_CAMPAIGN_REL
     prepare_graph_object_authoring_write(

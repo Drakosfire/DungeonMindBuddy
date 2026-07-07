@@ -173,6 +173,16 @@ class GraphVisibilityPolicy(GraphAuthoringOverlayModel):
     visibility_note: str | None = None
 
 
+GraphObjectCandidateScope = Literal[
+    "current_recap_projection",
+    "authored_overlay",
+    "campaign_memory",
+    "worldbuilding",
+    "party_pc",
+    "gm_private",
+]
+
+
 class AuthoredGraphObjectRef(GraphAuthoringOverlayModel):
     ref_kind: AuthoredGraphObjectRefKind
     node_id: str | None = None
@@ -181,6 +191,11 @@ class AuthoredGraphObjectRef(GraphAuthoringOverlayModel):
     label: str
     kind: str | None = None
     role: str | None = None
+    candidate_graph_scope: GraphObjectCandidateScope | None = None
+    source_label: str | None = None
+    source_graph_id: str | None = None
+    source_path: str | None = None
+    source_visibility: str | None = None
 
     @field_validator("label")
     @classmethod
