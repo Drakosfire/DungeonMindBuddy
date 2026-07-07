@@ -6,6 +6,7 @@ import {
   findDuplicateMergeProposal,
 } from "./graphObjectAuthoringDraft";
 import {
+  buildLinkExistingFormStateFromResolverCandidate,
   buildObjectRefFromExistingObjectCandidate,
   buildSearchMergeStageInput,
   candidateClusterKeys,
@@ -75,6 +76,16 @@ describe("graphExistingObjectIdentityWorkbench", () => {
       label: "Captain Lysandra Ironveil",
       graphScope: "party_pc",
       sourceLabel: "Party / PCs",
+    });
+  });
+
+  it("builds link-existing form state from resolver candidates", () => {
+    expect(buildLinkExistingFormStateFromResolverCandidate(lysandraParty)).toMatchObject({
+      operation: "alias",
+      aliasText: "Captain Lysandra Ironveil",
+      existingObjectRef: {
+        nodeId: "party:captain_lysandra_ironveil",
+      },
     });
   });
 

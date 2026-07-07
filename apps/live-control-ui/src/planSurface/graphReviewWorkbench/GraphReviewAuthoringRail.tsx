@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
+import { buildGraphAuthoringSelectionFromRecapNode } from "./graphAuthoringSelection";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewMergeCandidatesPanel } from "./GraphReviewMergeCandidatesPanel";
@@ -265,18 +266,19 @@ export function GraphReviewAuthoringRail({
               overlayProposals={graphObjectAuthoringDraft.proposals}
               onStageLinkIntent={
                 linkRecapPillEnabled && selectedAuthoringViewModel
-                  ? (candidate) =>
-                      authorDraft.stageExistingObjectLinkIntent({
-                        selectedNode: {
+                  ? (candidate) => {
+                      graphObjectAuthoringDraft.stageLinkExistingFromResolver({
+                        selection: buildGraphAuthoringSelectionFromRecapNode({
+                          campaignId,
+                          sessionId,
+                          graphId: projection?.graph_id ?? null,
+                          sourceArtifactPath: liveRun?.manifest_path ?? null,
                           laneRole: selectedAuthoringViewModel.laneRole,
-                          nodeId: selectedAuthoringViewModel.node.node_id,
-                          label: selectedAuthoringViewModel.node.label,
-                        },
-                        candidate: {
-                          ...candidate,
-                          candidateId: candidate.candidate_id,
-                        },
-                      })
+                          node: selectedAuthoringViewModel.node,
+                        }),
+                        candidate,
+                      });
+                    }
                   : undefined
               }
               onStageLinkIntentComplete={() => onActiveTabChange("stage_commit")}
@@ -340,26 +342,36 @@ export function GraphReviewAuthoringRail({
             {...sharedSurfaceProps}
             focusPanel="stage_overlay"
           />
-          <GraphReviewLocalStagingTray
-            proposals={authorDraft.localProposals}
-            onUpdateStatus={authorDraft.updateProposalStatus}
-            onReset={authorDraft.resetLocalDraft}
-            selectedText={authorDraft.selectedText}
-            onStageNodeFromSelection={stageNodeFromSelection}
-          />
-          <GraphReviewAuthoringPreparePreviewPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            hasGold={hasGold}
-            workflow={authorDraft}
-            onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
-            onShowCommittedObject={(targetId) => {
-              selectGoldNodeCard(targetId);
-            }}
-            canShowCommittedObject={(targetId) =>
-              Boolean(goldProjection?.node_views[targetId])
-            }
-          />
+          {hasGold || authorDraft.localProposals.length > 0 ? (
+            <details
+              className="graph-review-gold-fixture-draft-panel"
+              data-testid="graph-review-gold-fixture-draft-panel"
+            >
+              <summary>
+                Gold fixture draft (whole-graph legacy path)
+              </summary>
+              <GraphReviewLocalStagingTray
+                proposals={authorDraft.localProposals}
+                onUpdateStatus={authorDraft.updateProposalStatus}
+                onReset={authorDraft.resetLocalDraft}
+                selectedText={authorDraft.selectedText}
+                onStageNodeFromSelection={stageNodeFromSelection}
+              />
+              <GraphReviewAuthoringPreparePreviewPanel
+                campaignId={campaignId}
+                sessionId={sessionId}
+                hasGold={hasGold}
+                workflow={authorDraft}
+                onReloadAndVerifyCommit={reloadGoldProjectionAndVerifyCommit}
+                onShowCommittedObject={(targetId) => {
+                  selectGoldNodeCard(targetId);
+                }}
+                canShowCommittedObject={(targetId) =>
+                  Boolean(goldProjection?.node_views[targetId])
+                }
+              />
+            </details>
+          ) : null}
         </div>
       ) : null}
     </aside>

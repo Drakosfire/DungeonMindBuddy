@@ -128,3 +128,50 @@ describe("useGraphObjectAuthoringDraft clearCommittedProposals", () => {
     sessionStorage.removeItem(storageKey);
   });
 });
+
+describe("useGraphObjectAuthoringDraft stageLinkExistingFromResolver", () => {
+  it("appends a link_existing overlay proposal from resolver candidate and recap selection", () => {
+    const scope = { campaignId: "longmont-c1", sessionId: "session-link" };
+    const storageKey = `graph-object-authoring-staged:${scope.campaignId}:${scope.sessionId}`;
+    sessionStorage.removeItem(storageKey);
+
+    const { result } = renderHook(() => useGraphObjectAuthoringDraft(scope));
+    let staged = false;
+    act(() => {
+      staged = result.current.stageLinkExistingFromResolver({
+        selection: {
+          campaignId: "longmont-c1",
+          sessionId: "session-link",
+          selectionKind: "graph_node_reference",
+          selectedText: "Lysandra",
+          normalizedSelectedText: "Lysandra",
+          existingNodeId: "node:lysandra",
+          existingLabel: "Lysandra",
+          graphId: "graph-live-1",
+          laneRole: "live",
+        },
+        candidate: {
+          candidate_id: "party:captain_lysandra_ironveil",
+          label: "Captain Lysandra Ironveil",
+          confidence: "high",
+          score: 0.95,
+          reason: "alias match",
+          source: "union_supergraph",
+          suggested_action: "link_existing_later",
+          matched_features: ["alias"],
+          graph_scope: "party_pc",
+        },
+      });
+    });
+
+    expect(staged).toBe(true);
+    expect(result.current.proposals).toHaveLength(1);
+    expect(result.current.proposals[0]?.proposalKind).toBe("link_existing");
+    expect(
+      (result.current.proposals[0] as { existingObjectRef?: { nodeId?: string } })
+        ?.existingObjectRef?.nodeId,
+    ).toBe("party:captain_lysandra_ironveil");
+    expect(sessionStorage.getItem(storageKey)).toBeTruthy();
+    sessionStorage.removeItem(storageKey);
+  });
+});

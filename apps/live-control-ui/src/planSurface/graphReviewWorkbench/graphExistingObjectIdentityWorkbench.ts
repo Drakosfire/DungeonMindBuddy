@@ -1,8 +1,10 @@
 import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import {
   buildObjectRefFromResolverCandidate,
+  createDefaultGraphObjectAuthoringLinkExistingFormState,
   findDuplicateMergeProposal,
   mergeObjectPairKey,
+  type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringObjectRef,
   type GraphObjectAuthoringProposal,
 } from "./graphObjectAuthoringDraft";
@@ -19,6 +21,17 @@ export function buildObjectRefFromExistingObjectCandidate(
   candidate: GraphReviewExistingObjectCandidate,
 ): GraphObjectAuthoringObjectRef {
   return buildObjectRefFromResolverCandidate(candidate);
+}
+
+export function buildLinkExistingFormStateFromResolverCandidate(
+  candidate: GraphReviewExistingObjectCandidate,
+): GraphObjectAuthoringLinkExistingFormState {
+  return {
+    ...createDefaultGraphObjectAuthoringLinkExistingFormState(),
+    existingObjectRef: buildObjectRefFromExistingObjectCandidate(candidate),
+    operation: "alias",
+    aliasText: candidate.label,
+  };
 }
 
 export interface ExistingObjectIdentitySelectionState {

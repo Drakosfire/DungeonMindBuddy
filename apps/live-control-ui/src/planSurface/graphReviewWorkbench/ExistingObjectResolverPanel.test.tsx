@@ -358,7 +358,7 @@ describe("ExistingObjectResolverPanel", () => {
     );
     expect(onStageLinkIntentComplete).toHaveBeenCalled();
     expect(
-      screen.getByText(/Link intent staged locally/i),
+      screen.getByText(/Link staged in authored overlay/i),
     ).toBeInTheDocument();
   });
 

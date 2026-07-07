@@ -479,20 +479,20 @@ export function ExistingObjectResolverPanel({
                               Review merge
                             </button>
                           ) : null}
-                          {candidate.candidate_id === stagedCandidateId ? (
-                            <p role="status" className="graph-review-info">
-                              Link intent staged locally. Open{" "}
-                              <strong>Stage &amp; commit</strong> to review and
-                              prepare.
-                            </p>
-                          ) : (
-                            <p>
-                              Links{" "}
-                              <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
-                              to this existing match. This is a recap text link,
-                              not an object identity merge.
-                            </p>
-                          )}
+                        {candidate.candidate_id === stagedCandidateId ? (
+                          <p role="status" className="graph-review-info">
+                            Link staged in authored overlay. Open{" "}
+                            <strong>Stage &amp; commit</strong> to review and
+                            prepare.
+                          </p>
+                        ) : (
+                          <p>
+                            Links{" "}
+                            <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
+                            to this existing match as an overlay link_existing
+                            draft. This is not the gold whole-graph fixture path.
+                          </p>
+                        )}
                         </div>
                       ) : onStageLinkIntent ? (
                         <p className="graph-review-muted">
