@@ -1816,6 +1816,7 @@ export interface AuthoredOverlayProjectionSummary {
   overlay_path?: string | null;
   assertion_count: number;
   projected_node_count: number;
+  projected_link_existing_count: number;
   projected_relationship_count: number;
   diagnostics: GraphAuthoringOverlayDiagnostic[];
 }

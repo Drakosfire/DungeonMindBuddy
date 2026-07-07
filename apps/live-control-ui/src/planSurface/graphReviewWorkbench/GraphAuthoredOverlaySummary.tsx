@@ -3,10 +3,19 @@ import type { AuthoredOverlayProjectionSummary } from "../../api/types";
 function countByKind(summary: AuthoredOverlayProjectionSummary): string {
   const parts: string[] = [];
   if (summary.projected_node_count > 0) {
-    parts.push(`${summary.projected_node_count} object`);
+    parts.push(
+      `${summary.projected_node_count} new object${summary.projected_node_count === 1 ? "" : "s"}`,
+    );
+  }
+  if (summary.projected_link_existing_count > 0) {
+    parts.push(
+      `${summary.projected_link_existing_count} linked alias${summary.projected_link_existing_count === 1 ? "" : "es"}`,
+    );
   }
   if (summary.projected_relationship_count > 0) {
-    parts.push(`${summary.projected_relationship_count} relationship`);
+    parts.push(
+      `${summary.projected_relationship_count} relationship${summary.projected_relationship_count === 1 ? "" : "s"}`,
+    );
   }
   return parts.length ? parts.join(" · ") : "0 projected";
 }
