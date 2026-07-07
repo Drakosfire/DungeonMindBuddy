@@ -212,3 +212,82 @@ def test_merge_into_party_anchor_hydrates_rich_ingest_projection(
     assert len(survivor.evidence_badges) == 1
     assert len(survivor.adjacency) == 1
     assert "live_projection" in survivor.source_domains
+
+
+def test_merge_resolves_legacy_node_ref_to_projection_node_id(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    """Dogfood: overlay stores node:lysandra but projection uses character_lysandra."""
+    rich_evidence = GraphProjectionEvidenceBadge(
+        evidence_ref_id="ev-lysandra-1",
+        source_artifact_id="session-recap",
+        source_domain="recap",
+        evidence_role="mention",
+        is_focus_session_evidence=True,
+        can_open_source=True,
+        can_highlight_span=True,
+    )
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown="[Lysandra](dmb-node:node:lysandra) at the wall.",
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "character_lysandra": GraphProjectionNodeView(
+                node_id="character_lysandra",
+                label="Lysandra",
+                kind="character",
+                role="source_evidence",
+                aliases=["Lysandra"],
+                source_domains=["recap", "live_projection"],
+                evidence_badges=[rich_evidence],
+                adjacency=[],
+                summary="Ally from Mireward who recognizes her father.",
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={
+            "assertions": [
+                AuthoredGraphMergeObjectsAssertion.model_validate(
+                    {
+                        "assertion_id": "assert-legacy-id-merge",
+                        "assertion_kind": "merge_objects",
+                        "operation": "merge",
+                        "campaign_id": CAMPAIGN_ID,
+                        "session_id": "session-23",
+                        "provenance": provenance().model_dump(),
+                        "survivor_object_ref": object_ref(
+                            node_id="party:captain_lysandra_ironveil",
+                            label="Captain Lysandra Ironveil",
+                            kind="companion",
+                            role="companion",
+                        ).model_dump(),
+                        "merged_object_refs": [
+                            object_ref(
+                                node_id="node:lysandra",
+                                label="Lysandra",
+                                kind="character",
+                            ).model_dump()
+                        ],
+                        "matched_features": ["search_identity_workbench"],
+                    }
+                )
+            ]
+        }
+    )
+
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    survivor = enriched.node_views["party:captain_lysandra_ironveil"]
+    assert "character_lysandra" not in enriched.node_views
+    assert len(survivor.evidence_badges) == 1
+    assert survivor.summary == "Ally from Mireward who recognizes her father."
+    assert "dmb-node:party:captain_lysandra_ironveil" in enriched.markdown
+    assert not any(
+        d.get("code") == "authored_overlay_assertion_unresolved_ref"
+        and "node:lysandra" in d.get("message", "")
+        for d in summary.diagnostics
+    )

@@ -180,8 +180,8 @@ export function ExistingObjectResolverPanel({
   const searchPhrase = query.trim();
 
   const searchMergeInput = useMemo(
-    () => buildSearchMergeStageInput(identitySelection, projectionGraphId),
-    [identitySelection, projectionGraphId],
+    () => buildSearchMergeStageInput(identitySelection, projectionGraphId, nodeViews),
+    [identitySelection, projectionGraphId, nodeViews],
   );
 
   useEffect(() => {

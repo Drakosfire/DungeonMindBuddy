@@ -295,7 +295,13 @@ def resolve_existing_object_candidates(
     except GraphGoldReviewError as exc:
         warnings.append(f"Gold fixture source unavailable: {exc}")
     try:
-        source_rows.extend(_candidate_dicts_from_live(repo, request.live_run_manifest_path))
+        live_rows = _candidate_dicts_from_live(repo, request.live_run_manifest_path)
+        if request.node_views:
+            projection_ids = set(request.node_views.keys())
+            live_rows = [
+                row for row in live_rows if row["candidate_id"] in projection_ids
+            ]
+        source_rows.extend(live_rows)
     except GraphGoldReviewError as exc:
         warnings.append(f"Live projection source unavailable: {exc}")
     if not source_rows:

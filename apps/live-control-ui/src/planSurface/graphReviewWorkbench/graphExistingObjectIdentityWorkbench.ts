@@ -1,4 +1,4 @@
-import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import type { GraphReviewExistingObjectCandidate, GraphProjectionNodeView } from "../../api/types";
 import {
   buildObjectRefFromResolverCandidate,
   createDefaultGraphObjectAuthoringLinkExistingFormState,
@@ -19,8 +19,59 @@ export function existingObjectCandidateKey(
 
 export function buildObjectRefFromExistingObjectCandidate(
   candidate: GraphReviewExistingObjectCandidate,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
 ): GraphObjectAuthoringObjectRef {
-  return buildObjectRefFromResolverCandidate(candidate);
+  const ref = buildObjectRefFromResolverCandidate(candidate);
+  const resolvedNodeId = resolveCandidateToProjectionNodeId(candidate, nodeViews);
+  if (resolvedNodeId === candidate.candidate_id) {
+    return ref;
+  }
+  return { ...ref, nodeId: resolvedNodeId };
+}
+
+export function resolveCandidateToProjectionNodeId(
+  candidate: GraphReviewExistingObjectCandidate,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
+): string {
+  if (!nodeViews || nodeViews[candidate.candidate_id]) {
+    return candidate.candidate_id;
+  }
+  const labelKey = candidate.label.trim().toLowerCase();
+  const aliasKeys = new Set(
+    (candidate.aliases ?? [])
+      .map((alias) => alias.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  let bestNodeId: string | null = null;
+  let bestScore = 0;
+  for (const [nodeId, view] of Object.entries(nodeViews)) {
+    if (nodeId.startsWith("authored:")) {
+      continue;
+    }
+    let score = 0;
+    const viewLabel = view.label?.trim().toLowerCase() ?? "";
+    if (viewLabel === labelKey) {
+      score += 100;
+    }
+    if (view.aliases?.some((alias) => alias.trim().toLowerCase() === labelKey)) {
+      score += 100;
+    }
+    for (const alias of aliasKeys) {
+      if (viewLabel === alias) {
+        score += 80;
+      }
+      if (view.aliases?.some((item) => item.trim().toLowerCase() === alias)) {
+        score += 80;
+      }
+    }
+    score += (view.evidence_badges?.length ?? 0) * 5;
+    score += (view.adjacency?.length ?? 0) * 3;
+    if (score > bestScore) {
+      bestScore = score;
+      bestNodeId = nodeId;
+    }
+  }
+  return bestScore >= 80 && bestNodeId ? bestNodeId : candidate.candidate_id;
 }
 
 export function buildLinkExistingFormStateFromResolverCandidate(
@@ -135,14 +186,17 @@ export interface SearchMergeStageInput {
 export function buildSearchMergeStageInput(
   state: ExistingObjectIdentitySelectionState,
   sourceGraphId?: string | null,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
 ): SearchMergeStageInput | null {
   if (!canStageSearchMerge(state) || !state.canonical) {
     return null;
   }
 
   return {
-    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(state.canonical),
-    mergedObjectRefs: state.duplicates.map(buildObjectRefFromExistingObjectCandidate),
+    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(state.canonical, nodeViews),
+    mergedObjectRefs: state.duplicates.map((duplicate) =>
+      buildObjectRefFromExistingObjectCandidate(duplicate, nodeViews),
+    ),
     mergeReason: buildSearchMergeReason(state.canonical, state.duplicates),
     matchedFeatures: collectSearchMergeMatchedFeatures(
       state.canonical,

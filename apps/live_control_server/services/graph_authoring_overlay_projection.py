@@ -190,6 +190,66 @@ def _local_proposal_node_map(
     return mapping
 
 
+def _normalize_match_text(value: str) -> str:
+    return (
+        value.strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .replace(":", " ")
+    )
+
+
+def _ref_match_keys(ref: AuthoredGraphObjectRef) -> set[str]:
+    keys: set[str] = set()
+    if ref.label:
+        keys.add(_normalize_match_text(ref.label))
+    if ref.node_id:
+        node_id = ref.node_id.strip()
+        keys.add(_normalize_match_text(node_id))
+        if ":" in node_id:
+            keys.add(_normalize_match_text(node_id.split(":", 1)[1]))
+    return {key for key in keys if key}
+
+
+def _view_match_keys(view: GraphProjectionNodeView) -> set[str]:
+    keys = {_normalize_match_text(view.label), _normalize_match_text(view.node_id)}
+    for alias in view.aliases:
+        keys.add(_normalize_match_text(alias))
+    if ":" in view.node_id:
+        keys.add(_normalize_match_text(view.node_id.split(":", 1)[1]))
+    if view.node_id.startswith("character_"):
+        keys.add(_normalize_match_text(view.node_id.removeprefix("character_")))
+    return {key for key in keys if key}
+
+
+def _match_projection_node_for_ref(
+    ref: AuthoredGraphObjectRef,
+    projection_node_views: dict[str, GraphProjectionNodeView],
+) -> str | None:
+    ref_keys = _ref_match_keys(ref)
+    if not ref_keys:
+        return None
+
+    best_node_id: str | None = None
+    best_score = 0
+    for node_id, view in projection_node_views.items():
+        if node_id.startswith("authored:"):
+            continue
+        if node_id == ref.node_id and _is_thin_node_view(view):
+            continue
+        overlap = ref_keys & _view_match_keys(view)
+        if not overlap:
+            continue
+        score = len(overlap) * 100 + _node_view_richness(view)
+        if score > best_score:
+            best_score = score
+            best_node_id = node_id
+    if best_node_id is None or best_score < 100:
+        return None
+    return best_node_id
+
+
 def _resolve_object_ref_node_id(
     ref: AuthoredGraphObjectRef,
     *,
@@ -198,10 +258,27 @@ def _resolve_object_ref_node_id(
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
     assertion_id: str,
     context: str,
+    projection_node_views: dict[str, GraphProjectionNodeView] | None = None,
+    allow_fuzzy_projection_match: bool = True,
 ) -> str | None:
     if ref.ref_kind == "existing_graph_node":
+        exact_view = (
+            projection_node_views.get(ref.node_id)
+            if projection_node_views and ref.node_id
+            else None
+        )
         if ref.node_id and ref.node_id in existing_node_ids:
+            if exact_view is None or not _is_thin_node_view(exact_view):
+                return ref.node_id
+            if allow_fuzzy_projection_match:
+                matched = _match_projection_node_for_ref(ref, projection_node_views or {})
+                if matched and matched in existing_node_ids:
+                    return matched
             return ref.node_id
+        if allow_fuzzy_projection_match and projection_node_views and ref.node_id:
+            matched = _match_projection_node_for_ref(ref, projection_node_views)
+            if matched and matched in existing_node_ids:
+                return matched
         diagnostics.append(
             GraphAuthoringOverlayDiagnostic(
                 code="authored_overlay_assertion_unresolved_ref",
@@ -809,6 +886,8 @@ def _build_merge_node_id_map(
             diagnostics=diagnostics,
             assertion_id=merge_assertion.assertion_id,
             context="merge survivor",
+            projection_node_views=merged_node_views,
+            allow_fuzzy_projection_match=False,
         )
         if not survivor_id:
             continue
@@ -820,10 +899,14 @@ def _build_merge_node_id_map(
                 diagnostics=diagnostics,
                 assertion_id=merge_assertion.assertion_id,
                 context="merge merged-away",
+                projection_node_views=merged_node_views,
             )
             if not merged_id or merged_id == survivor_id:
                 continue
             raw_map[merged_id] = survivor_id
+            original_id = (merged_ref.node_id or "").strip()
+            if original_id and original_id != merged_id:
+                raw_map[original_id] = survivor_id
 
     return _transitive_merge_map(raw_map)
 
