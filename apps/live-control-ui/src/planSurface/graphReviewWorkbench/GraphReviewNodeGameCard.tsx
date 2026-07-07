@@ -5,6 +5,7 @@ import {
   type GraphReviewRelationshipPredicate,
 } from "./graphReviewLocalAuthoringState";
 import {
+  formatGraphObjectType,
   gameSummaryForNode,
   type GraphReviewSelectedNodeViewModel,
 } from "./graphReviewSelectionUtils";
@@ -42,15 +43,6 @@ function laneBadgeCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
   }
   parts.push("read-only");
   return parts.join(" · ");
-}
-
-function objectTypeCopy(node: GraphProjectionNodeView): string {
-  const kind = node.kind?.trim();
-  const role = node.role?.trim();
-  if (kind && role && kind !== role) {
-    return `${kind} / ${role}`;
-  }
-  return kind || role || "Graph object";
 }
 
 const VISIBILITY_FRIENDLY_COPY: Record<string, string> = {
@@ -97,7 +89,9 @@ function NodeIdentityHeader({ viewModel }: { viewModel: GraphReviewSelectedNodeV
     <>
       <p className="plan-surface-kicker">{laneBadgeCopy(viewModel)}</p>
       <h4>{node.label}</h4>
-      <p className="graph-review-game-kind">{objectTypeCopy(node)}</p>
+      <p className="graph-review-game-kind">
+        {formatGraphObjectType(node.kind, node.role)}
+      </p>
     </>
   );
 }

@@ -26,6 +26,7 @@ export interface GraphProjectionReaderProps {
   sourceSpans: RecapProjectionSourceSpan[];
   mentionsCount?: number;
   graphId?: string | null;
+  showGraphId?: boolean;
   title?: string;
   subtitle?: string;
   sourceNote?: string;
@@ -127,6 +128,7 @@ export function GraphProjectionReader({
   sourceSpans,
   mentionsCount,
   graphId,
+  showGraphId = false,
   title,
   subtitle,
   sourceNote,
@@ -214,14 +216,16 @@ export function GraphProjectionReader({
 
   return (
     <div className={rootClassName}>
-      {title || subtitle || sourceNote || graphId ? (
+      {title || subtitle || sourceNote || (showGraphId && graphId) ? (
         <header className="recap-reader-header">
           <div>
             {title ? <h2>{title}</h2> : null}
             {subtitle ? <p>{subtitle}</p> : null}
             {sourceNote ? <p className="union-supergraph-source-note">{sourceNote}</p> : null}
           </div>
-          {graphId ? <span className="union-supergraph-graph-id">{graphId}</span> : null}
+          {showGraphId && graphId ? (
+            <span className="union-supergraph-graph-id">{graphId}</span>
+          ) : null}
         </header>
       ) : null}
 

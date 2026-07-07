@@ -13,23 +13,11 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Insight:** Review and authoring are different mental modes. Mixing them on the canvas (header toggle swaps live lane to `GraphReviewAuthoringReader`, shows raw `graph_id`, injects `GraphObjectAuthoringSurface` below prose) breaks the read flow. Authoring needs a dedicated full-width split: prose stays readable on the left; staging/prepare/commit/resolver/relationship tools live in a persistent right rail. Relationship staging should not require close-dialog → click second pill → reopen.
 
-**Action:** (1) Remove **Author graph objects** from the review header (or demote to “open authoring toolbox”). (2) Make toolbox Author Draft the single authoring entry — opening it sets author mode and expands to full-page split. (3) Review canvas: gold/live lanes, pill click → inspect-only selected-object surface (no stage actions). (4) Author mode: left = live recap (selection persists across objects), right = object/link/relationship forms + staging tray + prepare/commit + relationship source state (no dialog close to pick target). (5) Fix Author Draft mode toggle (see bug entry below).
+**Action:** (1) Remove **Author graph objects** from the review header (or demote to “open authoring toolbox”). (2) Make toolbox Author Draft the single authoring entry — opening it sets author mode and expands to full-page split. (3) Review canvas: gold/live lanes, pill click → inspect-only selected-object surface (no stage actions). (4) Author mode: left = live recap (selection persists across objects), right = object/link/relationship forms + staging tray + prepare/commit + relationship source state (no dialog close to pick target).
 
 **Surfaces when:** `GraphReviewWorkbenchModule.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `GraphReviewAuthorDraftToolPanel.tsx`, `GraphObjectAuthoringSurface.tsx`, projection/toolbox layout CSS.
 
-**Refs:** A10f dogfood, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
-
-## [READY] Graph Review selected-object dialog — sticky close + dedupe identity — captured 2026-07-07
-
-**Context:** A10f dogfood. Selected-object popup repeats label/lane/kind three times (dialog header + card kicker + card kind line). Close button scrolls away when resolver/evidence sections expand — user must scroll up to dismiss. Kind and role often duplicate (e.g. `location / location`) with no explanation.
-
-**Insight:** Dialog header and `GraphReviewNodeGameCard` identity block say the same thing. For review mode the card alone is enough; dialog header should be chrome only (kicker + sticky Close). Show one object-type line — prefer human role over raw kind, hide when kind === role.
-
-**Action:** Sticky/floating close on `.graph-review-projected-interaction-surface`; strip redundant title block from dialog header (card owns identity); collapse kind/role to one friendly line; review mode hides Actions + resolver or moves resolver to collapsed technical section.
-
-**Surfaces when:** `GraphReviewProjectedInteractionSurface.tsx`, `GraphReviewNodeGameCard.tsx`, `planSurface.css`
-
-**Refs:** A10f dogfood
+**Refs:** A10f dogfood, A10g mode/chrome cleanup, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
 
 ## [IDEA] Graph Review — stage node removal assertion — captured 2026-07-07
 
@@ -52,18 +40,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Pair with full-page authoring split (above). Hold `relationshipDraftSource` in author rail; pill clicks while source set auto-target; optional “pick target in prose” hint on live lane.
 
 **Surfaces when:** authoring toolbox full-page layout, `GraphReviewProjectedInteractionSurface.tsx`
-
-**Refs:** A10f dogfood
-
-## [IDEA] Graph Review bug — Author Draft toolbox toggle + graph_id header leak — captured 2026-07-07
-
-**Context:** A10f dogfood. (1) Author Draft mode toggle inside toolbox does not behave reliably. (2) Clicking **Author graph objects** on main header injects `longmont-c2:preview-union-supergraph` above live recap.
-
-**Insight:** (1) `GraphReviewAuthorDraftToolPanel` `useEffect` forces `author_draft` on every mount; Review button closes toolbox — toggle UX is broken/confusing vs canvas state. (2) `GraphReviewAuthoringReader` passes `graphId={projection.graph_id}` into `GraphProjectionReader`, which renders it in `.union-supergraph-graph-id` — internal ID leaked into GM-facing prose header.
-
-**Action:** Quick fix: stop passing `graphId` to reader in graph-review context (or hide graph-id span unless diagnostics tool). Fix toggle: opening Author Draft tool sets author mode; closing tool or explicit Review returns canvas to review-only; remove mount-only `useEffect` force or sync with toolbox open state.
-
-**Surfaces when:** `GraphReviewAuthorDraftToolPanel.tsx`, `GraphReviewAuthoringReader.tsx`, `GraphProjectionReader.tsx`
 
 **Refs:** A10f dogfood
 

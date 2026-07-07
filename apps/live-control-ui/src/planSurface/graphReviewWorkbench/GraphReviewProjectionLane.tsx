@@ -3,7 +3,10 @@ import type {
   GraphProjectionNodeView,
   RecapProjectionSourceSpan,
 } from "../../api/types";
-import { presentationForNodeId } from "../graphPreview/GraphNodePresentation";
+import {
+  GraphNodeToken,
+  presentationForNodeId,
+} from "../graphPreview/GraphNodePresentation";
 import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
@@ -116,13 +119,17 @@ function renderMentionToken({
   const activeHere =
     activeObject?.laneRole === laneRole && activeObject?.nodeId === nodeId;
   return (
-    <button
+    <GraphNodeToken
       key={key}
-      type="button"
-      className={`recap-node-token graph-review-projection-token role-${presentation.role || presentation.kind || "node"} delta-${decoration.status}${activeHere ? " pinned" : ""}${counterpartHighlighted ? " counterpart-highlighted" : ""}`}
-      data-graph-node-id={nodeId}
-      data-delta-status={decoration.status}
-      data-counterpart-highlighted={counterpartHighlighted ? "true" : undefined}
+      presentation={presentation}
+      label={label}
+      pinned={activeHere}
+      onSelect={() => propsOnSelectObject?.({ laneRole, nodeId })}
+      deltaStatus={decoration.status}
+      deltaLabel={decoration.label}
+      deltaSummary={decoration.summary}
+      tokenClassName="graph-review-projection-token"
+      counterpartHighlighted={counterpartHighlighted}
       onMouseEnter={() =>
         onActiveObjectChange({
           laneRole,
@@ -137,15 +144,7 @@ function renderMentionToken({
         })
       }
       onBlur={() => onActiveObjectChange(null)}
-      onClick={() => propsOnSelectObject?.({ laneRole, nodeId })}
-    >
-      {label}
-      {decoration.status !== "unknown" && decoration.status !== "matched" ? (
-        <span className="graph-review-pill-delta-badge">
-          {decoration.label}
-        </span>
-      ) : null}
-    </button>
+    />
   );
 }
 

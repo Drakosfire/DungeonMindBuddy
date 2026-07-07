@@ -33,6 +33,66 @@ function viewModel(
 }
 
 describe("GraphReviewProjectedInteractionSurface", () => {
+  it("keeps dialog chrome minimal and shows object identity once on the card", () => {
+    render(
+      <GraphReviewProjectedInteractionSurface
+        open
+        selectedNode={viewModel({
+          node: { ...baseNode, label: "The wall", kind: "location", role: "location" },
+        })}
+        selectedRelationship={null}
+        authorMode="review"
+        relationshipDraftSource={null}
+        relationshipPredicate="knows"
+        onClose={vi.fn()}
+        onSelectRelationship={vi.fn()}
+        onSelectEvidenceDelta={vi.fn()}
+        onStageNodeAssertion={vi.fn()}
+        onUseAsRelationshipSource={vi.fn()}
+        onRelationshipPredicateChange={vi.fn()}
+        onStageRelationship={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Selected object: The wall" });
+    const chromeHeader = within(dialog).getByText("Selected object").closest("header");
+    expect(chromeHeader).toBeTruthy();
+    expect(within(chromeHeader!).queryByText("The wall")).not.toBeInTheDocument();
+    expect(screen.getAllByText("The wall")).toHaveLength(1);
+    expect(screen.getAllByText("Live Run · read-only")).toHaveLength(1);
+    expect(screen.getAllByText("location")).toHaveLength(1);
+    expect(screen.queryByText("location / location")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Close selected object" }),
+    ).toBeInTheDocument();
+  });
+
+  it("calls onClose when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <GraphReviewProjectedInteractionSurface
+        open
+        selectedNode={viewModel()}
+        selectedRelationship={null}
+        authorMode="review"
+        relationshipDraftSource={null}
+        relationshipPredicate="knows"
+        onClose={onClose}
+        onSelectRelationship={vi.fn()}
+        onSelectEvidenceDelta={vi.fn()}
+        onStageNodeAssertion={vi.fn()}
+        onUseAsRelationshipSource={vi.fn()}
+        onRelationshipPredicateChange={vi.fn()}
+        onStageRelationship={vi.fn()}
+      />,
+    );
+
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it("does not expose gold-fixture staging copy in author draft mode", () => {
     render(
       <GraphReviewProjectedInteractionSurface

@@ -11,6 +11,18 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review selected-object dialog — sticky close + dedupe identity — completed 2026-07-07
+
+**Implemented (A10g):** Selected-object dialog header is chrome-only (`Selected object` + sticky Close). `GraphReviewNodeGameCard` owns label, lane badge, and deduped kind/role via `formatGraphObjectType`. Sticky header CSS on `.graph-review-projected-interaction-header`.
+
+**Refs:** `GraphReviewProjectedInteractionSurface.tsx`, `GraphReviewNodeGameCard.tsx`, `graphReviewSelectionUtils.ts`, `planSurface.css`
+
+## [DONE] Graph Review bug — Author Draft toolbox toggle + graph_id header leak — completed 2026-07-07
+
+**Implemented (A10g):** `GraphProjectionReader` hides `graphId` unless `showGraphId` is set; graph-review authoring reader no longer passes graph ID into reader chrome. Author Draft panel sets `author_draft` on mount, returns to `review` on unmount, and **Return to review** exits author mode and closes the toolbox.
+
+**Refs:** `GraphProjectionReader.tsx`, `GraphReviewAuthoringReader.tsx`, `GraphReviewAuthorDraftToolPanel.tsx`
+
 ## [DONE] Ingest Surface reader regressions after PR 11E — completed 2026-07-05
 
 **Implemented:** Leading YAML frontmatter is stripped in the shared projection reader path (`projectionMarkdownPreprocessing.ts`, consumed by `GraphProjectionReader.tsx`) for both Gold Fixture and Live Run prose. The stale single-lane "Selected live lane / Source projection" header was removed when the top-of-workbench pickers/lane-cards block was replaced by the single load button + load dialog (2026-07-05 "Load dialog for Graph Review Workbench" pass).
