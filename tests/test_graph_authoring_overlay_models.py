@@ -147,6 +147,22 @@ def test_accepts_valid_object_ref() -> None:
     assert ref.label == "Bonogo"
 
 
+def test_accepts_cross_scope_source_metadata_on_object_ref() -> None:
+    ref = object_ref(
+        label="Bonogo",
+        candidate_graph_scope="party_pc",
+        source_label="Party / PCs",
+        source_graph_id="longmont-c2:party",
+        source_path="_party_registry.json",
+        source_visibility="table_known",
+    )
+    assert ref.candidate_graph_scope == "party_pc"
+    assert ref.source_label == "Party / PCs"
+    assert ref.source_graph_id == "longmont-c2:party"
+    assert ref.source_path == "_party_registry.json"
+    assert ref.source_visibility == "table_known"
+
+
 def test_table_known_and_player_visible_are_distinct() -> None:
     table_known = GraphVisibilityPolicy(visibility="table_known")
     player_visible = GraphVisibilityPolicy(visibility="player_visible")

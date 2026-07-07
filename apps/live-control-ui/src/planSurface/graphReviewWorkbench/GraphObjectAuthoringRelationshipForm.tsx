@@ -8,6 +8,7 @@ import {
   GraphObjectAuthoringObjectRefPicker,
   type GraphObjectAuthoringInspectedNode,
 } from "./GraphObjectAuthoringObjectRefPicker";
+import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import type { GraphObjectAuthoringOverlapContext } from "./graphObjectAuthoringOverlap";
 
 const CUSTOM_RELATIONSHIP_TYPE_VALUE = "__custom__";
@@ -27,6 +28,7 @@ export function GraphObjectAuthoringRelationshipForm({
   onChange,
   proposals,
   existingNodes = [],
+  scopeCandidates = [],
   overlapContext,
 }: {
   formState: GraphObjectAuthoringRelationshipFormState;
@@ -36,6 +38,7 @@ export function GraphObjectAuthoringRelationshipForm({
   ) => void;
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  scopeCandidates?: GraphReviewExistingObjectCandidate[];
   overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   const relationshipTypeSelect = relationshipTypeSelectValue(formState.relationshipType);
@@ -54,6 +57,7 @@ export function GraphObjectAuthoringRelationshipForm({
         onChange={(ref) => onChange("sourceObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        scopeCandidates={scopeCandidates}
         overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">
@@ -96,6 +100,7 @@ export function GraphObjectAuthoringRelationshipForm({
         onChange={(ref) => onChange("targetObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        scopeCandidates={scopeCandidates}
         overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">

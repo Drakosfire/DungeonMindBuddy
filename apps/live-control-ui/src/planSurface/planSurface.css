@@ -4392,6 +4392,30 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.78rem;
 }
 
+.graph-object-authoring-ref-picker-source-label {
+  color: var(--plan-surface-muted, #8a8f98);
+}
+
+.graph-object-authoring-ref-picker-no-merge-copy {
+  color: var(--plan-surface-muted, #8a8f98);
+  font-size: 0.85rem;
+}
+
+.graph-review-existing-object-resolver-query {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+}
+
+.graph-review-existing-object-candidate-group {
+  margin-top: 0.75rem;
+}
+
+.graph-review-info {
+  color: var(--plan-surface-muted, #8a8f98);
+  font-size: 0.9rem;
+}
+
 .graph-object-authoring-overlap-warnings {
   border: 1px solid rgba(251, 191, 36, 0.35);
   border-radius: 0.65rem;

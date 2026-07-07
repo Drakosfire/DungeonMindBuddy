@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { resolveGraphReviewExistingObjectCandidates } from "../../api/liveApi";
 import type {
@@ -9,6 +9,12 @@ import type {
   GraphReviewResolverSelectedNode,
 } from "../../api/types";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
+import {
+  candidateScopeLabel,
+  formatResolverCandidateLabel,
+  formatResolverCandidateMeta,
+  groupCandidatesByScope,
+} from "./graphObjectCandidateScope";
 
 export function buildResolverSelectedNode(
   node: GraphProjectionNodeView,
@@ -38,12 +44,6 @@ function actionLabel(
   return "Manual review needed";
 }
 
-function sourceLabel(
-  source: GraphReviewExistingObjectCandidate["source"],
-): string {
-  return source.replaceAll("_", " ");
-}
-
 export function ExistingObjectResolverPanel({
   campaignId,
   sessionId,
@@ -51,6 +51,7 @@ export function ExistingObjectResolverPanel({
   selectedNode,
   projectionGraphId = null,
   liveRunManifestPath = null,
+  nodeViews = null,
   onStageLinkIntent,
 }: {
   campaignId: string;
@@ -59,6 +60,7 @@ export function ExistingObjectResolverPanel({
   selectedNode: GraphProjectionNodeView | null;
   projectionGraphId?: string | null;
   liveRunManifestPath?: string | null;
+  nodeViews?: Record<string, GraphProjectionNodeView> | null;
   onStageLinkIntent?: (candidate: GraphReviewExistingObjectCandidate) => void;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
@@ -70,13 +72,20 @@ export function ExistingObjectResolverPanel({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setStatus("idle");
     setResponse(null);
     setError(null);
     setSelectedCandidateId(null);
+    setQuery(selectedNode?.label ?? "");
   }, [selectedNode?.node_id, laneRole, projectionGraphId, liveRunManifestPath]);
+
+  const groupedCandidates = useMemo(
+    () => groupCandidatesByScope(response?.candidates ?? []),
+    [response],
+  );
 
   if (!selectedNode) {
     return (
@@ -98,6 +107,9 @@ export function ExistingObjectResolverPanel({
       selected_node: buildResolverSelectedNode(selectedNode),
       projection_graph_id: projectionGraphId,
       live_run_manifest_path: liveRunManifestPath,
+      query: query.trim() || selectedNode.label,
+      node_views: nodeViews,
+      include_gm_private: true,
     };
     setStatus("loading");
     setError(null);
@@ -126,14 +138,20 @@ export function ExistingObjectResolverPanel({
       <p className="plan-surface-kicker">Find existing object</p>
       <h3>Check for existing match</h3>
       <p>
-        DungeonBuddy checks same-session gold/live graph sources to see whether
-        this selected object may already correspond to a known object.
-        Campaign-wide search is not available yet.
+        Search across current recap, authored memory, party / PC data,
+        worldbuilding, campaign memory, and GM-private graph sources. Each row
+        keeps its source label — choosing a candidate stages a link/reference,
+        not an automatic identity merge.
       </p>
-      <p>
-        Suggestions are read-only. In Author Draft, you can stage a link intent
-        for later prepare/commit review. No link or merge is written here.
-      </p>
+      <label className="graph-review-existing-object-resolver-query">
+        Search phrase
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={selectedNode.label}
+        />
+      </label>
       <button
         type="button"
         onClick={runResolver}
@@ -143,12 +161,12 @@ export function ExistingObjectResolverPanel({
       </button>
       {status === "idle" ? (
         <p>
-          Check whether this object already appears in same-session graph
-          sources.
+          Use the selected pill label or type a phrase such as a PC, party, or
+          worldbuilding name.
         </p>
       ) : null}
       {status === "loading" ? (
-        <p role="status">Checking same-session graph sources…</p>
+        <p role="status">Searching campaign graph scopes…</p>
       ) : null}
       {status === "error" ? (
         <p role="alert">{error ?? "Could not load resolver suggestions."}</p>
@@ -160,6 +178,13 @@ export function ExistingObjectResolverPanel({
               {warning}
             </p>
           ))}
+          {(response.diagnostics ?? [])
+            .filter((diagnostic) => diagnostic.severity !== "error")
+            .map((diagnostic) => (
+              <p key={`${diagnostic.code}-${diagnostic.message}`} className="graph-review-info">
+                {diagnostic.message}
+              </p>
+            ))}
           {response.candidates.length === 0 ? (
             <p>
               No likely existing objects found. This may be new, or match
@@ -168,61 +193,63 @@ export function ExistingObjectResolverPanel({
           ) : null}
           {response.candidates.length ? <h4>Likely existing objects</h4> : null}
           <div className="graph-review-existing-object-candidate-list">
-            {response.candidates.map((candidate) => (
-              <article
-                key={`${candidate.source}-${candidate.candidate_id}`}
-                className="graph-review-existing-object-candidate"
-                data-selected={
-                  candidate.candidate_id === selectedCandidateId
-                    ? "true"
-                    : "false"
-                }
+            {groupedCandidates.map((group) => (
+              <section
+                key={group.scope}
+                className="graph-review-existing-object-candidate-group"
+                aria-label={candidateScopeLabel({ graph_scope: group.scope === "unknown" ? null : group.scope, source_label: null })}
               >
-                <h5>{candidate.label}</h5>
-                <p>
-                  {[candidate.kind, candidate.role]
-                    .filter(Boolean)
-                    .join(" / ") || "Object"}
-                </p>
-                <p>
-                  {candidate.confidence[0].toUpperCase() +
-                    candidate.confidence.slice(1)}{" "}
-                  confidence · {candidate.score.toFixed(2)}
-                </p>
-                <p>
-                  <strong>Reason:</strong> {candidate.reason}
-                </p>
-                <p>
-                  <strong>Source:</strong> {sourceLabel(candidate.source)}
-                </p>
-                <p>
-                  <strong>Suggested action:</strong>{" "}
-                  {actionLabel(candidate.suggested_action)}
-                </p>
-                {candidate.matched_features.length ? (
-                  <p>
-                    <strong>Matched features:</strong>{" "}
-                    {candidate.matched_features.join(", ")}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setSelectedCandidateId(candidate.candidate_id)}
-                >
-                  Review candidate
-                </button>
-                {onStageLinkIntent ? (
-                  <div className="graph-review-local-link-intent-action">
+                <h5>{group.scope === "unknown" ? "Other sources" : candidateScopeLabel({ graph_scope: group.scope, source_label: null })}</h5>
+                {group.candidates.map((candidate) => (
+                  <article
+                    key={`${candidate.graph_scope ?? candidate.source}-${candidate.candidate_id}`}
+                    className="graph-review-existing-object-candidate"
+                    data-selected={
+                      candidate.candidate_id === selectedCandidateId
+                        ? "true"
+                        : "false"
+                    }
+                  >
+                    <h6>{formatResolverCandidateLabel(candidate)}</h6>
+                    <p>{formatResolverCandidateMeta(candidate)}</p>
+                    <p>
+                      {candidate.confidence[0].toUpperCase() +
+                        candidate.confidence.slice(1)}{" "}
+                      confidence · {candidate.score.toFixed(2)}
+                    </p>
+                    <p>
+                      <strong>Suggested action:</strong>{" "}
+                      {actionLabel(candidate.suggested_action)}
+                    </p>
+                    {candidate.matched_features.length ? (
+                      <p>
+                        <strong>Matched features:</strong>{" "}
+                        {candidate.matched_features.join(", ")}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
-                      onClick={() => onStageLinkIntent(candidate)}
+                      onClick={() => setSelectedCandidateId(candidate.candidate_id)}
                     >
-                      Stage link intent
+                      Review candidate
                     </button>
-                    <p>Draft only — no link will be written.</p>
-                  </div>
-                ) : null}
-              </article>
+                    {onStageLinkIntent ? (
+                      <div className="graph-review-local-link-intent-action">
+                        <button
+                          type="button"
+                          onClick={() => onStageLinkIntent(candidate)}
+                        >
+                          Stage link intent
+                        </button>
+                        <p>
+                          Selecting an existing object stages a link/reference.
+                          It does not merge identities automatically.
+                        </p>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </section>
             ))}
           </div>
           {selectedCandidateId ? (

@@ -23,6 +23,9 @@ import {
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
+import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
+import { useGraphObjectCrossScopeCandidates } from "./useGraphObjectCrossScopeCandidates";
+import type { GraphProjectionNodeView } from "../../api/types";
 
 type GraphObjectAuthoringSelectionMode = "object" | "link_existing";
 
@@ -60,6 +63,9 @@ export interface GraphObjectAuthoringSurfaceProps {
   onRefreshProjection?: () => Promise<unknown>;
 
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  laneRole?: GraphReviewProjectionLaneRole;
+  liveRunManifestPath?: string | null;
+  projectionNodeViews?: Record<string, GraphProjectionNodeView>;
 }
 
 export function GraphObjectAuthoringSurface({
@@ -83,6 +89,9 @@ export function GraphObjectAuthoringSurface({
   onCommittedProposals,
   onRefreshProjection,
   existingNodes = [],
+  laneRole = "live",
+  liveRunManifestPath = null,
+  projectionNodeViews,
 }: GraphObjectAuthoringSurfaceProps) {
   const [selectionMode, setSelectionMode] = useState<GraphObjectAuthoringSelectionMode>("object");
   const supportsLinkExisting = Boolean(linkExistingFormState && onLinkExistingFieldChange && onStageLinkExistingProposal);
@@ -108,6 +117,34 @@ export function GraphObjectAuthoringSurface({
     () => buildOverlapContextFromProjection(proposals, existingNodes),
     [proposals, existingNodes],
   );
+
+  const resolverSelectedNode = useMemo(() => {
+    if (!selectedSource) return null;
+    return {
+      node_id:
+        selectedSource.existingNodeId ??
+        `selection:${selectedSource.normalizedSelectedText || selectedSource.selectedText}`,
+      label: selectedSource.selectedText,
+      kind: null,
+      role: null,
+      aliases: [],
+      summary: null,
+      source_domains: [],
+      adjacent_labels: [],
+      evidence_ref_ids: [],
+    };
+  }, [selectedSource]);
+
+  const { candidates: scopeCandidates } = useGraphObjectCrossScopeCandidates({
+    campaignId,
+    sessionId,
+    laneRole,
+    query: selectedSource?.selectedText ?? "",
+    selectedNode: resolverSelectedNode,
+    nodeViews: projectionNodeViews,
+    liveRunManifestPath,
+    enabled: Boolean(selectedSource?.selectedText.trim()),
+  });
 
   const objectFormOverlapWarnings = useMemo(
     () => detectObjectFormOverlapWarnings(formState, selectedSource, overlapContext),
@@ -197,6 +234,7 @@ export function GraphObjectAuthoringSurface({
                 onChange={onLinkExistingFieldChange}
                 proposals={proposals}
                 existingNodes={existingNodes}
+                scopeCandidates={scopeCandidates}
                 overlapContext={overlapContext}
               />
               <GraphObjectAuthoringOverlapWarnings warnings={linkExistingOverlapWarnings} />
@@ -240,6 +278,7 @@ export function GraphObjectAuthoringSurface({
             onChange={onRelationshipFieldChange}
             proposals={proposals}
             existingNodes={existingNodes}
+            scopeCandidates={scopeCandidates}
             overlapContext={overlapContext}
           />
           <GraphObjectAuthoringVisibilitySection

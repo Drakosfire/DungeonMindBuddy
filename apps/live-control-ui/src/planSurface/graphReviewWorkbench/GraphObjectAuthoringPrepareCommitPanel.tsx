@@ -13,9 +13,12 @@ import type {
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
 import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
+import { serializeGraphObjectAuthoringProposalForApi } from "./graphObjectAuthoringDraft";
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
-  return proposal as unknown as GraphObjectAuthoringProposalPayload;
+  return serializeGraphObjectAuthoringProposalForApi(
+    proposal,
+  ) as unknown as GraphObjectAuthoringProposalPayload;
 }
 
 function proposalsFingerprint(proposals: GraphObjectAuthoringProposal[]): string {

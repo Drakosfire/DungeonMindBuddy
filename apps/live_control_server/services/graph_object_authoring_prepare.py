@@ -135,6 +135,11 @@ class GraphObjectAuthoringObjectRefPayload(BaseModel):
     label: str
     kind: str | None = None
     role: str | None = None
+    graph_scope: str | None = Field(default=None, alias="graphScope")
+    source_label: str | None = Field(default=None, alias="sourceLabel")
+    source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
+    source_path: str | None = Field(default=None, alias="sourcePath")
+    visibility: str | None = None
 
 
 class GraphObjectAuthoringVisibilityPayload(BaseModel):
@@ -319,6 +324,11 @@ def _build_object_ref(payload: dict[str, Any]) -> AuthoredGraphObjectRef:
         label=parsed.label,
         kind=parsed.kind,
         role=parsed.role,
+        candidate_graph_scope=parsed.graph_scope,
+        source_label=parsed.source_label,
+        source_graph_id=parsed.source_graph_id,
+        source_path=parsed.source_path,
+        source_visibility=parsed.visibility,
     )
 
 

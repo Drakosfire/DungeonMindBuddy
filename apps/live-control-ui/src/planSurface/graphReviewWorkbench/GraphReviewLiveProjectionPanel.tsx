@@ -278,6 +278,9 @@ export function GraphReviewLiveProjectionPanel() {
               onCommittedProposals={graphObjectAuthoringDraft.clearCommittedProposals}
               onRefreshProjection={reloadLiveProjection}
               existingNodes={existingGraphObjectNodes}
+              laneRole="live"
+              liveRunManifestPath={liveRun?.manifest_path ?? null}
+              projectionNodeViews={projection?.node_views}
             />
           ) : null}
           <GraphReviewProjectedInteractionSurface
@@ -318,6 +321,7 @@ export function GraphReviewLiveProjectionPanel() {
                     : projection.graph_id
                 }
                 liveRunManifestPath={liveRun.manifest_path}
+                nodeViews={projection?.node_views ?? null}
                 onStageLinkIntent={
                   authorMode === "author_draft" && selectedNodeViewModel
                     ? (candidate) =>

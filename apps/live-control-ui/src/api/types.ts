@@ -1866,6 +1866,31 @@ export interface GraphReviewExistingObjectResolverRequest {
   selected_node: GraphReviewResolverSelectedNode;
   projection_graph_id?: string | null;
   live_run_manifest_path?: string | null;
+  query?: string | null;
+  node_views?: Record<string, GraphProjectionNodeView> | null;
+  scopes?: GraphObjectCandidateScope[] | null;
+  include_authored_overlay?: boolean;
+  include_current_projection?: boolean;
+  include_worldbuilding?: boolean;
+  include_party_pc?: boolean;
+  include_gm_private?: boolean;
+  include_campaign_memory?: boolean;
+  max_results_per_scope?: number;
+}
+
+export type GraphObjectCandidateScope =
+  | "current_recap_projection"
+  | "authored_overlay"
+  | "campaign_memory"
+  | "worldbuilding"
+  | "party_pc"
+  | "gm_private";
+
+export interface GraphObjectCandidateDiagnostic {
+  code: string;
+  message: string;
+  scope?: GraphObjectCandidateScope | null;
+  severity?: "info" | "warning" | "error";
 }
 
 export interface GraphReviewExistingObjectCandidate {
@@ -1880,6 +1905,13 @@ export interface GraphReviewExistingObjectCandidate {
   suggested_action: "link_existing_later" | "create_new_later" | "manual_review_needed";
   existing_object_ref?: Record<string, string> | null;
   matched_features: string[];
+  graph_scope?: GraphObjectCandidateScope | null;
+  source_label?: string | null;
+  source_path?: string | null;
+  source_graph_id?: string | null;
+  visibility?: string | null;
+  aliases?: string[];
+  authored?: boolean;
 }
 
 export interface GraphReviewExistingObjectResolverResponse {
@@ -1890,6 +1922,8 @@ export interface GraphReviewExistingObjectResolverResponse {
   selected_label: string;
   candidates: GraphReviewExistingObjectCandidate[];
   warnings: string[];
+  scopes_searched?: GraphObjectCandidateScope[];
+  diagnostics?: GraphObjectCandidateDiagnostic[];
 }
 
 

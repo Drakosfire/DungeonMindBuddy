@@ -7,6 +7,7 @@ import {
   GraphObjectAuthoringObjectRefPicker,
   type GraphObjectAuthoringInspectedNode,
 } from "./GraphObjectAuthoringObjectRefPicker";
+import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import type { GraphObjectAuthoringOverlapContext } from "./graphObjectAuthoringOverlap";
 
 export function GraphObjectAuthoringLinkExistingSection({
@@ -15,6 +16,7 @@ export function GraphObjectAuthoringLinkExistingSection({
   onChange,
   proposals,
   existingNodes = [],
+  scopeCandidates = [],
   overlapContext,
 }: {
   selectedText: string;
@@ -25,6 +27,7 @@ export function GraphObjectAuthoringLinkExistingSection({
   ) => void;
   proposals: GraphObjectAuthoringProposal[];
   existingNodes?: GraphObjectAuthoringInspectedNode[];
+  scopeCandidates?: GraphReviewExistingObjectCandidate[];
   overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   return (
@@ -40,6 +43,7 @@ export function GraphObjectAuthoringLinkExistingSection({
         onChange={(ref) => onChange("existingObjectRef", ref)}
         proposals={proposals}
         existingNodes={existingNodes}
+        scopeCandidates={scopeCandidates}
         overlapContext={overlapContext}
       />
       <div className="graph-object-authoring-field">
