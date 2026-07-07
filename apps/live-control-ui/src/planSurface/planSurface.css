@@ -2966,6 +2966,64 @@ body.plan-toolbox-open .plan-agent-shell {
   font-weight: 500;
 }
 
+.graph-review-workbench-header-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.graph-review-workbench-header-button:hover {
+  transform: translateY(-1px);
+}
+
+.graph-review-load-recap-button {
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+}
+
+.graph-review-load-recap-button:hover {
+  border-color: rgba(125, 211, 252, 0.55);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+}
+
+.graph-review-author-graph-button {
+  border: 1px solid rgba(192, 132, 252, 0.55);
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.88), rgba(109, 40, 217, 0.72));
+  color: #f5f3ff;
+  box-shadow: 0 10px 24px rgba(76, 29, 149, 0.28);
+}
+
+.graph-review-author-graph-button:hover {
+  border-color: rgba(216, 180, 254, 0.85);
+  box-shadow: 0 12px 28px rgba(109, 40, 217, 0.38);
+}
+
+.graph-review-author-graph-button.is-active {
+  border-color: rgba(250, 204, 21, 0.75);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(217, 119, 6, 0.82));
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.45),
+    0 14px 32px rgba(124, 58, 237, 0.42);
+}
+
+.graph-review-author-graph-button-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.55));
+}
+
 .graph-review-session-toolbar {
   display: flex;
   flex-wrap: wrap;

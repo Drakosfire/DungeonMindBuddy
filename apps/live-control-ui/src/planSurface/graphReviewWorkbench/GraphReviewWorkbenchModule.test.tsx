@@ -185,7 +185,7 @@ describe("GraphReviewWorkbenchModule", () => {
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load session" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
     );
 
     expect(
@@ -203,7 +203,7 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
 
-    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
     expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
   });
@@ -214,16 +214,16 @@ describe("GraphReviewWorkbenchModule", () => {
     render(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load session" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "Load session" }));
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
     await user.click(screen.getByRole("button", { name: "Load" }));
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
   });
 
   it("opens toolbox with Ingest Recap, Diagnostics, and Author Draft tools", async () => {
@@ -323,7 +323,7 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "Change" }));
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
     await user.click(screen.getByRole("tab", { name: /Session 22/i }));
     await user.click(screen.getByRole("button", { name: "Load" }));
 

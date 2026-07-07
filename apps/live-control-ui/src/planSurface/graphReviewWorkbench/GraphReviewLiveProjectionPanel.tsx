@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
@@ -32,7 +32,12 @@ function toExistingNodeOptions(
   }));
 }
 
-export function GraphReviewLiveProjectionPanel() {
+export function GraphReviewLiveProjectionPanel({
+  graphAuthoringModeEnabled: graphAuthoringModeEnabledProp,
+}: {
+  graphAuthoringModeEnabled?: boolean;
+  onGraphAuthoringModeChange?: (enabled: boolean) => void;
+} = {}) {
   const {
     campaignId,
     sessionId,
@@ -65,8 +70,15 @@ export function GraphReviewLiveProjectionPanel() {
   } = useGraphReviewLiveState();
 
   const { authorMode } = authorDraft;
-  const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
+  const graphAuthoringModeEnabled = graphAuthoringModeEnabledProp ?? false;
   const graphObjectAuthoringDraft = useGraphObjectAuthoringDraft({ campaignId, sessionId });
+  const { dismissSelection } = graphObjectAuthoringDraft;
+
+  useEffect(() => {
+    if (!graphAuthoringModeEnabled) {
+      dismissSelection();
+    }
+  }, [graphAuthoringModeEnabled, dismissSelection]);
   const existingGraphObjectNodes = useMemo(
     () => [
       ...toExistingNodeOptions(projection?.node_views),
@@ -142,29 +154,6 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "ready" && projection && liveRun ? (
         <>
-          <div className="graph-authoring-mode-controls">
-            <label className="graph-authoring-mode-toggle">
-              <input
-                type="checkbox"
-                checked={graphAuthoringModeEnabled}
-                data-testid="graph-authoring-mode-toggle"
-                onChange={(event) => {
-                  const enabled = event.target.checked;
-                  setGraphAuthoringModeEnabled(enabled);
-                  if (!enabled) {
-                    graphObjectAuthoringDraft.dismissSelection();
-                  }
-                }}
-              />
-              <span>Author graph objects</span>
-            </label>
-            {graphAuthoringModeEnabled ? (
-              <p className="graph-authoring-mode-hint">
-                Highlight source text in the ingested recap to capture a selection.
-                No graph write happens until a later authoring step.
-              </p>
-            ) : null}
-          </div>
           {hasGold && goldProjectionStatus === "loading" ? (
             <p className="graph-review-live-projection-status" role="status">
               Loading gold fixture projection…

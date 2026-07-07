@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,6 +12,7 @@ import type {
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
+import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 
 vi.mock("../../api/liveApi", async () => {
@@ -105,6 +107,22 @@ const projectionWithMention: UnionSupergraphProjectionResponse = {
     },
   ],
 };
+
+function LiveProjectionWithAuthoringHeader(): ReactNode {
+  const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
+  return (
+    <>
+      <GraphReviewWorkbenchHeader
+        loaded
+        sessionLabel="Session 23 · longmont-c2"
+        onOpenLoad={() => undefined}
+        graphAuthoringEnabled={graphAuthoringModeEnabled}
+        onGraphAuthoringToggle={() => setGraphAuthoringModeEnabled((enabled) => !enabled)}
+      />
+      <GraphReviewLiveProjectionPanel graphAuthoringModeEnabled={graphAuthoringModeEnabled} />
+    </>
+  );
+}
 
 describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
@@ -369,7 +387,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: true,
-      children: <GraphReviewLiveProjectionPanel />,
+      children: <LiveProjectionWithAuthoringHeader />,
     });
 
     await waitFor(() =>
@@ -398,7 +416,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: false,
-      children: <GraphReviewLiveProjectionPanel />,
+      children: <LiveProjectionWithAuthoringHeader />,
     });
 
     await waitFor(() =>
@@ -451,7 +469,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: false,
-      children: <GraphReviewLiveProjectionPanel />,
+      children: <LiveProjectionWithAuthoringHeader />,
     });
 
     await waitFor(() =>
@@ -485,7 +503,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
       hasGold: false,
-      children: <GraphReviewLiveProjectionPanel />,
+      children: <LiveProjectionWithAuthoringHeader />,
     });
 
     await waitFor(() =>

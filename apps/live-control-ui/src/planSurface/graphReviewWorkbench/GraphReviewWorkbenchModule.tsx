@@ -111,6 +111,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [selectedManualBedId, setSelectedManualBedId] = useState<string | null>(null);
   const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
   const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
+  const [graphAuthoringModeEnabled, setGraphAuthoringModeEnabled] = useState(false);
 
   const appliedCampaignSessions = useMemo(
     () =>
@@ -362,6 +363,14 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     );
   };
 
+  useEffect(() => {
+    setGraphAuthoringModeEnabled(false);
+  }, [
+    appliedSelection?.campaignId,
+    appliedSelection?.sessionId,
+    appliedSelection?.manifestPath,
+  ]);
+
   const handleApplyLoad = () => {
     if (!draftSession || !draftLiveRun) return;
     const nextApplied: AppliedSelection = {
@@ -393,6 +402,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           loaded={hasAppliedLoad}
           sessionLabel={loadBarSummary}
           onOpenLoad={openLoadDialog}
+          graphAuthoringEnabled={graphAuthoringModeEnabled}
+          onGraphAuthoringToggle={
+            hasAppliedLoad ? () => setGraphAuthoringModeEnabled((enabled) => !enabled) : undefined
+          }
         />
 
         {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
@@ -433,7 +446,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             onSelectSelection={setSelection}
           >
             <GraphReviewSessionToolbar />
-            <GraphReviewLiveProjectionPanel />
+            <GraphReviewLiveProjectionPanel
+              graphAuthoringModeEnabled={graphAuthoringModeEnabled}
+              onGraphAuthoringModeChange={setGraphAuthoringModeEnabled}
+            />
             <AdaptiveProjectionContainer config={toolboxConfig} />
           </GraphReviewLiveStateProvider>
         )}
