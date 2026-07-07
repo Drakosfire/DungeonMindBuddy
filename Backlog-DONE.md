@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review — identity workbench dogfood polish — completed 2026-07-07
+
+**Implemented (A10l):** Polished Existing Object identity workbench for Lysandra dogfood: clearer canonical/duplicate/cluster states, survivor ← merged-away copy, merge vs recap-link distinction, staging tray clarity, session-persisted selection. Hardened projection-time merge hydration when survivor/duplicate ids diverge from live projection; resolver filters phantom candidates; frontend resolves merge refs to projection node ids before staging.
+
+**Refs:** `ExistingObjectResolverPanel.tsx`, `graph_authoring_overlay_projection.py`, `graphExistingObjectIdentityWorkbench.ts`, `ROADMAP-graph-object-authoring-surface.md` §A10l
+
 ## [DONE] Graph Review — Existing Object identity workbench — completed 2026-07-07
 
 **Implemented (A10k, PR #295):** Existing Object search now shows ids/scopes, supports canonical + duplicate selection, side-by-side compare, duplicate badges, and stages `merge_objects` proposals through the authored overlay path. Follow-up canonical persistence fix landed on main after merge.

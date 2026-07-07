@@ -7,15 +7,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [DOING] Graph Review — identity workbench dogfood polish — captured 2026-07-07
+## [READY] Graph Review — overlay merge → union supergraph reconciliation (A10m) — captured 2026-07-07
 
-**Context:** PR #295 added search-first identity staging, but the real product test is whether the GM can confidently resolve a duplicate cluster like Lysandra without guessing which object is canonical or whether the staged merge went to the correct commit path.
+**Context:** A10l proves overlay merge staging/hydration for Lysandra, but projection-only collapse leaves ID drift (`party:*` vs `character_*` vs `node:*`). Architecture target: human-reviewed merges materialize into `UnionSupergraphStore` (aliases + edge rewiring); projections become lenses over global identity.
 
-**Action:** Polish the Existing Object identity workbench around the Lysandra dogfood path: clearer canonical/duplicate states, stronger merge-direction copy, better cluster hints, Stage & Commit confirmation clarity, and stale local draft cleanup verification.
+**Action:** **Design-first** — Prime Design / graph-memory agent authors HANDOFF before code. See `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` §A10m for survivor-id, alias permanence, pipeline replay, and retract symmetry decisions. May land as A10m or as graph-memory PR after projection contracts (roadmap PR D/E).
 
-**Surfaces when:** `ExistingObjectResolverPanel.tsx`, `GraphReviewExistingObjectIdentityCompare.tsx`, `GraphObjectAuthoringStagingTray.tsx`, `Backlog.md`.
+**Surfaces when:** `graph_object_authoring_commit.py`, `graph_authoring_overlay_projection.py`, `src/graph_memory/union_supergraph/`, union projection adapter, ingest reconciliation replay.
 
-**Refs:** A10l, PR #295 dogfood, Lysandra duplicate cluster.
+**Refs:** A10m, `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`, Lysandra duplicate cluster dogfood.
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
