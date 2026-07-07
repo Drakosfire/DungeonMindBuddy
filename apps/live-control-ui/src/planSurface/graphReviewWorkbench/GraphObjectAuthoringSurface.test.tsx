@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../api/liveApi", () => ({
@@ -83,7 +84,7 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(
       screen.getByText(/Highlight source text in the recap/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("No object drafts staged yet.")).toBeInTheDocument();
+    expect(screen.getByText(/No staged memory yet/i)).toBeInTheDocument();
   });
 
   it("seeds the label field from the selected text once opened", () => {
@@ -142,7 +143,9 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
 
-    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/These drafts are local until you prepare and commit them/i),
+    ).toBeInTheDocument();
   });
 
   it("closes the open draft form after staging and allows removing the staged proposal", () => {
@@ -157,7 +160,7 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(
       screen.queryByTestId("graph-object-authoring-staged-proposal"),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("No object drafts staged yet.")).toBeInTheDocument();
+    expect(screen.getByText(/No staged memory yet/i)).toBeInTheDocument();
   });
 
   it("disables staging when the label is blank", () => {
@@ -186,7 +189,9 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(stagedProposal).toHaveTextContent("Link existing");
     expect(stagedProposal).toHaveTextContent("Questionable Company");
     expect(stagedProposal).toHaveTextContent("gang");
-    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/These drafts are local until you prepare and commit them/i),
+    ).toBeInTheDocument();
   });
 
   it("disables link-existing staging until an existing object ref is chosen", () => {
@@ -234,7 +239,9 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(stagedProposal).toHaveAttribute("data-proposal-kind", "relationship");
     expect(stagedProposal).toHaveTextContent("Bonogo");
     expect(stagedProposal).toHaveTextContent("has member Questionable Company");
-    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/These drafts are local until you prepare and commit them/i),
+    ).toBeInTheDocument();
   });
 
   it("lists every quick relationship predicate in the type select", () => {
@@ -641,8 +648,62 @@ describe("GraphObjectAuthoringSurface", () => {
     await waitFor(() => {
       expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalled();
     });
-    await waitFor(() => {
-      expect(screen.getByText(/Prepare wrote nothing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Safe write preview generated/i)).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-write-safety-details")).not.toHaveAttribute("open");
+  });
+
+  it("groups staged memory review before technical write details", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      prepared: true,
+      campaign_id: "longmont-c1",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      current_overlay_token: "a",
+      proposed_assertions_digest: "b",
+      confirm_token: "c",
+      assertion_count: 1,
+      event_count: 2,
+      assertions_preview: [],
+      overlay_summary: {
+        existing_assertion_count: 0,
+        proposed_assertion_count: 1,
+        total_assertion_count: 1,
+        object_count: 1,
+        link_existing_count: 0,
+        relationship_count: 0,
+      },
+      diagnostics: [],
+      no_mutation_guarantees: ["Prepare wrote nothing."],
     });
+
+    render(<Harness withPrepareCommit />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-prepare-preview")).toBeInTheDocument();
+    });
+
+    const surfaceText = screen.getByTestId("graph-object-authoring-surface").textContent ?? "";
+    const reviewIndex = surfaceText.indexOf("Review staged memory");
+    const technicalIndex = surfaceText.indexOf("Technical write details");
+    expect(reviewIndex).toBeGreaterThanOrEqual(0);
+    expect(technicalIndex).toBeGreaterThan(reviewIndex);
+    expect(screen.getByTestId("graph-object-authoring-technical-write-details")).not.toHaveAttribute("open");
+  });
+
+  it("hides selected source technical metadata until Source details is expanded", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+
+    expect(screen.getByText("“gang”")).toBeInTheDocument();
+    const sourceDetails = screen.getByTestId("graph-object-authoring-source-details");
+    expect(sourceDetails).not.toHaveAttribute("open");
+
+    await user.click(screen.getByText("Source details"));
+    expect(sourceDetails).toHaveAttribute("open");
+    expect(within(sourceDetails).getByText("graph-c1s2")).toBeInTheDocument();
   });
 });

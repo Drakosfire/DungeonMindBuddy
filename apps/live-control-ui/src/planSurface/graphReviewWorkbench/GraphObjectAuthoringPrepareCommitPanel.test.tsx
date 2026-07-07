@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
@@ -141,8 +142,45 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     });
 
     expect(screen.getByTestId("graph-object-authoring-prepare-preview")).toBeInTheDocument();
-    expect(screen.getByText(/Prepare wrote nothing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Safe write preview generated/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 new object/i)).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-write-safety-details")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("graph-object-authoring-technical-write-details")).not.toHaveAttribute("open");
     expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+  });
+
+  it("shows technical write details only when expanded", async () => {
+    const user = userEvent.setup();
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-prepare-preview")).toBeInTheDocument();
+    });
+
+    const safetyDetails = screen.getByTestId("graph-object-authoring-write-safety-details");
+    const technicalDetails = screen.getByTestId("graph-object-authoring-technical-write-details");
+    expect(safetyDetails).not.toHaveAttribute("open");
+    expect(technicalDetails).not.toHaveAttribute("open");
+
+    await user.click(screen.getByText("Write safety details"));
+    expect(safetyDetails).toHaveAttribute("open");
+    expect(within(safetyDetails).getByText(/Prepare wrote nothing/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText("Technical write details"));
+    expect(technicalDetails).toHaveAttribute("open");
+    expect(within(technicalDetails).getByText("/tmp/overlay.json")).toBeInTheDocument();
+    expect(within(technicalDetails).getByText("/tmp/events.jsonl")).toBeInTheDocument();
   });
 
   it("clears prepared state when proposals change after prepare", async () => {
@@ -178,6 +216,49 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     expect(screen.queryByTestId("graph-object-authoring-prepare-preview")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-object-authoring-commit-button")).not.toBeInTheDocument();
+  });
+
+  it("prioritizes refresh graph review on commit success", async () => {
+    const user = userEvent.setup();
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue(commitResponse);
+    const onRefreshProjection = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+        onRefreshProjection={onRefreshProjection}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-summary")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Next: refresh graph review/i)).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-refresh-projection")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-commit-write-details")).not.toHaveAttribute("open");
+
+    const summaryText = screen.getByTestId("graph-object-authoring-commit-summary").textContent ?? "";
+    const refreshIndex = summaryText.indexOf("Refresh graph review");
+    const writeDetailsIndex = summaryText.indexOf("Write details");
+    expect(refreshIndex).toBeGreaterThanOrEqual(0);
+    expect(writeDetailsIndex).toBeGreaterThan(refreshIndex);
+
+    const writeDetails = screen.getByTestId("graph-object-authoring-commit-write-details");
+    await user.click(screen.getByText("Write details"));
+    expect(writeDetails).toHaveAttribute("open");
+    expect(within(writeDetails).getByText("/tmp/overlay.json")).toBeInTheDocument();
+    expect(within(writeDetails).getByText("/tmp/events.jsonl")).toBeInTheDocument();
   });
 
   it("commits successfully and notifies parent", async () => {

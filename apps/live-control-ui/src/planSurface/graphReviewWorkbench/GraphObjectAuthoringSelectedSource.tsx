@@ -7,25 +7,51 @@ function fieldValue(value: string | number | null | undefined): string {
   return String(value);
 }
 
-export function GraphObjectAuthoringSelectedSource({
-  selection,
-}: {
-  selection: GraphAuthoringSelection;
-}) {
+function hasSourceDetails(selection: GraphAuthoringSelection): boolean {
+  return Boolean(
+    selection.selectionKind ||
+      selection.campaignId ||
+      selection.sessionId ||
+      selection.laneRole ||
+      selection.graphId ||
+      selection.sourceArtifactPath ||
+      typeof selection.paragraphOrdinal === "number",
+  );
+}
+
+function SelectedSourceContext({ selection }: { selection: GraphAuthoringSelection }) {
+  if (selection.surroundingTextBefore || selection.surroundingTextAfter) {
+    return (
+      <div className="graph-object-authoring-selected-source-context">
+        <p className="graph-object-authoring-selected-source-context-label">Context</p>
+        <p className="graph-object-authoring-selected-source-context-text">
+          …{fieldValue(selection.surroundingTextBefore)}{" "}
+          <strong>{selection.selectedText}</strong>{" "}
+          {fieldValue(selection.surroundingTextAfter)}…
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <section
-      className="graph-object-authoring-selected-source"
-      aria-label="Selected source"
+    <p className="graph-object-authoring-selected-source-fallback-context">
+      Selected phrase from the recap.
+    </p>
+  );
+}
+
+function SourceDetailsPanel({ selection }: { selection: GraphAuthoringSelection }) {
+  if (!hasSourceDetails(selection)) {
+    return null;
+  }
+
+  return (
+    <details
+      className="graph-object-authoring-source-details-panel"
+      data-testid="graph-object-authoring-source-details"
     >
-      <p className="graph-object-authoring-selected-source-lede">
-        This is the recap text this draft is grounded in. Nothing has been
-        written yet.
-      </p>
+      <summary>Source details</summary>
       <dl className="graph-object-authoring-selected-source-fields">
-        <div>
-          <dt>Selected text</dt>
-          <dd>{selection.selectedText}</dd>
-        </div>
         <div>
           <dt>Selection kind</dt>
           <dd>{fieldValue(selection.selectionKind)}</dd>
@@ -48,16 +74,6 @@ export function GraphObjectAuthoringSelectedSource({
           <dt>Source artifact</dt>
           <dd>{fieldValue(selection.sourceArtifactPath)}</dd>
         </div>
-        {selection.surroundingTextBefore || selection.surroundingTextAfter ? (
-          <div>
-            <dt>Context</dt>
-            <dd>
-              …{fieldValue(selection.surroundingTextBefore)}{" "}
-              <strong>{selection.selectedText}</strong>{" "}
-              {fieldValue(selection.surroundingTextAfter)}…
-            </dd>
-          </div>
-        ) : null}
         {typeof selection.paragraphOrdinal === "number" ? (
           <div>
             <dt>Paragraph</dt>
@@ -65,6 +81,32 @@ export function GraphObjectAuthoringSelectedSource({
           </div>
         ) : null}
       </dl>
+    </details>
+  );
+}
+
+export function GraphObjectAuthoringSelectedSource({
+  selection,
+}: {
+  selection: GraphAuthoringSelection;
+}) {
+  return (
+    <section
+      className="graph-object-authoring-selected-source"
+      aria-label="Selected source"
+    >
+      <header className="graph-object-authoring-selected-source-header">
+        <p className="graph-object-authoring-selected-source-label">Selected source</p>
+        <p className="graph-object-authoring-selected-source-phrase">“{selection.selectedText}”</p>
+      </header>
+
+      <SelectedSourceContext selection={selection} />
+
+      <p className="graph-object-authoring-selected-source-lede">
+        Draft only. Nothing has been written.
+      </p>
+
+      <SourceDetailsPanel selection={selection} />
     </section>
   );
 }
