@@ -14,7 +14,7 @@ from apps.live_control_server.services.graph_authoring_overlay_projection import
     apply_authored_overlay_to_graph_review_projection,
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import GraphAuthoringOverlayStore
-from graph_memory.projection.focus_overlay import GraphFocusOverlay
+from graph_memory.projection.focus_overlay import GraphFocusOverlay, GraphProjectionEvidenceBadge
 from graph_memory.projection.node_view import GraphProjectionNodeView
 from graph_memory.projection.recap_projection import RecapGraphProjection
 from tests.test_graph_authoring_overlay_models import CAMPAIGN_ID, STAMP, object_ref, provenance
@@ -108,3 +108,107 @@ def test_merge_assertion_collapses_duplicate_node_views(store: GraphAuthoringOve
     assert "Tripod Null Calf" in enriched.node_views["survivor-node"].aliases
     assert "dmb-node:survivor-node" in enriched.markdown
     assert summary.projected_merge_objects_count >= 1
+
+
+def test_merge_into_party_anchor_hydrates_rich_ingest_projection(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    rich_evidence = GraphProjectionEvidenceBadge(
+        evidence_ref_id="ev-lysandra-1",
+        source_artifact_id="session-recap",
+        source_domain="recap",
+        evidence_role="mention",
+        is_focus_session_evidence=True,
+        can_open_source=True,
+        can_highlight_span=True,
+    )
+    from graph_memory.projection.node_view import GraphProjectionAdjacencyCandidate
+
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown="[Lysandra](dmb-node:node:lysandra) led the charge.",
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "party:captain_lysandra_ironveil": GraphProjectionNodeView(
+                node_id="party:captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                kind="companion",
+                role="companion",
+                aliases=["Lysandra"],
+                source_domains=["party_pc"],
+                evidence_badges=[],
+                adjacency=[],
+                summary="Deterministic party context anchor",
+            ),
+            "node:lysandra": GraphProjectionNodeView(
+                node_id="node:lysandra",
+                label="Lysandra",
+                kind="character",
+                role="source_evidence",
+                aliases=["Lysandra"],
+                source_domains=["live_projection", "recap"],
+                evidence_badges=[rich_evidence],
+                adjacency=[
+                    GraphProjectionAdjacencyCandidate(
+                        edge_id="edge-1",
+                        node_id="location_mireward",
+                        label="Mireward Reach",
+                        kind="location",
+                        predicate="travels_to",
+                        direction="outgoing",
+                        source_domains=["live_projection"],
+                        evidence_ref_ids=["ev-lysandra-1"],
+                    )
+                ],
+                summary="Led the charge at the wall and coordinated the party.",
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={
+            "assertions": [
+                AuthoredGraphMergeObjectsAssertion.model_validate(
+                    {
+                        "assertion_id": "assert-party-merge",
+                        "assertion_kind": "merge_objects",
+                        "operation": "merge",
+                        "campaign_id": CAMPAIGN_ID,
+                        "session_id": "session-23",
+                        "provenance": provenance().model_dump(),
+                        "survivor_object_ref": object_ref(
+                            node_id="party:captain_lysandra_ironveil",
+                            label="Captain Lysandra Ironveil",
+                            kind="companion",
+                            role="companion",
+                        ).model_dump(),
+                        "merged_object_refs": [
+                            object_ref(
+                                node_id="node:lysandra",
+                                label="Lysandra",
+                                kind="character",
+                            ).model_dump()
+                        ],
+                        "matched_features": ["search_identity_workbench"],
+                    }
+                )
+            ]
+        }
+    )
+    store.save_overlay(overlay, campaign_rel=TEST_CAMPAIGN_REL)
+    loaded = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+
+    enriched, _summary = apply_authored_overlay_to_graph_review_projection(
+        projection,
+        loaded,
+    )
+
+    survivor = enriched.node_views["party:captain_lysandra_ironveil"]
+    assert "node:lysandra" not in enriched.node_views
+    assert survivor.summary == "Led the charge at the wall and coordinated the party."
+    assert len(survivor.evidence_badges) == 1
+    assert len(survivor.adjacency) == 1
+    assert "live_projection" in survivor.source_domains
