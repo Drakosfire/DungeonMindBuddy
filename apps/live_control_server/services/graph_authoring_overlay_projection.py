@@ -20,6 +20,10 @@ from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
     GraphAuthoringOverlayStoreError,
 )
+from apps.live_control_server.services.graph_authoring_visibility import (
+    GraphAudience,
+    filter_authored_overlay_for_audience,
+)
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
@@ -398,14 +402,21 @@ def apply_authored_overlay_to_graph_review_projection(
     overlay: AuthoredGraphOverlay | None,
     *,
     summary: AuthoredOverlayProjectionSummary | None = None,
+    audience: GraphAudience | None = None,
 ) -> tuple[RecapGraphProjection, AuthoredOverlayProjectionSummary]:
     if overlay is None:
         return projection, summary or AuthoredOverlayProjectionSummary(loaded=False)
 
+    overlay_for_projection = (
+        filter_authored_overlay_for_audience(overlay, audience)
+        if audience is not None
+        else overlay
+    )
+
     diagnostics: list[GraphAuthoringOverlayDiagnostic] = list(summary.diagnostics if summary else [])
     merged_node_views = dict(projection.node_views)
     authored_nodes = build_authored_projection_node_views(
-        overlay,
+        overlay_for_projection,
         base_node_views=merged_node_views,
         existing_node_ids=set(merged_node_views.keys()),
         diagnostics=diagnostics,
@@ -434,14 +445,14 @@ def apply_authored_overlay_to_graph_review_projection(
             merged_node_views[node_id] = authored_view
 
     relationship_views = build_authored_projection_relationship_views(
-        overlay,
+        overlay_for_projection,
         merged_node_views,
         diagnostics=diagnostics,
     )
     for relationship in relationship_views:
         source_candidates = [
             assertion
-            for assertion in overlay.assertions
+            for assertion in overlay_for_projection.assertions
             if assertion.assertion_kind == "relationship"
             and assertion.status == "authored"
             and authored_relationship_edge_id(assertion.assertion_id) == relationship.edge_id
@@ -454,7 +465,7 @@ def apply_authored_overlay_to_graph_review_projection(
             rel_assertion.source_object_ref,
             existing_node_ids=set(merged_node_views.keys()),
             local_proposal_nodes=_local_proposal_node_map(
-                [item for item in overlay.assertions if item.status == "authored"]
+                [item for item in overlay_for_projection.assertions if item.status == "authored"]
             ),
             diagnostics=diagnostics,
             assertion_id=rel_assertion.assertion_id,
@@ -469,7 +480,9 @@ def apply_authored_overlay_to_graph_review_projection(
             update={"adjacency": [*source_view.adjacency, relationship]}
         )
 
-    active_count = sum(1 for item in overlay.assertions if item.status == "authored")
+    active_count = sum(
+        1 for item in overlay_for_projection.assertions if item.status == "authored"
+    )
     result_summary = AuthoredOverlayProjectionSummary(
         loaded=True,
         overlay_path=summary.overlay_path if summary else None,
