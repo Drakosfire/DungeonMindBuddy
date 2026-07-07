@@ -555,6 +555,8 @@ Manual: stage two authored assertions, one GM private and one table known; store
 
 ## A9 — Gold/eval export from authored corrections
 
+**Status:** A9a backend export foundation planned/landed. UI opt-in and candidate-graph-gold conversion deferred.
+
 **Purpose:** Convert human-authored graph corrections into developer tuning/evaluation artifacts.
 
 **Product behavior:**
