@@ -104,6 +104,7 @@ describe("GraphReviewProjectionLane", () => {
     );
     expect(token).toHaveAttribute("data-delta-status", "matched");
     expect(screen.queryByText("Matched")).not.toBeInTheDocument();
+    expect(token.closest(".recap-node-token-wrap")?.querySelector(".recap-node-hover-card")).toBeInTheDocument();
   });
 
   it("renders every dmb-node link present in the text, including ones with no matching mention entry", () => {

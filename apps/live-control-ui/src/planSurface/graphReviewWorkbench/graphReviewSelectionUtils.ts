@@ -100,6 +100,17 @@ export function formatGraphReviewRelationshipStatement(
   return `${sourceLabel} ${predicate} ${adjacency.label}`;
 }
 
+export function formatGraphObjectType(
+  kind?: string | null,
+  role?: string | null,
+): string {
+  const values = [kind, role]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  const uniqueValues = [...new Set(values)];
+  return uniqueValues.join(" / ") || "Graph object";
+}
+
 export function gameSummaryForNode(node: GraphProjectionNodeView): string {
   if (node.summary?.trim()) return node.summary;
   const kind = (node.kind || "object").toLowerCase();

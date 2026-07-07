@@ -81,30 +81,53 @@ export function GraphNodeToken({
   deltaStatus,
   deltaLabel,
   deltaSummary,
+  tokenClassName,
+  counterpartHighlighted = false,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
 }: {
   presentation: RecapNodePresentation;
   label: string;
   pinned: boolean;
   onSelect: () => void;
-  deltaStatus?: "matched" | "live_only" | "comparator_uncertain" | "unclassified";
+  deltaStatus?: string;
   deltaLabel?: string;
   deltaSummary?: string | null;
+  tokenClassName?: string;
+  counterpartHighlighted?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   const role = presentation.role || presentation.kind || "node";
   const focusSession = presentation.planningChips.some((chip) => chip.tone === "evidence");
   const normalizedDeltaStatus = deltaStatus ?? "unclassified";
+  const showDeltaBadge =
+    normalizedDeltaStatus !== "unknown" &&
+    normalizedDeltaStatus !== "matched" &&
+    normalizedDeltaStatus !== "unclassified";
   return (
-    <span className="recap-node-token-wrap">
+    <span
+      className="recap-node-token-wrap"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
       <button
         type="button"
-        className={`recap-node-token role-${roleClass(role)} delta-${normalizedDeltaStatus}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}`}
+        className={`recap-node-token role-${roleClass(role)} delta-${normalizedDeltaStatus}${pinned ? " pinned" : ""}${focusSession ? " session-active" : ""}${counterpartHighlighted ? " counterpart-highlighted" : ""}${tokenClassName ? ` ${tokenClassName}` : ""}`}
         data-graph-node-id={presentation.nodeId}
         data-delta-status={normalizedDeltaStatus}
+        data-counterpart-highlighted={counterpartHighlighted ? "true" : undefined}
         onClick={onSelect}
       >
         {label}
-        {deltaStatus && deltaStatus !== "unclassified" ? (
-          <span className="graph-review-pill-delta-badge">{deltaLabel ?? deltaStatus}</span>
+        {showDeltaBadge ? (
+          <span className="graph-review-pill-delta-badge">{deltaLabel ?? normalizedDeltaStatus}</span>
         ) : null}
       </button>
       <span className="recap-node-hover-card recap-planning-card" role="tooltip">
@@ -125,7 +148,7 @@ export function GraphNodeToken({
             <small>{presentation.knownBefore}</small>
           </PlanningScanSection>
         ) : null}
-        {deltaStatus && deltaStatus !== "unclassified" ? (
+        {deltaStatus && showDeltaBadge ? (
           <PlanningScanSection title="Graph review delta">
             <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
           </PlanningScanSection>

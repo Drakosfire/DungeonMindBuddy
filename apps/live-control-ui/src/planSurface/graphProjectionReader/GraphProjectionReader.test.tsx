@@ -138,6 +138,39 @@ describe("GraphProjectionReader", () => {
     );
   });
 
+  it("does not render graphId by default even when graphId is passed", async () => {
+    render(
+      <GraphProjectionReader
+        markdown="The gang arrived at the gate."
+        nodeViews={{}}
+        sourceSpans={[]}
+        graphId="longmont-c2:preview-union-supergraph"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/The gang arrived/)).toBeInTheDocument();
+    });
+    expect(document.querySelector(".union-supergraph-graph-id")).not.toBeInTheDocument();
+  });
+
+  it("renders graphId when showGraphId is enabled", async () => {
+    render(
+      <GraphProjectionReader
+        markdown="The gang arrived at the gate."
+        nodeViews={{}}
+        sourceSpans={[]}
+        graphId="longmont-c2:preview-union-supergraph"
+        showGraphId
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("longmont-c2:preview-union-supergraph")).toBeInTheDocument();
+    });
+    expect(document.querySelector(".union-supergraph-graph-id")).toBeInTheDocument();
+  });
+
   it("uses contained document scroll by default", async () => {
     render(
       <GraphProjectionReader

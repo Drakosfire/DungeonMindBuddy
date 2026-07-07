@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 
+import { useProjection } from "../projection/projectionContext";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 export function GraphReviewAuthorDraftToolPanel() {
+  const { close } = useProjection();
   const {
     campaignId,
     sessionId,
@@ -41,22 +43,20 @@ export function GraphReviewAuthorDraftToolPanel() {
     >
       <div
         className="graph-review-author-draft-mode-bar"
-        aria-label="Mode switch"
+        aria-label="Author Draft mode"
       >
-        <span>Mode:</span>
+        <p className="graph-review-author-draft-mode-note">
+          Author Draft lives in the toolbox for now. Staged proposals stay local
+          until prepare and commit.
+        </p>
         <button
           type="button"
-          aria-pressed={authorMode === "review"}
-          onClick={() => authorDraft.setAuthorMode("review")}
+          onClick={() => {
+            authorDraft.setAuthorMode("review");
+            close();
+          }}
         >
-          Review
-        </button>
-        <button
-          type="button"
-          aria-pressed={authorMode === "author_draft"}
-          onClick={() => authorDraft.setAuthorMode("author_draft")}
-        >
-          Author Draft
+          Return to review
         </button>
         {authorMode === "author_draft" ? (
           <strong>

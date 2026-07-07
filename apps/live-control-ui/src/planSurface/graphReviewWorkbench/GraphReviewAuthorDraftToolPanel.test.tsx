@@ -130,11 +130,14 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
       screen.getByRole("button", { name: "Stage node from selection" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Author Draft", pressed: true }),
+      screen.getByRole("button", { name: "Return to review" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Author Draft lives in the toolbox for now/i),
     ).toBeInTheDocument();
   });
 
-  it("switches back to review mode via Review button", async () => {
+  it("returns to review mode and closes the toolbox via Return to review", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     const user = userEvent.setup();
 
@@ -143,22 +146,19 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
       children: (
         <>
           <GraphReviewAuthorDraftToolPanel />
+          <AuthorModeProbe />
         </>
       ),
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Review" }),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId("author-mode")).toHaveTextContent("author_draft"),
     );
 
-    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(screen.getByRole("button", { name: "Return to review" }));
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Author Draft", pressed: false }),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId("author-mode")).toHaveTextContent("review"),
     );
   });
 
