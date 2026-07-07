@@ -23,6 +23,7 @@ After prepare, commit, and reload, eligible **link-existing alias** assertions n
 
 - Player UI, LLM assist, eval export UI, identity merge, broad node-detail redesign.
 - Global alias scanning (every instance of a word in recap) — A10b grounds **one** conservative mention per assertion at the selected anchor.
+- When the selected text appears multiple times, source-anchor context must identify exactly one occurrence; otherwise the mention is skipped with a diagnostic (`authored_alias_mention_ungrounded` or `authored_alias_mention_ambiguous`).
 - Prose grounding for **new object** assertions (object kind) — this PR targets link-existing aliases only.
 - Table/player visibility preview toggle in UI.
 

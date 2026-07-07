@@ -463,10 +463,19 @@ def _context_prefers_span(
     start, end = span
     prefix_window = markdown[max(0, start - max(len(before) + 16, 48)) : start]
     suffix_window = markdown[end : min(len(markdown), end + max(len(after) + 16, 48))]
-    local_context = _normalize_context_text(f"{prefix_window}{markdown[start:end]}{suffix_window}")
-    before_ok = not before or _normalize_context_text(before) in local_context
-    after_ok = not after or _normalize_context_text(after) in local_context
+    before_context = _normalize_context_text(f"{prefix_window}{markdown[start:end]}")
+    after_context = _normalize_context_text(f"{markdown[start:end]}{suffix_window}")
+    before_ok = not before or _normalize_context_text(before) in before_context
+    after_ok = not after or _normalize_context_text(after) in after_context
     return before_ok and after_ok
+
+
+def _source_anchor_has_context(source_anchor: GraphAuthoringSourceAnchor | None) -> bool:
+    if source_anchor is None:
+        return False
+    return bool((source_anchor.surrounding_text_before or "").strip()) or bool(
+        (source_anchor.surrounding_text_after or "").strip()
+    )
 
 
 def _find_authored_alias_span_in_markdown(
@@ -475,10 +484,15 @@ def _find_authored_alias_span_in_markdown(
     *,
     source_anchor: GraphAuthoringSourceAnchor | None,
     occupied: list[tuple[int, int]],
-) -> tuple[int, int] | None:
+) -> tuple[tuple[int, int] | None, str | None]:
+    """Resolve a prose span for an authored alias mention.
+
+    Returns ``(span, diagnostic_code)``. ``diagnostic_code`` is set when the
+    span is ``None`` due to ambiguous or ungrounded source-anchor resolution.
+    """
     selected = selected_text.strip()
     if not selected or not markdown:
-        return None
+        return None, None
 
     pattern = re.compile(rf"(?<![\w\[]){re.escape(selected)}(?![\w\]])", re.IGNORECASE)
     candidates: list[tuple[int, int]] = []
@@ -489,16 +503,24 @@ def _find_authored_alias_span_in_markdown(
         candidates.append(span)
 
     if not candidates:
-        return None
+        return None, None
 
-    if source_anchor is not None and len(candidates) > 1:
+    if len(candidates) == 1:
+        return candidates[0], None
+
+    if _source_anchor_has_context(source_anchor):
         contextual = [
-            span for span in candidates if _context_prefers_span(markdown, span, source_anchor=source_anchor)
+            span
+            for span in candidates
+            if _context_prefers_span(markdown, span, source_anchor=source_anchor)
         ]
-        if contextual:
-            return contextual[0]
+        if len(contextual) == 1:
+            return contextual[0], None
+        if len(contextual) == 0:
+            return None, "authored_alias_mention_ungrounded"
+        return None, "authored_alias_mention_ambiguous"
 
-    return candidates[0]
+    return None, "authored_alias_mention_ambiguous"
 
 
 def _eligible_link_existing_for_mention(
@@ -572,13 +594,37 @@ def _apply_authored_link_existing_mentions(
         if not node_id:
             continue
 
-        span = _find_authored_alias_span_in_markdown(
+        span, resolution_code = _find_authored_alias_span_in_markdown(
             markdown,
             selected,
             source_anchor=link_assertion.source_anchor,
             occupied=occupied,
         )
         if span is None:
+            if resolution_code == "authored_alias_mention_ambiguous":
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_mention_ambiguous",
+                        message=(
+                            f"Skipped authored alias {selected!r} because the selected text appears "
+                            f"multiple times and source-anchor context did not identify exactly one occurrence."
+                        ),
+                        assertion_id=link_assertion.assertion_id,
+                    )
+                )
+                continue
+            if resolution_code == "authored_alias_mention_ungrounded":
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_mention_ungrounded",
+                        message=(
+                            f"Skipped authored alias {selected!r} because source-anchor context did not "
+                            f"match any occurrence in the recap prose."
+                        ),
+                        assertion_id=link_assertion.assertion_id,
+                    )
+                )
+                continue
             conflicting_link = next(
                 (
                     linked_node_id

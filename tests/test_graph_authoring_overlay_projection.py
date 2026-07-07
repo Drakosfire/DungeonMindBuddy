@@ -539,6 +539,115 @@ def test_link_existing_alias_mention_skips_conflicting_overlap() -> None:
     assert any(item.code == "authored_alias_mention_conflict" for item in summary.diagnostics)
 
 
+def _double_gang_projection() -> RecapGraphProjection:
+    return RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-2",
+        graph_id="graph-1",
+        markdown="# Recap\n\nThe gang met again. Later the gang returned.",
+        focus=GraphFocusOverlay(focus_session_id="session-2"),
+        node_views={
+            "group_the_group": GraphProjectionNodeView(
+                node_id="group_the_group",
+                label="the group",
+                kind="group",
+                role="group",
+                aliases=["the group"],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            )
+        },
+        mentions=[],
+        source_spans=[],
+    )
+
+
+def test_link_existing_alias_mention_selects_second_occurrence_with_source_anchor() -> None:
+    link = link_existing_assertion(
+        selected_text="gang",
+        normalized_selected_text="gang",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "group_the_group",
+            "label": "the group",
+            "kind": "group",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "gang",
+            "normalized_selected_text": "gang",
+            "surrounding_text_before": "Later the ",
+            "surrounding_text_after": " returned.",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, _ = apply_authored_overlay_to_graph_review_projection(
+        _double_gang_projection(),
+        overlay,
+    )
+    assert enriched.markdown is not None
+    assert enriched.markdown.count("[gang](dmb-node:group_the_group)") == 1
+    assert "The gang met again." in enriched.markdown
+    assert "[gang](dmb-node:group_the_group) returned." in enriched.markdown
+
+
+def test_link_existing_alias_mention_ungrounded_when_source_anchor_matches_none() -> None:
+    link = link_existing_assertion(
+        selected_text="gang",
+        normalized_selected_text="gang",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "group_the_group",
+            "label": "the group",
+            "kind": "group",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "gang",
+            "normalized_selected_text": "gang",
+            "surrounding_text_before": "Nowhere prefix ",
+            "surrounding_text_after": " impossible suffix",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
+        _double_gang_projection(),
+        overlay,
+    )
+    assert enriched.markdown == _double_gang_projection().markdown
+    assert not enriched.mentions
+    assert any(item.code == "authored_alias_mention_ungrounded" for item in summary.diagnostics)
+
+
+def test_link_existing_alias_mention_ambiguous_without_source_anchor_context() -> None:
+    link = link_existing_assertion(
+        selected_text="gang",
+        normalized_selected_text="gang",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "group_the_group",
+            "label": "the group",
+            "kind": "group",
+        },
+        source_anchor=None,
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
+        _double_gang_projection(),
+        overlay,
+    )
+    assert enriched.markdown == _double_gang_projection().markdown
+    assert not enriched.mentions
+    assert any(item.code == "authored_alias_mention_ambiguous" for item in summary.diagnostics)
+
+
 def test_gold_projection_does_not_enrich_with_authored_overlay(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
