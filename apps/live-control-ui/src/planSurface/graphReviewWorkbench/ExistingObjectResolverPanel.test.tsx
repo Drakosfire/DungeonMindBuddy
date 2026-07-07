@@ -10,9 +10,14 @@ import {
   ExistingObjectResolverPanel,
   buildQueryOnlySelectedNode,
   buildResolverSelectedNode,
+  QUERY_SEARCH_NODE_ID,
 } from "./ExistingObjectResolverPanel";
-import type { GraphProjectionNodeView } from "../../api/types";
+import type {
+  GraphProjectionNodeView,
+  GraphReviewExistingObjectCandidate,
+} from "../../api/types";
 import { resolveGraphReviewExistingObjectCandidates } from "../../api/liveApi";
+import type { SearchMergeStageInput } from "./graphExistingObjectIdentityWorkbench";
 
 vi.mock("../../api/liveApi", () => ({
   resolveGraphReviewExistingObjectCandidates: vi.fn(),
@@ -265,7 +270,11 @@ describe("ExistingObjectResolverPanel", () => {
     expect(
       within(card!).getAllByText(/exact label match/i).length,
     ).toBeGreaterThan(0);
-    expect(within(card!).getByText(/Current recap · exact label match/i)).toBeInTheDocument();
+    expect(within(card!).getByText("gold-tripod")).toBeInTheDocument();
+    expect(within(card!).getByText(/gold-tripod · Current recap/i)).toBeInTheDocument();
+    expect(
+      within(card!).getAllByText(/exact label match, same kind/i).length,
+    ).toBeGreaterThan(0);
     expect(within(card!).getByText(/Link existing later/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Review candidate" }),
@@ -388,5 +397,161 @@ describe("ExistingObjectResolverPanel", () => {
       screen.getByRole("button", { name: "Find existing object" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+
+  const lysandraCandidates: GraphReviewExistingObjectCandidate[] = [
+    {
+      candidate_id: "node:lysandra",
+      label: "Lysandra",
+      kind: "npc",
+      role: "captain",
+      confidence: "high",
+      score: 0.91,
+      reason: "label match in recap",
+      source: "live_projection",
+      suggested_action: "manual_review_needed",
+      matched_features: ["label"],
+      graph_scope: "current_recap_projection",
+      source_label: "Current recap",
+      aliases: ["Lysandra"],
+    },
+    {
+      candidate_id: "party:captain_lysandra_ironveil",
+      label: "Captain Lysandra Ironveil",
+      kind: "character",
+      role: "companion",
+      confidence: "high",
+      score: 0.95,
+      reason: "alias match in party registry",
+      source: "union_supergraph",
+      suggested_action: "link_existing_later",
+      matched_features: ["alias", "label"],
+      graph_scope: "party_pc",
+      source_label: "Party / PCs",
+      aliases: ["Lysandra", "Captain Ironveil"],
+    },
+  ];
+
+  async function renderLysandraSearch(
+    overrides: {
+      onStageSearchMerge?: (input: SearchMergeStageInput) => boolean;
+      onStageSearchMergeComplete?: () => void;
+    } = {},
+  ) {
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      selected_node_id: QUERY_SEARCH_NODE_ID,
+      selected_label: "Lysandra",
+      warnings: [],
+      candidates: lysandraCandidates,
+    });
+    render(
+      <ExistingObjectResolverPanel
+        campaignId="longmont-c1"
+        sessionId="session-1"
+        laneRole="live"
+        projectionGraphId="graph-1"
+        liveRunManifestPath="runs/manifest.json"
+        onStageSearchMerge={overrides.onStageSearchMerge ?? vi.fn(() => true)}
+        onStageSearchMergeComplete={overrides.onStageSearchMergeComplete}
+      />,
+    );
+    typeSearchQuery("Lysandra");
+    fireEvent.click(screen.getByRole("button", { name: "Find existing object" }));
+    await screen.findByText("Likely existing objects");
+  }
+
+  it("renders candidate ids and identity actions without a recap pill", async () => {
+    await renderLysandraSearch();
+    expect(screen.getByText("node:lysandra")).toBeInTheDocument();
+    expect(screen.getByText("party:captain_lysandra_ironveil")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Set as canonical" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "Select as duplicate" }),
+    ).toHaveLength(2);
+  });
+
+  it("stages merge proposal through overlay search merge callback", async () => {
+    const onStageSearchMerge = vi.fn(() => true);
+    const onStageSearchMergeComplete = vi.fn();
+    await renderLysandraSearch({ onStageSearchMerge, onStageSearchMergeComplete });
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Set as canonical" })[1],
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Select as duplicate" })[0],
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Stage merge into canonical" }),
+    );
+
+    expect(onStageSearchMerge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mergeReason:
+          "Search result identity merge: node:lysandra → party:captain_lysandra_ironveil",
+        survivorObjectRef: expect.objectContaining({
+          nodeId: "party:captain_lysandra_ironveil",
+        }),
+        mergedObjectRefs: [
+          expect.objectContaining({ nodeId: "node:lysandra" }),
+        ],
+      }),
+    );
+    expect(onStageSearchMergeComplete).toHaveBeenCalled();
+    expect(
+      screen.getByText(/Identity merge staged in authored overlay/i),
+    ).toBeInTheDocument();
+  });
+
+  it("prevents canonical candidate from also being duplicate", async () => {
+    await renderLysandraSearch();
+    const canonicalButtons = screen.getAllByRole("button", {
+      name: "Set as canonical",
+    });
+    fireEvent.click(canonicalButtons[1]);
+    expect(
+      screen.getAllByRole("button", { name: "Clear canonical" }),
+    ).toHaveLength(1);
+    const duplicateButtons = screen.getAllByRole("button", {
+      name: "Select as duplicate",
+    });
+    expect(duplicateButtons[0]).not.toBeDisabled();
+    expect(duplicateButtons[1]).toBeDisabled();
+  });
+
+  it("shows compare panel when one canonical and one duplicate are selected", async () => {
+    await renderLysandraSearch();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Set as canonical" })[1],
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Select as duplicate" })[0],
+    );
+    expect(screen.getByText("Compare selected identity")).toBeInTheDocument();
+    expect(screen.getByText("Canonical / survivor")).toBeInTheDocument();
+    expect(screen.getByText("Duplicate / merge away")).toBeInTheDocument();
+  });
+
+  it("reports duplicate staged merge pair without creating another proposal", async () => {
+    const onStageSearchMerge = vi.fn(() => false);
+    await renderLysandraSearch({ onStageSearchMerge });
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Set as canonical" })[1],
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Select as duplicate" })[0],
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Stage merge into canonical" }),
+    );
+    expect(onStageSearchMerge).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText(/already staged in the authored overlay tray/i),
+    ).toBeInTheDocument();
   });
 });

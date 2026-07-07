@@ -11,7 +11,7 @@ import {
   friendlyVisibilityLabel,
 } from "./graphObjectAuthoringDraft";
 import { buildOverlapContextFromProjection } from "./graphObjectAuthoringOverlap";
-import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
+import { GraphObjectAuthoringStagingTray, GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE } from "./GraphObjectAuthoringStagingTray";
 
 const selection: GraphAuthoringSelection = {
   campaignId: "longmont-c1",
@@ -38,7 +38,7 @@ describe("GraphObjectAuthoringStagingTray", () => {
     render(<GraphObjectAuthoringStagingTray proposals={[]} onRemove={vi.fn()} />);
 
     expect(
-      screen.getByText(/No staged memory yet. Create an object, link, relationship, or merge draft above./i),
+      screen.getByText(new RegExp(GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE.replace(/\./g, "\\."))),
     ).toBeInTheDocument();
   });
 

@@ -42,10 +42,12 @@ function Harness({
   initialSelection,
   existingNodes = defaultExistingNodes,
   withPrepareCommit = false,
+  focusPanel,
 }: {
   initialSelection?: GraphAuthoringSelection;
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   withPrepareCommit?: boolean;
+  focusPanel?: import("./GraphObjectAuthoringSurface").GraphObjectAuthoringFocusPanel;
 }) {
   const draft = useGraphObjectAuthoringDraft();
 
@@ -55,6 +57,7 @@ function Harness({
         Open with selection
       </button>
       <GraphObjectAuthoringSurface
+        focusPanel={focusPanel}
         selectedSource={draft.selectedSource}
         formState={draft.formState}
         proposals={draft.proposals}
@@ -650,6 +653,18 @@ describe("GraphObjectAuthoringSurface", () => {
     });
     expect(screen.getByText(/Safe write preview generated/i)).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-write-safety-details")).not.toHaveAttribute("open");
+  });
+
+  it("uses one staged-memory header on the stage and commit tab", () => {
+    render(<Harness withPrepareCommit focusPanel="stage_overlay" />);
+
+    expect(screen.getAllByText("Review staged memory")).toHaveLength(1);
+    expect(
+      screen.getByText(/Stage a draft from New object, Existing object, Merge candidates, or Relationships/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Create an object, link, relationship, or merge draft above/i),
+    ).not.toBeInTheDocument();
   });
 
   it("groups staged memory review before technical write details", async () => {

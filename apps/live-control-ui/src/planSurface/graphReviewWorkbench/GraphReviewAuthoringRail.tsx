@@ -262,6 +262,7 @@ export function GraphReviewAuthoringRail({
               projectionGraphId={projection?.graph_id ?? null}
               liveRunManifestPath={liveRun?.manifest_path ?? null}
               nodeViews={projection?.node_views ?? null}
+              overlayProposals={graphObjectAuthoringDraft.proposals}
               onStageLinkIntent={
                 linkRecapPillEnabled && selectedAuthoringViewModel
                   ? (candidate) =>
@@ -283,6 +284,16 @@ export function GraphReviewAuthoringRail({
                 setFocusedMergeCandidate(candidate);
                 onActiveTabChange("merge_candidates");
               }}
+              onStageSearchMerge={(input) =>
+                graphObjectAuthoringDraft.stageMergeProposal({
+                  survivorObjectRef: input.survivorObjectRef,
+                  mergedObjectRefs: input.mergedObjectRefs,
+                  mergeReason: input.mergeReason,
+                  matchedFeatures: input.matchedFeatures,
+                  sourceGraphId: input.sourceGraphId ?? projection?.graph_id ?? null,
+                })
+              }
+              onStageSearchMergeComplete={() => onActiveTabChange("stage_commit")}
             />
           </section>
         </div>

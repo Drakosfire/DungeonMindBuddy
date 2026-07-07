@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { resolveGraphReviewExistingObjectCandidates } from "../../api/liveApi";
 import type {
@@ -12,13 +12,27 @@ import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane"
 import {
   candidateScopeLabel,
   formatResolverCandidateLabel,
-  formatResolverCandidateMeta,
   groupCandidatesByScope,
 } from "./graphObjectCandidateScope";
 import {
   buildMergeCandidateFromPillAndExisting,
   type GraphObjectMergeCandidate,
 } from "./graphObjectMergeCandidates";
+import {
+  buildSearchMergeStageInput,
+  candidateSelectionRole,
+  clearIdentitySelection,
+  createEmptyIdentitySelection,
+  formatCandidateIdentitySubline,
+  isSearchMergeAlreadyStaged,
+  possibleDuplicateCount,
+  setCanonicalCandidate,
+  toggleDuplicateCandidate,
+  type ExistingObjectIdentitySelectionState,
+  type SearchMergeStageInput,
+} from "./graphExistingObjectIdentityWorkbench";
+import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
+import { GraphReviewExistingObjectIdentityCompare } from "./GraphReviewExistingObjectIdentityCompare";
 
 export const QUERY_SEARCH_NODE_ID = "__graph_review_query_search__";
 
@@ -76,9 +90,12 @@ export function ExistingObjectResolverPanel({
   projectionGraphId = null,
   liveRunManifestPath = null,
   nodeViews = null,
+  overlayProposals = [],
   onStageLinkIntent,
   onStageLinkIntentComplete,
   onReviewMerge,
+  onStageSearchMerge,
+  onStageSearchMergeComplete,
 }: {
   campaignId: string;
   sessionId: string;
@@ -90,9 +107,12 @@ export function ExistingObjectResolverPanel({
   projectionGraphId?: string | null;
   liveRunManifestPath?: string | null;
   nodeViews?: Record<string, GraphProjectionNodeView> | null;
+  overlayProposals?: GraphObjectAuthoringProposal[];
   onStageLinkIntent?: (candidate: GraphReviewExistingObjectCandidate) => void;
   onStageLinkIntentComplete?: () => void;
   onReviewMerge?: (candidate: GraphObjectMergeCandidate) => void;
+  onStageSearchMerge?: (input: SearchMergeStageInput) => boolean;
+  onStageSearchMergeComplete?: () => void;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -104,18 +124,56 @@ export function ExistingObjectResolverPanel({
     null,
   );
   const [query, setQuery] = useState("");
+  const [identitySelection, setIdentitySelection] =
+    useState<ExistingObjectIdentitySelectionState>(createEmptyIdentitySelection());
+  const [stageMergeFeedback, setStageMergeFeedback] = useState<
+    "idle" | "staged" | "duplicate" | "blocked"
+  >("idle");
+  const stagedMergeSeenInOverlayRef = useRef(false);
 
   useEffect(() => {
     setStatus("idle");
     setResponse(null);
     setError(null);
     setStagedCandidateId(null);
+    setIdentitySelection(createEmptyIdentitySelection());
+    setStageMergeFeedback("idle");
+    stagedMergeSeenInOverlayRef.current = false;
   }, [laneRole, projectionGraphId, liveRunManifestPath]);
 
   const groupedCandidates = useMemo(
     () => groupCandidatesByScope(response?.candidates ?? []),
     [response],
   );
+
+  const allCandidates = response?.candidates ?? [];
+
+  const searchMergeInput = useMemo(
+    () => buildSearchMergeStageInput(identitySelection, projectionGraphId),
+    [identitySelection, projectionGraphId],
+  );
+
+  useEffect(() => {
+    if (stageMergeFeedback !== "staged" || !searchMergeInput) {
+      stagedMergeSeenInOverlayRef.current = false;
+      return;
+    }
+    if (isSearchMergeAlreadyStaged(searchMergeInput, overlayProposals)) {
+      stagedMergeSeenInOverlayRef.current = true;
+      return;
+    }
+    if (!stagedMergeSeenInOverlayRef.current) {
+      return;
+    }
+    setStageMergeFeedback("idle");
+    setIdentitySelection(clearIdentitySelection());
+    stagedMergeSeenInOverlayRef.current = false;
+  }, [overlayProposals, searchMergeInput, stageMergeFeedback]);
+
+  const canStageIdentityMerge = Boolean(onStageSearchMerge && searchMergeInput);
+  const mergeAlreadyStaged = searchMergeInput
+    ? isSearchMergeAlreadyStaged(searchMergeInput, overlayProposals)
+    : false;
 
   const canStageLinkIntent = Boolean(linkSourceNode && onStageLinkIntent);
   const searchPhrase = query.trim();
@@ -142,6 +200,9 @@ export function ExistingObjectResolverPanel({
     setStatus("loading");
     setError(null);
     setStagedCandidateId(null);
+    setIdentitySelection(createEmptyIdentitySelection());
+    setStageMergeFeedback("idle");
+    stagedMergeSeenInOverlayRef.current = false;
     void resolveGraphReviewExistingObjectCandidates(request)
       .then((next) => {
         setResponse(next);
@@ -158,6 +219,29 @@ export function ExistingObjectResolverPanel({
       });
   };
 
+  const handleStageSearchMerge = () => {
+    if (!searchMergeInput || !onStageSearchMerge) {
+      setStageMergeFeedback("blocked");
+      return;
+    }
+    if (isSearchMergeAlreadyStaged(searchMergeInput, overlayProposals)) {
+      setStageMergeFeedback("duplicate");
+      return;
+    }
+    const staged = onStageSearchMerge(searchMergeInput);
+    if (staged) {
+      setStageMergeFeedback("staged");
+      onStageSearchMergeComplete?.();
+    } else {
+      setStageMergeFeedback("duplicate");
+    }
+  };
+
+  const compareDuplicate =
+    identitySelection.duplicates.length === 1
+      ? identitySelection.duplicates[0]
+      : null;
+
   return (
     <aside
       className="graph-review-existing-object-resolver"
@@ -167,8 +251,9 @@ export function ExistingObjectResolverPanel({
       <h3>Search campaign sources</h3>
       <p>
         Search across current recap, authored memory, party / PC data,
-        worldbuilding, campaign memory, and GM-private graph sources. Results
-        are independent of any recap pill you may have clicked.
+        worldbuilding, campaign memory, and GM-private graph sources. Pick a
+        canonical hub and duplicate records to stage identity merges without
+        selecting a recap pill.
       </p>
       <label className="graph-review-existing-object-resolver-query">
         Search phrase
@@ -221,6 +306,56 @@ export function ExistingObjectResolverPanel({
               sources may be incomplete.
             </p>
           ) : null}
+          {identitySelection.canonical || identitySelection.duplicates.length ? (
+            <section className="graph-review-existing-object-identity-selection">
+              <h4>Identity selection</h4>
+              <p className="graph-review-muted">
+                {identitySelection.canonical
+                  ? `Canonical hub: ${identitySelection.canonical.label} (${identitySelection.canonical.candidate_id})`
+                  : "Choose one result as the canonical hub."}
+                {identitySelection.duplicates.length
+                  ? ` · ${identitySelection.duplicates.length} duplicate(s) selected`
+                  : ""}
+              </p>
+              <div className="graph-review-existing-object-identity-selection-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentitySelection(clearIdentitySelection());
+                    setStageMergeFeedback("idle");
+                  }}
+                >
+                  Clear selection
+                </button>
+                {canStageIdentityMerge ? (
+                  <button
+                    type="button"
+                    onClick={handleStageSearchMerge}
+                    disabled={mergeAlreadyStaged}
+                  >
+                    Stage merge into canonical
+                  </button>
+                ) : null}
+              </div>
+              {stageMergeFeedback === "staged" ? (
+                <p role="status" className="graph-review-info">
+                  Identity merge staged in authored overlay. Open{" "}
+                  <strong>Stage &amp; commit</strong> to prepare and commit.
+                </p>
+              ) : null}
+              {stageMergeFeedback === "duplicate" || mergeAlreadyStaged ? (
+                <p role="status" className="graph-review-warning">
+                  This merge pair is already staged in the authored overlay tray.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+          {identitySelection.canonical && compareDuplicate ? (
+            <GraphReviewExistingObjectIdentityCompare
+              canonical={identitySelection.canonical}
+              duplicate={compareDuplicate}
+            />
+          ) : null}
           {response.candidates.length ? <h4>Likely existing objects</h4> : null}
           <div className="graph-review-existing-object-candidate-list">
             {groupedCandidates.map((group) => (
@@ -230,84 +365,144 @@ export function ExistingObjectResolverPanel({
                 aria-label={candidateScopeLabel({ graph_scope: group.scope === "unknown" ? null : group.scope, source_label: null })}
               >
                 <h5>{group.scope === "unknown" ? "Other sources" : candidateScopeLabel({ graph_scope: group.scope, source_label: null })}</h5>
-                {group.candidates.map((candidate) => (
-                  <article
-                    key={`${candidate.graph_scope ?? candidate.source}-${candidate.candidate_id}`}
-                    className="graph-review-existing-object-candidate"
-                    data-staged={
-                      candidate.candidate_id === stagedCandidateId
-                        ? "true"
-                        : "false"
-                    }
-                  >
-                    <h6>{formatResolverCandidateLabel(candidate)}</h6>
-                    <p>{formatResolverCandidateMeta(candidate)}</p>
-                    <p>
-                      {candidate.confidence[0].toUpperCase() +
-                        candidate.confidence.slice(1)}{" "}
-                      confidence · {candidate.score.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>Suggested action:</strong>{" "}
-                      {actionLabel(candidate.suggested_action)}
-                    </p>
-                    {candidate.matched_features.length ? (
-                      <p>
-                        <strong>Matched features:</strong>{" "}
-                        {candidate.matched_features.join(", ")}
+                {group.candidates.map((candidate) => {
+                  const selectionRole = candidateSelectionRole(
+                    identitySelection,
+                    candidate,
+                  );
+                  const duplicatePeers = possibleDuplicateCount(
+                    candidate,
+                    allCandidates,
+                  );
+
+                  return (
+                    <article
+                      key={`${candidate.graph_scope ?? candidate.source}-${candidate.candidate_id}`}
+                      className="graph-review-existing-object-candidate"
+                      data-staged={
+                        candidate.candidate_id === stagedCandidateId
+                          ? "true"
+                          : "false"
+                      }
+                      data-identity-role={selectionRole ?? "none"}
+                    >
+                      <h6>{formatResolverCandidateLabel(candidate)}</h6>
+                      <p className="graph-review-existing-object-candidate-id">
+                        <code>{candidate.candidate_id}</code>
                       </p>
-                    ) : null}
-                    {canStageLinkIntent ? (
-                      <div className="graph-review-local-link-intent-action">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onStageLinkIntent?.(candidate);
-                            setStagedCandidateId(candidate.candidate_id);
-                            onStageLinkIntentComplete?.();
-                          }}
-                        >
-                          Stage link intent
-                        </button>
-                        {mergeReviewSourceNode && nodeViews?.[candidate.candidate_id] ? (
+                      <p>{formatCandidateIdentitySubline(candidate)}</p>
+                      <p>{candidate.reason}</p>
+                      <p>
+                        {candidate.confidence[0].toUpperCase() +
+                          candidate.confidence.slice(1)}{" "}
+                        confidence · {candidate.score.toFixed(2)}
+                      </p>
+                      <p>
+                        <strong>Suggested action:</strong>{" "}
+                        {actionLabel(candidate.suggested_action)}
+                      </p>
+                      {candidate.matched_features.length ? (
+                        <p>
+                          <strong>Matched features:</strong>{" "}
+                          {candidate.matched_features.join(", ")}
+                        </p>
+                      ) : null}
+                      {candidate.authored ? (
+                        <p>
+                          <strong>Authored:</strong> yes
+                        </p>
+                      ) : null}
+                      {duplicatePeers > 0 ? (
+                        <p className="graph-review-existing-object-duplicate-badge">
+                          Possible duplicate cluster ({duplicatePeers + 1}{" "}
+                          related result{duplicatePeers + 1 === 1 ? "" : "s"})
+                        </p>
+                      ) : null}
+                      {onStageSearchMerge ? (
+                        <div className="graph-review-existing-object-identity-actions">
+                          <button
+                            type="button"
+                            aria-pressed={selectionRole === "canonical"}
+                            onClick={() => {
+                              setIdentitySelection((prev) =>
+                                setCanonicalCandidate(prev, candidate),
+                              );
+                              setStageMergeFeedback("idle");
+                            }}
+                          >
+                            {selectionRole === "canonical"
+                              ? "Clear canonical"
+                              : "Set as canonical"}
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={selectionRole === "duplicate"}
+                            disabled={selectionRole === "canonical"}
+                            onClick={() => {
+                              setIdentitySelection((prev) =>
+                                toggleDuplicateCandidate(prev, candidate),
+                              );
+                              setStageMergeFeedback("idle");
+                            }}
+                          >
+                            {selectionRole === "duplicate"
+                              ? "Clear duplicate"
+                              : "Select as duplicate"}
+                          </button>
+                        </div>
+                      ) : null}
+                      {canStageLinkIntent ? (
+                        <div className="graph-review-local-link-intent-action">
                           <button
                             type="button"
                             onClick={() => {
-                              const mergeCandidate = buildMergeCandidateFromPillAndExisting(
-                                mergeReviewSourceNode,
-                                nodeViews[candidate.candidate_id],
-                              );
-                              if (mergeCandidate) {
-                                onReviewMerge?.(mergeCandidate);
-                              }
+                              onStageLinkIntent?.(candidate);
+                              setStagedCandidateId(candidate.candidate_id);
+                              onStageLinkIntentComplete?.();
                             }}
                           >
-                            Review merge
+                            Stage link intent
                           </button>
-                        ) : null}
-                        {candidate.candidate_id === stagedCandidateId ? (
-                          <p role="status" className="graph-review-info">
-                            Link intent staged locally. Open{" "}
-                            <strong>Stage &amp; commit</strong> to review and
-                            prepare.
-                          </p>
-                        ) : (
-                          <p>
-                            Links{" "}
-                            <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
-                            to this existing match. No identity merge is
-                            performed automatically.
-                          </p>
-                        )}
-                      </div>
-                    ) : onStageLinkIntent ? (
-                      <p className="graph-review-muted">
-                        Enable “Link to recap pill” above to stage link
-                        intents from these results.
-                      </p>
-                    ) : null}
-                  </article>
-                ))}
+                          {mergeReviewSourceNode && nodeViews?.[candidate.candidate_id] ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const mergeCandidate = buildMergeCandidateFromPillAndExisting(
+                                  mergeReviewSourceNode,
+                                  nodeViews[candidate.candidate_id],
+                                );
+                                if (mergeCandidate) {
+                                  onReviewMerge?.(mergeCandidate);
+                                }
+                              }}
+                            >
+                              Review merge
+                            </button>
+                          ) : null}
+                          {candidate.candidate_id === stagedCandidateId ? (
+                            <p role="status" className="graph-review-info">
+                              Link intent staged locally. Open{" "}
+                              <strong>Stage &amp; commit</strong> to review and
+                              prepare.
+                            </p>
+                          ) : (
+                            <p>
+                              Links{" "}
+                              <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
+                              to this existing match. This is a recap text link,
+                              not an object identity merge.
+                            </p>
+                          )}
+                        </div>
+                      ) : onStageLinkIntent ? (
+                        <p className="graph-review-muted">
+                          Enable “Link to recap pill” above to stage link
+                          intents from these results.
+                        </p>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </section>
             ))}
           </div>

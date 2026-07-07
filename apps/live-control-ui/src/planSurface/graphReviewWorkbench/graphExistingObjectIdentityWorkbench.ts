@@ -1,0 +1,210 @@
+import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import {
+  buildObjectRefFromResolverCandidate,
+  findDuplicateMergeProposal,
+  mergeObjectPairKey,
+  type GraphObjectAuthoringObjectRef,
+  type GraphObjectAuthoringProposal,
+} from "./graphObjectAuthoringDraft";
+import { candidateScopeLabel } from "./graphObjectCandidateScope";
+import { formatGraphObjectType } from "./graphReviewSelectionUtils";
+
+export function existingObjectCandidateKey(
+  candidate: GraphReviewExistingObjectCandidate,
+): string {
+  return candidate.candidate_id;
+}
+
+export function buildObjectRefFromExistingObjectCandidate(
+  candidate: GraphReviewExistingObjectCandidate,
+): GraphObjectAuthoringObjectRef {
+  return buildObjectRefFromResolverCandidate(candidate);
+}
+
+export interface ExistingObjectIdentitySelectionState {
+  canonical: GraphReviewExistingObjectCandidate | null;
+  duplicates: GraphReviewExistingObjectCandidate[];
+}
+
+export function createEmptyIdentitySelection(): ExistingObjectIdentitySelectionState {
+  return { canonical: null, duplicates: [] };
+}
+
+export function setCanonicalCandidate(
+  state: ExistingObjectIdentitySelectionState,
+  candidate: GraphReviewExistingObjectCandidate,
+): ExistingObjectIdentitySelectionState {
+  const key = existingObjectCandidateKey(candidate);
+  if (state.canonical?.candidate_id === key) {
+    return { ...state, canonical: null };
+  }
+  return {
+    canonical: candidate,
+    duplicates: state.duplicates.filter((item) => item.candidate_id !== key),
+  };
+}
+
+export function toggleDuplicateCandidate(
+  state: ExistingObjectIdentitySelectionState,
+  candidate: GraphReviewExistingObjectCandidate,
+): ExistingObjectIdentitySelectionState {
+  const key = existingObjectCandidateKey(candidate);
+  if (state.canonical?.candidate_id === key) {
+    return state;
+  }
+  const alreadySelected = state.duplicates.some((item) => item.candidate_id === key);
+  if (alreadySelected) {
+    return {
+      ...state,
+      duplicates: state.duplicates.filter((item) => item.candidate_id !== key),
+    };
+  }
+  return {
+    ...state,
+    duplicates: [...state.duplicates, candidate],
+  };
+}
+
+export function clearIdentitySelection(): ExistingObjectIdentitySelectionState {
+  return createEmptyIdentitySelection();
+}
+
+export function canStageSearchMerge(
+  state: ExistingObjectIdentitySelectionState,
+): boolean {
+  return Boolean(state.canonical && state.duplicates.length > 0);
+}
+
+export function buildSearchMergeReason(
+  canonical: GraphReviewExistingObjectCandidate,
+  duplicates: GraphReviewExistingObjectCandidate[],
+): string {
+  if (duplicates.length === 1) {
+    return (
+      `Search result identity merge: ${duplicates[0].candidate_id} → ` +
+      `${canonical.candidate_id}`
+    );
+  }
+  const duplicateIds = duplicates.map((item) => item.candidate_id).join(", ");
+  return `Search result identity merge: ${duplicateIds} → ${canonical.candidate_id}`;
+}
+
+export function collectSearchMergeMatchedFeatures(
+  canonical: GraphReviewExistingObjectCandidate,
+  duplicates: GraphReviewExistingObjectCandidate[],
+): string[] {
+  const features = new Set<string>(["search_identity_workbench"]);
+  for (const feature of canonical.matched_features) {
+    features.add(feature);
+  }
+  for (const duplicate of duplicates) {
+    for (const feature of duplicate.matched_features) {
+      features.add(feature);
+    }
+  }
+  return [...features];
+}
+
+export interface SearchMergeStageInput {
+  survivorObjectRef: GraphObjectAuthoringObjectRef;
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[];
+  mergeReason: string;
+  matchedFeatures: string[];
+  sourceGraphId?: string | null;
+}
+
+export function buildSearchMergeStageInput(
+  state: ExistingObjectIdentitySelectionState,
+  sourceGraphId?: string | null,
+): SearchMergeStageInput | null {
+  if (!canStageSearchMerge(state) || !state.canonical) {
+    return null;
+  }
+
+  return {
+    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(state.canonical),
+    mergedObjectRefs: state.duplicates.map(buildObjectRefFromExistingObjectCandidate),
+    mergeReason: buildSearchMergeReason(state.canonical, state.duplicates),
+    matchedFeatures: collectSearchMergeMatchedFeatures(
+      state.canonical,
+      state.duplicates,
+    ),
+    sourceGraphId: sourceGraphId ?? null,
+  };
+}
+
+export function isSearchMergeAlreadyStaged(
+  input: SearchMergeStageInput,
+  proposals: GraphObjectAuthoringProposal[],
+): boolean {
+  return Boolean(
+    findDuplicateMergeProposal(
+      input.survivorObjectRef,
+      input.mergedObjectRefs,
+      proposals,
+    ),
+  );
+}
+
+export function searchMergePairKey(
+  canonical: GraphReviewExistingObjectCandidate,
+  duplicate: GraphReviewExistingObjectCandidate,
+): string | null {
+  return mergeObjectPairKey(
+    buildObjectRefFromExistingObjectCandidate(canonical),
+    buildObjectRefFromExistingObjectCandidate(duplicate),
+  );
+}
+
+function normalizeClusterText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function candidateClusterKeys(
+  candidate: GraphReviewExistingObjectCandidate,
+): string[] {
+  const keys = new Set<string>();
+  keys.add(normalizeClusterText(candidate.label));
+  for (const alias of candidate.aliases ?? []) {
+    const normalized = normalizeClusterText(alias);
+    if (normalized) {
+      keys.add(normalized);
+    }
+  }
+  return [...keys];
+}
+
+export function possibleDuplicateCount(
+  candidate: GraphReviewExistingObjectCandidate,
+  allCandidates: GraphReviewExistingObjectCandidate[],
+): number {
+  const keys = new Set(candidateClusterKeys(candidate));
+  return allCandidates.filter((other) => {
+    if (other.candidate_id === candidate.candidate_id) {
+      return false;
+    }
+    return candidateClusterKeys(other).some((key) => keys.has(key));
+  }).length;
+}
+
+export function formatCandidateIdentitySubline(
+  candidate: GraphReviewExistingObjectCandidate,
+): string {
+  const scope = candidateScopeLabel(candidate);
+  const type = formatGraphObjectType(candidate.kind, candidate.role);
+  const typeSuffix = type && type !== "Unknown" ? ` · ${type}` : "";
+  return `${candidate.candidate_id} · ${scope}${typeSuffix}`;
+}
+
+export function candidateSelectionRole(
+  state: ExistingObjectIdentitySelectionState,
+  candidate: GraphReviewExistingObjectCandidate,
+): "canonical" | "duplicate" | null {
+  if (state.canonical?.candidate_id === candidate.candidate_id) {
+    return "canonical";
+  }
+  if (state.duplicates.some((item) => item.candidate_id === candidate.candidate_id)) {
+    return "duplicate";
+  }
+  return null;
+}
