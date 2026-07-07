@@ -183,6 +183,16 @@ def _session_number(session_id: str) -> int | None:
     return entry.get("session_number")
 
 
+def _is_authored_projection_node(raw: dict[str, Any]) -> bool:
+    if raw.get("authored") is True:
+        return True
+    source_domains = raw.get("source_domains") or []
+    if isinstance(source_domains, list) and "authored_overlay" in source_domains:
+        return True
+    node_id = str(raw.get("node_id") or "")
+    return node_id.startswith("authored:")
+
+
 def _rows_from_node_views(
     node_views: dict[str, Any],
     *,
@@ -202,8 +212,7 @@ def _rows_from_node_views(
                 "role": raw.get("role"),
                 "aliases": [str(alias) for alias in raw.get("aliases") or []],
                 "summary": raw.get("summary"),
-                "authored": raw.get("authored") is True
-                or "authored_overlay" in (raw.get("source_domains") or []),
+                "authored": _is_authored_projection_node(raw),
                 "source_anchors": [raw.get("source_anchor_text")]
                 if raw.get("source_anchor_text")
                 else [],
@@ -214,12 +223,41 @@ def _rows_from_node_views(
     return rows
 
 
+def _authored_projection_node_views(node_views: dict[str, Any] | None) -> dict[str, Any]:
+    if not node_views:
+        return {}
+    return {
+        node_id: raw
+        for node_id, raw in node_views.items()
+        if isinstance(raw, dict) and _is_authored_projection_node(raw)
+    }
+
+
+def _recap_projection_node_views(node_views: dict[str, Any] | None) -> dict[str, Any]:
+    if not node_views:
+        return {}
+    return {
+        node_id: raw
+        for node_id, raw in node_views.items()
+        if isinstance(raw, dict) and not _is_authored_projection_node(raw)
+    }
+
+
 def _load_current_recap_rows(context: GraphObjectCandidateSearchContext) -> tuple[list[dict[str, Any]], list[GraphObjectCandidateDiagnostic]]:
     diagnostics: list[GraphObjectCandidateDiagnostic] = []
     if context.node_views:
+        recap_views = _recap_projection_node_views(context.node_views)
+        if not recap_views:
+            diagnostics.append(
+                GraphObjectCandidateDiagnostic(
+                    code="candidate_scope_empty",
+                    message="Current recap projection has no non-authored node views.",
+                    scope=GraphObjectCandidateScope.current_recap_projection,
+                )
+            )
         return (
             _rows_from_node_views(
-                context.node_views,
+                recap_views,
                 scope=GraphObjectCandidateScope.current_recap_projection,
             ),
             diagnostics,
@@ -272,6 +310,11 @@ def _load_authored_overlay_rows(
     context: GraphObjectCandidateSearchContext,
 ) -> tuple[list[dict[str, Any]], list[GraphObjectCandidateDiagnostic]]:
     diagnostics: list[GraphObjectCandidateDiagnostic] = []
+    rows = _rows_from_node_views(
+        _authored_projection_node_views(context.node_views),
+        scope=GraphObjectCandidateScope.authored_overlay,
+        source_graph_id=f"{context.campaign_id}:authored-overlay-projection",
+    )
     overlay, summary = load_authored_overlay_for_review(
         campaign_id=context.campaign_id,
         campaign_rel=context.campaign_rel,
@@ -296,12 +339,16 @@ def _load_authored_overlay_rows(
                         severity=item.severity,
                     )
                 )
-        return [], diagnostics
+        if not rows:
+            return [], diagnostics
+        return rows, diagnostics
     node_views = build_authored_projection_node_views(overlay, existing_node_ids=set())
-    rows = _rows_from_node_views(
-        {node_id: view.model_dump(mode="python") for node_id, view in node_views.items()},
-        scope=GraphObjectCandidateScope.authored_overlay,
-        source_graph_id=f"{context.campaign_id}:authored-overlay",
+    rows.extend(
+        _rows_from_node_views(
+            {node_id: view.model_dump(mode="python") for node_id, view in node_views.items()},
+            scope=GraphObjectCandidateScope.authored_overlay,
+            source_graph_id=f"{context.campaign_id}:authored-overlay",
+        )
     )
     if not rows:
         diagnostics.append(

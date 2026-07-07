@@ -77,7 +77,54 @@ def test_same_label_across_scopes_is_not_deduped():
         for candidate in response.candidates
         if candidate.label.lower() == "caelynn"
     }
-    assert len(scopes) >= 1
+    assert GraphObjectCandidateScope.party_pc in scopes
+    assert len(scopes) >= 2
+
+
+def test_projection_node_views_keep_authored_nodes_out_of_current_recap_scope():
+    candidates, _, _ = search_cross_scope_candidates(
+        GraphObjectCandidateSearchContext(
+            campaign_id="longmont-c2",
+            session_id="session-23",
+            query="gang",
+            node_views={
+                "authored:obj-1": {
+                    "node_id": "authored:obj-1",
+                    "label": "Questionable Company",
+                    "kind": "party",
+                    "aliases": ["gang"],
+                    "authored": True,
+                    "source_domains": ["authored_overlay"],
+                },
+                "gang-node": {
+                    "node_id": "gang-node",
+                    "label": "gang",
+                    "kind": "unknown",
+                    "aliases": [],
+                    "source_domains": ["recap"],
+                },
+            },
+            scopes=[
+                GraphObjectCandidateScope.current_recap_projection,
+                GraphObjectCandidateScope.authored_overlay,
+            ],
+            include_worldbuilding=False,
+            include_party_pc=False,
+            include_campaign_memory=False,
+            include_gm_private=False,
+            repo_root=Path("."),
+        )
+    )
+    authored = next(
+        candidate
+        for candidate in candidates
+        if candidate.node_id == "authored:obj-1"
+    )
+    recap = next(candidate for candidate in candidates if candidate.node_id == "gang-node")
+    assert authored.source.scope == GraphObjectCandidateScope.authored_overlay
+    assert authored.source.source_label == "Authored memory"
+    assert recap.source.scope == GraphObjectCandidateScope.current_recap_projection
+    assert recap.source.source_label == "Current recap"
 
 
 def test_worldbuilding_candidate_returns_with_source_label():

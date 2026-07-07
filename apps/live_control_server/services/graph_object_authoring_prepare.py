@@ -135,6 +135,11 @@ class GraphObjectAuthoringObjectRefPayload(BaseModel):
     label: str
     kind: str | None = None
     role: str | None = None
+    graph_scope: str | None = Field(default=None, alias="graphScope")
+    source_label: str | None = Field(default=None, alias="sourceLabel")
+    source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
+    source_path: str | None = Field(default=None, alias="sourcePath")
+    visibility: str | None = None
 
 
 class GraphObjectAuthoringVisibilityPayload(BaseModel):

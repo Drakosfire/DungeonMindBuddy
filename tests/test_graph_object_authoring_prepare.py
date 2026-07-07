@@ -177,6 +177,42 @@ def test_prepare_relationship_proposal_returns_relationship_preview(
     assert response.overlay_summary.relationship_count == 1
 
 
+def test_prepare_accepts_cross_scope_object_ref_metadata(store: GraphAuthoringOverlayStore) -> None:
+    response = prepare_graph_object_authoring_write(
+        prepare_request(
+            proposals=[
+                link_existing_proposal(
+                    existingObjectRef={
+                        "refKind": "existing_graph_node",
+                        "nodeId": "party:bonogo",
+                        "label": "Bonogo",
+                        "kind": "pc",
+                        "graphScope": "party_pc",
+                        "sourceLabel": "Party / PCs",
+                        "sourceGraphId": "longmont-c2:party",
+                        "sourcePath": "_party_registry.json",
+                        "visibility": "table_known",
+                    }
+                ),
+                relationship_proposal(
+                    targetObjectRef={
+                        "refKind": "existing_graph_node",
+                        "nodeId": "loc_mirathorn",
+                        "label": "Mirathorn",
+                        "kind": "location",
+                        "graphScope": "worldbuilding",
+                        "sourceLabel": "Worldbuilding",
+                    }
+                ),
+            ]
+        ),
+        corpus_root=store.corpus_root,
+    )
+    assert response.prepared is True
+    assert response.overlay_summary.link_existing_count == 1
+    assert response.overlay_summary.relationship_count == 1
+
+
 def test_prepare_writes_nothing(store: GraphAuthoringOverlayStore) -> None:
     campaign_dir = store.corpus_root / TEST_CAMPAIGN_REL
     prepare_graph_object_authoring_write(

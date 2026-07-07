@@ -457,3 +457,67 @@ export function buildGraphObjectAuthoringRelationshipProposal(
     },
   };
 }
+
+export function serializeGraphObjectAuthoringObjectRefForApi(
+  ref: GraphObjectAuthoringObjectRef,
+): Record<string, unknown> {
+  return {
+    refKind: ref.refKind,
+    nodeId: ref.nodeId ?? null,
+    localProposalId: ref.localProposalId ?? null,
+    label: ref.label,
+    kind: ref.kind ?? null,
+    role: ref.role ?? null,
+    graphScope: ref.graphScope ?? null,
+    sourceLabel: ref.sourceLabel ?? null,
+    sourceGraphId: ref.sourceGraphId ?? null,
+    sourcePath: ref.sourcePath ?? null,
+    visibility: ref.visibility ?? null,
+  };
+}
+
+export function serializeGraphObjectAuthoringProposalForApi(
+  proposal: GraphObjectAuthoringProposal,
+): Record<string, unknown> {
+  const base = {
+    localProposalId: proposal.localProposalId,
+    proposalKind: proposal.proposalKind,
+    status: proposal.status,
+    visibility: proposal.visibility,
+    graphScopes: proposal.graphScopes,
+    provenancePreview: proposal.provenancePreview,
+  };
+
+  if (proposal.proposalKind === "object") {
+    return {
+      ...base,
+      selection: proposal.selection,
+      objectRef: proposal.objectRef,
+    };
+  }
+
+  if (proposal.proposalKind === "link_existing") {
+    return {
+      ...base,
+      selection: proposal.selection,
+      selectedText: proposal.selectedText,
+      normalizedSelectedText: proposal.normalizedSelectedText,
+      existingObjectRef: serializeGraphObjectAuthoringObjectRefForApi(
+        proposal.existingObjectRef,
+      ),
+      operation: proposal.operation,
+      aliasText: proposal.aliasText ?? null,
+    };
+  }
+
+  return {
+    ...base,
+    selection: proposal.selection ?? null,
+    sourceObjectRef: serializeGraphObjectAuthoringObjectRefForApi(proposal.sourceObjectRef),
+    targetObjectRef: serializeGraphObjectAuthoringObjectRefForApi(proposal.targetObjectRef),
+    relationshipType: proposal.relationshipType,
+    relationshipLabel: proposal.relationshipLabel ?? null,
+    direction: proposal.direction,
+    summary: proposal.summary ?? null,
+  };
+}
