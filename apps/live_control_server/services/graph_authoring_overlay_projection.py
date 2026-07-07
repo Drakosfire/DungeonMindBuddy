@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -42,7 +44,18 @@ from graph_memory.projection.recap_projection import (
 
 AUTHORED_SOURCE_DOMAIN = "authored_overlay"
 _LINK_EXISTING_MENTION_OPERATIONS = frozenset({"alias", "link_existing", "reference"})
+_ALIAS_PROPAGATION_OPERATION = "alias_propagation"
 _DMB_NODE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\(dmb-node:([^)]+)\)")
+
+
+@dataclass(frozen=True)
+class AuthoredAliasSeed:
+    alias_text: str
+    normalized_alias: str
+    target_node_id: str
+    target_label: str
+    assertion_id: str
+    source: Literal["link_existing", "object_alias"]
 
 
 class GraphAuthoringOverlayDiagnostic(BaseModel):
@@ -1100,6 +1113,296 @@ def _apply_authored_link_existing_mentions(
     )
 
 
+def _normalize_alias_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _alias_text_candidates_from_link_existing(
+    assertion: AuthoredGraphLinkExistingAssertion,
+) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for raw in (
+        assertion.selected_text,
+        assertion.normalized_selected_text,
+        assertion.alias_text,
+    ):
+        text = (raw or "").strip()
+        if not text:
+            continue
+        normalized = _normalize_alias_text(text)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        candidates.append(text)
+    return candidates
+
+
+def _build_authored_alias_seeds(
+    overlay: AuthoredGraphOverlay,
+    *,
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    merge_map: dict[str, str],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> list[AuthoredAliasSeed]:
+    active_assertions = [item for item in overlay.assertions if item.status == "authored"]
+    local_proposal_nodes = _local_proposal_node_map(active_assertions)
+    seeds: list[AuthoredAliasSeed] = []
+
+    for assertion in active_assertions:
+        link_assertion = _eligible_link_existing_for_mention(assertion)
+        if link_assertion is not None:
+            target_id = _link_existing_node_id(
+                link_assertion,
+                merged_node_views=merged_node_views,
+                local_proposal_nodes=local_proposal_nodes,
+                diagnostics=diagnostics,
+            )
+            if not target_id:
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_seed_unresolved_target",
+                        message=(
+                            f"Skipped alias propagation for link_existing assertion because "
+                            f"target {link_assertion.existing_object_ref.label!r} could not be resolved."
+                        ),
+                        assertion_id=link_assertion.assertion_id,
+                    )
+                )
+                continue
+            target_id = _resolve_merge_target(target_id, merge_map)
+            target_label = link_assertion.existing_object_ref.label
+            for alias_text in _alias_text_candidates_from_link_existing(link_assertion):
+                seeds.append(
+                    AuthoredAliasSeed(
+                        alias_text=alias_text,
+                        normalized_alias=_normalize_alias_text(alias_text),
+                        target_node_id=target_id,
+                        target_label=target_label,
+                        assertion_id=link_assertion.assertion_id,
+                        source="link_existing",
+                    )
+                )
+            continue
+
+        if assertion.assertion_kind != "object" or assertion.status != "authored":
+            continue
+        object_assertion: AuthoredGraphObjectAssertion = assertion
+        node_id = authored_object_node_id(object_assertion.assertion_id)
+        if node_id not in merged_node_views:
+            continue
+        target_id = _resolve_merge_target(node_id, merge_map)
+        target_label = object_assertion.object_ref.label
+        seen_aliases: set[str] = set()
+        for alias in object_assertion.aliases:
+            alias_text = alias.strip()
+            if not alias_text:
+                continue
+            normalized = _normalize_alias_text(alias_text)
+            if normalized in seen_aliases:
+                continue
+            seen_aliases.add(normalized)
+            seeds.append(
+                AuthoredAliasSeed(
+                    alias_text=alias_text,
+                    normalized_alias=normalized,
+                    target_node_id=target_id,
+                    target_label=target_label,
+                    assertion_id=object_assertion.assertion_id,
+                    source="object_alias",
+                )
+            )
+
+    return seeds
+
+
+def _build_eligible_alias_map(
+    seeds: list[AuthoredAliasSeed],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> dict[str, AuthoredAliasSeed]:
+    grouped: dict[str, list[AuthoredAliasSeed]] = defaultdict(list)
+    for seed in seeds:
+        grouped[seed.normalized_alias].append(seed)
+
+    eligible: dict[str, AuthoredAliasSeed] = {}
+    for normalized_alias, group in grouped.items():
+        unique_targets = {item.target_node_id for item in group}
+        if len(unique_targets) > 1:
+            labels = sorted({item.target_label for item in group})
+            diagnostics.append(
+                GraphAuthoringOverlayDiagnostic(
+                    code="authored_alias_propagation_ambiguous",
+                    message=(
+                        f'Skipped alias {group[0].alias_text!r} because it maps to multiple '
+                        f"candidate nodes ({', '.join(labels)})."
+                    ),
+                    assertion_id=group[0].assertion_id,
+                )
+            )
+            continue
+        eligible[normalized_alias] = group[0]
+    return eligible
+
+
+def _find_alias_occurrences(markdown: str, alias: str) -> list[tuple[int, int, str]]:
+    alias = alias.strip()
+    if not alias or not markdown:
+        return []
+    pattern = re.compile(rf"(?<![\w\[]){re.escape(alias)}(?![\w\]])", re.IGNORECASE)
+    return [(match.start(), match.end(), match.group(0)) for match in pattern.finditer(markdown)]
+
+
+def _node_id_at_span(
+    markdown: str,
+    span: tuple[int, int],
+) -> str | None:
+    for start, end, _label, node_id in _collect_dmb_node_link_spans(markdown):
+        if _spans_overlap(span, (start, end)):
+            return node_id
+    return None
+
+
+def _apply_authored_alias_propagation(
+    projection: RecapGraphProjection,
+    overlay: AuthoredGraphOverlay,
+    *,
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    merge_map: dict[str, str],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> tuple[RecapGraphProjection, int]:
+    markdown = projection.markdown
+    if not markdown:
+        return projection, 0
+
+    seeds = _build_authored_alias_seeds(
+        overlay,
+        merged_node_views=merged_node_views,
+        merge_map=merge_map,
+        diagnostics=diagnostics,
+    )
+    eligible_aliases = _build_eligible_alias_map(seeds, diagnostics)
+    if not eligible_aliases:
+        return projection, 0
+
+    occupied = _occupied_spans_from_markdown(markdown)
+    pending_spans: list[tuple[int, int, str, str, AuthoredAliasSeed]] = []
+    propagated_counts: dict[str, int] = defaultdict(int)
+    conflict_counts: dict[str, int] = defaultdict(int)
+
+    for seed in eligible_aliases.values():
+        for start, end, label, node_id in _collect_dmb_node_link_spans(markdown):
+            if (
+                _normalize_alias_text(label) == seed.normalized_alias
+                and node_id != seed.target_node_id
+            ):
+                conflict_counts[seed.normalized_alias] += 1
+
+        for start, end, matched_text in _find_alias_occurrences(markdown, seed.alias_text):
+            span = (start, end)
+            existing_node_id = _node_id_at_span(markdown, span)
+            if existing_node_id is not None:
+                if existing_node_id == seed.target_node_id:
+                    continue
+                conflict_counts[seed.normalized_alias] += 1
+                continue
+            if any(_spans_overlap(span, used) for used in occupied):
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_propagation_occupied",
+                        message=(
+                            f"Skipped alias {matched_text!r} because the prose span is already occupied."
+                        ),
+                        assertion_id=seed.assertion_id,
+                        severity="info",
+                    )
+                )
+                continue
+            pending_spans.append((start, end, matched_text, seed.target_node_id, seed))
+            occupied.append(span)
+            propagated_counts[seed.normalized_alias] += 1
+
+    for normalized_alias, count in conflict_counts.items():
+        if count <= 0:
+            continue
+        seed = eligible_aliases[normalized_alias]
+        diagnostics.append(
+            GraphAuthoringOverlayDiagnostic(
+                code="authored_alias_propagation_conflict",
+                message=(
+                    f'Skipped {count} {seed.alias_text!r} occurrence{"s" if count != 1 else ""} '
+                    f"because prose span already links to another node."
+                ),
+                assertion_id=seed.assertion_id,
+            )
+        )
+
+    for normalized_alias, count in propagated_counts.items():
+        if count <= 0:
+            continue
+        seed = eligible_aliases[normalized_alias]
+        diagnostics.append(
+            GraphAuthoringOverlayDiagnostic(
+                code="authored_alias_propagation_applied",
+                message=(
+                    f'Propagated alias {seed.alias_text!r} to {count} additional recap mention'
+                    f'{"s" if count != 1 else ""} for {seed.target_label}.'
+                ),
+                assertion_id=seed.assertion_id,
+                severity="info",
+            )
+        )
+
+    if not pending_spans:
+        return projection, 0
+
+    splice_input = [
+        (start, end, label, node_id) for start, end, label, node_id, _seed in pending_spans
+    ]
+    projected_markdown, projected_offsets = splice_node_link_spans(markdown, splice_input)
+
+    existing_mentions = list(projection.mentions)
+    new_mentions: list[RecapProjectionMention] = []
+    grounded_count = 0
+
+    for (start, end, label, node_id, seed), offset in zip(
+        pending_spans,
+        projected_offsets,
+        strict=False,
+    ):
+        if offset is None:
+            continue
+        grounded_count += 1
+        new_mentions.append(
+            RecapProjectionMention(
+                mention_id=f"authored-alias-propagation:{seed.assertion_id}:{start}",
+                node_id=node_id,
+                label=label,
+                start_offset=offset[0],
+                end_offset=offset[1],
+                evidence_ref_ids=[],
+                source=AUTHORED_SOURCE_DOMAIN,
+                authored=True,
+                assertion_id=seed.assertion_id,
+                operation=_ALIAS_PROPAGATION_OPERATION,
+                alias_text=label,
+                target_label=seed.target_label,
+            )
+        )
+
+    if grounded_count == 0:
+        return projection, 0
+
+    return (
+        projection.model_copy(
+            update={
+                "markdown": projected_markdown,
+                "mentions": [*existing_mentions, *new_mentions],
+            }
+        ),
+        grounded_count,
+    )
+
+
 def apply_authored_overlay_to_graph_review_projection(
     projection: RecapGraphProjection,
     overlay: AuthoredGraphOverlay | None,
@@ -1201,6 +1504,14 @@ def apply_authored_overlay_to_graph_review_projection(
         projection_with_mentions,
         merge_map,
         merged_node_views,
+    )
+
+    projection_with_mentions, _propagated_alias_count = _apply_authored_alias_propagation(
+        projection_with_mentions,
+        overlay_for_projection,
+        merged_node_views=merged_node_views,
+        merge_map=merge_map,
+        diagnostics=diagnostics,
     )
 
     active_count = sum(

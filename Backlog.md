@@ -7,6 +7,30 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph Review — Existing Object identity workbench — captured 2026-07-07
+
+**Context:** Find existing object search returns many duplicate identities for one character (e.g. `node:lysandra` from current recap, `party:captain_lysandra_ironveil` from party registry, `character_captain_lysandra_ironveil` from campaign memory), but the Modify existing toolbox is read-only unless a recap pill is selected and link opt-in is checked. “Review merge” only appears when the candidate is already in live `node_views`. “Stage link intent” routes to gold local draft, not the authored overlay commit path that creates recap pills.
+
+**Insight:** Search exposes fragmentation; the GM needs to resolve it from the same surface. Picking a canonical hub, collapsing duplicates, and linking aliases should be search-first actions—not gated on having clicked a pill first.
+
+**Action:** Extend Existing Object search into an identity workbench: search-first merge (pick survivor + merged-away from results), pick-canonical / link-alias-to-hub staging into overlay (not gold link-intent), side-by-side inspect (id, scope, aliases, hub path), and optional duplicate clustering for normalized label matches (e.g. one “Lysandra cluster” card with collapse-to-hub).
+
+**Surfaces when:** `ExistingObjectResolverPanel.tsx`, `GraphReviewAuthoringRail.tsx` (modify_existing tab), `graphObjectAuthoringDraft.ts`, `GraphReviewMergeCandidatesPanel.tsx`, resolver → overlay staging wiring.
+
+**Refs:** A10k, A10j dogfood, Lysandra / Captain Lysandra Ironveil duplicate cluster, stage-commit staging persistence.
+
+## [READY] Graph Review — post-overlay alias propagation from authored links — captured 2026-07-07
+
+**Context:** PR #293 validates authored `link_existing` pills for one selected span and materializes external existing refs, but it intentionally does not re-run a full markdown alias scan after overlay apply. A GM who links one “Lysandra” mention to Captain Lysandra Ironveil still has to hand-link other “Lysandra” occurrences.
+
+**Insight:** The durable authored decision is “this alias refers to this campaign object.” The repeated pill spans are a derived projection, not source markdown. Persist the alias/link assertion in authored overlay; dynamically rebuild safe alias pills whenever graph review projection loads.
+
+**Action:** Add post-overlay alias propagation: derive alias seeds from active authored `link_existing` assertions, scan current projection markdown for exact safe unlinked alias occurrences, skip ambiguous/conflicting spans, splice derived `dmb-node:` links into the projection response, append authored mentions, and surface compact diagnostics.
+
+**Surfaces when:** `graph_authoring_overlay_projection.py`, authored overlay diagnostics, `GraphAuthoredOverlaySummary.tsx`, `GraphObjectAuthoringPrepareCommitPanel.tsx`.
+
+**Refs:** A10j, PR #293 dogfood, Captain Lysandra Ironveil / “Lysandra” alias case.
+
 ## [READY] Graph Review — manual object merge review — captured 2026-07-07
 
 **Context:** PR #292 established the fullscreen Author Draft rail and existing-object search, but the graph still has too many overlapping objects. The next highest-leverage UX improvement is to let the GM manually collapse duplicates into better canonical objects.

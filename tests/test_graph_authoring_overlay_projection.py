@@ -715,14 +715,15 @@ def test_link_existing_alias_mention_selects_second_occurrence_with_source_ancho
     overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
         update={"assertions": [link]}
     )
-    enriched, _ = apply_authored_overlay_to_graph_review_projection(
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
         _double_gang_projection(),
         overlay,
     )
     assert enriched.markdown is not None
-    assert enriched.markdown.count("[gang](dmb-node:group_the_group)") == 1
-    assert "The gang met again." in enriched.markdown
+    assert enriched.markdown.count("[gang](dmb-node:group_the_group)") == 2
+    assert "The [gang](dmb-node:group_the_group) met again." in enriched.markdown
     assert "[gang](dmb-node:group_the_group) returned." in enriched.markdown
+    assert any(item.code == "authored_alias_propagation_applied" for item in summary.diagnostics)
 
 
 def test_link_existing_alias_mention_ungrounded_when_source_anchor_matches_none() -> None:
@@ -750,9 +751,10 @@ def test_link_existing_alias_mention_ungrounded_when_source_anchor_matches_none(
         _double_gang_projection(),
         overlay,
     )
-    assert enriched.markdown == _double_gang_projection().markdown
-    assert not enriched.mentions
+    assert enriched.markdown is not None
+    assert enriched.markdown.count("[gang](dmb-node:group_the_group)") == 2
     assert any(item.code == "authored_alias_mention_ungrounded" for item in summary.diagnostics)
+    assert any(item.code == "authored_alias_propagation_applied" for item in summary.diagnostics)
 
 
 def test_context_scoring_disambiguates_duplicate_selected_text() -> None:
@@ -803,9 +805,10 @@ def test_link_existing_alias_mention_ambiguous_without_source_anchor_context() -
         _double_gang_projection(),
         overlay,
     )
-    assert enriched.markdown == _double_gang_projection().markdown
-    assert not enriched.mentions
+    assert enriched.markdown is not None
+    assert enriched.markdown.count("[gang](dmb-node:group_the_group)") == 2
     assert any(item.code == "authored_alias_mention_ambiguous" for item in summary.diagnostics)
+    assert any(item.code == "authored_alias_propagation_applied" for item in summary.diagnostics)
 
 
 def test_gold_projection_does_not_enrich_with_authored_overlay(
@@ -827,3 +830,303 @@ def test_gold_projection_does_not_enrich_with_authored_overlay(
     )
     dumped = response.model_dump(mode="json")
     assert "authored_overlay" not in dumped
+
+
+def _lysandra_projection() -> RecapGraphProjection:
+    return RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown=(
+            "Lysandra is surprised. Bonogo speaks to Lysandra. Later, Lysandra returns."
+        ),
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "character_captain_lysandra_ironveil": GraphProjectionNodeView(
+                node_id="character_captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                kind="pc",
+                role="pc",
+                aliases=["Captain Lysandra Ironveil"],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+            "pc_bonogo": GraphProjectionNodeView(
+                node_id="pc_bonogo",
+                label="Bonogo",
+                kind="pc",
+                role="candidate",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+    )
+
+
+def test_link_existing_alias_propagates_to_other_safe_occurrences() -> None:
+    link = link_existing_assertion(
+        assertion_id="assert-lysandra-alias",
+        selected_text="Lysandra",
+        normalized_selected_text="Lysandra",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "pc",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "Lysandra",
+            "normalized_selected_text": "Lysandra",
+            "surrounding_text_before": "",
+            "surrounding_text_after": " is surprised.",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
+        _lysandra_projection(),
+        overlay,
+    )
+    assert enriched.markdown is not None
+    assert enriched.markdown.count(
+        "[Lysandra](dmb-node:character_captain_lysandra_ironveil)"
+    ) == 3
+    lysandra_mentions = [
+        item
+        for item in enriched.mentions
+        if item.node_id == "character_captain_lysandra_ironveil"
+    ]
+    assert len(lysandra_mentions) == 3
+    assert any(
+        item.code == "authored_alias_propagation_applied"
+        and "2 additional" in item.message
+        for item in summary.diagnostics
+    )
+
+
+def test_alias_propagation_does_not_overwrite_existing_dmb_node_link() -> None:
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown=(
+            "[Lysandra](dmb-node:other_node) is surprised. "
+            "Bonogo speaks to Lysandra. Later, Lysandra returns."
+        ),
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "character_captain_lysandra_ironveil": GraphProjectionNodeView(
+                node_id="character_captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                kind="pc",
+                role="pc",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+            "other_node": GraphProjectionNodeView(
+                node_id="other_node",
+                label="Other Lysandra",
+                kind="entity",
+                role="entity",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    link = link_existing_assertion(
+        selected_text="Lysandra",
+        normalized_selected_text="Lysandra",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "pc",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "Lysandra",
+            "normalized_selected_text": "Lysandra",
+            "surrounding_text_before": "Bonogo speaks to ",
+            "surrounding_text_after": ". Later",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    assert enriched.markdown is not None
+    assert "[Lysandra](dmb-node:other_node)" in enriched.markdown
+    assert enriched.markdown.count(
+        "[Lysandra](dmb-node:character_captain_lysandra_ironveil)"
+    ) == 2
+    assert any(item.code == "authored_alias_propagation_conflict" for item in summary.diagnostics)
+
+
+def test_alias_propagation_skips_alias_with_multiple_targets() -> None:
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-1",
+        graph_id="graph-1",
+        markdown="The captain arrived. Later the captain left.",
+        focus=GraphFocusOverlay(focus_session_id="session-1"),
+        node_views={
+            "captain_a": GraphProjectionNodeView(
+                node_id="captain_a",
+                label="Captain A",
+                kind="npc",
+                role="npc",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+            "captain_b": GraphProjectionNodeView(
+                node_id="captain_b",
+                label="Captain B",
+                kind="npc",
+                role="npc",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    link_a = link_existing_assertion(
+        assertion_id="assert-captain-a",
+        selected_text="captain",
+        normalized_selected_text="captain",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "captain_a",
+            "label": "Captain A",
+            "kind": "npc",
+        },
+    )
+    link_b = link_existing_assertion(
+        assertion_id="assert-captain-b",
+        selected_text="captain",
+        normalized_selected_text="captain",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "captain_b",
+            "label": "Captain B",
+            "kind": "npc",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link_a, link_b]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    assert enriched.markdown == projection.markdown
+    assert not enriched.mentions
+    assert any(item.code == "authored_alias_propagation_ambiguous" for item in summary.diagnostics)
+
+
+def test_alias_propagation_supports_multi_word_alias() -> None:
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-1",
+        graph_id="graph-1",
+        markdown="On the deck, the captain waved. The captain saluted.",
+        focus=GraphFocusOverlay(focus_session_id="session-1"),
+        node_views={
+            "character_captain_lysandra_ironveil": GraphProjectionNodeView(
+                node_id="character_captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                kind="pc",
+                role="pc",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            )
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    link = link_existing_assertion(
+        selected_text="the captain",
+        normalized_selected_text="the captain",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "pc",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "the captain",
+            "normalized_selected_text": "the captain",
+            "surrounding_text_before": "On the deck, ",
+            "surrounding_text_after": " waved.",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    assert enriched.markdown is not None
+    assert enriched.markdown.count("dmb-node:character_captain_lysandra_ironveil") == 2
+    assert any(item.code == "authored_alias_propagation_applied" for item in summary.diagnostics)
+
+
+def test_alias_decision_survives_store_reload_and_reprojects(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    link = link_existing_assertion(
+        selected_text="Lysandra",
+        normalized_selected_text="Lysandra",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "pc",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "Lysandra",
+            "normalized_selected_text": "Lysandra",
+            "surrounding_text_before": "",
+            "surrounding_text_after": " is surprised.",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    store.save_overlay(overlay, campaign_rel=TEST_CAMPAIGN_REL)
+
+    reloaded_store = GraphAuthoringOverlayStore(store.corpus_root)
+    loaded, summary = load_authored_overlay_for_review(
+        campaign_id=CAMPAIGN_ID,
+        campaign_rel=TEST_CAMPAIGN_REL,
+        corpus_root=reloaded_store.corpus_root,
+    )
+    assert loaded is not None
+    enriched, overlay_summary = apply_authored_overlay_to_graph_review_projection(
+        _lysandra_projection(),
+        loaded,
+        summary=summary,
+    )
+    assert enriched.markdown is not None
+    assert enriched.markdown.count(
+        "[Lysandra](dmb-node:character_captain_lysandra_ironveil)"
+    ) == 3
+    assert any(
+        item.code == "authored_alias_propagation_applied" for item in overlay_summary.diagnostics
+    )
