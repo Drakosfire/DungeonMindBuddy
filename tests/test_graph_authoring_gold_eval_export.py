@@ -282,6 +282,68 @@ def test_no_included_assertions_returns_diagnostic_without_file(tmp_path: Path) 
     assert not exports_dir.exists() or not any(exports_dir.iterdir())
 
 
+def test_write_export_refuses_to_overwrite_existing_export(tmp_path: Path) -> None:
+    assertion = object_assertion(
+        assertion_id="assert-no-overwrite",
+        include_in_gold_eval=True,
+    )
+    overlay = _overlay(assertion)
+    export = build_authored_graph_gold_eval_export(
+        overlay,
+        options=_export_options(created_at=STAMP),
+    )
+    assert export is not None
+
+    path = write_authored_graph_gold_eval_export(
+        export,
+        campaign_id=CAMPAIGN_ID,
+        campaign_rel=TEST_CAMPAIGN_REL,
+        corpus_root=tmp_path,
+    )
+    original_payload = json.loads(path.read_text(encoding="utf-8"))
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        write_authored_graph_gold_eval_export(
+            export,
+            campaign_id=CAMPAIGN_ID,
+            campaign_rel=TEST_CAMPAIGN_REL,
+            corpus_root=tmp_path,
+        )
+
+    assert path.is_file()
+    assert json.loads(path.read_text(encoding="utf-8")) == original_payload
+
+
+@pytest.mark.parametrize(
+    "unsafe_created_at",
+    [
+        "2026/07/06T12:00:00Z",
+        "../escape",
+        "2026-07-06T12:00:00Z/../../../evil",
+        "   ",
+    ],
+)
+def test_export_filename_rejects_unsafe_created_at(
+    tmp_path: Path,
+    unsafe_created_at: str,
+) -> None:
+    assertion = object_assertion(include_in_gold_eval=True)
+    overlay = _overlay(assertion)
+    export = build_authored_graph_gold_eval_export(
+        overlay,
+        options=_export_options(created_at=unsafe_created_at),
+    )
+    assert export is not None
+
+    with pytest.raises(ValueError, match="unsafe created_at"):
+        write_authored_graph_gold_eval_export(
+            export,
+            campaign_id=CAMPAIGN_ID,
+            campaign_rel=TEST_CAMPAIGN_REL,
+            corpus_root=tmp_path,
+        )
+
+
 def test_export_rejects_unsafe_campaign_rel(tmp_path: Path) -> None:
     assertion = object_assertion(include_in_gold_eval=True)
     overlay = _overlay(assertion)

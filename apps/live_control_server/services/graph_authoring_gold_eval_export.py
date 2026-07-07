@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -35,6 +36,7 @@ from src.live_play.live_store import write_json
 AUTHORED_GRAPH_GOLD_EVAL_EXPORT_SCHEMA = "dmb.authored_graph_gold_eval_export.v1"
 AUTHORED_GRAPH_GOLD_EVAL_EXPORT_VERSION = "0.1"
 EXPORT_FILENAME_PREFIX = "authored_graph_gold_eval_export"
+_UNSAFE_CREATED_AT_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 AuthoredGraphGoldKnowledgeScope = Literal[
     "session_local",
@@ -316,8 +318,19 @@ def build_authored_graph_gold_eval_export(
     )
 
 
+def _filename_timestamp_from_created_at(created_at: str) -> str:
+    """Derive a safe filename segment from an ISO-style created_at stamp."""
+    if "/" in created_at or "\\" in created_at or ".." in created_at:
+        raise ValueError("unsafe created_at for export filename")
+    compact = created_at.replace(":", "").replace("-", "")
+    sanitized = _UNSAFE_CREATED_AT_CHARS.sub("", compact)
+    if not sanitized:
+        raise ValueError("unsafe created_at for export filename")
+    return sanitized
+
+
 def _export_filename(export: AuthoredGraphGoldEvalExport) -> str:
-    stamp = export.created_at.replace(":", "").replace("-", "")
+    stamp = _filename_timestamp_from_created_at(export.created_at)
     digest = export.export_id.removeprefix("authored-gold-eval-export-")
     return f"{EXPORT_FILENAME_PREFIX}.{stamp}.{digest}.json"
 
@@ -355,6 +368,8 @@ def write_authored_graph_gold_eval_export(
     )
     exports_dir.mkdir(parents=True, exist_ok=True)
     path = exports_dir / _export_filename(export)
+    if path.exists():
+        raise FileExistsError(f"authored graph gold/eval export already exists: {path}")
     write_json(path, export.model_dump(mode="json"))
     return path
 
