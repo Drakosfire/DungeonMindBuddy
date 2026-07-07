@@ -39,7 +39,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** `graphObjectAuthoringDraft.ts`, `src/graph_memory/` overlay write path
 
-## [IDEA] Graph Review — stage node removal assertion — captured 2026-07-07
+## [IDEA] Rename Ingest Surface / Memory Ingest chrome — captured 2026-07-05
 
 **Context:** `/ingest` header simplified to static "Memory Ingest"; user noted the surface still needs a better product name now that it is a graph review workbench, not a recap-ingest landing page.
 
