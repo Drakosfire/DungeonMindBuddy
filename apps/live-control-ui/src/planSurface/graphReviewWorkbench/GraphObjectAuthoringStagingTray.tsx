@@ -11,7 +11,13 @@ import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverl
 import {
   detectProposalOverlapWarnings,
   type GraphObjectAuthoringOverlapContext,
+  type GraphObjectAuthoringOverlapWarning,
 } from "./graphObjectAuthoringOverlap";
+import {
+  buildMergeCandidateFromOverlapWarning,
+  type GraphObjectMergeCandidate,
+} from "./graphObjectMergeCandidates";
+import type { GraphProjectionNodeView } from "../../api/types";
 
 function visibilityLabel(
   visibility: GraphObjectAuthoringProposal["visibility"]["visibility"],
@@ -128,11 +134,41 @@ export function GraphObjectAuthoringStagingTray({
   proposals,
   onRemove,
   overlapContext,
+  projectionNodeViews,
+  onReviewMerge,
 }: {
   proposals: GraphObjectAuthoringProposal[];
   onRemove: (localProposalId: string) => void;
   overlapContext?: GraphObjectAuthoringOverlapContext;
+  projectionNodeViews?: Record<string, GraphProjectionNodeView> | null;
+  onReviewMerge?: (candidate: GraphObjectMergeCandidate) => void;
 }) {
+  function overlapAction(
+    proposal: GraphObjectAuthoringProposal,
+    warning: GraphObjectAuthoringOverlapWarning,
+  ) {
+    if (!onReviewMerge || !warning.relatedNodeId) {
+      return null;
+    }
+    const candidate = buildMergeCandidateFromOverlapWarning(
+      proposal,
+      warning,
+      projectionNodeViews,
+    );
+    if (!candidate) {
+      return null;
+    }
+    return (
+      <button
+        type="button"
+        className="graph-object-authoring-overlap-review-merge"
+        onClick={() => onReviewMerge(candidate)}
+      >
+        Review merge
+      </button>
+    );
+  }
+
   return (
     <div className="graph-object-authoring-staging-tray" aria-label="Staged memory drafts">
       {proposals.length === 0 ? (
@@ -164,6 +200,7 @@ export function GraphObjectAuthoringStagingTray({
                 <GraphObjectAuthoringOverlapWarnings
                   warnings={detectProposalOverlapWarnings(proposal, overlapContext)}
                   title="Possible duplicates for this draft"
+                  renderAction={(warning) => overlapAction(proposal, warning)}
                 />
               ) : null}
               <button

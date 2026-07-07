@@ -9,6 +9,7 @@ import type {
   GraphObjectAuthoringPrepareResponse,
   GraphObjectAuthoringProposalPayload,
   GraphAuthoringDiagnostic,
+  UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
 import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
@@ -152,6 +153,7 @@ function CommitSuccessPrimary({
   onRefreshProjection,
   refreshingProjection,
   refreshProjectionError,
+  projectionDiagnostics,
   onRefresh,
   onDismiss,
 }: {
@@ -159,6 +161,7 @@ function CommitSuccessPrimary({
   onRefreshProjection?: () => Promise<unknown>;
   refreshingProjection: boolean;
   refreshProjectionError: string | null;
+  projectionDiagnostics: GraphAuthoringDiagnostic[];
   onRefresh: () => void;
   onDismiss: () => void;
 }) {
@@ -183,9 +186,11 @@ function CommitSuccessPrimary({
         Authored graph memory was saved.
       </p>
       <p className="graph-object-authoring-commit-success-next">
-        {onRefreshProjection
-          ? "Next: refresh graph review to see the authored memory in the recap and graph cards."
-          : "Reload graph review to see the authored memory."}
+        {refreshingProjection
+          ? "Refreshing graph review…"
+          : onRefreshProjection
+            ? "Graph review refreshed. New pills and authored memory should appear in the recap."
+            : "Reload graph review to see the authored memory."}
       </p>
       {onRefreshProjection ? (
         <div className="graph-object-authoring-commit-refresh-actions">
@@ -203,6 +208,22 @@ function CommitSuccessPrimary({
         <p className="graph-object-authoring-error" role="alert">
           {refreshProjectionError}
         </p>
+      ) : null}
+      {projectionDiagnostics.length ? (
+        <div
+          className="graph-object-authoring-projection-diagnostics"
+          data-testid="graph-object-authoring-projection-diagnostics"
+          role="status"
+        >
+          <p className="graph-object-authoring-projection-diagnostics-title">
+            Recap pill projection notes
+          </p>
+          <ul>
+            {projectionDiagnostics.map((diagnostic) => (
+              <li key={`${diagnostic.code}:${diagnostic.message}`}>{diagnostic.message}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       <details
         className="graph-object-authoring-write-details-panel"
@@ -275,6 +296,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   const [committing, setCommitting] = useState(false);
   const [refreshingProjection, setRefreshingProjection] = useState(false);
   const [refreshProjectionError, setRefreshProjectionError] = useState<string | null>(null);
+  const [projectionDiagnostics, setProjectionDiagnostics] = useState<GraphAuthoringDiagnostic[]>([]);
 
   const currentFingerprint = useMemo(() => proposalsFingerprint(proposals), [proposals]);
   const proposalsChangedSincePrepare =
@@ -343,6 +365,25 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       setPrepared(null);
       setPreparedForFingerprint("");
       onCommitted(proposals.map((proposal) => proposal.localProposalId));
+      if (onRefreshProjection) {
+        setRefreshProjectionError(null);
+        setProjectionDiagnostics([]);
+        setRefreshingProjection(true);
+        try {
+          const refreshed = (await onRefreshProjection()) as
+            | UnionSupergraphProjectionResponse
+            | undefined;
+          const diagnostics =
+            refreshed?.authored_overlay?.diagnostics?.filter(
+              (item) => item.severity !== "info",
+            ) ?? [];
+          setProjectionDiagnostics(diagnostics);
+        } catch (error) {
+          setRefreshProjectionError(parseApiError(error));
+        } finally {
+          setRefreshingProjection(false);
+        }
+      }
     } catch (error) {
       const message = parseApiError(error);
       if (message.includes("stale_overlay") || message.includes("changed since")) {
@@ -431,8 +472,12 @@ export function GraphObjectAuthoringPrepareCommitPanel({
           onRefreshProjection={onRefreshProjection}
           refreshingProjection={refreshingProjection}
           refreshProjectionError={refreshProjectionError}
+          projectionDiagnostics={projectionDiagnostics}
           onRefresh={handleRefreshProjection}
-          onDismiss={() => setCommitted(null)}
+          onDismiss={() => {
+            setCommitted(null);
+            setProjectionDiagnostics([]);
+          }}
         />
       ) : null}
     </div>

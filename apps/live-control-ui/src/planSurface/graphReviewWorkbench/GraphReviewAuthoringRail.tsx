@@ -113,6 +113,10 @@ export function GraphReviewAuthoringRail({
     sourceGraphId: projection?.graph_id ?? null,
     onCommittedProposals: graphObjectAuthoringDraft.clearCommittedProposals,
     onRefreshProjection: reloadLiveProjection,
+    onReviewMerge: (candidate) => {
+      setFocusedMergeCandidate(candidate);
+      onActiveTabChange("merge_candidates");
+    },
     existingNodes: existingGraphObjectNodes,
     laneRole: "live" as const,
     liveRunManifestPath: liveRun?.manifest_path ?? null,

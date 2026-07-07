@@ -20,6 +20,8 @@ export interface GraphObjectAuthoringOverlapWarning {
   code: GraphObjectAuthoringOverlapCode;
   message: string;
   localProposalId?: string;
+  relatedNodeId?: string;
+  relatedLabel?: string;
 }
 
 export interface GraphObjectAuthoringOverlapContext {
@@ -137,18 +139,21 @@ function indexOverlayStrings(
 
 function indexExistingNodes(
   nodes: GraphObjectAuthoringInspectedNode[],
-): { labels: Map<string, string>; aliases: Map<string, string> } {
-  const labels = new Map<string, string>();
-  const aliases = new Map<string, string>();
+): {
+  labels: Map<string, { label: string; nodeId: string }>;
+  aliases: Map<string, { label: string; nodeId: string }>;
+} {
+  const labels = new Map<string, { label: string; nodeId: string }>();
+  const aliases = new Map<string, { label: string; nodeId: string }>();
   for (const node of nodes) {
     const normalizedLabel = normalizeOverlapText(node.label);
     if (normalizedLabel) {
-      labels.set(normalizedLabel, node.label);
+      labels.set(normalizedLabel, { label: node.label, nodeId: node.node_id });
     }
     for (const alias of node.aliases ?? []) {
       const normalizedAlias = normalizeOverlapText(alias);
       if (normalizedAlias) {
-        aliases.set(normalizedAlias, node.label);
+        aliases.set(normalizedAlias, { label: node.label, nodeId: node.node_id });
       }
     }
   }
@@ -173,6 +178,7 @@ function warnForTokens(
       code: "authored_overlay_possible_duplicate_label",
       message: `Possible duplicate: label "${overlayLabels.get(normalizedPrimaryLabel)}" already exists in authored graph memory.`,
       localProposalId,
+      relatedLabel: overlayLabels.get(normalizedPrimaryLabel),
     });
   }
 
@@ -182,46 +188,61 @@ function warnForTokens(
         code: "authored_overlay_possible_duplicate_alias",
         message: `Possible duplicate: "${token}" is already an alias of authored object "${overlayAliases.get(token)}".`,
         localProposalId,
+        relatedLabel: overlayAliases.get(token),
       });
     } else if (overlayLabels.has(token) && token !== normalizedPrimaryLabel) {
       warnings.push({
         code: "authored_overlay_possible_duplicate_label",
         message: `Possible duplicate: "${token}" matches authored object label "${overlayLabels.get(token)}".`,
         localProposalId,
+        relatedLabel: overlayLabels.get(token),
       });
     } else if (overlayAnchors.has(token)) {
       warnings.push({
         code: "authored_overlay_possible_duplicate_source_anchor",
         message: `Possible duplicate: "${overlayAnchors.get(token)}" is already linked in authored graph memory.`,
         localProposalId,
+        relatedLabel: overlayAnchors.get(token),
       });
     }
 
     if (extracted.labels.has(token)) {
+      const match = extracted.labels.get(token)!;
       warnings.push({
         code: "extracted_graph_possible_duplicate_label",
-        message: `Possible duplicate: "${token}" matches extracted graph object "${extracted.labels.get(token)}" (not merged).`,
+        message: `Possible duplicate: "${token}" matches extracted graph object "${match.label}" (not merged). Consider reviewing a merge in Merge candidates.`,
         localProposalId,
+        relatedNodeId: match.nodeId,
+        relatedLabel: match.label,
       });
     } else if (extracted.aliases.has(token)) {
+      const match = extracted.aliases.get(token)!;
       warnings.push({
         code: "extracted_graph_possible_duplicate_alias",
-        message: `Possible duplicate: "${token}" matches extracted alias on "${extracted.aliases.get(token)}" (not merged).`,
+        message: `Possible duplicate: "${token}" matches extracted alias on "${match.label}" (not merged). Consider reviewing a merge in Merge candidates.`,
         localProposalId,
+        relatedNodeId: match.nodeId,
+        relatedLabel: match.label,
       });
     }
 
     if (authored.labels.has(token) && token !== normalizedPrimaryLabel) {
+      const match = authored.labels.get(token)!;
       warnings.push({
         code: "authored_overlay_possible_duplicate_label",
-        message: `Possible duplicate: "${token}" matches authored memory object "${authored.labels.get(token)}".`,
+        message: `Possible duplicate: "${token}" matches authored memory object "${match.label}".`,
         localProposalId,
+        relatedNodeId: match.nodeId,
+        relatedLabel: match.label,
       });
     } else if (authored.aliases.has(token)) {
+      const match = authored.aliases.get(token)!;
       warnings.push({
         code: "authored_overlay_possible_duplicate_alias",
-        message: `Possible duplicate: "${token}" is already an alias on authored memory object "${authored.aliases.get(token)}".`,
+        message: `Possible duplicate: "${token}" is already an alias on authored memory object "${match.label}".`,
         localProposalId,
+        relatedNodeId: match.nodeId,
+        relatedLabel: match.label,
       });
     }
   }
@@ -309,13 +330,16 @@ export function findPickerCrossGroupHint(
 
   if (ref.authored) {
     if (extracted.labels.has(normalizedLabel) || extracted.aliases.has(normalizedLabel)) {
-      return `Possible same object as extracted graph: ${extracted.labels.get(normalizedLabel) ?? extracted.aliases.get(normalizedLabel)}`;
+      const match =
+        extracted.labels.get(normalizedLabel) ?? extracted.aliases.get(normalizedLabel);
+      return `Possible same object as extracted graph: ${match?.label ?? ref.label}`;
     }
     return null;
   }
 
   if (authored.labels.has(normalizedLabel) || authored.aliases.has(normalizedLabel)) {
-    return `Possible same object as authored memory: ${authored.labels.get(normalizedLabel) ?? authored.aliases.get(normalizedLabel)}`;
+    const match = authored.labels.get(normalizedLabel) ?? authored.aliases.get(normalizedLabel);
+    return `Possible same object as authored memory: ${match?.label ?? ref.label}`;
   }
   return null;
 }

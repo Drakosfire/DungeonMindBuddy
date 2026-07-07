@@ -127,9 +127,11 @@ export function GraphReviewMergeCandidatesPanel({
         <p className="plan-surface-kicker">Merge candidates</p>
         <h3>Review likely duplicate objects</h3>
         <p className="graph-object-authoring-surface-hint">
-          Compare objects side by side and accept merges you agree with. Accepting
-          stages a local identity merge proposal — nothing is deleted until you
-          prepare and commit authored graph memory.
+          Compare objects side by side and accept merges you agree with. The bulk scan
+          only surfaces high-confidence identity duplicates (label or alias matches),
+          not every object that shares a kind or neighbor. Accepting stages a local
+          identity merge proposal — nothing is deleted until you prepare and commit
+          authored graph memory.
         </p>
         {selectedPillLabel ? (
           <p className="graph-review-muted">

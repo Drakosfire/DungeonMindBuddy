@@ -258,11 +258,38 @@ def test_authored_node_ids_are_stable() -> None:
     assert list(first.keys()) == list(second.keys()) == [authored_object_node_id("assert-stable-id")]
 
 
-def test_unresolved_link_existing_does_not_create_phantom_node() -> None:
+def test_link_existing_materializes_external_existing_graph_node() -> None:
     link = link_existing_assertion(
         existing_object_ref={
             "ref_kind": "existing_graph_node",
-            "node_id": "missing-node-id",
+            "node_id": "node:lysandro",
+            "label": "Lysandro",
+            "kind": "character",
+        },
+        selected_text="well dressed man in his mid 50s",
+        normalized_selected_text="well dressed man in his mid 50s",
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    diagnostics: list = []
+    node_views = build_authored_projection_node_views(
+        overlay,
+        base_node_views={},
+        existing_node_ids=set(),
+        diagnostics=diagnostics,
+    )
+    assert "node:lysandro" in node_views
+    assert node_views["node:lysandro"].label == "Lysandro"
+    assert "well dressed man in his mid 50s" in node_views["node:lysandro"].aliases
+    assert not any(item.code == "authored_overlay_assertion_unresolved_ref" for item in diagnostics)
+
+
+def test_unresolved_link_existing_without_node_id_does_not_create_phantom_node() -> None:
+    link = link_existing_assertion(
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": None,
             "label": "Ghost",
             "kind": "entity",
         },
@@ -328,6 +355,58 @@ def _gang_projection() -> RecapGraphProjection:
     )
 
 
+def test_object_source_anchor_adds_authored_projection_mention() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-well-dressed",
+        object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-well-dressed",
+            "label": "well dressed man in his mid 50s",
+            "kind": "npc",
+            "role": "npc",
+        },
+        aliases=["Lysandro"],
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "well dressed man in his mid 50s",
+            "normalized_selected_text": "well dressed man in his mid 50s",
+            "surrounding_text_before": "A ",
+            "surrounding_text_after": " arrived.",
+        },
+    )
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-2",
+        graph_id="graph-1",
+        markdown="# Recap\n\nA well dressed man in his mid 50s arrived.",
+        focus=GraphFocusOverlay(focus_session_id="session-2"),
+        node_views={
+            "lysandro": GraphProjectionNodeView(
+                node_id="lysandro",
+                label="Lysandro",
+                kind="npc",
+                role="npc",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            )
+        },
+        mentions=[],
+        source_spans=[],
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [assertion]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    node_id = authored_object_node_id("assert-well-dressed")
+    assert node_id in enriched.node_views
+    assert any(item.node_id == node_id for item in enriched.mentions)
+    assert enriched.markdown is not None
+    assert f"dmb-node:{node_id}" in enriched.markdown
+    assert summary.projected_node_count == 1
+
+
 def test_link_existing_alias_adds_authored_projection_mention() -> None:
     link = link_existing_assertion(
         assertion_id="assert-gang",
@@ -363,6 +442,58 @@ def test_link_existing_alias_adds_authored_projection_mention() -> None:
     )
     assert summary.projected_link_existing_count == 1
     assert summary.projected_node_count == 0
+
+
+def test_link_existing_alias_mention_materializes_external_existing_node() -> None:
+    markdown = (
+        "# Session 23 Recap\n\n"
+        "On top of the wall is a well dressed man in his mid 50s with an old worn military coat."
+    )
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown=markdown,
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={},
+        mentions=[],
+        source_spans=[],
+    )
+    link = link_existing_assertion(
+        assertion_id="assert-lysandro-alias",
+        selected_text="well dressed man in his mid 50s",
+        normalized_selected_text="well dressed man in his mid 50s",
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "node:lysandro",
+            "label": "Lysandro",
+            "kind": "character",
+        },
+        source_anchor={
+            "anchor_kind": "text_span",
+            "selected_text": "well dressed man in his mid 50s",
+            "normalized_selected_text": "well dressed man in his mid 50s",
+            "surrounding_text_before": "On top of the wall is a ",
+            "surrounding_text_after": " with an old worn military coat.",
+            "paragraph_ordinal": 2,
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    assert enriched.markdown is not None
+    assert "[well dressed man in his mid 50s](dmb-node:node:lysandro)" in enriched.markdown
+    assert "node:lysandro" in enriched.node_views
+    assert any(
+        mention.label == "well dressed man in his mid 50s" and mention.node_id == "node:lysandro"
+        for mention in enriched.mentions
+    )
+    assert not any(
+        item.code == "authored_overlay_assertion_unresolved_ref"
+        and "node:lysandro" in item.message
+        for item in summary.diagnostics
+    )
 
 
 def test_link_existing_alias_mention_targets_existing_node() -> None:
@@ -622,6 +753,35 @@ def test_link_existing_alias_mention_ungrounded_when_source_anchor_matches_none(
     assert enriched.markdown == _double_gang_projection().markdown
     assert not enriched.mentions
     assert any(item.code == "authored_alias_mention_ungrounded" for item in summary.diagnostics)
+
+
+def test_context_scoring_disambiguates_duplicate_selected_text() -> None:
+    from apps.live_control_server.models.graph_authoring_overlay import GraphAuthoringSourceAnchor
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        _find_authored_alias_span_in_markdown,
+    )
+
+    markdown = (
+        "# Recap\n\n"
+        "The gate opens so that the group of heroes can enter the town. Lysandra waves.\n\n"
+        "Later along the wall the heroes can feel magic in the air."
+    )
+    span, code = _find_authored_alias_span_in_markdown(
+        markdown,
+        "heroes",
+        source_anchor=GraphAuthoringSourceAnchor(
+            anchor_kind="text_span",
+            selected_text="heroes",
+            normalized_selected_text="heroes",
+            surrounding_text_before="The gate opens so that the group of",
+            surrounding_text_after="can enter the town. Lysandra waves.",
+        ),
+        occupied=[],
+    )
+    assert code is None
+    assert span is not None
+    assert markdown[span[0] : span[1]] == "heroes"
+    assert markdown[span[0] - 21 : span[0]] == "so that the group of "
 
 
 def test_link_existing_alias_mention_ambiguous_without_source_anchor_context() -> None:

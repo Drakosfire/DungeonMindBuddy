@@ -242,9 +242,12 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-object-authoring-commit-summary")).toBeInTheDocument();
+      expect(onRefreshProjection).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByText(/Next: refresh graph review/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Graph review refreshed\. New pills and authored memory should appear/i),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-refresh-projection")).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-commit-write-details")).not.toHaveAttribute("open");
 

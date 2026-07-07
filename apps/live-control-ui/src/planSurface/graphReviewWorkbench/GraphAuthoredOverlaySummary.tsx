@@ -71,14 +71,24 @@ export function GraphAuthoredOverlaySummary({
     variant === "compact"
       ? `Authored memory: ${summary.assertion_count} assertion${summary.assertion_count === 1 ? "" : "s"} · ${countByKind(summary)}`
       : `Authored overlay loaded: ${summary.assertion_count} assertion${summary.assertion_count === 1 ? "" : "s"} · ${countByKind(summary)}`;
+  const actionableDiagnostics = summary.diagnostics.filter(
+    (item) => item.severity !== "info",
+  );
 
   return (
-    <p
+    <div
       className="graph-authored-overlay-summary graph-authored-overlay-summary--loaded"
       data-testid="graph-authored-overlay-summary"
       role="status"
     >
-      {loadedCopy}
-    </p>
+      <p>{loadedCopy}</p>
+      {actionableDiagnostics.length ? (
+        <ul className="graph-authored-overlay-summary-diagnostics">
+          {actionableDiagnostics.map((item) => (
+            <li key={`${item.code}:${item.message}`}>{item.message}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

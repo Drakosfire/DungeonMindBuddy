@@ -1,9 +1,11 @@
 import type { GraphProjectionNodeView } from "../../api/types";
 import { inferCandidateGraphScopeFromProjectionNode } from "./graphObjectCandidateScope";
+import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import {
   areSameObjectRef,
   buildObjectRefFromInspectedNode,
   type GraphObjectAuthoringObjectRef,
+  type GraphObjectAuthoringProposal,
 } from "./graphObjectAuthoringDraft";
 
 export type GraphObjectMergeCandidateConfidence = "high" | "medium" | "low";
@@ -121,6 +123,79 @@ function labelsSimilar(left: string, right: string): boolean {
   return Boolean(leftCollapsed && leftCollapsed === rightCollapsed);
 }
 
+function isIdentitySignalFeature(feature: string): boolean {
+  return (
+    feature.startsWith("Exact normalized label") ||
+    feature.startsWith("Very similar label") ||
+    feature.startsWith("Alias overlap") ||
+    feature.startsWith("Primary label matches alias") ||
+    feature.startsWith("Same source anchor")
+  );
+}
+
+function isPlayerCharacterNode(node: GraphProjectionNodeView): boolean {
+  const kind = (node.kind || "").trim().toLowerCase();
+  const role = (node.role || "").trim().toLowerCase();
+  if (kind === "pc" || role === "pc") {
+    return true;
+  }
+  return node.source_domains.some(
+    (domain) => domain === "party_pc" || domain === "party",
+  );
+}
+
+function normalizedAliasSet(node: GraphProjectionNodeView): Set<string> {
+  const aliases = new Set<string>();
+  for (const alias of node.aliases) {
+    const normalized = normalizeMergeLabel(alias);
+    if (normalized) {
+      aliases.add(normalized);
+    }
+    const stripped = stripLeadingArticle(normalized);
+    if (stripped) {
+      aliases.add(stripped);
+    }
+  }
+  return aliases;
+}
+
+function labelInAliasCrossMatch(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): boolean {
+  const leftLabels = [
+    normalizeMergeLabel(left.label),
+    stripLeadingArticle(normalizeMergeLabel(left.label)),
+  ].filter(Boolean);
+  const rightLabels = [
+    normalizeMergeLabel(right.label),
+    stripLeadingArticle(normalizeMergeLabel(right.label)),
+  ].filter(Boolean);
+  const leftAliases = normalizedAliasSet(left);
+  const rightAliases = normalizedAliasSet(right);
+
+  for (const label of leftLabels) {
+    if (rightAliases.has(label)) {
+      return true;
+    }
+  }
+  for (const label of rightLabels) {
+    if (leftAliases.has(label)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasPcIdentitySignal(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): boolean {
+  return (
+    labelsSimilar(left.label, right.label) || labelInAliasCrossMatch(left, right)
+  );
+}
+
 function matchedFeaturesForPair(
   left: GraphProjectionNodeView,
   right: GraphProjectionNodeView,
@@ -151,6 +226,10 @@ function matchedFeaturesForPair(
     features.push(`Alias overlap: “${aliasOverlap[0]}”`);
   }
 
+  if (labelInAliasCrossMatch(left, right)) {
+    features.push("Primary label matches alias on other object");
+  }
+
   if (left.kind && right.kind && left.kind === right.kind) {
     features.push(`Same kind/role: ${left.kind}${left.role ? ` / ${left.role}` : ""}`);
   } else if (left.kind && right.kind && left.kind !== right.kind) {
@@ -168,11 +247,13 @@ function matchedFeaturesForPair(
     features.push(`Shared adjacent object: ${sharedAdjacency[0]}`);
   }
 
-  if (features.length === 0) {
+  const identityFeatures = features.filter(isIdentitySignalFeature);
+
+  if (identityFeatures.length === 0) {
     return {
       features: [],
       confidence: "low",
-      reason: "No duplicate signals matched",
+      reason: "No identity duplicate signals matched",
     };
   }
 
@@ -183,6 +264,7 @@ function matchedFeaturesForPair(
     confidence = "high";
   } else if (
     features.some((feature) => feature.startsWith("Alias overlap")) ||
+    features.some((feature) => feature.startsWith("Primary label matches alias")) ||
     features.some((feature) => feature.startsWith("Same source anchor")) ||
     features.some((feature) => feature.startsWith("Very similar label"))
   ) {
@@ -211,9 +293,15 @@ function objectRefFromNode(node: GraphProjectionNodeView): GraphObjectAuthoringO
   });
 }
 
+export interface BuildMergeCandidateOptions {
+  /** Stricter rules for bulk recap scans (default manual review is permissive). */
+  forBulkScan?: boolean;
+}
+
 export function buildMergeCandidateFromNodes(
   left: GraphProjectionNodeView,
   right: GraphProjectionNodeView,
+  options?: BuildMergeCandidateOptions,
 ): GraphObjectMergeCandidate | null {
   if (!left.node_id || !right.node_id || left.node_id === right.node_id) {
     return null;
@@ -223,6 +311,19 @@ export function buildMergeCandidateFromNodes(
   const { features, confidence, reason } = matchedFeaturesForPair(survivor, merged);
   if (features.length === 0) {
     return null;
+  }
+
+  if (options?.forBulkScan) {
+    if (
+      isPlayerCharacterNode(survivor) &&
+      isPlayerCharacterNode(merged) &&
+      !hasPcIdentitySignal(survivor, merged)
+    ) {
+      return null;
+    }
+    if (confidence === "low") {
+      return null;
+    }
   }
 
   const survivorRef = objectRefFromNode(survivor);
@@ -248,6 +349,54 @@ export function buildMergeCandidateFromPillAndExisting(
   return buildMergeCandidateFromNodes(pillNode, existingNode);
 }
 
+function projectionNodeFromProposal(
+  proposal: Extract<GraphObjectAuthoringProposal, { proposalKind: "object" }>,
+): GraphProjectionNodeView {
+  return {
+    node_id: proposal.localProposalId,
+    label: proposal.objectRef.label,
+    kind: proposal.objectRef.kind ?? "entity",
+    role: proposal.objectRef.role ?? "authored",
+    aliases: proposal.objectRef.aliases,
+    source_domains: ["authored_overlay"],
+    evidence_badges: [],
+    adjacency: [],
+    anchored_to_focus_session: false,
+    authored: true,
+    source_anchor_text: proposal.selection?.selectedText ?? null,
+  };
+}
+
+export function buildMergeCandidateFromOverlapWarning(
+  proposal: GraphObjectAuthoringProposal,
+  warning: GraphObjectAuthoringOverlapWarning,
+  nodeViews: Record<string, GraphProjectionNodeView> | null | undefined,
+): GraphObjectMergeCandidate | null {
+  if (!warning.relatedNodeId || !nodeViews) {
+    return null;
+  }
+  const relatedNode = nodeViews[warning.relatedNodeId];
+  if (!relatedNode) {
+    return null;
+  }
+
+  let counterpart: GraphProjectionNodeView | null = null;
+  if (proposal.proposalKind === "object") {
+    counterpart = projectionNodeFromProposal(proposal);
+  } else if (
+    proposal.proposalKind === "link_existing" &&
+    proposal.existingObjectRef.nodeId
+  ) {
+    counterpart = nodeViews[proposal.existingObjectRef.nodeId] ?? null;
+  }
+
+  if (!counterpart) {
+    return null;
+  }
+
+  return buildMergeCandidateFromNodes(relatedNode, counterpart);
+}
+
 export function findProjectionMergeCandidates(
   nodeViews: Record<string, GraphProjectionNodeView> | null | undefined,
 ): GraphObjectMergeCandidate[] {
@@ -261,7 +410,9 @@ export function findProjectionMergeCandidates(
 
   for (let index = 0; index < nodes.length; index += 1) {
     for (let inner = index + 1; inner < nodes.length; inner += 1) {
-      const candidate = buildMergeCandidateFromNodes(nodes[index], nodes[inner]);
+      const candidate = buildMergeCandidateFromNodes(nodes[index], nodes[inner], {
+        forBulkScan: true,
+      });
       if (!candidate) {
         continue;
       }

@@ -10,6 +10,12 @@ import type {
 } from "../../api/types";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
 import {
+  candidateScopeLabel,
+  formatResolverCandidateLabel,
+  formatResolverCandidateMeta,
+  groupCandidatesByScope,
+} from "./graphObjectCandidateScope";
+import {
   buildMergeCandidateFromPillAndExisting,
   type GraphObjectMergeCandidate,
 } from "./graphObjectMergeCandidates";
