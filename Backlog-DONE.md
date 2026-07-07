@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review — review-only canvas + full-page authoring toolbox — completed 2026-07-07
+
+**Implemented (A10h):** Removed header **Author graph objects** toggle. Review canvas is always read-only projection lanes with inspect-only selected-object dialog (no staging actions, no resolver). Author Draft toolbox tool is `fullscreen`; `GraphReviewAuthorDraftWorkspace` splits live Tiptap recap (left) from authoring rail (right) with selected text/object, relationship source/target picking without dialog churn, `GraphObjectAuthoringSurface`, resolver, local staging tray, and prepare/commit.
+
+**Refs:** `GraphReviewWorkbenchHeader.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `GraphReviewAuthorDraftWorkspace.tsx`, `GraphReviewAuthoringRail.tsx`, `ingestSurfaceConfig.ts`, `planSurface.css`
+
 ## [DONE] Graph Review selected-object dialog — sticky close + dedupe identity — completed 2026-07-07
 
 **Implemented (A10g):** Selected-object dialog header is chrome-only (`Selected object` + sticky Close). `GraphReviewNodeGameCard` owns label, lane badge, and deduped kind/role via `formatGraphObjectType`. Sticky header CSS on `.graph-review-projected-interaction-header`.

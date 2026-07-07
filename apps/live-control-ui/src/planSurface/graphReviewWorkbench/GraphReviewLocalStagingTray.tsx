@@ -2,6 +2,7 @@ import type {
   GraphReviewLocalAuthoringProposal,
   GraphReviewLocalAuthoringProposalStatus,
 } from "./graphReviewLocalAuthoringState";
+import type { GraphReviewSelectedTextDraft } from "./useGraphReviewAuthorDraftWorkflow";
 
 function title(proposal: GraphReviewLocalAuthoringProposal): string {
   if (proposal.proposalType === "node_from_span")
@@ -16,6 +17,8 @@ export function GraphReviewLocalStagingTray({
   proposals,
   onUpdateStatus,
   onReset,
+  selectedText = null,
+  onStageNodeFromSelection,
 }: {
   proposals: GraphReviewLocalAuthoringProposal[];
   onUpdateStatus: (
@@ -23,6 +26,8 @@ export function GraphReviewLocalStagingTray({
     status: GraphReviewLocalAuthoringProposalStatus,
   ) => void;
   onReset: () => void;
+  selectedText?: GraphReviewSelectedTextDraft | null;
+  onStageNodeFromSelection?: () => void;
 }) {
   return (
     <aside
@@ -30,16 +35,22 @@ export function GraphReviewLocalStagingTray({
       aria-label="Local staged proposals"
     >
       <header>
-        <p className="plan-surface-kicker">Local staging</p>
-        <h3>1. Local staged proposals</h3>
-        <p>
-          Draft only. No gold fixture, graph state, or corpus file has been
-          changed.
-        </p>
+        <p className="plan-surface-kicker">Gold fixture draft</p>
+        <h3>Local staged proposals</h3>
         <button type="button" onClick={onReset} disabled={!proposals.length}>
           Reset local draft
         </button>
       </header>
+      {selectedText?.text.trim() && onStageNodeFromSelection ? (
+        <div className="graph-review-local-staging-pending-selection">
+          <p>
+            Selected {selectedText.laneRole} text: “{selectedText.text}”
+          </p>
+          <button type="button" onClick={onStageNodeFromSelection}>
+            Stage node from selection
+          </button>
+        </div>
+      ) : null}
       {!proposals.length ? <p>No draft proposals staged yet.</p> : null}
       {proposals.map((proposal) => (
         <article

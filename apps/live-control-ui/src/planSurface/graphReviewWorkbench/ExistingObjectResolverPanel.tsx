@@ -16,6 +16,8 @@ import {
   groupCandidatesByScope,
 } from "./graphObjectCandidateScope";
 
+export const QUERY_SEARCH_NODE_ID = "__graph_review_query_search__";
+
 export function buildResolverSelectedNode(
   node: GraphProjectionNodeView,
 ): GraphReviewResolverSelectedNode {
@@ -36,6 +38,23 @@ export function buildResolverSelectedNode(
   };
 }
 
+export function buildQueryOnlySelectedNode(
+  query: string,
+): GraphReviewResolverSelectedNode {
+  const trimmed = query.trim();
+  return {
+    node_id: QUERY_SEARCH_NODE_ID,
+    label: trimmed || "(search)",
+    kind: null,
+    role: null,
+    aliases: [],
+    summary: null,
+    source_domains: [],
+    adjacent_labels: [],
+    evidence_ref_ids: [],
+  };
+}
+
 function actionLabel(
   action: GraphReviewExistingObjectCandidate["suggested_action"],
 ): string {
@@ -48,20 +67,23 @@ export function ExistingObjectResolverPanel({
   campaignId,
   sessionId,
   laneRole,
-  selectedNode,
+  linkSourceNode = null,
   projectionGraphId = null,
   liveRunManifestPath = null,
   nodeViews = null,
   onStageLinkIntent,
+  onStageLinkIntentComplete,
 }: {
   campaignId: string;
   sessionId: string;
   laneRole: GraphReviewProjectionLaneRole;
-  selectedNode: GraphProjectionNodeView | null;
+  /** Optional recap pill used only when staging a link intent — not for search. */
+  linkSourceNode?: GraphProjectionNodeView | null;
   projectionGraphId?: string | null;
   liveRunManifestPath?: string | null;
   nodeViews?: Record<string, GraphProjectionNodeView> | null;
   onStageLinkIntent?: (candidate: GraphReviewExistingObjectCandidate) => void;
+  onStageLinkIntentComplete?: () => void;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -69,7 +91,7 @@ export function ExistingObjectResolverPanel({
   const [response, setResponse] =
     useState<GraphReviewExistingObjectResolverResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
+  const [stagedCandidateId, setStagedCandidateId] = useState<string | null>(
     null,
   );
   const [query, setQuery] = useState("");
@@ -78,42 +100,39 @@ export function ExistingObjectResolverPanel({
     setStatus("idle");
     setResponse(null);
     setError(null);
-    setSelectedCandidateId(null);
-    setQuery(selectedNode?.label ?? "");
-  }, [selectedNode?.node_id, laneRole, projectionGraphId, liveRunManifestPath]);
+    setStagedCandidateId(null);
+  }, [laneRole, projectionGraphId, liveRunManifestPath]);
 
   const groupedCandidates = useMemo(
     () => groupCandidatesByScope(response?.candidates ?? []),
     [response],
   );
 
-  if (!selectedNode) {
-    return (
-      <aside className="graph-review-existing-object-resolver">
-        <p>
-          Select a graph pill to inspect how this object is used in the
-          campaign.
-        </p>
-      </aside>
-    );
-  }
+  const canStageLinkIntent = Boolean(linkSourceNode && onStageLinkIntent);
+  const searchPhrase = query.trim();
 
   const runResolver = () => {
+    if (!searchPhrase) {
+      setError("Enter a search phrase to find existing objects.");
+      setStatus("error");
+      return;
+    }
+
     const request: GraphReviewExistingObjectResolverRequest = {
       schema: "dmb_graph_review_existing_object_resolver_request_v1",
       campaign_id: campaignId,
       session_id: sessionId,
       lane_role: laneRole,
-      selected_node: buildResolverSelectedNode(selectedNode),
+      selected_node: buildQueryOnlySelectedNode(searchPhrase),
       projection_graph_id: projectionGraphId,
       live_run_manifest_path: liveRunManifestPath,
-      query: query.trim() || selectedNode.label,
+      query: searchPhrase,
       node_views: nodeViews,
       include_gm_private: true,
     };
     setStatus("loading");
     setError(null);
-    setSelectedCandidateId(null);
+    setStagedCandidateId(null);
     void resolveGraphReviewExistingObjectCandidates(request)
       .then((next) => {
         setResponse(next);
@@ -136,34 +155,36 @@ export function ExistingObjectResolverPanel({
       aria-label="Existing object resolver suggestions"
     >
       <p className="plan-surface-kicker">Find existing object</p>
-      <h3>Check for existing match</h3>
+      <h3>Search campaign sources</h3>
       <p>
         Search across current recap, authored memory, party / PC data,
-        worldbuilding, campaign memory, and GM-private graph sources. Each row
-        keeps its source label — choosing a candidate stages a link/reference,
-        not an automatic identity merge.
+        worldbuilding, campaign memory, and GM-private graph sources. Results
+        are independent of any recap pill you may have clicked.
       </p>
       <label className="graph-review-existing-object-resolver-query">
         Search phrase
         <input
-          type="text"
+          type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={selectedNode.label}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              runResolver();
+            }
+          }}
+          placeholder="PC, party, location, or worldbuilding name"
         />
       </label>
       <button
         type="button"
         onClick={runResolver}
-        disabled={status === "loading"}
+        disabled={status === "loading" || !searchPhrase}
       >
         Find existing object
       </button>
       {status === "idle" ? (
-        <p>
-          Use the selected pill label or type a phrase such as a PC, party, or
-          worldbuilding name.
-        </p>
+        <p>Type a name and press Enter or click Find.</p>
       ) : null}
       {status === "loading" ? (
         <p role="status">Searching campaign graph scopes…</p>
@@ -204,8 +225,8 @@ export function ExistingObjectResolverPanel({
                   <article
                     key={`${candidate.graph_scope ?? candidate.source}-${candidate.candidate_id}`}
                     className="graph-review-existing-object-candidate"
-                    data-selected={
-                      candidate.candidate_id === selectedCandidateId
+                    data-staged={
+                      candidate.candidate_id === stagedCandidateId
                         ? "true"
                         : "false"
                     }
@@ -227,36 +248,44 @@ export function ExistingObjectResolverPanel({
                         {candidate.matched_features.join(", ")}
                       </p>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCandidateId(candidate.candidate_id)}
-                    >
-                      Review candidate
-                    </button>
-                    {onStageLinkIntent ? (
+                    {canStageLinkIntent ? (
                       <div className="graph-review-local-link-intent-action">
                         <button
                           type="button"
-                          onClick={() => onStageLinkIntent(candidate)}
+                          onClick={() => {
+                            onStageLinkIntent?.(candidate);
+                            setStagedCandidateId(candidate.candidate_id);
+                            onStageLinkIntentComplete?.();
+                          }}
                         >
                           Stage link intent
                         </button>
-                        <p>
-                          Selecting an existing object stages a link/reference.
-                          It does not merge identities automatically.
-                        </p>
+                        {candidate.candidate_id === stagedCandidateId ? (
+                          <p role="status" className="graph-review-info">
+                            Link intent staged locally. Open{" "}
+                            <strong>Stage &amp; commit</strong> to review and
+                            prepare.
+                          </p>
+                        ) : (
+                          <p>
+                            Links{" "}
+                            <strong>{linkSourceNode?.label ?? "recap object"}</strong>{" "}
+                            to this existing match. No identity merge is
+                            performed automatically.
+                          </p>
+                        )}
                       </div>
+                    ) : onStageLinkIntent ? (
+                      <p className="graph-review-muted">
+                        Enable “Link to recap pill” above to stage link
+                        intents from these results.
+                      </p>
                     ) : null}
                   </article>
                 ))}
               </section>
             ))}
           </div>
-          {selectedCandidateId ? (
-            <p>
-              Selected suggestion for review only. No link has been written.
-            </p>
-          ) : null}
         </div>
       ) : null}
     </aside>

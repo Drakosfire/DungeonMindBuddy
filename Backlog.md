@@ -7,17 +7,25 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] Graph Review — review-only canvas + full-page authoring toolbox — captured 2026-07-07
+## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
-**Context:** A10f dogfood on longmont-c2 (2026-07-07). User verdict: the main review page should stay purely review; all authoring moves into the toolbox. When author mode is on, the layout expands to full page — live recap on the left, authoring tools on the right. Today there are three competing authoring surfaces (header **Author graph objects**, toolbox **Author Draft**, selected-object dialog actions) plus inline hover popover — confusing and disruptive.
+**Context:** A10h moved relationship source/target picking into the fullscreen Author Draft rail, but the controls may still need clearer source/target chips, keyboard flow, and invalid-state messaging.
 
-**Insight:** Review and authoring are different mental modes. Mixing them on the canvas (header toggle swaps live lane to `GraphReviewAuthoringReader`, shows raw `graph_id`, injects `GraphObjectAuthoringSurface` below prose) breaks the read flow. Authoring needs a dedicated full-width split: prose stays readable on the left; staging/prepare/commit/resolver/relationship tools live in a persistent right rail. Relationship staging should not require close-dialog → click second pill → reopen.
+**Action:** Polish relationship picker UX in `GraphReviewAuthoringRail` after A10h dogfood on longmont-c2.
 
-**Action:** (1) Remove **Author graph objects** from the review header (or demote to “open authoring toolbox”). (2) Make toolbox Author Draft the single authoring entry — opening it sets author mode and expands to full-page split. (3) Review canvas: gold/live lanes, pill click → inspect-only selected-object surface (no stage actions). (4) Author mode: left = live recap (selection persists across objects), right = object/link/relationship forms + staging tray + prepare/commit + relationship source state (no dialog close to pick target).
+**Surfaces when:** Author Draft fullscreen workspace dogfood, relationship staging friction.
 
-**Surfaces when:** `GraphReviewWorkbenchModule.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `GraphReviewAuthorDraftToolPanel.tsx`, `GraphObjectAuthoringSurface.tsx`, projection/toolbox layout CSS.
+**Refs:** A10h, `GraphReviewAuthoringRail.tsx`, `GraphReviewAuthorDraftWorkspace.tsx`
 
-**Refs:** A10f dogfood, A10g mode/chrome cleanup, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
+## [IDEA] Editable recap draft mode — captured 2026-07-07
+
+**Context:** A10h keeps the authoring reader read-only (Tiptap selection tracking only). Full editable recap with corpus writes is a separate follow-up.
+
+**Action:** First slice should be local draft + diff only; persisted corpus writes require corpus-writer contract work.
+
+**Surfaces when:** graph review authoring, corpus write path design.
+
+**Refs:** A10h handoff
 
 ## [IDEA] Graph Review — stage node removal assertion — captured 2026-07-07
 
@@ -31,19 +39,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** `graphObjectAuthoringDraft.ts`, `src/graph_memory/` overlay write path
 
-## [IDEA] Graph Review — relationship pick without dialog churn — captured 2026-07-07
-
-**Context:** A10f dogfood. Staging a relationship requires click pill → use as source → close → click second pill → stage — “sucks.”
-
-**Insight:** Relationship source should persist in author rail while user clicks targets in prose; selected-object surface updates in place or a compact “target: Bera” chip appears in the rail — no modal close/reopen.
-
-**Action:** Pair with full-page authoring split (above). Hold `relationshipDraftSource` in author rail; pill clicks while source set auto-target; optional “pick target in prose” hint on live lane.
-
-**Surfaces when:** authoring toolbox full-page layout, `GraphReviewProjectedInteractionSurface.tsx`
-
-**Refs:** A10f dogfood
-
-## [IDEA] Rename Ingest Surface / Memory Ingest chrome — captured 2026-07-05
+## [IDEA] Graph Review — stage node removal assertion — captured 2026-07-07
 
 **Context:** `/ingest` header simplified to static "Memory Ingest"; user noted the surface still needs a better product name now that it is a graph review workbench, not a recap-ingest landing page.
 

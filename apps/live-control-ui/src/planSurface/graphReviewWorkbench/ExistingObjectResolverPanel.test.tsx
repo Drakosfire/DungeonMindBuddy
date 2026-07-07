@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ExistingObjectResolverPanel,
+  buildQueryOnlySelectedNode,
   buildResolverSelectedNode,
 } from "./ExistingObjectResolverPanel";
 import type { GraphProjectionNodeView } from "../../api/types";
@@ -52,17 +53,36 @@ const node: GraphProjectionNodeView = {
   summary: "Siege scout and gate-pressure monster.",
 };
 
-function renderPanel() {
+function renderPanel(overrides: { linkSourceNode?: GraphProjectionNodeView | null } = {}) {
   return render(
     <ExistingObjectResolverPanel
       campaignId="longmont-c1"
       sessionId="session-1"
       laneRole="live"
-      selectedNode={node}
+      linkSourceNode={overrides.linkSourceNode ?? null}
       projectionGraphId="graph-1"
       liveRunManifestPath="runs/manifest.json"
     />,
   );
+}
+
+function renderPanelWithLinkSource() {
+  return render(
+    <ExistingObjectResolverPanel
+      campaignId="longmont-c1"
+      sessionId="session-1"
+      laneRole="live"
+      linkSourceNode={node}
+      projectionGraphId="graph-1"
+      liveRunManifestPath="runs/manifest.json"
+    />,
+  );
+}
+
+function typeSearchQuery(value: string) {
+  fireEvent.change(screen.getByPlaceholderText(/PC, party, location/i), {
+    target: { value },
+  });
 }
 
 describe("ExistingObjectResolverPanel", () => {
@@ -77,17 +97,66 @@ describe("ExistingObjectResolverPanel", () => {
     });
   });
 
-  it("calls the resolver with lane role and selected node context", async () => {
+  it("builds query-only selected node context for text search without a pill", () => {
+    expect(buildQueryOnlySelectedNode("Caelynn")).toMatchObject({
+      node_id: "__graph_review_query_search__",
+      label: "Caelynn",
+    });
+  });
+
+  it("supports text search without a selected recap pill", async () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
       schema: "dmb_graph_review_existing_object_resolver_response_v1",
       campaign_id: "longmont-c1",
       session_id: "session-1",
-      selected_node_id: "node_tripod",
-      selected_label: "Tripod Null-Calf",
+      selected_node_id: "__graph_review_query_search__",
+      selected_label: "Caelynn",
       candidates: [],
       warnings: [],
     });
-    renderPanel();
+    render(
+      <ExistingObjectResolverPanel
+        campaignId="longmont-c1"
+        sessionId="session-1"
+        laneRole="live"
+        projectionGraphId="graph-1"
+        liveRunManifestPath="runs/manifest.json"
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText(/PC, party, location/i), {
+      target: { value: "Caelynn" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Find existing object" }),
+    );
+    await waitFor(() =>
+      expect(resolveGraphReviewExistingObjectCandidates).toHaveBeenCalled(),
+    );
+    expect(
+      vi.mocked(resolveGraphReviewExistingObjectCandidates).mock.calls[0][0],
+    ).toMatchObject({
+      query: "Caelynn",
+      selected_node: {
+        node_id: "__graph_review_query_search__",
+        label: "Caelynn",
+      },
+    });
+  });
+
+  it("uses query-only context for search regardless of link source", async () => {
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+      selected_node_id: "__graph_review_query_search__",
+      selected_label: "Lysandro",
+      candidates: [],
+      warnings: [],
+    });
+    renderPanelWithLinkSource();
+    fireEvent.change(screen.getByPlaceholderText(/PC, party, location/i), {
+      target: { value: "Lysandro" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -101,9 +170,10 @@ describe("ExistingObjectResolverPanel", () => {
       vi.mocked(resolveGraphReviewExistingObjectCandidates).mock.calls[0][0],
     ).toMatchObject({
       lane_role: "live",
+      query: "Lysandro",
       selected_node: {
-        label: "Tripod Null-Calf",
-        adjacent_labels: ["North Gate"],
+        node_id: "__graph_review_query_search__",
+        label: "Lysandro",
       },
     });
   });
@@ -123,7 +193,6 @@ describe("ExistingObjectResolverPanel", () => {
         campaignId="longmont-c1"
         sessionId="session-1"
         laneRole="gold"
-        selectedNode={node}
         projectionGraphId="gold-graph"
         liveRunManifestPath={null}
       />,
@@ -131,6 +200,9 @@ describe("ExistingObjectResolverPanel", () => {
     expect(
       screen.getByText(/Search across current recap, authored memory/i),
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(/PC, party, location/i), {
+      target: { value: "Tripod Null-Calf" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -146,7 +218,7 @@ describe("ExistingObjectResolverPanel", () => {
     });
   });
 
-  it("renders candidate cards and local review-only selection without write actions", async () => {
+  it("renders candidate cards with stage link intent when callback is provided", async () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
       schema: "dmb_graph_review_existing_object_resolver_response_v1",
       campaign_id: "longmont-c1",
@@ -176,6 +248,7 @@ describe("ExistingObjectResolverPanel", () => {
       ],
     });
     const { container } = renderPanel();
+    typeSearchQuery("Tripod Null-Calf");
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -194,14 +267,9 @@ describe("ExistingObjectResolverPanel", () => {
     ).toBeGreaterThan(0);
     expect(within(card!).getByText(/Current recap · exact label match/i)).toBeInTheDocument();
     expect(within(card!).getByText(/Link existing later/i)).toBeInTheDocument();
-    fireEvent.click(
-      within(card!).getByRole("button", { name: "Review candidate" }),
-    );
     expect(
-      screen.getByText(
-        "Selected suggestion for review only. No link has been written.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Review candidate" }),
+    ).not.toBeInTheDocument();
     expect(container).not.toHaveTextContent(/Save|Link now|Merge/);
   });
 
@@ -235,16 +303,17 @@ describe("ExistingObjectResolverPanel", () => {
       ],
     });
     const onStageLinkIntent = vi.fn();
+    const onStageLinkIntentComplete = vi.fn();
     const { rerender } = render(
       <ExistingObjectResolverPanel
         campaignId="longmont-c1"
         sessionId="session-1"
         laneRole="live"
-        selectedNode={node}
         projectionGraphId="graph-1"
         liveRunManifestPath="runs/manifest.json"
       />,
     );
+    typeSearchQuery("Tripod Null-Calf");
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -260,12 +329,14 @@ describe("ExistingObjectResolverPanel", () => {
         campaignId="longmont-c1"
         sessionId="session-1"
         laneRole="live"
-        selectedNode={node}
+        linkSourceNode={node}
         projectionGraphId="graph-1"
         liveRunManifestPath="runs/manifest.json"
         onStageLinkIntent={onStageLinkIntent}
+        onStageLinkIntentComplete={onStageLinkIntentComplete}
       />,
     );
+    typeSearchQuery("Tripod Null-Calf");
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -276,8 +347,9 @@ describe("ExistingObjectResolverPanel", () => {
     expect(onStageLinkIntent).toHaveBeenCalledWith(
       expect.objectContaining({ candidate_id: "gold-tripod" }),
     );
+    expect(onStageLinkIntentComplete).toHaveBeenCalled();
     expect(
-      screen.getByText(/It does not merge identities automatically/i),
+      screen.getByText(/Link intent staged locally/i),
     ).toBeInTheDocument();
   });
 
@@ -294,6 +366,7 @@ describe("ExistingObjectResolverPanel", () => {
       },
     );
     const { rerender } = renderPanel();
+    typeSearchQuery("Tripod Null-Calf");
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );
@@ -308,9 +381,9 @@ describe("ExistingObjectResolverPanel", () => {
         campaignId="longmont-c1"
         sessionId="session-1"
         laneRole="live"
-        selectedNode={{ ...node, node_id: "node_2" }}
       />,
     );
+    typeSearchQuery("Tripod Null-Calf");
     fireEvent.click(
       screen.getByRole("button", { name: "Find existing object" }),
     );

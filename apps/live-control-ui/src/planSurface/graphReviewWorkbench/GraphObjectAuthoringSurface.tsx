@@ -30,7 +30,14 @@ import type { GraphProjectionNodeView } from "../../api/types";
 
 type GraphObjectAuthoringSelectionMode = "object" | "link_existing";
 
+export type GraphObjectAuthoringFocusPanel =
+  | "all"
+  | "create_new"
+  | "relationships"
+  | "stage_overlay";
+
 export interface GraphObjectAuthoringSurfaceProps {
+  focusPanel?: GraphObjectAuthoringFocusPanel;
   selectedSource: GraphAuthoringSelection | null;
   formState: GraphObjectAuthoringFormState;
   proposals: GraphObjectAuthoringProposal[];
@@ -70,6 +77,7 @@ export interface GraphObjectAuthoringSurfaceProps {
 }
 
 export function GraphObjectAuthoringSurface({
+  focusPanel = "all",
   selectedSource,
   formState,
   proposals,
@@ -161,21 +169,50 @@ export function GraphObjectAuthoringSurface({
     );
   }, [selectedSource, linkExistingFormState, overlapContext]);
 
+  const showCreateNew = focusPanel === "all" || focusPanel === "create_new";
+  const showRelationships = focusPanel === "all" || focusPanel === "relationships";
+  const showStageOverlay = focusPanel === "all" || focusPanel === "stage_overlay";
+
+  const headerCopy =
+    focusPanel === "create_new"
+      ? {
+          kicker: "Create new object",
+          title: "Draft a new graph object",
+          hint: "Highlight recap text and choose “Author graph object”.",
+        }
+      : focusPanel === "relationships"
+        ? {
+            kicker: "Relationships",
+            title: "Stage a relationship",
+            hint: "Click graph pills in the recap to set source and target.",
+          }
+        : focusPanel === "stage_overlay"
+          ? {
+              kicker: "Overlay drafts",
+              title: "Review staged overlay memory",
+              hint: "Prepare and commit when ready. No writes until commit.",
+            }
+          : {
+              kicker: "Graph object authoring",
+              title: "Author a graph object",
+              hint: "Draft only. No graph write has happened.",
+            };
+
   return (
     <section
       className="graph-object-authoring-surface"
       aria-label="Graph object authoring"
       data-testid="graph-object-authoring-surface"
+      data-focus-panel={focusPanel}
     >
       <header className="graph-object-authoring-surface-header">
-        <p className="plan-surface-kicker">Graph object authoring</p>
-        <h3>Author a graph object</h3>
-        <p className="graph-object-authoring-surface-hint">
-          Draft only. No graph write has happened.
-        </p>
+        <p className="plan-surface-kicker">{headerCopy.kicker}</p>
+        <h3>{headerCopy.title}</h3>
+        <p className="graph-object-authoring-surface-hint">{headerCopy.hint}</p>
       </header>
 
-      {selectedSource ? (
+      {showCreateNew ? (
+        selectedSource ? (
         <>
           <GraphObjectAuthoringSelectedSource selection={selectedSource} />
 
@@ -262,9 +299,10 @@ export function GraphObjectAuthoringSurface({
           Highlight source text in the recap and choose “Author graph object” to
           start a draft.
         </p>
-      )}
+      )
+      ) : null}
 
-      {supportsRelationship && relationshipFormState && onRelationshipFieldChange ? (
+      {showRelationships && supportsRelationship && relationshipFormState && onRelationshipFieldChange ? (
         <section className="graph-object-authoring-relationship-section" aria-label="Relationship authoring">
           <header className="graph-object-authoring-relationship-header">
             <h4>Relationship</h4>
@@ -300,6 +338,7 @@ export function GraphObjectAuthoringSurface({
         </section>
       ) : null}
 
+      {showStageOverlay ? (
       <section
         className="graph-object-authoring-review-staged-memory"
         aria-label="Review staged memory"
@@ -331,6 +370,7 @@ export function GraphObjectAuthoringSurface({
           />
         ) : null}
       </section>
+      ) : null}
     </section>
   );
 }
