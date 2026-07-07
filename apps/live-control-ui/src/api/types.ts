@@ -2230,7 +2230,7 @@ export interface GraphAuthoringDiagnostic {
 
 export interface GraphObjectAuthoringProposalPayload {
   localProposalId: string;
-  proposalKind: "object" | "link_existing" | "relationship";
+  proposalKind: "object" | "link_existing" | "relationship" | "merge_objects";
   status: "staged_local";
   selection?: Record<string, unknown> | null;
   objectRef?: Record<string, unknown> | null;
@@ -2245,6 +2245,16 @@ export interface GraphObjectAuthoringProposalPayload {
   relationshipLabel?: string | null;
   direction?: "directed" | "undirected" | null;
   summary?: string | null;
+  survivorObjectRef?: Record<string, unknown> | null;
+  mergedObjectRefs?: Record<string, unknown>[] | null;
+  mergeReason?: string | null;
+  matchedFeatures?: string[];
+  aliasPolicy?: "preserve_all_aliases" | "manual" | null;
+  relationshipPolicy?:
+    | "preserve_all_relationships"
+    | "manual_review_required"
+    | null;
+  evidencePolicy?: "preserve_all_evidence" | null;
   visibility: {
     visibility: string;
     revealState?: string;
@@ -2286,6 +2296,7 @@ export interface GraphAuthoringOverlaySummary {
   object_count: number;
   link_existing_count: number;
   relationship_count: number;
+  merge_objects_count: number;
 }
 
 export interface GraphObjectAuthoringPrepareResponse {

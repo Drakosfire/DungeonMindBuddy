@@ -69,6 +69,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   sourceGraphId?: string | null;
   onCommittedProposals?: (localProposalIds: string[]) => void;
   onRefreshProjection?: () => Promise<unknown>;
+  onReviewMerge?: (candidate: import("./graphObjectMergeCandidates").GraphObjectMergeCandidate) => void;
 
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   laneRole?: GraphReviewProjectionLaneRole;
@@ -97,6 +98,7 @@ export function GraphObjectAuthoringSurface({
   sourceGraphId,
   onCommittedProposals,
   onRefreshProjection,
+  onReviewMerge,
   existingNodes = [],
   laneRole = "live",
   liveRunManifestPath = null,
@@ -355,6 +357,8 @@ export function GraphObjectAuthoringSurface({
           proposals={proposals}
           onRemove={onRemoveProposal}
           overlapContext={overlapContext}
+          projectionNodeViews={projectionNodeViews}
+          onReviewMerge={onReviewMerge}
         />
 
         {campaignId && sessionId && onCommittedProposals ? (

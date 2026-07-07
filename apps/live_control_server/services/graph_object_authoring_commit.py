@@ -21,6 +21,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitResponse,
     GraphObjectAuthoringError,
     authoring_prepare_request_from_write,
+    _blocking_assertion_diagnostics,
     build_assertions_from_proposals,
     build_confirm_token,
     commit_no_mutation_guarantees,
@@ -85,9 +86,10 @@ def commit_graph_object_authoring_write(
         )
 
     prepare_request = authoring_prepare_request_from_write(request)
-    assertions, diagnostics = build_assertions_from_proposals(prepare_request)
-    if diagnostics:
-        raise GraphObjectAuthoringError(diagnostics[0].message, code=diagnostics[0].code)
+    assertions, assertion_diagnostics = build_assertions_from_proposals(prepare_request)
+    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
+    if blocking:
+        raise GraphObjectAuthoringError(blocking[0].message, code=blocking[0].code)
 
     expected_confirm = build_confirm_token(
         campaign_id=request.campaign_id,

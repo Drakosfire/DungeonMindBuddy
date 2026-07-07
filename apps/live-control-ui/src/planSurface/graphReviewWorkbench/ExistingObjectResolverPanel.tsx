@@ -15,6 +15,10 @@ import {
   formatResolverCandidateMeta,
   groupCandidatesByScope,
 } from "./graphObjectCandidateScope";
+import {
+  buildMergeCandidateFromPillAndExisting,
+  type GraphObjectMergeCandidate,
+} from "./graphObjectMergeCandidates";
 
 export const QUERY_SEARCH_NODE_ID = "__graph_review_query_search__";
 
@@ -68,22 +72,27 @@ export function ExistingObjectResolverPanel({
   sessionId,
   laneRole,
   linkSourceNode = null,
+  mergeReviewSourceNode = null,
   projectionGraphId = null,
   liveRunManifestPath = null,
   nodeViews = null,
   onStageLinkIntent,
   onStageLinkIntentComplete,
+  onReviewMerge,
 }: {
   campaignId: string;
   sessionId: string;
   laneRole: GraphReviewProjectionLaneRole;
   /** Optional recap pill used only when staging a link intent — not for search. */
   linkSourceNode?: GraphProjectionNodeView | null;
+  /** Selected recap pill for merge review (independent of link-intent opt-in). */
+  mergeReviewSourceNode?: GraphProjectionNodeView | null;
   projectionGraphId?: string | null;
   liveRunManifestPath?: string | null;
   nodeViews?: Record<string, GraphProjectionNodeView> | null;
   onStageLinkIntent?: (candidate: GraphReviewExistingObjectCandidate) => void;
   onStageLinkIntentComplete?: () => void;
+  onReviewMerge?: (candidate: GraphObjectMergeCandidate) => void;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -260,6 +269,22 @@ export function ExistingObjectResolverPanel({
                         >
                           Stage link intent
                         </button>
+                        {mergeReviewSourceNode && nodeViews?.[candidate.candidate_id] ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const mergeCandidate = buildMergeCandidateFromPillAndExisting(
+                                mergeReviewSourceNode,
+                                nodeViews[candidate.candidate_id],
+                              );
+                              if (mergeCandidate) {
+                                onReviewMerge?.(mergeCandidate);
+                              }
+                            }}
+                          >
+                            Review merge
+                          </button>
+                        ) : null}
                         {candidate.candidate_id === stagedCandidateId ? (
                           <p role="status" className="graph-review-info">
                             Link intent staged locally. Open{" "}

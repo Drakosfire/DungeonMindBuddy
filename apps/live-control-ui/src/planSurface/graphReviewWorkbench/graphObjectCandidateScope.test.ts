@@ -4,6 +4,7 @@ import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import {
   GRAPH_OBJECT_CANDIDATE_SCOPE_LABELS,
   groupCandidatesByScope,
+  inferCandidateGraphScopeFromProjectionNode,
   resolverCandidateToInspectedNode,
 } from "./graphObjectCandidateScope";
 
@@ -65,5 +66,26 @@ describe("graphObjectCandidateScope", () => {
       graphScope: "party_pc",
       sourceLabel: "Party / PCs",
     });
+  });
+
+  it("maps recap source_domains to current_recap_projection", () => {
+    expect(
+      inferCandidateGraphScopeFromProjectionNode({
+        source_domains: ["recap"],
+        kind: "location",
+        role: "candidate",
+      }),
+    ).toBe("current_recap_projection");
+  });
+
+  it("maps authored overlay nodes to authored_overlay scope", () => {
+    expect(
+      inferCandidateGraphScopeFromProjectionNode({
+        source_domains: ["authored_overlay"],
+        authored: true,
+        kind: "party",
+        role: "authored",
+      }),
+    ).toBe("authored_overlay");
   });
 });

@@ -13,11 +13,13 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     AUTHORED_GRAPH_OVERLAY_SCHEMA,
     AuthoredGraphAssertion,
     AuthoredGraphLinkExistingAssertion,
+    AuthoredGraphMergeObjectsAssertion,
     AuthoredGraphObjectAssertion,
     AuthoredGraphObjectRef,
     AuthoredGraphRelationshipAssertion,
     GraphAuthoringProvenance,
     GraphAuthoringSourceAnchor,
+    GraphObjectCandidateScope,
     GraphScope,
     GraphVisibility,
     GraphVisibilityPolicy,
@@ -170,7 +172,9 @@ class GraphObjectAuthoringProposalPayload(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     local_proposal_id: str = Field(alias="localProposalId")
-    proposal_kind: Literal["object", "link_existing", "relationship"] = Field(alias="proposalKind")
+    proposal_kind: Literal["object", "link_existing", "relationship", "merge_objects"] = Field(
+        alias="proposalKind",
+    )
     status: Literal["staged_local"] = "staged_local"
     selection: dict[str, Any] | None = None
     object_ref: dict[str, Any] | None = Field(default=None, alias="objectRef")
@@ -185,6 +189,25 @@ class GraphObjectAuthoringProposalPayload(BaseModel):
     relationship_label: str | None = Field(default=None, alias="relationshipLabel")
     direction: Literal["directed", "undirected"] | None = None
     summary: str | None = None
+    survivor_object_ref: dict[str, Any] | None = Field(default=None, alias="survivorObjectRef")
+    merged_object_refs: list[dict[str, Any]] | None = Field(
+        default=None,
+        alias="mergedObjectRefs",
+    )
+    merge_reason: str | None = Field(default=None, alias="mergeReason")
+    matched_features: list[str] = Field(default_factory=list, alias="matchedFeatures")
+    alias_policy: Literal["preserve_all_aliases", "manual"] | None = Field(
+        default=None,
+        alias="aliasPolicy",
+    )
+    relationship_policy: Literal[
+        "preserve_all_relationships",
+        "manual_review_required",
+    ] | None = Field(default=None, alias="relationshipPolicy")
+    evidence_policy: Literal["preserve_all_evidence"] | None = Field(
+        default=None,
+        alias="evidencePolicy",
+    )
     visibility: GraphObjectAuthoringVisibilityPayload
     graph_scopes: list[GraphScope] = Field(default_factory=lambda: ["recap_graph", "campaign_memory_graph"], alias="graphScopes")
     provenance_preview: GraphObjectAuthoringProvenancePayload = Field(alias="provenancePreview")
@@ -239,7 +262,7 @@ class AuthoredGraphAssertionPreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     assertion_id: str
-    assertion_kind: Literal["object", "link_existing", "relationship"]
+    assertion_kind: Literal["object", "link_existing", "relationship", "merge_objects"]
     operation: str
     local_proposal_id: str
     summary: str
@@ -254,6 +277,7 @@ class GraphAuthoringOverlaySummary(BaseModel):
     object_count: int
     link_existing_count: int
     relationship_count: int
+    merge_objects_count: int
 
 
 class GraphObjectAuthoringPrepareResponse(BaseModel):
@@ -315,6 +339,84 @@ def _diag(
     )
 
 
+def _blocking_assertion_diagnostics(
+    diagnostics: list[GraphAuthoringDiagnostic],
+) -> list[GraphAuthoringDiagnostic]:
+    return [item for item in diagnostics if item.severity == "error"]
+
+
+def _non_blocking_assertion_diagnostics(
+    diagnostics: list[GraphAuthoringDiagnostic],
+) -> list[GraphAuthoringDiagnostic]:
+    return [item for item in diagnostics if item.severity != "error"]
+
+
+def _validate_merge_object_ref(
+    payload: dict[str, Any],
+    *,
+    local_proposal_id: str,
+    context: str,
+) -> AuthoredGraphObjectRef:
+    parsed = GraphObjectAuthoringObjectRefPayload.model_validate(payload)
+    if parsed.ref_kind == "manual_ref":
+        raise GraphObjectAuthoringError(
+            f"{context}: manual_ref is not supported for merge MVP",
+            code="unsupported_merge_ref",
+        )
+    if parsed.ref_kind not in ("existing_graph_node", "local_proposal"):
+        raise GraphObjectAuthoringError(
+            f"{context}: ref kind {parsed.ref_kind!r} is not supported for merge MVP",
+            code="unsupported_merge_ref",
+        )
+    if parsed.ref_kind == "existing_graph_node" and not (parsed.node_id or "").strip():
+        raise GraphObjectAuthoringError(
+            f"{context}: existing_graph_node ref requires nodeId",
+            code="invalid_merge_ref",
+        )
+    if parsed.ref_kind == "local_proposal" and not (parsed.local_proposal_id or "").strip():
+        raise GraphObjectAuthoringError(
+            f"{context}: local_proposal ref requires localProposalId",
+            code="invalid_merge_ref",
+        )
+    if not parsed.label.strip():
+        raise GraphObjectAuthoringError(
+            f"{context}: object ref label must be non-blank",
+            code="invalid_merge_ref",
+        )
+    return _build_object_ref(payload)
+
+
+_CANDIDATE_GRAPH_SCOPE_VALUES: frozenset[str] = frozenset(
+    {
+        "current_recap_projection",
+        "authored_overlay",
+        "campaign_memory",
+        "worldbuilding",
+        "party_pc",
+        "gm_private",
+    }
+)
+
+_CANDIDATE_GRAPH_SCOPE_ALIASES: dict[str, GraphObjectCandidateScope] = {
+    "recap": "current_recap_projection",
+    "live_projection": "current_recap_projection",
+    "gold_fixture": "current_recap_projection",
+}
+
+
+def _normalize_candidate_graph_scope(
+    value: str | None,
+) -> GraphObjectCandidateScope | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    if trimmed in _CANDIDATE_GRAPH_SCOPE_VALUES:
+        return trimmed  # type: ignore[return-value]
+    return _CANDIDATE_GRAPH_SCOPE_ALIASES.get(trimmed)
+
+
 def _build_object_ref(payload: dict[str, Any]) -> AuthoredGraphObjectRef:
     parsed = GraphObjectAuthoringObjectRefPayload.model_validate(payload)
     return AuthoredGraphObjectRef(
@@ -324,12 +426,36 @@ def _build_object_ref(payload: dict[str, Any]) -> AuthoredGraphObjectRef:
         label=parsed.label,
         kind=parsed.kind,
         role=parsed.role,
-        candidate_graph_scope=parsed.graph_scope,
+        candidate_graph_scope=_normalize_candidate_graph_scope(parsed.graph_scope),
         source_label=parsed.source_label,
         source_graph_id=parsed.source_graph_id,
         source_path=parsed.source_path,
         source_visibility=parsed.visibility,
     )
+
+
+def _merge_kind_conflict_warning(
+    survivor: AuthoredGraphObjectRef,
+    merged_refs: list[AuthoredGraphObjectRef],
+    *,
+    local_proposal_id: str,
+) -> GraphAuthoringDiagnostic | None:
+    survivor_kind = (survivor.kind or "").strip().lower()
+    if not survivor_kind or survivor_kind == "unknown":
+        return None
+    for ref in merged_refs:
+        merged_kind = (ref.kind or "").strip().lower()
+        if merged_kind and merged_kind != "unknown" and merged_kind != survivor_kind:
+            return _diag(
+                "merge_kind_role_conflict",
+                (
+                    f"Kind mismatch: survivor {survivor.label!r} ({survivor.kind}) vs "
+                    f"merged-away {ref.label!r} ({ref.kind}). Review before commit."
+                ),
+                local_proposal_id=local_proposal_id,
+                severity="warning",
+            )
+    return None
 
 
 def _build_visibility(payload: GraphObjectAuthoringVisibilityPayload) -> GraphVisibilityPolicy:
@@ -465,7 +591,7 @@ def build_assertions_from_proposals(
                     existing_object_ref=_build_object_ref(proposal.existing_object_ref),
                     alias_text=proposal.alias_text,
                 )
-            else:
+            elif proposal.proposal_kind == "relationship":
                 if not proposal.source_object_ref or not proposal.target_object_ref:
                     raise GraphObjectAuthoringError(
                         "relationship proposal requires source and target object refs",
@@ -487,6 +613,54 @@ def build_assertions_from_proposals(
                     relationship_label=proposal.relationship_label,
                     direction=proposal.direction or "directed",
                     summary=proposal.summary,
+                )
+            elif proposal.proposal_kind == "merge_objects":
+                if not proposal.survivor_object_ref:
+                    raise GraphObjectAuthoringError(
+                        "merge_objects proposal requires survivorObjectRef",
+                        code="invalid_proposal",
+                    )
+                if not proposal.merged_object_refs:
+                    raise GraphObjectAuthoringError(
+                        "merge_objects proposal requires at least one mergedObjectRef",
+                        code="invalid_proposal",
+                    )
+                survivor_ref = _validate_merge_object_ref(
+                    proposal.survivor_object_ref,
+                    local_proposal_id=proposal.local_proposal_id,
+                    context="survivorObjectRef",
+                )
+                merged_refs = [
+                    _validate_merge_object_ref(
+                        ref_payload,
+                        local_proposal_id=proposal.local_proposal_id,
+                        context="mergedObjectRef",
+                    )
+                    for ref_payload in proposal.merged_object_refs
+                ]
+                assertion = AuthoredGraphMergeObjectsAssertion(
+                    **base_kwargs,
+                    assertion_kind="merge_objects",
+                    operation="merge",
+                    survivor_object_ref=survivor_ref,
+                    merged_object_refs=merged_refs,
+                    merge_reason=proposal.merge_reason,
+                    matched_features=list(proposal.matched_features),
+                    alias_policy=proposal.alias_policy or "preserve_all_aliases",
+                    relationship_policy=proposal.relationship_policy or "preserve_all_relationships",
+                    evidence_policy=proposal.evidence_policy or "preserve_all_evidence",
+                )
+                kind_warning = _merge_kind_conflict_warning(
+                    survivor_ref,
+                    merged_refs,
+                    local_proposal_id=proposal.local_proposal_id,
+                )
+                if kind_warning:
+                    diagnostics.append(kind_warning)
+            else:
+                raise GraphObjectAuthoringError(
+                    f"Unsupported proposal kind: {proposal.proposal_kind}",
+                    code="invalid_proposal",
                 )
             assertions.append(assertion)
         except (GraphObjectAuthoringError, ValidationError) as exc:
@@ -513,6 +687,11 @@ def build_assertions_preview(
                 f"Link existing: {assertion.selected_text} → "
                 f"{assertion.existing_object_ref.label}"
             )
+        elif assertion.assertion_kind == "merge_objects":
+            merged_labels = ", ".join(ref.label for ref in assertion.merged_object_refs)
+            summary = (
+                f"Merge: {assertion.survivor_object_ref.label} ← {merged_labels}"
+            )
         else:
             summary = (
                 f"Relationship: {assertion.source_object_ref.label} "
@@ -537,6 +716,7 @@ def build_overlay_summary(
     object_count = sum(1 for item in assertions if item.assertion_kind == "object")
     link_count = sum(1 for item in assertions if item.assertion_kind == "link_existing")
     relationship_count = sum(1 for item in assertions if item.assertion_kind == "relationship")
+    merge_count = sum(1 for item in assertions if item.assertion_kind == "merge_objects")
     proposed_count = len(assertions)
     return GraphAuthoringOverlaySummary(
         existing_assertion_count=existing_count,
@@ -545,6 +725,7 @@ def build_overlay_summary(
         object_count=object_count,
         link_existing_count=link_count,
         relationship_count=relationship_count,
+        merge_objects_count=merge_count,
     )
 
 
@@ -599,11 +780,12 @@ def prepare_graph_object_authoring_write(
     current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
     existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
 
-    assertions, diagnostics = build_assertions_from_proposals(request)
-    if diagnostics:
+    assertions, assertion_diagnostics = build_assertions_from_proposals(request)
+    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
+    if blocking:
         raise GraphObjectAuthoringError(
-            diagnostics[0].message,
-            code=diagnostics[0].code,
+            blocking[0].message,
+            code=blocking[0].code,
         )
     if not assertions:
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
@@ -612,6 +794,7 @@ def prepare_graph_object_authoring_write(
         request,
         existing_overlay=existing_overlay,
     )
+    prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)
 
     confirm_token = build_confirm_token(
         campaign_id=request.campaign_id,
@@ -636,6 +819,6 @@ def prepare_graph_object_authoring_write(
         event_count=event_count,
         assertions_preview=preview,
         overlay_summary=summary,
-        diagnostics=overlap_warnings,
+        diagnostics=[*prepare_warnings, *overlap_warnings],
         no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_PREPARE),
     )
