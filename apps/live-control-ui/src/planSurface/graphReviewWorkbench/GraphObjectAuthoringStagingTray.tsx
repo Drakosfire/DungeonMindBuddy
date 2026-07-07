@@ -103,16 +103,10 @@ export function GraphObjectAuthoringStagingTray({
   overlapContext?: GraphObjectAuthoringOverlapContext;
 }) {
   return (
-    <section className="graph-object-authoring-staging-tray" aria-label="Staged graph object drafts">
-      <header>
-        <h4>Staged drafts</h4>
-        <p className="graph-object-authoring-staging-tray-lede">
-          Staged locally. No graph write has happened.
-        </p>
-      </header>
+    <div className="graph-object-authoring-staging-tray" aria-label="Staged memory drafts">
       {proposals.length === 0 ? (
         <p className="graph-object-authoring-staging-tray-empty">
-          No object drafts staged yet.
+          No staged memory yet. Create an object, link, or relationship draft above.
         </p>
       ) : (
         <ul className="graph-object-authoring-staging-tray-list">
@@ -148,6 +142,6 @@ export function GraphObjectAuthoringStagingTray({
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }

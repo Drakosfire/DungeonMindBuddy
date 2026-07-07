@@ -58,6 +58,188 @@ function parseApiError(error: unknown): string {
   return "Request failed.";
 }
 
+function formatAssertionSummary(summary: GraphObjectAuthoringPrepareResponse["overlay_summary"]): string[] {
+  const lines: string[] = [];
+  if (summary.object_count) {
+    lines.push(`${summary.object_count} new object${summary.object_count === 1 ? "" : "s"}`);
+  }
+  if (summary.link_existing_count) {
+    lines.push(
+      `${summary.link_existing_count} linked alias${summary.link_existing_count === 1 ? "" : "es"}`,
+    );
+  }
+  if (summary.relationship_count) {
+    lines.push(
+      `${summary.relationship_count} relationship${summary.relationship_count === 1 ? "" : "s"}`,
+    );
+  }
+  return lines;
+}
+
+function PreparePreviewPrimary({
+  prepared,
+}: {
+  prepared: GraphObjectAuthoringPrepareResponse;
+}) {
+  const assertionLines = formatAssertionSummary(prepared.overlay_summary);
+
+  return (
+    <div
+      className="graph-object-authoring-prepare-preview"
+      data-testid="graph-object-authoring-prepare-preview"
+    >
+      <h5>Prepared write preview</h5>
+      {assertionLines.length ? (
+        <ul className="graph-object-authoring-prepare-preview-summary">
+          {assertionLines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="graph-object-authoring-prepare-preview-safety">
+        Safe write preview generated. No source recap or extracted graph artifacts will be mutated.
+      </p>
+      <GraphObjectAuthoringOverlapWarnings
+        warnings={toOverlapWarnings(prepared.diagnostics)}
+        title="Prepare overlap warnings"
+      />
+      <details
+        className="graph-object-authoring-write-safety-details-panel"
+        data-testid="graph-object-authoring-write-safety-details"
+      >
+        <summary>Write safety details</summary>
+        <ul className="graph-object-authoring-no-mutation-list">
+          {prepared.no_mutation_guarantees.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+      <details
+        className="graph-object-authoring-technical-write-details-panel"
+        data-testid="graph-object-authoring-technical-write-details"
+      >
+        <summary>Technical write details</summary>
+        <dl className="graph-object-authoring-technical-write-fields">
+          <div>
+            <dt>Target overlay</dt>
+            <dd>{prepared.overlay_path}</dd>
+          </div>
+          <div>
+            <dt>Event log</dt>
+            <dd>{prepared.event_log_path}</dd>
+          </div>
+          <div>
+            <dt>Current overlay token</dt>
+            <dd>{shortToken(prepared.current_overlay_token)}</dd>
+          </div>
+          <div>
+            <dt>Proposed assertions digest</dt>
+            <dd>{shortToken(prepared.proposed_assertions_digest)}</dd>
+          </div>
+        </dl>
+      </details>
+    </div>
+  );
+}
+
+function CommitSuccessPrimary({
+  committed,
+  onRefreshProjection,
+  refreshingProjection,
+  refreshProjectionError,
+  onRefresh,
+  onDismiss,
+}: {
+  committed: GraphObjectAuthoringCommitResponse;
+  onRefreshProjection?: () => Promise<unknown>;
+  refreshingProjection: boolean;
+  refreshProjectionError: string | null;
+  onRefresh: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="graph-object-authoring-commit-summary graph-object-authoring-commit-summary--success"
+      data-testid="graph-object-authoring-commit-summary"
+      role="status"
+    >
+      <div className="graph-object-authoring-commit-summary-header">
+        <h5>Write succeeded</h5>
+        <button
+          type="button"
+          className="graph-object-authoring-commit-summary-dismiss"
+          data-testid="graph-object-authoring-commit-summary-dismiss"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </button>
+      </div>
+      <p className="graph-object-authoring-commit-success-lead">
+        Authored graph memory was saved.
+      </p>
+      <p className="graph-object-authoring-commit-success-next">
+        {onRefreshProjection
+          ? "Next: refresh graph review to see the authored memory in the recap and graph cards."
+          : "Reload graph review to see the authored memory."}
+      </p>
+      {onRefreshProjection ? (
+        <div className="graph-object-authoring-commit-refresh-actions">
+          <button
+            type="button"
+            data-testid="graph-object-authoring-refresh-projection"
+            disabled={refreshingProjection}
+            onClick={onRefresh}
+          >
+            {refreshingProjection ? "Refreshing graph review…" : "Refresh graph review"}
+          </button>
+        </div>
+      ) : null}
+      {refreshProjectionError ? (
+        <p className="graph-object-authoring-error" role="alert">
+          {refreshProjectionError}
+        </p>
+      ) : null}
+      <details
+        className="graph-object-authoring-write-details-panel"
+        data-testid="graph-object-authoring-commit-write-details"
+      >
+        <summary>Write details</summary>
+        <dl className="graph-object-authoring-technical-write-fields">
+          <div>
+            <dt>Overlay</dt>
+            <dd>{committed.overlay_path}</dd>
+          </div>
+          <div>
+            <dt>Event log</dt>
+            <dd>{committed.event_log_path}</dd>
+          </div>
+          {committed.backup_path ? (
+            <div>
+              <dt>Backup</dt>
+              <dd>{committed.backup_path}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>New overlay token</dt>
+            <dd>{shortToken(committed.new_overlay_token)}</dd>
+          </div>
+          <div>
+            <dt>Assertion / event counts</dt>
+            <dd>
+              {committed.assertion_count} assertion(s), {committed.event_count} event record(s)
+            </dd>
+          </div>
+        </dl>
+        <ul className="graph-object-authoring-no-mutation-list">
+          {committed.no_mutation_guarantees.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
+}
+
 export interface GraphObjectAuthoringPrepareCommitPanelProps {
   campaignId: string;
   sessionId: string;
@@ -174,25 +356,31 @@ export function GraphObjectAuthoringPrepareCommitPanel({
     }
   }
 
+  function handleRefreshProjection() {
+    if (!onRefreshProjection) {
+      return;
+    }
+    setRefreshProjectionError(null);
+    setRefreshingProjection(true);
+    void onRefreshProjection()
+      .catch((error) => {
+        setRefreshProjectionError(parseApiError(error));
+      })
+      .finally(() => {
+        setRefreshingProjection(false);
+      });
+  }
+
   if (proposals.length === 0 && !committed) {
     return null;
   }
 
   return (
-    <section
+    <div
       className="graph-object-authoring-prepare-commit-panel"
       aria-label="Prepare and commit authored graph memory"
       data-testid="graph-object-authoring-prepare-commit-panel"
     >
-      <header>
-        <h4>Write authored graph memory</h4>
-        <p className="graph-object-authoring-prepare-commit-hint">
-          Prepare a safe preview, then commit into authored campaign graph memory. Staged proposals
-          persist for this browser tab until you commit or remove them. After commit, refresh graph
-          review to see authored objects in the picker.
-        </p>
-      </header>
-
       {proposals.length > 0 ? (
         <div className="graph-object-authoring-prepare-commit-actions">
           <button
@@ -201,7 +389,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
             disabled={!canPrepare}
             onClick={() => void handlePrepare()}
           >
-            {preparing ? "Preparing…" : "Prepare write"}
+            {preparing ? "Preparing…" : "Prepare staged memory"}
           </button>
           {prepared ? (
             <button
@@ -223,36 +411,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       ) : null}
 
       {prepared && !proposalsChangedSincePrepare ? (
-        <div
-          className="graph-object-authoring-prepare-preview"
-          data-testid="graph-object-authoring-prepare-preview"
-        >
-          <h5>Prepared write preview</h5>
-          <ul>
-            {prepared.overlay_summary.object_count ? (
-              <li>{prepared.overlay_summary.object_count} object assertion(s)</li>
-            ) : null}
-            {prepared.overlay_summary.link_existing_count ? (
-              <li>{prepared.overlay_summary.link_existing_count} link-existing assertion(s)</li>
-            ) : null}
-            {prepared.overlay_summary.relationship_count ? (
-              <li>{prepared.overlay_summary.relationship_count} relationship assertion(s)</li>
-            ) : null}
-          </ul>
-          <p>Target overlay: {prepared.overlay_path}</p>
-          <p>Event log: {prepared.event_log_path}</p>
-          <p>Current overlay token: {shortToken(prepared.current_overlay_token)}</p>
-          <p>Proposed assertions digest: {shortToken(prepared.proposed_assertions_digest)}</p>
-          <ul className="graph-object-authoring-no-mutation-list">
-            {prepared.no_mutation_guarantees.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          <GraphObjectAuthoringOverlapWarnings
-            warnings={toOverlapWarnings(prepared.diagnostics)}
-            title="Prepare overlap warnings"
-          />
-        </div>
+        <PreparePreviewPrimary prepared={prepared} />
       ) : null}
 
       {commitError ? (
@@ -262,67 +421,15 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       ) : null}
 
       {committed ? (
-        <div
-          className="graph-object-authoring-commit-summary graph-object-authoring-commit-summary--success"
-          data-testid="graph-object-authoring-commit-summary"
-          role="status"
-        >
-          <div className="graph-object-authoring-commit-summary-header">
-            <h5>Write succeeded</h5>
-            <button
-              type="button"
-              className="graph-object-authoring-commit-summary-dismiss"
-              data-testid="graph-object-authoring-commit-summary-dismiss"
-              onClick={() => setCommitted(null)}
-            >
-              Dismiss
-            </button>
-          </div>
-          <p className="graph-object-authoring-commit-success-lead">
-            Authored graph memory was written to disk. Reload graph review or refresh authored
-            overlay data to see it in the graph.
-          </p>
-          {onRefreshProjection ? (
-            <div className="graph-object-authoring-commit-refresh-actions">
-              <button
-                type="button"
-                data-testid="graph-object-authoring-refresh-projection"
-                disabled={refreshingProjection}
-                onClick={() => {
-                  setRefreshProjectionError(null);
-                  setRefreshingProjection(true);
-                  void onRefreshProjection()
-                    .catch((error) => {
-                      setRefreshProjectionError(parseApiError(error));
-                    })
-                    .finally(() => {
-                      setRefreshingProjection(false);
-                    });
-                }}
-              >
-                {refreshingProjection ? "Refreshing graph review…" : "Refresh graph review"}
-              </button>
-            </div>
-          ) : null}
-          {refreshProjectionError ? (
-            <p className="graph-object-authoring-error" role="alert">
-              {refreshProjectionError}
-            </p>
-          ) : null}
-          <p>Overlay: {committed.overlay_path}</p>
-          <p>Event log: {committed.event_log_path}</p>
-          {committed.backup_path ? <p>Backup: {committed.backup_path}</p> : null}
-          <p>New overlay token: {shortToken(committed.new_overlay_token)}</p>
-          <p>
-            {committed.assertion_count} assertion(s), {committed.event_count} event record(s)
-          </p>
-          <ul className="graph-object-authoring-no-mutation-list">
-            {committed.no_mutation_guarantees.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </div>
+        <CommitSuccessPrimary
+          committed={committed}
+          onRefreshProjection={onRefreshProjection}
+          refreshingProjection={refreshingProjection}
+          refreshProjectionError={refreshProjectionError}
+          onRefresh={handleRefreshProjection}
+          onDismiss={() => setCommitted(null)}
+        />
       ) : null}
-    </section>
+    </div>
   );
 }

@@ -32,6 +32,14 @@ describe("friendlyVisibilityLabel", () => {
 });
 
 describe("GraphObjectAuthoringStagingTray", () => {
+  it("shows empty staged memory copy", () => {
+    render(<GraphObjectAuthoringStagingTray proposals={[]} onRemove={vi.fn()} />);
+
+    expect(
+      screen.getByText(/No staged memory yet. Create an object, link, or relationship draft above./i),
+    ).toBeInTheDocument();
+  });
+
   it("renders relationship drafts as campaign statements with friendly visibility", () => {
     const formState = {
       sourceObjectRef: buildManualObjectRef("the group"),

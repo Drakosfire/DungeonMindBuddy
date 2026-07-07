@@ -633,7 +633,7 @@ C1S2 or another session with ingested graph material and obvious missed/underlin
 
 The dogfood report identifies interaction friction but proves the product loop end-to-end.
 
-**Status (2026-07-07):** A10a dogfood report landed (`Docs/Reports/DOGFOOD-graph-object-authoring-a10-user-stories.md`). A10b addressed authored alias prose grounding after reload (`Docs/Plans/NOTE-a10b-authored-alias-prose-grounding.md`). A10c hardens selected-node detail hierarchy so summaries, aliases, and relationships appear before overlay/debug metadata (`Docs/Plans/NOTE-a10c-node-detail-hierarchy.md`). A10d clarifies authoring form choices by splitting table-known/player-visible visibility and adding relationship predicate coaching (`Docs/Plans/NOTE-a10d-authoring-form-clarity.md`).
+**Status (2026-07-07):** A10a dogfood report landed (`Docs/Reports/DOGFOOD-graph-object-authoring-a10-user-stories.md`). A10b addressed authored alias prose grounding after reload (`Docs/Plans/NOTE-a10b-authored-alias-prose-grounding.md`). A10c hardens selected-node detail hierarchy so summaries, aliases, and relationships appear before overlay/debug metadata (`Docs/Plans/NOTE-a10c-node-detail-hierarchy.md`). A10d clarifies authoring form choices by splitting table-known/player-visible visibility and adding relationship predicate coaching (`Docs/Plans/NOTE-a10d-authoring-form-clarity.md`). A10e streamlines the authoring surface by demoting selected-source and write metadata into collapsed details and bringing staged-memory prepare/commit controls closer to the GM workflow (`Docs/Plans/NOTE-a10e-authoring-layout-quiet-source.md`).
 
 ---
 

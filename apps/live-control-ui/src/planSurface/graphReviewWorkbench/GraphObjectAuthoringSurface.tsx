@@ -300,24 +300,37 @@ export function GraphObjectAuthoringSurface({
         </section>
       ) : null}
 
-      <GraphObjectAuthoringStagingTray
-        proposals={proposals}
-        onRemove={onRemoveProposal}
-        overlapContext={overlapContext}
-      />
+      <section
+        className="graph-object-authoring-review-staged-memory"
+        aria-label="Review staged memory"
+        data-testid="graph-object-authoring-review-staged-memory"
+      >
+        <header className="graph-object-authoring-review-staged-memory-header">
+          <h4>Review staged memory</h4>
+          <p className="graph-object-authoring-review-staged-memory-lede">
+            These drafts are local until you prepare and commit them.
+          </p>
+        </header>
 
-      {campaignId && sessionId && onCommittedProposals ? (
-        <GraphObjectAuthoringPrepareCommitPanel
-          campaignId={campaignId}
-          sessionId={sessionId}
-          campaignRel={campaignRel}
-          sourceRunId={sourceRunId}
-          sourceGraphId={sourceGraphId}
+        <GraphObjectAuthoringStagingTray
           proposals={proposals}
-          onCommitted={onCommittedProposals}
-          onRefreshProjection={onRefreshProjection}
+          onRemove={onRemoveProposal}
+          overlapContext={overlapContext}
         />
-      ) : null}
+
+        {campaignId && sessionId && onCommittedProposals ? (
+          <GraphObjectAuthoringPrepareCommitPanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            campaignRel={campaignRel}
+            sourceRunId={sourceRunId}
+            sourceGraphId={sourceGraphId}
+            proposals={proposals}
+            onCommitted={onCommittedProposals}
+            onRefreshProjection={onRefreshProjection}
+          />
+        ) : null}
+      </section>
     </section>
   );
 }

@@ -460,7 +460,9 @@ describe("GraphReviewLiveProjectionPanel", () => {
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(stagedProposal).toHaveTextContent("Questionable Company");
     expect(stagedProposal).toHaveTextContent("Aliases: gang");
-    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/These drafts are local until you prepare and commit them/i),
+    ).toBeInTheDocument();
   });
 
   it("lets the user target an existing graph object without first clicking to inspect it", async () => {
@@ -539,7 +541,9 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(relationshipProposal).toHaveAttribute("data-proposal-kind", "relationship");
     expect(relationshipProposal).toHaveTextContent("Alden");
     expect(relationshipProposal).toHaveTextContent("Questionable Company");
-    expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/These drafts are local until you prepare and commit them/i),
+    ).toBeInTheDocument();
 
     // Now select the "gang" text span and stage a link-existing proposal against
     // the same inspected node, alongside the relationship proposal above.
