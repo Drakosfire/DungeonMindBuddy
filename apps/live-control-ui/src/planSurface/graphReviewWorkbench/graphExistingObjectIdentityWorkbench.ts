@@ -49,12 +49,18 @@ export function setCanonicalCandidate(
 ): ExistingObjectIdentitySelectionState {
   const key = existingObjectCandidateKey(candidate);
   if (state.canonical?.candidate_id === key) {
-    return { ...state, canonical: null };
+    return state;
   }
   return {
     canonical: candidate,
     duplicates: state.duplicates.filter((item) => item.candidate_id !== key),
   };
+}
+
+export function clearCanonicalCandidate(
+  state: ExistingObjectIdentitySelectionState,
+): ExistingObjectIdentitySelectionState {
+  return { ...state, canonical: null };
 }
 
 export function toggleDuplicateCandidate(
@@ -220,4 +226,91 @@ export function candidateSelectionRole(
     return "duplicate";
   }
   return null;
+}
+
+export interface StoredIdentityWorkbenchState {
+  query: string;
+  canonicalCandidateId: string | null;
+  duplicateCandidateIds: string[];
+}
+
+export function identityWorkbenchStorageKey(scope: {
+  campaignId: string;
+  sessionId: string;
+}): string {
+  return `graph-existing-object-identity-workbench:${scope.campaignId}:${scope.sessionId}`;
+}
+
+export function readStoredIdentityWorkbenchState(
+  scope: { campaignId: string; sessionId: string } | undefined,
+): StoredIdentityWorkbenchState | null {
+  if (!scope || typeof sessionStorage === "undefined") {
+    return null;
+  }
+  try {
+    const raw = sessionStorage.getItem(identityWorkbenchStorageKey(scope));
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as StoredIdentityWorkbenchState;
+    if (typeof parsed.query !== "string") {
+      return null;
+    }
+    return {
+      query: parsed.query,
+      canonicalCandidateId:
+        typeof parsed.canonicalCandidateId === "string"
+          ? parsed.canonicalCandidateId
+          : null,
+      duplicateCandidateIds: Array.isArray(parsed.duplicateCandidateIds)
+        ? parsed.duplicateCandidateIds.filter((item): item is string => typeof item === "string")
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredIdentityWorkbenchState(
+  scope: { campaignId: string; sessionId: string } | undefined,
+  state: StoredIdentityWorkbenchState,
+): void {
+  if (!scope || typeof sessionStorage === "undefined") {
+    return;
+  }
+  const key = identityWorkbenchStorageKey(scope);
+  if (
+    !state.query.trim() &&
+    !state.canonicalCandidateId &&
+    state.duplicateCandidateIds.length === 0
+  ) {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  sessionStorage.setItem(key, JSON.stringify(state));
+}
+
+export function rehydrateIdentitySelection(
+  stored: Pick<StoredIdentityWorkbenchState, "canonicalCandidateId" | "duplicateCandidateIds">,
+  candidates: GraphReviewExistingObjectCandidate[],
+): ExistingObjectIdentitySelectionState {
+  const canonical =
+    stored.canonicalCandidateId != null
+      ? candidates.find((item) => item.candidate_id === stored.canonicalCandidateId) ?? null
+      : null;
+  const duplicates = stored.duplicateCandidateIds
+    .map((candidateId) => candidates.find((item) => item.candidate_id === candidateId) ?? null)
+    .filter((item): item is GraphReviewExistingObjectCandidate => item !== null);
+  return { canonical, duplicates };
+}
+
+export function serializeIdentitySelection(
+  query: string,
+  state: ExistingObjectIdentitySelectionState,
+): StoredIdentityWorkbenchState {
+  return {
+    query,
+    canonicalCandidateId: state.canonical?.candidate_id ?? null,
+    duplicateCandidateIds: state.duplicates.map((item) => item.candidate_id),
+  };
 }

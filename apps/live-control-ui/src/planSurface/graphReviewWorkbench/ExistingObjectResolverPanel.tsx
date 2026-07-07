@@ -21,13 +21,18 @@ import {
 import {
   buildSearchMergeStageInput,
   candidateSelectionRole,
+  clearCanonicalCandidate,
   clearIdentitySelection,
   createEmptyIdentitySelection,
   formatCandidateIdentitySubline,
   isSearchMergeAlreadyStaged,
   possibleDuplicateCount,
+  readStoredIdentityWorkbenchState,
+  rehydrateIdentitySelection,
+  serializeIdentitySelection,
   setCanonicalCandidate,
   toggleDuplicateCandidate,
+  writeStoredIdentityWorkbenchState,
   type ExistingObjectIdentitySelectionState,
   type SearchMergeStageInput,
 } from "./graphExistingObjectIdentityWorkbench";
@@ -123,13 +128,32 @@ export function ExistingObjectResolverPanel({
   const [stagedCandidateId, setStagedCandidateId] = useState<string | null>(
     null,
   );
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => {
+    const stored = readStoredIdentityWorkbenchState({ campaignId, sessionId });
+    return stored?.query ?? "";
+  });
   const [identitySelection, setIdentitySelection] =
     useState<ExistingObjectIdentitySelectionState>(createEmptyIdentitySelection());
   const [stageMergeFeedback, setStageMergeFeedback] = useState<
     "idle" | "staged" | "duplicate" | "blocked"
   >("idle");
   const stagedMergeSeenInOverlayRef = useRef(false);
+  const lastSearchQueryRef = useRef("");
+
+  const storageScope = useMemo(
+    () => ({ campaignId, sessionId }),
+    [campaignId, sessionId],
+  );
+
+  const persistIdentityWorkbenchState = (
+    nextQuery: string,
+    nextSelection: ExistingObjectIdentitySelectionState,
+  ) => {
+    writeStoredIdentityWorkbenchState(
+      storageScope,
+      serializeIdentitySelection(nextQuery, nextSelection),
+    );
+  };
 
   useEffect(() => {
     setStatus("idle");
@@ -139,7 +163,11 @@ export function ExistingObjectResolverPanel({
     setIdentitySelection(createEmptyIdentitySelection());
     setStageMergeFeedback("idle");
     stagedMergeSeenInOverlayRef.current = false;
-  }, [laneRole, projectionGraphId, liveRunManifestPath]);
+    lastSearchQueryRef.current = "";
+    sessionStorage.removeItem(
+      `graph-existing-object-identity-workbench:${campaignId}:${sessionId}`,
+    );
+  }, [campaignId, sessionId, laneRole]);
 
   const groupedCandidates = useMemo(
     () => groupCandidatesByScope(response?.candidates ?? []),
@@ -147,6 +175,7 @@ export function ExistingObjectResolverPanel({
   );
 
   const allCandidates = response?.candidates ?? [];
+  const searchPhrase = query.trim();
 
   const searchMergeInput = useMemo(
     () => buildSearchMergeStageInput(identitySelection, projectionGraphId),
@@ -166,9 +195,27 @@ export function ExistingObjectResolverPanel({
       return;
     }
     setStageMergeFeedback("idle");
-    setIdentitySelection(clearIdentitySelection());
+    const cleared = clearIdentitySelection();
+    setIdentitySelection(cleared);
+    persistIdentityWorkbenchState(searchPhrase, cleared);
     stagedMergeSeenInOverlayRef.current = false;
-  }, [overlayProposals, searchMergeInput, stageMergeFeedback]);
+  }, [overlayProposals, searchMergeInput, stageMergeFeedback, searchPhrase, storageScope]);
+
+  useEffect(() => {
+    if (!response?.candidates.length) {
+      return;
+    }
+    const stored = readStoredIdentityWorkbenchState(storageScope);
+    if (!stored || stored.query !== searchPhrase) {
+      return;
+    }
+    setIdentitySelection((prev) => {
+      if (prev.canonical || prev.duplicates.length > 0) {
+        return prev;
+      }
+      return rehydrateIdentitySelection(stored, response.candidates);
+    });
+  }, [response, searchPhrase, storageScope]);
 
   const canStageIdentityMerge = Boolean(onStageSearchMerge && searchMergeInput);
   const mergeAlreadyStaged = searchMergeInput
@@ -176,7 +223,6 @@ export function ExistingObjectResolverPanel({
     : false;
 
   const canStageLinkIntent = Boolean(linkSourceNode && onStageLinkIntent);
-  const searchPhrase = query.trim();
 
   const runResolver = () => {
     if (!searchPhrase) {
@@ -200,13 +246,24 @@ export function ExistingObjectResolverPanel({
     setStatus("loading");
     setError(null);
     setStagedCandidateId(null);
-    setIdentitySelection(createEmptyIdentitySelection());
-    setStageMergeFeedback("idle");
-    stagedMergeSeenInOverlayRef.current = false;
+    if (lastSearchQueryRef.current !== searchPhrase) {
+      setIdentitySelection(createEmptyIdentitySelection());
+      setStageMergeFeedback("idle");
+      stagedMergeSeenInOverlayRef.current = false;
+    }
+    lastSearchQueryRef.current = searchPhrase;
     void resolveGraphReviewExistingObjectCandidates(request)
       .then((next) => {
         setResponse(next);
         setStatus("ready");
+        const stored = readStoredIdentityWorkbenchState(storageScope);
+        if (stored?.query === searchPhrase) {
+          setIdentitySelection(
+            rehydrateIdentitySelection(stored, next.candidates),
+          );
+        } else {
+          persistIdentityWorkbenchState(searchPhrase, createEmptyIdentitySelection());
+        }
       })
       .catch((err) => {
         setResponse(null);
@@ -321,8 +378,10 @@ export function ExistingObjectResolverPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    setIdentitySelection(clearIdentitySelection());
+                    const cleared = clearIdentitySelection();
+                    setIdentitySelection(cleared);
                     setStageMergeFeedback("idle");
+                    persistIdentityWorkbenchState(searchPhrase, cleared);
                   }}
                 >
                   Clear selection
@@ -424,9 +483,14 @@ export function ExistingObjectResolverPanel({
                             type="button"
                             aria-pressed={selectionRole === "canonical"}
                             onClick={() => {
-                              setIdentitySelection((prev) =>
-                                setCanonicalCandidate(prev, candidate),
-                              );
+                              setIdentitySelection((prev) => {
+                                const next =
+                                  selectionRole === "canonical"
+                                    ? clearCanonicalCandidate(prev)
+                                    : setCanonicalCandidate(prev, candidate);
+                                persistIdentityWorkbenchState(searchPhrase, next);
+                                return next;
+                              });
                               setStageMergeFeedback("idle");
                             }}
                           >
@@ -439,9 +503,11 @@ export function ExistingObjectResolverPanel({
                             aria-pressed={selectionRole === "duplicate"}
                             disabled={selectionRole === "canonical"}
                             onClick={() => {
-                              setIdentitySelection((prev) =>
-                                toggleDuplicateCandidate(prev, candidate),
-                              );
+                              setIdentitySelection((prev) => {
+                                const next = toggleDuplicateCandidate(prev, candidate);
+                                persistIdentityWorkbenchState(searchPhrase, next);
+                                return next;
+                              });
                               setStageMergeFeedback("idle");
                             }}
                           >

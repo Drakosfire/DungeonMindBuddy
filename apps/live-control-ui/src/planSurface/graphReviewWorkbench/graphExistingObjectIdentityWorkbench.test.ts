@@ -15,6 +15,7 @@ import {
   createEmptyIdentitySelection,
   isSearchMergeAlreadyStaged,
   possibleDuplicateCount,
+  rehydrateIdentitySelection,
   searchMergePairKey,
   setCanonicalCandidate,
   toggleDuplicateCandidate,
@@ -92,9 +93,10 @@ describe("graphExistingObjectIdentityWorkbench", () => {
   it("tracks canonical and duplicate selection without self-overlap", () => {
     let state = createEmptyIdentitySelection();
     state = setCanonicalCandidate(state, lysandraParty);
+    state = setCanonicalCandidate(state, lysandraParty);
+    expect(state.canonical?.candidate_id).toBe("party:captain_lysandra_ironveil");
     state = toggleDuplicateCandidate(state, lysandraSession);
     expect(canStageSearchMerge(state)).toBe(true);
-    expect(state.canonical?.candidate_id).toBe("party:captain_lysandra_ironveil");
     expect(state.duplicates.map((item) => item.candidate_id)).toEqual([
       "node:lysandra",
     ]);
@@ -105,6 +107,20 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     state = setCanonicalCandidate(state, lysandraSession);
     expect(state.canonical?.candidate_id).toBe("node:lysandra");
     expect(state.duplicates).toHaveLength(0);
+  });
+
+  it("rehydrates identity selection from stored candidate ids", () => {
+    const restored = rehydrateIdentitySelection(
+      {
+        canonicalCandidateId: "party:captain_lysandra_ironveil",
+        duplicateCandidateIds: ["node:lysandra"],
+      },
+      [lysandraSession, lysandraParty, lysandraMemory],
+    );
+    expect(restored.canonical?.candidate_id).toBe("party:captain_lysandra_ironveil");
+    expect(restored.duplicates.map((item) => item.candidate_id)).toEqual([
+      "node:lysandra",
+    ]);
   });
 
   it("builds merge stage input for search-selected identity pairs", () => {
