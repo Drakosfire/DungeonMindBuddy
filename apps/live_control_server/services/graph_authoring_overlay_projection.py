@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -15,6 +16,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     AuthoredGraphObjectRef,
     AuthoredGraphOverlay,
     AuthoredGraphRelationshipAssertion,
+    GraphAuthoringSourceAnchor,
     GraphVisibilityPolicy,
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import (
@@ -31,9 +33,15 @@ from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
 )
-from graph_memory.projection.recap_projection import RecapGraphProjection
+from graph_memory.projection.recap_projection import (
+    RecapGraphProjection,
+    RecapProjectionMention,
+    splice_node_link_spans,
+)
 
 AUTHORED_SOURCE_DOMAIN = "authored_overlay"
+_LINK_EXISTING_MENTION_OPERATIONS = frozenset({"alias", "link_existing", "reference"})
+_DMB_NODE_LINK_PATTERN = re.compile(r"\[([^\]]*)\]\(dmb-node:([^)]+)\)")
 
 
 class GraphAuthoringOverlayDiagnostic(BaseModel):
@@ -52,6 +60,7 @@ class AuthoredOverlayProjectionSummary(BaseModel):
     overlay_path: str | None = None
     assertion_count: int = 0
     projected_node_count: int = 0
+    projected_link_existing_count: int = 0
     projected_relationship_count: int = 0
     diagnostics: list[GraphAuthoringOverlayDiagnostic] = Field(default_factory=list)
 
@@ -400,6 +409,285 @@ def build_authored_projection_relationship_views(
     return relationships
 
 
+def _spans_overlap(left: tuple[int, int], right: tuple[int, int]) -> bool:
+    return left[0] < right[1] and left[1] > right[0]
+
+
+def _collect_dmb_node_link_spans(markdown: str) -> list[tuple[int, int, str, str]]:
+    return [
+        (match.start(), match.end(), match.group(1), match.group(2))
+        for match in _DMB_NODE_LINK_PATTERN.finditer(markdown)
+    ]
+
+
+def _occupied_spans_from_markdown(markdown: str) -> list[tuple[int, int]]:
+    return [(start, end) for start, end, _, _ in _collect_dmb_node_link_spans(markdown)]
+
+
+def _link_existing_node_id(
+    assertion: AuthoredGraphLinkExistingAssertion,
+    *,
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    local_proposal_nodes: dict[str, str],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> str | None:
+    ref = assertion.existing_object_ref
+    if ref.ref_kind == "existing_graph_node" and ref.node_id and ref.node_id in merged_node_views:
+        return ref.node_id
+    return _resolve_object_ref_node_id(
+        ref,
+        existing_node_ids=set(merged_node_views.keys()),
+        local_proposal_nodes=local_proposal_nodes,
+        diagnostics=diagnostics,
+        assertion_id=assertion.assertion_id,
+        context="link_existing mention",
+    )
+
+
+def _normalize_context_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _context_prefers_span(
+    markdown: str,
+    span: tuple[int, int],
+    *,
+    source_anchor: GraphAuthoringSourceAnchor | None,
+) -> bool:
+    if source_anchor is None:
+        return False
+    before = (source_anchor.surrounding_text_before or "").strip()
+    after = (source_anchor.surrounding_text_after or "").strip()
+    if not before and not after:
+        return False
+    start, end = span
+    prefix_window = markdown[max(0, start - max(len(before) + 16, 48)) : start]
+    suffix_window = markdown[end : min(len(markdown), end + max(len(after) + 16, 48))]
+    local_context = _normalize_context_text(f"{prefix_window}{markdown[start:end]}{suffix_window}")
+    before_ok = not before or _normalize_context_text(before) in local_context
+    after_ok = not after or _normalize_context_text(after) in local_context
+    return before_ok and after_ok
+
+
+def _find_authored_alias_span_in_markdown(
+    markdown: str,
+    selected_text: str,
+    *,
+    source_anchor: GraphAuthoringSourceAnchor | None,
+    occupied: list[tuple[int, int]],
+) -> tuple[int, int] | None:
+    selected = selected_text.strip()
+    if not selected or not markdown:
+        return None
+
+    pattern = re.compile(rf"(?<![\w\[]){re.escape(selected)}(?![\w\]])", re.IGNORECASE)
+    candidates: list[tuple[int, int]] = []
+    for match in pattern.finditer(markdown):
+        span = match.span()
+        if any(_spans_overlap(span, used) for used in occupied):
+            continue
+        candidates.append(span)
+
+    if not candidates:
+        return None
+
+    if source_anchor is not None and len(candidates) > 1:
+        contextual = [
+            span for span in candidates if _context_prefers_span(markdown, span, source_anchor=source_anchor)
+        ]
+        if contextual:
+            return contextual[0]
+
+    return candidates[0]
+
+
+def _eligible_link_existing_for_mention(
+    assertion: AuthoredGraphAssertion,
+) -> AuthoredGraphLinkExistingAssertion | None:
+    if assertion.assertion_kind != "link_existing" or assertion.status != "authored":
+        return None
+    link_assertion: AuthoredGraphLinkExistingAssertion = assertion
+    if link_assertion.operation not in _LINK_EXISTING_MENTION_OPERATIONS:
+        return None
+    selected = (
+        link_assertion.normalized_selected_text
+        or link_assertion.selected_text
+        or (
+            link_assertion.source_anchor.normalized_selected_text
+            if link_assertion.source_anchor
+            else None
+        )
+        or (
+            link_assertion.source_anchor.selected_text
+            if link_assertion.source_anchor
+            else None
+        )
+    )
+    if not (selected or "").strip():
+        return None
+    return link_assertion
+
+
+def _apply_authored_link_existing_mentions(
+    projection: RecapGraphProjection,
+    overlay: AuthoredGraphOverlay,
+    *,
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> tuple[RecapGraphProjection, int]:
+    markdown = projection.markdown
+    if not markdown:
+        return projection, 0
+
+    active_assertions = [item for item in overlay.assertions if item.status == "authored"]
+    local_proposal_nodes = _local_proposal_node_map(active_assertions)
+    occupied = _occupied_spans_from_markdown(markdown)
+    pending_spans: list[tuple[int, int, str, str, AuthoredGraphLinkExistingAssertion]] = []
+
+    for assertion in active_assertions:
+        link_assertion = _eligible_link_existing_for_mention(assertion)
+        if link_assertion is None:
+            continue
+
+        selected = (
+            link_assertion.normalized_selected_text
+            or link_assertion.selected_text
+            or (
+                link_assertion.source_anchor.normalized_selected_text
+                if link_assertion.source_anchor
+                else ""
+            )
+            or (
+                link_assertion.source_anchor.selected_text
+                if link_assertion.source_anchor
+                else ""
+            )
+        ).strip()
+        node_id = _link_existing_node_id(
+            link_assertion,
+            merged_node_views=merged_node_views,
+            local_proposal_nodes=local_proposal_nodes,
+            diagnostics=diagnostics,
+        )
+        if not node_id:
+            continue
+
+        span = _find_authored_alias_span_in_markdown(
+            markdown,
+            selected,
+            source_anchor=link_assertion.source_anchor,
+            occupied=occupied,
+        )
+        if span is None:
+            conflicting_link = next(
+                (
+                    linked_node_id
+                    for _start, _end, link_label, linked_node_id in _collect_dmb_node_link_spans(
+                        markdown
+                    )
+                    if linked_node_id != node_id
+                    and link_label.strip().lower() == selected.lower()
+                ),
+                None,
+            )
+            if conflicting_link is not None:
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_mention_conflict",
+                        message=(
+                            f"Skipped authored alias {selected!r} because prose span already links to "
+                            f"{conflicting_link!r}."
+                        ),
+                        assertion_id=link_assertion.assertion_id,
+                    )
+                )
+            else:
+                diagnostics.append(
+                    GraphAuthoringOverlayDiagnostic(
+                        code="authored_alias_mention_skipped",
+                        message=(
+                            f"Could not safely locate selected text {selected!r} for authored alias mention."
+                        ),
+                        assertion_id=link_assertion.assertion_id,
+                        severity="info",
+                    )
+                )
+            continue
+
+        existing_node_at_span = next(
+            (
+                linked_node_id
+                for start, end, _link_label, linked_node_id in _collect_dmb_node_link_spans(markdown)
+                if _spans_overlap(span, (start, end))
+            ),
+            None,
+        )
+        if existing_node_at_span is not None:
+            if existing_node_at_span == node_id:
+                continue
+            diagnostics.append(
+                GraphAuthoringOverlayDiagnostic(
+                    code="authored_alias_mention_conflict",
+                    message=(
+                        f"Skipped authored alias {selected!r} because prose span already links to "
+                        f"{existing_node_at_span!r}."
+                    ),
+                    assertion_id=link_assertion.assertion_id,
+                )
+            )
+            continue
+
+        pending_spans.append((span[0], span[1], selected, node_id, link_assertion))
+        occupied.append(span)
+
+    if not pending_spans:
+        return projection, 0
+
+    splice_input = [(start, end, label, node_id) for start, end, label, node_id, _ in pending_spans]
+    projected_markdown, projected_offsets = splice_node_link_spans(markdown, splice_input)
+
+    existing_mentions = list(projection.mentions)
+    new_mentions: list[RecapProjectionMention] = []
+    grounded_count = 0
+
+    for (start, end, label, node_id, link_assertion), offset in zip(
+        pending_spans,
+        projected_offsets,
+    ):
+        if offset is None:
+            continue
+        grounded_count += 1
+        new_mentions.append(
+            RecapProjectionMention(
+                mention_id=f"authored-mention:{link_assertion.assertion_id}:{start}",
+                node_id=node_id,
+                label=label,
+                start_offset=offset[0],
+                end_offset=offset[1],
+                evidence_ref_ids=[],
+                source=AUTHORED_SOURCE_DOMAIN,
+                authored=True,
+                assertion_id=link_assertion.assertion_id,
+                operation=link_assertion.operation,
+                alias_text=label,
+                target_label=link_assertion.existing_object_ref.label,
+            )
+        )
+
+    if grounded_count == 0:
+        return projection, 0
+
+    return (
+        projection.model_copy(
+            update={
+                "markdown": projected_markdown,
+                "mentions": [*existing_mentions, *new_mentions],
+            }
+        ),
+        grounded_count,
+    )
+
+
 def apply_authored_overlay_to_graph_review_projection(
     projection: RecapGraphProjection,
     overlay: AuthoredGraphOverlay | None,
@@ -485,18 +773,36 @@ def apply_authored_overlay_to_graph_review_projection(
             update={"adjacency": [*source_view.adjacency, relationship]}
         )
 
+    projection_with_mentions, _grounded_alias_count = _apply_authored_link_existing_mentions(
+        projection,
+        overlay_for_projection,
+        merged_node_views=merged_node_views,
+        diagnostics=diagnostics,
+    )
+
     active_count = sum(
         1 for item in overlay_for_projection.assertions if item.status == "authored"
+    )
+    projected_object_count = sum(
+        1
+        for item in overlay_for_projection.assertions
+        if item.status == "authored" and item.assertion_kind == "object"
+    )
+    projected_link_existing_count = sum(
+        1
+        for item in overlay_for_projection.assertions
+        if item.status == "authored" and item.assertion_kind == "link_existing"
     )
     result_summary = AuthoredOverlayProjectionSummary(
         loaded=True,
         overlay_path=summary.overlay_path if summary else None,
         assertion_count=active_count,
-        projected_node_count=len(authored_nodes),
+        projected_node_count=projected_object_count,
+        projected_link_existing_count=projected_link_existing_count,
         projected_relationship_count=len(relationship_views),
         diagnostics=diagnostics,
     )
-    return projection.model_copy(update={"node_views": merged_node_views}), result_summary
+    return projection_with_mentions.model_copy(update={"node_views": merged_node_views}), result_summary
 
 
 def enrich_projection_payload_with_authored_overlay(
