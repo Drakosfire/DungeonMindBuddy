@@ -20,15 +20,41 @@ export interface GraphObjectAuthoringVisibilityOption {
 }
 
 export const GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS: GraphObjectAuthoringVisibilityOption[] = [
-  { value: "gm_private", label: "GM private" },
-  { value: "table_known", label: "Table known / player visible" },
+  {
+    value: "gm_private",
+    label: "GM private",
+    note: "Only the GM should see this. Safest default for prep, secrets, and uncertain memory.",
+  },
+  {
+    value: "table_known",
+    label: "Table known",
+    note: "The table knows this in play, but it is not necessarily intended for future player-facing tools yet.",
+  },
+  {
+    value: "player_visible",
+    label: "Player visible",
+    note: "Safe to show in future player-facing views.",
+  },
   {
     value: "character_specific",
     label: "Character-specific",
     note: "Targeting specific characters will be implemented later.",
   },
-  { value: "hidden_until_revealed", label: "Hidden until revealed" },
+  {
+    value: "hidden_until_revealed",
+    label: "Hidden until revealed",
+    note: "Keep hidden until a future reveal state marks it safe.",
+  },
 ];
+
+export function friendlyVisibilityLabel(
+  visibility: GraphObjectAuthoringVisibility | string,
+): string {
+  const option = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.find(
+    (candidate) => candidate.value === visibility,
+  );
+  return option?.label ?? visibility;
+}
 
 export const GRAPH_OBJECT_AUTHORING_DEFAULT_VISIBILITY: GraphObjectAuthoringVisibility = "gm_private";
 
@@ -383,20 +409,195 @@ export function buildGraphObjectAuthoringLinkExistingProposal(
   };
 }
 
-export const GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS: string[] = [
-  "has_member",
-  "member_of",
-  "located_in",
-  "controls",
-  "allied_with",
-  "opposes",
-  "owns",
-  "created_by",
-  "travels_with",
-  "protects",
-  "threatens",
-  "related_to",
+export interface GraphObjectAuthoringRelationshipTypeOption {
+  value: string;
+  label: string;
+  example: string;
+  note: string;
+}
+
+export const GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS: GraphObjectAuthoringRelationshipTypeOption[] = [
+  {
+    value: "has_member",
+    label: "has member",
+    example: "Questionable Company has member Bonogo",
+    note: "Use for group membership.",
+  },
+  {
+    value: "member_of",
+    label: "member of",
+    example: "Bonogo member of Questionable Company",
+    note: "Use when the selected source is the individual.",
+  },
+  {
+    value: "located_in",
+    label: "located in",
+    example: "Fleshbarn located in North Swamp",
+    note: "Use for places within places.",
+  },
+  {
+    value: "controls",
+    label: "controls",
+    example: "Shepherd cult controls Fleshbarn",
+    note: "Use for command, ownership, or operational control.",
+  },
+  {
+    value: "allied_with",
+    label: "allied with",
+    example: "Mireward defenders allied with the party",
+    note: "Use for friendly alignment.",
+  },
+  {
+    value: "opposes",
+    label: "opposes",
+    example: "Questionable Company opposes Shepherd cult",
+    note: "Use for active conflict.",
+  },
+  {
+    value: "owns",
+    label: "owns",
+    example: "Bonogo owns silver dagger",
+    note: "Use for possession.",
+  },
+  {
+    value: "created_by",
+    label: "created by",
+    example: "Flesh construct created by Shepherd cult",
+    note: "Use for origin or authorship.",
+  },
+  {
+    value: "travels_with",
+    label: "travels with",
+    example: "NPC travels with the group",
+    note: "Use for temporary party movement.",
+  },
+  {
+    value: "protects",
+    label: "protects",
+    example: "Mireward defenders protect North Gate",
+    note: "Use for defense or guardianship.",
+  },
+  {
+    value: "threatens",
+    label: "threatens",
+    example: "Tripod Null-Calf threatens North Gate",
+    note: "Use for danger or pressure.",
+  },
+  {
+    value: "related_to",
+    label: "related to",
+    example: "Festival curfew related to Shepherd threat",
+    note: "Use only when no clearer relationship fits.",
+  },
 ];
+
+export const GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_VALUES: string[] =
+  GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS.map((option) => option.value);
+
+const IDENTITY_LIKE_RELATIONSHIP_PREDICATES = new Set([
+  "same_as",
+  "same as",
+  "alias_of",
+  "duplicate_of",
+  "identity",
+  "equals",
+  "is",
+]);
+
+export function isKnownRelationshipType(value: string): boolean {
+  return GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_VALUES.includes(value);
+}
+
+export function relationshipTypeLabel(relationshipType: string): string {
+  const option = GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS.find(
+    (candidate) => candidate.value === relationshipType,
+  );
+  if (option) {
+    return option.label;
+  }
+  return relationshipType.trim().replaceAll("_", " ");
+}
+
+export function isIdentityLikeRelationshipPredicate(relationshipType: string): boolean {
+  const normalized = relationshipType.trim().toLowerCase().replaceAll("_", " ");
+  const compact = normalized.replaceAll(" ", "_");
+  return (
+    IDENTITY_LIKE_RELATIONSHIP_PREDICATES.has(normalized) ||
+    IDENTITY_LIKE_RELATIONSHIP_PREDICATES.has(compact)
+  );
+}
+
+export function areSameObjectRef(
+  left: GraphObjectAuthoringObjectRef | null | undefined,
+  right: GraphObjectAuthoringObjectRef | null | undefined,
+): boolean {
+  if (!left || !right) {
+    return false;
+  }
+  if (left.refKind === "existing_graph_node" && right.refKind === "existing_graph_node") {
+    return Boolean(left.nodeId && right.nodeId && left.nodeId === right.nodeId);
+  }
+  if (left.refKind === "local_proposal" && right.refKind === "local_proposal") {
+    return Boolean(
+      left.localProposalId &&
+        right.localProposalId &&
+        left.localProposalId === right.localProposalId,
+    );
+  }
+  if (left.refKind === "manual_ref" && right.refKind === "manual_ref") {
+    const leftLabel = left.label.trim().toLowerCase();
+    const rightLabel = right.label.trim().toLowerCase();
+    return Boolean(leftLabel && rightLabel && leftLabel === rightLabel);
+  }
+  return false;
+}
+
+export function formatAuthoringRelationshipStatement(
+  sourceLabel: string,
+  targetLabel: string,
+  relationshipType: string,
+  options: {
+    relationshipLabel?: string | null;
+    direction?: GraphObjectAuthoringRelationshipDirection;
+  } = {},
+): string {
+  const predicate = options.relationshipLabel?.trim() || relationshipTypeLabel(relationshipType);
+  if (options.direction === "undirected") {
+    return `${sourceLabel} related to ${targetLabel}`;
+  }
+  return `${sourceLabel} ${predicate} ${targetLabel}`;
+}
+
+export function relationshipPreviewCopy(
+  formState: GraphObjectAuthoringRelationshipFormState,
+): string {
+  const sourceLabel = formState.sourceObjectRef?.label.trim();
+  const targetLabel = formState.targetObjectRef?.label.trim();
+  const relationshipType = formState.relationshipType.trim();
+
+  if (!sourceLabel || !targetLabel) {
+    return "Choose two objects to preview the relationship.";
+  }
+  if (!relationshipType) {
+    return "Choose a relationship type to preview the statement.";
+  }
+
+  return formatAuthoringRelationshipStatement(sourceLabel, targetLabel, relationshipType, {
+    relationshipLabel: formState.relationshipLabel,
+    direction: formState.direction,
+  });
+}
+
+export function canStageRelationshipForm(
+  formState: GraphObjectAuthoringRelationshipFormState,
+): boolean {
+  return (
+    isValidObjectRef(formState.sourceObjectRef) &&
+    isValidObjectRef(formState.targetObjectRef) &&
+    Boolean(formState.relationshipType.trim()) &&
+    !areSameObjectRef(formState.sourceObjectRef, formState.targetObjectRef)
+  );
+}
 
 export interface GraphObjectAuthoringRelationshipFormState {
   sourceObjectRef: GraphObjectAuthoringObjectRef | null;
@@ -413,7 +614,7 @@ export function createDefaultGraphObjectAuthoringRelationshipFormState(): GraphO
   return {
     sourceObjectRef: null,
     targetObjectRef: null,
-    relationshipType: GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_OPTIONS[0],
+    relationshipType: GRAPH_OBJECT_AUTHORING_RELATIONSHIP_TYPE_VALUES[0],
     relationshipLabel: "",
     direction: "directed",
     summary: "",

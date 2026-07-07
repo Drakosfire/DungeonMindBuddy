@@ -120,7 +120,21 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
 
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposal).toHaveTextContent("Table known / player visible");
+    expect(stagedProposal).toHaveTextContent("Table known");
+  });
+
+  it("lets the user stage an object draft with player_visible visibility", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+
+    fireEvent.change(screen.getByLabelText("Visibility"), {
+      target: { value: "player_visible" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveTextContent("Player visible");
+    expect(stagedProposal).not.toHaveTextContent("player_visible");
   });
 
   it("shows no-write copy on the staging tray once a proposal is staged", () => {
@@ -219,8 +233,7 @@ describe("GraphObjectAuthoringSurface", () => {
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(stagedProposal).toHaveAttribute("data-proposal-kind", "relationship");
     expect(stagedProposal).toHaveTextContent("Bonogo");
-    expect(stagedProposal).toHaveTextContent("has_member");
-    expect(stagedProposal).toHaveTextContent("Questionable Company");
+    expect(stagedProposal).toHaveTextContent("has member Questionable Company");
     expect(screen.getByText("Staged locally. No graph write has happened.")).toBeInTheDocument();
   });
 
@@ -229,6 +242,7 @@ describe("GraphObjectAuthoringSurface", () => {
 
     const typeSelect = screen.getByLabelText("Relationship type") as HTMLSelectElement;
     const optionValues = Array.from(typeSelect.options).map((option) => option.value);
+    const optionLabels = Array.from(typeSelect.options).map((option) => option.textContent);
     expect(optionValues).toEqual([
       "has_member",
       "member_of",
@@ -244,9 +258,35 @@ describe("GraphObjectAuthoringSurface", () => {
       "related_to",
       "__custom__",
     ]);
+    expect(optionLabels).toContain("has member");
+    expect(optionLabels).toContain("threatens");
   });
 
   it("stages a custom relationship predicate when Custom is selected", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship type"), {
+      target: { value: "__custom__" },
+    });
+    fireEvent.change(screen.getByLabelText("Custom relationship type"), {
+      target: { value: "owes_debt_to" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
+    fireEvent.change(manualInputs[manualInputs.length - 1], {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
+
+    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent(
+      "Bonogo owes debt to Questionable Company",
+    );
+  });
+
+  it("shows identity guidance for custom same_as predicates without blocking staging", () => {
     render(<Harness />);
 
     fireEvent.change(screen.getByLabelText("Source object"), {
@@ -263,9 +303,85 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.change(manualInputs[manualInputs.length - 1], {
       target: { value: "Questionable Company" },
     });
+
+    expect(screen.getByTestId("graph-object-authoring-identity-predicate-warning")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeEnabled();
+  });
+
+  it("disables relationship staging when source and target are the exact same object", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
+    expect(screen.getByTestId("graph-object-authoring-same-object-warning")).toBeInTheDocument();
+  });
+
+  it("allows relationship staging when two nodes share a label but have different IDs", () => {
+    render(
+      <Harness
+        existingNodes={[
+          { node_id: "glowkindle-char", label: "Glowkindle", kind: "npc" },
+          { node_id: "glowkindle-faction", label: "Glowkindle", kind: "faction" },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:glowkindle-char" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), {
+      target: { value: "existing_node:glowkindle-faction" },
+    });
+
+    expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeEnabled();
+    expect(screen.queryByTestId("graph-object-authoring-same-object-warning")).not.toBeInTheDocument();
+  });
+
+  it("lets link-existing drafts use player_visible visibility", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
+
+    fireEvent.change(screen.getByLabelText("Existing object"), {
+      target: { value: "manual" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.change(screen.getByLabelText("Link visibility"), {
+      target: { value: "player_visible" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
+
+    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent(
+      "Player visible",
+    );
+  });
+
+  it("lets relationship drafts use player_visible visibility", () => {
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Source object"), {
+      target: { value: "existing_node:bonogo" },
+    });
+    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Type a label for an object not staged yet")[0], {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship visibility"), {
+      target: { value: "player_visible" },
+    });
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
 
-    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent("same_as");
+    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent(
+      "Player visible",
+    );
   });
 
   it("disables relationship staging until both object refs are chosen", () => {

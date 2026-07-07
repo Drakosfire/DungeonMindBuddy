@@ -17,6 +17,7 @@ import {
   type GraphObjectAuthoringOverlapContext,
 } from "./graphObjectAuthoringOverlap";
 import {
+  canStageRelationshipForm,
   isValidObjectRef,
   type GraphObjectAuthoringFormState,
   type GraphObjectAuthoringLinkExistingFormState,
@@ -108,9 +109,7 @@ export function GraphObjectAuthoringSurface({
     selectedSource && isValidObjectRef(linkExistingFormState?.existingObjectRef),
   );
   const canStageRelationship = Boolean(
-    isValidObjectRef(relationshipFormState?.sourceObjectRef) &&
-      isValidObjectRef(relationshipFormState?.targetObjectRef) &&
-      relationshipFormState?.relationshipType.trim(),
+    relationshipFormState && canStageRelationshipForm(relationshipFormState),
   );
 
   const overlapContext: GraphObjectAuthoringOverlapContext = useMemo(
