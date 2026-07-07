@@ -9,12 +9,19 @@ import {
   buildObjectRefFromInspectedNode,
   buildObjectRefFromObjectProposal,
   buildProposalAliases,
+  canStageRelationshipForm,
   createDefaultGraphObjectAuthoringFormState,
   createDefaultGraphObjectAuthoringLinkExistingFormState,
   createDefaultGraphObjectAuthoringRelationshipFormState,
   dedupeAliasesCaseInsensitive,
+  formatAuthoringRelationshipStatement,
+  friendlyVisibilityLabel,
+  GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS,
+  isIdentityLikeRelationshipPredicate,
+  areSameObjectRef,
   isValidObjectRef,
   parseAliasesText,
+  relationshipPreviewCopy,
 } from "./graphObjectAuthoringDraft";
 
 const baseSelection: GraphAuthoringSelection = {
@@ -135,6 +142,15 @@ describe("buildGraphObjectAuthoringProposal", () => {
     const proposal = buildGraphObjectAuthoringProposal(baseSelection, formState, "local-object-2");
     expect(proposal.visibility.visibilityNote).toMatch(/specific characters/i);
   });
+
+  it("preserves player_visible in the staged object payload", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringFormState(baseSelection),
+      visibility: "player_visible" as const,
+    };
+    const proposal = buildGraphObjectAuthoringProposal(baseSelection, formState, "local-object-player");
+    expect(proposal.visibility.visibility).toBe("player_visible");
+  });
 });
 
 describe("buildObjectRefFromObjectProposal / buildObjectRefFromInspectedNode / buildManualObjectRef", () => {
@@ -168,6 +184,11 @@ describe("buildObjectRefFromObjectProposal / buildObjectRefFromInspectedNode / b
       label: "Alden",
       kind: "npc",
       role: "gate warden",
+      graphScope: null,
+      sourceLabel: null,
+      sourceGraphId: null,
+      sourcePath: null,
+      visibility: null,
     });
   });
 
@@ -284,6 +305,16 @@ describe("buildGraphObjectAuthoringRelationshipProposal", () => {
     });
   });
 
+  it("returns null when source and target are the exact same object ref", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: sourceRef,
+      relationshipType: "has_member",
+    };
+    expect(buildGraphObjectAuthoringRelationshipProposal(formState)).toBeNull();
+  });
+
   it("carries an optional evidence selection through to provenance", () => {
     const formState = {
       ...createDefaultGraphObjectAuthoringRelationshipFormState(),
@@ -295,5 +326,78 @@ describe("buildGraphObjectAuthoringRelationshipProposal", () => {
 
     expect(proposal?.selection).toBe(baseSelection);
     expect(proposal?.provenancePreview.sourceGraphId).toBe("graph-c1s2");
+  });
+});
+
+describe("GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS", () => {
+  it("includes separate table_known and player_visible entries", () => {
+    const values = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.map((option) => option.value);
+    expect(values).toContain("table_known");
+    expect(values).toContain("player_visible");
+  });
+});
+
+describe("friendlyVisibilityLabel", () => {
+  it("maps raw enum values to friendly labels", () => {
+    expect(friendlyVisibilityLabel("player_visible")).toBe("Player visible");
+    expect(friendlyVisibilityLabel("table_known")).toBe("Table known");
+  });
+});
+
+describe("relationship guidance helpers", () => {
+  const sourceRef = buildManualObjectRef("the group");
+  const targetRef = buildObjectRefFromInspectedNode({ node_id: "north-gate", label: "North Gate" });
+
+  it("formats campaign-language relationship statements", () => {
+    expect(
+      formatAuthoringRelationshipStatement("the group", "North Gate", "threatens"),
+    ).toBe("the group threatens North Gate");
+  });
+
+  it("builds preview copy when source, target, and type are present", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: targetRef,
+      relationshipType: "threatens",
+    };
+    expect(relationshipPreviewCopy(formState)).toBe("the group threatens North Gate");
+  });
+
+  it("detects identity-like custom predicates", () => {
+    expect(isIdentityLikeRelationshipPredicate("same_as")).toBe(true);
+    expect(isIdentityLikeRelationshipPredicate("alias_of")).toBe(true);
+    expect(isIdentityLikeRelationshipPredicate("threatens")).toBe(false);
+  });
+
+  it("treats exact same existing node IDs as the same object ref", () => {
+    const ref = buildObjectRefFromInspectedNode({ node_id: "bonogo", label: "Bonogo" });
+    expect(areSameObjectRef(ref, ref)).toBe(true);
+  });
+
+  it("allows same label on different existing node IDs", () => {
+    const left = buildObjectRefFromInspectedNode({ node_id: "glowkindle-char", label: "Glowkindle" });
+    const right = buildObjectRefFromInspectedNode({ node_id: "glowkindle-faction", label: "Glowkindle" });
+    expect(areSameObjectRef(left, right)).toBe(false);
+  });
+
+  it("blocks staging when source and target are the exact same ref", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: sourceRef,
+      relationshipType: "threatens",
+    };
+    expect(canStageRelationshipForm(formState)).toBe(false);
+  });
+
+  it("allows staging when source and target differ", () => {
+    const formState = {
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: sourceRef,
+      targetObjectRef: targetRef,
+      relationshipType: "threatens",
+    };
+    expect(canStageRelationshipForm(formState)).toBe(true);
   });
 });

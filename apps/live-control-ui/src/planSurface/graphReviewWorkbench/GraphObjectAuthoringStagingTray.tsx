@@ -1,5 +1,6 @@
 import {
-  GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS,
+  friendlyVisibilityLabel,
+  formatAuthoringRelationshipStatement,
   type GraphObjectAuthoringLinkExistingProposal,
   type GraphObjectAuthoringObjectProposal,
   type GraphObjectAuthoringProposal,
@@ -14,10 +15,7 @@ import {
 function visibilityLabel(
   visibility: GraphObjectAuthoringProposal["visibility"]["visibility"],
 ): string {
-  const option = GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS.find(
-    (candidate) => candidate.value === visibility,
-  );
-  return option?.label ?? visibility;
+  return friendlyVisibilityLabel(visibility);
 }
 
 function objectRefDisplayLabel(ref: { label: string; kind?: string | null }): string {
@@ -73,17 +71,21 @@ function RelationshipProposalCard({
 }: {
   proposal: GraphObjectAuthoringRelationshipProposal;
 }) {
-  const arrow = proposal.direction === "directed" ? "→" : "↔";
+  const statement = formatAuthoringRelationshipStatement(
+    proposal.sourceObjectRef.label,
+    proposal.targetObjectRef.label,
+    proposal.relationshipType,
+    {
+      relationshipLabel: proposal.relationshipLabel,
+      direction: proposal.direction,
+    },
+  );
   return (
     <>
       <div className="graph-object-authoring-staging-tray-item-header">
         <span className="graph-object-authoring-staging-tray-item-kind-badge">Relationship</span>
-        <span className="graph-object-authoring-staging-tray-item-label">
-          {objectRefDisplayLabel(proposal.sourceObjectRef)} {proposal.relationshipType} {arrow}{" "}
-          {objectRefDisplayLabel(proposal.targetObjectRef)}
-        </span>
+        <span className="graph-object-authoring-staging-tray-item-label">{statement}</span>
       </div>
-      {proposal.relationshipLabel ? <p>Label: {proposal.relationshipLabel}</p> : null}
       {proposal.summary ? <p>{proposal.summary}</p> : null}
       <p>Visibility: {visibilityLabel(proposal.visibility.visibility)}</p>
       {proposal.selection ? <p>Selected source: “{proposal.selection.selectedText}”</p> : null}
