@@ -31,6 +31,7 @@ export interface GraphProjectionReaderProps {
   sourceNote?: string;
   className?: string;
   documentLabel?: string;
+  documentScroll?: "contained" | "page";
   resetKey?: string | null;
   nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
@@ -131,6 +132,7 @@ export function GraphProjectionReader({
   sourceNote,
   className,
   documentLabel = "Projected recap",
+  documentScroll = "contained",
   resetKey,
   nodeDeltaPresentations,
   sourceSpanDeltaOverlays,
@@ -248,7 +250,12 @@ export function GraphProjectionReader({
       ) : null}
 
       <div className={`recap-reader-layout union-supergraph-layout${explorerOpen ? " graph-explorer-open" : ""}`}>
-        <article className="recap-reader-document union-supergraph-recap-document" aria-label={documentLabel}>
+        <article
+          className={`recap-reader-document union-supergraph-recap-document${
+            documentScroll === "page" ? " recap-reader-document--page-scroll" : ""
+          }`}
+          aria-label={documentLabel}
+        >
           <ReadOnlyTiptapRecap
             markdown={markdown}
             nodeViews={nodeViews}

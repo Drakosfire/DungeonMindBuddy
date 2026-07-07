@@ -72,8 +72,8 @@ export function GraphReviewAuthoringReader({
         markdown={markdown}
         nodeViews={nodeViews}
         sourceSpans={sourceSpans}
-        graphId={graphId}
         documentLabel={documentLabel}
+        documentScroll="page"
         className="graph-review-authoring-reader"
         onInspectNode={onInspectNode}
         authoringEnabled={authoringEnabled}

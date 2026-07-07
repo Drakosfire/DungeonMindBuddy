@@ -7,6 +7,66 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph Review — review-only canvas + full-page authoring toolbox — captured 2026-07-07
+
+**Context:** A10f dogfood on longmont-c2 (2026-07-07). User verdict: the main review page should stay purely review; all authoring moves into the toolbox. When author mode is on, the layout expands to full page — live recap on the left, authoring tools on the right. Today there are three competing authoring surfaces (header **Author graph objects**, toolbox **Author Draft**, selected-object dialog actions) plus inline hover popover — confusing and disruptive.
+
+**Insight:** Review and authoring are different mental modes. Mixing them on the canvas (header toggle swaps live lane to `GraphReviewAuthoringReader`, shows raw `graph_id`, injects `GraphObjectAuthoringSurface` below prose) breaks the read flow. Authoring needs a dedicated full-width split: prose stays readable on the left; staging/prepare/commit/resolver/relationship tools live in a persistent right rail. Relationship staging should not require close-dialog → click second pill → reopen.
+
+**Action:** (1) Remove **Author graph objects** from the review header (or demote to “open authoring toolbox”). (2) Make toolbox Author Draft the single authoring entry — opening it sets author mode and expands to full-page split. (3) Review canvas: gold/live lanes, pill click → inspect-only selected-object surface (no stage actions). (4) Author mode: left = live recap (selection persists across objects), right = object/link/relationship forms + staging tray + prepare/commit + relationship source state (no dialog close to pick target). (5) Fix Author Draft mode toggle (see bug entry below).
+
+**Surfaces when:** `GraphReviewWorkbenchModule.tsx`, `GraphReviewLiveProjectionPanel.tsx`, `GraphReviewAuthorDraftToolPanel.tsx`, `GraphObjectAuthoringSurface.tsx`, projection/toolbox layout CSS.
+
+**Refs:** A10f dogfood, `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
+
+## [READY] Graph Review selected-object dialog — sticky close + dedupe identity — captured 2026-07-07
+
+**Context:** A10f dogfood. Selected-object popup repeats label/lane/kind three times (dialog header + card kicker + card kind line). Close button scrolls away when resolver/evidence sections expand — user must scroll up to dismiss. Kind and role often duplicate (e.g. `location / location`) with no explanation.
+
+**Insight:** Dialog header and `GraphReviewNodeGameCard` identity block say the same thing. For review mode the card alone is enough; dialog header should be chrome only (kicker + sticky Close). Show one object-type line — prefer human role over raw kind, hide when kind === role.
+
+**Action:** Sticky/floating close on `.graph-review-projected-interaction-surface`; strip redundant title block from dialog header (card owns identity); collapse kind/role to one friendly line; review mode hides Actions + resolver or moves resolver to collapsed technical section.
+
+**Surfaces when:** `GraphReviewProjectedInteractionSurface.tsx`, `GraphReviewNodeGameCard.tsx`, `planSurface.css`
+
+**Refs:** A10f dogfood
+
+## [IDEA] Graph Review — stage node removal assertion — captured 2026-07-07
+
+**Context:** A10f dogfood. User wants to remove a wrongly projected node from reviewed/authored memory. Not previously planned; user says it's time.
+
+**Insight:** Add/remove/edit symmetry matters for GM trust. Likely shape: `remove_node` or `retract_assertion` proposal type in authored overlay workflow (and eventually gold fixture path), staged like other memory assertions — local until prepare/commit.
+
+**Action:** Design minimal removal assertion (target node ref, optional reason, no hard delete of corpus prose). Backend schema + prepare/commit contract first, then one staging action on selected-object card in author mode.
+
+**Surfaces when:** authored overlay schema work, `GraphObjectAuthoringSurface`, graph gold authoring prepare API.
+
+**Refs:** `graphObjectAuthoringDraft.ts`, `src/graph_memory/` overlay write path
+
+## [IDEA] Graph Review — relationship pick without dialog churn — captured 2026-07-07
+
+**Context:** A10f dogfood. Staging a relationship requires click pill → use as source → close → click second pill → stage — “sucks.”
+
+**Insight:** Relationship source should persist in author rail while user clicks targets in prose; selected-object surface updates in place or a compact “target: Bera” chip appears in the rail — no modal close/reopen.
+
+**Action:** Pair with full-page authoring split (above). Hold `relationshipDraftSource` in author rail; pill clicks while source set auto-target; optional “pick target in prose” hint on live lane.
+
+**Surfaces when:** authoring toolbox full-page layout, `GraphReviewProjectedInteractionSurface.tsx`
+
+**Refs:** A10f dogfood
+
+## [IDEA] Graph Review bug — Author Draft toolbox toggle + graph_id header leak — captured 2026-07-07
+
+**Context:** A10f dogfood. (1) Author Draft mode toggle inside toolbox does not behave reliably. (2) Clicking **Author graph objects** on main header injects `longmont-c2:preview-union-supergraph` above live recap.
+
+**Insight:** (1) `GraphReviewAuthorDraftToolPanel` `useEffect` forces `author_draft` on every mount; Review button closes toolbox — toggle UX is broken/confusing vs canvas state. (2) `GraphReviewAuthoringReader` passes `graphId={projection.graph_id}` into `GraphProjectionReader`, which renders it in `.union-supergraph-graph-id` — internal ID leaked into GM-facing prose header.
+
+**Action:** Quick fix: stop passing `graphId` to reader in graph-review context (or hide graph-id span unless diagnostics tool). Fix toggle: opening Author Draft tool sets author mode; closing tool or explicit Review returns canvas to review-only; remove mount-only `useEffect` force or sync with toolbox open state.
+
+**Surfaces when:** `GraphReviewAuthorDraftToolPanel.tsx`, `GraphReviewAuthoringReader.tsx`, `GraphProjectionReader.tsx`
+
+**Refs:** A10f dogfood
+
 ## [IDEA] Rename Ingest Surface / Memory Ingest chrome — captured 2026-07-05
 
 **Context:** `/ingest` header simplified to static "Memory Ingest"; user noted the surface still needs a better product name now that it is a graph review workbench, not a recap-ingest landing page.
@@ -27,17 +87,17 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** `Docs/Plans/HANDOFF-c1s1-candidate-graph-gold.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Stonebridge and Glowkindle Rats.md` (canonical filename mismatches its own subtitle "Finishing the Job" — likely copy-pasted from Session 1 during the dogfood; rename before treating as canon)
 
-## [READY] Graph Review node-info duplication + authoring-action fold distance — captured 2026-07-05
+## [READY] Graph Review inline hover/card consolidation — captured 2026-07-07
 
-**Context:** Carried forward from `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md` (2026-07-03 live dogfood). Still true after this session's toolbox/load-dialog/live-only work, which addressed page-level clutter but not in-lane interaction clutter.
+**Context:** A10f moved selected-object actions into the node card and removed gold-fixture action copy from the normal selected-object path. The pill hover card and projected selected-object card still duplicate some summary content.
 
-**Insight:** Clicking a pill opens an inline `GraphNodeExplorer` popover *and* leaves a second, fuller "node game card" further down the same scroll — two overlapping presentations of the same object. Stage node/relationship actions and the existing-object resolver sit even further below that, past the node card. This is the literal "click a node, scroll, parse metadata" complaint, not yet fixed.
+**Insight:** Clicking a pill may still open an inline popover *and* a fuller selected-object dialog — two overlapping presentations of the same object. Actions and resolver ordering is improved, but hover vs projected card duplication remains.
 
-**Action:** Collapse popover + game card into one surface; pull stage-node/relationship/resolver actions up near the point of selection instead of after a long scroll.
+**Action:** Decide whether hover should become a tiny glance only, with the projected selected-object card as the sole full object surface.
 
-**Surfaces when:** `GraphReviewProjectedInteractionSurface.tsx`, `GraphReviewNodeGameCard.tsx`, `ExistingObjectResolverPanel.tsx`, any further Author Draft dogfood.
+**Surfaces when:** `GraphReviewProjectionLane.tsx`, hover/popover components, any further Graph Review dogfood.
 
-**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` (R4/R6), `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
+**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, A10f selected-object action card polish
 
 ## [IDEA] Tiptap-backed processed markdown reader with graph projection overlay — captured 2026-07-05
 

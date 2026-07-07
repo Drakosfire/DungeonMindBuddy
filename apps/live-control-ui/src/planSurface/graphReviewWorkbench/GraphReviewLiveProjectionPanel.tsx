@@ -87,6 +87,16 @@ export function GraphReviewLiveProjectionPanel({
     [projection, goldProjection],
   );
 
+  const relationshipDraftSourceLabel = useMemo(() => {
+    const source = authorDraft.relationshipDraftSource;
+    if (!source) return null;
+    const nodeViews =
+      source.laneRole === "gold"
+        ? goldProjection?.node_views
+        : projection?.node_views;
+    return nodeViews?.[source.nodeId]?.label ?? null;
+  }, [authorDraft.relationshipDraftSource, goldProjection, projection]);
+
   return (
     <section
       className={`graph-review-live-projection-panel${hasGold ? "" : " graph-review-live-only-projection-panel"}`}
@@ -279,6 +289,7 @@ export function GraphReviewLiveProjectionPanel({
             selectedRelationship={selectedRelationship}
             authorMode={authorMode}
             relationshipDraftSource={authorDraft.relationshipDraftSource}
+            relationshipDraftSourceLabel={relationshipDraftSourceLabel}
             relationshipPredicate={authorDraft.relationshipPredicate}
             onClose={() => setProjectedInteractionOpen(false)}
             onSelectRelationship={(relationship) =>

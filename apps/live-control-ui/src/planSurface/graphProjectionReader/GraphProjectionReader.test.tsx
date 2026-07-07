@@ -137,4 +137,41 @@ describe("GraphProjectionReader", () => {
       "author_object",
     );
   });
+
+  it("uses contained document scroll by default", async () => {
+    render(
+      <GraphProjectionReader
+        markdown="The gang arrived at the gate."
+        nodeViews={{}}
+        sourceSpans={[]}
+        documentLabel="Projected recap"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Projected recap")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Projected recap")).not.toHaveClass(
+      "recap-reader-document--page-scroll",
+    );
+  });
+
+  it("supports page scroll mode for embedded workbench readers", async () => {
+    render(
+      <GraphProjectionReader
+        markdown="The gang arrived at the gate."
+        nodeViews={{}}
+        sourceSpans={[]}
+        documentLabel="Live run prose"
+        documentScroll="page"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Live run prose")).toHaveClass(
+      "recap-reader-document--page-scroll",
+    );
+  });
 });

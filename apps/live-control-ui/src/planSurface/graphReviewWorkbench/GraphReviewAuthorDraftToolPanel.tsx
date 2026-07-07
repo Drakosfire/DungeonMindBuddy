@@ -1,12 +1,10 @@
 import { useEffect } from "react";
 
-import { useProjection } from "../projection/projectionContext";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 export function GraphReviewAuthorDraftToolPanel() {
-  const { close } = useProjection();
   const {
     campaignId,
     sessionId,
@@ -23,6 +21,9 @@ export function GraphReviewAuthorDraftToolPanel() {
 
   useEffect(() => {
     authorDraft.setAuthorMode("author_draft");
+    return () => {
+      authorDraft.setAuthorMode("review");
+    };
   }, [authorDraft.setAuthorMode]);
 
   if (projectionStatus !== "ready") {
@@ -46,10 +47,7 @@ export function GraphReviewAuthorDraftToolPanel() {
         <button
           type="button"
           aria-pressed={authorMode === "review"}
-          onClick={() => {
-            authorDraft.setAuthorMode("review");
-            close();
-          }}
+          onClick={() => authorDraft.setAuthorMode("review")}
         >
           Review
         </button>

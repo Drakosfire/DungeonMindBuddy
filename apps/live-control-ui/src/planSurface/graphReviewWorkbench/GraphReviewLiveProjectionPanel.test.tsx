@@ -266,7 +266,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     });
     fireEvent.click(liveAldenPill);
 
-    const dialog = screen.getByRole("dialog", { name: "Alden" });
+    const dialog = screen.getByRole("dialog", { name: "Selected object: Alden" });
     expect(dialog).toHaveTextContent("Selected object");
     expect(dialog).toHaveTextContent("Live Run · read-only");
     expect(dialog).toHaveTextContent(
@@ -284,7 +284,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
       screen.getByRole("button", { name: "Close selected object" }),
     );
     expect(
-      screen.queryByRole("dialog", { name: "Alden" }),
+      screen.queryByRole("dialog", { name: "Selected object: Alden" }),
     ).not.toBeInTheDocument();
   });
 
@@ -405,6 +405,11 @@ describe("GraphReviewLiveProjectionPanel", () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
+    expect(screen.getByLabelText("Live run prose")).toHaveClass(
+      "recap-reader-document--page-scroll",
+    );
+    expect(screen.queryByText("graph-a")).not.toBeInTheDocument();
+    expect(document.querySelector(".union-supergraph-graph-id")).not.toBeInTheDocument();
   });
 
   it("opens the graph object authoring surface from a Tiptap text selection and stages a local draft", async () => {

@@ -274,16 +274,16 @@ describe("GraphReviewWorkbenchModule", () => {
     await screen.findByText("Author Draft text-selection actions");
 
     fireEvent.click(screen.getAllByRole("button", { name: /Alden/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Alden" })).toHaveTextContent(
-      "Stage as possible gold node",
+    expect(screen.getByRole("dialog", { name: "Selected object: Alden" })).toHaveTextContent(
+      "Stage memory assertion",
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Use as relationship source" }),
     );
 
     fireEvent.click(screen.getAllByRole("button", { name: /Bera/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Bera" })).toHaveTextContent(
-      "Relationship source: live:alden",
+    expect(screen.getByRole("dialog", { name: "Selected object: Bera" })).toHaveTextContent(
+      "Relationship source: Alden",
     );
     expect(
       screen.getByRole("button", { name: "Stage relationship" }),

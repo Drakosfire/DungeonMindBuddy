@@ -1,9 +1,30 @@
 import type { GraphProjectionAdjacencyCandidate, GraphProjectionNodeView } from "../../api/types";
 import { GraphReviewRelationshipChips } from "./GraphReviewRelationshipChips";
 import {
+  GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
+  type GraphReviewRelationshipPredicate,
+} from "./graphReviewLocalAuthoringState";
+import {
   gameSummaryForNode,
   type GraphReviewSelectedNodeViewModel,
 } from "./graphReviewSelectionUtils";
+
+export type GraphReviewSelectedObjectAction = {
+  id: string;
+  label: string;
+  helpText?: string;
+  disabled?: boolean;
+  onClick: () => void;
+};
+
+export type GraphReviewNodeGameCardRelationshipStaging = {
+  predicate: GraphReviewRelationshipPredicate;
+  onPredicateChange: (predicate: GraphReviewRelationshipPredicate) => void;
+  canStageRelationship: boolean;
+  onStageRelationship: () => void;
+  relationshipDraftSourceLabel?: string | null;
+  sameObjectAsSource: boolean;
+};
 
 function isAuthoredNode(node: GraphProjectionNodeView): boolean {
   return Boolean(node.authored || node.source_domains.includes("authored_overlay"));
@@ -21,6 +42,15 @@ function laneBadgeCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
   }
   parts.push("read-only");
   return parts.join(" · ");
+}
+
+function objectTypeCopy(node: GraphProjectionNodeView): string {
+  const kind = node.kind?.trim();
+  const role = node.role?.trim();
+  if (kind && role && kind !== role) {
+    return `${kind} / ${role}`;
+  }
+  return kind || role || "Graph object";
 }
 
 const VISIBILITY_FRIENDLY_COPY: Record<string, string> = {
@@ -67,9 +97,7 @@ function NodeIdentityHeader({ viewModel }: { viewModel: GraphReviewSelectedNodeV
     <>
       <p className="plan-surface-kicker">{laneBadgeCopy(viewModel)}</p>
       <h4>{node.label}</h4>
-      <p className="graph-review-game-kind">
-        {[node.kind, node.role].filter(Boolean).join(" / ") || "Graph object"}
-      </p>
+      <p className="graph-review-game-kind">{objectTypeCopy(node)}</p>
     </>
   );
 }
@@ -131,25 +159,91 @@ function NodeRelationshipSection({
   );
 }
 
-function NodeUsefulSurfacesSection({
+function NodeActionsSection({
+  actions,
   deltaId,
   onSelectEvidenceDelta,
+  draftActionsNote,
+  relationshipStaging,
 }: {
+  actions: GraphReviewSelectedObjectAction[];
   deltaId?: string | null;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
+  draftActionsNote?: string;
+  relationshipStaging?: GraphReviewNodeGameCardRelationshipStaging;
 }) {
+  const evidenceAvailable = Boolean(deltaId && onSelectEvidenceDelta);
+  const hasActions = actions.length > 0 || evidenceAvailable;
+
+  if (!hasActions && !relationshipStaging) return null;
+
   return (
-    <section aria-label="Useful surfaces">
-      <h5>Useful surfaces</h5>
-      <div className="graph-review-card-actions">
-        <button
-          type="button"
-          onClick={() => onSelectEvidenceDelta?.(deltaId ?? null)}
-          disabled={!deltaId}
-        >
-          Inspect evidence/source
-        </button>
-      </div>
+    <section aria-label="Actions">
+      <h5>Actions</h5>
+      {draftActionsNote ? (
+        <p className="graph-review-muted graph-review-actions-note">{draftActionsNote}</p>
+      ) : null}
+      {hasActions ? (
+        <div className="graph-review-card-actions">
+          {actions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={action.onClick}
+              disabled={action.disabled}
+              title={action.helpText}
+            >
+              {action.label}
+            </button>
+          ))}
+          {evidenceAvailable ? (
+            <button
+              type="button"
+              onClick={() => onSelectEvidenceDelta?.(deltaId ?? null)}
+            >
+              Inspect evidence/source
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {relationshipStaging ? (
+        <div className="graph-review-relationship-staging-row">
+          <label>
+            Relationship type{" "}
+            <select
+              value={relationshipStaging.predicate}
+              onChange={(event) =>
+                relationshipStaging.onPredicateChange(
+                  event.target.value as GraphReviewRelationshipPredicate,
+                )
+              }
+            >
+              {GRAPH_REVIEW_RELATIONSHIP_PREDICATES.map((predicate) => (
+                <option key={predicate} value={predicate}>
+                  {predicate}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={relationshipStaging.onStageRelationship}
+            disabled={!relationshipStaging.canStageRelationship}
+          >
+            Stage relationship
+          </button>
+          {relationshipStaging.sameObjectAsSource ? (
+            <p className="graph-review-muted">
+              This object is already the relationship source. Choose a different
+              object as the target.
+            </p>
+          ) : relationshipStaging.relationshipDraftSourceLabel ? (
+            <p className="graph-review-muted">
+              Relationship source: {relationshipStaging.relationshipDraftSourceLabel}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -265,7 +359,9 @@ export function GraphReviewNodeGameCard({
   selectedEdgeId,
   onSelectRelationship,
   onSelectEvidenceDelta,
-  showUsefulSurfaces = true,
+  actions = [],
+  draftActionsNote,
+  relationshipStaging,
 }: {
   viewModel: GraphReviewSelectedNodeViewModel;
   selectedEdgeId: string | null;
@@ -273,7 +369,9 @@ export function GraphReviewNodeGameCard({
     relationship: GraphProjectionAdjacencyCandidate,
   ) => void;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
-  showUsefulSurfaces?: boolean;
+  actions?: GraphReviewSelectedObjectAction[];
+  draftActionsNote?: string;
+  relationshipStaging?: GraphReviewNodeGameCardRelationshipStaging;
 }) {
   const node = viewModel.node;
   const sourceAnchorShownAbove = Boolean(isAuthoredNode(node) && node.source_anchor_text);
@@ -291,12 +389,13 @@ export function GraphReviewNodeGameCard({
         selectedEdgeId={selectedEdgeId}
         onSelectRelationship={onSelectRelationship}
       />
-      {showUsefulSurfaces ? (
-        <NodeUsefulSurfacesSection
-          deltaId={viewModel.deltaId}
-          onSelectEvidenceDelta={onSelectEvidenceDelta}
-        />
-      ) : null}
+      <NodeActionsSection
+        actions={actions}
+        deltaId={viewModel.deltaId}
+        onSelectEvidenceDelta={onSelectEvidenceDelta}
+        draftActionsNote={draftActionsNote}
+        relationshipStaging={relationshipStaging}
+      />
       <NodeReviewStatusDetails viewModel={viewModel} />
       <NodeEvidenceSourceDetails
         node={node}

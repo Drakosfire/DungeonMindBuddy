@@ -1,10 +1,12 @@
 import { useEffect, type ReactNode } from "react";
 
 import type { GraphProjectionAdjacencyCandidate } from "../../api/types";
-import { GraphReviewNodeGameCard } from "./GraphReviewNodeGameCard";
+import {
+  GraphReviewNodeGameCard,
+  type GraphReviewSelectedObjectAction,
+} from "./GraphReviewNodeGameCard";
 import { GraphReviewRelationshipCard } from "./GraphReviewRelationshipCard";
 import {
-  GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
   type GraphReviewRelationshipPredicate,
 } from "./graphReviewLocalAuthoringState";
 import {
@@ -20,6 +22,7 @@ export function GraphReviewProjectedInteractionSurface({
   selectedRelationship,
   authorMode,
   relationshipDraftSource,
+  relationshipDraftSourceLabel,
   relationshipPredicate,
   resolver,
   onClose,
@@ -35,6 +38,7 @@ export function GraphReviewProjectedInteractionSurface({
   selectedRelationship: GraphReviewSelectedRelationship | null;
   authorMode: "review" | "author_draft";
   relationshipDraftSource: GraphReviewSelectedNode | null;
+  relationshipDraftSourceLabel?: string | null;
   relationshipPredicate: GraphReviewRelationshipPredicate;
   resolver?: ReactNode;
   onClose: () => void;
@@ -64,10 +68,40 @@ export function GraphReviewProjectedInteractionSurface({
     selectedNode.node,
     selectedRelationship,
   );
-  const canStageRelationship =
+  const sameObjectAsSource =
     Boolean(relationshipDraftSource) &&
-    (relationshipDraftSource?.laneRole !== selectedNode.laneRole ||
-      relationshipDraftSource?.nodeId !== selectedNode.node.node_id);
+    relationshipDraftSource?.laneRole === selectedNode.laneRole &&
+    relationshipDraftSource?.nodeId === selectedNode.node.node_id;
+  const canStageRelationship =
+    Boolean(relationshipDraftSource) && !sameObjectAsSource;
+
+  const cardActions: GraphReviewSelectedObjectAction[] =
+    authorMode === "author_draft"
+      ? [
+          {
+            id: "stage-memory-assertion",
+            label: "Stage memory assertion",
+            onClick: onStageNodeAssertion,
+          },
+          {
+            id: "use-as-relationship-source",
+            label: "Use as relationship source",
+            onClick: onUseAsRelationshipSource,
+          },
+        ]
+      : [];
+
+  const relationshipStaging =
+    authorMode === "author_draft"
+      ? {
+          predicate: relationshipPredicate,
+          onPredicateChange: onRelationshipPredicateChange,
+          canStageRelationship,
+          onStageRelationship,
+          relationshipDraftSourceLabel: relationshipDraftSourceLabel ?? null,
+          sameObjectAsSource,
+        }
+      : undefined;
 
   return (
     <div className="graph-review-projected-interaction-backdrop">
@@ -75,25 +109,10 @@ export function GraphReviewProjectedInteractionSurface({
         className="graph-review-projected-interaction-surface"
         role="dialog"
         aria-modal="false"
-        aria-labelledby="graph-review-projected-interaction-title"
+        aria-label={`Selected object: ${selectedNode.node.label}`}
       >
         <header className="graph-review-projected-interaction-header">
-          <div>
-            <p className="plan-surface-kicker">Selected object</p>
-            <h3 id="graph-review-projected-interaction-title">
-              {selectedNode.node.label}
-            </h3>
-            <p>
-              <span className="graph-review-lane-badge">
-                {selectedNode.laneRole === "gold"
-                  ? "Gold Fixture · read-only"
-                  : "Live Run · read-only"}
-              </span>{" "}
-              {[selectedNode.node.kind, selectedNode.node.role]
-                .filter(Boolean)
-                .join(" / ") || "Graph object"}
-            </p>
-          </div>
+          <p className="plan-surface-kicker">Selected object</p>
           <button
             type="button"
             aria-label="Close selected object"
@@ -108,75 +127,19 @@ export function GraphReviewProjectedInteractionSurface({
           selectedEdgeId={relationship?.edge_id ?? null}
           onSelectRelationship={onSelectRelationship}
           onSelectEvidenceDelta={onSelectEvidenceDelta}
-          showUsefulSurfaces={false}
+          actions={cardActions}
+          draftActionsNote={
+            authorMode === "author_draft"
+              ? "Draft actions are local until you prepare and commit them."
+              : undefined
+          }
+          relationshipStaging={relationshipStaging}
         />
         {relationship ? (
           <GraphReviewRelationshipCard
             sourceNode={selectedNode.node}
             relationship={relationship}
           />
-        ) : null}
-
-        {authorMode === "author_draft" ? (
-          <section
-            className="graph-review-author-draft-actions graph-review-projected-author-actions"
-            aria-label="Author Draft selected-object actions"
-          >
-            <h4>Author Draft actions</h4>
-            <p>
-              Author Draft lets you stage local corrections before anything is
-              written.
-            </p>
-            <p>
-              For a node, Stage node assertion records that this selected object
-              should exist in reviewed gold memory. For a relationship: choose
-              Use as relationship source on one object, click a second object as
-              the target, choose the relationship type, then stage the
-              relationship locally. Nothing is written until Prepare and Commit.
-            </p>
-            <p>
-              Draft only. Staging is local; no gold fixture, graph state, or
-              corpus file has changed.
-            </p>
-            <button type="button" onClick={onStageNodeAssertion}>
-              {selectedNode.laneRole === "live"
-                ? "Stage as possible gold node"
-                : "Stage node assertion"}
-            </button>
-            <button type="button" onClick={onUseAsRelationshipSource}>
-              Use as relationship source
-            </button>
-            <label>
-              Relationship type{" "}
-              <select
-                value={relationshipPredicate}
-                onChange={(event) =>
-                  onRelationshipPredicateChange(
-                    event.target.value as GraphReviewRelationshipPredicate,
-                  )
-                }
-              >
-                {GRAPH_REVIEW_RELATIONSHIP_PREDICATES.map((predicate) => (
-                  <option key={predicate} value={predicate}>
-                    {predicate}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={onStageRelationship}
-              disabled={!canStageRelationship}
-            >
-              Stage relationship
-            </button>
-            {relationshipDraftSource ? (
-              <p>
-                Relationship source: {relationshipDraftSource.laneRole}:
-                {relationshipDraftSource.nodeId}
-              </p>
-            ) : null}
-          </section>
         ) : null}
 
         <section className="graph-review-projected-resolver-section">

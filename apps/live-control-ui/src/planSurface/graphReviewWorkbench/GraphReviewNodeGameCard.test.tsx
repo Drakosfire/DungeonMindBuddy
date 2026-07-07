@@ -229,12 +229,116 @@ describe("GraphReviewNodeGameCard", () => {
     expect(within(aliasNote).queryByText(/table_known/i)).not.toBeInTheDocument();
   });
 
+  it("renders a single object type line when kind and role match", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { kind: "location", role: "location" })}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByLabelText(/the group game card/i);
+    expect(within(card).getByText("location")).toBeInTheDocument();
+    expect(within(card).queryByText("location / location")).not.toBeInTheDocument();
+  });
+
+  it("renders no Actions section when no actions are supplied and no evidence is available", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({ deltaId: null })}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Inspect evidence/source" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders supplied selected-object actions with accessible button labels", async () => {
+    const user = userEvent.setup();
+    const onStage = vi.fn();
+    const onUseAsSource = vi.fn();
+
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel()}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+        actions={[
+          {
+            id: "stage-memory",
+            label: "Stage memory assertion",
+            onClick: onStage,
+          },
+          {
+            id: "use-as-source",
+            label: "Use as relationship source",
+            onClick: onUseAsSource,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Stage memory assertion" }));
+    await user.click(screen.getByRole("button", { name: "Use as relationship source" }));
+    expect(onStage).toHaveBeenCalledOnce();
+    expect(onUseAsSource).toHaveBeenCalledOnce();
+  });
+
+  it("calls the evidence callback from Inspect evidence/source when available", async () => {
+    const user = userEvent.setup();
+    const onSelectEvidenceDelta = vi.fn();
+
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({ deltaId: "delta-1" })}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+        onSelectEvidenceDelta={onSelectEvidenceDelta}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Inspect evidence/source" }));
+    expect(onSelectEvidenceDelta).toHaveBeenCalledWith("delta-1");
+  });
+
+  it("disables Stage relationship when source and target are the same object", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel()}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+        relationshipStaging={{
+          predicate: "knows",
+          onPredicateChange: vi.fn(),
+          canStageRelationship: false,
+          onStageRelationship: vi.fn(),
+          relationshipDraftSourceLabel: "The group",
+          sameObjectAsSource: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Stage relationship" })).toBeDisabled();
+    expect(
+      screen.getByText(
+        /This object is already the relationship source\. Choose a different object as the target\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("uses inspect evidence/source action copy instead of open evidence/debug", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({ deltaId: "delta-1" })}
         selectedEdgeId={null}
         onSelectRelationship={vi.fn()}
+        onSelectEvidenceDelta={vi.fn()}
       />,
     );
 

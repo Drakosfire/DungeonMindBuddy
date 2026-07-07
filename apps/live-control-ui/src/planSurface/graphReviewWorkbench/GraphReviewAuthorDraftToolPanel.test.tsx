@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +13,25 @@ import type {
 } from "../../api/types";
 import { GraphReviewAuthorDraftToolPanel } from "./GraphReviewAuthorDraftToolPanel";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
+import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+
+function AuthorModeProbe() {
+  const { authorDraft } = useGraphReviewLiveState();
+  return <span data-testid="author-mode">{authorDraft.authorMode}</span>;
+}
+
+function AuthorDraftPanelHarness() {
+  const [showPanel, setShowPanel] = useState(true);
+  return (
+    <>
+      <button type="button" onClick={() => setShowPanel(false)}>
+        Hide author draft panel
+      </button>
+      {showPanel ? <GraphReviewAuthorDraftToolPanel /> : null}
+      <AuthorModeProbe />
+    </>
+  );
+}
 
 vi.mock("../../api/liveApi", async () => {
   const actual =
@@ -114,7 +134,7 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches back to review mode and closes via Review button", async () => {
+  it("switches back to review mode via Review button", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     const user = userEvent.setup();
 
@@ -139,6 +159,26 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
       expect(
         screen.getByRole("button", { name: "Author Draft", pressed: false }),
       ).toBeInTheDocument(),
+    );
+  });
+
+  it("returns to review mode when the author draft panel unmounts", async () => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    const user = userEvent.setup();
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      children: <AuthorDraftPanelHarness />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("author-mode")).toHaveTextContent("author_draft"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Hide author draft panel" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("author-mode")).toHaveTextContent("review"),
     );
   });
 });

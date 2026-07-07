@@ -1706,6 +1706,15 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 0.85rem;
 }
 
+.recap-reader-document.recap-reader-document--page-scroll {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
 .recap-reader-heading {
   color: var(--accent, #7aa2f7);
   font-size: 0.92rem;
@@ -4043,6 +4052,39 @@ body.plan-toolbox-open .plan-agent-shell {
   margin-top: 0.75rem;
 }
 
+.graph-review-actions-note {
+  margin: 0 0 0.35rem;
+}
+
+.graph-review-relationship-staging-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.graph-review-relationship-staging-row label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.graph-review-relationship-staging-row select {
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 0.45rem;
+  padding: 0.25rem 0.45rem;
+  background: rgba(15, 23, 42, 0.55);
+  color: inherit;
+}
+
+.graph-review-relationship-staging-row > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 @media (max-width: 1100px) {
   .graph-review-authoring-layout,
   .graph-review-authoring-lanes {
@@ -4846,16 +4888,29 @@ body.plan-toolbox-open .plan-agent-shell {
 }
 
 .graph-review-projected-interaction-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: flex-start;
+  align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  padding-bottom: 0.75rem;
+  padding: 0.75rem 0;
+  margin-bottom: 0.25rem;
+  background: rgba(15, 23, 42, 0.97);
+}
+
+.graph-review-projected-interaction-header .plan-surface-kicker {
+  margin: 0;
 }
 
 .graph-review-projected-interaction-header h3 {
   margin: 0.15rem 0;
+}
+
+.graph-review-projected-interaction-header > button {
+  flex-shrink: 0;
 }
 
 .graph-review-projected-interaction-header button,
