@@ -19,6 +19,12 @@ import {
 } from "./graphObjectMergeCandidates";
 import type { GraphProjectionNodeView } from "../../api/types";
 
+export const GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE =
+  "No staged memory yet. Create an object, link, relationship, or merge draft above.";
+
+export const GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE_WORKFLOW =
+  "No staged memory yet. Stage a draft from New object, Existing object, Merge candidates, or Relationships.";
+
 function visibilityLabel(
   visibility: GraphObjectAuthoringProposal["visibility"]["visibility"],
 ): string {
@@ -136,12 +142,14 @@ export function GraphObjectAuthoringStagingTray({
   overlapContext,
   projectionNodeViews,
   onReviewMerge,
+  emptyMessage = GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE,
 }: {
   proposals: GraphObjectAuthoringProposal[];
   onRemove: (localProposalId: string) => void;
   overlapContext?: GraphObjectAuthoringOverlapContext;
   projectionNodeViews?: Record<string, GraphProjectionNodeView> | null;
   onReviewMerge?: (candidate: GraphObjectMergeCandidate) => void;
+  emptyMessage?: string;
 }) {
   function overlapAction(
     proposal: GraphObjectAuthoringProposal,
@@ -172,9 +180,7 @@ export function GraphObjectAuthoringStagingTray({
   return (
     <div className="graph-object-authoring-staging-tray" aria-label="Staged memory drafts">
       {proposals.length === 0 ? (
-        <p className="graph-object-authoring-staging-tray-empty">
-          No staged memory yet. Create an object, link, relationship, or merge draft above.
-        </p>
+        <p className="graph-object-authoring-staging-tray-empty">{emptyMessage}</p>
       ) : (
         <ul className="graph-object-authoring-staging-tray-list">
           {proposals.map((proposal) => (

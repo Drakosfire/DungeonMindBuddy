@@ -62,6 +62,21 @@ function stagedProposalsStorageKey(scope: GraphObjectAuthoringDraftStorageScope)
   return `graph-object-authoring-staged:${scope.campaignId}:${scope.sessionId}`;
 }
 
+export function writeStagedProposalsToSession(
+  scope: GraphObjectAuthoringDraftStorageScope | undefined,
+  proposals: GraphObjectAuthoringProposal[],
+): void {
+  if (!scope || typeof sessionStorage === "undefined") {
+    return;
+  }
+  const key = stagedProposalsStorageKey(scope);
+  if (proposals.length === 0) {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  sessionStorage.setItem(key, JSON.stringify(proposals));
+}
+
 function readStagedProposalsFromSession(
   scope: GraphObjectAuthoringDraftStorageScope | undefined,
 ): GraphObjectAuthoringProposal[] {
@@ -100,15 +115,7 @@ export function useGraphObjectAuthoringDraft(
   );
 
   useEffect(() => {
-    if (!storageScope || typeof sessionStorage === "undefined") {
-      return;
-    }
-    const key = stagedProposalsStorageKey(storageScope);
-    if (proposals.length === 0) {
-      sessionStorage.removeItem(key);
-      return;
-    }
-    sessionStorage.setItem(key, JSON.stringify(proposals));
+    writeStagedProposalsToSession(storageScope, proposals);
   }, [proposals, storageScope]);
 
   const openWithSelection = useCallback((selection: GraphAuthoringSelection) => {
@@ -241,13 +248,21 @@ export function useGraphObjectAuthoringDraft(
   );
 
   const removeProposal = useCallback((localProposalId: string) => {
-    setProposals((prev) => prev.filter((proposal) => proposal.localProposalId !== localProposalId));
-  }, []);
+    setProposals((prev) => {
+      const next = prev.filter((proposal) => proposal.localProposalId !== localProposalId);
+      writeStagedProposalsToSession(storageScope, next);
+      return next;
+    });
+  }, [storageScope]);
 
   const clearCommittedProposals = useCallback((localProposalIds: string[]) => {
     const removeSet = new Set(localProposalIds);
-    setProposals((prev) => prev.filter((proposal) => !removeSet.has(proposal.localProposalId)));
-  }, []);
+    setProposals((prev) => {
+      const next = prev.filter((proposal) => !removeSet.has(proposal.localProposalId));
+      writeStagedProposalsToSession(storageScope, next);
+      return next;
+    });
+  }, [storageScope]);
 
   return {
     selectedSource,

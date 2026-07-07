@@ -8,7 +8,11 @@ import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverl
 import { GraphObjectAuthoringPrepareCommitPanel } from "./GraphObjectAuthoringPrepareCommitPanel";
 import { GraphObjectAuthoringRelationshipForm } from "./GraphObjectAuthoringRelationshipForm";
 import { GraphObjectAuthoringSelectedSource } from "./GraphObjectAuthoringSelectedSource";
-import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
+import {
+  GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE,
+  GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE_WORKFLOW,
+  GraphObjectAuthoringStagingTray,
+} from "./GraphObjectAuthoringStagingTray";
 import { GraphObjectAuthoringVisibilitySection } from "./GraphObjectAuthoringVisibilitySection";
 import {
   buildOverlapContextFromProjection,
@@ -190,9 +194,9 @@ export function GraphObjectAuthoringSurface({
           }
         : focusPanel === "stage_overlay"
           ? {
-              kicker: "Overlay drafts",
-              title: "Review staged overlay memory",
-              hint: "Prepare and commit when ready. No writes until commit.",
+              kicker: "Stage & commit",
+              title: "Review staged memory",
+              hint: "These drafts are local until you prepare and commit them. No graph writes until commit.",
             }
           : {
               kicker: "Graph object authoring",
@@ -346,12 +350,14 @@ export function GraphObjectAuthoringSurface({
         aria-label="Review staged memory"
         data-testid="graph-object-authoring-review-staged-memory"
       >
-        <header className="graph-object-authoring-review-staged-memory-header">
-          <h4>Review staged memory</h4>
-          <p className="graph-object-authoring-review-staged-memory-lede">
-            These drafts are local until you prepare and commit them.
-          </p>
-        </header>
+        {focusPanel !== "stage_overlay" ? (
+          <header className="graph-object-authoring-review-staged-memory-header">
+            <h4>Review staged memory</h4>
+            <p className="graph-object-authoring-review-staged-memory-lede">
+              These drafts are local until you prepare and commit them.
+            </p>
+          </header>
+        ) : null}
 
         <GraphObjectAuthoringStagingTray
           proposals={proposals}
@@ -359,6 +365,11 @@ export function GraphObjectAuthoringSurface({
           overlapContext={overlapContext}
           projectionNodeViews={projectionNodeViews}
           onReviewMerge={onReviewMerge}
+          emptyMessage={
+            focusPanel === "stage_overlay"
+              ? GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE_WORKFLOW
+              : GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE
+          }
         />
 
         {campaignId && sessionId && onCommittedProposals ? (

@@ -82,3 +82,49 @@ describe("useGraphObjectAuthoringDraft stageMergeProposal", () => {
     expect(result.current.proposals[0]?.proposalKind).toBe("merge_objects");
   });
 });
+
+describe("useGraphObjectAuthoringDraft clearCommittedProposals", () => {
+  it("clears sessionStorage synchronously so a remounted hook does not reload committed drafts", () => {
+    const scope = { campaignId: "longmont-c1", sessionId: "session-remount" };
+    const storageKey = `graph-object-authoring-staged:${scope.campaignId}:${scope.sessionId}`;
+    sessionStorage.removeItem(storageKey);
+
+    const { result, unmount } = renderHook(() => useGraphObjectAuthoringDraft(scope));
+    const survivorRef = buildObjectRefFromInspectedNode({
+      node_id: "hub",
+      label: "Hub",
+      kind: "npc",
+    });
+    const mergedRef = buildObjectRefFromInspectedNode({
+      node_id: "dup",
+      label: "Dup",
+      kind: "npc",
+    });
+
+    act(() => {
+      result.current.stageMergeProposal({
+        survivorObjectRef: survivorRef,
+        mergedObjectRefs: [mergedRef],
+        mergeReason: "test merge",
+        matchedFeatures: ["label"],
+      });
+    });
+
+    const proposalId = result.current.proposals[0]?.localProposalId;
+    expect(proposalId).toBeTruthy();
+    expect(sessionStorage.getItem(storageKey)).toBeTruthy();
+
+    act(() => {
+      result.current.clearCommittedProposals([proposalId!]);
+    });
+
+    expect(result.current.proposals).toHaveLength(0);
+    expect(sessionStorage.getItem(storageKey)).toBeNull();
+
+    unmount();
+
+    const { result: remounted } = renderHook(() => useGraphObjectAuthoringDraft(scope));
+    expect(remounted.current.proposals).toHaveLength(0);
+    sessionStorage.removeItem(storageKey);
+  });
+});
