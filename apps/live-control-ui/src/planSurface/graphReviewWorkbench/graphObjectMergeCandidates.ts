@@ -1,0 +1,286 @@
+import type { GraphProjectionNodeView } from "../../api/types";
+import { inferCandidateGraphScopeFromProjectionNode } from "./graphObjectCandidateScope";
+import {
+  areSameObjectRef,
+  buildObjectRefFromInspectedNode,
+  type GraphObjectAuthoringObjectRef,
+} from "./graphObjectAuthoringDraft";
+
+export type GraphObjectMergeCandidateConfidence = "high" | "medium" | "low";
+
+export interface GraphObjectMergeCandidate {
+  candidateId: string;
+  survivorObjectRef: GraphObjectAuthoringObjectRef;
+  mergedObjectRef: GraphObjectAuthoringObjectRef;
+  confidence: GraphObjectMergeCandidateConfidence;
+  matchedFeatures: string[];
+  reason: string;
+}
+
+export function normalizeMergeLabel(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collapsePunctuationVariants(text: string): string {
+  return normalizeMergeLabel(text).replace(/[-_]/g, " ");
+}
+
+function nodeTokens(node: GraphProjectionNodeView): Set<string> {
+  const tokens = new Set<string>();
+  const add = (value: string | null | undefined) => {
+    const normalized = normalizeMergeLabel(value ?? "");
+    if (normalized) {
+      tokens.add(normalized);
+    }
+    const collapsed = collapsePunctuationVariants(value ?? "");
+    if (collapsed) {
+      tokens.add(collapsed);
+    }
+  };
+  add(node.label);
+  for (const alias of node.aliases) {
+    add(alias);
+  }
+  add(node.source_anchor_text ?? null);
+  return tokens;
+}
+
+function kindsCompatible(left: GraphProjectionNodeView, right: GraphProjectionNodeView): boolean {
+  const leftKind = (left.kind || "unknown").trim().toLowerCase();
+  const rightKind = (right.kind || "unknown").trim().toLowerCase();
+  if (!leftKind || !rightKind || leftKind === "unknown" || rightKind === "unknown") {
+    return true;
+  }
+  return leftKind === rightKind;
+}
+
+function survivorScore(node: GraphProjectionNodeView): number {
+  let score = 0;
+  if (node.authored === true || node.source_domains.includes("authored_overlay")) {
+    score += 1000;
+  }
+  if (
+    node.source_domains.some((domain) =>
+      ["campaign_memory", "worldbuilding", "party_pc"].includes(domain),
+    )
+  ) {
+    score += 500;
+  }
+  score += (node.summary?.length ?? 0) / 10;
+  score += node.evidence_badges.length * 5;
+  score += node.adjacency.length * 2;
+  score += node.aliases.length;
+  return score;
+}
+
+function chooseSurvivor(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): { survivor: GraphProjectionNodeView; merged: GraphProjectionNodeView } {
+  const leftScore = survivorScore(left);
+  const rightScore = survivorScore(right);
+  if (leftScore > rightScore) {
+    return { survivor: left, merged: right };
+  }
+  if (rightScore > leftScore) {
+    return { survivor: right, merged: left };
+  }
+  if (left.node_id.localeCompare(right.node_id) <= 0) {
+    return { survivor: left, merged: right };
+  }
+  return { survivor: right, merged: left };
+}
+
+function sharedAdjacentLabels(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): string[] {
+  const leftLabels = new Set(left.adjacency.map((item) => normalizeMergeLabel(item.label)));
+  return right.adjacency
+    .map((item) => item.label)
+    .filter((label) => leftLabels.has(normalizeMergeLabel(label)));
+}
+
+function stripLeadingArticle(text: string): string {
+  return text.replace(/^(the|a|an)\s+/, "");
+}
+
+function labelsSimilar(left: string, right: string): boolean {
+  const leftNorm = normalizeMergeLabel(left);
+  const rightNorm = normalizeMergeLabel(right);
+  if (leftNorm === rightNorm) {
+    return true;
+  }
+  const leftCollapsed = stripLeadingArticle(collapsePunctuationVariants(left));
+  const rightCollapsed = stripLeadingArticle(collapsePunctuationVariants(right));
+  return Boolean(leftCollapsed && leftCollapsed === rightCollapsed);
+}
+
+function matchedFeaturesForPair(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): { features: string[]; confidence: GraphObjectMergeCandidateConfidence; reason: string } {
+  const leftTokens = nodeTokens(left);
+  const rightTokens = nodeTokens(right);
+  const features: string[] = [];
+  const warnings: string[] = [];
+
+  const leftNorm = normalizeMergeLabel(left.label);
+  const rightNorm = normalizeMergeLabel(right.label);
+
+  if (leftNorm && leftNorm === rightNorm) {
+    features.push("Exact normalized label match");
+  } else if (labelsSimilar(left.label, right.label)) {
+    features.push("Very similar label after punctuation/case trimming");
+  }
+
+  const aliasOverlap = [...leftTokens].filter(
+    (token) =>
+      rightTokens.has(token) &&
+      token !== leftNorm &&
+      token !== rightNorm &&
+      token !== stripLeadingArticle(leftNorm) &&
+      token !== stripLeadingArticle(rightNorm),
+  );
+  if (aliasOverlap.length) {
+    features.push(`Alias overlap: “${aliasOverlap[0]}”`);
+  }
+
+  if (left.kind && right.kind && left.kind === right.kind) {
+    features.push(`Same kind/role: ${left.kind}${left.role ? ` / ${left.role}` : ""}`);
+  } else if (left.kind && right.kind && left.kind !== right.kind) {
+    warnings.push(`Kind mismatch: ${left.kind} vs ${right.kind}`);
+  }
+
+  const leftAnchor = normalizeMergeLabel(left.source_anchor_text ?? "");
+  const rightAnchor = normalizeMergeLabel(right.source_anchor_text ?? "");
+  if (leftAnchor && leftAnchor === rightAnchor) {
+    features.push("Same source anchor text");
+  }
+
+  const sharedAdjacency = sharedAdjacentLabels(left, right);
+  if (sharedAdjacency.length) {
+    features.push(`Shared adjacent object: ${sharedAdjacency[0]}`);
+  }
+
+  if (features.length === 0) {
+    return {
+      features: [],
+      confidence: "low",
+      reason: "No duplicate signals matched",
+    };
+  }
+
+  const matchedFeatures = [...features, ...warnings];
+
+  let confidence: GraphObjectMergeCandidateConfidence = "low";
+  if (features.some((feature) => feature.startsWith("Exact normalized label"))) {
+    confidence = "high";
+  } else if (
+    features.some((feature) => feature.startsWith("Alias overlap")) ||
+    features.some((feature) => feature.startsWith("Same source anchor")) ||
+    features.some((feature) => feature.startsWith("Very similar label"))
+  ) {
+    confidence = "high";
+  } else if (features.some((feature) => feature.startsWith("Shared adjacent"))) {
+    confidence = "medium";
+  }
+
+  if (warnings.some((feature) => feature.startsWith("Kind mismatch"))) {
+    confidence = confidence === "high" ? "medium" : "low";
+  }
+
+  const reason = matchedFeatures.join("; ");
+
+  return { features: matchedFeatures, confidence, reason };
+}
+
+function objectRefFromNode(node: GraphProjectionNodeView): GraphObjectAuthoringObjectRef {
+  return buildObjectRefFromInspectedNode({
+    node_id: node.node_id,
+    label: node.label,
+    kind: node.kind,
+    role: node.role,
+    graphScope: inferCandidateGraphScopeFromProjectionNode(node),
+    sourceLabel: node.source_anchor_text ?? null,
+  });
+}
+
+export function buildMergeCandidateFromNodes(
+  left: GraphProjectionNodeView,
+  right: GraphProjectionNodeView,
+): GraphObjectMergeCandidate | null {
+  if (!left.node_id || !right.node_id || left.node_id === right.node_id) {
+    return null;
+  }
+
+  const { survivor, merged } = chooseSurvivor(left, right);
+  const { features, confidence, reason } = matchedFeaturesForPair(survivor, merged);
+  if (features.length === 0) {
+    return null;
+  }
+
+  const survivorRef = objectRefFromNode(survivor);
+  const mergedRef = objectRefFromNode(merged);
+  if (areSameObjectRef(survivorRef, mergedRef)) {
+    return null;
+  }
+
+  return {
+    candidateId: `${survivor.node_id}::${merged.node_id}`,
+    survivorObjectRef: survivorRef,
+    mergedObjectRef: mergedRef,
+    confidence,
+    matchedFeatures: features,
+    reason,
+  };
+}
+
+export function buildMergeCandidateFromPillAndExisting(
+  pillNode: GraphProjectionNodeView,
+  existingNode: GraphProjectionNodeView,
+): GraphObjectMergeCandidate | null {
+  return buildMergeCandidateFromNodes(pillNode, existingNode);
+}
+
+export function findProjectionMergeCandidates(
+  nodeViews: Record<string, GraphProjectionNodeView> | null | undefined,
+): GraphObjectMergeCandidate[] {
+  if (!nodeViews) {
+    return [];
+  }
+
+  const nodes = Object.values(nodeViews);
+  const candidates: GraphObjectMergeCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (let index = 0; index < nodes.length; index += 1) {
+    for (let inner = index + 1; inner < nodes.length; inner += 1) {
+      const candidate = buildMergeCandidateFromNodes(nodes[index], nodes[inner]);
+      if (!candidate) {
+        continue;
+      }
+      const key = `${candidate.survivorObjectRef.nodeId}::${candidate.mergedObjectRef.nodeId}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates.sort((left, right) => {
+    const rank = { high: 0, medium: 1, low: 2 };
+    const leftRank = rank[left.confidence];
+    const rightRank = rank[right.confidence];
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+    return left.survivorObjectRef.label.localeCompare(right.survivorObjectRef.label);
+  });
+}

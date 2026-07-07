@@ -73,6 +73,11 @@ function formatAssertionSummary(summary: GraphObjectAuthoringPrepareResponse["ov
       `${summary.relationship_count} relationship${summary.relationship_count === 1 ? "" : "s"}`,
     );
   }
+  if (summary.merge_objects_count) {
+    lines.push(
+      `${summary.merge_objects_count} identity merge${summary.merge_objects_count === 1 ? "" : "s"}`,
+    );
+  }
   return lines;
 }
 
@@ -101,7 +106,7 @@ function PreparePreviewPrimary({
       </p>
       <GraphObjectAuthoringOverlapWarnings
         warnings={toOverlapWarnings(prepared.diagnostics)}
-        title="Prepare overlap warnings"
+        title="Prepare review warnings"
       />
       <details
         className="graph-object-authoring-write-safety-details-panel"

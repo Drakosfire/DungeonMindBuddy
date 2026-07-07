@@ -5,6 +5,8 @@ import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringOb
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
+import { GraphReviewMergeCandidatesPanel } from "./GraphReviewMergeCandidatesPanel";
+import type { GraphObjectMergeCandidate } from "./graphObjectMergeCandidates";
 import { buildObjectRefFromInspectedNode } from "./graphObjectAuthoringDraft";
 import {
   formatGraphObjectType,
@@ -18,6 +20,7 @@ import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 export type AuthoringWorkflowTab =
   | "create_new"
   | "modify_existing"
+  | "merge_candidates"
   | "relationships"
   | "stage_commit";
 
@@ -76,6 +79,8 @@ export function GraphReviewAuthoringRail({
   );
 
   const [linkRecapPillEnabled, setLinkRecapPillEnabled] = useState(false);
+  const [focusedMergeCandidate, setFocusedMergeCandidate] =
+    useState<GraphObjectMergeCandidate | null>(null);
 
   useEffect(() => {
     setLinkRecapPillEnabled(false);
@@ -146,6 +151,17 @@ export function GraphReviewAuthoringRail({
           onClick={() => onActiveTabChange("modify_existing")}
         >
           Existing object
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="authoring-tab-merge-candidates"
+          aria-selected={activeTab === "merge_candidates"}
+          aria-controls="authoring-panel-merge-candidates"
+          className={activeTab === "merge_candidates" ? "is-active" : ""}
+          onClick={() => onActiveTabChange("merge_candidates")}
+        >
+          Merge candidates
         </button>
         <button
           type="button"
@@ -236,6 +252,9 @@ export function GraphReviewAuthoringRail({
                   ? selectedAuthoringViewModel.node
                   : null
               }
+              mergeReviewSourceNode={
+                selectedAuthoringViewModel ? selectedAuthoringViewModel.node : null
+              }
               projectionGraphId={projection?.graph_id ?? null}
               liveRunManifestPath={liveRun?.manifest_path ?? null}
               nodeViews={projection?.node_views ?? null}
@@ -256,8 +275,28 @@ export function GraphReviewAuthoringRail({
                   : undefined
               }
               onStageLinkIntentComplete={() => onActiveTabChange("stage_commit")}
+              onReviewMerge={(candidate) => {
+                setFocusedMergeCandidate(candidate);
+                onActiveTabChange("merge_candidates");
+              }}
             />
           </section>
+        </div>
+      ) : null}
+
+      {activeTab === "merge_candidates" ? (
+        <div
+          id="authoring-panel-merge-candidates"
+          role="tabpanel"
+          aria-labelledby="authoring-tab-merge-candidates"
+          className="graph-review-authoring-workflow-panel"
+        >
+          <GraphReviewMergeCandidatesPanel
+            nodeViews={projection?.node_views ?? null}
+            graphObjectAuthoringDraft={graphObjectAuthoringDraft}
+            selectedPillLabel={selectedAuthoringViewModel?.node.label ?? null}
+            focusedCandidate={focusedMergeCandidate}
+          />
         </div>
       ) : null}
 

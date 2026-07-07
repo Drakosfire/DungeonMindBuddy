@@ -2,6 +2,7 @@ import {
   friendlyVisibilityLabel,
   formatAuthoringRelationshipStatement,
   type GraphObjectAuthoringLinkExistingProposal,
+  type GraphObjectAuthoringMergeProposal,
   type GraphObjectAuthoringObjectProposal,
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipProposal,
@@ -93,6 +94,36 @@ function RelationshipProposalCard({
   );
 }
 
+function MergeProposalCard({ proposal }: { proposal: GraphObjectAuthoringMergeProposal }) {
+  const mergedLabels = proposal.mergedObjectRefs.map((ref) => ref.label).join(", ");
+  return (
+    <>
+      <div className="graph-object-authoring-staging-tray-item-header">
+        <span className="graph-object-authoring-staging-tray-item-kind-badge">Merge</span>
+        <span className="graph-object-authoring-staging-tray-item-label">
+          {proposal.survivorObjectRef.label} ← {mergedLabels}
+        </span>
+      </div>
+      <p>
+        Survivor: <strong>{proposal.survivorObjectRef.label}</strong>
+      </p>
+      <p>Merged-away: {mergedLabels}</p>
+      {proposal.matchedFeatures.length ? (
+        <p>Matched features: {proposal.matchedFeatures.join(", ")}</p>
+      ) : null}
+      <p>
+        Policy: preserve aliases, relationships, and evidence ({proposal.aliasPolicy},{" "}
+        {proposal.relationshipPolicy}, {proposal.evidencePolicy})
+      </p>
+      <p className="graph-review-info">
+        Merge staged locally. No objects have been deleted. Commit will write an
+        identity merge assertion.
+      </p>
+      <p>Status: staged local</p>
+    </>
+  );
+}
+
 export function GraphObjectAuthoringStagingTray({
   proposals,
   onRemove,
@@ -106,7 +137,7 @@ export function GraphObjectAuthoringStagingTray({
     <div className="graph-object-authoring-staging-tray" aria-label="Staged memory drafts">
       {proposals.length === 0 ? (
         <p className="graph-object-authoring-staging-tray-empty">
-          No staged memory yet. Create an object, link, or relationship draft above.
+          No staged memory yet. Create an object, link, relationship, or merge draft above.
         </p>
       ) : (
         <ul className="graph-object-authoring-staging-tray-list">
@@ -125,6 +156,9 @@ export function GraphObjectAuthoringStagingTray({
               ) : null}
               {proposal.proposalKind === "relationship" ? (
                 <RelationshipProposalCard proposal={proposal} />
+              ) : null}
+              {proposal.proposalKind === "merge_objects" ? (
+                <MergeProposalCard proposal={proposal} />
               ) : null}
               {overlapContext ? (
                 <GraphObjectAuthoringOverlapWarnings

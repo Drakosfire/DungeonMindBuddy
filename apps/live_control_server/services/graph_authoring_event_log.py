@@ -23,6 +23,7 @@ GraphAuthoringEventKind = Literal[
     "authored_graph_object_committed",
     "authored_graph_link_existing_committed",
     "authored_graph_relationship_committed",
+    "authored_graph_merge_objects_committed",
 ]
 
 
@@ -63,6 +64,8 @@ def _event_kind_for_assertion(assertion: AuthoredGraphAssertion) -> GraphAuthori
         return "authored_graph_object_committed"
     if assertion.assertion_kind == "link_existing":
         return "authored_graph_link_existing_committed"
+    if assertion.assertion_kind == "merge_objects":
+        return "authored_graph_merge_objects_committed"
     return "authored_graph_relationship_committed"
 
 
@@ -74,6 +77,9 @@ def _assertion_summary(assertion: AuthoredGraphAssertion) -> str:
             f"Link existing: {assertion.selected_text} → "
             f"{assertion.existing_object_ref.label}"
         )
+    if assertion.assertion_kind == "merge_objects":
+        merged_labels = ", ".join(ref.label for ref in assertion.merged_object_refs)
+        return f"Merge: {assertion.survivor_object_ref.label} ← {merged_labels}"
     return (
         f"Relationship: {assertion.source_object_ref.label} "
         f"{assertion.relationship_type} {assertion.target_object_ref.label}"

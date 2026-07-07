@@ -4408,6 +4408,72 @@ body.plan-toolbox-open .plan-agent-shell {
   margin: 0.15rem 0 0;
 }
 
+.graph-review-merge-candidates-panel {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.graph-review-merge-candidates-scan-action {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-review-merge-candidate-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.graph-review-merge-candidate-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 0.75rem;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.graph-review-merge-candidate-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.graph-review-merge-candidate-pane h4 {
+  margin: 0 0 0.35rem;
+}
+
+.graph-review-merge-candidate-details {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.graph-review-merge-candidate-details dt {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.graph-review-merge-candidate-details dd {
+  margin: 0;
+}
+
+.graph-review-merge-candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .graph-review-merge-candidate-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
 .graph-review-authoring-selected-object-summary {
   display: grid;
   gap: 0.35rem;

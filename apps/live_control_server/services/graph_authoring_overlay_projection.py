@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from apps.live_control_server.models.graph_authoring_overlay import (
     AuthoredGraphAssertion,
     AuthoredGraphLinkExistingAssertion,
+    AuthoredGraphMergeObjectsAssertion,
     AuthoredGraphObjectAssertion,
     AuthoredGraphObjectRef,
     AuthoredGraphOverlay,
@@ -62,6 +63,7 @@ class AuthoredOverlayProjectionSummary(BaseModel):
     projected_node_count: int = 0
     projected_link_existing_count: int = 0
     projected_relationship_count: int = 0
+    projected_merge_objects_count: int = 0
     diagnostics: list[GraphAuthoringOverlayDiagnostic] = Field(default_factory=list)
 
 
@@ -550,6 +552,178 @@ def _eligible_link_existing_for_mention(
     return link_assertion
 
 
+def _resolve_merge_target(node_id: str, merge_map: dict[str, str]) -> str:
+    seen: set[str] = set()
+    current = node_id
+    while current in merge_map and current not in seen:
+        seen.add(current)
+        current = merge_map[current]
+    return current
+
+
+def _transitive_merge_map(raw_map: dict[str, str]) -> dict[str, str]:
+    if not raw_map:
+        return {}
+    resolved: dict[str, str] = {}
+    for merged_id in raw_map:
+        survivor = _resolve_merge_target(merged_id, raw_map)
+        if survivor != merged_id:
+            resolved[merged_id] = survivor
+    return resolved
+
+
+def _build_merge_node_id_map(
+    overlay: AuthoredGraphOverlay,
+    *,
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    diagnostics: list[GraphAuthoringOverlayDiagnostic],
+) -> dict[str, str]:
+    active_assertions = [item for item in overlay.assertions if item.status == "authored"]
+    local_proposal_nodes = _local_proposal_node_map(active_assertions)
+    existing_node_ids = set(merged_node_views.keys())
+    raw_map: dict[str, str] = {}
+
+    for assertion in active_assertions:
+        if assertion.assertion_kind != "merge_objects":
+            continue
+        merge_assertion: AuthoredGraphMergeObjectsAssertion = assertion
+        survivor_id = _resolve_object_ref_node_id(
+            merge_assertion.survivor_object_ref,
+            existing_node_ids=existing_node_ids,
+            local_proposal_nodes=local_proposal_nodes,
+            diagnostics=diagnostics,
+            assertion_id=merge_assertion.assertion_id,
+            context="merge survivor",
+        )
+        if not survivor_id:
+            continue
+        for merged_ref in merge_assertion.merged_object_refs:
+            merged_id = _resolve_object_ref_node_id(
+                merged_ref,
+                existing_node_ids=existing_node_ids,
+                local_proposal_nodes=local_proposal_nodes,
+                diagnostics=diagnostics,
+                assertion_id=merge_assertion.assertion_id,
+                context="merge merged-away",
+            )
+            if not merged_id or merged_id == survivor_id:
+                continue
+            raw_map[merged_id] = survivor_id
+
+    return _transitive_merge_map(raw_map)
+
+
+def _merge_node_view_into_survivor(
+    survivor: GraphProjectionNodeView,
+    merged: GraphProjectionNodeView,
+) -> GraphProjectionNodeView:
+    merged_aliases = list(survivor.aliases)
+    for alias in merged.aliases:
+        if alias not in merged_aliases:
+            merged_aliases.append(alias)
+    if merged.label and merged.label not in merged_aliases and merged.label != survivor.label:
+        merged_aliases.append(merged.label)
+
+    merged_evidence = list(survivor.evidence_badges)
+    seen_evidence = {badge.evidence_ref_id for badge in merged_evidence}
+    for badge in merged.evidence_badges:
+        if badge.evidence_ref_id in seen_evidence:
+            continue
+        merged_evidence.append(badge)
+        seen_evidence.add(badge.evidence_ref_id)
+
+    merged_domains = list(survivor.source_domains)
+    for domain in merged.source_domains:
+        if domain not in merged_domains:
+            merged_domains.append(domain)
+
+    merged_adjacency = list(survivor.adjacency)
+    existing_edge_ids = {item.edge_id for item in merged_adjacency}
+    for adj in merged.adjacency:
+        if adj.edge_id not in existing_edge_ids:
+            merged_adjacency.append(adj)
+            existing_edge_ids.add(adj.edge_id)
+
+    summary = survivor.summary or merged.summary
+    return survivor.model_copy(
+        update={
+            "aliases": merged_aliases,
+            "evidence_badges": merged_evidence,
+            "source_domains": merged_domains,
+            "adjacency": merged_adjacency,
+            "summary": summary,
+            "authored": getattr(survivor, "authored", False) or getattr(merged, "authored", False),
+        }
+    )
+
+
+def _redirect_markdown_node_links(markdown: str, merge_map: dict[str, str]) -> str:
+    if not merge_map:
+        return markdown
+
+    def replace_node_id(match: re.Match[str]) -> str:
+        label = match.group(1)
+        node_id = match.group(2)
+        redirected = _resolve_merge_target(node_id, merge_map)
+        if redirected == node_id:
+            return match.group(0)
+        return f"[{label}](dmb-node:{redirected})"
+
+    return _DMB_NODE_LINK_PATTERN.sub(replace_node_id, markdown)
+
+
+def _apply_merge_map_to_node_views(
+    merged_node_views: dict[str, GraphProjectionNodeView],
+    merge_map: dict[str, str],
+) -> dict[str, GraphProjectionNodeView]:
+    if not merge_map:
+        return merged_node_views
+
+    result = dict(merged_node_views)
+    for merged_id, survivor_id in merge_map.items():
+        if merged_id not in result or survivor_id not in result:
+            continue
+        survivor = result[survivor_id]
+        merged = result[merged_id]
+        result[survivor_id] = _merge_node_view_into_survivor(survivor, merged)
+
+    for merged_id in merge_map:
+        result.pop(merged_id, None)
+
+    return result
+
+
+def _apply_merge_map_to_projection(
+    projection: RecapGraphProjection,
+    merge_map: dict[str, str],
+    merged_node_views: dict[str, GraphProjectionNodeView],
+) -> tuple[RecapGraphProjection, dict[str, GraphProjectionNodeView], int]:
+    if not merge_map:
+        return projection, merged_node_views, 0
+
+    updated_views = _apply_merge_map_to_node_views(merged_node_views, merge_map)
+    redirected_markdown = _redirect_markdown_node_links(projection.markdown, merge_map)
+    updated_mentions = [
+        mention.model_copy(
+            update={
+                "node_id": _resolve_merge_target(mention.node_id, merge_map),
+            }
+        )
+        for mention in projection.mentions
+    ]
+
+    return (
+        projection.model_copy(
+            update={
+                "markdown": redirected_markdown,
+                "mentions": updated_mentions,
+            }
+        ),
+        updated_views,
+        len(merge_map),
+    )
+
+
 def _apply_authored_link_existing_mentions(
     projection: RecapGraphProjection,
     overlay: AuthoredGraphOverlay,
@@ -826,6 +1000,17 @@ def apply_authored_overlay_to_graph_review_projection(
         diagnostics=diagnostics,
     )
 
+    merge_map = _build_merge_node_id_map(
+        overlay_for_projection,
+        merged_node_views=merged_node_views,
+        diagnostics=diagnostics,
+    )
+    projection_with_mentions, merged_node_views, projected_merge_count = _apply_merge_map_to_projection(
+        projection_with_mentions,
+        merge_map,
+        merged_node_views,
+    )
+
     active_count = sum(
         1 for item in overlay_for_projection.assertions if item.status == "authored"
     )
@@ -839,6 +1024,11 @@ def apply_authored_overlay_to_graph_review_projection(
         for item in overlay_for_projection.assertions
         if item.status == "authored" and item.assertion_kind == "link_existing"
     )
+    projected_merge_assertion_count = sum(
+        1
+        for item in overlay_for_projection.assertions
+        if item.status == "authored" and item.assertion_kind == "merge_objects"
+    )
     result_summary = AuthoredOverlayProjectionSummary(
         loaded=True,
         overlay_path=summary.overlay_path if summary else None,
@@ -846,6 +1036,7 @@ def apply_authored_overlay_to_graph_review_projection(
         projected_node_count=projected_object_count,
         projected_link_existing_count=projected_link_existing_count,
         projected_relationship_count=len(relationship_views),
+        projected_merge_objects_count=projected_merge_count or projected_merge_assertion_count,
         diagnostics=diagnostics,
     )
     return projection_with_mentions.model_copy(update={"node_views": merged_node_views}), result_summary

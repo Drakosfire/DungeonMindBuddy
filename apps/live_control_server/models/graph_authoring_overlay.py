@@ -46,7 +46,7 @@ GraphAuthoringSourceAnchorKind = Literal[
     "relationship_context",
 ]
 
-AuthoredGraphAssertionKind = Literal["object", "link_existing", "relationship"]
+AuthoredGraphAssertionKind = Literal["object", "link_existing", "relationship", "merge_objects"]
 
 AuthoredGraphAssertionStatus = Literal["authored", "superseded", "retracted"]
 
@@ -274,10 +274,67 @@ class AuthoredGraphRelationshipAssertion(AuthoredGraphAssertionBase):
         return trimmed
 
 
+AuthoredGraphMergeAliasPolicy = Literal["preserve_all_aliases", "manual"]
+AuthoredGraphMergeRelationshipPolicy = Literal[
+    "preserve_all_relationships",
+    "manual_review_required",
+]
+AuthoredGraphMergeEvidencePolicy = Literal["preserve_all_evidence"]
+
+_MERGE_ALLOWED_REF_KINDS = frozenset({"existing_graph_node", "local_proposal", "authored_node"})
+
+
+def _object_ref_identity_key(ref: AuthoredGraphObjectRef) -> str:
+    if ref.ref_kind == "existing_graph_node" and ref.node_id:
+        return f"node:{ref.node_id}"
+    if ref.ref_kind == "local_proposal" and ref.local_proposal_id:
+        return f"local:{ref.local_proposal_id}"
+    if ref.ref_kind == "authored_node" and ref.authored_node_id:
+        return f"authored:{ref.authored_node_id}"
+    return f"{ref.ref_kind}:{ref.label.strip().lower()}"
+
+
+class AuthoredGraphMergeObjectsAssertion(AuthoredGraphAssertionBase):
+    assertion_kind: Literal["merge_objects"] = "merge_objects"
+    operation: Literal["merge"] = "merge"
+    survivor_object_ref: AuthoredGraphObjectRef
+    merged_object_refs: list[AuthoredGraphObjectRef]
+    merge_reason: str | None = None
+    matched_features: list[str] = Field(default_factory=list)
+    alias_policy: AuthoredGraphMergeAliasPolicy = "preserve_all_aliases"
+    relationship_policy: AuthoredGraphMergeRelationshipPolicy = "preserve_all_relationships"
+    evidence_policy: AuthoredGraphMergeEvidencePolicy = "preserve_all_evidence"
+
+    @model_validator(mode="after")
+    def _validate_merge_refs(self) -> AuthoredGraphMergeObjectsAssertion:
+        if not self.merged_object_refs:
+            raise ValueError("merge_objects assertion requires at least one merged object ref")
+        survivor_key = _object_ref_identity_key(self.survivor_object_ref)
+        seen: set[str] = set()
+        for ref in self.merged_object_refs:
+            if ref.ref_kind not in _MERGE_ALLOWED_REF_KINDS:
+                raise ValueError(
+                    f"merge_objects merged ref kind {ref.ref_kind!r} is not supported for MVP"
+                )
+            ref_key = _object_ref_identity_key(ref)
+            if ref_key == survivor_key:
+                raise ValueError("survivor object ref cannot also appear in merged_object_refs")
+            if ref_key in seen:
+                raise ValueError("merged_object_refs cannot contain duplicate refs")
+            seen.add(ref_key)
+        if self.survivor_object_ref.ref_kind not in _MERGE_ALLOWED_REF_KINDS:
+            raise ValueError(
+                f"merge_objects survivor ref kind {self.survivor_object_ref.ref_kind!r} "
+                "is not supported for MVP"
+            )
+        return self
+
+
 AuthoredGraphAssertion = Annotated[
     AuthoredGraphObjectAssertion
     | AuthoredGraphLinkExistingAssertion
-    | AuthoredGraphRelationshipAssertion,
+    | AuthoredGraphRelationshipAssertion
+    | AuthoredGraphMergeObjectsAssertion,
     Field(discriminator="assertion_kind"),
 ]
 
@@ -292,7 +349,8 @@ class AuthoredGraphOverlay(GraphAuthoringOverlayModel):
         Annotated[
             AuthoredGraphObjectAssertion
             | AuthoredGraphLinkExistingAssertion
-            | AuthoredGraphRelationshipAssertion,
+            | AuthoredGraphRelationshipAssertion
+            | AuthoredGraphMergeObjectsAssertion,
             Field(discriminator="assertion_kind"),
         ]
     ] = Field(default_factory=list)

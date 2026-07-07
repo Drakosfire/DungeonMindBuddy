@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
   buildGraphObjectAuthoringLinkExistingProposal,
+  buildGraphObjectAuthoringMergeProposal,
   buildGraphObjectAuthoringProposal,
   buildGraphObjectAuthoringRelationshipProposal,
   createDefaultGraphObjectAuthoringFormState,
   createDefaultGraphObjectAuthoringLinkExistingFormState,
   createDefaultGraphObjectAuthoringRelationshipFormState,
   createLocalGraphObjectProposalId,
+  findDuplicateMergeProposal,
   type GraphObjectAuthoringFormState,
   type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringProposal,
@@ -41,6 +43,13 @@ export interface UseGraphObjectAuthoringDraftResult {
     value: GraphObjectAuthoringRelationshipFormState[K],
   ) => void;
   stageRelationshipProposal: () => void;
+  stageMergeProposal: (input: {
+    survivorObjectRef: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef;
+    mergedObjectRefs: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef[];
+    mergeReason: string;
+    matchedFeatures: string[];
+    sourceGraphId?: string | null;
+  }) => boolean;
   clearCommittedProposals: (localProposalIds: string[]) => void;
 }
 
@@ -190,6 +199,47 @@ export function useGraphObjectAuthoringDraft(
     setRelationshipFormState(createDefaultGraphObjectAuthoringRelationshipFormState());
   }, [relationshipFormState, selectedSource]);
 
+  const stageMergeProposal = useCallback(
+    (input: {
+      survivorObjectRef: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef;
+      mergedObjectRefs: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef[];
+      mergeReason: string;
+      matchedFeatures: string[];
+      sourceGraphId?: string | null;
+    }) => {
+      const proposal = buildGraphObjectAuthoringMergeProposal({
+        ...input,
+        localProposalId: createLocalGraphObjectProposalId(),
+      });
+      if (!proposal) {
+        return false;
+      }
+      if (
+        findDuplicateMergeProposal(
+          input.survivorObjectRef,
+          input.mergedObjectRefs,
+          proposals,
+        )
+      ) {
+        return false;
+      }
+      setProposals((prev) => {
+        if (
+          findDuplicateMergeProposal(
+            input.survivorObjectRef,
+            input.mergedObjectRefs,
+            prev,
+          )
+        ) {
+          return prev;
+        }
+        return [...prev, proposal];
+      });
+      return true;
+    },
+    [proposals],
+  );
+
   const removeProposal = useCallback((localProposalId: string) => {
     setProposals((prev) => prev.filter((proposal) => proposal.localProposalId !== localProposalId));
   }, []);
@@ -214,6 +264,7 @@ export function useGraphObjectAuthoringDraft(
     relationshipFormState,
     updateRelationshipField,
     stageRelationshipProposal,
+    stageMergeProposal,
     clearCommittedProposals,
   };
 }

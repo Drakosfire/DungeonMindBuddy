@@ -50,3 +50,35 @@ describe("useGraphObjectAuthoringDraft stageRelationshipProposal", () => {
     expect(result.current.proposals[0]?.proposalKind).toBe("relationship");
   });
 });
+
+describe("useGraphObjectAuthoringDraft stageMergeProposal", () => {
+  it("does not append a duplicate merge for the same object pair", () => {
+    const { result } = renderHook(() => useGraphObjectAuthoringDraft());
+    const survivorRef = buildObjectRefFromInspectedNode({
+      node_id: "edge-a",
+      label: "Edge",
+      kind: "location",
+    });
+    const mergedRef = buildObjectRefFromInspectedNode({
+      node_id: "edge-b",
+      label: "the Edge",
+      kind: "location",
+    });
+    const mergeInput = {
+      survivorObjectRef: survivorRef,
+      mergedObjectRefs: [mergedRef],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    };
+
+    act(() => {
+      expect(result.current.stageMergeProposal(mergeInput)).toBe(true);
+    });
+    act(() => {
+      expect(result.current.stageMergeProposal(mergeInput)).toBe(false);
+    });
+
+    expect(result.current.proposals).toHaveLength(1);
+    expect(result.current.proposals[0]?.proposalKind).toBe("merge_objects");
+  });
+});

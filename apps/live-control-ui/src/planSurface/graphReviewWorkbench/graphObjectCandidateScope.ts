@@ -1,5 +1,6 @@
 import type {
   GraphObjectCandidateScope,
+  GraphProjectionNodeView,
   GraphReviewExistingObjectCandidate,
 } from "../../api/types";
 
@@ -31,6 +32,39 @@ export function candidateScopeLabel(
     return GRAPH_OBJECT_CANDIDATE_SCOPE_LABELS[candidate.graph_scope];
   }
   return "Unknown source";
+}
+
+/** Map projection node source_domains to API candidate_graph_scope values. */
+export function inferCandidateGraphScopeFromProjectionNode(
+  node: Pick<GraphProjectionNodeView, "source_domains" | "authored" | "kind" | "role">,
+): GraphObjectCandidateScope | null {
+  const domains = new Set(node.source_domains.map((domain) => domain.trim().toLowerCase()));
+
+  if (node.authored === true || domains.has("authored_overlay")) {
+    return "authored_overlay";
+  }
+  if (domains.has("worldbuilding")) {
+    return "worldbuilding";
+  }
+  if (domains.has("campaign_memory")) {
+    return "campaign_memory";
+  }
+  if (domains.has("party_pc") || domains.has("party") || node.role?.trim().toLowerCase() === "pc") {
+    return "party_pc";
+  }
+  if (domains.has("gm_private")) {
+    return "gm_private";
+  }
+  if (
+    domains.has("recap") ||
+    domains.has("live_projection") ||
+    domains.has("gold_fixture") ||
+    domains.has("current_recap_projection")
+  ) {
+    return "current_recap_projection";
+  }
+
+  return null;
 }
 
 export function formatResolverCandidateLabel(

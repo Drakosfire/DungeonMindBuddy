@@ -69,6 +69,14 @@ function proposalTokens(proposal: GraphObjectAuthoringProposal): Set<string> {
   if (proposal.proposalKind === "link_existing") {
     return linkExistingProposalTokens(proposal);
   }
+  if (proposal.proposalKind === "merge_objects") {
+    const tokens = new Set<string>();
+    addToken(tokens, proposal.survivorObjectRef.label);
+    for (const ref of proposal.mergedObjectRefs) {
+      addToken(tokens, ref.label);
+    }
+    return tokens;
+  }
   const tokens = new Set<string>();
   addToken(tokens, proposal.sourceObjectRef.label);
   addToken(tokens, proposal.targetObjectRef.label);
@@ -279,7 +287,9 @@ export function detectProposalOverlapWarnings(
       ? proposal.objectRef.label
       : proposal.proposalKind === "link_existing"
         ? proposal.selectedText
-        : proposal.sourceObjectRef.label;
+        : proposal.proposalKind === "merge_objects"
+          ? proposal.survivorObjectRef.label
+          : proposal.sourceObjectRef.label;
   return warnForTokens(
     tokens,
     normalizeOverlapText(primaryLabel),

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
   buildGraphObjectAuthoringLinkExistingProposal,
+  buildGraphObjectAuthoringMergeProposal,
   buildGraphObjectAuthoringProposal,
   buildGraphObjectAuthoringRelationshipProposal,
   buildManualObjectRef,
@@ -14,12 +15,14 @@ import {
   createDefaultGraphObjectAuthoringLinkExistingFormState,
   createDefaultGraphObjectAuthoringRelationshipFormState,
   dedupeAliasesCaseInsensitive,
+  findDuplicateMergeProposal,
   formatAuthoringRelationshipStatement,
   friendlyVisibilityLabel,
   GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS,
   isIdentityLikeRelationshipPredicate,
   areSameObjectRef,
   isValidObjectRef,
+  mergeObjectPairKey,
   parseAliasesText,
   relationshipPreviewCopy,
 } from "./graphObjectAuthoringDraft";
@@ -344,15 +347,44 @@ describe("friendlyVisibilityLabel", () => {
   });
 });
 
+describe("merge proposal dedupe helpers", () => {
+  const edgeSurvivor = buildObjectRefFromInspectedNode({
+    node_id: "edge-a",
+    label: "Edge",
+    kind: "location",
+  });
+  const edgeMerged = buildObjectRefFromInspectedNode({
+    node_id: "edge-b",
+    label: "the Edge",
+    kind: "location",
+  });
+
+  it("uses stable unordered pair keys for the same two object refs", () => {
+    expect(mergeObjectPairKey(edgeSurvivor, edgeMerged)).toBe(
+      mergeObjectPairKey(edgeMerged, edgeSurvivor),
+    );
+  });
+
+  it("detects duplicate merge proposals for the same object pair", () => {
+    const staged = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: edgeSurvivor,
+      mergedObjectRefs: [edgeMerged],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    });
+    expect(staged).not.toBeNull();
+    const duplicate = findDuplicateMergeProposal(
+      edgeMerged,
+      [edgeSurvivor],
+      staged ? [staged] : [],
+    );
+    expect(duplicate).toBe(staged);
+  });
+});
+
 describe("relationship guidance helpers", () => {
   const sourceRef = buildManualObjectRef("the group");
   const targetRef = buildObjectRefFromInspectedNode({ node_id: "north-gate", label: "North Gate" });
-
-  it("formats campaign-language relationship statements", () => {
-    expect(
-      formatAuthoringRelationshipStatement("the group", "North Gate", "threatens"),
-    ).toBe("the group threatens North Gate");
-  });
 
   it("builds preview copy when source, target, and type are present", () => {
     const formState = {

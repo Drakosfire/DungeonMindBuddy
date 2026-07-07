@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph Review — manual object merge review — captured 2026-07-07
+
+**Context:** PR #292 established the fullscreen Author Draft rail and existing-object search, but the graph still has too many overlapping objects. The next highest-leverage UX improvement is to let the GM manually collapse duplicates into better canonical objects.
+
+**Insight:** Object count and object quality shape every downstream UI. Fewer, better graph objects make selected-object cards, relationship staging, search, and future graph visualization easier to use. Merge must remain a human-reviewed identity assertion, not an automatic resolver decision.
+
+**Action:** Add a Merge candidates workflow: propose likely duplicates, show side-by-side object review, let the GM accept/reject/defer, stage accepted merges locally, prepare/commit authored merge assertions, and refresh projection so merged-away objects collapse into survivor objects.
+
+**Surfaces when:** `GraphReviewAuthoringRail.tsx`, `GraphReviewMergeCandidatesPanel.tsx`, `graphObjectAuthoringDraft.ts`, `useGraphObjectAuthoringDraft.ts`, `graph_authoring_overlay.py`, `graph_object_authoring_prepare.py`, `graph_object_authoring_commit.py`, `graph_authoring_overlay_projection.py`.
+
+**Refs:** A10i, PR #292 dogfood, graph object authoring roadmap.
+
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
 **Context:** A10h moved relationship source/target picking into the fullscreen Author Draft rail, but the controls may still need clearer source/target chips, keyboard flow, and invalid-state messaging.

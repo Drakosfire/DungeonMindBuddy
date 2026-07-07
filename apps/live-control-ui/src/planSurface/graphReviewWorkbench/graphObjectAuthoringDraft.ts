@@ -172,7 +172,30 @@ export interface GraphObjectAuthoringRelationshipProposal {
 export type GraphObjectAuthoringProposal =
   | GraphObjectAuthoringObjectProposal
   | GraphObjectAuthoringLinkExistingProposal
-  | GraphObjectAuthoringRelationshipProposal;
+  | GraphObjectAuthoringRelationshipProposal
+  | GraphObjectAuthoringMergeProposal;
+
+export type GraphObjectAuthoringMergeAliasPolicy = "preserve_all_aliases" | "manual";
+export type GraphObjectAuthoringMergeRelationshipPolicy =
+  | "preserve_all_relationships"
+  | "manual_review_required";
+export type GraphObjectAuthoringMergeEvidencePolicy = "preserve_all_evidence";
+
+export interface GraphObjectAuthoringMergeProposal {
+  localProposalId: string;
+  proposalKind: "merge_objects";
+  status: "staged_local";
+  survivorObjectRef: GraphObjectAuthoringObjectRef;
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[];
+  mergeReason: string;
+  matchedFeatures: string[];
+  aliasPolicy: GraphObjectAuthoringMergeAliasPolicy;
+  relationshipPolicy: GraphObjectAuthoringMergeRelationshipPolicy;
+  evidencePolicy: GraphObjectAuthoringMergeEvidencePolicy;
+  visibility: GraphObjectAuthoringVisibilityPreview;
+  graphScopes: GraphObjectAuthoringScope[];
+  provenancePreview: GraphObjectAuthoringProvenancePreview;
+}
 
 export function createDefaultGraphObjectAuthoringFormState(
   selection: GraphAuthoringSelection | null,
@@ -552,6 +575,78 @@ export function areSameObjectRef(
   return false;
 }
 
+export function objectRefIdentityKey(ref: GraphObjectAuthoringObjectRef): string | null {
+  if (ref.refKind === "existing_graph_node" && ref.nodeId) {
+    return `node:${ref.nodeId}`;
+  }
+  if (ref.refKind === "local_proposal" && ref.localProposalId) {
+    return `local:${ref.localProposalId}`;
+  }
+  if (ref.refKind === "manual_ref") {
+    const label = ref.label.trim().toLowerCase();
+    return label ? `manual:${label}` : null;
+  }
+  return null;
+}
+
+export function mergeObjectPairKey(
+  left: GraphObjectAuthoringObjectRef,
+  right: GraphObjectAuthoringObjectRef,
+): string | null {
+  const leftKey = objectRefIdentityKey(left);
+  const rightKey = objectRefIdentityKey(right);
+  if (!leftKey || !rightKey || leftKey === rightKey) {
+    return null;
+  }
+  return [leftKey, rightKey].sort().join("::");
+}
+
+export function mergeProposalPairKeys(proposal: GraphObjectAuthoringMergeProposal): string[] {
+  return proposal.mergedObjectRefs
+    .map((mergedRef) => mergeObjectPairKey(proposal.survivorObjectRef, mergedRef))
+    .filter((key): key is string => Boolean(key));
+}
+
+export function findDuplicateMergeProposal(
+  survivorObjectRef: GraphObjectAuthoringObjectRef,
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[],
+  existingProposals: GraphObjectAuthoringProposal[],
+): GraphObjectAuthoringMergeProposal | null {
+  const incomingKeys = new Set(
+    mergedObjectRefs
+      .map((mergedRef) => mergeObjectPairKey(survivorObjectRef, mergedRef))
+      .filter((key): key is string => Boolean(key)),
+  );
+  if (incomingKeys.size === 0) {
+    return null;
+  }
+
+  for (const proposal of existingProposals) {
+    if (proposal.proposalKind !== "merge_objects") {
+      continue;
+    }
+    for (const key of mergeProposalPairKeys(proposal)) {
+      if (incomingKeys.has(key)) {
+        return proposal;
+      }
+    }
+  }
+  return null;
+}
+
+export function stagedMergePairKeys(proposals: GraphObjectAuthoringProposal[]): Set<string> {
+  const keys = new Set<string>();
+  for (const proposal of proposals) {
+    if (proposal.proposalKind !== "merge_objects") {
+      continue;
+    }
+    for (const key of mergeProposalPairKeys(proposal)) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
 export function formatAuthoringRelationshipStatement(
   sourceLabel: string,
   targetLabel: string,
@@ -673,6 +768,52 @@ export function serializeGraphObjectAuthoringObjectRefForApi(
   };
 }
 
+export function buildGraphObjectAuthoringMergeProposal(input: {
+  survivorObjectRef: GraphObjectAuthoringObjectRef;
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[];
+  mergeReason: string;
+  matchedFeatures: string[];
+  operatorNote?: string;
+  sourceGraphId?: string | null;
+  localProposalId?: string;
+}): GraphObjectAuthoringMergeProposal | null {
+  if (
+    !isValidObjectRef(input.survivorObjectRef) ||
+    input.mergedObjectRefs.length === 0 ||
+    !input.mergedObjectRefs.every(isValidObjectRef)
+  ) {
+    return null;
+  }
+  if (
+    input.mergedObjectRefs.some((ref) =>
+      areSameObjectRef(ref, input.survivorObjectRef),
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    localProposalId: input.localProposalId ?? createLocalGraphObjectProposalId(),
+    proposalKind: "merge_objects",
+    status: "staged_local",
+    survivorObjectRef: input.survivorObjectRef,
+    mergedObjectRefs: input.mergedObjectRefs,
+    mergeReason: input.mergeReason,
+    matchedFeatures: input.matchedFeatures,
+    aliasPolicy: "preserve_all_aliases",
+    relationshipPolicy: "preserve_all_relationships",
+    evidencePolicy: "preserve_all_evidence",
+    visibility: buildVisibilityPreview(GRAPH_OBJECT_AUTHORING_DEFAULT_VISIBILITY),
+    graphScopes: ["recap_graph", "campaign_memory_graph"],
+    provenancePreview: {
+      origin: "human_authored",
+      authoringSurface: "memory_ingest_graph_authoring",
+      sourceGraphId: input.sourceGraphId ?? null,
+      operatorNote: input.operatorNote?.trim() || null,
+    },
+  };
+}
+
 export function serializeGraphObjectAuthoringProposalForApi(
   proposal: GraphObjectAuthoringProposal,
 ): Record<string, unknown> {
@@ -704,6 +845,23 @@ export function serializeGraphObjectAuthoringProposalForApi(
       ),
       operation: proposal.operation,
       aliasText: proposal.aliasText ?? null,
+    };
+  }
+
+  if (proposal.proposalKind === "merge_objects") {
+    return {
+      ...base,
+      survivorObjectRef: serializeGraphObjectAuthoringObjectRefForApi(
+        proposal.survivorObjectRef,
+      ),
+      mergedObjectRefs: proposal.mergedObjectRefs.map((ref) =>
+        serializeGraphObjectAuthoringObjectRefForApi(ref),
+      ),
+      mergeReason: proposal.mergeReason,
+      matchedFeatures: proposal.matchedFeatures,
+      aliasPolicy: proposal.aliasPolicy,
+      relationshipPolicy: proposal.relationshipPolicy,
+      evidencePolicy: proposal.evidencePolicy,
     };
   }
 

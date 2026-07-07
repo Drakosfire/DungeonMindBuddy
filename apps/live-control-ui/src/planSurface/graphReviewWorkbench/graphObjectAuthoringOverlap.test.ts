@@ -9,6 +9,7 @@ import {
   normalizeOverlapText,
 } from "./graphObjectAuthoringOverlap";
 import {
+  buildGraphObjectAuthoringMergeProposal,
   buildGraphObjectAuthoringProposal,
   createDefaultGraphObjectAuthoringFormState,
 } from "./graphObjectAuthoringDraft";
@@ -73,6 +74,32 @@ describe("graphObjectAuthoringOverlap", () => {
     const warnings = detectProposalOverlapWarnings(second, context);
 
     expect(warnings.some((item) => item.code === "staged_proposal_possible_duplicate")).toBe(true);
+  });
+
+  it("does not crash when checking overlap warnings for merge proposals", () => {
+    const mergeProposal = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: {
+        refKind: "existing_graph_node",
+        nodeId: "survivor-1",
+        label: "Tripod Null-Calf",
+        kind: "threat",
+      },
+      mergedObjectRefs: [
+        {
+          refKind: "existing_graph_node",
+          nodeId: "merged-1",
+          label: "Tripod Null Calf",
+          kind: "threat",
+        },
+      ],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    });
+    expect(mergeProposal).not.toBeNull();
+    const context = buildOverlapContextFromProjection([], []);
+    expect(() =>
+      detectProposalOverlapWarnings(mergeProposal!, context),
+    ).not.toThrow();
   });
 
   it("shows cross-group hint when extracted label matches authored memory", () => {
