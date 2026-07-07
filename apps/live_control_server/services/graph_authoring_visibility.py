@@ -74,6 +74,20 @@ def _normalize_projection_reveal_state(
     return "unrevealed"
 
 
+def visibility_policy_projection_fields(
+    policy: GraphVisibilityPolicy | None,
+) -> dict[str, Any]:
+    """Serialize a visibility policy into projection node/adjacency extras."""
+    normalized = normalize_visibility_policy(policy)
+    return {
+        "visibility": normalized.visibility,
+        "reveal_state": normalized.reveal_state,
+        "visible_to_player_ids": list(normalized.visible_to_player_ids),
+        "visible_to_character_ids": list(normalized.visible_to_character_ids),
+        "visibility_note": normalized.visibility_note,
+    }
+
+
 def visibility_policy_visible_to_audience(
     policy: GraphVisibilityPolicy | None,
     audience: GraphAudience,
@@ -155,17 +169,22 @@ def _projection_field(raw: object, name: str) -> Any:
     return getattr(raw, name, None)
 
 
+def visibility_policy_from_projection_object(raw: object) -> GraphVisibilityPolicy:
+    """Rebuild a visibility policy from projection node/adjacency extras."""
+    return visibility_policy_from_projection_fields(
+        visibility=_projection_field(raw, "visibility"),
+        reveal_state=_projection_field(raw, "reveal_state"),
+        visible_to_player_ids=_projection_field(raw, "visible_to_player_ids"),
+        visible_to_character_ids=_projection_field(raw, "visible_to_character_ids"),
+    )
+
+
 def projection_node_visible_to_audience(
     raw_node_view: object,
     audience: GraphAudience,
 ) -> bool:
     """Return whether a projection node view is visible to the audience."""
-    policy = visibility_policy_from_projection_fields(
-        visibility=_projection_field(raw_node_view, "visibility"),
-        reveal_state=_projection_field(raw_node_view, "reveal_state"),
-        visible_to_player_ids=_projection_field(raw_node_view, "visible_to_player_ids"),
-        visible_to_character_ids=_projection_field(raw_node_view, "visible_to_character_ids"),
-    )
+    policy = visibility_policy_from_projection_object(raw_node_view)
     return visibility_policy_visible_to_audience(policy, audience)
 
 
@@ -174,14 +193,5 @@ def projection_adjacency_visible_to_audience(
     audience: GraphAudience,
 ) -> bool:
     """Return whether a projection adjacency payload is visible to the audience."""
-    policy = visibility_policy_from_projection_fields(
-        visibility=_projection_field(raw_edge_or_adjacency, "visibility"),
-        reveal_state=_projection_field(raw_edge_or_adjacency, "revealed_state")
-        or _projection_field(raw_edge_or_adjacency, "reveal_state"),
-        visible_to_player_ids=_projection_field(raw_edge_or_adjacency, "visible_to_player_ids"),
-        visible_to_character_ids=_projection_field(
-            raw_edge_or_adjacency,
-            "visible_to_character_ids",
-        ),
-    )
+    policy = visibility_policy_from_projection_object(raw_edge_or_adjacency)
     return visibility_policy_visible_to_audience(policy, audience)

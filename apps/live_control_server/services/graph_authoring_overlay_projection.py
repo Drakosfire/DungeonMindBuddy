@@ -15,6 +15,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     AuthoredGraphObjectRef,
     AuthoredGraphOverlay,
     AuthoredGraphRelationshipAssertion,
+    GraphVisibilityPolicy,
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
@@ -23,6 +24,8 @@ from apps.live_control_server.services.graph_authoring_overlay_store import (
 from apps.live_control_server.services.graph_authoring_visibility import (
     GraphAudience,
     filter_authored_overlay_for_audience,
+    visibility_policy_from_projection_object,
+    visibility_policy_projection_fields,
 )
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
@@ -190,7 +193,7 @@ def _authored_node_view(
     aliases: list[str],
     summary: str | None,
     assertion_id: str,
-    visibility: str,
+    visibility_policy: GraphVisibilityPolicy,
     graph_scope: list[str],
     source_anchor_text: str | None = None,
 ) -> GraphProjectionNodeView:
@@ -198,8 +201,8 @@ def _authored_node_view(
         "source": AUTHORED_SOURCE_DOMAIN,
         "authored": True,
         "assertion_id": assertion_id,
-        "visibility": visibility,
         "graph_scope": graph_scope,
+        **visibility_policy_projection_fields(visibility_policy),
     }
     if source_anchor_text:
         extras["source_anchor_text"] = source_anchor_text
@@ -244,7 +247,7 @@ def build_authored_projection_node_views(
             aliases=list(assertion.aliases),
             summary=assertion.summary,
             assertion_id=assertion.assertion_id,
-            visibility=assertion.visibility.visibility,
+            visibility_policy=assertion.visibility,
             graph_scope=list(assertion.graph_scope),
             source_anchor_text=(
                 assertion.source_anchor.normalized_selected_text
@@ -276,8 +279,8 @@ def build_authored_projection_node_views(
                     "source_domains": source_domains,
                     "authored": True,
                     "assertion_id": link_assertion.assertion_id,
-                    "visibility": link_assertion.visibility.visibility,
                     "source_anchor_text": link_assertion.normalized_selected_text,
+                    **visibility_policy_projection_fields(link_assertion.visibility),
                 }
             )
             continue
@@ -302,7 +305,7 @@ def build_authored_projection_node_views(
             aliases=aliases,
             summary=None,
             assertion_id=link_assertion.assertion_id,
-            visibility=link_assertion.visibility.visibility,
+            visibility_policy=link_assertion.visibility,
             graph_scope=list(link_assertion.graph_scope),
             source_anchor_text=link_assertion.normalized_selected_text,
         )
@@ -390,8 +393,8 @@ def build_authored_projection_relationship_views(
                 source=AUTHORED_SOURCE_DOMAIN,
                 authored=True,
                 assertion_id=rel_assertion.assertion_id,
-                visibility=rel_assertion.visibility.visibility,
                 summary=rel_assertion.summary,
+                **visibility_policy_projection_fields(rel_assertion.visibility),
             )
         )
     return relationships
@@ -437,8 +440,10 @@ def apply_authored_overlay_to_graph_review_projection(
                     "source_domains": source_domains,
                     "authored": True,
                     "assertion_id": getattr(authored_view, "assertion_id", None),
-                    "visibility": getattr(authored_view, "visibility", None),
                     "source_anchor_text": getattr(authored_view, "source_anchor_text", None),
+                    **visibility_policy_projection_fields(
+                        visibility_policy_from_projection_object(authored_view)
+                    ),
                 }
             )
         else:

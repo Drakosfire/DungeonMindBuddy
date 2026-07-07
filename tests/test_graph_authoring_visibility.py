@@ -11,6 +11,8 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_authoring_overlay_projection import (
     apply_authored_overlay_to_graph_review_projection,
     authored_object_node_id,
+    build_authored_projection_relationship_views,
+    build_authored_projection_node_views,
 )
 from apps.live_control_server.services.graph_authoring_visibility import (
     GraphAudience,
@@ -329,3 +331,177 @@ def test_projection_without_audience_preserves_gm_like_behavior() -> None:
         overlay,
     )
     assert authored_object_node_id("assert-private") in enriched.node_views
+
+
+def _projected_object_node(overlay, assertion_id: str):
+    enriched, _ = apply_authored_overlay_to_graph_review_projection(
+        _empty_projection(),
+        overlay,
+    )
+    return enriched.node_views[authored_object_node_id(assertion_id)]
+
+
+def _assert_projection_helper_matches_assertion_filter(
+    assertion,
+    audience: GraphAudience,
+) -> None:
+    assert assertion_visible_to_audience(assertion, audience) is (
+        projection_node_visible_to_audience(
+            _projected_object_node(
+                create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+                    update={"assertions": [assertion]}
+                ),
+                assertion.assertion_id,
+            ),
+            audience,
+        )
+    )
+
+
+def test_projection_helper_agrees_with_character_specific_matching_character() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-char",
+        visibility=_policy(
+            "character_specific",
+            visible_to_character_ids=["char-1"],
+        ).model_dump(),
+    )
+    _assert_projection_helper_matches_assertion_filter(assertion, CHARACTER)
+    assert projection_node_visible_to_audience(
+        _projected_object_node(
+            create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+                update={"assertions": [assertion]}
+            ),
+            "assert-char",
+        ),
+        CHARACTER,
+    )
+
+
+def test_projection_helper_agrees_with_character_specific_nonmatching_character() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-char",
+        visibility=_policy(
+            "character_specific",
+            visible_to_character_ids=["char-1"],
+        ).model_dump(),
+    )
+    _assert_projection_helper_matches_assertion_filter(assertion, OTHER_CHARACTER)
+    assert (
+        projection_node_visible_to_audience(
+            _projected_object_node(
+                create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+                    update={"assertions": [assertion]}
+                ),
+                "assert-char",
+            ),
+            OTHER_CHARACTER,
+        )
+        is False
+    )
+
+
+def test_projection_helper_agrees_with_character_specific_matching_player() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-player",
+        visibility=_policy(
+            "character_specific",
+            visible_to_player_ids=["player-1"],
+        ).model_dump(),
+    )
+    _assert_projection_helper_matches_assertion_filter(assertion, PLAYER)
+
+
+def test_projection_helper_agrees_with_hidden_until_revealed_when_revealed() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-hidden-revealed",
+        visibility=_policy("hidden_until_revealed", reveal_state="revealed").model_dump(),
+    )
+    for audience in (TABLE, PLAYER, CHARACTER):
+        _assert_projection_helper_matches_assertion_filter(assertion, audience)
+
+
+def test_projection_helper_agrees_with_hidden_until_revealed_when_unrevealed() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-hidden-unrevealed",
+        visibility=_policy("hidden_until_revealed", reveal_state="unrevealed").model_dump(),
+    )
+    for audience in (TABLE, PLAYER, CHARACTER):
+        _assert_projection_helper_matches_assertion_filter(assertion, audience)
+
+
+def test_projected_authored_node_carries_full_visibility_policy_fields() -> None:
+    assertion = object_assertion(
+        assertion_id="assert-char",
+        visibility=_policy(
+            "character_specific",
+            reveal_state="partial",
+            visible_to_player_ids=["player-1"],
+            visible_to_character_ids=["char-1"],
+        ).model_dump(),
+    )
+    node = _projected_object_node(
+        create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+            update={"assertions": [assertion]}
+        ),
+        "assert-char",
+    )
+    assert getattr(node, "visibility") == "character_specific"
+    assert getattr(node, "reveal_state") == "partial"
+    assert getattr(node, "visible_to_player_ids") == ["player-1"]
+    assert getattr(node, "visible_to_character_ids") == ["char-1"]
+
+
+def test_projected_relationship_adjacency_carries_full_visibility_policy_fields() -> None:
+    source = object_assertion(
+        assertion_id="assert-source",
+        object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-source",
+            "label": "Questionable Company",
+            "kind": "party",
+        },
+        visibility=_policy("table_known").model_dump(),
+    )
+    target = object_assertion(
+        assertion_id="assert-target",
+        object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-target",
+            "label": "Bonogo",
+            "kind": "pc",
+        },
+        visibility=_policy("player_visible").model_dump(),
+    )
+    relationship = relationship_assertion(
+        assertion_id="assert-rel",
+        visibility=_policy(
+            "hidden_until_revealed",
+            reveal_state="revealed",
+            visible_to_character_ids=["char-1"],
+        ).model_dump(),
+        source_object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-source",
+            "label": "Questionable Company",
+            "kind": "party",
+        },
+        target_object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-target",
+            "label": "Bonogo",
+            "kind": "pc",
+        },
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [source, target, relationship]}
+    )
+    node_views = build_authored_projection_node_views(overlay)
+    relationships = build_authored_projection_relationship_views(overlay, node_views)
+    assert len(relationships) == 1
+    edge = relationships[0]
+    assert getattr(edge, "visibility") == "hidden_until_revealed"
+    assert getattr(edge, "reveal_state") == "revealed"
+    assert getattr(edge, "visible_to_character_ids") == ["char-1"]
+    assert projection_adjacency_visible_to_audience(edge, CHARACTER) is True
+    assert assertion_visible_to_audience(relationship, CHARACTER) is True
