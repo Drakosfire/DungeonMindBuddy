@@ -509,6 +509,8 @@ Manual: select a phrase and link it to an existing PC, party, location, faction,
 
 ## A8 — Visibility-aware graph query/explore foundation
 
+**Status:** foundation landed (2026-07-07). See `Docs/Plans/NOTE-a8-visibility-audience-filtering.md`.
+
 **Purpose:** Prepare the authored graph for future GM/player views.
 
 **Product behavior:**
@@ -517,19 +519,20 @@ Authored assertions carry visibility metadata. GM views can see all; future play
 
 **Scope:**
 
-- Add visibility to all authored graph assertions.
-- Default to GM private.
-- Add simple UI control.
-- Add backend filter helper for visibility policy.
-- Add tests proving player-visible query can exclude GM-private assertions.
+- Visibility on all authored graph assertions (already present from A3–A7).
+- Default to GM private (already present).
+- Simple UI control (already present in authoring surface).
+- **Backend audience filter helper** (`graph_authoring_visibility.py`) — **new in A8**.
+- Tests proving player/table/character audiences exclude GM-private assertions — **new in A8**.
+- Optional audience parameter on projection enrichment (GM-default when omitted).
 - Do not build player UI yet.
 
 **Likely files:**
 
 ```text
-src/graph_memory/authoring/contracts.py
-src/graph_memory/visibility.py
-src/graph_memory/union_supergraph/
+apps/live_control_server/services/graph_authoring_visibility.py
+apps/live_control_server/services/graph_authoring_overlay_projection.py
+tests/test_graph_authoring_visibility.py
 apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringVisibilitySection.tsx
 ```
 
@@ -537,12 +540,16 @@ apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringVi
 
 - Missing visibility defaults to GM private at proposal creation.
 - Stored assertions include visibility.
-- Filtering helper excludes GM-private for player audience.
+- Filtering helper excludes GM-private for player/table/character audiences.
 - GM audience sees all assertions.
+- Overlay filter does not mutate the source overlay.
+- Projection with `audience=table` excludes GM-private authored nodes.
 
 **Acceptance:**
 
-Manual: stage two authored assertions, one GM private and one table known; stored JSON includes correct visibility.
+Manual: stage two authored assertions, one GM private and one table known; stored JSON includes correct visibility. Future non-GM query surfaces can call the audience helpers without leaking GM-private authored memory.
+
+**Not claimed:** A7 dogfood was not a clean pass. A8 solves one narrow trust boundary only.
 
 ---
 
