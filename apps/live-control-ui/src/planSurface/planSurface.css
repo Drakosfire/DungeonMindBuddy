@@ -2933,6 +2933,55 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 1rem;
 }
 
+.graph-review-workbench-header--unified {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0;
+}
+
+.graph-review-workbench-header-copy {
+  min-width: 0;
+}
+
+.graph-review-workbench-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem 0.85rem;
+  margin-left: auto;
+}
+
+.graph-review-workbench-session-label {
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.graph-review-workbench-session-label--empty {
+  color: var(--fg-mute);
+  font-weight: 500;
+}
+
+.graph-review-session-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(74, 222, 128, 0.18);
+  border-radius: var(--radius);
+  background: rgba(22, 101, 52, 0.08);
+}
+
+.graph-review-session-toolbar .graph-authored-overlay-summary {
+  margin: 0;
+}
+
 .graph-review-workbench-header h2,
 .graph-review-lane-card h3,
 .graph-review-metric-panel h3,
@@ -3997,6 +4046,7 @@ body.plan-toolbox-open .plan-agent-shell {
   display: grid;
   gap: 0.35rem;
   margin-bottom: 0.65rem;
+  grid-column: 1 / -1;
 }
 
 .graph-authoring-mode-toggle {

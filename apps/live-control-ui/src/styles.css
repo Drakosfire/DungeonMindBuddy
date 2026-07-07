@@ -50,7 +50,7 @@ code {
 
 .ingest-surface-root {
   display: grid;
-  gap: 20px;
+  gap: 0.75rem;
 }
 
 .ingest-surface-header {

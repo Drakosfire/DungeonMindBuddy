@@ -183,9 +183,6 @@ describe("GraphReviewLiveProjectionPanel", () => {
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
-    expect(
-      screen.getByText("Authored overlay loaded: 2 assertions · 1 linked alias · 1 relationship"),
-    ).toBeInTheDocument();
     expect(getUnionSupergraphProjection).toHaveBeenCalledWith({
       campaignId: "longmont-c2",
       sessionId: "session-23",

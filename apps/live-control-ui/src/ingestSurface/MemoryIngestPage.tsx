@@ -64,11 +64,7 @@ export function MemoryIngestPage() {
 
   return (
     <AppChrome activeRoute="ingest">
-      <main className="ingest-surface-root" aria-labelledby="memory-ingest-title">
-        <header className="ingest-surface-header">
-          <h1 id="memory-ingest-title">Memory Ingest</h1>
-        </header>
-
+      <main className="ingest-surface-root" aria-label="Memory Ingest">
         <GraphReviewWorkbenchModule context={context} />
       </main>
     </AppChrome>

@@ -67,4 +67,44 @@ describe("GraphAuthoredOverlaySummary", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("renders compact loaded copy without missing-state noise", () => {
+    render(
+      <GraphAuthoredOverlaySummary
+        variant="compact"
+        summary={{
+          loaded: true,
+          assertion_count: 2,
+          projected_node_count: 0,
+          projected_link_existing_count: 1,
+          projected_relationship_count: 0,
+          diagnostics: [],
+        }}
+      />,
+    );
+    expect(screen.getByText("Authored memory: 2 assertions · 1 linked alias")).toBeInTheDocument();
+  });
+
+  it("renders nothing in compact mode when overlay is missing", () => {
+    const { container } = render(
+      <GraphAuthoredOverlaySummary
+        variant="compact"
+        summary={{
+          loaded: false,
+          assertion_count: 0,
+          projected_node_count: 0,
+          projected_link_existing_count: 0,
+          projected_relationship_count: 0,
+          diagnostics: [
+            {
+              code: "authored_overlay_missing",
+              message: "No authored overlay file committed for this campaign yet.",
+              severity: "info",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
 });

@@ -16,16 +16,17 @@ import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionCon
 import { ProjectionProvider } from "../projection/projectionContext";
 import type { PlanContextDescriptor } from "../types";
 import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
-import { GraphReviewLoadBar } from "./GraphReviewLoadBar";
+import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
+import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import {
   buildGraphReviewCatalog,
-  catalogSessionLabel,
   catalogSessionToGoldLane,
   catalogSessionsForReviewCampaign,
   type GraphReviewCatalogSession,
+  formatCompactAppliedLoadLabel,
   graphIngestRunToLane,
   GRAPH_REVIEW_RUNS_CHANGED_EVENT,
   pickDefaultCatalogSession,
@@ -74,16 +75,6 @@ function buildDefaultDraft(
     sessionId: session.sessionId,
     manifestPath: run?.manifest_path ?? null,
   };
-}
-
-function formatAppliedLoadLabel(
-  session: GraphReviewCatalogSession | null,
-  liveRun: GraphReviewCatalogSession["availableRuns"][number] | null,
-): string | null {
-  if (!session) return null;
-  const sessionLabel = catalogSessionLabel(session);
-  const runLabel = liveRun?.run_label?.trim() || liveRun?.run_id || null;
-  return runLabel ? `${sessionLabel} · ${runLabel}` : sessionLabel;
 }
 
 async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
@@ -189,8 +180,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   );
 
   const loadBarSummary = useMemo(
-    () => formatAppliedLoadLabel(appliedSession, appliedLiveRun),
-    [appliedLiveRun, appliedSession],
+    () => formatCompactAppliedLoadLabel(appliedSession),
+    [appliedSession],
   );
 
   const refreshCatalog = useCallback(async () => {
@@ -384,39 +375,34 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   };
 
   if (!sessionsLoaded) {
-    return <p className="plan-projection-empty">Loading graph review sessions…</p>;
-  }
-
-  if (!catalogSessions.length && !sessionsError) {
     return (
-      <p className="plan-projection-empty">
-        No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
-        paste a recap, run extraction, and materialize a preview graph.
-      </p>
+      <div className="graph-review-workbench-root">
+        <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={() => undefined} />
+        <p className="plan-projection-empty">Loading graph review sessions…</p>
+      </div>
     );
   }
 
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
+  const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
 
   return (
     <ProjectionProvider config={toolboxConfig}>
       <div className="graph-review-workbench-root">
-        <header className="graph-review-workbench-header">
-          <div>
-            <p className="plan-surface-kicker">Prose-first review tool</p>
-            <h2>Graph Review Workbench</h2>
-          </div>
-        </header>
-
-        {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
-
-        <GraphReviewLoadBar
+        <GraphReviewWorkbenchHeader
           loaded={hasAppliedLoad}
-          summaryLabel={loadBarSummary}
+          sessionLabel={loadBarSummary}
           onOpenLoad={openLoadDialog}
         />
 
-        {!hasAppliedLoad ? (
+        {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
+
+        {!hasCatalogSessions ? (
+          <p className="plan-projection-empty">
+            No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
+            paste a recap, run extraction, and materialize a preview graph.
+          </p>
+        ) : !hasAppliedLoad ? (
           <p className="plan-projection-empty graph-review-load-empty">
             Load an ingested session to review extracted objects in recap prose.
           </p>
@@ -446,6 +432,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             selection={selection}
             onSelectSelection={setSelection}
           >
+            <GraphReviewSessionToolbar />
             <GraphReviewLiveProjectionPanel />
             <AdaptiveProjectionContainer config={toolboxConfig} />
           </GraphReviewLiveStateProvider>

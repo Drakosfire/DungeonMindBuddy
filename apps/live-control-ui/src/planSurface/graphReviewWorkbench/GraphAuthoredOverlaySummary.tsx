@@ -22,10 +22,13 @@ function countByKind(summary: AuthoredOverlayProjectionSummary): string {
 
 export function GraphAuthoredOverlaySummary({
   summary,
+  variant = "default",
 }: {
   summary: AuthoredOverlayProjectionSummary | null | undefined;
+  variant?: "default" | "compact";
 }) {
   if (!summary) {
+    if (variant === "compact") return null;
     return (
       <p className="graph-authored-overlay-summary graph-authored-overlay-summary--missing">
         No authored overlay committed for this session yet.
@@ -38,6 +41,7 @@ export function GraphAuthoredOverlaySummary({
       (item) => item.code === "authored_overlay_missing",
     );
     if (missingOnly) {
+      if (variant === "compact") return null;
       return (
         <p
           className="graph-authored-overlay-summary graph-authored-overlay-summary--missing"
@@ -63,14 +67,18 @@ export function GraphAuthoredOverlaySummary({
     );
   }
 
+  const loadedCopy =
+    variant === "compact"
+      ? `Authored memory: ${summary.assertion_count} assertion${summary.assertion_count === 1 ? "" : "s"} · ${countByKind(summary)}`
+      : `Authored overlay loaded: ${summary.assertion_count} assertion${summary.assertion_count === 1 ? "" : "s"} · ${countByKind(summary)}`;
+
   return (
     <p
       className="graph-authored-overlay-summary graph-authored-overlay-summary--loaded"
       data-testid="graph-authored-overlay-summary"
       role="status"
     >
-      Authored overlay loaded: {summary.assertion_count} assertion
-      {summary.assertion_count === 1 ? "" : "s"} · {countByKind(summary)}
+      {loadedCopy}
     </p>
   );
 }

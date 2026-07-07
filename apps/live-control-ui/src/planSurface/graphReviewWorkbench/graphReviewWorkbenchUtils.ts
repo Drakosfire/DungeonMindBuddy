@@ -37,6 +37,14 @@ export function catalogSessionLabel(session: GraphReviewCatalogSession): string 
   });
 }
 
+/** GM-facing session label for the workbench header — no run pipeline metadata. */
+export function formatCompactAppliedLoadLabel(
+  session: GraphReviewCatalogSession | null,
+): string | null {
+  if (!session) return null;
+  return `${catalogSessionLabel(session)} · ${session.campaignId}`;
+}
+
 export function hasCatalogReviewableRun(
   session: GraphReviewCatalogSession,
 ): boolean {
