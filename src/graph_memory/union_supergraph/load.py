@@ -20,6 +20,17 @@ def parse_union_supergraph_store(payload: dict[str, Any]) -> UnionSupergraphStor
     return UnionSupergraphStore.model_validate(payload)
 
 
+def dump_union_supergraph_store(store: UnionSupergraphStore) -> dict[str, Any]:
+    return store.model_dump(mode="json", by_alias=True)
+
+
+def write_union_supergraph_store(path: Path, store: UnionSupergraphStore) -> None:
+    payload = dump_union_supergraph_store(store)
+    temp_path = path.with_suffix(path.suffix + ".tmp")
+    temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp_path.replace(path)
+
+
 def load_union_supergraph_store(
     path: Path = DEFAULT_FIXTURE_PATH,
 ) -> UnionSupergraphStore:
