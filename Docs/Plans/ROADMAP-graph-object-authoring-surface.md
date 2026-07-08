@@ -639,53 +639,51 @@ The dogfood report identifies interaction friction but proves the product loop e
 
 ## A10m — Overlay merge → union supergraph reconciliation
 
-**Status:** `READY` — queued after A10l lands; **design-first** (Prime Design / graph-memory agent should shape the HANDOFF before implementation).
+**Status (2026-07-08):** **Design complete** — see `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md`. Implementation queued as PR A–E sequence below. A10l + PR #296 landed overlay polish and GM survivor-id preservation at staging time.
 
 **Purpose:** Move human-reviewed identity merges from projection-only overlay collapse into durable union-supergraph identity, so session projections become lenses over reconciled global nodes instead of accumulating parallel ids (`party:captain_lysandra_ironveil` vs `character_lysandra` vs `node:lysandra`).
 
 **Problem today:** A10i–A10l commit `merge_objects` assertions to the authored overlay; `graph_authoring_overlay_projection.py` collapses views at reload. That preserves review safety and avoids re-ingest, but does **not** rewrite the union read model — ID drift persists at the source and projection must fuzzy-match/hydrate at runtime.
+
+**Resolved product decisions:**
+
+| Decision | Rule |
+|---|---|
+| Survivor authority | GM-chosen survivor ref always wins |
+| Commit boundary | Overlay commit unchanged; no union mutation in commit |
+| Reconciliation | Separate explicit pass/job after commit (endpoint/CLI first) |
+| Scope | `merge_objects` only — not `link_existing` |
+| Undo | Retract hook designed; implementation deferred |
 
 **Target behavior:**
 
 ```text
 Stage/compare (overlay, reversible)
   → prepare/commit (durable assertion + event log, unchanged)
-    → materialize into union supergraph (new)
-      → projection reads union + focus overlay only
+    → reconciliation pass materializes union identity redirects + edge/evidence rewiring
+      → projection reads reconciled union + thin overlay for unmaterialized assertions
 ```
 
-**Scope (implementation TBD by design pass):**
+**Implementation PR sequence (from design handoff):**
 
-- Consume committed `AuthoredGraphMergeObjectsAssertion` records as reconciliation input (not ad hoc projection glue forever).
-- Materialize survivor node + `UnionSupergraphStore.aliases` redirects for merged-away ids.
-- Rewire edges/evidence onto the survivor; preserve merge event log for audit/replay.
-- Replay merges during ingest reconciliation so re-extract does not recreate duplicates.
-- Decide survivor-id authority (party registry anchor vs richest ingest node vs explicit GM canonical choice — the workbench already captures GM intent).
+1. **PR A** — Union identity redirect model + lookup tests
+2. **PR B** — Reconciliation planner (read overlay, build plan, no writes)
+3. **PR C** — Reconciliation apply (union store mutation + endpoint/CLI)
+4. **PR D** — Projection adapter simplification (redirect-first, shrink fuzzy repair)
+5. **PR E** — Session 23 Lysandra dogfood validation report
 
-**Likely files:**
+**Key design artifacts:**
 
-```text
-src/graph_memory/identity/
-src/graph_memory/union_supergraph/model.py
-src/graph_memory/union_supergraph/load.py
-apps/live_control_server/services/graph_authoring_overlay_projection.py  # shrink to lens-only over union
-apps/live_control_server/services/graph_object_authoring_commit.py
-apps/live_control_server/services/union_supergraph_projection_adapter.py
-tests/test_graph_memory_union_supergraph_*.py
-```
+- `UnionIdentityRedirect` — durable `from_node_id → to_node_id` (not recap text alias)
+- `UnionSupergraphMergeRecord` — audit/retract replay snapshot
+- Merged-away nodes: `memory_state: merged_away`, filtered from normal projection
+- Edge rewire with provenance (`rewired_from_node_ids`, dedupe equivalent edges)
 
-**Cross-track dependency:** May land as an A10m authoring-surface slice **or** as a graph-memory PR after projection contracts (roadmap PR D/E in `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`). Either path must wire human-reviewed merges into `UnionSupergraphStore.aliases` + edge rewiring; pick one owner PR and reference the other doc.
-
-**Design agent brief (read before coding):**
-
-1. Read `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` §5–§12 and `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md` (Session 23 global-node success bar).
-2. Read `Docs/Design/DESIGN-contextual-vocabulary-layer.md` §Stable Global Node relationship — vocabulary entry vs durable graph identity.
-3. Preserve A10 overlay staging semantics (nothing deleted until commit; event log; side-by-side compare). Union materialization is the **post-commit** durable write, not a replacement for the review UI.
-4. Author a HANDOFF with explicit decisions on survivor id, alias permanence, pipeline replay, and retract/undo (`Backlog.md` removal-assertion IDEA is related symmetry).
+**Cross-track dependency:** Primary owner is graph-memory (`src/graph_memory/union_supergraph/`). Projection adapter changes in PR D touch `apps/live_control_server/services/`. Align with `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` projection contracts (PR D/E) but do not block A10m on full runtime adapter migration.
 
 **Acceptance:**
 
-Manual: commit Lysandra identity merge, reload Session 23, click survivor — selected-object card shows full global projection (evidence, adjacency, summary) without projection-time fuzzy id repair. Re-ingest of the same session does not resurrect merged-away ids as separate nodes.
+Manual: commit Lysandra merge, run reconciliation pass, reload Session 23, click survivor — selected-object card shows full global projection (evidence, adjacency, summary) without projection-time fuzzy id repair. Re-ingest does not resurrect merged-away ids as separate normal nodes.
 
 ---
 
