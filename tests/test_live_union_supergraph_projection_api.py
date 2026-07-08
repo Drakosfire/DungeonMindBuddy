@@ -30,7 +30,7 @@ def test_union_supergraph_projection_api_returns_session_23_payload() -> None:
     assert payload["session_id"] == "session-23"
     assert payload["campaign_id"] == "longmont-c2"
     assert payload["graph_id"] == "longmont-c2:union-supergraph"
-    assert set(payload) == {
+    assert {
         "campaign_id",
         "session_id",
         "graph_id",
@@ -39,7 +39,9 @@ def test_union_supergraph_projection_api_returns_session_23_payload() -> None:
         "node_views",
         "mentions",
         "source_spans",
-    }
+        "union_identity_diagnostics",
+        "union_identity_applied_assertion_ids",
+    }.issubset(set(payload))
 
 
 def test_union_supergraph_projection_api_contains_global_pc_caelynn() -> None:

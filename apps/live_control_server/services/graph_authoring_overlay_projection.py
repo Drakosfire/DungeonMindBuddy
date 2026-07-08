@@ -869,16 +869,32 @@ def _build_merge_node_id_map(
     *,
     merged_node_views: dict[str, GraphProjectionNodeView],
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
+    applied_assertion_ids: frozenset[str] | None = None,
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
     local_proposal_nodes = _local_proposal_node_map(active_assertions)
     existing_node_ids = set(merged_node_views.keys())
     raw_map: dict[str, str] = {}
+    redirect_map = durable_redirect_map or {}
 
     for assertion in active_assertions:
         if assertion.assertion_kind != "merge_objects":
             continue
         merge_assertion: AuthoredGraphMergeObjectsAssertion = assertion
+        if applied_assertion_ids and merge_assertion.assertion_id in applied_assertion_ids:
+            diagnostics.append(
+                GraphAuthoringOverlayDiagnostic(
+                    code="union_identity_overlay_merge_skipped_durable",
+                    message=(
+                        f"Skipped overlay merge for already materialized assertion "
+                        f"{merge_assertion.assertion_id}."
+                    ),
+                    assertion_id=merge_assertion.assertion_id,
+                    severity="info",
+                )
+            )
+            continue
         survivor_id = _resolve_object_ref_node_id(
             merge_assertion.survivor_object_ref,
             existing_node_ids=existing_node_ids,
@@ -892,6 +908,9 @@ def _build_merge_node_id_map(
         if not survivor_id:
             continue
         for merged_ref in merge_assertion.merged_object_refs:
+            original_id = (merged_ref.node_id or "").strip()
+            if original_id and original_id in redirect_map:
+                continue
             merged_id = _resolve_object_ref_node_id(
                 merged_ref,
                 existing_node_ids=existing_node_ids,
@@ -900,11 +919,15 @@ def _build_merge_node_id_map(
                 assertion_id=merge_assertion.assertion_id,
                 context="merge merged-away",
                 projection_node_views=merged_node_views,
+                allow_fuzzy_projection_match=original_id not in redirect_map,
             )
             if not merged_id or merged_id == survivor_id:
                 continue
+            if merged_id in redirect_map:
+                continue
+            if merged_id not in merged_node_views and original_id in redirect_map:
+                continue
             raw_map[merged_id] = survivor_id
-            original_id = (merged_ref.node_id or "").strip()
             if original_id and original_id != merged_id:
                 raw_map[original_id] = survivor_id
 
@@ -1592,6 +1615,20 @@ def _apply_authored_alias_propagation(
     )
 
 
+def _durable_redirect_map_from_projection(
+    projection: RecapGraphProjection,
+) -> dict[str, str]:
+    redirect_map: dict[str, str] = {}
+    for survivor_id, view in projection.node_views.items():
+        merged_away_ids = getattr(view, "merged_away_ids", None)
+        if not isinstance(merged_away_ids, list):
+            continue
+        for merged_away_id in merged_away_ids:
+            if isinstance(merged_away_id, str) and merged_away_id.strip():
+                redirect_map[merged_away_id] = survivor_id
+    return redirect_map
+
+
 def apply_authored_overlay_to_graph_review_projection(
     projection: RecapGraphProjection,
     overlay: AuthoredGraphOverlay | None,
@@ -1609,6 +1646,8 @@ def apply_authored_overlay_to_graph_review_projection(
     )
 
     diagnostics: list[GraphAuthoringOverlayDiagnostic] = list(summary.diagnostics if summary else [])
+    durable_redirect_map = _durable_redirect_map_from_projection(projection)
+    applied_assertion_ids = frozenset(projection.union_identity_applied_assertion_ids or [])
     base_projection_node_views = dict(projection.node_views)
     merged_node_views = dict(projection.node_views)
     authored_nodes = build_authored_projection_node_views(
@@ -1617,6 +1656,9 @@ def apply_authored_overlay_to_graph_review_projection(
         existing_node_ids=set(merged_node_views.keys()),
         diagnostics=diagnostics,
     )
+    for merged_id in list(authored_nodes.keys()):
+        if merged_id in durable_redirect_map:
+            authored_nodes.pop(merged_id, None)
     for node_id, authored_view in authored_nodes.items():
         if node_id in merged_node_views:
             existing = merged_node_views[node_id]
@@ -1689,6 +1731,8 @@ def apply_authored_overlay_to_graph_review_projection(
         overlay_for_projection,
         merged_node_views=merged_node_views,
         diagnostics=diagnostics,
+        applied_assertion_ids=applied_assertion_ids,
+        durable_redirect_map=durable_redirect_map,
     )
     projection_with_mentions, merged_node_views, projected_merge_count = _apply_merge_map_to_projection(
         projection_with_mentions,
@@ -1733,6 +1777,8 @@ def apply_authored_overlay_to_graph_review_projection(
         projected_merge_objects_count=projected_merge_count or projected_merge_assertion_count,
         diagnostics=diagnostics,
     )
+    for merged_id in durable_redirect_map:
+        merged_node_views.pop(merged_id, None)
     return projection_with_mentions.model_copy(update={"node_views": merged_node_views}), result_summary
 
 
