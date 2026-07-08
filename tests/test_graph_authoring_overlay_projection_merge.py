@@ -291,3 +291,77 @@ def test_merge_resolves_legacy_node_ref_to_projection_node_id(
         and "node:lysandra" in d.get("message", "")
         for d in summary.diagnostics
     )
+
+
+def test_overlay_local_merge_still_applies_without_durable_redirect(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
+        _projection_with_duplicates(),
+        create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+            update={"assertions": [merge_assertion()]}
+        ),
+    )
+    assert "merged-node" not in enriched.node_views
+    assert "survivor-node" in enriched.node_views
+    assert summary.projected_merge_objects_count >= 1
+
+
+def test_durable_redirect_prevents_duplicate_overlay_merge(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    from graph_memory.projection.recap_projection import build_recap_graph_projection
+    from tests.test_graph_memory_union_projection_identity_redirects import (
+        _lysandra_applied_store,
+    )
+
+    durable_projection = build_recap_graph_projection(
+        _lysandra_applied_store(),
+        session_id="session-23",
+        markdown="[Lysandra](dmb-node:node:lysandra) traveled.",
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={
+            "assertions": [
+                AuthoredGraphMergeObjectsAssertion.model_validate(
+                    {
+                        "assertion_id": "assert-merge-lysandra",
+                        "assertion_kind": "merge_objects",
+                        "operation": "merge",
+                        "campaign_id": CAMPAIGN_ID,
+                        "session_id": "session-23",
+                        "provenance": provenance().model_dump(),
+                        "survivor_object_ref": object_ref(
+                            node_id="party:captain_lysandra_ironveil",
+                            label="Captain Lysandra Ironveil",
+                            kind="companion",
+                            role="companion",
+                        ).model_dump(),
+                        "merged_object_refs": [
+                            object_ref(
+                                node_id="node:lysandra",
+                                label="Lysandra",
+                                kind="character",
+                            ).model_dump()
+                        ],
+                    }
+                )
+            ]
+        }
+    )
+
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(
+        durable_projection,
+        overlay,
+    )
+
+    assert "node:lysandra" not in enriched.node_views
+    assert "party:captain_lysandra_ironveil" in enriched.node_views
+    assert any(
+        d.code == "union_identity_overlay_merge_skipped_durable"
+        for d in summary.diagnostics
+    )
+    survivor = enriched.node_views["party:captain_lysandra_ironveil"]
+    assert len(survivor.aliases) == len(
+        set(durable_projection.node_views["party:captain_lysandra_ironveil"].aliases)
+    )

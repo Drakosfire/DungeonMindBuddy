@@ -14,6 +14,18 @@ from graph_memory.projection.node_view import (
     GraphProjectionSuggestedExpansion,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.union_supergraph.projection_identity import (
+    UnionProjectionIdentityContext,
+    UnionProjectionIdentityDiagnostic,
+    append_identity_projection_diagnostics,
+    build_union_projection_identity_context,
+    is_projectable_union_edge,
+    is_projectable_union_node,
+    projectable_node_ids,
+    resolve_projected_node_id,
+    resolve_projection_markdown_dmb_node_links,
+    survivor_identity_provenance,
+)
 
 
 class RecapProjectionSourceSpan(BaseModel):
@@ -53,14 +65,21 @@ class RecapGraphProjection(BaseModel):
     node_views: dict[str, GraphProjectionNodeView]
     mentions: list[RecapProjectionMention] = Field(default_factory=list)
     source_spans: list[RecapProjectionSourceSpan] = Field(default_factory=list)
+    union_identity_diagnostics: list[UnionProjectionIdentityDiagnostic] = Field(
+        default_factory=list
+    )
+    union_identity_applied_assertion_ids: list[str] = Field(default_factory=list)
 
 
 def build_focus_overlay(
     store: UnionSupergraphStore,
     focus_session_id: str | None = None,
+    *,
+    identity_context: UnionProjectionIdentityContext | None = None,
 ) -> GraphFocusOverlay:
     """Build deterministic focus metadata from a union-supergraph store."""
 
+    context = identity_context or build_union_projection_identity_context(store)
     resolved_focus_session_id = (
         focus_session_id if focus_session_id is not None else store.focus_session_id
     )
@@ -73,16 +92,21 @@ def build_focus_overlay(
         edge_id
         for edge_id, edge in store.edges.items()
         if resolved_focus_session_id in edge.session_ids
+        and is_projectable_union_edge(edge, context)
     )
     focused_node_ids = sorted(
-        node_id
+        resolve_projected_node_id(node_id, context)
         for node_id, node in store.nodes.items()
-        if set(node.evidence_ref_ids).intersection(focused_evidence_ref_ids)
-        or any(
-            edge_id in focused_edge_ids
-            for edge_id in _edge_ids_touching_node(store, node_id)
+        if is_projectable_union_node(node, context)
+        and (
+            set(node.evidence_ref_ids).intersection(focused_evidence_ref_ids)
+            or any(
+                edge_id in focused_edge_ids
+                for edge_id in _edge_ids_touching_node(store, node_id, identity_context=context)
+            )
         )
     )
+    focused_node_ids = sorted(set(focused_node_ids))
 
     return GraphFocusOverlay(
         focus_session_id=resolved_focus_session_id,
@@ -96,9 +120,28 @@ def build_node_view(
     store: UnionSupergraphStore,
     node_id: str,
     focus_session_id: str | None = None,
+    *,
+    identity_context: UnionProjectionIdentityContext | None = None,
 ) -> GraphProjectionNodeView:
     """Build a projection-ready view for one global node."""
 
+    view, _resolved_count = _build_node_view_with_identity(
+        store,
+        node_id,
+        focus_session_id=focus_session_id,
+        identity_context=identity_context,
+    )
+    return view
+
+
+def _build_node_view_with_identity(
+    store: UnionSupergraphStore,
+    node_id: str,
+    *,
+    focus_session_id: str | None = None,
+    identity_context: UnionProjectionIdentityContext | None = None,
+) -> tuple[GraphProjectionNodeView, int]:
+    context = identity_context or build_union_projection_identity_context(store)
     node = store.nodes[node_id]
     resolved_focus_session_id = (
         focus_session_id if focus_session_id is not None else store.focus_session_id
@@ -111,17 +154,14 @@ def build_node_view(
     evidence_badges = [
         _build_evidence_badge(store, evidence_ref_id, resolved_focus_session_id)
         for evidence_ref_id in node.evidence_ref_ids
+        if evidence_ref_id in store.evidence
     ]
-    adjacency = [
-        _build_adjacency_candidate(
-            store,
-            item.edge_id,
-            item.node_id,
-            item.direction,
-            item.anchored_to_focus_session,
-        )
-        for item in store.adjacency.get(node_id, [])
-    ]
+    adjacency, edge_endpoints_resolved = _build_node_adjacency(
+        store,
+        node_id,
+        focus_session_id=resolved_focus_session_id,
+        identity_context=context,
+    )
 
     suggested_expansions = _build_suggested_expansions(store, adjacency)
 
@@ -129,21 +169,26 @@ def build_node_view(
     description = node_extra.get("description")
     summary = description.strip() if isinstance(description, str) and description.strip() else None
 
-    return GraphProjectionNodeView(
-        node_id=node.node_id,
-        label=node.label,
-        kind=node.kind,
-        role=node.role,
-        aliases=list(node.aliases),
-        source_domains=list(node.source_domains),
-        evidence_badges=evidence_badges,
-        adjacency=adjacency,
-        suggested_expansions=suggested_expansions,
-        anchored_to_focus_session=bool(
-            set(node.evidence_ref_ids).intersection(focus_evidence_ids)
-        )
-        or any(candidate.anchored_to_focus_session for candidate in adjacency),
-        summary=summary,
+    provenance = survivor_identity_provenance(node_id, context)
+    return (
+        GraphProjectionNodeView(
+            node_id=node.node_id,
+            label=node.label,
+            kind=node.kind,
+            role=node.role,
+            aliases=list(node.aliases),
+            source_domains=list(node.source_domains),
+            evidence_badges=evidence_badges,
+            adjacency=adjacency,
+            suggested_expansions=suggested_expansions,
+            anchored_to_focus_session=bool(
+                set(node.evidence_ref_ids).intersection(focus_evidence_ids)
+            )
+            or any(candidate.anchored_to_focus_session for candidate in adjacency),
+            summary=summary,
+            **provenance,
+        ),
+        edge_endpoints_resolved,
     )
 
 
@@ -155,19 +200,68 @@ def build_recap_graph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral recap graph projection from a union-supergraph store."""
 
-    projected_markdown, mentions = _project_markdown_mentions(store, markdown)
+    identity_context = build_union_projection_identity_context(store)
+    diagnostics = list(identity_context.diagnostics)
+    merged_away_filtered = sum(
+        1
+        for node in store.nodes.values()
+        if not is_projectable_union_node(node, identity_context)
+    )
+    rewired_edges_filtered = sum(
+        1
+        for edge in store.edges.values()
+        if not is_projectable_union_edge(edge, identity_context)
+    )
+
+    projected_markdown, mentions, mention_targets_resolved = _project_markdown_mentions(
+        store,
+        markdown,
+        identity_context=identity_context,
+    )
+    if projected_markdown is not None:
+        projected_markdown, markdown_redirect_count = resolve_projection_markdown_dmb_node_links(
+            projected_markdown,
+            identity_context,
+        )
+    else:
+        markdown_redirect_count = 0
+    mention_targets_resolved += markdown_redirect_count
+
+    edge_endpoints_resolved = 0
+    node_views: dict[str, GraphProjectionNodeView] = {}
+    for node_id in projectable_node_ids(store, identity_context):
+        view, resolved_count = _build_node_view_with_identity(
+            store,
+            node_id,
+            focus_session_id=session_id,
+            identity_context=identity_context,
+        )
+        edge_endpoints_resolved += resolved_count
+        node_views[node_id] = view
+
+    append_identity_projection_diagnostics(
+        diagnostics,
+        merged_away_nodes_filtered=merged_away_filtered,
+        rewired_edges_filtered=rewired_edges_filtered,
+        edge_endpoints_resolved=edge_endpoints_resolved,
+        mention_targets_resolved=mention_targets_resolved,
+    )
+
     return RecapGraphProjection(
         campaign_id=store.campaign_id,
         session_id=session_id,
         graph_id=store.graph_id,
         markdown=projected_markdown,
-        focus=build_focus_overlay(store, focus_session_id=session_id),
-        node_views={
-            node_id: build_node_view(store, node_id, focus_session_id=session_id)
-            for node_id in sorted(store.nodes)
-        },
+        focus=build_focus_overlay(
+            store,
+            focus_session_id=session_id,
+            identity_context=identity_context,
+        ),
+        node_views=node_views,
         mentions=mentions,
         source_spans=source_spans or [],
+        union_identity_diagnostics=diagnostics,
+        union_identity_applied_assertion_ids=sorted(identity_context.applied_assertion_ids),
     )
 
 
@@ -221,17 +315,21 @@ def splice_node_link_spans(
 def _project_markdown_mentions(
     store: UnionSupergraphStore,
     markdown: str | None,
-) -> tuple[str | None, list[RecapProjectionMention]]:
+    *,
+    identity_context: UnionProjectionIdentityContext | None = None,
+) -> tuple[str | None, list[RecapProjectionMention], int]:
     if not markdown:
-        return markdown, []
+        return markdown, [], 0
 
+    context = identity_context or build_union_projection_identity_context(store)
     matches: list[tuple[int, int, str, str]] = []
     occupied: list[tuple[int, int]] = []
 
     aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
     for alias, node_id in aliases:
-        node = store.nodes.get(node_id)
-        if node is None:
+        resolved_node_id = resolve_projected_node_id(node_id, context)
+        node = store.nodes.get(resolved_node_id)
+        if node is None or not is_projectable_union_node(node, context):
             continue
         pattern = re.compile(rf"(?<![\w\\[]){re.escape(alias)}(?![\w\\]])", re.IGNORECASE)
         for match in pattern.finditer(markdown):
@@ -239,28 +337,109 @@ def _project_markdown_mentions(
             if any(start < used_end and end > used_start for used_start, used_end in occupied):
                 continue
             occupied.append((start, end))
-            matches.append((start, end, match.group(0), node_id))
+            matches.append((start, end, match.group(0), resolved_node_id))
 
     matches.sort(key=lambda item: item[0])
     projected, offsets = splice_node_link_spans(markdown, matches)
 
     mentions: list[RecapProjectionMention] = []
+    mention_targets_resolved = 0
     for (start, end, label, node_id), offset in zip(matches, offsets):
         if offset is None:
             continue
         node = store.nodes[node_id]
-        mentions.append(
-            RecapProjectionMention(
-                mention_id=f"mention:{node_id}:{start}",
-                node_id=node_id,
-                label=label,
-                start_offset=offset[0],
-                end_offset=offset[1],
-                evidence_ref_ids=list(node.evidence_ref_ids),
+        mention_kwargs: dict[str, object] = {
+            "mention_id": f"mention:{node_id}:{start}",
+            "node_id": node_id,
+            "label": label,
+            "start_offset": offset[0],
+            "end_offset": offset[1],
+            "evidence_ref_ids": list(node.evidence_ref_ids),
+        }
+        mentions.append(RecapProjectionMention(**mention_kwargs))
+
+    return projected, mentions, mention_targets_resolved
+
+
+def _build_node_adjacency(
+    store: UnionSupergraphStore,
+    node_id: str,
+    *,
+    focus_session_id: str | None,
+    identity_context: UnionProjectionIdentityContext,
+) -> tuple[list[GraphProjectionAdjacencyCandidate], int]:
+    adjacency: list[GraphProjectionAdjacencyCandidate] = []
+    edge_endpoints_resolved = 0
+    seen_edge_ids: set[str] = set()
+
+    def append_adjacency(
+        edge_id: str,
+        adjacent_node_id: str,
+        direction: str,
+        *,
+        anchored_to_focus_session: bool,
+        raw_adjacent_node_id: str | None = None,
+    ) -> None:
+        nonlocal edge_endpoints_resolved
+        if edge_id in seen_edge_ids:
+            return
+        edge = store.edges.get(edge_id)
+        if edge is None or not is_projectable_union_edge(edge, identity_context):
+            return
+
+        resolved_adjacent_node_id = resolve_projected_node_id(adjacent_node_id, identity_context)
+        if raw_adjacent_node_id and resolved_adjacent_node_id != raw_adjacent_node_id:
+            edge_endpoints_resolved += 1
+
+        adjacent_node = store.nodes.get(resolved_adjacent_node_id)
+        if adjacent_node is None or not is_projectable_union_node(adjacent_node, identity_context):
+            return
+
+        seen_edge_ids.add(edge_id)
+        adjacency.append(
+            _build_adjacency_candidate(
+                store,
+                edge_id,
+                resolved_adjacent_node_id,
+                direction,
+                anchored_to_focus_session,
+                identity_context=identity_context,
             )
         )
 
-    return projected, mentions
+    for item in store.adjacency.get(node_id, []):
+        append_adjacency(
+            item.edge_id,
+            item.node_id,
+            item.direction,
+            anchored_to_focus_session=item.anchored_to_focus_session,
+            raw_adjacent_node_id=item.node_id,
+        )
+
+    for edge_id, edge in store.edges.items():
+        if edge_id in seen_edge_ids or not is_projectable_union_edge(edge, identity_context):
+            continue
+        resolved_source_id = resolve_projected_node_id(edge.source_node_id, identity_context)
+        resolved_target_id = resolve_projected_node_id(edge.target_node_id, identity_context)
+        anchored = bool(focus_session_id and focus_session_id in edge.session_ids)
+        if resolved_source_id == node_id and resolved_target_id != node_id:
+            append_adjacency(
+                edge_id,
+                resolved_target_id,
+                edge.direction or "outgoing",
+                anchored_to_focus_session=anchored,
+                raw_adjacent_node_id=edge.target_node_id,
+            )
+        elif resolved_target_id == node_id and resolved_source_id != node_id:
+            append_adjacency(
+                edge_id,
+                resolved_source_id,
+                "incoming",
+                anchored_to_focus_session=anchored,
+                raw_adjacent_node_id=edge.source_node_id,
+            )
+
+    return adjacency, edge_endpoints_resolved
 
 
 def _build_evidence_badge(
@@ -296,8 +475,13 @@ def _build_adjacency_candidate(
     adjacent_node_id: str,
     direction: str,
     anchored_to_focus_session: bool,
+    *,
+    identity_context: UnionProjectionIdentityContext | None = None,
 ) -> GraphProjectionAdjacencyCandidate:
+    context = identity_context or build_union_projection_identity_context(store)
     edge = store.edges[edge_id]
+    resolved_source_id = resolve_projected_node_id(edge.source_node_id, context)
+    resolved_target_id = resolve_projected_node_id(edge.target_node_id, context)
     adjacent_node = store.nodes[adjacent_node_id]
     edge_label = edge.label.strip() if isinstance(edge.label, str) and edge.label.strip() else None
     return GraphProjectionAdjacencyCandidate(
@@ -312,14 +496,28 @@ def _build_adjacency_candidate(
         evidence_ref_ids=list(edge.evidence_ref_ids),
         edge_label=edge_label,
         session_ids=list(edge.session_ids),
+        source_node_id=resolved_source_id,
+        target_node_id=resolved_target_id,
     )
 
 
-def _edge_ids_touching_node(store: UnionSupergraphStore, node_id: str) -> list[str]:
+def _edge_ids_touching_node(
+    store: UnionSupergraphStore,
+    node_id: str,
+    *,
+    identity_context: UnionProjectionIdentityContext | None = None,
+) -> list[str]:
+    context = identity_context or build_union_projection_identity_context(store)
     return [
         edge_id
         for edge_id, edge in store.edges.items()
-        if edge.source_node_id == node_id or edge.target_node_id == node_id
+        if is_projectable_union_edge(edge, context)
+        and (
+            edge.source_node_id == node_id
+            or edge.target_node_id == node_id
+            or resolve_projected_node_id(edge.source_node_id, context) == node_id
+            or resolve_projected_node_id(edge.target_node_id, context) == node_id
+        )
     ]
 
 

@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10m Implement — projection adapter simplification (PR D) — completed 2026-07-08
+
+**Delivered:** `projection_identity.py`, durable redirect filtering/resolution in `build_recap_graph_projection`, overlay merge bridge respects materialized assertions, tests in `test_graph_memory_union_projection_identity_redirects.py` and overlay merge tests.
+
+**Refs:** A10m PR D, `projection_identity.py`, `recap_projection.py`, `graph_authoring_overlay_projection.py`
+
 ## [DONE] A10m Implement — reconciliation apply (PR C) — completed 2026-07-08
 
 **Delivered:** `apply_union_supergraph_merge_plan` + file-backed wrapper with backup; `UnionSupergraphMergeRecord` / `identity_merge_records`; survivor hydration, merged-away marking, edge rewire/dedupe, adjacency rebuild, idempotency, and apply tests.

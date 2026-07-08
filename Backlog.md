@@ -7,15 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] A10m Implement — projection adapter simplification (PR D) — captured 2026-07-08
+## [READY] A10m Dogfood — Session 23 Lysandra durable identity validation (PR E) — captured 2026-07-08
 
-**Context:** PR C applies authored merge reconciliation into the union store: redirects, merge records, survivor hydration, edge/evidence rewiring, and merged-away node state. Projection still needs to read these durable redirects and treat overlay merge maps as a bridge only for unmaterialized assertions.
+**Context:** PRs A–D provide durable identity redirects, planning, apply, and projection/read support. The next slice validates the full real-world Session 23 path: authored merge → reconciliation apply → projection reload → survivor selected-object card shows full evidence/adjacency/summary without duplicate Lysandra nodes.
 
-**Action:** Update projection adapter/read path to consult `identity_redirects` first, filter merged-away nodes from normal projection output, resolve `dmb-node` targets through `resolve_union_node_id`, and reduce projection-time fuzzy repair where durable redirects exist.
+**Action:** Build or run a focused dogfood harness/script for the Session 23 Lysandra merge. Capture failures as targeted follow-up backlog, not broad UI redesign.
 
-**Surfaces when:** `union_supergraph_projection_adapter.py`, projection adapter tests, Session 23 dogfood.
-
-**Refs:** A10m PR D, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
+**Refs:** A10m PR E, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
