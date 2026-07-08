@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10m Design — authored merge reconciliation into union supergraph — completed 2026-07-08
+
+**Delivered:** `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md` — survivor authority, separate reconciliation pass, `UnionIdentityRedirect` model, edge/evidence rewiring, replay/re-ingest, retract hook, PR A–E breakdown. Roadmap §A10m updated.
+
+**Refs:** A10m design PR, `ROADMAP-graph-object-authoring-surface.md` §A10m
+
 ## [DONE] Graph Review — identity workbench dogfood polish — completed 2026-07-07
 
 **Implemented (A10l):** Polished Existing Object identity workbench for Lysandra dogfood: clearer canonical/duplicate/cluster states, survivor ← merged-away copy, merge vs recap-link distinction, staging tray clarity, session-persisted selection. Hardened projection-time merge hydration when survivor/duplicate ids diverge from live projection; resolver filters phantom candidates; frontend resolves merge refs to projection node ids before staging.

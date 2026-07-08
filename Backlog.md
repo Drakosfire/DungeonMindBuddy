@@ -7,15 +7,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] Graph Review — overlay merge → union supergraph reconciliation (A10m) — captured 2026-07-07
+## [READY] A10m Implement — union identity redirect model (PR A) — captured 2026-07-08
 
-**Context:** A10l proves overlay merge staging/hydration for Lysandra, but projection-only collapse leaves ID drift (`party:*` vs `character_*` vs `node:*`). Architecture target: human-reviewed merges materialize into `UnionSupergraphStore` (aliases + edge rewiring); projections become lenses over global identity.
+**Context:** Design handoff complete (`Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md`). Next coding slice adds `UnionIdentityRedirect` + lookup tests. No apply, no UI.
 
-**Action:** **Design-first** — Prime Design / graph-memory agent authors HANDOFF before code. See `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` §A10m for survivor-id, alias permanence, pipeline replay, and retract symmetry decisions. May land as A10m or as graph-memory PR after projection contracts (roadmap PR D/E).
+**Action:** Implement PR A per handoff §10: model, redirect resolver, store load/validate, tests.
 
-**Surfaces when:** `graph_object_authoring_commit.py`, `graph_authoring_overlay_projection.py`, `src/graph_memory/union_supergraph/`, union projection adapter, ingest reconciliation replay.
+**Surfaces when:** `src/graph_memory/union_supergraph/`, union supergraph tests.
 
-**Refs:** A10m, `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`, Lysandra duplicate cluster dogfood.
+**Refs:** A10m PR A, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
