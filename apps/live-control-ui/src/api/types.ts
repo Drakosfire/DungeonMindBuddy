@@ -2357,6 +2357,7 @@ export interface GraphMergeReconciliationDiagnostic {
 export interface GraphMergeReconciliationPlanSummary {
   merge_assertion_count: number;
   applicable_assertion_count: number;
+  already_materialized_assertion_count: number;
   skipped_assertion_count: number;
   redirect_count: number;
   edge_rewire_count: number;

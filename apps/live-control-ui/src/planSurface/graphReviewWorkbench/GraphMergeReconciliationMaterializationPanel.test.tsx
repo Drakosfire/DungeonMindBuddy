@@ -28,6 +28,7 @@ const prepareWithPlans = {
   summary: {
     merge_assertion_count: 1,
     applicable_assertion_count: 1,
+    already_materialized_assertion_count: 0,
     skipped_assertion_count: 0,
     redirect_count: 1,
     edge_rewire_count: 1,
@@ -43,11 +44,33 @@ const prepareNoPlans = {
   summary: {
     merge_assertion_count: 0,
     applicable_assertion_count: 0,
+    already_materialized_assertion_count: 0,
     skipped_assertion_count: 0,
     redirect_count: 0,
     edge_rewire_count: 0,
     edge_dedupe_count: 0,
   },
+};
+
+const prepareAlreadyMaterialized = {
+  ...prepareWithPlans,
+  confirm_token: "confirm-token-materialized",
+  summary: {
+    merge_assertion_count: 1,
+    applicable_assertion_count: 0,
+    already_materialized_assertion_count: 1,
+    skipped_assertion_count: 0,
+    redirect_count: 0,
+    edge_rewire_count: 0,
+    edge_dedupe_count: 0,
+  },
+  diagnostics: [
+    {
+      code: "merge_assertion_already_materialized",
+      message: "1 committed identity merge(s) are already durable in the union store.",
+      severity: "info" as const,
+    },
+  ],
 };
 
 const applyResponse = {
@@ -110,6 +133,26 @@ describe("GraphMergeReconciliationMaterializationPanel", () => {
     expect(
       await screen.findByTestId("graph-merge-reconciliation-no-plans"),
     ).toHaveTextContent("No committed identity merges need materialization");
+    expect(screen.queryByTestId("graph-merge-reconciliation-apply-button")).not.toBeInTheDocument();
+  });
+
+  it("hides apply button when prepare finds only already-materialized merges", async () => {
+    vi.mocked(prepareGraphMergeReconciliationMaterialization).mockResolvedValue(
+      prepareAlreadyMaterialized,
+    );
+    const user = userEvent.setup();
+
+    render(
+      <GraphMergeReconciliationMaterializationPanel
+        campaignId="longmont-c2"
+        sessionId="session-23"
+        previewUnionStorePath="stores/preview_union.json"
+      />,
+    );
+
+    await user.click(screen.getByTestId("graph-merge-reconciliation-prepare-button"));
+
+    expect(await screen.findByText(/already materialized in the union store/i)).toBeVisible();
     expect(screen.queryByTestId("graph-merge-reconciliation-apply-button")).not.toBeInTheDocument();
   });
 

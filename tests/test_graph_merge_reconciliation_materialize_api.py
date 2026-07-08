@@ -227,7 +227,61 @@ def test_apply_writes_backup_and_updated_union_store(workspace: dict) -> None:
     assert response.summary.redirects_added == 1
 
 
+def test_prepare_after_apply_returns_zero_applicable(workspace: dict) -> None:
+    prepare = prepare_graph_merge_reconciliation_materialization(
+        _prepare_request(workspace),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+    apply_graph_merge_reconciliation_materialization(
+        _apply_request(prepare),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+
+    second_prepare = prepare_graph_merge_reconciliation_materialization(
+        _prepare_request(workspace),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+
+    assert second_prepare.summary.applicable_assertion_count == 0
+    assert second_prepare.summary.already_materialized_assertion_count == 1
+    assert second_prepare.summary.redirect_count == 0
+    assert any(
+        item.code == "merge_assertion_already_materialized"
+        for item in second_prepare.diagnostics
+    )
+
+
+def test_apply_rejects_prepare_with_no_actionable_plans_after_materialization(workspace: dict) -> None:
+    first_prepare = prepare_graph_merge_reconciliation_materialization(
+        _prepare_request(workspace),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+    apply_graph_merge_reconciliation_materialization(
+        _apply_request(first_prepare),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+    second_prepare = prepare_graph_merge_reconciliation_materialization(
+        _prepare_request(workspace),
+        corpus_root=workspace["corpus_root"],
+        repo_root_override=workspace["root"],
+    )
+
+    with pytest.raises(GraphMergeReconciliationMaterializeError) as exc:
+        apply_graph_merge_reconciliation_materialization(
+            _apply_request(second_prepare),
+            corpus_root=workspace["corpus_root"],
+            repo_root_override=workspace["root"],
+        )
+    assert exc.value.code == "no_applicable_plans"
+
+
 def test_apply_is_idempotent_for_already_applied_assertions(workspace: dict) -> None:
+    """Apply still skips already-applied assertions if invoked despite zero actionable prepare."""
     prepare = prepare_graph_merge_reconciliation_materialization(
         _prepare_request(workspace),
         corpus_root=workspace["corpus_root"],
@@ -240,19 +294,21 @@ def test_apply_is_idempotent_for_already_applied_assertions(workspace: dict) -> 
     )
     assert first.applied_assertion_ids
 
+    # Re-prepare after apply should not offer actionable work.
     second_prepare = prepare_graph_merge_reconciliation_materialization(
         _prepare_request(workspace),
         corpus_root=workspace["corpus_root"],
         repo_root_override=workspace["root"],
     )
-    second = apply_graph_merge_reconciliation_materialization(
-        _apply_request(second_prepare),
-        corpus_root=workspace["corpus_root"],
-        repo_root_override=workspace["root"],
-    )
-    assert second.applied is True
-    assert first.applied_assertion_ids[0] in second.skipped_assertion_ids
-    assert not second.applied_assertion_ids
+    assert second_prepare.summary.applicable_assertion_count == 0
+
+    with pytest.raises(GraphMergeReconciliationMaterializeError) as exc:
+        apply_graph_merge_reconciliation_materialization(
+            _apply_request(second_prepare),
+            corpus_root=workspace["corpus_root"],
+            repo_root_override=workspace["root"],
+        )
+    assert exc.value.code == "no_applicable_plans"
 
 
 def test_path_escaping_is_rejected(workspace: dict) -> None:

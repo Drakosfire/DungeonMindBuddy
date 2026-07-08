@@ -26,14 +26,17 @@ from apps.live_control_server.services.union_supergraph_projection_adapter impor
 )
 from graph_memory.union_supergraph.load import load_union_supergraph_store
 from graph_memory.union_supergraph.merge_reconciliation import (
+    MergeAssertionPlan,
     ReconciliationDiagnostic,
     UnionSupergraphMergePlan,
     plan_authored_merge_reconciliation,
 )
 from graph_memory.union_supergraph.merge_reconciliation_apply import (
     UnionSupergraphApplyResult,
+    applied_identity_merge_assertion_ids,
     apply_union_supergraph_merge_plan_to_file,
 )
+from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 CONFIRM_TOKEN_KIND = "graph_merge_reconciliation_apply_confirmation_v1"
 
@@ -62,6 +65,7 @@ class GraphMergeReconciliationPlanSummary(BaseModel):
 
     merge_assertion_count: int
     applicable_assertion_count: int
+    already_materialized_assertion_count: int
     skipped_assertion_count: int
     redirect_count: int
     edge_rewire_count: int
@@ -223,6 +227,31 @@ def merge_plan_digest(plan: UnionSupergraphMergePlan) -> str:
     return stable_json_digest(merge_plan_digest_payload(plan))
 
 
+def actionable_assertion_plans(
+    plan: UnionSupergraphMergePlan,
+    union_store: UnionSupergraphStore,
+) -> tuple[MergeAssertionPlan, ...]:
+    applied_ids = applied_identity_merge_assertion_ids(union_store)
+    return tuple(
+        assertion_plan
+        for assertion_plan in plan.plans
+        if assertion_plan.assertion_id not in applied_ids
+    )
+
+
+def actionable_merge_plan(
+    plan: UnionSupergraphMergePlan,
+    union_store: UnionSupergraphStore,
+) -> UnionSupergraphMergePlan:
+    actionable_plans = actionable_assertion_plans(plan, union_store)
+    return UnionSupergraphMergePlan(
+        campaign_id=plan.campaign_id,
+        materialization_pass_id=plan.materialization_pass_id,
+        plans=actionable_plans,
+        diagnostics=plan.diagnostics,
+    )
+
+
 def derive_materialization_pass_id(
     *,
     campaign_id: str,
@@ -272,14 +301,23 @@ def _count_merge_assertions(overlay) -> int:
     )
 
 
-def _plan_summary(plan: UnionSupergraphMergePlan, merge_assertion_count: int) -> GraphMergeReconciliationPlanSummary:
-    applicable = len(plan.plans)
-    redirect_count = sum(len(item.redirects) for item in plan.plans)
-    edge_rewire_count = sum(len(item.edges_to_rewire) for item in plan.plans)
+def _plan_summary(
+    plan: UnionSupergraphMergePlan,
+    merge_assertion_count: int,
+    union_store: UnionSupergraphStore,
+) -> GraphMergeReconciliationPlanSummary:
+    applied_ids = applied_identity_merge_assertion_ids(union_store)
+    actionable = actionable_assertion_plans(plan, union_store)
+    already_materialized = sum(
+        1 for assertion_plan in plan.plans if assertion_plan.assertion_id in applied_ids
+    )
+    redirect_count = sum(len(item.redirects) for item in actionable)
+    edge_rewire_count = sum(len(item.edges_to_rewire) for item in actionable)
     return GraphMergeReconciliationPlanSummary(
         merge_assertion_count=merge_assertion_count,
-        applicable_assertion_count=applicable,
-        skipped_assertion_count=max(0, merge_assertion_count - applicable),
+        applicable_assertion_count=len(actionable),
+        already_materialized_assertion_count=already_materialized,
+        skipped_assertion_count=max(0, merge_assertion_count - len(plan.plans)),
         redirect_count=redirect_count,
         edge_rewire_count=edge_rewire_count,
         edge_dedupe_count=0,
@@ -329,6 +367,7 @@ def _plan_materialization(
     Path,
     str,
     str,
+    UnionSupergraphStore,
     UnionSupergraphMergePlan,
     str,
     str,
@@ -379,6 +418,7 @@ def _plan_materialization(
         union_store_path,
         overlay_token,
         union_store_token,
+        union_store,
         plan,
         plan_digest,
         materialization_pass_id,
@@ -398,8 +438,9 @@ def prepare_graph_merge_reconciliation_materialization(
         union_store_path,
         overlay_token,
         union_store_token,
+        union_store,
         plan,
-        plan_digest,
+        _plan_digest,
         materialization_pass_id,
         diagnostics,
     ) = _plan_materialization(
@@ -411,7 +452,20 @@ def prepare_graph_merge_reconciliation_materialization(
     merge_assertion_count = _count_merge_assertions(
         _store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
     )
-    summary = _plan_summary(plan, merge_assertion_count)
+    actionable_plan = actionable_merge_plan(plan, union_store)
+    plan_digest = merge_plan_digest(actionable_plan)
+    summary = _plan_summary(plan, merge_assertion_count, union_store)
+    if summary.already_materialized_assertion_count:
+        diagnostics.append(
+            GraphMergeReconciliationDiagnostic(
+                code="merge_assertion_already_materialized",
+                message=(
+                    f"{summary.already_materialized_assertion_count} committed identity merge(s) "
+                    "are already durable in the union store."
+                ),
+                severity="info",
+            )
+        )
     confirm_token = build_merge_reconciliation_confirm_token(
         campaign_id=request.campaign_id,
         session_id=request.session_id,
@@ -471,8 +525,9 @@ def apply_graph_merge_reconciliation_materialization(
         union_store_path,
         overlay_token,
         union_store_token,
+        union_store,
         plan,
-        plan_digest,
+        _plan_digest,
         materialization_pass_id,
         diagnostics,
     ) = _plan_materialization(
@@ -482,6 +537,9 @@ def apply_graph_merge_reconciliation_materialization(
         overlay_path=overlay_path,
         union_store_path=union_store_path,
     )
+
+    actionable_plan = actionable_merge_plan(plan, union_store)
+    plan_digest = merge_plan_digest(actionable_plan)
 
     if materialization_pass_id != request.materialization_pass_id:
         raise GraphMergeReconciliationMaterializeError(
@@ -507,7 +565,7 @@ def apply_graph_merge_reconciliation_materialization(
             status_code=409,
         )
 
-    if not plan.plans:
+    if not actionable_plan.plans:
         raise GraphMergeReconciliationMaterializeError(
             "No committed identity merges need materialization for the current overlay and union store.",
             code="no_applicable_plans",

@@ -45,9 +45,14 @@ function formatPlanSummary(summary: GraphMergeReconciliationPrepareResponse["sum
       `${summary.applicable_assertion_count} would apply now (${summary.redirect_count} redirect${summary.redirect_count === 1 ? "" : "s"}, ${summary.edge_rewire_count} edge rewire${summary.edge_rewire_count === 1 ? "" : "s"})`,
     );
   }
+  if (summary.already_materialized_assertion_count) {
+    lines.push(
+      `${summary.already_materialized_assertion_count} already materialized in the union store`,
+    );
+  }
   if (summary.skipped_assertion_count) {
     lines.push(
-      `${summary.skipped_assertion_count} already materialized or not applicable`,
+      `${summary.skipped_assertion_count} not applicable from current overlay/store state`,
     );
   }
   return lines;
@@ -243,17 +248,17 @@ export function GraphMergeReconciliationMaterializationPanel({
           className="graph-merge-reconciliation-prepare-preview"
           data-testid="graph-merge-reconciliation-prepare-preview"
         >
+          {formatPlanSummary(prepared.summary).length ? (
+            <ul className="graph-merge-reconciliation-prepare-summary">
+              {formatPlanSummary(prepared.summary).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
           {prepared.summary.applicable_assertion_count > 0 ? (
-            <>
-              <ul className="graph-merge-reconciliation-prepare-summary">
-                {formatPlanSummary(prepared.summary).map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-              <p className="graph-merge-reconciliation-prepare-safety">
-                Safe preview generated. No union store writes occurred during prepare.
-              </p>
-            </>
+            <p className="graph-merge-reconciliation-prepare-safety">
+              Safe preview generated. No union store writes occurred during prepare.
+            </p>
           ) : (
             <p
               className="graph-merge-reconciliation-no-plans"
