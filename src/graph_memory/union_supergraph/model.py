@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from graph_memory.evidence.evidence_ref import GraphMemoryEvidenceRef
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
@@ -77,6 +77,36 @@ class UnionSupergraphDiagnostics(_UnionSupergraphModel):
     production_retrieval: bool = False
 
 
+class UnionIdentityRedirect(_UnionSupergraphModel):
+    """Durable graph identity redirect: merged-away node id -> canonical survivor id."""
+
+    redirect_id: str
+    campaign_id: str
+    from_node_id: str
+    to_node_id: str
+    assertion_id: str
+    event_id: str | None = None
+    merge_reason: str | None = None
+    created_at: str
+    status: Literal["active", "retracted"]
+    materialization_pass_id: str
+
+    @field_validator("from_node_id", "to_node_id")
+    @classmethod
+    def _require_non_empty_node_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("node id must be non-empty")
+        return value
+
+    @field_validator("to_node_id")
+    @classmethod
+    def _reject_self_redirect(cls, value: str, info) -> str:
+        from_node_id = info.data.get("from_node_id")
+        if from_node_id is not None and value == from_node_id:
+            raise ValueError("from_node_id and to_node_id must differ")
+        return value
+
+
 class UnionSupergraphStore(_UnionSupergraphModel):
     schema_: str = Field(validation_alias="schema", serialization_alias="schema")
     version: str
@@ -90,6 +120,7 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     evidence: dict[str, UnionSupergraphEvidence]
     source_artifacts: dict[str, UnionSupergraphSourceArtifact]
     aliases: dict[str, str] = Field(default_factory=dict)
+    identity_redirects: list[UnionIdentityRedirect] = Field(default_factory=list)
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]]
     diagnostics: UnionSupergraphDiagnostics
 
