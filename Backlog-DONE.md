@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10n Implement — selected-object durable identity polish (PR A) — completed 2026-07-08
+
+**Delivered:** GM-facing merged identity note on `GraphReviewNodeGameCard`; durable provenance helpers in `graphReviewSelectionUtils.ts`; raw merge ids in collapsed Technical details; tests and `A10N-SELECTED-OBJECT-DOGFOOD.md`.
+
+**Refs:** A10n PR A, `GraphReviewNodeGameCard.tsx`, `graphReviewSelectionUtils.ts`
+
 ## [DONE] A10m Dogfood — Session 23 Lysandra durable identity validation (PR E) — completed 2026-07-08
 
 **Delivered:** Deterministic dogfood harness in `test_a10m_lysandra_durable_identity_dogfood.py` exercising plan → apply → projection and durable-overlay skip; thin runner `evals/lysandra_vertical_slice/a10m_durable_identity_dogfood.py`; summary note `A10M-DURABLE-IDENTITY-DOGFOOD.md`.

@@ -111,6 +111,111 @@ export function formatGraphObjectType(
   return uniqueValues.join(" / ") || "Graph object";
 }
 
+export type DurableIdentitySummary = {
+  mergedAwayIds: string[];
+  mergeAssertionIds: string[];
+  redirectIds: string[];
+  mergeRecordIds: string[];
+  foldedIdentityCount: number;
+};
+
+export function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string => typeof item === "string" && item.trim().length > 0,
+      )
+    : [];
+}
+
+export function durableIdentitySummaryForNode(
+  node: GraphProjectionNodeView,
+): DurableIdentitySummary | null {
+  const mergedAwayIds = stringList(node.merged_away_ids);
+  const mergeAssertionIds = stringList(node.merge_assertion_ids);
+  const redirectIds = stringList(node.identity_redirect_ids);
+  const mergeRecordIds = stringList(node.identity_merge_record_ids);
+
+  if (
+    !mergedAwayIds.length &&
+    !mergeAssertionIds.length &&
+    !redirectIds.length &&
+    !mergeRecordIds.length
+  ) {
+    return null;
+  }
+
+  return {
+    mergedAwayIds,
+    mergeAssertionIds,
+    redirectIds,
+    mergeRecordIds,
+    foldedIdentityCount: mergedAwayIds.length,
+  };
+}
+
+function humanLabelFromMergedAwayId(mergedAwayId: string): string {
+  const suffix = mergedAwayId.split(":").pop() ?? mergedAwayId;
+  return suffix
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function foldedIdentityLabels(
+  mergedAwayIds: string[],
+  aliases: string[],
+): string[] {
+  const normalizedAliases = aliases.map((alias) => alias.trim()).filter(Boolean);
+  return mergedAwayIds.map((mergedAwayId) => {
+    const suffix = (mergedAwayId.split(":").pop() ?? mergedAwayId).toLowerCase();
+    const exactMatch = normalizedAliases.find((alias) => alias.toLowerCase() === suffix);
+    if (exactMatch) return exactMatch;
+    const containingAliases = normalizedAliases.filter((alias) =>
+      alias.toLowerCase().includes(suffix),
+    );
+    if (containingAliases.length) {
+      return containingAliases.sort((left, right) => left.length - right.length)[0];
+    }
+    return humanLabelFromMergedAwayId(mergedAwayId);
+  });
+}
+
+export function mergedIdentityNoteCopy(
+  summary: DurableIdentitySummary,
+  aliases: string[],
+): { foldedLine: string; contextLine: string } {
+  const count = summary.foldedIdentityCount;
+  const names = foldedIdentityLabels(summary.mergedAwayIds, aliases);
+  const uniqueNames = [...new Set(names)];
+
+  let foldedLine: string;
+  if (count > 0 && uniqueNames.length > 0) {
+    const nameList =
+      uniqueNames.length <= 3
+        ? uniqueNames.join(", ")
+        : `${uniqueNames.slice(0, 3).join(", ")} and others`;
+    foldedLine =
+      count === 1
+        ? `Folded in 1 prior identity: ${nameList}.`
+        : `Folded in ${count} prior identities: ${nameList}.`;
+  } else if (count > 0) {
+    foldedLine =
+      count === 1
+        ? "Folded in 1 prior identity."
+        : `Folded in ${count} prior identities.`;
+  } else {
+    foldedLine = "This node includes durable merged identity context.";
+  }
+
+  const contextLine =
+    count > 1
+      ? "Old links to those nodes now open this survivor. Evidence and relationships from merged duplicates are shown on this card."
+      : "Evidence and relationships from the duplicate are now shown here.";
+
+  return { foldedLine, contextLine };
+}
+
 export function gameSummaryForNode(node: GraphProjectionNodeView): string {
   if (node.summary?.trim()) return node.summary;
   const kind = (node.kind || "object").toLowerCase();

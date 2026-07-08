@@ -7,14 +7,6 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] A10n Implement — selected-object durable identity polish — captured 2026-07-08
-
-**Context:** A10m proved durable identity merge reconciliation works through plan/apply/projection for the Session 23 Lysandra path. The selected-object/read surface now needs small polish so survivor cards present useful GM-facing merge outcomes without exposing low-level evidence metadata by default.
-
-**Action:** Use durable merge provenance and merged evidence/adjacency in the selected-object card/read model to make survivor nodes more useful after merge. Keep evidence details collapsed and avoid raw scores unless clicked.
-
-**Refs:** A10m PR E dogfood, `test_a10m_lysandra_durable_identity_dogfood.py`
-
 ## [READY] Union projection diagnostics — count alias mention redirects — captured 2026-07-08
 
 **Context:** A10m dogfood proved durable identity projection resolves alias-backed mentions to survivor ids, but `mention_targets_resolved` only reports explicit `dmb-node` rewrites.
@@ -22,6 +14,22 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Increment mention-target diagnostics when alias-backed mentions resolve through durable redirects.
 
 **Refs:** A10m PR E dogfood, `recap_projection.py` `_project_markdown_mentions`
+
+## [TODO] Graph Review relationship chips — make predicate copy GM-facing — captured 2026-07-08
+
+**Context:** A10n selected-object dogfood showed merged survivor cards keep relationship context, but predicate labels still read like graph metadata (`travels_to`).
+
+**Action:** Add display labels for common relationship predicates in selected-object relationship chips.
+
+**Refs:** A10n selected-object dogfood, `GraphReviewRelationshipChips.tsx`
+
+## [TODO] Graph Review selected object — open merged evidence from identity note — captured 2026-07-08
+
+**Context:** A10n dogfood showed the merged identity note explains that evidence was folded in, but there is no direct affordance from that note to Evidence / Source details.
+
+**Action:** Add a small "View merged evidence" affordance that opens the existing collapsed evidence/source panel or focuses it.
+
+**Refs:** A10n selected-object dogfood, `GraphReviewNodeGameCard.tsx`
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 

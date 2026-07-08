@@ -358,4 +358,141 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.getByRole("button", { name: "Inspect evidence/source" })).toBeInTheDocument();
     expect(screen.queryByText("Open evidence/debug")).not.toBeInTheDocument();
   });
+
+  it("shows merged identity note for durable survivor nodes", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel(
+          {},
+          {
+            node_id: "party:captain_lysandra_ironveil",
+            label: "Captain Lysandra Ironveil",
+            kind: "companion",
+            role: "companion",
+            aliases: ["Captain Lysandra Ironveil", "Lysandra"],
+            source_domains: ["recap"],
+            merged_away_ids: ["node:lysandra"],
+            merge_assertion_ids: ["assert-merge-lysandra"],
+            identity_redirect_ids: ["redirect:lysandra"],
+            identity_merge_record_ids: ["merge_record:lysandra"],
+            adjacency: [
+              {
+                edge_id: "edge:lysandra:mireward",
+                node_id: "location_mireward",
+                label: "Mireward",
+                kind: "location",
+                predicate: "travels_to",
+                direction: "outgoing",
+                anchored_to_focus_session: true,
+                source_domains: ["recap"],
+                evidence_ref_ids: [],
+                session_ids: ["session-23"],
+              },
+            ],
+            evidence_badges: [
+              {
+                evidence_ref_id: "evidence:session-23:lysandra:recap-mention",
+                source_artifact_id: "artifact:session-23-recap",
+                source_domain: "recap",
+                evidence_role: "mention",
+                is_focus_session_evidence: true,
+                can_open_source: true,
+                can_highlight_span: true,
+                label: "Session recap mention",
+              },
+              {
+                evidence_ref_id: "evidence:session-23:lysandra:mireward-command",
+                source_artifact_id: "artifact:session-23-recap",
+                source_domain: "recap",
+                evidence_role: "command",
+                is_focus_session_evidence: true,
+                can_open_source: true,
+                can_highlight_span: true,
+                label: "Mireward command",
+              },
+            ],
+          },
+        )}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const mergedIdentity = screen.getByLabelText("Merged identity");
+    expect(within(mergedIdentity).getByRole("heading", { name: "Merged identity" })).toBeInTheDocument();
+    expect(within(mergedIdentity).getByText(/Folded in 1 prior identity: Lysandra\./)).toBeInTheDocument();
+    expect(
+      within(mergedIdentity).getByText(/Evidence and relationships from the duplicate are now shown here\./),
+    ).toBeInTheDocument();
+    expect(within(mergedIdentity).getByText(/Includes 2 evidence badges\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /travels_to Mireward/i })).toBeInTheDocument();
+    expect(screen.queryByText("0.92")).not.toBeInTheDocument();
+    expect(screen.queryByText("evidence:session-23:lysandra:recap-mention")).not.toBeInTheDocument();
+  });
+
+  it("does not show merged identity note for normal nodes", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel()}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Merged identity")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Merged identity" })).not.toBeInTheDocument();
+  });
+
+  it("keeps raw merge provenance ids inside technical details only", async () => {
+    const user = userEvent.setup();
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel(
+          {},
+          {
+            merged_away_ids: ["node:lysandra"],
+            merge_assertion_ids: ["assert-merge-lysandra"],
+            identity_redirect_ids: ["redirect:lysandra"],
+            identity_merge_record_ids: ["merge_record:lysandra"],
+          },
+        )}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("redirect:lysandra")).not.toBeVisible();
+    expect(screen.queryByText("assert-merge-lysandra")).not.toBeVisible();
+
+    await user.click(screen.getByText("Technical details"));
+
+    const technicalPanel = screen.getByText("Technical details").closest("details");
+    expect(technicalPanel).not.toBeNull();
+    expect(within(technicalPanel!).getByText("redirect:lysandra")).toBeVisible();
+    expect(within(technicalPanel!).getByText("assert-merge-lysandra")).toBeVisible();
+    expect(within(technicalPanel!).getByText("node:lysandra")).toBeVisible();
+    expect(within(technicalPanel!).getByText("merge_record:lysandra")).toBeVisible();
+  });
+
+  it("renders merged identity note before relationships in DOM order", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel(
+          {},
+          {
+            merged_away_ids: ["node:lysandra"],
+            adjacency: baseNode.adjacency,
+          },
+        )}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByLabelText(/the group game card/i);
+    const mergedIdentityIndex = card.textContent!.indexOf("Merged identity");
+    const relationshipIndex = card.textContent!.indexOf("Connected objects / relationships");
+    expect(mergedIdentityIndex).toBeGreaterThanOrEqual(0);
+    expect(relationshipIndex).toBeGreaterThan(mergedIdentityIndex);
+  });
 });

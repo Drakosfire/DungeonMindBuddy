@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphProjectionNodeView } from "../../api/types";
 import type { GraphReviewDeltaIndex } from "./graphReviewDeltaTypes";
-import { formatGraphReviewRelationshipStatement, gameSummaryForNode, resolveGraphReviewSelectedNode } from "./graphReviewSelectionUtils";
+import { formatGraphReviewRelationshipStatement, gameSummaryForNode, mergedIdentityNoteCopy, resolveGraphReviewSelectedNode, durableIdentitySummaryForNode } from "./graphReviewSelectionUtils";
 
 const goldNode: GraphProjectionNodeView = {
   node_id: "gold-tripod",
@@ -69,6 +69,23 @@ describe("graphReviewSelectionUtils", () => {
     );
     expect(gameSummaryForNode({ ...goldNode, summary: null })).toBe(
       "This threat has 1 connected campaign relationship in this session.",
+    );
+  });
+
+  it("builds durable identity summaries defensively and human-facing merge copy", () => {
+    const survivor = {
+      ...goldNode,
+      merged_away_ids: ["node:lysandra"],
+      merge_assertion_ids: ["assert-merge-lysandra"],
+      identity_redirect_ids: ["redirect:lysandra"],
+      identity_merge_record_ids: ["merge_record:lysandra"],
+      aliases: ["Captain Lysandra Ironveil", "Lysandra"],
+    };
+    const summary = durableIdentitySummaryForNode(survivor);
+    expect(summary?.foldedIdentityCount).toBe(1);
+    expect(durableIdentitySummaryForNode(goldNode)).toBeNull();
+    expect(mergedIdentityNoteCopy(summary!, survivor.aliases).foldedLine).toBe(
+      "Folded in 1 prior identity: Lysandra.",
     );
   });
 });
