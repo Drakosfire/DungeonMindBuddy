@@ -7,15 +7,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] A10m Implement — reconciliation apply (PR C) — captured 2026-07-08
+## [READY] A10m Implement — projection adapter simplification (PR D) — captured 2026-07-08
 
-**Context:** PR B can plan authored merge reconciliation but does not mutate union store. Next slice applies a validated plan to the file-backed union store, with timestamped backup, identity redirects, merge records, survivor hydration, edge/evidence rewiring, and idempotency.
+**Context:** PR C applies authored merge reconciliation into the union store: redirects, merge records, survivor hydration, edge/evidence rewiring, and merged-away node state. Projection still needs to read these durable redirects and treat overlay merge maps as a bridge only for unmaterialized assertions.
 
-**Action:** Implement apply-only service for `UnionSupergraphMergePlan`; no projection adapter simplification yet.
+**Action:** Update projection adapter/read path to consult `identity_redirects` first, filter merged-away nodes from normal projection output, resolve `dmb-node` targets through `resolve_union_node_id`, and reduce projection-time fuzzy repair where durable redirects exist.
 
-**Surfaces when:** `src/graph_memory/union_supergraph/`, reconciliation apply tests.
+**Surfaces when:** `union_supergraph_projection_adapter.py`, projection adapter tests, Session 23 dogfood.
 
-**Refs:** A10m PR C, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
+**Refs:** A10m PR D, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 

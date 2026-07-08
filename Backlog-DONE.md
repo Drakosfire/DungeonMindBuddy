@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10m Implement — reconciliation apply (PR C) — completed 2026-07-08
+
+**Delivered:** `apply_union_supergraph_merge_plan` + file-backed wrapper with backup; `UnionSupergraphMergeRecord` / `identity_merge_records`; survivor hydration, merged-away marking, edge rewire/dedupe, adjacency rebuild, idempotency, and apply tests.
+
+**Refs:** A10m PR C, `merge_reconciliation_apply.py`, `test_graph_memory_merge_reconciliation_apply.py`
+
 ## [DONE] A10m Implement — merge reconciliation planner (PR B) — completed 2026-07-08
 
 **Delivered:** Pure `plan_authored_merge_reconciliation` planner in `merge_reconciliation.py` — reads authored `merge_objects` assertions + union store, emits `UnionSupergraphMergePlan` with redirects, hydration, edge rewires, and diagnostics. No writes, no endpoint, no UI.

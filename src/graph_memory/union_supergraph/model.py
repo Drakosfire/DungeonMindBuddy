@@ -107,6 +107,24 @@ class UnionIdentityRedirect(_UnionSupergraphModel):
         return value
 
 
+class UnionSupergraphMergeRecord(_UnionSupergraphModel):
+    """Audit record for an applied authored merge_objects reconciliation."""
+
+    merge_record_id: str
+    assertion_id: str
+    survivor_node_id: str
+    merged_away_node_ids: list[str] = Field(default_factory=list)
+    merged_away_original_refs: list[str] = Field(default_factory=list)
+    redirect_ids: list[str] = Field(default_factory=list)
+    evidence_ref_ids_unioned: list[str] = Field(default_factory=list)
+    edges_rewired_count: int = 0
+    edges_deduped_count: int = 0
+    aliases_unioned: list[str] = Field(default_factory=list)
+    applied_at: str
+    status: Literal["applied", "retracted"]
+    materialization_pass_id: str
+
+
 class UnionSupergraphStore(_UnionSupergraphModel):
     schema_: str = Field(validation_alias="schema", serialization_alias="schema")
     version: str
@@ -121,6 +139,7 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     source_artifacts: dict[str, UnionSupergraphSourceArtifact]
     aliases: dict[str, str] = Field(default_factory=dict)
     identity_redirects: list[UnionIdentityRedirect] = Field(default_factory=list)
+    identity_merge_records: list[UnionSupergraphMergeRecord] = Field(default_factory=list)
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]]
     diagnostics: UnionSupergraphDiagnostics
 
