@@ -25,12 +25,27 @@
 
 ## Mireward Reach dogfood (Campaign 2)
 
-1. Select duplicates with **Mireward Reach** as survivor (e.g. `organization_mireward_reach` ← `location_mireward_reach`).
-2. Stage & commit with a live run selected.
-3. After refresh: one **Mireward Reach** pill/node; duplicate location org pill filtered from normal node views.
-4. Click survivor → merged identity note on selected-object card (A10n).
+**Status:** COMPLETE (2026-07-08) — verified against live preview union store + overlay reload.
 
-If commit succeeds but materialization fails, use **Advanced: backfill durable materialization** (collapsed under Stage & commit).
+| Step | Observed outcome |
+|------|------------------|
+| Merge `node:mireward-reach`, `loc_mireward_reach`, `organization_mireward_reach` → `location_mireward_reach` | Survivor in union store; active redirects for all three merged-away ids |
+| Commit with live run selected | Overlay written + event log appended + union store materialized |
+| Refresh projection | `location_mireward_reach` in `node_views` with `merged_away_ids` listing all three duplicates; duplicate pills absent from normal views |
+| Relationship `located_in` (the wall → Mireward Reach) | Projects after overlay redirect resolution: `location_the_wall` adjacency → `location_mireward_reach` |
+| Selected-object card | Survivor visible; merged identity note (A10n) available on click |
+
+**Store path:** `out/graph_memory/runs/longmont-c2/session-23/20260629T183113Z/preview_union_supergraph.json`
+
+## Lysandra dogfood (Campaign 2)
+
+**Status:** COMPLETE (2026-07-08) — same session/run as Mireward.
+
+| Step | Observed outcome |
+|------|------------------|
+| Merge `node:lysandra` → `character_captain_lysandra_ironveil` | Active redirect; survivor in projection with `merged_away_ids: ['node:lysandra']` |
+| `link_existing` alias "Lysandra" | Resolves through durable redirect; alias propagation applies without unresolved-ref diagnostics |
+| Refresh after commit | Single Lysandra survivor node; no phantom `node:lysandra` in `node_views` |
 
 ## Advanced backfill (edge cases)
 
@@ -73,6 +88,6 @@ cd apps/live-control-ui && npm test -- \
 
 ## Verdict
 
-**PASS (corrected)** — Commit with a selected live run is the single operator path for identity merges. The original A10o standalone materialize panel PASS was **invalid for live UI refresh**: projection re-read a frozen manifest snapshot and ignored mutations to `preview_union_store_path`. That read-path bug is fixed; materialize-at-commit closes the Mireward Reach / Lysandra UX gap without a second ceremony.
+**PASS** — Mireward Reach and Lysandra dogfood complete (2026-07-08). Commit with a selected live run is the single operator path for identity merges: overlay + event log + union store materialization succeed together; event-log failure does **not** mutate the union store. Projection reload prefers the live preview union store over the frozen manifest snapshot.
 
-**Deferred:** `object` / `link_existing` / `relationship` assertions still layer at read time via overlay only (not union store writes). Acceptable for this slice — they already render correctly.
+**Product note:** PR 305 shifts identity merge durability from explicit prepare/apply (PR 304) to automatic commit-time materialization when `previewUnionStorePath` is present. Manual backfill remains under Advanced.

@@ -129,7 +129,7 @@ def _materialize_union_store_merges(
         backup_dir = union_store_path.parent / "backups"
         apply_result = apply_union_supergraph_merge_plan_to_file(
             union_store_path=union_store_path,
-            plan=plan,
+            plan=actionable_plan,
             applied_at=applied_at,
             backup_dir=backup_dir,
         )
@@ -271,11 +271,6 @@ def commit_graph_object_authoring_write(
     try:
         append_graph_authoring_events(events_path, events)
     except GraphAuthoringEventLogError as exc:
-        materialization = _materialize_union_store_merges(
-            request,
-            store=store,
-            repo_root_override=repo_root_override,
-        )
         return GraphObjectAuthoringCommitResponse(
             committed=False,
             campaign_id=request.campaign_id,
@@ -295,9 +290,13 @@ def commit_graph_object_authoring_write(
             no_mutation_guarantees=commit_no_mutation_guarantees(
                 overlay_written=True,
                 event_log_written=False,
-                union_store_materialized=materialization.applied,
+                union_store_materialized=False,
             ),
-            union_store_materialization=materialization,
+            union_store_materialization=GraphObjectAuthoringUnionStoreMaterializationSummary(
+                attempted=False,
+                applied=False,
+                reason="event_log_failed",
+            ),
         )
 
     materialization = _materialize_union_store_merges(

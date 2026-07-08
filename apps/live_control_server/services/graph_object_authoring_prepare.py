@@ -310,6 +310,7 @@ UnionStoreMaterializationReason = Literal[
     "no_actionable_merge_assertions",
     "materialized",
     "materialization_failed",
+    "event_log_failed",
 ]
 
 

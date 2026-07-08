@@ -2338,7 +2338,8 @@ export type UnionStoreMaterializationReason =
   | "no_preview_union_store_selected"
   | "no_actionable_merge_assertions"
   | "materialized"
-  | "materialization_failed";
+  | "materialization_failed"
+  | "event_log_failed";
 
 export interface GraphObjectAuthoringUnionStoreMaterializationSummary {
   attempted: boolean;

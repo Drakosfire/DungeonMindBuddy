@@ -362,9 +362,51 @@ def test_commit_event_log_failure_returns_partial_guarantees(
     assert "event log was not appended" in joined
     assert "committed authored graph memory" not in joined
     assert "appended authoring event log" not in joined
+    assert "updated preview union graph store" not in joined
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.attempted is False
+    assert response.union_store_materialization.applied is False
+    assert response.union_store_materialization.reason == "event_log_failed"
 
     overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert len(overlay.assertions) == 1
+
+
+def test_commit_event_log_failure_does_not_materialize_union_store(
+    merge_materialization_workspace: dict[str, Path],
+) -> None:
+    from tests.test_graph_memory_merge_reconciliation_planner import CAMPAIGN_ID as MERGE_CAMPAIGN_ID
+
+    corpus_root = merge_materialization_workspace["corpus_root"]
+    root = merge_materialization_workspace["root"]
+    union_store_path = merge_materialization_workspace["union_store_path"]
+    union_store_bytes_before = union_store_path.read_bytes()
+    merge_proposal_payload = _lysandra_merge_proposal()
+
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload], campaignId=MERGE_CAMPAIGN_ID),
+        corpus_root=corpus_root,
+    )
+    with patch(
+        "apps.live_control_server.services.graph_object_authoring_commit.append_graph_authoring_events",
+        side_effect=GraphAuthoringEventLogError("disk full"),
+    ):
+        response = commit_graph_object_authoring_write(
+            _commit_request_from_prepare(
+                prepare,
+                proposals=[merge_proposal_payload],
+                preview_union_store_path=str(union_store_path),
+                campaign_id=MERGE_CAMPAIGN_ID,
+            ),
+            corpus_root=corpus_root,
+            repo_root_override=root,
+        )
+
+    assert response.committed is False
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.reason == "event_log_failed"
+    assert response.union_store_materialization.applied is False
+    assert union_store_path.read_bytes() == union_store_bytes_before
 
 
 def _lysandra_merge_proposal() -> dict[str, object]:
