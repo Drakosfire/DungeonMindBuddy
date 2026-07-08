@@ -11,6 +11,18 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10m Implement — merge reconciliation planner (PR B) — completed 2026-07-08
+
+**Delivered:** Pure `plan_authored_merge_reconciliation` planner in `merge_reconciliation.py` — reads authored `merge_objects` assertions + union store, emits `UnionSupergraphMergePlan` with redirects, hydration, edge rewires, and diagnostics. No writes, no endpoint, no UI.
+
+**Refs:** A10m PR B, `merge_reconciliation.py`, `test_graph_memory_merge_reconciliation_planner.py`
+
+## [DONE] A10m Implement — union identity redirect model (PR A) — completed 2026-07-08
+
+**Delivered:** `UnionIdentityRedirect` model, `identity_redirects` on union store, cycle-safe `resolve_union_node_id`, validation, and lookup tests. PR #298.
+
+**Refs:** A10m PR A, `redirects.py`, `test_graph_memory_union_identity_redirects.py`
+
 ## [DONE] A10m Design — authored merge reconciliation into union supergraph — completed 2026-07-08
 
 **Delivered:** `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md` — survivor authority, separate reconciliation pass, `UnionIdentityRedirect` model, edge/evidence rewiring, replay/re-ingest, retract hook, PR A–E breakdown. Roadmap §A10m updated.
