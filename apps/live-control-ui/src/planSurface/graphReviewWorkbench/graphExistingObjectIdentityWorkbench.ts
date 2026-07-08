@@ -20,8 +20,12 @@ export function existingObjectCandidateKey(
 export function buildObjectRefFromExistingObjectCandidate(
   candidate: GraphReviewExistingObjectCandidate,
   nodeViews?: Record<string, GraphProjectionNodeView> | null,
+  options?: { preserveCandidateId?: boolean },
 ): GraphObjectAuthoringObjectRef {
   const ref = buildObjectRefFromResolverCandidate(candidate);
+  if (options?.preserveCandidateId) {
+    return ref;
+  }
   const resolvedNodeId = resolveCandidateToProjectionNodeId(candidate, nodeViews);
   if (resolvedNodeId === candidate.candidate_id) {
     return ref;
@@ -183,6 +187,36 @@ export interface SearchMergeStageInput {
   sourceGraphId?: string | null;
 }
 
+export type SearchMergeStageBlockReason = "survivor_collides_with_merged_away";
+
+export function getSearchMergeStageBlockReason(
+  input: SearchMergeStageInput | null,
+): SearchMergeStageBlockReason | null {
+  if (!input) {
+    return null;
+  }
+  const survivorId = input.survivorObjectRef.nodeId;
+  if (input.mergedObjectRefs.some((ref) => ref.nodeId === survivorId)) {
+    return "survivor_collides_with_merged_away";
+  }
+  return null;
+}
+
+export function describeSearchMergeStageBlockReason(
+  reason: SearchMergeStageBlockReason,
+  input: SearchMergeStageInput,
+): string {
+  if (reason === "survivor_collides_with_merged_away") {
+    const mergedIds = input.mergedObjectRefs.map((ref) => ref.nodeId).join(", ");
+    return (
+      `Cannot stage identity merge: canonical survivor ${input.survivorObjectRef.nodeId} ` +
+      `resolves to the same projection node as merged-away record(s) (${mergedIds}). ` +
+      "Choose a different canonical hub or duplicate."
+    );
+  }
+  return "Cannot stage this identity merge.";
+}
+
 export function buildSearchMergeStageInput(
   state: ExistingObjectIdentitySelectionState,
   sourceGraphId?: string | null,
@@ -192,8 +226,12 @@ export function buildSearchMergeStageInput(
     return null;
   }
 
-  return {
-    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(state.canonical, nodeViews),
+  const input: SearchMergeStageInput = {
+    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(
+      state.canonical,
+      nodeViews,
+      { preserveCandidateId: true },
+    ),
     mergedObjectRefs: state.duplicates.map((duplicate) =>
       buildObjectRefFromExistingObjectCandidate(duplicate, nodeViews),
     ),
@@ -204,6 +242,14 @@ export function buildSearchMergeStageInput(
     ),
     sourceGraphId: sourceGraphId ?? null,
   };
+
+  return input;
+}
+
+export function isSearchMergeStageInputBlocked(
+  input: SearchMergeStageInput | null,
+): boolean {
+  return getSearchMergeStageBlockReason(input) !== null;
 }
 
 export function isSearchMergeAlreadyStaged(

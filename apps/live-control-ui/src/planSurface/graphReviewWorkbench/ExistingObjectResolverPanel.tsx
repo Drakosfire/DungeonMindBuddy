@@ -24,9 +24,12 @@ import {
   clearCanonicalCandidate,
   clearIdentitySelection,
   createEmptyIdentitySelection,
+  describeSearchMergeStageBlockReason,
   formatCandidateIdentitySubline,
+  getSearchMergeStageBlockReason,
   isClusterPeerOfSelection,
   isSearchMergeAlreadyStaged,
+  isSearchMergeStageInputBlocked,
   possibleDuplicateCount,
   readStoredIdentityWorkbenchState,
   rehydrateIdentitySelection,
@@ -184,6 +187,18 @@ export function ExistingObjectResolverPanel({
     [identitySelection, projectionGraphId, nodeViews],
   );
 
+  const searchMergeBlockReason = useMemo(
+    () => getSearchMergeStageBlockReason(searchMergeInput),
+    [searchMergeInput],
+  );
+
+  const searchMergeBlockMessage = useMemo(() => {
+    if (!searchMergeInput || !searchMergeBlockReason) {
+      return null;
+    }
+    return describeSearchMergeStageBlockReason(searchMergeBlockReason, searchMergeInput);
+  }, [searchMergeBlockReason, searchMergeInput]);
+
   useEffect(() => {
     if (stageMergeFeedback !== "staged" || !searchMergeInput) {
       stagedMergeSeenInOverlayRef.current = false;
@@ -219,7 +234,11 @@ export function ExistingObjectResolverPanel({
     });
   }, [response, searchPhrase, storageScope]);
 
-  const canStageIdentityMerge = Boolean(onStageSearchMerge && searchMergeInput);
+  const canStageIdentityMerge = Boolean(
+    onStageSearchMerge &&
+      searchMergeInput &&
+      !isSearchMergeStageInputBlocked(searchMergeInput),
+  );
   const mergeAlreadyStaged = searchMergeInput
     ? isSearchMergeAlreadyStaged(searchMergeInput, overlayProposals)
     : false;
@@ -280,6 +299,10 @@ export function ExistingObjectResolverPanel({
 
   const handleStageSearchMerge = () => {
     if (!searchMergeInput || !onStageSearchMerge) {
+      setStageMergeFeedback("blocked");
+      return;
+    }
+    if (isSearchMergeStageInputBlocked(searchMergeInput)) {
       setStageMergeFeedback("blocked");
       return;
     }
@@ -466,6 +489,11 @@ export function ExistingObjectResolverPanel({
               {onStageSearchMerge && !searchMergeInput ? (
                 <p className="graph-review-muted">
                   Choose one canonical hub and at least one duplicate record.
+                </p>
+              ) : null}
+              {searchMergeBlockMessage ? (
+                <p role="alert" className="graph-review-warning">
+                  {searchMergeBlockMessage}
                 </p>
               ) : null}
               {stageMergeFeedback === "staged" ? (
