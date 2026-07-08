@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import type {
+  GraphProjectionNodeView,
+  GraphReviewExistingObjectCandidate,
+} from "../../api/types";
 import {
   buildGraphObjectAuthoringMergeProposal,
   findDuplicateMergeProposal,
@@ -13,7 +16,10 @@ import {
   canStageSearchMerge,
   clearIdentitySelection,
   createEmptyIdentitySelection,
+  getSearchMergeStageBlockReason,
+  isClusterPeerOfSelection,
   isSearchMergeAlreadyStaged,
+  isSearchMergeStageInputBlocked,
   possibleDuplicateCount,
   rehydrateIdentitySelection,
   searchMergePairKey,
@@ -123,6 +129,14 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     ]);
   });
 
+  it("highlights cluster peers of the current identity selection", () => {
+    let state = createEmptyIdentitySelection();
+    state = setCanonicalCandidate(state, lysandraParty);
+    expect(isClusterPeerOfSelection(lysandraSession, state)).toBe(true);
+    expect(isClusterPeerOfSelection(lysandraMemory, state)).toBe(true);
+    expect(isClusterPeerOfSelection(lysandraParty, state)).toBe(false);
+  });
+
   it("builds merge stage input for search-selected identity pairs", () => {
     let state = createEmptyIdentitySelection();
     state = setCanonicalCandidate(state, lysandraParty);
@@ -131,7 +145,7 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     const input = buildSearchMergeStageInput(state, "graph-live-1");
     expect(input).toMatchObject({
       mergeReason:
-        "Search result identity merge: node:lysandra → party:captain_lysandra_ironveil",
+        "Search result identity merge: party:captain_lysandra_ironveil ← node:lysandra",
       sourceGraphId: "graph-live-1",
     });
     expect(input?.survivorObjectRef.nodeId).toBe("party:captain_lysandra_ironveil");
@@ -139,6 +153,76 @@ describe("graphExistingObjectIdentityWorkbench", () => {
       "node:lysandra",
     ]);
     expect(input?.matchedFeatures).toContain("search_identity_workbench");
+  });
+
+  it("preserves external canonical survivor ids when duplicate maps to projection node", () => {
+    const nodeViews: Record<string, GraphProjectionNodeView> = {
+      character_lysandra: {
+        node_id: "character_lysandra",
+        label: "Captain Lysandra Ironveil",
+        kind: "character",
+        role: "companion",
+        aliases: ["Lysandra", "Captain Ironveil"],
+        source_domains: ["recap"],
+        evidence_badges: [
+          {
+            evidence_ref_id: "evidence-1",
+            source_artifact_id: "artifact-1",
+            source_domain: "recap",
+            evidence_role: "mention",
+            is_focus_session_evidence: true,
+            can_open_source: true,
+            can_highlight_span: false,
+            label: "Session 23 recap",
+          },
+        ],
+        adjacency: [
+          {
+            edge_id: "edge-1",
+            node_id: "location_mireward",
+            label: "Mireward Reach",
+            kind: "location",
+            predicate: "located_in",
+            direction: "outgoing",
+            anchored_to_focus_session: true,
+            source_domains: ["recap"],
+            evidence_ref_ids: ["evidence-1"],
+          },
+        ],
+        anchored_to_focus_session: true,
+        summary: "Captain of the party at Mireward Reach.",
+      },
+    };
+
+    let state = createEmptyIdentitySelection();
+    state = setCanonicalCandidate(state, lysandraParty);
+    state = toggleDuplicateCandidate(state, lysandraSession);
+
+    const input = buildSearchMergeStageInput(state, "graph-live-1", nodeViews);
+    expect(input?.survivorObjectRef.nodeId).toBe("party:captain_lysandra_ironveil");
+    expect(input?.mergedObjectRefs.map((ref) => ref.nodeId)).toEqual([
+      "character_lysandra",
+    ]);
+    expect(isSearchMergeStageInputBlocked(input)).toBe(false);
+  });
+
+  it("blocks staging when survivor and merged-away refs share a projection node id", () => {
+    const input = buildSearchMergeStageInput({
+      canonical: lysandraParty,
+      duplicates: [lysandraSession],
+    });
+    expect(input).toBeTruthy();
+    if (!input) {
+      return;
+    }
+    input.mergedObjectRefs[0] = {
+      ...input.mergedObjectRefs[0],
+      nodeId: input.survivorObjectRef.nodeId,
+    };
+    expect(getSearchMergeStageBlockReason(input)).toBe(
+      "survivor_collides_with_merged_away",
+    );
+    expect(isSearchMergeStageInputBlocked(input)).toBe(true);
   });
 
   it("detects duplicate staged merge pairs", () => {

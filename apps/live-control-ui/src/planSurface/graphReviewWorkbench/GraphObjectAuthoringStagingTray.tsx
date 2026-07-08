@@ -108,6 +108,10 @@ function RelationshipProposalCard({
 
 function MergeProposalCard({ proposal }: { proposal: GraphObjectAuthoringMergeProposal }) {
   const mergedLabels = proposal.mergedObjectRefs.map((ref) => ref.label).join(", ");
+  const mergedIds = proposal.mergedObjectRefs
+    .map((ref) => ref.nodeId ?? ref.label)
+    .join(", ");
+  const survivorId = proposal.survivorObjectRef.nodeId ?? proposal.survivorObjectRef.label;
   return (
     <>
       <div className="graph-object-authoring-staging-tray-item-header">
@@ -117,9 +121,17 @@ function MergeProposalCard({ proposal }: { proposal: GraphObjectAuthoringMergePr
         </span>
       </div>
       <p>
-        Survivor: <strong>{proposal.survivorObjectRef.label}</strong>
+        Survivor / canonical: <strong>{proposal.survivorObjectRef.label}</strong>
       </p>
-      <p>Merged-away: {mergedLabels}</p>
+      <p>
+        Survivor id: <code>{survivorId}</code>
+      </p>
+      <p>
+        Merge away: {mergedLabels}
+      </p>
+      <p>
+        Merge-away ids: <code>{mergedIds}</code>
+      </p>
       {proposal.matchedFeatures.length ? (
         <p>Matched features: {proposal.matchedFeatures.join(", ")}</p>
       ) : null}
@@ -128,8 +140,8 @@ function MergeProposalCard({ proposal }: { proposal: GraphObjectAuthoringMergePr
         {proposal.relationshipPolicy}, {proposal.evidencePolicy})
       </p>
       <p className="graph-review-info">
-        Merge staged locally. No objects have been deleted. Commit will write an
-        identity merge assertion.
+        Authored overlay write only. Local only until commit. No objects have
+        been deleted. Commit will write an identity merge assertion.
       </p>
       <p>Status: staged local</p>
     </>

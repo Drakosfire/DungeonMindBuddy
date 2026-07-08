@@ -190,6 +190,66 @@ def _local_proposal_node_map(
     return mapping
 
 
+def _normalize_match_text(value: str) -> str:
+    return (
+        value.strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .replace(":", " ")
+    )
+
+
+def _ref_match_keys(ref: AuthoredGraphObjectRef) -> set[str]:
+    keys: set[str] = set()
+    if ref.label:
+        keys.add(_normalize_match_text(ref.label))
+    if ref.node_id:
+        node_id = ref.node_id.strip()
+        keys.add(_normalize_match_text(node_id))
+        if ":" in node_id:
+            keys.add(_normalize_match_text(node_id.split(":", 1)[1]))
+    return {key for key in keys if key}
+
+
+def _view_match_keys(view: GraphProjectionNodeView) -> set[str]:
+    keys = {_normalize_match_text(view.label), _normalize_match_text(view.node_id)}
+    for alias in view.aliases:
+        keys.add(_normalize_match_text(alias))
+    if ":" in view.node_id:
+        keys.add(_normalize_match_text(view.node_id.split(":", 1)[1]))
+    if view.node_id.startswith("character_"):
+        keys.add(_normalize_match_text(view.node_id.removeprefix("character_")))
+    return {key for key in keys if key}
+
+
+def _match_projection_node_for_ref(
+    ref: AuthoredGraphObjectRef,
+    projection_node_views: dict[str, GraphProjectionNodeView],
+) -> str | None:
+    ref_keys = _ref_match_keys(ref)
+    if not ref_keys:
+        return None
+
+    best_node_id: str | None = None
+    best_score = 0
+    for node_id, view in projection_node_views.items():
+        if node_id.startswith("authored:"):
+            continue
+        if node_id == ref.node_id and _is_thin_node_view(view):
+            continue
+        overlap = ref_keys & _view_match_keys(view)
+        if not overlap:
+            continue
+        score = len(overlap) * 100 + _node_view_richness(view)
+        if score > best_score:
+            best_score = score
+            best_node_id = node_id
+    if best_node_id is None or best_score < 100:
+        return None
+    return best_node_id
+
+
 def _resolve_object_ref_node_id(
     ref: AuthoredGraphObjectRef,
     *,
@@ -198,10 +258,27 @@ def _resolve_object_ref_node_id(
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
     assertion_id: str,
     context: str,
+    projection_node_views: dict[str, GraphProjectionNodeView] | None = None,
+    allow_fuzzy_projection_match: bool = True,
 ) -> str | None:
     if ref.ref_kind == "existing_graph_node":
+        exact_view = (
+            projection_node_views.get(ref.node_id)
+            if projection_node_views and ref.node_id
+            else None
+        )
         if ref.node_id and ref.node_id in existing_node_ids:
+            if exact_view is None or not _is_thin_node_view(exact_view):
+                return ref.node_id
+            if allow_fuzzy_projection_match:
+                matched = _match_projection_node_for_ref(ref, projection_node_views or {})
+                if matched and matched in existing_node_ids:
+                    return matched
             return ref.node_id
+        if allow_fuzzy_projection_match and projection_node_views and ref.node_id:
+            matched = _match_projection_node_for_ref(ref, projection_node_views)
+            if matched and matched in existing_node_ids:
+                return matched
         diagnostics.append(
             GraphAuthoringOverlayDiagnostic(
                 code="authored_overlay_assertion_unresolved_ref",
@@ -700,6 +777,82 @@ def _resolve_merge_target(node_id: str, merge_map: dict[str, str]) -> str:
     return current
 
 
+_STUB_SUMMARY_MARKERS = frozenset(
+    {
+        "deterministic party context anchor",
+    }
+)
+
+
+def _is_stub_summary(summary: str | None) -> bool:
+    if summary is None:
+        return True
+    normalized = summary.strip().lower()
+    if not normalized:
+        return True
+    return normalized in _STUB_SUMMARY_MARKERS or normalized.startswith(
+        "deterministic party"
+    )
+
+
+def _node_view_richness(view: GraphProjectionNodeView) -> int:
+    score = len(view.evidence_badges) * 10 + len(view.adjacency) * 5
+    if view.summary and not _is_stub_summary(view.summary):
+        score += min(len(view.summary.strip()), 200)
+    live_domains = [
+        domain
+        for domain in view.source_domains
+        if domain not in {AUTHORED_SOURCE_DOMAIN}
+    ]
+    score += len(live_domains) * 3
+    return score
+
+
+def _is_thin_node_view(view: GraphProjectionNodeView) -> bool:
+    if view.evidence_badges or view.adjacency:
+        return False
+    if not _is_stub_summary(view.summary):
+        return False
+    domains = {domain for domain in view.source_domains if domain}
+    return not domains or domains <= {AUTHORED_SOURCE_DOMAIN}
+
+
+def _pick_richest_node_view(
+    *candidates: GraphProjectionNodeView | None,
+) -> GraphProjectionNodeView | None:
+    ranked = [view for view in candidates if view is not None]
+    if not ranked:
+        return None
+    return max(ranked, key=_node_view_richness)
+
+
+def _choose_merged_summary(
+    survivor: GraphProjectionNodeView,
+    merged: GraphProjectionNodeView,
+) -> str | None:
+    survivor_summary = survivor.summary
+    merged_summary = merged.summary
+    if _is_stub_summary(survivor_summary) and merged_summary and not _is_stub_summary(
+        merged_summary
+    ):
+        return merged_summary
+    if survivor_summary and not _is_stub_summary(survivor_summary):
+        return survivor_summary
+    return survivor_summary or merged_summary
+
+
+def _resolve_merge_source_view(
+    merged_id: str,
+    *,
+    snapshot: dict[str, GraphProjectionNodeView],
+    enrichment_views: dict[str, GraphProjectionNodeView],
+) -> GraphProjectionNodeView | None:
+    return _pick_richest_node_view(
+        snapshot.get(merged_id),
+        enrichment_views.get(merged_id),
+    )
+
+
 def _transitive_merge_map(raw_map: dict[str, str]) -> dict[str, str]:
     if not raw_map:
         return {}
@@ -733,6 +886,8 @@ def _build_merge_node_id_map(
             diagnostics=diagnostics,
             assertion_id=merge_assertion.assertion_id,
             context="merge survivor",
+            projection_node_views=merged_node_views,
+            allow_fuzzy_projection_match=False,
         )
         if not survivor_id:
             continue
@@ -744,10 +899,14 @@ def _build_merge_node_id_map(
                 diagnostics=diagnostics,
                 assertion_id=merge_assertion.assertion_id,
                 context="merge merged-away",
+                projection_node_views=merged_node_views,
             )
             if not merged_id or merged_id == survivor_id:
                 continue
             raw_map[merged_id] = survivor_id
+            original_id = (merged_ref.node_id or "").strip()
+            if original_id and original_id != merged_id:
+                raw_map[original_id] = survivor_id
 
     return _transitive_merge_map(raw_map)
 
@@ -783,9 +942,17 @@ def _merge_node_view_into_survivor(
             merged_adjacency.append(adj)
             existing_edge_ids.add(adj.edge_id)
 
-    summary = survivor.summary or merged.summary
+    summary = _choose_merged_summary(survivor, merged)
+    merged_kind = survivor.kind
+    merged_role = survivor.role
+    if _is_thin_node_view(survivor) and not _is_thin_node_view(merged):
+        merged_kind = merged.kind or merged_kind
+        merged_role = merged.role or merged_role
     return survivor.model_copy(
         update={
+            "label": survivor.label or merged.label,
+            "kind": merged_kind,
+            "role": merged_role,
             "aliases": merged_aliases,
             "evidence_badges": merged_evidence,
             "source_domains": merged_domains,
@@ -814,17 +981,33 @@ def _redirect_markdown_node_links(markdown: str, merge_map: dict[str, str]) -> s
 def _apply_merge_map_to_node_views(
     merged_node_views: dict[str, GraphProjectionNodeView],
     merge_map: dict[str, str],
+    *,
+    enrichment_views: dict[str, GraphProjectionNodeView] | None = None,
 ) -> dict[str, GraphProjectionNodeView]:
     if not merge_map:
         return merged_node_views
 
+    snapshot = dict(merged_node_views)
+    enrichment = enrichment_views or {}
     result = dict(merged_node_views)
+    merged_ids_by_survivor: dict[str, list[str]] = defaultdict(list)
     for merged_id, survivor_id in merge_map.items():
-        if merged_id not in result or survivor_id not in result:
+        merged_ids_by_survivor[survivor_id].append(merged_id)
+
+    for survivor_id, merged_ids in merged_ids_by_survivor.items():
+        if survivor_id not in result:
             continue
         survivor = result[survivor_id]
-        merged = result[merged_id]
-        result[survivor_id] = _merge_node_view_into_survivor(survivor, merged)
+        for merged_id in merged_ids:
+            merged = _resolve_merge_source_view(
+                merged_id,
+                snapshot=snapshot,
+                enrichment_views=enrichment,
+            )
+            if merged is None:
+                continue
+            survivor = _merge_node_view_into_survivor(survivor, merged)
+        result[survivor_id] = survivor
 
     for merged_id in merge_map:
         result.pop(merged_id, None)
@@ -836,11 +1019,17 @@ def _apply_merge_map_to_projection(
     projection: RecapGraphProjection,
     merge_map: dict[str, str],
     merged_node_views: dict[str, GraphProjectionNodeView],
+    *,
+    enrichment_views: dict[str, GraphProjectionNodeView] | None = None,
 ) -> tuple[RecapGraphProjection, dict[str, GraphProjectionNodeView], int]:
     if not merge_map:
         return projection, merged_node_views, 0
 
-    updated_views = _apply_merge_map_to_node_views(merged_node_views, merge_map)
+    updated_views = _apply_merge_map_to_node_views(
+        merged_node_views,
+        merge_map,
+        enrichment_views=enrichment_views,
+    )
     redirected_markdown = _redirect_markdown_node_links(projection.markdown, merge_map)
     updated_mentions = [
         mention.model_copy(
@@ -1420,6 +1609,7 @@ def apply_authored_overlay_to_graph_review_projection(
     )
 
     diagnostics: list[GraphAuthoringOverlayDiagnostic] = list(summary.diagnostics if summary else [])
+    base_projection_node_views = dict(projection.node_views)
     merged_node_views = dict(projection.node_views)
     authored_nodes = build_authored_projection_node_views(
         overlay_for_projection,
@@ -1504,6 +1694,7 @@ def apply_authored_overlay_to_graph_review_projection(
         projection_with_mentions,
         merge_map,
         merged_node_views,
+        enrichment_views=base_projection_node_views,
     )
 
     projection_with_mentions, _propagated_alias_count = _apply_authored_alias_propagation(

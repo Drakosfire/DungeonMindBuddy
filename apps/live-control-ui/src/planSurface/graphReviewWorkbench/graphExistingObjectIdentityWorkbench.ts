@@ -1,4 +1,4 @@
-import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import type { GraphReviewExistingObjectCandidate, GraphProjectionNodeView } from "../../api/types";
 import {
   buildObjectRefFromResolverCandidate,
   createDefaultGraphObjectAuthoringLinkExistingFormState,
@@ -19,8 +19,63 @@ export function existingObjectCandidateKey(
 
 export function buildObjectRefFromExistingObjectCandidate(
   candidate: GraphReviewExistingObjectCandidate,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
+  options?: { preserveCandidateId?: boolean },
 ): GraphObjectAuthoringObjectRef {
-  return buildObjectRefFromResolverCandidate(candidate);
+  const ref = buildObjectRefFromResolverCandidate(candidate);
+  if (options?.preserveCandidateId) {
+    return ref;
+  }
+  const resolvedNodeId = resolveCandidateToProjectionNodeId(candidate, nodeViews);
+  if (resolvedNodeId === candidate.candidate_id) {
+    return ref;
+  }
+  return { ...ref, nodeId: resolvedNodeId };
+}
+
+export function resolveCandidateToProjectionNodeId(
+  candidate: GraphReviewExistingObjectCandidate,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
+): string {
+  if (!nodeViews || nodeViews[candidate.candidate_id]) {
+    return candidate.candidate_id;
+  }
+  const labelKey = candidate.label.trim().toLowerCase();
+  const aliasKeys = new Set(
+    (candidate.aliases ?? [])
+      .map((alias) => alias.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  let bestNodeId: string | null = null;
+  let bestScore = 0;
+  for (const [nodeId, view] of Object.entries(nodeViews)) {
+    if (nodeId.startsWith("authored:")) {
+      continue;
+    }
+    let score = 0;
+    const viewLabel = view.label?.trim().toLowerCase() ?? "";
+    if (viewLabel === labelKey) {
+      score += 100;
+    }
+    if (view.aliases?.some((alias) => alias.trim().toLowerCase() === labelKey)) {
+      score += 100;
+    }
+    for (const alias of aliasKeys) {
+      if (viewLabel === alias) {
+        score += 80;
+      }
+      if (view.aliases?.some((item) => item.trim().toLowerCase() === alias)) {
+        score += 80;
+      }
+    }
+    score += (view.evidence_badges?.length ?? 0) * 5;
+    score += (view.adjacency?.length ?? 0) * 3;
+    if (score > bestScore) {
+      bestScore = score;
+      bestNodeId = nodeId;
+    }
+  }
+  return bestScore >= 80 && bestNodeId ? bestNodeId : candidate.candidate_id;
 }
 
 export function buildLinkExistingFormStateFromResolverCandidate(
@@ -100,12 +155,12 @@ export function buildSearchMergeReason(
 ): string {
   if (duplicates.length === 1) {
     return (
-      `Search result identity merge: ${duplicates[0].candidate_id} → ` +
-      `${canonical.candidate_id}`
+      `Search result identity merge: ${canonical.candidate_id} ← ` +
+      `${duplicates[0].candidate_id}`
     );
   }
   const duplicateIds = duplicates.map((item) => item.candidate_id).join(", ");
-  return `Search result identity merge: ${duplicateIds} → ${canonical.candidate_id}`;
+  return `Search result identity merge: ${canonical.candidate_id} ← ${duplicateIds}`;
 }
 
 export function collectSearchMergeMatchedFeatures(
@@ -132,17 +187,54 @@ export interface SearchMergeStageInput {
   sourceGraphId?: string | null;
 }
 
+export type SearchMergeStageBlockReason = "survivor_collides_with_merged_away";
+
+export function getSearchMergeStageBlockReason(
+  input: SearchMergeStageInput | null,
+): SearchMergeStageBlockReason | null {
+  if (!input) {
+    return null;
+  }
+  const survivorId = input.survivorObjectRef.nodeId;
+  if (input.mergedObjectRefs.some((ref) => ref.nodeId === survivorId)) {
+    return "survivor_collides_with_merged_away";
+  }
+  return null;
+}
+
+export function describeSearchMergeStageBlockReason(
+  reason: SearchMergeStageBlockReason,
+  input: SearchMergeStageInput,
+): string {
+  if (reason === "survivor_collides_with_merged_away") {
+    const mergedIds = input.mergedObjectRefs.map((ref) => ref.nodeId).join(", ");
+    return (
+      `Cannot stage identity merge: canonical survivor ${input.survivorObjectRef.nodeId} ` +
+      `resolves to the same projection node as merged-away record(s) (${mergedIds}). ` +
+      "Choose a different canonical hub or duplicate."
+    );
+  }
+  return "Cannot stage this identity merge.";
+}
+
 export function buildSearchMergeStageInput(
   state: ExistingObjectIdentitySelectionState,
   sourceGraphId?: string | null,
+  nodeViews?: Record<string, GraphProjectionNodeView> | null,
 ): SearchMergeStageInput | null {
   if (!canStageSearchMerge(state) || !state.canonical) {
     return null;
   }
 
-  return {
-    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(state.canonical),
-    mergedObjectRefs: state.duplicates.map(buildObjectRefFromExistingObjectCandidate),
+  const input: SearchMergeStageInput = {
+    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(
+      state.canonical,
+      nodeViews,
+      { preserveCandidateId: true },
+    ),
+    mergedObjectRefs: state.duplicates.map((duplicate) =>
+      buildObjectRefFromExistingObjectCandidate(duplicate, nodeViews),
+    ),
     mergeReason: buildSearchMergeReason(state.canonical, state.duplicates),
     matchedFeatures: collectSearchMergeMatchedFeatures(
       state.canonical,
@@ -150,6 +242,14 @@ export function buildSearchMergeStageInput(
     ),
     sourceGraphId: sourceGraphId ?? null,
   };
+
+  return input;
+}
+
+export function isSearchMergeStageInputBlocked(
+  input: SearchMergeStageInput | null,
+): boolean {
+  return getSearchMergeStageBlockReason(input) !== null;
 }
 
 export function isSearchMergeAlreadyStaged(
@@ -204,6 +304,31 @@ export function possibleDuplicateCount(
     }
     return candidateClusterKeys(other).some((key) => keys.has(key));
   }).length;
+}
+
+export function sharesClusterKeys(
+  left: GraphReviewExistingObjectCandidate,
+  right: GraphReviewExistingObjectCandidate,
+): boolean {
+  const leftKeys = new Set(candidateClusterKeys(left));
+  return candidateClusterKeys(right).some((key) => leftKeys.has(key));
+}
+
+export function isClusterPeerOfSelection(
+  candidate: GraphReviewExistingObjectCandidate,
+  state: ExistingObjectIdentitySelectionState,
+): boolean {
+  const selected = [
+    ...(state.canonical ? [state.canonical] : []),
+    ...state.duplicates,
+  ];
+  if (!selected.length) {
+    return false;
+  }
+  if (selected.some((item) => item.candidate_id === candidate.candidate_id)) {
+    return false;
+  }
+  return selected.some((item) => sharesClusterKeys(item, candidate));
 }
 
 export function formatCandidateIdentitySubline(

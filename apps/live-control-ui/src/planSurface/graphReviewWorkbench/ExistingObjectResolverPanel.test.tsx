@@ -271,7 +271,7 @@ describe("ExistingObjectResolverPanel", () => {
       within(card!).getAllByText(/exact label match/i).length,
     ).toBeGreaterThan(0);
     expect(within(card!).getByText("gold-tripod")).toBeInTheDocument();
-    expect(within(card!).getByText(/gold-tripod · Current recap/i)).toBeInTheDocument();
+    expect(within(card!).getByText(/Current recap/i)).toBeInTheDocument();
     expect(
       within(card!).getAllByText(/exact label match, same kind/i).length,
     ).toBeGreaterThan(0);
@@ -350,7 +350,7 @@ describe("ExistingObjectResolverPanel", () => {
       screen.getByRole("button", { name: "Find existing object" }),
     );
     const stageButton = await screen.findByRole("button", {
-      name: "Stage link intent",
+      name: "Stage recap alias link",
     });
     fireEvent.click(stageButton);
     expect(onStageLinkIntent).toHaveBeenCalledWith(
@@ -358,7 +358,7 @@ describe("ExistingObjectResolverPanel", () => {
     );
     expect(onStageLinkIntentComplete).toHaveBeenCalled();
     expect(
-      screen.getByText(/Link staged in authored overlay/i),
+      screen.getByText(/Recap alias link staged locally/i),
     ).toBeInTheDocument();
   });
 
@@ -487,13 +487,13 @@ describe("ExistingObjectResolverPanel", () => {
       screen.getAllByRole("button", { name: "Select as duplicate" })[0],
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Stage merge into canonical" }),
+      screen.getByRole("button", { name: "Stage identity merge" }),
     );
 
     expect(onStageSearchMerge).toHaveBeenCalledWith(
       expect.objectContaining({
         mergeReason:
-          "Search result identity merge: node:lysandra → party:captain_lysandra_ironveil",
+          "Search result identity merge: party:captain_lysandra_ironveil ← node:lysandra",
         survivorObjectRef: expect.objectContaining({
           nodeId: "party:captain_lysandra_ironveil",
         }),
@@ -504,7 +504,7 @@ describe("ExistingObjectResolverPanel", () => {
     );
     expect(onStageSearchMergeComplete).toHaveBeenCalled();
     expect(
-      screen.getByText(/Identity merge staged in authored overlay/i),
+      screen.getByText(/Identity merge staged locally in Review staged memory/i),
     ).toBeInTheDocument();
   });
 
@@ -524,6 +524,34 @@ describe("ExistingObjectResolverPanel", () => {
     expect(duplicateButtons[1]).toBeDisabled();
   });
 
+  it("shows identity selection summary with survivor and merge-away ids", async () => {
+    await renderLysandraSearch();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Set as canonical" })[1],
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Select as duplicate" })[0],
+    );
+
+    expect(screen.getByText("Canonical / survivor")).toBeInTheDocument();
+    expect(screen.getAllByText("Captain Lysandra Ironveil").length).toBeGreaterThan(0);
+    expect(screen.getByText("Will merge away")).toBeInTheDocument();
+    expect(screen.getAllByText("Lysandra").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/party:captain_lysandra_ironveil ← node:lysandra/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/object identity merge, not a recap text alias link/i)
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows merge/link distinction copy in search surface", async () => {
+    await renderLysandraSearch();
+    expect(screen.getAllByText(/identity merge/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/alias links/i).length).toBeGreaterThan(0);
+  });
+
   it("shows compare panel when one canonical and one duplicate are selected", async () => {
     await renderLysandraSearch();
     fireEvent.click(
@@ -532,9 +560,13 @@ describe("ExistingObjectResolverPanel", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: "Select as duplicate" })[0],
     );
-    expect(screen.getByText("Compare selected identity")).toBeInTheDocument();
-    expect(screen.getByText("Canonical / survivor")).toBeInTheDocument();
-    expect(screen.getByText("Duplicate / merge away")).toBeInTheDocument();
+    expect(screen.getByText("Compare before staging")).toBeInTheDocument();
+    expect(screen.getByText("Keep this / Survivor")).toBeInTheDocument();
+    expect(screen.getByText("Merge this away / Duplicate")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/object identity merge, not a recap text alias link/i)
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it("reports duplicate staged merge pair without creating another proposal", async () => {
@@ -547,7 +579,7 @@ describe("ExistingObjectResolverPanel", () => {
       screen.getAllByRole("button", { name: "Select as duplicate" })[0],
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Stage merge into canonical" }),
+      screen.getByRole("button", { name: "Stage identity merge" }),
     );
     expect(onStageSearchMerge).toHaveBeenCalledTimes(1);
     expect(
