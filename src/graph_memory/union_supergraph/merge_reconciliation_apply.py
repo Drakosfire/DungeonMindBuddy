@@ -171,12 +171,17 @@ def _rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSuper
     return adjacency
 
 
-def _applied_assertion_ids(store: UnionSupergraphStore) -> set[str]:
-    return {
+def applied_identity_merge_assertion_ids(store: UnionSupergraphStore) -> frozenset[str]:
+    """Assertion ids with an applied durable identity merge record in the store."""
+    return frozenset(
         record.assertion_id
         for record in store.identity_merge_records
         if record.status == "applied"
-    }
+    )
+
+
+def _applied_assertion_ids(store: UnionSupergraphStore) -> set[str]:
+    return set(applied_identity_merge_assertion_ids(store))
 
 
 def _resolve_redirects_for_assertion(

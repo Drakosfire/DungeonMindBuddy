@@ -2345,3 +2345,81 @@ export interface GraphObjectAuthoringCommitResponse {
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
 }
+
+export interface GraphMergeReconciliationDiagnostic {
+  code: string;
+  message: string;
+  severity: "error" | "warning" | "info";
+  assertion_id?: string | null;
+  node_id?: string | null;
+}
+
+export interface GraphMergeReconciliationPlanSummary {
+  merge_assertion_count: number;
+  applicable_assertion_count: number;
+  already_materialized_assertion_count: number;
+  skipped_assertion_count: number;
+  redirect_count: number;
+  edge_rewire_count: number;
+  edge_dedupe_count: number;
+}
+
+export interface GraphMergeReconciliationApplySummary {
+  redirects_added: number;
+  merge_records_added: number;
+  survivor_nodes_created: number;
+  survivor_nodes_updated: number;
+  merged_away_nodes_marked: number;
+  edges_rewired: number;
+  edges_deduped: number;
+}
+
+export interface GraphMergeReconciliationPrepareRequest {
+  campaignId: string;
+  campaignRel?: string | null;
+  sessionId?: string | null;
+  previewUnionStorePath: string;
+  materializationPassId?: string | null;
+}
+
+export interface GraphMergeReconciliationPrepareResponse {
+  prepared: boolean;
+  campaign_id: string;
+  session_id?: string | null;
+  overlay_path: string;
+  union_store_path: string;
+  materialization_pass_id: string;
+  overlay_token: string;
+  union_store_token: string;
+  plan_digest: string;
+  confirm_token: string;
+  summary: GraphMergeReconciliationPlanSummary;
+  diagnostics: GraphMergeReconciliationDiagnostic[];
+  no_mutation_guarantees: string[];
+}
+
+export interface GraphMergeReconciliationApplyRequest {
+  campaignId: string;
+  campaignRel?: string | null;
+  sessionId?: string | null;
+  previewUnionStorePath: string;
+  materializationPassId: string;
+  confirmToken: string;
+  overlayToken: string;
+  unionStoreToken: string;
+}
+
+export interface GraphMergeReconciliationApplyResponse {
+  applied: boolean;
+  campaign_id: string;
+  session_id?: string | null;
+  overlay_path: string;
+  union_store_path: string;
+  backup_path?: string | null;
+  materialization_pass_id: string;
+  applied_assertion_ids: string[];
+  skipped_assertion_ids: string[];
+  summary: GraphMergeReconciliationApplySummary;
+  diagnostics: GraphMergeReconciliationDiagnostic[];
+  no_mutation_guarantees: string[];
+}
