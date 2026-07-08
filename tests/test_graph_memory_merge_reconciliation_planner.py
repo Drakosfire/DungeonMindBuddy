@@ -297,6 +297,77 @@ def test_self_merge_skipped() -> None:
 
     assert plan.plans == ()
     assert "merge_assertion_self_merge" in _diagnostic_codes(plan)
+    assert "merge_merged_ref_resolved_by_label" in _diagnostic_codes(plan)
+
+
+def test_missing_merged_ref_resolves_by_single_label_match() -> None:
+    store = minimal_union_store(
+        nodes={
+            "character_lysandra": union_node(
+                node_id="character_lysandra",
+                label="Lysandra",
+                aliases=["Lysandra"],
+            ),
+        }
+    )
+    overlay = overlay_with_assertions(
+        merge_assertion(
+            merged_object_refs=[
+                object_ref(node_id="node:lysandra", label="Lysandra").model_dump(),
+            ],
+        )
+    )
+
+    plan = plan_authored_merge_reconciliation(
+        campaign_id=CAMPAIGN_ID,
+        overlay=overlay,
+        union_store=store,
+        materialization_pass_id=PASS_ID,
+    )
+
+    assertion_plan = plan.plans[0]
+    assert assertion_plan.merged_away_node_ids == ("node:lysandra", "character_lysandra")
+    assert len(assertion_plan.redirects) == 2
+    assert "merge_merged_ref_resolved_by_label" in _diagnostic_codes(plan)
+    assert "merge_merged_node_missing" in _diagnostic_codes(plan)
+
+
+def test_ambiguous_label_match_plans_original_ref_only() -> None:
+    store = minimal_union_store(
+        nodes={
+            "character_lysandra_a": union_node(
+                node_id="character_lysandra_a",
+                label="Lysandra",
+                aliases=["Lysandra"],
+            ),
+            "character_lysandra_b": union_node(
+                node_id="character_lysandra_b",
+                label="Lysandra",
+                aliases=["Lysandra"],
+            ),
+        }
+    )
+    overlay = overlay_with_assertions(
+        merge_assertion(
+            merged_object_refs=[
+                object_ref(node_id="node:lysandra", label="Lysandra").model_dump(),
+            ],
+        )
+    )
+
+    plan = plan_authored_merge_reconciliation(
+        campaign_id=CAMPAIGN_ID,
+        overlay=overlay,
+        union_store=store,
+        materialization_pass_id=PASS_ID,
+    )
+
+    assertion_plan = plan.plans[0]
+    assert assertion_plan.merged_away_node_ids == ("node:lysandra",)
+    assert len(assertion_plan.redirects) == 1
+    assert assertion_plan.redirects[0].from_node_id == "node:lysandra"
+    assert assertion_plan.evidence_ref_ids_to_union == ()
+    assert "merge_merged_ref_ambiguous" in _diagnostic_codes(plan)
 
 
 def test_missing_merged_node_still_plans_redirect_with_warning() -> None:

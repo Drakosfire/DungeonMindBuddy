@@ -106,27 +106,80 @@ def _normalize_label(value: str) -> str:
     return " ".join(value.split()).casefold()
 
 
+def _label_match_node_ids(
+    ref_label: str,
+    union_store: UnionSupergraphStore,
+    *,
+    exclude_node_id: str | None = None,
+) -> tuple[str, ...]:
+    normalized_ref_label = _normalize_label(ref_label)
+    matches: list[str] = []
+    for node_id, node in union_store.nodes.items():
+        if exclude_node_id is not None and node_id == exclude_node_id:
+            continue
+        node_labels = {
+            _normalize_label(node.label),
+            *(_normalize_label(alias) for alias in node.aliases),
+        }
+        if normalized_ref_label in node_labels:
+            matches.append(node_id)
+    return _dedupe_preserve_order(matches)
+
+
 def _resolve_merged_away_node_ids(
     ref: AuthoredGraphObjectRef,
     union_store: UnionSupergraphStore,
-) -> tuple[str, ...]:
+    *,
+    assertion_id: str,
+) -> tuple[tuple[str, ...], list[ReconciliationDiagnostic]]:
     original_ref_id = node_id_from_object_ref(ref)
     if not original_ref_id:
-        return ()
+        return (), []
 
-    node_ids: list[str] = [original_ref_id]
     if original_ref_id in union_store.nodes:
-        return _dedupe_preserve_order(node_ids)
+        return (original_ref_id,), []
 
-    normalized_ref_label = _normalize_label(ref.label)
-    for node_id, node in union_store.nodes.items():
-        if node_id == original_ref_id:
-            continue
-        node_labels = {_normalize_label(node.label), *(_normalize_label(alias) for alias in node.aliases)}
-        if normalized_ref_label in node_labels:
-            node_ids.append(node_id)
+    label_matches = _label_match_node_ids(
+        ref.label,
+        union_store,
+        exclude_node_id=original_ref_id,
+    )
+    if len(label_matches) == 1:
+        matched_node_id = label_matches[0]
+        return (
+            (original_ref_id, matched_node_id),
+            [
+                ReconciliationDiagnostic(
+                    severity="warning",
+                    code="merge_merged_ref_resolved_by_label",
+                    message=(
+                        f"Merged-away ref {original_ref_id} is missing from union store; "
+                        f"resolved by exact label match to {matched_node_id}"
+                    ),
+                    assertion_id=assertion_id,
+                    node_id=original_ref_id,
+                )
+            ],
+        )
 
-    return _dedupe_preserve_order(node_ids)
+    diagnostics: list[ReconciliationDiagnostic] = []
+    if len(label_matches) > 1:
+        matched_ids = ", ".join(label_matches)
+        diagnostics.append(
+            ReconciliationDiagnostic(
+                severity="warning",
+                code="merge_merged_ref_ambiguous",
+                message=(
+                    f"Merged-away ref {original_ref_id} is missing from union store and "
+                    f"label {ref.label!r} matches multiple nodes ({matched_ids}); "
+                    "planning original ref only"
+                ),
+                assertion_id=assertion_id,
+                node_id=original_ref_id,
+            )
+        )
+
+    return (original_ref_id,), diagnostics
 
 
 def _collect_node_material(
@@ -315,11 +368,16 @@ def _plan_merge_assertion(
         )
         return None, diagnostics
 
-    merged_away_node_ids = _dedupe_preserve_order(
-        node_id
-        for ref in assertion.merged_object_refs
-        for node_id in _resolve_merged_away_node_ids(ref, union_store)
-    )
+    merged_away_node_id_parts: list[str] = []
+    for ref in assertion.merged_object_refs:
+        resolved_ids, resolution_diagnostics = _resolve_merged_away_node_ids(
+            ref,
+            union_store,
+            assertion_id=assertion.assertion_id,
+        )
+        diagnostics.extend(resolution_diagnostics)
+        merged_away_node_id_parts.extend(resolved_ids)
+    merged_away_node_ids = _dedupe_preserve_order(merged_away_node_id_parts)
     if survivor_node_id in merged_away_node_ids:
         _append_diagnostic(
             diagnostics,
