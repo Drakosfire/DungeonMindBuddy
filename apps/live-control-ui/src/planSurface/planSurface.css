@@ -5178,6 +5178,81 @@ body.plan-toolbox-open .plan-agent-shell {
   color: #fca5a5;
 }
 
+.graph-merge-reconciliation-materialization-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.graph-merge-reconciliation-materialization-panel h5 {
+  margin: 0;
+}
+
+.graph-merge-reconciliation-materialization-lead,
+.graph-merge-reconciliation-materialization-safety,
+.graph-merge-reconciliation-prepare-safety,
+.graph-merge-reconciliation-apply-success-lead,
+.graph-merge-reconciliation-apply-success-counts,
+.graph-merge-reconciliation-refresh-status,
+.graph-merge-reconciliation-no-plans {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.graph-merge-reconciliation-materialization-safety {
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
+
+.graph-merge-reconciliation-materialization-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.graph-merge-reconciliation-materialization-actions button {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.4rem;
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+  padding: 0.35rem 0.65rem;
+}
+
+.graph-merge-reconciliation-materialization-actions button:disabled {
+  opacity: 0.55;
+}
+
+.graph-merge-reconciliation-prepare-summary {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.graph-merge-reconciliation-materialization-error {
+  margin: 0;
+  color: #fca5a5;
+}
+
+.graph-merge-reconciliation-technical-details {
+  color: #94a3b8;
+}
+
+.graph-merge-reconciliation-technical-fields {
+  margin: 0.35rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-merge-reconciliation-technical-fields dt {
+  font-weight: 600;
+}
+
+.graph-merge-reconciliation-technical-fields dd {
+  margin: 0;
+  word-break: break-all;
+}
+
 .graph-review-projection-document h2,
 .graph-review-projection-document h3,
 .graph-review-projection-document h4,

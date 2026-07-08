@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
+import { GraphMergeReconciliationMaterializationPanel } from "./GraphMergeReconciliationMaterializationPanel";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import { buildGraphAuthoringSelectionFromRecapNode } from "./graphAuthoringSelection";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
@@ -342,6 +343,12 @@ export function GraphReviewAuthoringRail({
           <GraphObjectAuthoringSurface
             {...sharedSurfaceProps}
             focusPanel="stage_overlay"
+          />
+          <GraphMergeReconciliationMaterializationPanel
+            campaignId={campaignId}
+            sessionId={sessionId}
+            previewUnionStorePath={liveRun?.preview_union_store_path ?? null}
+            onRefreshProjection={reloadLiveProjection}
           />
           {hasGold || authorDraft.localProposals.length > 0 ? (
             <details
