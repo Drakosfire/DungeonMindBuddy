@@ -218,10 +218,13 @@ def build_recap_graph_projection(
         markdown,
         identity_context=identity_context,
     )
-    projected_markdown, markdown_redirect_count = resolve_projection_markdown_dmb_node_links(
-        projected_markdown or "",
-        identity_context,
-    )
+    if projected_markdown is not None:
+        projected_markdown, markdown_redirect_count = resolve_projection_markdown_dmb_node_links(
+            projected_markdown,
+            identity_context,
+        )
+    else:
+        markdown_redirect_count = 0
     mention_targets_resolved += markdown_redirect_count
 
     edge_endpoints_resolved = 0

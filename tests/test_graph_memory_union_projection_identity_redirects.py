@@ -246,3 +246,9 @@ def test_active_redirect_map_matches_store() -> None:
     store = _lysandra_applied_store()
     redirect_map = active_identity_redirect_map(store.identity_redirects)
     assert redirect_map["node:lysandra"].to_node_id == "party:captain_lysandra_ironveil"
+
+
+def test_build_recap_graph_projection_preserves_none_markdown() -> None:
+    store = minimal_union_store()
+    projection = build_recap_graph_projection(store, session_id="session-23", markdown=None)
+    assert projection.markdown is None
