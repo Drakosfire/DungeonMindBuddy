@@ -1802,6 +1802,11 @@ export interface GraphProjectionNodeView {
   visibility?: string | null;
   graph_scope?: string[] | null;
   source_anchor_text?: string | null;
+  /** Durable union identity merge provenance (A10m+) */
+  merged_away_ids?: string[];
+  merge_assertion_ids?: string[];
+  identity_redirect_ids?: string[];
+  identity_merge_record_ids?: string[];
 }
 
 export interface GraphAuthoringOverlayDiagnostic {

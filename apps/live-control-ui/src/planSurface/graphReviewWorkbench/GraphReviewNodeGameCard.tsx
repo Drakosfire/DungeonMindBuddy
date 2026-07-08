@@ -5,8 +5,10 @@ import {
   type GraphReviewRelationshipPredicate,
 } from "./graphReviewLocalAuthoringState";
 import {
+  durableIdentitySummaryForNode,
   formatGraphObjectType,
   gameSummaryForNode,
+  mergedIdentityNoteCopy,
   type GraphReviewSelectedNodeViewModel,
 } from "./graphReviewSelectionUtils";
 
@@ -125,6 +127,28 @@ function NodeAliasMemoryNote({ node }: { node: GraphProjectionNodeView }) {
       {node.visibility ? (
         <p className="graph-review-muted">
           Visibility: {friendlyVisibilityCopy(node.visibility)}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function NodeDurableIdentityNote({ node }: { node: GraphProjectionNodeView }) {
+  const summary = durableIdentitySummaryForNode(node);
+  if (!summary) return null;
+
+  const { foldedLine, contextLine } = mergedIdentityNoteCopy(summary, node.aliases);
+
+  return (
+    <section className="graph-review-durable-identity-note" aria-label="Merged identity">
+      <h5>Merged identity</h5>
+      <p>
+        {foldedLine} {contextLine}
+      </p>
+      {node.evidence_badges.length > 0 ? (
+        <p className="graph-review-muted">
+          Includes {node.evidence_badges.length} evidence badge
+          {node.evidence_badges.length === 1 ? "" : "s"}.
         </p>
       ) : null}
     </section>
@@ -299,6 +323,7 @@ function NodeEvidenceSourceDetails({
 
 function NodeTechnicalDetails({ viewModel }: { viewModel: GraphReviewSelectedNodeViewModel }) {
   const node = viewModel.node;
+  const durableSummary = durableIdentitySummaryForNode(node);
   const hasTechnicalContent =
     node.assertion_id ||
     node.visibility ||
@@ -306,7 +331,8 @@ function NodeTechnicalDetails({ viewModel }: { viewModel: GraphReviewSelectedNod
     node.source_domains.length ||
     viewModel.laneRole ||
     node.node_id ||
-    viewModel.deltaId;
+    viewModel.deltaId ||
+    durableSummary;
 
   if (!hasTechnicalContent) return null;
 
@@ -344,6 +370,33 @@ function NodeTechnicalDetails({ viewModel }: { viewModel: GraphReviewSelectedNod
           <strong>Delta ID:</strong> {viewModel.deltaId}
         </p>
       ) : null}
+      {durableSummary ? (
+        <div className="graph-review-merge-provenance-details" aria-label="Merge provenance">
+          <h6>Merge provenance</h6>
+          {durableSummary.mergedAwayIds.length ? (
+            <p>
+              <strong>Merged-away IDs:</strong> {durableSummary.mergedAwayIds.join(", ")}
+            </p>
+          ) : null}
+          {durableSummary.mergeAssertionIds.length ? (
+            <p>
+              <strong>Merge assertion IDs:</strong>{" "}
+              {durableSummary.mergeAssertionIds.join(", ")}
+            </p>
+          ) : null}
+          {durableSummary.redirectIds.length ? (
+            <p>
+              <strong>Redirect IDs:</strong> {durableSummary.redirectIds.join(", ")}
+            </p>
+          ) : null}
+          {durableSummary.mergeRecordIds.length ? (
+            <p>
+              <strong>Merge record IDs:</strong>{" "}
+              {durableSummary.mergeRecordIds.join(", ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </details>
   );
 }
@@ -378,6 +431,7 @@ export function GraphReviewNodeGameCard({
       <NodeIdentityHeader viewModel={viewModel} />
       <NodeGameSummary node={node} />
       <NodeAliasMemoryNote node={node} />
+      <NodeDurableIdentityNote node={node} />
       <NodeRelationshipSection
         node={node}
         selectedEdgeId={selectedEdgeId}
