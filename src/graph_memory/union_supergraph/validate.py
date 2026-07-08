@@ -9,6 +9,11 @@ from graph_memory.evidence.source_domain import KNOWN_SOURCE_DOMAINS
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_payload,
+    parse_union_supergraph_store,
+)
+from graph_memory.union_supergraph.redirects import (
+    identity_redirect_dicts_from_fixture,
+    validate_identity_redirects,
 )
 
 REQUIRED_MAPS = ("nodes", "edges", "evidence", "source_artifacts", "adjacency")
@@ -297,6 +302,16 @@ def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]
                 errors,
                 f"diagnostics.{flag} must be false",
             )
+
+    redirect_payloads = identity_redirect_dicts_from_fixture(fixture)
+    if redirect_payloads:
+        try:
+            store = parse_union_supergraph_store(fixture)
+        except Exception as exc:  # pragma: no cover - parse errors surface elsewhere
+            errors.append(f"identity_redirects present but store parse failed: {exc}")
+        else:
+            for message in validate_identity_redirects(store.identity_redirects):
+                errors.append(message)
 
     if errors:
         raise UnionSupergraphValidationError(
