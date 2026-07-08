@@ -7,15 +7,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] A10m Implement — union identity redirect model (PR A) — captured 2026-07-08
+## [READY] A10m Implement — reconciliation apply (PR C) — captured 2026-07-08
 
-**Context:** Design handoff complete (`Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md`). Next coding slice adds `UnionIdentityRedirect` + lookup tests. No apply, no UI.
+**Context:** PR B can plan authored merge reconciliation but does not mutate union store. Next slice applies a validated plan to the file-backed union store, with timestamped backup, identity redirects, merge records, survivor hydration, edge/evidence rewiring, and idempotency.
 
-**Action:** Implement PR A per handoff §10: model, redirect resolver, store load/validate, tests.
+**Action:** Implement apply-only service for `UnionSupergraphMergePlan`; no projection adapter simplification yet.
 
-**Surfaces when:** `src/graph_memory/union_supergraph/`, union supergraph tests.
+**Surfaces when:** `src/graph_memory/union_supergraph/`, reconciliation apply tests.
 
-**Refs:** A10m PR A, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
+**Refs:** A10m PR C, HANDOFF-a10m-union-supergraph-merge-reconciliation.md
 
 ## [READY] Graph Review authoring rail — relationship picker polish — captured 2026-07-07
 
