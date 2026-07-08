@@ -179,36 +179,12 @@ def _applied_assertion_ids(store: UnionSupergraphStore) -> set[str]:
     }
 
 
-def _apply_assertion_plan(
-    store: UnionSupergraphStore,
+def _resolve_redirects_for_assertion(
     assertion_plan: MergeAssertionPlan,
-    *,
-    applied_at: str,
-    materialization_pass_id: str,
+    active_redirects: dict[str, UnionIdentityRedirect],
     diagnostics: list[ReconciliationDiagnostic],
-) -> dict[str, int] | None:
-    counts = {
-        "redirects_added": 0,
-        "survivor_nodes_created": 0,
-        "survivor_nodes_updated": 0,
-        "merged_away_nodes_marked": 0,
-        "edges_rewired": 0,
-        "edges_deduped": 0,
-    }
-
-    if assertion_plan.assertion_id in _applied_assertion_ids(store):
-        _append_diagnostic(
-            diagnostics,
-            severity="info",
-            code="merge_assertion_already_applied",
-            message=(
-                f"Skipping assertion {assertion_plan.assertion_id}: merge record already applied"
-            ),
-            assertion_id=assertion_plan.assertion_id,
-        )
-        return None
-
-    active_redirects = active_identity_redirect_map(store.identity_redirects)
+) -> list[UnionIdentityRedirect] | None:
+    """Pre-validate all redirects for an assertion before any store mutation."""
     redirects_to_add: list[UnionIdentityRedirect] = []
     for redirect in assertion_plan.redirects:
         existing = active_redirects.get(redirect.from_node_id)
@@ -240,6 +216,46 @@ def _apply_assertion_plan(
             )
             return None
         redirects_to_add.append(redirect)
+    return redirects_to_add
+
+
+def _apply_assertion_plan(
+    store: UnionSupergraphStore,
+    assertion_plan: MergeAssertionPlan,
+    *,
+    applied_at: str,
+    materialization_pass_id: str,
+    diagnostics: list[ReconciliationDiagnostic],
+) -> dict[str, int] | None:
+    counts = {
+        "redirects_added": 0,
+        "survivor_nodes_created": 0,
+        "survivor_nodes_updated": 0,
+        "merged_away_nodes_marked": 0,
+        "edges_rewired": 0,
+        "edges_deduped": 0,
+    }
+
+    if assertion_plan.assertion_id in _applied_assertion_ids(store):
+        _append_diagnostic(
+            diagnostics,
+            severity="info",
+            code="merge_assertion_already_applied",
+            message=(
+                f"Skipping assertion {assertion_plan.assertion_id}: merge record already applied"
+            ),
+            assertion_id=assertion_plan.assertion_id,
+        )
+        return None
+
+    active_redirects = active_identity_redirect_map(store.identity_redirects)
+    redirects_to_add = _resolve_redirects_for_assertion(
+        assertion_plan,
+        active_redirects,
+        diagnostics,
+    )
+    if redirects_to_add is None:
+        return None
 
     store.identity_redirects.extend(redirects_to_add)
     counts["redirects_added"] = len(redirects_to_add)
@@ -510,7 +526,8 @@ def apply_union_supergraph_merge_plan(
         for key, value in counts.items():
             totals[key] += value
 
-    updated_store.adjacency = _rebuild_adjacency(updated_store)
+    if applied_assertion_ids:
+        updated_store.adjacency = _rebuild_adjacency(updated_store)
 
     result = UnionSupergraphApplyResult(
         campaign_id=plan.campaign_id,

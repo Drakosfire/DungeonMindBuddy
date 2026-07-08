@@ -9,6 +9,10 @@ from graph_memory.union_supergraph.load import (
     parse_union_supergraph_store,
 )
 from graph_memory.union_supergraph.merge_reconciliation import (
+    MergeAssertionPlan,
+    SurvivorHydrationPlan,
+    UnionSupergraphMergePlan,
+    make_identity_redirect_id,
     plan_authored_merge_reconciliation,
 )
 from graph_memory.union_supergraph.merge_reconciliation_apply import (
@@ -196,6 +200,111 @@ def test_redirect_conflict_blocks_apply_for_assertion() -> None:
     assert "party:captain_lysandra_ironveil" not in updated_store.nodes
     assert len(updated_store.identity_merge_records) == 0
     assert "merge_apply_redirect_conflict" in _diagnostic_codes(result)
+
+
+def test_mixed_redirect_conflict_skips_assertion_without_partial_mutation() -> None:
+    survivor_id = "party:captain_lysandra_ironveil"
+    store = minimal_union_store(
+        nodes={
+            "node:lysandra": union_node(),
+            "character_lysandra": union_node(
+                node_id="character_lysandra",
+                label="Captain Lysandra Ironveil",
+                aliases=["Lysandra"],
+                evidence_ref_ids=["evidence:worldbuilding:lysandra:note"],
+            ),
+        },
+        edges={
+            "edge:node:lysandra:travels_to:location_mireward": union_edge(),
+        },
+        identity_redirects=[
+            _redirect(
+                redirect_id="redirect:conflict",
+                from_node_id="character_lysandra",
+                to_node_id="character:other_person",
+            )
+        ],
+    )
+    original_snapshot = store.model_dump()
+
+    redirects = (
+        UnionIdentityRedirect(
+            redirect_id=make_identity_redirect_id("assert-mixed-conflict", "node:lysandra"),
+            campaign_id=CAMPAIGN_ID,
+            from_node_id="node:lysandra",
+            to_node_id=survivor_id,
+            assertion_id="assert-mixed-conflict",
+            created_at=STAMP,
+            status="active",
+            materialization_pass_id=PASS_ID,
+        ),
+        UnionIdentityRedirect(
+            redirect_id=make_identity_redirect_id(
+                "assert-mixed-conflict",
+                "character_lysandra",
+            ),
+            campaign_id=CAMPAIGN_ID,
+            from_node_id="character_lysandra",
+            to_node_id=survivor_id,
+            assertion_id="assert-mixed-conflict",
+            created_at=STAMP,
+            status="active",
+            materialization_pass_id=PASS_ID,
+        ),
+    )
+    plan = UnionSupergraphMergePlan(
+        campaign_id=CAMPAIGN_ID,
+        materialization_pass_id=PASS_ID,
+        plans=(
+            MergeAssertionPlan(
+                assertion_id="assert-mixed-conflict",
+                survivor_node_id=survivor_id,
+                merged_away_original_refs=("node:lysandra", "character_lysandra"),
+                merged_away_node_ids=("node:lysandra", "character_lysandra"),
+                redirects=redirects,
+                aliases_to_union=("Lysandra", "Captain Lysandra Ironveil"),
+                evidence_ref_ids_to_union=(
+                    "evidence:session-23:lysandra:recap-mention",
+                    "evidence:worldbuilding:lysandra:note",
+                ),
+                edges_to_rewire=(),
+                survivor_hydration=SurvivorHydrationPlan(
+                    survivor_node_id=survivor_id,
+                    create_survivor_if_missing=True,
+                    source_node_ids=("node:lysandra", "character_lysandra"),
+                    aliases_to_add=("Lysandra", "Captain Lysandra Ironveil"),
+                    evidence_ref_ids_to_add=(
+                        "evidence:session-23:lysandra:recap-mention",
+                        "evidence:worldbuilding:lysandra:note",
+                    ),
+                    source_domains_to_add=("recap",),
+                ),
+            ),
+        ),
+        diagnostics=(),
+    )
+
+    updated_store, result = apply_union_supergraph_merge_plan(
+        union_store=store,
+        plan=plan,
+        applied_at=STAMP,
+    )
+
+    assert result.merge_records_added == 0
+    assert result.redirects_added == 0
+    assert result.survivor_nodes_created == 0
+    assert result.survivor_nodes_updated == 0
+    assert result.merged_away_nodes_marked == 0
+    assert result.edges_rewired == 0
+    assert result.edges_deduped == 0
+    assert "merge_apply_redirect_conflict" in _diagnostic_codes(result)
+    assert survivor_id not in updated_store.nodes
+    assert updated_store.nodes["node:lysandra"].state.get("memory_state") != "merged_away"
+    assert updated_store.nodes["character_lysandra"].state.get("memory_state") != "merged_away"
+    assert len(updated_store.identity_redirects) == 1
+    assert updated_store.identity_redirects[0].to_node_id == "character:other_person"
+    assert updated_store.identity_merge_records == []
+    assert updated_store.model_dump() == original_snapshot
 
 
 def test_dedupes_equivalent_survivor_edge() -> None:
