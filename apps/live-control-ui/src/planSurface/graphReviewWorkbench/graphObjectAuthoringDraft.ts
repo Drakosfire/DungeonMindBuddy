@@ -589,6 +589,22 @@ export function objectRefIdentityKey(ref: GraphObjectAuthoringObjectRef): string
   return null;
 }
 
+/**
+ * Total identity key mirroring the backend `_object_ref_identity_key`, including
+ * the `<refKind>:<label>` fallback for refs without a stable id. Used to dedupe
+ * merged refs before staging so a merge that selects the same underlying record
+ * twice does not produce an assertion the backend rejects for duplicate refs.
+ */
+export function mergeRefDedupKey(ref: GraphObjectAuthoringObjectRef): string {
+  if (ref.refKind === "existing_graph_node" && ref.nodeId) {
+    return `node:${ref.nodeId}`;
+  }
+  if (ref.refKind === "local_proposal" && ref.localProposalId) {
+    return `local:${ref.localProposalId}`;
+  }
+  return `${ref.refKind}:${ref.label.trim().toLowerCase()}`;
+}
+
 export function mergeObjectPairKey(
   left: GraphObjectAuthoringObjectRef,
   right: GraphObjectAuthoringObjectRef,
@@ -605,6 +621,61 @@ export function mergeProposalPairKeys(proposal: GraphObjectAuthoringMergeProposa
   return proposal.mergedObjectRefs
     .map((mergedRef) => mergeObjectPairKey(proposal.survivorObjectRef, mergedRef))
     .filter((key): key is string => Boolean(key));
+}
+
+export function mergeInputClusterKeys(
+  survivorObjectRef: GraphObjectAuthoringObjectRef,
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[],
+): Set<string> {
+  const keys = new Set([mergeRefDedupKey(survivorObjectRef)]);
+  for (const ref of mergedObjectRefs) {
+    keys.add(mergeRefDedupKey(ref));
+  }
+  return keys;
+}
+
+export function mergeProposalsConflict(
+  left: GraphObjectAuthoringMergeProposal,
+  right: GraphObjectAuthoringMergeProposal,
+): boolean {
+  if (left.localProposalId === right.localProposalId) {
+    return false;
+  }
+  const leftKeys = mergeInputClusterKeys(left.survivorObjectRef, left.mergedObjectRefs);
+  const rightKeys = mergeInputClusterKeys(right.survivorObjectRef, right.mergedObjectRefs);
+  const sharesCluster = [...leftKeys].some((key) => rightKeys.has(key));
+  if (!sharesCluster) {
+    return false;
+  }
+  return (
+    mergeRefDedupKey(left.survivorObjectRef) !== mergeRefDedupKey(right.survivorObjectRef)
+  );
+}
+
+export function findConflictingMergeProposal(
+  survivorObjectRef: GraphObjectAuthoringObjectRef,
+  mergedObjectRefs: GraphObjectAuthoringObjectRef[],
+  existingProposals: GraphObjectAuthoringProposal[],
+): GraphObjectAuthoringMergeProposal | null {
+  const incomingKeys = mergeInputClusterKeys(survivorObjectRef, mergedObjectRefs);
+  const incomingSurvivorKey = mergeRefDedupKey(survivorObjectRef);
+  for (const proposal of existingProposals) {
+    if (proposal.proposalKind !== "merge_objects") {
+      continue;
+    }
+    const proposalKeys = mergeInputClusterKeys(
+      proposal.survivorObjectRef,
+      proposal.mergedObjectRefs,
+    );
+    const sharesCluster = [...incomingKeys].some((key) => proposalKeys.has(key));
+    if (!sharesCluster) {
+      continue;
+    }
+    if (mergeRefDedupKey(proposal.survivorObjectRef) !== incomingSurvivorKey) {
+      return proposal;
+    }
+  }
+  return null;
 }
 
 export function findDuplicateMergeProposal(
@@ -784,11 +855,23 @@ export function buildGraphObjectAuthoringMergeProposal(input: {
   ) {
     return null;
   }
-  if (
-    input.mergedObjectRefs.some((ref) =>
-      areSameObjectRef(ref, input.survivorObjectRef),
-    )
-  ) {
+
+  // Drop refs that collide with the survivor and de-duplicate the remainder by
+  // backend-parity identity key. Selecting the same underlying record twice (or a
+  // duplicate that resolves to the survivor) would otherwise build an assertion the
+  // backend rejects with "merged_object_refs cannot contain duplicate refs".
+  const survivorKey = mergeRefDedupKey(input.survivorObjectRef);
+  const seenMergedKeys = new Set<string>();
+  const dedupedMergedRefs: GraphObjectAuthoringObjectRef[] = [];
+  for (const ref of input.mergedObjectRefs) {
+    const key = mergeRefDedupKey(ref);
+    if (key === survivorKey || seenMergedKeys.has(key)) {
+      continue;
+    }
+    seenMergedKeys.add(key);
+    dedupedMergedRefs.push(ref);
+  }
+  if (dedupedMergedRefs.length === 0) {
     return null;
   }
 
@@ -797,7 +880,7 @@ export function buildGraphObjectAuthoringMergeProposal(input: {
     proposalKind: "merge_objects",
     status: "staged_local",
     survivorObjectRef: input.survivorObjectRef,
-    mergedObjectRefs: input.mergedObjectRefs,
+    mergedObjectRefs: dedupedMergedRefs,
     mergeReason: input.mergeReason,
     matchedFeatures: input.matchedFeatures,
     aliasPolicy: "preserve_all_aliases",

@@ -260,22 +260,26 @@ def _resolve_object_ref_node_id(
     context: str,
     projection_node_views: dict[str, GraphProjectionNodeView] | None = None,
     allow_fuzzy_projection_match: bool = True,
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> str | None:
     if ref.ref_kind == "existing_graph_node":
+        lookup_id = ref.node_id
+        if lookup_id:
+            lookup_id = _resolve_through_redirect_map(lookup_id, durable_redirect_map)
         exact_view = (
-            projection_node_views.get(ref.node_id)
-            if projection_node_views and ref.node_id
+            projection_node_views.get(lookup_id)
+            if projection_node_views and lookup_id
             else None
         )
-        if ref.node_id and ref.node_id in existing_node_ids:
+        if lookup_id and lookup_id in existing_node_ids:
             if exact_view is None or not _is_thin_node_view(exact_view):
-                return ref.node_id
+                return lookup_id
             if allow_fuzzy_projection_match:
                 matched = _match_projection_node_for_ref(ref, projection_node_views or {})
                 if matched and matched in existing_node_ids:
                     return matched
-            return ref.node_id
-        if allow_fuzzy_projection_match and projection_node_views and ref.node_id:
+            return lookup_id
+        if allow_fuzzy_projection_match and projection_node_views and lookup_id:
             matched = _match_projection_node_for_ref(ref, projection_node_views)
             if matched and matched in existing_node_ids:
                 return matched
@@ -362,16 +366,20 @@ def build_authored_projection_node_views(
     base_node_views: dict[str, GraphProjectionNodeView] | None = None,
     existing_node_ids: set[str] | None = None,
     diagnostics: list[GraphAuthoringOverlayDiagnostic] | None = None,
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> dict[str, GraphProjectionNodeView]:
     node_views: dict[str, GraphProjectionNodeView] = {}
     unresolved = diagnostics if diagnostics is not None else []
     known_ids = set(existing_node_ids or ())
     base_views = base_node_views or {}
+    redirect_map = durable_redirect_map or {}
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
 
     for assertion in active_assertions:
         for ref in _existing_graph_node_refs_from_assertion(assertion):
             if ref.ref_kind != "existing_graph_node" or not ref.node_id or ref.node_id in known_ids:
+                continue
+            if ref.node_id in redirect_map:
                 continue
             if ref.node_id in base_views:
                 node_views[ref.node_id] = base_views[ref.node_id]
@@ -410,8 +418,13 @@ def build_authored_projection_node_views(
         link_assertion: AuthoredGraphLinkExistingAssertion = assertion
         ref = link_assertion.existing_object_ref
         alias_text = (link_assertion.alias_text or link_assertion.normalized_selected_text).strip()
-        if ref.ref_kind == "existing_graph_node" and ref.node_id and ref.node_id in known_ids:
-            existing = node_views.get(ref.node_id) or base_views.get(ref.node_id)
+        resolved_ref_id = (
+            _resolve_through_redirect_map(ref.node_id, redirect_map)
+            if ref.ref_kind == "existing_graph_node" and ref.node_id
+            else ref.node_id
+        )
+        if ref.ref_kind == "existing_graph_node" and resolved_ref_id and resolved_ref_id in known_ids:
+            existing = node_views.get(resolved_ref_id) or base_views.get(resolved_ref_id)
             if existing is None:
                 continue
             updated_aliases = list(existing.aliases)
@@ -420,7 +433,7 @@ def build_authored_projection_node_views(
             source_domains = list(existing.source_domains)
             if AUTHORED_SOURCE_DOMAIN not in source_domains:
                 source_domains.append(AUTHORED_SOURCE_DOMAIN)
-            node_views[ref.node_id] = existing.model_copy(
+            node_views[resolved_ref_id] = existing.model_copy(
                 update={
                     "aliases": updated_aliases,
                     "source_domains": source_domains,
@@ -438,6 +451,8 @@ def build_authored_projection_node_views(
             diagnostics=unresolved,
             assertion_id=link_assertion.assertion_id,
             context="link_existing",
+            projection_node_views={**base_views, **node_views},
+            durable_redirect_map=redirect_map,
         )
         if manual_node_id is None:
             continue
@@ -466,6 +481,7 @@ def build_authored_projection_relationship_views(
     node_views: dict[str, GraphProjectionNodeView],
     *,
     diagnostics: list[GraphAuthoringOverlayDiagnostic] | None = None,
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> list[GraphProjectionAdjacencyCandidate]:
     unresolved = diagnostics if diagnostics is not None else []
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
@@ -484,6 +500,8 @@ def build_authored_projection_relationship_views(
             diagnostics=unresolved,
             assertion_id=rel_assertion.assertion_id,
             context="relationship source",
+            projection_node_views=node_views,
+            durable_redirect_map=durable_redirect_map,
         )
         target_id = _resolve_object_ref_node_id(
             rel_assertion.target_object_ref,
@@ -492,6 +510,8 @@ def build_authored_projection_relationship_views(
             diagnostics=unresolved,
             assertion_id=rel_assertion.assertion_id,
             context="relationship target",
+            projection_node_views=node_views,
+            durable_redirect_map=durable_redirect_map,
         )
         if not source_id or not target_id:
             unresolved.append(
@@ -562,16 +582,37 @@ def _occupied_spans_from_markdown(markdown: str) -> list[tuple[int, int]]:
     return [(start, end) for start, end, _, _ in _collect_dmb_node_link_spans(markdown)]
 
 
+def _resolve_through_redirect_map(
+    node_id: str,
+    redirect_map: dict[str, str] | None,
+) -> str:
+    if not redirect_map:
+        return node_id
+    seen: set[str] = set()
+    current = node_id
+    while current in redirect_map:
+        if current in seen:
+            break
+        seen.add(current)
+        current = redirect_map[current]
+    return current
+
+
 def _link_existing_node_id(
     assertion: AuthoredGraphLinkExistingAssertion,
     *,
     merged_node_views: dict[str, GraphProjectionNodeView],
     local_proposal_nodes: dict[str, str],
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> str | None:
     ref = assertion.existing_object_ref
-    if ref.ref_kind == "existing_graph_node" and ref.node_id and ref.node_id in merged_node_views:
-        return ref.node_id
+    if ref.ref_kind == "existing_graph_node" and ref.node_id:
+        resolved_id = _resolve_through_redirect_map(ref.node_id, durable_redirect_map)
+        if resolved_id in merged_node_views:
+            return resolved_id
+        if ref.node_id in merged_node_views:
+            return ref.node_id
     return _resolve_object_ref_node_id(
         ref,
         existing_node_ids=set(merged_node_views.keys()),
@@ -579,6 +620,8 @@ def _link_existing_node_id(
         diagnostics=diagnostics,
         assertion_id=assertion.assertion_id,
         context="link_existing mention",
+        projection_node_views=merged_node_views,
+        durable_redirect_map=durable_redirect_map,
     )
 
 
@@ -1207,6 +1250,7 @@ def _apply_authored_link_existing_mentions(
     *,
     merged_node_views: dict[str, GraphProjectionNodeView],
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> tuple[RecapGraphProjection, int]:
     markdown = projection.markdown
     if not markdown:
@@ -1239,6 +1283,7 @@ def _apply_authored_link_existing_mentions(
                 merged_node_views=merged_node_views,
                 local_proposal_nodes=local_proposal_nodes,
                 diagnostics=diagnostics,
+                durable_redirect_map=durable_redirect_map,
             )
             if not node_id:
                 continue
@@ -1356,6 +1401,7 @@ def _build_authored_alias_seeds(
     merged_node_views: dict[str, GraphProjectionNodeView],
     merge_map: dict[str, str],
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> list[AuthoredAliasSeed]:
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
     local_proposal_nodes = _local_proposal_node_map(active_assertions)
@@ -1369,6 +1415,7 @@ def _build_authored_alias_seeds(
                 merged_node_views=merged_node_views,
                 local_proposal_nodes=local_proposal_nodes,
                 diagnostics=diagnostics,
+                durable_redirect_map=durable_redirect_map,
             )
             if not target_id:
                 diagnostics.append(
@@ -1481,6 +1528,7 @@ def _apply_authored_alias_propagation(
     merged_node_views: dict[str, GraphProjectionNodeView],
     merge_map: dict[str, str],
     diagnostics: list[GraphAuthoringOverlayDiagnostic],
+    durable_redirect_map: dict[str, str] | None = None,
 ) -> tuple[RecapGraphProjection, int]:
     markdown = projection.markdown
     if not markdown:
@@ -1491,6 +1539,7 @@ def _apply_authored_alias_propagation(
         merged_node_views=merged_node_views,
         merge_map=merge_map,
         diagnostics=diagnostics,
+        durable_redirect_map=durable_redirect_map,
     )
     eligible_aliases = _build_eligible_alias_map(seeds, diagnostics)
     if not eligible_aliases:
@@ -1655,6 +1704,7 @@ def apply_authored_overlay_to_graph_review_projection(
         base_node_views=merged_node_views,
         existing_node_ids=set(merged_node_views.keys()),
         diagnostics=diagnostics,
+        durable_redirect_map=durable_redirect_map,
     )
     for merged_id in list(authored_nodes.keys()):
         if merged_id in durable_redirect_map:
@@ -1688,6 +1738,7 @@ def apply_authored_overlay_to_graph_review_projection(
         overlay_for_projection,
         merged_node_views,
         diagnostics=diagnostics,
+        durable_redirect_map=durable_redirect_map,
     )
     for relationship in relationship_views:
         source_candidates = [
@@ -1710,6 +1761,8 @@ def apply_authored_overlay_to_graph_review_projection(
             diagnostics=diagnostics,
             assertion_id=rel_assertion.assertion_id,
             context="relationship source",
+            projection_node_views=merged_node_views,
+            durable_redirect_map=durable_redirect_map,
         )
         if not source_id or source_id not in merged_node_views:
             continue
@@ -1725,6 +1778,7 @@ def apply_authored_overlay_to_graph_review_projection(
         overlay_for_projection,
         merged_node_views=merged_node_views,
         diagnostics=diagnostics,
+        durable_redirect_map=durable_redirect_map,
     )
 
     merge_map = _build_merge_node_id_map(
@@ -1747,6 +1801,7 @@ def apply_authored_overlay_to_graph_review_projection(
         merged_node_views=merged_node_views,
         merge_map=merge_map,
         diagnostics=diagnostics,
+        durable_redirect_map=durable_redirect_map,
     )
 
     active_count = sum(

@@ -78,6 +78,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   laneRole?: GraphReviewProjectionLaneRole;
   liveRunManifestPath?: string | null;
+  previewUnionStorePath?: string | null;
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
 }
 
@@ -106,6 +107,7 @@ export function GraphObjectAuthoringSurface({
   existingNodes = [],
   laneRole = "live",
   liveRunManifestPath = null,
+  previewUnionStorePath = null,
   projectionNodeViews,
 }: GraphObjectAuthoringSurfaceProps) {
   const [selectionMode, setSelectionMode] = useState<GraphObjectAuthoringSelectionMode>("object");
@@ -380,6 +382,7 @@ export function GraphObjectAuthoringSurface({
             sourceRunId={sourceRunId}
             sourceGraphId={sourceGraphId}
             proposals={proposals}
+            previewUnionStorePath={previewUnionStorePath}
             onCommitted={onCommittedProposals}
             onRefreshProjection={onRefreshProjection}
           />

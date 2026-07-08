@@ -95,6 +95,19 @@ def test_append_assertions_preserves_existing_assertions(
     assert updated.assertions[1].assertion_id == "assert-link-2"
 
 
+def test_append_assertions_upserts_same_assertion_id(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    original = object_assertion(assertion_id="assert-object-1")
+    original.object_ref = original.object_ref.model_copy(update={"label": "Heroes"})
+    revised = object_assertion(assertion_id="assert-object-1")
+    revised.object_ref = revised.object_ref.model_copy(update={"label": "The Heroes"})
+    store.append_assertions(CAMPAIGN_ID, [original], campaign_rel=TEST_CAMPAIGN_REL)
+    updated = store.append_assertions(CAMPAIGN_ID, [revised], campaign_rel=TEST_CAMPAIGN_REL)
+    assert len(updated.assertions) == 1
+    assert updated.assertions[0].object_ref.label == "The Heroes"
+
+
 def test_list_assertions_returns_overlay_assertions(store: GraphAuthoringOverlayStore) -> None:
     assertion = relationship_assertion()
     store.append_assertions(CAMPAIGN_ID, [assertion], campaign_rel=TEST_CAMPAIGN_REL)

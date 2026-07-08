@@ -11,6 +11,14 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review projection ignored mutated union store — completed 2026-07-08
+
+**Context:** Live projection reload passed both `graph_run_manifest_path` and `preview_union_store_path`, but the adapter returned a frozen manifest `PROJECTION_PAYLOAD` snapshot. A10o apply wrote the store correctly; the UI never showed it. Original A10o dogfood PASS was wrong for the browser path.
+
+**Fix landed:** `build_plan_union_supergraph_projection` prefers `preview_union_store_path` when set; commit materializes actionable merges when a live run is selected.
+
+**Refs:** `union_supergraph_projection_adapter.py`, `graph_object_authoring_commit.py`, A10O dogfood doc
+
 ## [DONE] A10n Implement — selected-object durable identity polish (PR A) — completed 2026-07-08
 
 **Delivered:** GM-facing merged identity note on `GraphReviewNodeGameCard`; durable provenance helpers in `graphReviewSelectionUtils.ts`; raw merge ids in collapsed Technical details; tests and `A10N-SELECTED-OBJECT-DOGFOOD.md`.

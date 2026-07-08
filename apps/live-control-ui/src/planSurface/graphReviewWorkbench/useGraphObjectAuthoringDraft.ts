@@ -11,6 +11,7 @@ import {
   createDefaultGraphObjectAuthoringRelationshipFormState,
   createLocalGraphObjectProposalId,
   findDuplicateMergeProposal,
+  findConflictingMergeProposal,
   type GraphObjectAuthoringFormState,
   type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringProposal,
@@ -235,9 +236,27 @@ export function useGraphObjectAuthoringDraft(
       ) {
         return false;
       }
+      if (
+        findConflictingMergeProposal(
+          input.survivorObjectRef,
+          input.mergedObjectRefs,
+          proposals,
+        )
+      ) {
+        return false;
+      }
       setProposals((prev) => {
         if (
           findDuplicateMergeProposal(
+            input.survivorObjectRef,
+            input.mergedObjectRefs,
+            prev,
+          )
+        ) {
+          return prev;
+        }
+        if (
+          findConflictingMergeProposal(
             input.survivorObjectRef,
             input.mergedObjectRefs,
             prev,

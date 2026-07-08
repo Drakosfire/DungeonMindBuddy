@@ -6,6 +6,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.graph_authoring_event_log import (
     GraphAuthoringEventLogError,
     append_graph_authoring_events,
@@ -15,11 +16,21 @@ from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
     GraphAuthoringOverlayStoreError,
 )
+from apps.live_control_server.services.graph_merge_reconciliation_materialize import (
+    actionable_merge_plan,
+    derive_materialization_pass_id,
+    merge_plan_digest,
+    resolve_repo_path,
+)
+from apps.live_control_server.services.graph_object_authoring_merge_guard import (
+    detect_merge_assertion_conflicts,
+)
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphAuthoringDiagnostic,
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringCommitResponse,
     GraphObjectAuthoringError,
+    GraphObjectAuthoringUnionStoreMaterializationSummary,
     authoring_prepare_request_from_write,
     _blocking_assertion_diagnostics,
     build_assertions_from_proposals,
@@ -28,6 +39,13 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     overlay_file_token,
     stable_json_digest,
     validate_authoring_campaign_scope,
+)
+from graph_memory.union_supergraph.load import load_union_supergraph_store
+from graph_memory.union_supergraph.merge_reconciliation import (
+    plan_authored_merge_reconciliation,
+)
+from graph_memory.union_supergraph.merge_reconciliation_apply import (
+    apply_union_supergraph_merge_plan_to_file,
 )
 
 
@@ -57,10 +75,105 @@ def _backup_overlay(
     return backup_path
 
 
+def _materialize_union_store_merges(
+    request: GraphObjectAuthoringCommitRequest,
+    *,
+    store: GraphAuthoringOverlayStore,
+    repo_root_override: Path | None = None,
+) -> GraphObjectAuthoringUnionStoreMaterializationSummary:
+    if not request.preview_union_store_path:
+        return GraphObjectAuthoringUnionStoreMaterializationSummary(
+            attempted=False,
+            applied=False,
+            reason="no_preview_union_store_selected",
+        )
+
+    root = (repo_root_override or repo_root()).resolve()
+    try:
+        union_store_path = resolve_repo_path(root, request.preview_union_store_path)
+        overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
+        union_store = load_union_supergraph_store(union_store_path)
+
+        provisional_pass_id = "commit-materialize-provisional"
+        plan = plan_authored_merge_reconciliation(
+            campaign_id=request.campaign_id,
+            overlay=overlay,
+            union_store=union_store,
+            materialization_pass_id=provisional_pass_id,
+        )
+        plan_digest = merge_plan_digest(plan)
+        materialization_pass_id = derive_materialization_pass_id(
+            campaign_id=request.campaign_id,
+            session_id=request.session_id,
+            plan_digest=plan_digest,
+            requested=None,
+        )
+        if materialization_pass_id != provisional_pass_id:
+            plan = plan_authored_merge_reconciliation(
+                campaign_id=request.campaign_id,
+                overlay=overlay,
+                union_store=union_store,
+                materialization_pass_id=materialization_pass_id,
+            )
+
+        actionable_plan = actionable_merge_plan(plan, union_store)
+        if not actionable_plan.plans:
+            return GraphObjectAuthoringUnionStoreMaterializationSummary(
+                attempted=True,
+                applied=False,
+                reason="no_actionable_merge_assertions",
+                union_store_path=str(union_store_path),
+            )
+
+        applied_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        backup_dir = union_store_path.parent / "backups"
+        apply_result = apply_union_supergraph_merge_plan_to_file(
+            union_store_path=union_store_path,
+            plan=plan,
+            applied_at=applied_at,
+            backup_dir=backup_dir,
+        )
+        diagnostics = [
+            GraphAuthoringDiagnostic(
+                code=item.code,
+                message=item.message,
+                severity=item.severity,
+            )
+            for item in apply_result.diagnostics
+        ]
+        return GraphObjectAuthoringUnionStoreMaterializationSummary(
+            attempted=True,
+            applied=True,
+            reason="materialized",
+            union_store_path=str(union_store_path),
+            backup_path=apply_result.backup_path,
+            applied_assertion_ids=list(apply_result.applied_assertion_ids),
+            redirects_added=apply_result.redirects_added,
+            edges_rewired=apply_result.edges_rewired,
+            survivor_nodes_updated=apply_result.survivor_nodes_updated,
+            diagnostics=diagnostics,
+        )
+    except Exception as exc:
+        return GraphObjectAuthoringUnionStoreMaterializationSummary(
+            attempted=True,
+            applied=False,
+            reason="materialization_failed",
+            union_store_path=request.preview_union_store_path,
+            diagnostics=[
+                GraphAuthoringDiagnostic(
+                    code="union_store_materialization_failed",
+                    message=str(exc),
+                    severity="error",
+                )
+            ],
+        )
+
+
 def commit_graph_object_authoring_write(
     request: GraphObjectAuthoringCommitRequest,
     *,
     corpus_root: Path | None = None,
+    repo_root_override: Path | None = None,
 ) -> GraphObjectAuthoringCommitResponse:
     if not request.proposals:
         raise GraphObjectAuthoringError(
@@ -86,8 +199,18 @@ def commit_graph_object_authoring_write(
         )
 
     prepare_request = authoring_prepare_request_from_write(request)
+    existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
     assertions, assertion_diagnostics = build_assertions_from_proposals(prepare_request)
-    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
+    local_proposal_ids = {
+        assertion.assertion_id: proposal.local_proposal_id
+        for assertion, proposal in zip(assertions, request.proposals, strict=False)
+    }
+    merge_conflicts = detect_merge_assertion_conflicts(
+        assertions,
+        existing_assertions=existing_overlay.assertions,
+        local_proposal_id_by_assertion_id=local_proposal_ids,
+    )
+    blocking = _blocking_assertion_diagnostics([*assertion_diagnostics, *merge_conflicts])
     if blocking:
         raise GraphObjectAuthoringError(blocking[0].message, code=blocking[0].code)
 
@@ -148,7 +271,11 @@ def commit_graph_object_authoring_write(
     try:
         append_graph_authoring_events(events_path, events)
     except GraphAuthoringEventLogError as exc:
-        # Overlay was written but event log append failed. Not transactional in A5.
+        materialization = _materialize_union_store_merges(
+            request,
+            store=store,
+            repo_root_override=repo_root_override,
+        )
         return GraphObjectAuthoringCommitResponse(
             committed=False,
             campaign_id=request.campaign_id,
@@ -168,8 +295,16 @@ def commit_graph_object_authoring_write(
             no_mutation_guarantees=commit_no_mutation_guarantees(
                 overlay_written=True,
                 event_log_written=False,
+                union_store_materialized=materialization.applied,
             ),
+            union_store_materialization=materialization,
         )
+
+    materialization = _materialize_union_store_merges(
+        request,
+        store=store,
+        repo_root_override=repo_root_override,
+    )
 
     return GraphObjectAuthoringCommitResponse(
         committed=True,
@@ -184,5 +319,7 @@ def commit_graph_object_authoring_write(
         no_mutation_guarantees=commit_no_mutation_guarantees(
             overlay_written=True,
             event_log_written=True,
+            union_store_materialized=materialization.applied,
         ),
+        union_store_materialization=materialization,
     )

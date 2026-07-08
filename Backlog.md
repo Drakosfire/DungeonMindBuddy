@@ -7,6 +7,16 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Graph Review — overlay-only assertions vs union store writes — captured 2026-07-08
+
+**Context:** Commit-time merge materialization (A10o fold) writes identity merges into the preview union store on commit. Object / link_existing / relationship assertions still commit to the authored overlay sidecar only and appear via read-time overlay layering.
+
+**Action:** Decide whether non-merge assertion kinds should eventually land in the union store, or stay overlay-only with clearer product copy.
+
+**Surfaces when:** graph authoring schema expansion, union supergraph authoring design.
+
+**Refs:** commit-time materialization plan, `graph_authoring_overlay_projection.py`
+
 ## [READY] Union projection diagnostics — count alias mention redirects — captured 2026-07-08
 
 **Context:** A10m dogfood proved durable identity projection resolves alias-backed mentions to survivor ids, but `mention_targets_resolved` only reports explicit `dmb-node` rewrites.

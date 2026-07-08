@@ -60,13 +60,13 @@ def build_plan_union_supergraph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
-    if graph_run_manifest_path is not None:
+    if preview_union_store_path is not None:
+        store = load_preview_union_store(preview_union_store_path)
+    elif graph_run_manifest_path is not None:
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
         if persisted is not None:
             return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
-    elif preview_union_store_path is not None:
-        store = load_preview_union_store(preview_union_store_path)
     elif store_path is not None:
         store = load_union_supergraph_store(store_path)
     elif preview_source:

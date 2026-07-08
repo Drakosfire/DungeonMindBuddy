@@ -156,9 +156,19 @@ class GraphAuthoringOverlayStore:
                 raise GraphAuthoringOverlayStoreError(
                     "assertion campaign_id must match overlay campaign_id"
                 )
+        updated_assertions = list(overlay.assertions)
+        index_by_id = {
+            assertion.assertion_id: index for index, assertion in enumerate(updated_assertions)
+        }
+        for assertion in assertions:
+            if assertion.assertion_id in index_by_id:
+                updated_assertions[index_by_id[assertion.assertion_id]] = assertion
+            else:
+                index_by_id[assertion.assertion_id] = len(updated_assertions)
+                updated_assertions.append(assertion)
         updated = overlay.model_copy(
             update={
-                "assertions": [*overlay.assertions, *assertions],
+                "assertions": updated_assertions,
                 "updated_at": isoformat_z(datetime.now(UTC)),
             }
         )

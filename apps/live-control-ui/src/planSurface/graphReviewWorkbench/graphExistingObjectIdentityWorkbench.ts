@@ -4,6 +4,7 @@ import {
   createDefaultGraphObjectAuthoringLinkExistingFormState,
   findDuplicateMergeProposal,
   mergeObjectPairKey,
+  mergeRefDedupKey,
   type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringObjectRef,
   type GraphObjectAuthoringProposal,
@@ -195,8 +196,11 @@ export function getSearchMergeStageBlockReason(
   if (!input) {
     return null;
   }
-  const survivorId = input.survivorObjectRef.nodeId;
-  if (input.mergedObjectRefs.some((ref) => ref.nodeId === survivorId)) {
+  const survivorKey = mergeRefDedupKey(input.survivorObjectRef);
+  const distinctMergedRefs = input.mergedObjectRefs.filter(
+    (ref) => mergeRefDedupKey(ref) !== survivorKey,
+  );
+  if (input.mergedObjectRefs.length > 0 && distinctMergedRefs.length === 0) {
     return "survivor_collides_with_merged_away";
   }
   return null;
@@ -209,9 +213,9 @@ export function describeSearchMergeStageBlockReason(
   if (reason === "survivor_collides_with_merged_away") {
     const mergedIds = input.mergedObjectRefs.map((ref) => ref.nodeId).join(", ");
     return (
-      `Cannot stage identity merge: canonical survivor ${input.survivorObjectRef.nodeId} ` +
-      `resolves to the same projection node as merged-away record(s) (${mergedIds}). ` +
-      "Choose a different canonical hub or duplicate."
+      `Cannot stage identity merge: every duplicate record resolves to the same identity as ` +
+      `canonical survivor ${input.survivorObjectRef.nodeId} (${mergedIds}). ` +
+      "Choose a different canonical hub or pick duplicates with distinct record ids."
     );
   }
   return "Cannot stage this identity merge.";
@@ -226,15 +230,32 @@ export function buildSearchMergeStageInput(
     return null;
   }
 
+  const survivorObjectRef = buildObjectRefFromExistingObjectCandidate(
+    state.canonical,
+    nodeViews,
+    { preserveCandidateId: true },
+  );
+  const survivorKey = mergeRefDedupKey(survivorObjectRef);
+  const seenMergedKeys = new Set<string>();
+  const mergedObjectRefs: GraphObjectAuthoringObjectRef[] = [];
+  for (const duplicate of state.duplicates) {
+    const ref = buildObjectRefFromExistingObjectCandidate(duplicate, nodeViews, {
+      preserveCandidateId: true,
+    });
+    const key = mergeRefDedupKey(ref);
+    if (key === survivorKey || seenMergedKeys.has(key)) {
+      continue;
+    }
+    seenMergedKeys.add(key);
+    mergedObjectRefs.push(ref);
+  }
+  if (mergedObjectRefs.length === 0) {
+    return null;
+  }
+
   const input: SearchMergeStageInput = {
-    survivorObjectRef: buildObjectRefFromExistingObjectCandidate(
-      state.canonical,
-      nodeViews,
-      { preserveCandidateId: true },
-    ),
-    mergedObjectRefs: state.duplicates.map((duplicate) =>
-      buildObjectRefFromExistingObjectCandidate(duplicate, nodeViews),
-    ),
+    survivorObjectRef,
+    mergedObjectRefs,
     mergeReason: buildSearchMergeReason(state.canonical, state.duplicates),
     matchedFeatures: collectSearchMergeMatchedFeatures(
       state.canonical,

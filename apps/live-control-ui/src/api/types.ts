@@ -2331,6 +2331,26 @@ export interface GraphObjectAuthoringCommitRequest {
   confirmToken: string;
   currentOverlayToken: string;
   operatorNote?: string | null;
+  previewUnionStorePath?: string | null;
+}
+
+export type UnionStoreMaterializationReason =
+  | "no_preview_union_store_selected"
+  | "no_actionable_merge_assertions"
+  | "materialized"
+  | "materialization_failed";
+
+export interface GraphObjectAuthoringUnionStoreMaterializationSummary {
+  attempted: boolean;
+  applied: boolean;
+  reason: UnionStoreMaterializationReason;
+  union_store_path?: string | null;
+  backup_path?: string | null;
+  applied_assertion_ids: string[];
+  redirects_added: number;
+  edges_rewired: number;
+  survivor_nodes_updated: number;
+  diagnostics: GraphAuthoringDiagnostic[];
 }
 
 export interface GraphObjectAuthoringCommitResponse {
@@ -2344,6 +2364,7 @@ export interface GraphObjectAuthoringCommitResponse {
   new_overlay_token: string;
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
+  union_store_materialization?: GraphObjectAuthoringUnionStoreMaterializationSummary | null;
 }
 
 export interface GraphMergeReconciliationDiagnostic {

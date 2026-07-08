@@ -32,6 +32,9 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
 )
+from apps.live_control_server.services.graph_object_authoring_merge_guard import (
+    detect_merge_assertion_conflicts,
+)
 from apps.live_control_server.services.graph_object_authoring_overlap import (
     detect_prepare_overlap_warnings,
 )
@@ -64,6 +67,7 @@ def commit_no_mutation_guarantees(
     *,
     overlay_written: bool,
     event_log_written: bool,
+    union_store_materialized: bool = False,
 ) -> list[str]:
     guarantees: list[str] = []
     if overlay_written and event_log_written:
@@ -76,6 +80,8 @@ def commit_no_mutation_guarantees(
         guarantees.append("Appended authoring event log.")
     elif overlay_written:
         guarantees.append("Authoring event log was not appended.")
+    if union_store_materialized:
+        guarantees.append("Updated preview union graph store for committed identity merges.")
     guarantees.extend(NO_MUTATION_GUARANTEES_COMMIT_SHARED)
     return guarantees
 
@@ -239,6 +245,7 @@ class GraphObjectAuthoringCommitRequest(BaseModel):
     confirm_token: str = Field(alias="confirmToken")
     current_overlay_token: str = Field(alias="currentOverlayToken")
     operator_note: str | None = Field(default=None, alias="operatorNote")
+    preview_union_store_path: str | None = Field(default=None, alias="previewUnionStorePath")
 
 
 def authoring_prepare_request_from_write(
@@ -298,6 +305,29 @@ class GraphObjectAuthoringPrepareResponse(BaseModel):
     no_mutation_guarantees: list[str]
 
 
+UnionStoreMaterializationReason = Literal[
+    "no_preview_union_store_selected",
+    "no_actionable_merge_assertions",
+    "materialized",
+    "materialization_failed",
+]
+
+
+class GraphObjectAuthoringUnionStoreMaterializationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attempted: bool
+    applied: bool
+    reason: UnionStoreMaterializationReason
+    union_store_path: str | None = None
+    backup_path: str | None = None
+    applied_assertion_ids: list[str] = Field(default_factory=list)
+    redirects_added: int = 0
+    edges_rewired: int = 0
+    survivor_nodes_updated: int = 0
+    diagnostics: list[GraphAuthoringDiagnostic] = Field(default_factory=list)
+
+
 class GraphObjectAuthoringCommitResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -311,6 +341,7 @@ class GraphObjectAuthoringCommitResponse(BaseModel):
     new_overlay_token: str
     diagnostics: list[GraphAuthoringDiagnostic]
     no_mutation_guarantees: list[str]
+    union_store_materialization: GraphObjectAuthoringUnionStoreMaterializationSummary | None = None
 
 
 def stable_json_digest(payload: object) -> str:
@@ -781,7 +812,20 @@ def prepare_graph_object_authoring_write(
     existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
 
     assertions, assertion_diagnostics = build_assertions_from_proposals(request)
-    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
+    local_proposal_ids = {
+        _assertion_id(
+            request.campaign_id,
+            proposal,
+            normalized_payload=_normalized_proposal_payload(proposal),
+        ): proposal.local_proposal_id
+        for proposal in request.proposals
+    }
+    merge_conflicts = detect_merge_assertion_conflicts(
+        assertions,
+        existing_assertions=existing_overlay.assertions,
+        local_proposal_id_by_assertion_id=local_proposal_ids,
+    )
+    blocking = _blocking_assertion_diagnostics([*assertion_diagnostics, *merge_conflicts])
     if blocking:
         raise GraphObjectAuthoringError(
             blocking[0].message,

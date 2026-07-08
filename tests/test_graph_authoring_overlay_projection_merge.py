@@ -365,3 +365,136 @@ def test_durable_redirect_prevents_duplicate_overlay_merge(
     assert len(survivor.aliases) == len(
         set(durable_projection.node_views["party:captain_lysandra_ironveil"].aliases)
     )
+
+
+def test_relationship_resolves_merged_away_target_through_durable_redirect() -> None:
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown="[the wall](dmb-node:location_the_wall) near Mireward Reach.",
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "location_the_wall": GraphProjectionNodeView(
+                node_id="location_the_wall",
+                label="the wall",
+                kind="location",
+                role="location",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            ),
+            "location_mireward_reach": GraphProjectionNodeView(
+                node_id="location_mireward_reach",
+                label="Mireward Reach",
+                kind="location",
+                role="location",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+                merged_away_ids=["node:mireward-reach"],
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+        union_identity_applied_assertion_ids=["assert-merge-mireward"],
+    )
+    from tests.test_graph_authoring_overlay_models import relationship_assertion
+
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={
+            "assertions": [
+                relationship_assertion(
+                    assertion_id="assert-wall-located-in",
+                    source_object_ref={
+                        "ref_kind": "existing_graph_node",
+                        "node_id": "location_the_wall",
+                        "label": "the wall",
+                        "kind": "location",
+                    },
+                    target_object_ref={
+                        "ref_kind": "existing_graph_node",
+                        "node_id": "node:mireward-reach",
+                        "label": "Mireward Reach",
+                        "kind": "location",
+                    },
+                    relationship_type="located_in",
+                )
+            ]
+        }
+    )
+
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    wall = enriched.node_views["location_the_wall"]
+    assert any(
+        edge.predicate == "located_in" and edge.node_id == "location_mireward_reach"
+        for edge in wall.adjacency
+    )
+    assert not any(
+        d.code == "authored_overlay_assertion_unresolved_ref"
+        and "node:mireward-reach" in d.message
+        for d in summary.diagnostics
+    )
+
+
+def test_alias_seed_resolves_merged_away_link_existing_through_durable_redirect() -> None:
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown="Lysandra is surprised. Later Lysandra returns.",
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "character_captain_lysandra_ironveil": GraphProjectionNodeView(
+                node_id="character_captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                kind="pc",
+                role="pc",
+                aliases=["Captain Lysandra Ironveil"],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+                merged_away_ids=["node:lysandra"],
+            ),
+        },
+        mentions=[],
+        source_spans=[],
+        union_identity_applied_assertion_ids=["assert-merge-lysandra"],
+    )
+    from tests.test_graph_authoring_overlay_models import link_existing_assertion
+
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={
+            "assertions": [
+                link_existing_assertion(
+                    assertion_id="assert-lysandra-link",
+                    selected_text="Lysandra",
+                    normalized_selected_text="Lysandra",
+                    existing_object_ref={
+                        "ref_kind": "existing_graph_node",
+                        "node_id": "node:lysandra",
+                        "label": "Lysandra",
+                        "kind": "character",
+                    },
+                    source_anchor={
+                        "anchor_kind": "text_span",
+                        "selected_text": "Lysandra",
+                        "normalized_selected_text": "Lysandra",
+                        "surrounding_text_before": "",
+                        "surrounding_text_after": " is surprised.",
+                    },
+                )
+            ]
+        }
+    )
+
+    enriched, summary = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    assert enriched.markdown.count("dmb-node:character_captain_lysandra_ironveil") == 2
+    assert not any(
+        d.code == "authored_overlay_assertion_unresolved_ref"
+        and "node:lysandra" in d.message
+        for d in summary.diagnostics
+    )
+    assert not any(d.code == "authored_alias_seed_unresolved_target" for d in summary.diagnostics)

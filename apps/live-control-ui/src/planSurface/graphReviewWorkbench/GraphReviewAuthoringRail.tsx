@@ -122,6 +122,7 @@ export function GraphReviewAuthoringRail({
     existingNodes: existingGraphObjectNodes,
     laneRole: "live" as const,
     liveRunManifestPath: liveRun?.manifest_path ?? null,
+    previewUnionStorePath: liveRun?.preview_union_store_path ?? null,
     projectionNodeViews: projection?.node_views,
   };
 
@@ -344,12 +345,18 @@ export function GraphReviewAuthoringRail({
             {...sharedSurfaceProps}
             focusPanel="stage_overlay"
           />
-          <GraphMergeReconciliationMaterializationPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            previewUnionStorePath={liveRun?.preview_union_store_path ?? null}
-            onRefreshProjection={reloadLiveProjection}
-          />
+          <details
+            className="graph-review-advanced-materialization-panel"
+            data-testid="graph-review-advanced-materialization-panel"
+          >
+            <summary>Advanced: backfill durable materialization</summary>
+            <GraphMergeReconciliationMaterializationPanel
+              campaignId={campaignId}
+              sessionId={sessionId}
+              previewUnionStorePath={liveRun?.preview_union_store_path ?? null}
+              onRefreshProjection={reloadLiveProjection}
+            />
+          </details>
           {hasGold || authorDraft.localProposals.length > 0 ? (
             <details
               className="graph-review-gold-fixture-draft-panel"
