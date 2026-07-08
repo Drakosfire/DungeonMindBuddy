@@ -11,6 +11,12 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] A10m Dogfood — Session 23 Lysandra durable identity validation (PR E) — completed 2026-07-08
+
+**Delivered:** Deterministic dogfood harness in `test_a10m_lysandra_durable_identity_dogfood.py` exercising plan → apply → projection and durable-overlay skip; thin runner `evals/lysandra_vertical_slice/a10m_durable_identity_dogfood.py`; summary note `A10M-DURABLE-IDENTITY-DOGFOOD.md`.
+
+**Refs:** A10m PR E, `test_a10m_lysandra_durable_identity_dogfood.py`
+
 ## [DONE] A10m Implement — projection adapter simplification (PR D) — completed 2026-07-08
 
 **Delivered:** `projection_identity.py`, durable redirect filtering/resolution in `build_recap_graph_projection`, overlay merge bridge respects materialized assertions, tests in `test_graph_memory_union_projection_identity_redirects.py` and overlay merge tests.
