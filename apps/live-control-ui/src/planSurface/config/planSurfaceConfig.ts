@@ -1,5 +1,9 @@
 import type { PlanViewProjection } from "../../api/types";
-import type { SurfaceConfig } from "../types";
+import type { PlanSurfaceConfig } from "../types";
+import {
+  buildPlanContextFromPlanView,
+  createPlanSessionDescriptor,
+} from "./planSessionDescriptor";
 
 export const PLAN_SURFACE_SPIKE_THEME_ID = "mireward-runbook";
 
@@ -14,32 +18,22 @@ export const PLAN_SURFACE_THEME_TOKENS: Record<string, string> = {
   "--mono": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
 };
 
-export function buildPlanContextFromPlanView(planView: PlanViewProjection): SurfaceConfig["context"] {
-  const liveSession = planView.session;
-  const prepSession = liveSession + 1;
-  const ingestSession = Math.max(1, liveSession - 1);
-  const campaignLabel = planView.campaign_id.replace(/^longmont-c/i, "Longmont C");
-  return {
-    campaignId: planView.campaign_id,
-    liveSession,
-    prepSession,
-    ingestSession,
-    headerLabel: `Plan · ${campaignLabel} · preparing Session ${prepSession} · ingesting Session ${ingestSession}`,
-  };
-}
+export { buildPlanContextFromPlanView } from "./planSessionDescriptor";
 
-export function createPlanSurfaceConfig(planView: PlanViewProjection): SurfaceConfig {
+export function createPlanSurfaceConfig(planView: PlanViewProjection): PlanSurfaceConfig {
+  const sessionDescriptor = createPlanSessionDescriptor(planView);
   return {
     id: "plan",
     label: "Plan",
     context: buildPlanContextFromPlanView(planView),
+    sessionDescriptor,
     tools: [
       { id: "recap", label: "Recap", size: "wide" },
       { id: "party-registry", label: "Party Registry", size: "wide" },
       { id: "statblock", label: "Statblock", size: "wide" },
     ],
     canvas: {
-      documentId: "north-gate-session-runbook",
+      documentId: sessionDescriptor.planningDocument.documentId,
     },
     theme: {
       themeId: PLAN_SURFACE_SPIKE_THEME_ID,

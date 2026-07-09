@@ -38,6 +38,33 @@
   font-size: 0.92rem;
 }
 
+.plan-nav-primary {
+  min-width: 0;
+}
+
+.plan-nav-context-strip {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.55rem;
+}
+
+.plan-nav-context-line {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.88rem;
+}
+
+.plan-nav-context-mono {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.plan-nav-draft-note {
+  color: var(--accent, #7aa2f7);
+  font-size: 0.82rem;
+}
+
 .plan-nav-links {
   display: flex;
   flex-wrap: wrap;
@@ -141,6 +168,17 @@
 
 .plan-canvas-heading h2 {
   margin: 0 0 0.75rem;
+}
+
+.plan-canvas-meta {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+}
+
+.plan-canvas-meta code {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
 }
 
 .plan-canvas-doc-label {

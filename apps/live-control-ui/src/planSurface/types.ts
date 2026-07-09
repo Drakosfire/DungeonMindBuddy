@@ -27,13 +27,43 @@ export interface PlanContextDescriptor {
   headerLabel: string;
 }
 
+export type PlanDocumentStatus = "local_draft" | "durable" | "missing" | "unknown";
+export type PlanSourceStatusKind = "ready" | "missing" | "stale" | "unknown";
+
+export interface PlanDocumentDescriptor {
+  documentId: string;
+  title: string;
+  description?: string;
+  targetRelpath: string;
+  storageKey: string;
+  status: PlanDocumentStatus;
+}
+
+export interface PlanSessionDescriptor {
+  surfaceId: "plan";
+  campaignId: string;
+  campaignLabel: string;
+  prepSession: number;
+  memorySession: number;
+  liveSession: number;
+  sourceStatusLabel: string;
+  sourceStatusKind: PlanSourceStatusKind;
+  planningDocument: PlanDocumentDescriptor;
+}
+
 export interface SurfaceConfig {
   id: SurfaceMode;
   label: string;
   context: PlanContextDescriptor;
+  sessionDescriptor?: PlanSessionDescriptor;
   tools: SurfaceToolConfig[];
   canvas: SurfaceCanvasConfig;
   theme: SurfaceThemeConfig;
+}
+
+export interface PlanSurfaceConfig extends Omit<SurfaceConfig, "id" | "sessionDescriptor"> {
+  id: "plan";
+  sessionDescriptor: PlanSessionDescriptor;
 }
 
 export interface ActiveProjection {

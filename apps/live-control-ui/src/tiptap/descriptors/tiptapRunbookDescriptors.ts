@@ -13,6 +13,8 @@ export type TiptapRunbookDescriptor = {
   description?: string;
   /** Local-only reset seed. Durable Markdown remains canon; descriptor starter content is not canon. */
   starterContent: unknown;
+  /** Optional override for plan-surface collision-safe local drafts. */
+  storageKey?: string;
 };
 
 export const DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID = "north-gate-session-runbook";
@@ -144,6 +146,9 @@ export function getTiptapRunbookDescriptor(documentId?: string | null): TiptapRu
 }
 
 export function tiptapRunbookStorageKey(descriptor: TiptapRunbookDescriptor): string {
+  if (descriptor.storageKey) {
+    return descriptor.storageKey;
+  }
   return `dmb:tiptap-working-board:${descriptor.campaignId}:session-${descriptor.session}:${descriptor.documentId}`;
 }
 

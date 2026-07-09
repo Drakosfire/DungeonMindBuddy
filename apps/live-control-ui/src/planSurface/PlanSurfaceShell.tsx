@@ -10,14 +10,14 @@ import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "./projection/projectionContext";
-import type { SurfaceConfig } from "./types";
+import type { PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
 
 interface PlanSurfaceShellProps {
   planView: PlanViewProjection;
 }
 
-function themeStyle(config: SurfaceConfig): CSSProperties {
+function themeStyle(config: PlanSurfaceConfig): CSSProperties {
   return (config.theme.tokens ?? {}) as CSSProperties;
 }
 
@@ -38,7 +38,7 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
               <PlanSurfaceCanvas
-                canvas={config.canvas}
+                sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}
                 onEditorToolsChange={setEditorTools}
               />

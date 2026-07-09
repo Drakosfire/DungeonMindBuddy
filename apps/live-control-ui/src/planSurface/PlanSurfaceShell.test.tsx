@@ -36,7 +36,16 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Edit bar" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
-    expect(screen.getByText(/preparing Session 23 · ingesting Session 21/i)).toBeInTheDocument();
+    expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
+    expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
+    expect(screen.getByTestId("plan-document-context")).toHaveTextContent(/C2 Session 23 Prep · local draft/i);
+    expect(screen.getByTestId("plan-document-target")).toHaveTextContent(
+      /Session Prep\/Session 23 Prep\.md/i,
+    );
+    expect(screen.getByRole("link", { name: "Review memory" })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
@@ -46,12 +55,12 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText(/Document controls for the selected planning canvas/i)).toBeInTheDocument();
   });
 
-  it("opens Graph Preview from the tool query parameter", async () => {
-    window.history.pushState({}, "", "/plan?tool=graph-preview");
+  it("opens Recap from the tool query parameter", async () => {
+    window.history.pushState({}, "", "/plan?tool=recap");
     renderPlanSurface();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Graph Preview" })).toHaveAttribute("aria-pressed", "true"),
+      expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true"),
     );
   });
 
@@ -819,14 +828,18 @@ describe("PlanSurfaceShell", () => {
     expect(root).toHaveStyle({ "--accent": "#7aa2f7" });
   });
 
-  it("opens ingestion projection from the toolbar registry", async () => {
+  it("opens recap projection from the toolbar registry", async () => {
     const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ records: [] }),
+    } as Response);
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
-    expect(screen.getByRole("complementary", { name: /Ingest Recap projection/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Raw Recap Ingestion/i })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /Recap projection/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("opens statblock projection from the toolbar registry", async () => {

@@ -147,3 +147,7 @@ A `/plan` PR should state which step of the real prep loop it improves and satis
 Do not invent `/plan` from scratch and do not copy Graph Review into it.
 
 Start from the existing route and seams. Make the planning board, context, reference-following, selected-object card, grounded question, and supporting statblock/roll-table access useful for one real prep session. When the discovered problem is that campaign memory is wrong, send the operator to `/ingest`.
+
+## 12. Implementation checkpoint — session context slice (2026-07)
+
+The first post-re-anchor implementation slice makes `/plan` explicit about campaign, prep session, memory/source session, planning document identity, intended durable target path, and local-draft status. Generic `/plan` opens one derived session-prep board from `PlanView`; North Gate and other eval runbooks stay on `/tiptap-callout-spike` and fixture routes, not in the `/plan` document model. Local Tiptap state is keyed by `campaignId + prepSession + documentId`. Durable target paths for Longmont campaigns follow the existing `Session Prep/Session N Prep.md` corpus convention. Memory review escalates to `/ingest` from the plan header.
