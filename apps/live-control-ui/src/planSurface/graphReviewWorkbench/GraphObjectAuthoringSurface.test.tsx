@@ -170,6 +170,10 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByTestId("graph-object-authoring-stage-button")).toHaveTextContent(
       "Creating…",
     );
+    expect(screen.getByText("Create a graph object")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Create object saves to authored memory immediately/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Commit did not complete.");
   });
 

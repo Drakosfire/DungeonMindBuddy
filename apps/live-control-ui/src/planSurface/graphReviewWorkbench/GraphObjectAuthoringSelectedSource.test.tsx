@@ -39,7 +39,9 @@ describe("GraphObjectAuthoringSelectedSource", () => {
     expect(screen.getByText(/Context/i)).toBeInTheDocument();
     expect(screen.getByText(/The/)).toBeInTheDocument();
     expect(screen.getByText(/survived the night/)).toBeInTheDocument();
-    expect(screen.getByText(/Draft only. Nothing has been written./i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Draft only. Create object saves it to authored memory immediately./i),
+    ).toBeInTheDocument();
   });
 
   it("shows fallback context copy when no surrounding text exists", () => {

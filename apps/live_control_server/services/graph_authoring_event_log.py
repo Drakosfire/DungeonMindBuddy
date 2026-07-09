@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -24,6 +25,7 @@ GraphAuthoringEventKind = Literal[
     "authored_graph_link_existing_committed",
     "authored_graph_relationship_committed",
     "authored_graph_merge_objects_committed",
+    "authored_graph_assertion_superseded",
 ]
 
 
@@ -36,6 +38,7 @@ class GraphAuthoringEvent(GraphAuthoringOverlayModel):
     session_id: str | None = None
 
     assertion_id: str | None = None
+    superseding_assertion_id: str | None = None
     assertion_kind: str | None = None
     operation: str | None = None
 
@@ -99,6 +102,7 @@ def build_graph_authoring_events(
     source_graph_id: str | None = None,
     source_projection_id: str | None = None,
     batch_event_id: str,
+    supersessions: Sequence[tuple[str, str]] = (),
 ) -> list[GraphAuthoringEvent]:
     if not assertions:
         return []
@@ -122,6 +126,30 @@ def build_graph_authoring_events(
             summary=f"Committed {len(assertions)} authored graph assertion(s).",
         )
     ]
+
+    for superseded_assertion_id, superseding_assertion_id in supersessions:
+        events.append(
+            GraphAuthoringEvent(
+                event_id=f"{batch_event_id}:supersede:{superseded_assertion_id}",
+                event_kind="authored_graph_assertion_superseded",
+                campaign_id=campaign_id,
+                session_id=session_id,
+                assertion_id=superseded_assertion_id,
+                superseding_assertion_id=superseding_assertion_id,
+                operation="supersede",
+                overlay_path=overlay_path,
+                overlay_token_before=overlay_token_before,
+                overlay_token_after=overlay_token_after,
+                source_run_id=source_run_id,
+                source_graph_id=source_graph_id,
+                source_projection_id=source_projection_id,
+                provenance=batch_provenance,
+                summary=(
+                    f"Superseded merge assertion {superseded_assertion_id} "
+                    f"with {superseding_assertion_id}."
+                ),
+            )
+        )
 
     for assertion, local_proposal_id in zip(assertions, local_proposal_ids, strict=False):
         selected_text = None

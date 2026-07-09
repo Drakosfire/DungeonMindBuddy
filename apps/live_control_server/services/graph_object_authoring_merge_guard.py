@@ -75,14 +75,29 @@ def find_superseded_merge_assertion_ids(
     *,
     existing_assertions: list[AuthoredGraphAssertion],
 ) -> set[str]:
+    return {
+        superseded_assertion_id
+        for superseded_assertion_id, _ in find_superseded_merge_assertion_pairs(
+            proposed_assertions,
+            existing_assertions=existing_assertions,
+        )
+    }
+
+
+def find_superseded_merge_assertion_pairs(
+    proposed_assertions: list[AuthoredGraphAssertion],
+    *,
+    existing_assertions: list[AuthoredGraphAssertion],
+) -> list[tuple[str, str]]:
+    """Return (superseded, superseding) assertion IDs for corrected merges."""
     proposed_merges = _active_merge_assertions(proposed_assertions)
     existing_merges = _active_merge_assertions(existing_assertions)
-    superseded: set[str] = set()
+    pairs: set[tuple[str, str]] = set()
     for proposed in proposed_merges:
         for existing in existing_merges:
             if merge_assertion_supersedes_existing(proposed=proposed, existing=existing):
-                superseded.add(existing.assertion_id)
-    return superseded
+                pairs.add((existing.assertion_id, proposed.assertion_id))
+    return sorted(pairs)
 
 
 def _active_merge_assertions(

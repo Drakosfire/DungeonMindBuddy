@@ -8,6 +8,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_object_authoring_merge_guard import (
     detect_merge_assertion_conflicts,
     find_superseded_merge_assertion_ids,
+    find_superseded_merge_assertion_pairs,
     merge_assertions_conflict,
 )
 from tests.test_graph_memory_merge_reconciliation_planner import (
@@ -75,6 +76,10 @@ def test_merge_assertions_do_not_conflict_when_proposed_supersedes_existing_surv
         [proposed],
         existing_assertions=[existing],
     ) == {"assert-existing"}
+    assert find_superseded_merge_assertion_pairs(
+        [proposed],
+        existing_assertions=[existing],
+    ) == [("assert-existing", "assert-proposed")]
 
 
 def test_detect_merge_assertion_conflicts_blocks_against_existing_overlay() -> None:

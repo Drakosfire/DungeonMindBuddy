@@ -126,6 +126,99 @@ def test_commit_appends_event_log(store: GraphAuthoringOverlayStore, corpus_root
     assert response.event_count == 3  # batch + 2 assertions
 
 
+def test_commit_audits_superseded_merge_assertion(
+    store: GraphAuthoringOverlayStore,
+    corpus_root: Path,
+) -> None:
+    from tests.test_graph_object_authoring_merge_prepare import merge_proposal
+
+    existing_merge = merge_proposal(
+        localProposalId="local-merge-existing",
+        survivorObjectRef={
+            "refKind": "existing_graph_node",
+            "nodeId": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+        },
+        mergedObjectRefs=[
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "node:lysandra",
+                "label": "Lysandra",
+                "kind": "character",
+            }
+        ],
+    )
+    first_prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[existing_merge]),
+        corpus_root=corpus_root,
+    )
+    first_response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(first_prepare, proposals=[existing_merge]),
+        corpus_root=corpus_root,
+    )
+    assert first_response.committed is True
+    existing_assertion_id = store.load_overlay(
+        CAMPAIGN_ID,
+        campaign_rel=TEST_CAMPAIGN_REL,
+    ).assertions[0].assertion_id
+
+    replacement_merge = merge_proposal(
+        localProposalId="local-merge-replacement",
+        survivorObjectRef={
+            "refKind": "existing_graph_node",
+            "nodeId": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "companion",
+        },
+        mergedObjectRefs=[
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "node:lysandra",
+                "label": "Lysandra",
+                "kind": "character",
+            },
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "character_captain_lysandra_ironveil",
+                "label": "Captain Lysandra Ironveil",
+                "kind": "character",
+            },
+        ],
+    )
+    second_prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[replacement_merge]),
+        corpus_root=corpus_root,
+    )
+    second_response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(second_prepare, proposals=[replacement_merge]),
+        corpus_root=corpus_root,
+    )
+
+    assert second_response.committed is True
+    assert second_response.event_count == 3  # batch + supersession + merge
+    overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    assert overlay.assertions[0].status == "superseded"
+    replacement_assertion_id = overlay.assertions[1].assertion_id
+    events = [
+        json.loads(line)
+        for line in store.events_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert {
+        "assertion_id": existing_assertion_id,
+        "superseding_assertion_id": replacement_assertion_id,
+    } in [
+        {
+            "assertion_id": event["assertion_id"],
+            "superseding_assertion_id": event["superseding_assertion_id"],
+        }
+        for event in events
+        if event["event_kind"] == "authored_graph_assertion_superseded"
+    ]
+
+
 def test_commit_with_bad_token_fails(store: GraphAuthoringOverlayStore, corpus_root: Path) -> None:
     prepare = prepare_graph_object_authoring_write(
         prepare_request(),

@@ -163,8 +163,9 @@ export function GraphObjectAuthoringSurface({
     focusPanel === "create_new"
       ? {
           kicker: "Create new object",
-          title: "Draft a new graph object",
-          hint: "Highlight recap text, then use it below — or draft a new object directly.",
+          title: "Create a graph object",
+          hint:
+            "Highlight recap text, then use it below. Create object saves to authored memory immediately, then continues in Existing object.",
         }
       : focusPanel === "relationships"
         ? {

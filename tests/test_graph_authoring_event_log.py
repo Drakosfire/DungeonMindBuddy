@@ -30,6 +30,31 @@ def test_build_graph_authoring_events_includes_batch_and_per_assertion() -> None
     assert events[1].local_proposal_id == "local-1"
 
 
+def test_build_graph_authoring_events_records_merge_supersession() -> None:
+    assertion = object_assertion()
+    events = build_graph_authoring_events(
+        campaign_id="longmont-c1",
+        session_id="session-2",
+        overlay_path="/tmp/overlay.json",
+        overlay_token_before="before",
+        overlay_token_after="after",
+        assertions=[assertion],
+        local_proposal_ids=["local-1"],
+        batch_event_id="evt-batch-1",
+        supersessions=[("assert-old-merge", "assert-new-merge")],
+    )
+
+    assert [event.event_kind for event in events] == [
+        "authored_graph_assertions_committed",
+        "authored_graph_assertion_superseded",
+        "authored_graph_object_committed",
+    ]
+    supersession = events[1]
+    assert supersession.assertion_id == "assert-old-merge"
+    assert supersession.superseding_assertion_id == "assert-new-merge"
+    assert supersession.operation == "supersede"
+
+
 def test_append_graph_authoring_events_writes_jsonl(tmp_path: Path) -> None:
     assertion = object_assertion()
     events = build_graph_authoring_events(

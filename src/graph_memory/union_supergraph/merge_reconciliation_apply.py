@@ -25,9 +25,6 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.union_supergraph.redirects import active_identity_redirect_map
-from graph_memory.union_supergraph.session_peer_edge_supplement import (
-    supplement_identity_cluster_edges_from_session_peers,
-)
 
 
 @dataclass(frozen=True)
@@ -610,15 +607,6 @@ def apply_union_supergraph_merge_plan(
         totals["merge_records_added"] += 1
         for key, value in counts.items():
             totals[key] += value
-
-        if union_store_path is not None:
-            imported, import_diagnostics = supplement_identity_cluster_edges_from_session_peers(
-                updated_store,
-                assertion_plan,
-                union_store_path=union_store_path,
-            )
-            diagnostics.extend(import_diagnostics)
-            totals["edges_rewired"] += imported
 
     if applied_assertion_ids:
         updated_store.adjacency = _rebuild_adjacency(updated_store)
