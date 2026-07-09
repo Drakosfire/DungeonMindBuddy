@@ -281,6 +281,32 @@ export function formatGraphObjectType(
   return uniqueValues.join(" / ") || "Graph object";
 }
 
+function titleCaseGraphToken(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function graphObjectTypeBadgeLabel(
+  kind?: string | null,
+  role?: string | null,
+): string {
+  const primary = kind?.trim() || role?.trim();
+  return primary ? titleCaseGraphToken(primary) : "Object";
+}
+
+export function graphObjectSecondaryRoleLabel(
+  kind?: string | null,
+  role?: string | null,
+): string | null {
+  const normalizedKind = kind?.trim().toLowerCase();
+  const normalizedRole = role?.trim().toLowerCase();
+  if (!normalizedRole || normalizedRole === normalizedKind) return null;
+  return titleCaseGraphToken(role!.trim());
+}
+
 export type DurableIdentitySummary = {
   mergedAwayIds: string[];
   mergeAssertionIds: string[];
@@ -423,16 +449,30 @@ export function mergedIdentityNoteCopy(
   return { foldedLine, contextLine };
 }
 
-export function gameSummaryForNode(node: GraphProjectionNodeView): string | null {
+export function primaryGameSummaryForNode(node: GraphProjectionNodeView): string | null {
   const summary = node.summary?.trim();
   if (summary && !isPlaceholderNodeSummary(summary)) return summary;
+  return null;
+}
+
+export function detailsConnectionContextForNode(node: GraphProjectionNodeView): string | null {
+  if (primaryGameSummaryForNode(node)) return null;
   const kind = (node.kind || "object").toLowerCase();
   const connectionCount = node.adjacency.length;
   if (connectionCount > 0) {
     return `This ${kind} has ${connectionCount} connected campaign relationship${connectionCount === 1 ? "" : "s"} in this session.`;
   }
+  return null;
+}
+
+export function gameSummaryForNode(node: GraphProjectionNodeView): string | null {
+  const primary = primaryGameSummaryForNode(node);
+  if (primary) return primary;
+  const connectionContext = detailsConnectionContextForNode(node);
+  if (connectionContext) return connectionContext;
   const aliases = displayAliasesForNode(node);
   if (aliases.length) {
+    const kind = (node.kind || "object").toLowerCase();
     return `This ${kind} is also known as ${aliases.join(", ")}.`;
   }
   return null;

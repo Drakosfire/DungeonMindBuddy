@@ -197,7 +197,7 @@ describe("GraphReviewNodeGameCard", () => {
     expect(excerptBlock?.textContent).toContain(sharedExcerpt);
   });
 
-  it("renders relationships before summary and technical details in DOM order", () => {
+  it("renders relationships before summary and details in DOM order", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -211,13 +211,13 @@ describe("GraphReviewNodeGameCard", () => {
     const summaryIndex = card.textContent!.indexOf(
       "The adventuring collective that cleared the tower basement.",
     );
-    const technicalIndex = card.textContent!.indexOf("Technical details");
+    const detailsIndex = card.textContent!.indexOf("Details");
     expect(relationshipIndex).toBeGreaterThanOrEqual(0);
     expect(summaryIndex).toBeGreaterThan(relationshipIndex);
-    expect(technicalIndex).toBeGreaterThan(summaryIndex);
+    expect(detailsIndex).toBeGreaterThan(summaryIndex);
   });
 
-  it("renders relationship section before technical details in DOM order", () => {
+  it("renders relationship section before details in DOM order", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -228,9 +228,9 @@ describe("GraphReviewNodeGameCard", () => {
 
     const card = screen.getByLabelText(/the group game card/i);
     const relationshipIndex = card.textContent!.indexOf("Related objects");
-    const technicalIndex = card.textContent!.indexOf("Technical details");
+    const detailsIndex = card.textContent!.indexOf("Details");
     expect(relationshipIndex).toBeGreaterThanOrEqual(0);
-    expect(technicalIndex).toBeGreaterThan(relationshipIndex);
+    expect(detailsIndex).toBeGreaterThan(relationshipIndex);
   });
 
   it("does not show assertion ID in the primary visible card flow", () => {
@@ -247,7 +247,7 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.queryByText("Authored overlay")).not.toBeInTheDocument();
   });
 
-  it("shows assertion ID only inside Technical details when expanded", async () => {
+  it("shows assertion ID only inside Details when expanded", async () => {
     const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
@@ -259,11 +259,11 @@ describe("GraphReviewNodeGameCard", () => {
 
     expect(screen.getByText("assert-group-001")).not.toBeVisible();
 
-    await user.click(screen.getByText("Technical details"));
+    await user.click(screen.getByText("Details"));
 
-    const technicalPanel = screen.getByText("Technical details").closest("details");
-    expect(technicalPanel).not.toBeNull();
-    expect(within(technicalPanel!).getByText("assert-group-001")).toBeVisible();
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText("assert-group-001")).toBeVisible();
   });
 
   it("renders aliases as game-facing Also known as copy", () => {
@@ -291,10 +291,11 @@ describe("GraphReviewNodeGameCard", () => {
     expect(
       screen.queryByText("No comparison status is available yet."),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Review status" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Review status")).not.toBeInTheDocument();
   });
 
-  it("shows review status when comparison context exists", () => {
+  it("shows review status inside Details when comparison context exists", async () => {
+    const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({ status: "matched", deltaId: "delta-1" })}
@@ -303,11 +304,16 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Review status" })).toBeInTheDocument();
-    expect(screen.getByText("Matched with the other lane.")).toBeInTheDocument();
+    expect(screen.queryByText("Matched with the other lane.")).not.toBeVisible();
+
+    await user.click(screen.getByText("Details"));
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText("Review status")).toBeInTheDocument();
+    expect(within(detailsPanel!).getByText("Matched with the other lane.")).toBeVisible();
   });
 
-  it("keeps evidence/source collapsed by default", () => {
+  it("keeps details collapsed by default", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -316,8 +322,8 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    const evidencePanel = screen.getByText("Evidence / Source").closest("details");
-    expect(evidencePanel).not.toHaveAttribute("open");
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toHaveAttribute("open");
   });
 
   it("keeps authored memory metadata collapsed by default", async () => {
@@ -330,19 +336,19 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
-    expect(memoryPanel).not.toHaveAttribute("open");
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toHaveAttribute("open");
     expect(screen.queryByText(/This node includes authored memory\./)).not.toBeVisible();
 
-    await user.click(screen.getByText("Memory & visibility"));
+    await user.click(screen.getByText("Details"));
 
-    expect(within(memoryPanel!).getByText(/Authored memory/)).toBeVisible();
-    expect(within(memoryPanel!).getByText(/This node includes authored memory\./)).toBeVisible();
-    expect(within(memoryPanel!).getByText(/Grounded from source phrase: “gang”/)).toBeVisible();
+    expect(within(detailsPanel!).getByText(/Authored memory/)).toBeVisible();
+    expect(within(detailsPanel!).getByText(/This node includes authored memory\./)).toBeVisible();
+    expect(within(detailsPanel!).getByText(/Grounded from source phrase: “gang”/)).toBeVisible();
     expect(screen.queryByText("Authored overlay")).not.toBeInTheDocument();
   });
 
-  it("renders friendly visibility copy inside memory details", async () => {
+  it("renders friendly visibility copy inside details", async () => {
     const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
@@ -352,14 +358,14 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    await user.click(screen.getByText("Memory & visibility"));
-    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
-    expect(memoryPanel).not.toBeNull();
-    expect(within(memoryPanel!).getByText("Visibility: Player visible")).toBeInTheDocument();
-    expect(within(memoryPanel!).queryByText(/player_visible/i)).not.toBeInTheDocument();
+    await user.click(screen.getByText("Details"));
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText("Visibility: Player visible")).toBeInTheDocument();
+    expect(within(detailsPanel!).getByText("player_visible")).toBeInTheDocument();
   });
 
-  it("renders table_known visibility as friendly copy inside memory details", async () => {
+  it("renders table_known visibility as friendly copy inside details", async () => {
     const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
@@ -369,14 +375,14 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    await user.click(screen.getByText("Memory & visibility"));
-    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
-    expect(memoryPanel).not.toBeNull();
-    expect(within(memoryPanel!).getByText("Visibility: Table known")).toBeInTheDocument();
-    expect(within(memoryPanel!).queryByText(/table_known/i)).not.toBeInTheDocument();
+    await user.click(screen.getByText("Details"));
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText("Visibility: Table known")).toBeInTheDocument();
+    expect(within(detailsPanel!).getByText("table_known")).toBeInTheDocument();
   });
 
-  it("renders a single object type line when kind and role match", () => {
+  it("renders a single object type badge when kind and role match", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({}, { kind: "location", role: "location" })}
@@ -386,11 +392,11 @@ describe("GraphReviewNodeGameCard", () => {
     );
 
     const card = screen.getByLabelText(/the group game card/i);
-    expect(within(card).getByText("location")).toBeInTheDocument();
+    expect(within(card).getByLabelText("Object type: Location")).toHaveTextContent("Location");
     expect(within(card).queryByText("location / location")).not.toBeInTheDocument();
   });
 
-  it("renders distinct kind and role when they differ", () => {
+  it("renders distinct kind badge and role subtitle when they differ", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({}, { kind: "npc", role: "merchant" })}
@@ -400,7 +406,9 @@ describe("GraphReviewNodeGameCard", () => {
     );
 
     const card = screen.getByLabelText(/the group game card/i);
-    expect(within(card).getByText("npc / merchant")).toBeInTheDocument();
+    expect(within(card).getByLabelText("Object type: Npc")).toHaveTextContent("Npc");
+    expect(within(card).getByText("Merchant")).toBeInTheDocument();
+    expect(within(card).queryByText("npc / merchant")).not.toBeInTheDocument();
   });
 
   it("renders no Actions section when no actions are supplied and no evidence is available", () => {
@@ -506,7 +514,8 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.queryByText("Open evidence/debug")).not.toBeInTheDocument();
   });
 
-  it("shows merged identity note for durable survivor nodes", () => {
+  it("shows merged identity note inside Details for durable survivor nodes", async () => {
+    const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel(
@@ -565,7 +574,13 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    const mergedIdentity = screen.getByLabelText("Merged identity");
+    expect(screen.queryByRole("heading", { name: "Merged identity" })).not.toBeVisible();
+
+    await user.click(screen.getByText("Details"));
+
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    const mergedIdentity = within(detailsPanel!).getByLabelText("Merged identity");
     expect(within(mergedIdentity).getByRole("heading", { name: "Merged identity" })).toBeInTheDocument();
     expect(within(mergedIdentity).getByText(/Folded in 1 prior identity: Lysandra\./)).toBeInTheDocument();
     expect(
@@ -590,7 +605,7 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.queryByRole("heading", { name: "Merged identity" })).not.toBeInTheDocument();
   });
 
-  it("keeps raw merge provenance ids inside technical details only", async () => {
+  it("keeps raw merge provenance ids inside details only", async () => {
     const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
@@ -611,17 +626,72 @@ describe("GraphReviewNodeGameCard", () => {
     expect(screen.queryByText("redirect:lysandra")).not.toBeVisible();
     expect(screen.queryByText("assert-merge-lysandra")).not.toBeVisible();
 
-    await user.click(screen.getByText("Technical details"));
+    await user.click(screen.getByText("Details"));
 
-    const technicalPanel = screen.getByText("Technical details").closest("details");
-    expect(technicalPanel).not.toBeNull();
-    expect(within(technicalPanel!).getByText("redirect:lysandra")).toBeVisible();
-    expect(within(technicalPanel!).getByText("assert-merge-lysandra")).toBeVisible();
-    expect(within(technicalPanel!).getByText("node:lysandra")).toBeVisible();
-    expect(within(technicalPanel!).getByText("merge_record:lysandra")).toBeVisible();
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText("redirect:lysandra")).toBeVisible();
+    expect(within(detailsPanel!).getByText("assert-merge-lysandra")).toBeVisible();
+    expect(within(detailsPanel!).getByText("node:lysandra")).toBeVisible();
+    expect(within(detailsPanel!).getByText("merge_record:lysandra")).toBeVisible();
   });
 
-  it("renders relationships before merged identity in DOM order", () => {
+  it("keeps connection count fallback inside Details only", async () => {
+    const user = userEvent.setup();
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel(
+          {},
+          {
+            summary: null,
+            kind: "character",
+            adjacency: baseNode.adjacency,
+          },
+        )}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/connected campaign relationship/i),
+    ).not.toBeVisible();
+
+    await user.click(screen.getByText("Details"));
+
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(
+      within(detailsPanel!).getByText(
+        /This character has 1 connected campaign relationship in this session\./,
+      ),
+    ).toBeVisible();
+  });
+
+  it("does not duplicate connection count in Details when a primary summary exists", async () => {
+    const user = userEvent.setup();
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel()}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("The adventuring collective that cleared the tower basement."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByText("Details"));
+
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(
+      within(detailsPanel!).queryByText(/connected campaign relationship/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders relationships before details in DOM order for merged nodes", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel(
@@ -638,9 +708,10 @@ describe("GraphReviewNodeGameCard", () => {
 
     const card = screen.getByLabelText(/the group game card/i);
     const relationshipIndex = card.textContent!.indexOf("Related objects");
-    const mergedIdentityIndex = card.textContent!.indexOf("Merged identity");
+    const detailsIndex = card.textContent!.indexOf("Details");
     expect(relationshipIndex).toBeGreaterThanOrEqual(0);
-    expect(mergedIdentityIndex).toBeGreaterThan(relationshipIndex);
+    expect(detailsIndex).toBeGreaterThan(relationshipIndex);
+    expect(card.textContent!.indexOf("Merged identity")).toBeGreaterThan(detailsIndex);
   });
 
   it("hides placeholder ingest summaries from the primary card", () => {

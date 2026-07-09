@@ -5,6 +5,8 @@ import {
   durableIdentitySummaryForNode,
   formatGraphReviewRelationshipStatement,
   gameSummaryForNode,
+  graphObjectSecondaryRoleLabel,
+  graphObjectTypeBadgeLabel,
   groupRelationshipsByEvidence,
   mergedIdentityNoteCopy,
   relationshipGroupLabel,
@@ -90,6 +92,14 @@ describe("graphReviewSelectionUtils", () => {
         aliases: ["Lysandra"],
       }),
     ).toBe("This threat is also known as Lysandra.");
+  });
+
+  it("formats object type badges for the selected object header", () => {
+    expect(graphObjectTypeBadgeLabel("character", "companion")).toBe("Character");
+    expect(graphObjectSecondaryRoleLabel("character", "companion")).toBe("Companion");
+    expect(graphObjectTypeBadgeLabel("location", "location")).toBe("Location");
+    expect(graphObjectSecondaryRoleLabel("location", "location")).toBeNull();
+    expect(graphObjectTypeBadgeLabel(null, null)).toBe("Object");
   });
 
   it("builds durable identity summaries defensively and human-facing merge copy", () => {
