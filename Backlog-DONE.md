@@ -11,6 +11,14 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Graph Review authored-memory pause-point consolidation (PR #305) — completed 2026-07-09
+
+**Delivered:** Commit-time durable identity materialization for a selected live preview union store; projection reload that prefers that mutable store; merge-conflict correction with supersession audit events; create-object immediate authored-memory wizard; source-paragraph relationship context; and selected-object cards that prioritize campaign context with metadata under Details.
+
+**Safety boundary:** Materialization runs only after overlay and event-log success, writes only the selected preview union store, and does not import sibling-run nodes, evidence, or edges. Source markdown, ingest artifacts, and gold fixtures remain outside the authoring write path.
+
+**Refs:** PR #305; `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
+
 ## [DONE] Graph Review projection ignored mutated union store — completed 2026-07-08
 
 **Context:** Live projection reload passed both `graph_run_manifest_path` and `preview_union_store_path`, but the adapter returned a frozen manifest `PROJECTION_PAYLOAD` snapshot. A10o apply wrote the store correctly; the UI never showed it. Original A10o dogfood PASS was wrong for the browser path.

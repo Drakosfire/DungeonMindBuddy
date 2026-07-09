@@ -1,5 +1,7 @@
 # A10o durable merge materialization bridge — Session 23 Lysandra
 
+> Historical dogfood note: This records the A10o validation path. For the current pause-point architecture and exclusions, see `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 **Date:** 2026-07-08 (updated after commit-time materialization fold)  
 **Feature:** Identity merge commits update the preview union store; projection reads the live store
 

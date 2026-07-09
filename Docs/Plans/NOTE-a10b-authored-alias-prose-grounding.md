@@ -1,5 +1,7 @@
 # A10b implementation note — authored alias prose grounding
 
+> Historical implementation note. Current architecture and deferred work are summarized in `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 Date: 2026-07-07  
 Branch: `codex/graph-authoring-authored-alias-prose-grounding`
 

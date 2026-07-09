@@ -1,12 +1,41 @@
 # Roadmap — Graph Object Authoring Surface
 
-**Status:** Active Prime Design roadmap  
-**Date:** 2026-07-05  
+**Status:** Paused at stable authored-memory checkpoint
+**Date:** 2026-07-09
 **Workstream:** Graph Memory / Memory Ingest / Graph Review / Graph Authoring  
 **Design doc:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Supersedes product direction in:** `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` where that roadmap treats gold-fixture writes as the primary authoring destination.
+**Current checkpoint:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
 
 ---
+
+## Current checkpoint — July 2026 pause
+
+Graph Review authored memory is paused at a stable checkpoint after PR #305, a deliberately broad pause-point consolidation. The implementation is no longer an open feasibility plan; future work should be planned as product hardening.
+
+**Done**
+
+- live projection review;
+- manual object authoring;
+- relationship staging and commit;
+- merge-object staging and commit;
+- authored overlay write path and append-only event log;
+- commit-time durable identity materialization when a selected live run supplies `previewUnionStorePath`;
+- projection reload from the selected preview union store;
+- selected-object cards that prioritize campaign context and collapse technical details;
+- create-object immediate authored-memory wizard;
+- audited merge correction/supersession.
+
+**Deferred**
+
+- LLM assistance;
+- player-facing/public projection;
+- authored assertion and materialized-merge undo;
+- generalized graph editor;
+- sibling-run enrichment/backfill;
+- gold/eval-first authoring.
+
+See the closeout report for safety invariants, known limitations, and the resume-later backlog.
 
 ## 1. Roadmap goal
 
@@ -639,51 +668,21 @@ The dogfood report identifies interaction friction but proves the product loop e
 
 ## A10m — Overlay merge → union supergraph reconciliation
 
-**Status (2026-07-08):** **Design complete** — see `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md`. Implementation queued as PR A–E sequence below. A10l + PR #296 landed overlay polish and GM survivor-id preservation at staging time.
+**Status (2026-07-09):** Complete through PR #305. The original implementation sequence is retained as historical evidence; current behavior is described in the closeout report.
 
-**Purpose:** Move human-reviewed identity merges from projection-only overlay collapse into durable union-supergraph identity, so session projections become lenses over reconciled global nodes instead of accumulating parallel ids (`party:captain_lysandra_ironveil` vs `character_lysandra` vs `node:lysandra`).
+**Delivered:** A committed `merge_objects` assertion materializes durable union identity when the selected live run supplies `previewUnionStorePath`. The materialization follows a successful overlay write and event-log append; Advanced manual backfill remains available for edge cases.
 
-**Problem today:** A10i–A10l commit `merge_objects` assertions to the authored overlay; `graph_authoring_overlay_projection.py` collapses views at reload. That preserves review safety and avoids re-ingest, but does **not** rewrite the union read model — ID drift persists at the source and projection must fuzzy-match/hydrate at runtime.
+**Current guardrails:**
 
-**Resolved product decisions:**
+- GM-chosen survivor remains authoritative.
+- Scope is `merge_objects` only; `link_existing` does not materialize into the union store.
+- Materialization writes only the selected preview union store and creates backups.
+- It adds redirects and merge records, hydrates the survivor, marks merged-away nodes, and rewires applicable edges.
+- It does not mutate recap markdown, ingest artifacts, or gold fixtures.
+- It does not import sibling-run nodes, evidence, or edges.
+- Corrected survivor choices supersede only an old merge whose survivor is explicitly merged away; the event log records both assertion IDs.
 
-| Decision | Rule |
-|---|---|
-| Survivor authority | GM-chosen survivor ref always wins |
-| Commit boundary | Overlay commit unchanged; no union mutation in commit |
-| Reconciliation | Separate explicit pass/job after commit (endpoint/CLI first) |
-| Scope | `merge_objects` only — not `link_existing` |
-| Undo | Retract hook designed; implementation deferred |
-
-**Target behavior:**
-
-```text
-Stage/compare (overlay, reversible)
-  → prepare/commit (durable assertion + event log, unchanged)
-    → reconciliation pass materializes union identity redirects + edge/evidence rewiring
-      → projection reads reconciled union + thin overlay for unmaterialized assertions
-```
-
-**Implementation PR sequence (from design handoff):**
-
-1. **PR A** — Union identity redirect model + lookup tests
-2. **PR B** — Reconciliation planner (read overlay, build plan, no writes)
-3. **PR C** — Reconciliation apply (union store mutation + endpoint/CLI)
-4. **PR D** — Projection adapter simplification (redirect-first, shrink fuzzy repair)
-5. **PR E** — Session 23 Lysandra dogfood validation report
-
-**Key design artifacts:**
-
-- `UnionIdentityRedirect` — durable `from_node_id → to_node_id` (not recap text alias)
-- `UnionSupergraphMergeRecord` — audit/retract replay snapshot
-- Merged-away nodes: `memory_state: merged_away`, filtered from normal projection
-- Edge rewire with provenance (`rewired_from_node_ids`, dedupe equivalent edges)
-
-**Cross-track dependency:** Primary owner is graph-memory (`src/graph_memory/union_supergraph/`). Projection adapter changes in PR D touch `apps/live_control_server/services/`. Align with `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` projection contracts (PR D/E) but do not block A10m on full runtime adapter migration.
-
-**Acceptance:**
-
-Manual: commit Lysandra merge, run reconciliation pass, reload Session 23, click survivor — selected-object card shows full global projection (evidence, adjacency, summary) without projection-time fuzzy id repair. Re-ingest does not resurrect merged-away ids as separate normal nodes.
+**Deferred:** Undo/retract, materialization for non-merge assertion kinds, and any explicit cross-run enrichment/backfill feature.
 
 ---
 

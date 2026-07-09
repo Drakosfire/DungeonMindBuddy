@@ -1,5 +1,7 @@
 # HANDOFF — A10m Implement authored merge reconciliation into union supergraph
 
+> Historical note: This handoff captures the pre-PR #305 implementation plan, including an explicit-pass reconciliation assumption that is no longer the default operator path. Current architecture: `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 **Created:** 2026-07-08  
 **Repo:** `Drakosfire/DungeonMindBuddy`  
 **Design PR:** docs-only slice on `codex/design-a10m-union-supergraph-merge-reconciliation`  

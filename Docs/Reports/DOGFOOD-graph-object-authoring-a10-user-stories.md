@@ -1,5 +1,7 @@
 # A10a Dogfood Report — Graph Object Authoring User Stories
 
+> Historical note: This report records the initial A10 dogfood findings. Its implementation recommendations have been superseded by later A10 hardening and PR #305. For current architecture, see `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 Generated: 2026-07-07  
 Dogfood session: C1S2 (`longmont-c1` / `session-2`)  
 Branch tested: `codex/authored-graph-gold-eval-export-foundation` (includes merged A8 + A9a)  
