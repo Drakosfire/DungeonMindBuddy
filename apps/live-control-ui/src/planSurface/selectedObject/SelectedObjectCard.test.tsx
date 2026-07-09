@@ -9,9 +9,10 @@ import { SelectedObjectCard } from "./SelectedObjectCard";
 
 vi.mock("../../api/liveApi", () => ({
   resolveRoll: vi.fn(),
+  postCitationSource: vi.fn(),
 }));
 
-import { resolveRoll } from "../../api/liveApi";
+import { postCitationSource, resolveRoll } from "../../api/liveApi";
 
 const surfaceConfig: SurfaceConfig = {
   id: "plan",
@@ -285,5 +286,224 @@ describe("SelectedObjectCard", () => {
     await waitFor(() => {
       expect(screen.getByText("Roll service unavailable")).toBeInTheDocument();
     });
+  });
+
+  it("renders Show source preview when source path exists", () => {
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: {
+        title: "North Reach Gate",
+        corpus_display_path: "corpus/locations/north_reach_gate.md",
+      },
+    });
+
+    expect(screen.getByRole("button", { name: "Show source preview" })).toBeInTheDocument();
+  });
+
+  it("does not render Show source preview when no source path exists", () => {
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      message: "Resolved from live npc index.",
+      item: { title: "Lysandro Ironveil" },
+    });
+
+    expect(screen.queryByRole("button", { name: "Show source preview" })).not.toBeInTheDocument();
+  });
+
+  it("clicking Show source preview calls postCitationSource with path", async () => {
+    const user = userEvent.setup();
+    vi.mocked(postCitationSource).mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: "corpus/locations/north_reach_gate.md",
+      content_type: "text/markdown",
+      content: "# North Reach Gate\nCrowded checkpoint.",
+      truncated: false,
+      highlight: {
+        line_start: null,
+        line_end: null,
+        text_excerpt: null,
+        match_source: "none",
+      },
+      diagnostics: [],
+    });
+
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: {
+        title: "North Reach Gate",
+        corpus_display_path: "corpus/locations/north_reach_gate.md",
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Show source preview" }));
+
+    await waitFor(() => {
+      expect(postCitationSource).toHaveBeenCalledWith({
+        path: "corpus/locations/north_reach_gate.md",
+      });
+    });
+    expect(screen.getByLabelText("Source preview")).toBeInTheDocument();
+    expect(screen.getByText(/# North Reach Gate/i)).toBeInTheDocument();
+  });
+
+  it("source preview renders highlighted excerpt when highlight exists", async () => {
+    const user = userEvent.setup();
+    vi.mocked(postCitationSource).mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: "corpus/locations/north_reach_gate.md",
+      content_type: "text/markdown",
+      content: "# North Reach Gate\nCrowded checkpoint.\nMore detail.",
+      truncated: false,
+      highlight: {
+        line_start: 2,
+        line_end: 2,
+        text_excerpt: "Crowded checkpoint.",
+        match_source: "line_range",
+      },
+      diagnostics: [],
+    });
+
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: { title: "North Reach Gate" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Show source preview" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Highlighted excerpt")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Lines 2–2")).toBeInTheDocument();
+    expect(screen.getByText("Crowded checkpoint.")).toBeInTheDocument();
+  });
+
+  it("source preview shows truncated warning when response.truncated is true", async () => {
+    const user = userEvent.setup();
+    vi.mocked(postCitationSource).mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: "corpus/locations/north_reach_gate.md",
+      content_type: "text/markdown",
+      content: "# North Reach Gate",
+      truncated: true,
+      highlight: {
+        line_start: null,
+        line_end: null,
+        text_excerpt: null,
+        match_source: "none",
+      },
+      diagnostics: ["reader truncated at 32kb"],
+    });
+
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: { title: "North Reach Gate" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Show source preview" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Preview truncated by source reader/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/reader truncated at 32kb/i)).toBeInTheDocument();
+  });
+
+  it("source preview clips long UI content and shows UI clipped warning", async () => {
+    const user = userEvent.setup();
+    vi.mocked(postCitationSource).mockResolvedValue({
+      schema_version: "dmb_citation_source_v1",
+      path: "corpus/locations/north_reach_gate.md",
+      content_type: "text/markdown",
+      content: "x".repeat(7000),
+      truncated: false,
+      highlight: {
+        line_start: null,
+        line_end: null,
+        text_excerpt: null,
+        match_source: "none",
+      },
+      diagnostics: [],
+    });
+
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: { title: "North Reach Gate" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Show source preview" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/UI preview clipped/i)).toBeInTheDocument();
+    });
+  });
+
+  it("source preview failure shows error and does not crash", async () => {
+    const user = userEvent.setup();
+    vi.mocked(postCitationSource).mockRejectedValue(new Error("File not found"));
+
+    renderCard({
+      status: "resolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Resolved from live location index.",
+      sourcePath: "corpus/locations/north_reach_gate.md",
+      item: { title: "North Reach Gate" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Show source preview" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Unable to preview source: File not found")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("heading", { name: "North Reach Gate" })).toBeInTheDocument();
   });
 });

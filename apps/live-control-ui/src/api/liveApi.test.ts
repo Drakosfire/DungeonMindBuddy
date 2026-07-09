@@ -21,6 +21,7 @@ import {
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
   postCommand,
+  postCitationSource,
   postStatblockWorkbenchCommand,
   prepareStatblockCorpusWrite,
   prepareTiptapMarkdownWrite,
@@ -546,6 +547,40 @@ describe("liveApi artifact/capability helpers", () => {
     expect(JSON.stringify(body)).not.toContain("file_path");
     expect(JSON.stringify(body)).not.toContain("absolute_path");
     expect(JSON.stringify(body)).not.toContain("relative_path");
+    expect(response).toEqual(expected);
+  });
+});
+
+describe("liveApi citation source helper", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("postCitationSource posts to /api/live/citation-source with path body", async () => {
+    const expected = {
+      schema_version: "dmb_citation_source_v1",
+      path: "corpus/locations/north_reach_gate.md",
+      content_type: "text/markdown",
+      content: "# North Reach Gate",
+      truncated: false,
+      highlight: {
+        line_start: null,
+        line_end: null,
+        text_excerpt: null,
+        match_source: "none",
+      },
+      diagnostics: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(expected));
+
+    const response = await postCitationSource({ path: "corpus/locations/north_reach_gate.md" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/citation-source");
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(String(init?.body));
+    expect(body).toEqual({ path: "corpus/locations/north_reach_gate.md" });
     expect(response).toEqual(expected);
   });
 });

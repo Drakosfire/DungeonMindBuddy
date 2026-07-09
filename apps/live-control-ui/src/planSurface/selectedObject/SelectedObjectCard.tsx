@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
-import { resolveRoll } from "../../api/liveApi";
+import { postCitationSource, resolveRoll } from "../../api/liveApi";
+import type { CitationSourceResponse } from "../../api/types";
 import type { ReferenceResolution } from "../reference/referenceResolver";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import { useOptionalProjection } from "../projection/projectionContext";
@@ -12,6 +13,10 @@ import {
   type SelectedObjectAction,
   type SelectedObjectField,
 } from "./selectedObjectCardModel";
+import {
+  SelectedObjectSourcePreview,
+  SOURCE_PREVIEW_CHAR_LIMIT,
+} from "./SelectedObjectSourcePreview";
 
 export interface SelectedObjectCardProps {
   resolution: ReferenceResolution;
@@ -23,6 +28,8 @@ type SelectedObjectActionState =
   | { status: "rolling" }
   | { status: "rolled"; label: string; resultText: string }
   | { status: "opened_tool"; message: string }
+  | { status: "source_loading" }
+  | { status: "source_loaded"; source: CitationSourceResponse; uiClipped: boolean }
   | { status: "error"; message: string };
 
 function FieldList({
@@ -51,13 +58,17 @@ function CardAction({
   onExpand,
   onOpenStatblock,
   onRoll,
+  onPreviewSource,
   rolling,
+  sourceLoading,
 }: {
   action: SelectedObjectAction;
   onExpand: () => void;
   onOpenStatblock: () => void;
   onRoll: (dice: string) => void;
+  onPreviewSource: (sourcePath: string) => void;
   rolling: boolean;
+  sourceLoading: boolean;
 }) {
   if (action.href) {
     return (
@@ -73,23 +84,44 @@ function CardAction({
     if (action.id === "roll" && action.payload?.dice) {
       onRoll(action.payload.dice);
     }
+    if (action.id === "source_preview" && action.payload?.sourcePath) {
+      onPreviewSource(action.payload.sourcePath);
+    }
   };
+
+  const isRoll = action.id === "roll";
+  const isSourcePreview = action.id === "source_preview";
 
   return (
     <button
       type="button"
       className="plan-selected-object-action"
-      disabled={action.disabled || (action.id === "roll" && rolling)}
+      disabled={
+        action.disabled
+        || (isRoll && rolling)
+        || (isSourcePreview && sourceLoading)
+      }
       title={action.reason}
       onClick={handleClick}
     >
-      {action.id === "roll" && rolling ? "Rolling…" : action.label}
+      {isRoll && rolling
+        ? "Rolling…"
+        : isSourcePreview && sourceLoading
+          ? "Loading source…"
+          : action.label}
     </button>
   );
 }
 
 function ActionFeedback({ state }: { state: SelectedObjectActionState }) {
-  if (state.status === "idle" || state.status === "rolling") return null;
+  if (
+    state.status === "idle"
+    || state.status === "rolling"
+    || state.status === "source_loading"
+    || state.status === "source_loaded"
+  ) {
+    return null;
+  }
 
   if (state.status === "rolled") {
     return (
@@ -152,6 +184,25 @@ export function SelectedObjectCard({ resolution, sessionDescriptor }: SelectedOb
     }
   }, []);
 
+  const onPreviewSource = useCallback(async (sourcePath: string) => {
+    setActionState({ status: "source_loading" });
+    try {
+      const source = await postCitationSource({ path: sourcePath });
+      setActionState({
+        status: "source_loaded",
+        source,
+        uiClipped: source.content.length > SOURCE_PREVIEW_CHAR_LIMIT,
+      });
+    } catch (error) {
+      setActionState({
+        status: "error",
+        message: `Unable to preview source: ${
+          error instanceof Error ? error.message : "Source preview failed."
+        }`,
+      });
+    }
+  }, []);
+
   return (
     <section
       className={`plan-selected-object-card plan-selected-object-card--${model.status}`}
@@ -182,15 +233,24 @@ export function SelectedObjectCard({ resolution, sessionDescriptor }: SelectedOb
         <div className="plan-selected-object-actions" aria-label="Follow-up actions">
           {actions.map((action) => (
             <CardAction
-              key={action.id}
+              key={`${action.id}-${action.label}`}
               action={action}
               onExpand={onExpand}
               onOpenStatblock={onOpenStatblock}
               onRoll={onRoll}
+              onPreviewSource={onPreviewSource}
               rolling={actionState.status === "rolling"}
+              sourceLoading={actionState.status === "source_loading"}
             />
           ))}
         </div>
+      ) : null}
+
+      {actionState.status === "source_loaded" ? (
+        <SelectedObjectSourcePreview
+          source={actionState.source}
+          uiClipped={actionState.uiClipped}
+        />
       ) : null}
 
       <ActionFeedback state={actionState} />

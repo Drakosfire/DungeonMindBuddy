@@ -21,6 +21,7 @@ export interface SelectedObjectAction {
   href?: string;
   payload?: {
     dice?: string;
+    sourcePath?: string;
   };
 }
 
@@ -28,7 +29,8 @@ export type SelectedObjectActionIntent =
   | "expand"
   | "ingest"
   | "statblock_tool"
-  | "roll";
+  | "roll"
+  | "source_preview";
 
 export interface SelectedObjectMetadata {
   refType: string;
@@ -239,6 +241,7 @@ function extractMetadata(
 function defaultActionIntents(
   kind: SelectedObjectKind,
   metadata?: SelectedObjectMetadata,
+  sourcePath?: string,
 ): SelectedObjectActionIntent[] {
   const intents: SelectedObjectActionIntent[] = ["expand", "ingest"];
 
@@ -250,7 +253,17 @@ function defaultActionIntents(
     intents.push("roll");
   }
 
+  if (hasSourcePreviewTarget({ sourcePath, metadata })) {
+    intents.push("source_preview");
+  }
+
   return intents;
+}
+
+export function hasSourcePreviewTarget(
+  model: Pick<SelectedObjectCardModel, "sourcePath" | "metadata">,
+): boolean {
+  return Boolean(model.sourcePath || model.metadata?.corpusDisplayPath);
 }
 
 function unresolvedSummary(resolution: ReferenceResolution): string {
@@ -318,7 +331,7 @@ export function buildSelectedObjectCardModel(resolution: ReferenceResolution): S
     sourcePath: resolution.sourcePath,
     primaryFields: primary,
     secondaryFields: secondary,
-    actionIntents: defaultActionIntents(kind, metadata),
+    actionIntents: defaultActionIntents(kind, metadata, resolution.sourcePath),
     metadata,
     diagnostics: resolution.message ? [resolution.message] : undefined,
   };

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ReferenceResolution } from "../reference/referenceResolver";
 import { buildSelectedObjectActions } from "./selectedObjectActions";
-import { buildSelectedObjectCardModel } from "./selectedObjectCardModel";
+import { buildSelectedObjectCardModel, hasSourcePreviewTarget } from "./selectedObjectCardModel";
 
 function resolvedResolution(
   refType: string,
@@ -46,6 +46,7 @@ describe("buildSelectedObjectCardModel", () => {
     expect(model.primaryFields.some((field) => field.label === "District")).toBe(true);
     expect(model.metadata?.corpusDisplayPath).toContain("north_reach_gate.md");
     expect(model.metadata?.indexId).toBe("north-reach-gate");
+    expect(model.actionIntents).toContain("source_preview");
   });
 
   it("maps statblock resolution with CR / HP / AC when present", () => {
@@ -72,6 +73,7 @@ describe("buildSelectedObjectCardModel", () => {
       ]),
     );
     expect(model.actionIntents).toContain("statblock_tool");
+    expect(model.actionIntents).toContain("source_preview");
     expect(model.metadata?.corpusDisplayPath).toContain("tripod_null_calf");
     expect(model.metadata?.indexId).toBe("tripod-null-calf");
   });
@@ -195,6 +197,22 @@ describe("buildSelectedObjectCardModel", () => {
     });
 
     expect(citationModel.summary).toBe("Citation resolver pending.");
+    expect(citationModel.actionIntents).not.toContain("source_preview");
+  });
+
+  it("omits source_preview when no source path exists", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution(
+        "statblock",
+        {
+          title: "Tripod Null-Calf",
+        },
+        { sourcePath: "" },
+      ),
+    );
+
+    expect(hasSourcePreviewTarget(model)).toBe(false);
+    expect(model.actionIntents).not.toContain("source_preview");
   });
 });
 
@@ -256,5 +274,44 @@ describe("buildSelectedObjectActions", () => {
         }),
       ]),
     );
+  });
+
+  it("adds source preview action with payload when source path exists", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution("location", {
+        index_id: "north-reach-gate",
+        title: "North Reach Gate",
+        corpus_display_path: "corpus/locations/north_reach_gate.md",
+      }),
+    );
+
+    const actions = buildSelectedObjectActions(model);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "source_preview",
+          label: "Show source preview",
+          payload: { sourcePath: "corpus/locations/north_reach_gate.md" },
+        }),
+      ]),
+    );
+  });
+
+  it("prefers model.sourcePath over metadata corpus path for source preview payload", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution(
+        "statblock",
+        {
+          title: "Tripod Null-Calf",
+          corpus_display_path: "corpus/bestiary/from-metadata.md",
+        },
+        { sourcePath: "corpus/bestiary/from-resolution.md" },
+      ),
+    );
+
+    const actions = buildSelectedObjectActions(model);
+    const sourceAction = actions.find((action) => action.id === "source_preview");
+
+    expect(sourceAction?.payload?.sourcePath).toBe("corpus/bestiary/from-resolution.md");
   });
 });
