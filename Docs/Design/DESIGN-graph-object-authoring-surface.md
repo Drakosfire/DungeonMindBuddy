@@ -1,10 +1,11 @@
 # Design — Graph Object Authoring Surface
 
-**Status:** Prime Design draft  
-**Date:** 2026-07-05  
+**Status:** Current architecture checkpoint; implementation trail retained below
+**Date:** 2026-07-09
 **Workstream:** Graph Memory / Memory Ingest / Graph Review / Graph Authoring  
 **Companion roadmap:** `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`  
 **Supersedes product framing in:** `Docs/Design/DESIGN-graph-review-gold-authoring-workbench.md` where that document treats gold fixtures as the primary authoring destination.  
+**Closeout:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
 **Related docs:**
 
 - `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
@@ -17,23 +18,37 @@
 
 ---
 
+## Current implementation checkpoint
+
+The core authored-memory loop has landed through PR #305. Graph Review is a GM-facing surface for inspecting a live projection, authoring campaign graph assertions, and reviewing the resulting memory.
+
+- Authored object, link-existing, relationship, and merge-object assertions write to a campaign-scoped overlay and append an event log.
+- Normal staged work uses prepare → review → commit. The create-object wizard intentionally prepares and commits one object immediately, then tells the operator that it saved authored memory.
+- A committed identity merge materializes into the selected preview union store only when `previewUnionStorePath` is present and overlay plus event-log writes both succeed.
+- Projection reload prefers that selected live store over a frozen manifest snapshot.
+- A corrected merge supersedes an earlier survivor decision only when it explicitly merges away the prior survivor; the event log records old and new assertion IDs.
+- The selected-object card is game-first; evidence, provenance, review state, and raw IDs sit behind collapsed **Details**.
+
+Materialization does not mutate source recap markdown, ingest artifacts, or gold fixtures. It does not import sibling-run nodes, evidence, or edges. Undo/retract, player-facing views, LLM assistance, and broader graph editing remain deferred.
+
 ## 1. Prime Design decision
 
 The primary destination of manual authoring is **the authored campaign graph**, not a gold fixture and not the raw recap markdown.
 
 Gold/evaluation artifacts are an advanced developer byproduct derived from authored graph corrections. They exist to tune, measure, and improve ingestion. They are not the normal user-facing reason the GM authors graph objects.
 
-The corrected flow is:
+The current operator flow is:
 
 ```text
 Ingestion
   -> review projected source material
   -> select a word, phrase, existing pill, or relationship context
   -> declare campaign graph objects and links
-  -> stage authored graph assertions locally
-  -> prepare a safe write preview
-  -> commit reviewed authored graph memory
+  -> stage normal authored graph assertions locally
+  -> prepare a safe write preview and commit reviewed authored graph memory
+  -> or create one object with the explicitly immediate create-object wizard
   -> append authoring event log
+  -> materialize committed identity merges into the selected live preview union store when available
   -> refresh graph exploration/query views
   -> optionally derive/update graph-gold evaluation signal
 ```
@@ -76,7 +91,7 @@ This is not a graph dashboard.
 This is not a generic node-link diagram editor.  
 This is not a gold-fixture-only labeling tool.  
 This is not a corpus markdown editor.  
-This is not an identity merge console.  
+This is not a general-purpose identity merge console.  
 This is not an LLM write path.  
 This is not a player-facing graph explorer yet.
 
@@ -108,15 +123,15 @@ Relevant backend paths:
 
 ```text
 src/graph_memory/projection/recap_projection.py
-apps/live_control_server/services/graph_gold_review.py
-apps/live_control_server/services/graph_gold_authoring_prepare.py
-apps/live_control_server/services/graph_gold_authoring_commit.py
-apps/live_control_server/routes/graph_preview.py
-src/live_play/recap_stage_paths.py
-src/agent/corpus_writer.py
+apps/live_control_server/services/graph_object_authoring_prepare.py
+apps/live_control_server/services/graph_object_authoring_commit.py
+apps/live_control_server/services/graph_authoring_event_log.py
+apps/live_control_server/services/graph_authoring_overlay_projection.py
+apps/live_control_server/services/union_supergraph_projection_adapter.py
+src/graph_memory/union_supergraph/
 ```
 
-The current authoring write path is gold-fixture-shaped. It must not be treated as the final product target.
+The current product write path is authored overlay plus event log. Gold-authoring services may remain for developer evaluation workflows, but they are not the normal Graph Review destination.
 
 ### 4.2 Tiptap markdown infrastructure
 
@@ -968,7 +983,7 @@ Do not build player access in the first implementation slice, but do not ship au
 
 ## 16. Safety and write guardrails
 
-All writes require:
+Normal staged writes require:
 
 ```text
 prepare
@@ -979,6 +994,10 @@ backup when replacing existing file
 append-only event log
 clear diagnostics that no source markdown or extracted run artifact was mutated
 ```
+
+The create-object wizard is a documented exception to the visible staging step: it prepares and commits one object proposal immediately, clearly labels that authored-memory write, then advances to the linking and relationship steps.
+
+Committed identity merges may additionally materialize only into the selected live preview union store, after overlay and event-log success. This path must not import sibling-run artifacts and must never run after event-log failure.
 
 The UI must always distinguish:
 
@@ -992,7 +1011,7 @@ exported gold/eval signal
 Never imply:
 
 ```text
-identity merged automatically
+identity chosen automatically
 gold promoted automatically
 LLM confirmed
 magic write
@@ -1075,7 +1094,7 @@ Gold/eval export and dogfood evaluation loops.
 - No LLM assist.
 - No player-facing portal.
 - No full graph visualization.
-- No automatic identity merge.
+- No automatic identity-survivor selection.
 - No direct source markdown mutation.
 - No worldbuilding graph UI beyond linking to existing objects if available.
 - No gold/eval analytics dashboard.

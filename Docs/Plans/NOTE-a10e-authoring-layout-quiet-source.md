@@ -1,5 +1,7 @@
 # NOTE — A10e Authoring Surface Layout + Quiet Source Details
 
+> Historical implementation note. Current authoring workflow and safety boundaries are summarized in `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 **Date:** 2026-07-07  
 **PR anchor:** A10e / PR 290  
 **Depends on:** A10b (alias prose grounding), A10c (node detail hierarchy), A10d (form clarity)

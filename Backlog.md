@@ -7,6 +7,32 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## Resume after Graph Review authored-memory pause
+
+**Checkpoint:** PR #305 merged 2026-07-09. Read `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` before reopening this workstream.
+
+### Product hardening
+
+- Full browser dogfood across multiple real sessions, including normal staged authoring and immediate create-object flow.
+- Stronger relationship authoring UX and GM-facing predicate language.
+- Worldbuilding and non-recap source authoring.
+- Player-safe/public projection mode and visibility review.
+- Better authored-memory management UI and richer selected-object game panels.
+- Undo/revert for authored assertions and materialized merge passes.
+
+### Explicit future designs
+
+- Optional LLM assistance only after manual authoring remains stable.
+- Sibling-store enrichment/backfill only as an explicit feature with deterministic provenance, exact identity constraints, committed fixtures, and negative cases.
+
+### Known risks / do not forget
+
+- Overlay write and event-log append are not fully transactional.
+- Preview union-store materialization changes a selected run artifact; backups exist but GM-facing undo does not.
+- Quick-create writes immediately and must remain clearly labeled.
+- Merge correction/supersession must remain audited in the event log.
+- Gold/eval export remains opt-in and secondary to authored campaign memory.
+
 ## [READY] Graph Review — overlay-only assertions vs union store writes — captured 2026-07-08
 
 **Context:** Commit-time merge materialization (A10o fold) writes identity merges into the preview union store on commit. Object / link_existing / relationship assertions still commit to the authored overlay sidecar only and appear via read-time overlay layering.

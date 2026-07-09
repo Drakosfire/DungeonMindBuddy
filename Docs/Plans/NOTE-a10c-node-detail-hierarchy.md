@@ -1,5 +1,7 @@
 # A10c implementation note — node detail hierarchy
 
+> Historical implementation note. Current selected-object behavior and deferred work are summarized in `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 Date: 2026-07-07  
 Branch: `codex/graph-review-node-detail-hierarchy`
 

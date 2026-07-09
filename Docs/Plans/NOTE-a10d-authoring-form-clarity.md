@@ -1,5 +1,7 @@
 # NOTE — A10d Authoring Form Clarity (Visibility + Relationship Guidance)
 
+> Historical implementation note. Current authoring behavior and deferred work are summarized in `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`.
+
 **Date:** 2026-07-07  
 **PR anchor:** A10d / PR 289  
 **Depends on:** A10b (alias prose grounding), A10c (node detail hierarchy)
