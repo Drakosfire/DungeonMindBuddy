@@ -6,10 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
 import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
-import {
-  listSelectablePlanDocuments,
-  planDocumentToRunbookDescriptor,
-} from "../config/planSessionDescriptor";
+import { planDocumentToRunbookDescriptor } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkingBoardState,
   readTiptapWorkingBoardState,
@@ -19,29 +16,23 @@ import { createCorpusDerivedViewsReader } from "../derivedViews/derivedViewsAdap
 import { useEditCapability } from "../edit/editCapability";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement, resolveReference } from "../reference/referenceResolver";
-import type { PlanSessionDescriptor, SurfaceCanvasConfig, SurfaceThemeConfig } from "../types";
+import type { PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 
 interface PlanSurfaceCanvasProps {
-  canvas: SurfaceCanvasConfig;
   sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
 }
 
 export function PlanSurfaceCanvas({
-  canvas,
   sessionDescriptor,
   theme,
   onEditorToolsChange,
 }: PlanSurfaceCanvasProps) {
   const descriptor = useMemo(
     () => planDocumentToRunbookDescriptor(sessionDescriptor),
-    [sessionDescriptor],
-  );
-  const documentOptions = useMemo(
-    () => listSelectablePlanDocuments(sessionDescriptor),
     [sessionDescriptor],
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
@@ -117,25 +108,6 @@ export function PlanSurfaceCanvas({
         <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
           Document <code>{planningDocument.documentId}</code> · local draft · corpus writes not enabled yet
         </p>
-        <label htmlFor="plan-runbook-document" className="plan-canvas-doc-label">
-          Planning document
-        </label>
-        <select
-          id="plan-runbook-document"
-          value={canvas.documentId}
-          onChange={(event) => {
-            const params = new URLSearchParams(window.location.search);
-            params.set("doc", event.target.value);
-            window.location.href = `/plan?${params.toString()}`;
-          }}
-        >
-          {documentOptions.map((option) => (
-            <option key={option.documentId} value={option.documentId}>
-              {option.title}
-              {option.starterKind === "legacy_north_gate" ? " (legacy demo)" : ""}
-            </option>
-          ))}
-        </select>
       </div>
       <div
         ref={editorShellRef}

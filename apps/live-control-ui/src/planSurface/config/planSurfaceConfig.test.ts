@@ -14,7 +14,7 @@ describe("planSurfaceConfig", () => {
     expect(context.headerLabel).toContain("preparing Session 23");
   });
 
-  it("creates plan surface config with session descriptor and generic prep document", () => {
+  it("creates plan surface config with one session-prep board", () => {
     const config = createPlanSurfaceConfig(mockPlanView);
     expect(config.id).toBe("plan");
     expect(config.tools.map((tool) => tool.id)).toEqual([
@@ -25,13 +25,7 @@ describe("planSurfaceConfig", () => {
     expect(config.theme.themeId).toBe("mireward-runbook");
     expect(config.theme.tokens?.["--accent"]).toBe("#7aa2f7");
     expect(config.canvas.documentId).toBe("longmont-c2-session-23-prep");
-    expect(config.sessionDescriptor?.planningDocument.title).toBe("C2 Session 23 Prep");
-    expect(config.sessionDescriptor?.planningDocument.starterKind).toBe("session_prep");
-  });
-
-  it("honors an explicit legacy document request", () => {
-    const config = createPlanSurfaceConfig(mockPlanView, "north-gate-session-runbook");
-    expect(config.canvas.documentId).toBe("north-gate-session-runbook");
-    expect(config.sessionDescriptor?.planningDocument.starterKind).toBe("legacy_north_gate");
+    expect(config.sessionDescriptor.planningDocument.title).toBe("C2 Session 23 Prep");
+    expect(config.sessionDescriptor.planningDocument.targetRelpath).toContain("Session Prep/Session 23 Prep.md");
   });
 });

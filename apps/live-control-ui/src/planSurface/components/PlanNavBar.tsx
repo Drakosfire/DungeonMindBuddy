@@ -39,7 +39,7 @@ export function PlanNavBar({ config }: PlanNavBarProps) {
             Board: {planningDocument.title} · {formatDocumentStatus(planningDocument.status)}
           </p>
           <p className="plan-nav-context-line plan-nav-context-mono" data-testid="plan-document-target">
-            Target: {planningDocument.targetRelpath ?? "TBD durable planning path"}
+            Target: {planningDocument.targetRelpath}
           </p>
           <p className="plan-nav-context-line plan-nav-draft-note" data-testid="plan-local-draft-note">
             Local draft · browser-local until durable save lands

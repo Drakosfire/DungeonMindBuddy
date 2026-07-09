@@ -3,7 +3,6 @@ import type { PlanSurfaceConfig } from "../types";
 import {
   buildPlanContextFromPlanView,
   createPlanSessionDescriptor,
-  resolveRequestedPlanDocumentId,
 } from "./planSessionDescriptor";
 
 export const PLAN_SURFACE_SPIKE_THEME_ID = "mireward-runbook";
@@ -21,11 +20,8 @@ export const PLAN_SURFACE_THEME_TOKENS: Record<string, string> = {
 
 export { buildPlanContextFromPlanView } from "./planSessionDescriptor";
 
-export function createPlanSurfaceConfig(
-  planView: PlanViewProjection,
-  requestedDocumentId: string | null = resolveRequestedPlanDocumentId(),
-): PlanSurfaceConfig {
-  const sessionDescriptor = createPlanSessionDescriptor(planView, requestedDocumentId);
+export function createPlanSurfaceConfig(planView: PlanViewProjection): PlanSurfaceConfig {
+  const sessionDescriptor = createPlanSessionDescriptor(planView);
   return {
     id: "plan",
     label: "Plan",

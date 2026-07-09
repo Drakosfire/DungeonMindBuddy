@@ -28,17 +28,15 @@ export interface PlanContextDescriptor {
 }
 
 export type PlanDocumentStatus = "local_draft" | "durable" | "missing" | "unknown";
-export type PlanDocumentStarterKind = "blank" | "session_prep" | "legacy_north_gate";
 export type PlanSourceStatusKind = "ready" | "missing" | "stale" | "unknown";
 
 export interface PlanDocumentDescriptor {
   documentId: string;
   title: string;
   description?: string;
-  targetRelpath?: string;
+  targetRelpath: string;
   storageKey: string;
   status: PlanDocumentStatus;
-  starterKind: PlanDocumentStarterKind;
 }
 
 export interface PlanSessionDescriptor {
@@ -51,12 +49,6 @@ export interface PlanSessionDescriptor {
   sourceStatusLabel: string;
   sourceStatusKind: PlanSourceStatusKind;
   planningDocument: PlanDocumentDescriptor;
-}
-
-export interface PlanDocumentOption {
-  documentId: string;
-  title: string;
-  starterKind: PlanDocumentStarterKind;
 }
 
 export interface SurfaceConfig {

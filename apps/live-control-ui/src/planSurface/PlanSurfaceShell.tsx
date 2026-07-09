@@ -38,7 +38,6 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
               <PlanSurfaceCanvas
-                canvas={config.canvas}
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}
                 onEditorToolsChange={setEditorTools}
