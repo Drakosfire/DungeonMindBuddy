@@ -1,5 +1,13 @@
 # Plan Surface Toolbox
 
+## Current checkpoint — 2026-07
+
+This document remains the architecture authority for `SurfaceConfig`, projection, the Tiptap/Markdown Plan canvas, the shared resolver, edit capability, and the Agent Interaction target shape.
+
+Current product framing for the next `/plan` dogfood phase is in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
+
+Since this architecture was written, `/ingest` has matured into the Graph Review / authored-memory cockpit. `/plan` should consume reviewed graph memory and reuse selected-object projections from that work; it should not absorb Graph Review diagnostics, Author Draft, identity merging, or authored-memory writes as its default session-prep UX. The current right-side Plan projection container remains transitional implementation state.
+
 ## Product Direction
 
 `/plan` becomes the first intentional configured surface, not an alias to `/surface` or a random session-specific static page. It should show a clear context header such as **Plan · Longmont C2 · preparing Session 24 · ingesting Session 23**, with the context derived from a stable Plan session descriptor rather than whatever `DUNGEONMIND_LIVE_SESSION_DIR` happens to point at.
@@ -15,9 +23,9 @@ The durable abstraction is **Surface**, not Bar. A surface expresses one of the 
 - **EditBar** — document/editing command surface when a selected context is editable.
 - **SurfaceCanvas** — the main work object for the active surface; for `/plan`, this is the Tiptap/Markdown planning board.
 
-The ToolBar consumes shared knowledge and schemas, then projects configured workflow components into right-sized work surfaces:
+The ToolBar consumes shared knowledge and schemas, then projects configured workflow components into right-sized work surfaces. On `/plan`, those workflows support session preparation rather than recreate the serious memory-correction flow:
 
-- **Ingest Recap** opens a wide review surface with raw text, rendered markdown, preview/status, seed/breadcrumb/session-memory actions, and terminal fallback commands.
+- **Memory status / ingest escalation** may show a lightweight state or route the GM to `/ingest`; Graph Review, diagnostics, and Author Draft belong primarily to that dedicated surface.
 - **Statblock** opens a workbench surface that reuses the existing working statblock generation flow rather than rebuilding it.
 - The registry stays open so a new workflow is added by config, but the plan only commits what has a real backing today; speculative surfaces are not pre-built.
 - The drawer/container adapts to the active workflow: narrow for simple tools, wide for review surfaces, and mobile/full-screen when needed.
@@ -248,7 +256,7 @@ Retain the config heart: styling is loaded through config, not hardcoded per sur
 8. Add a small backend read adapter that emits `IngestionSourceBundle` from current recap-ingest status/artifacts according to `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`. Agent Interaction consumes the bundle; taxonomy/ontology can later become another producer/enricher of the same `SourceUnit` shape.
 9. Extract one reference resolver module shared by the static `prep.js` surface and the React surface (both hit `/api/live/*/index`). It resolves the chip's kind and returns an opaque locator; the React canvas then projects the content surface for that kind.
 10. Implement editing as one capability: the spike lock model (`isEditorLocked` / block-state classification) plus the two-phase corpus writer. The EditBar and the projected-surface edit toggle both call it; default read-only, unlock to edit. Do not build a second edit path.
-11. Mount recap ingestion as a configured ToolBar workflow using the existing `IngestionModule` logic and `/api/live/recap-ingest` operations. Keep terminal commands visible as fallback.
+11. Expose recap-ingest state or escalation from `/plan` only when it aids preparation. The serious ingestion, Graph Review, diagnostics, and authored-memory workflow live at `/ingest`; keep terminal commands visible as fallback where the ingest workflow exposes them.
 12. Mount statblock generation as a configured ToolBar workflow by reusing the existing `StatblockWorkbenchModule` / statblock workbench API flow.
 13. Build content surfaces only for kinds with a real resolver/index today (`npc`, `location`, `statblock`, `roll-table`). Do not pre-build item/map/creation surfaces; the registry stays open for them.
 14. Treat the static Mireward toolbox and current `/surface` module shell as dogfood-only or transitional. The durable product direction is React surfaces: `/plan` first, then `/play` absorbing combat/runbook/live-control modules through the same SurfaceShell + Agent Interaction projection model.

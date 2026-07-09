@@ -126,6 +126,7 @@ Conflicting identity merges are rejected unless the proposed merge explicitly me
 
 - `Docs/Design/DESIGN-graph-object-authoring-surface.md` — product and architecture stance.
 - `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` — current checkpoint and deferred work.
+- `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md` — how `/plan` consumes reviewed memory without becoming a second correction cockpit.
 - This report — concise pause-point state, safety invariants, and restart surface.
 - `Backlog.md` — active follow-ups and risk reminders.
 

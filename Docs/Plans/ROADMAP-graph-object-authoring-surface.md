@@ -6,6 +6,7 @@
 **Design doc:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Supersedes product direction in:** `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` where that roadmap treats gold-fixture writes as the primary authoring destination.
 **Current checkpoint:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
+**Plan-consumption boundary:** `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
 
 ---
 
@@ -36,6 +37,8 @@ Graph Review authored memory is paused at a stable checkpoint after PR #305, a d
 - gold/eval-first authoring.
 
 See the closeout report for safety invariants, known limitations, and the resume-later backlog.
+
+`/plan` is a consumer of reviewed campaign memory for session preparation, not the next home for Graph Review correction work. Its current dogfood target and escalation boundary are defined in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 
 ## 1. Roadmap goal
 

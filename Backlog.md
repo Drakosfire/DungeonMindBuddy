@@ -25,6 +25,15 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 - Optional LLM assistance only after manual authoring remains stable.
 - Sibling-store enrichment/backfill only as an explicit feature with deterministic provenance, exact identity constraints, committed fixtures, and negative cases.
 
+### Next Plan-surface dogfood slice
+
+- Re-anchor `/plan` around session-prep dogfood after the Graph Review authored-memory pause:
+  - make one planning Markdown board usable for a real upcoming session;
+  - make campaign/session/source context explicit;
+  - consume reviewed graph/corpus memory through reference chips and selected-object/source-context cards;
+  - provide grounded Agent Interaction plus statblock, roll-table, and context access;
+  - keep diagnostics and Author Draft primarily in `/ingest`, with an explicit escalation when memory needs correction.
+
 ### Known risks / do not forget
 
 - Overlay write and event-log append are not fully transactional.
