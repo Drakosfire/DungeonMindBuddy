@@ -879,6 +879,7 @@ describe("PlanSurfaceShell", () => {
     expect(within(projection).getByLabelText(/North Reach Gate selected object/i)).toBeInTheDocument();
     expect(within(projection).getByText("Location")).toBeInTheDocument();
     expect(within(projection).getByText("Source")).toBeInTheDocument();
+    expect(within(projection).getByRole("button", { name: "Show source preview" })).toBeInTheDocument();
     expect(within(projection).queryByText(/Resolved from live location index/i)).not.toBeInTheDocument();
     expect(within(projection).getByRole("link", { name: "Review memory in /ingest" })).toHaveAttribute(
       "href",

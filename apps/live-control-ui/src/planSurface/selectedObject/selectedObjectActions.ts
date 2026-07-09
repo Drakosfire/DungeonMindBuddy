@@ -37,6 +37,17 @@ export function buildSelectedObjectActions(
         }
         break;
       }
+      case "source_preview": {
+        const sourcePath = model.sourcePath || model.metadata?.corpusDisplayPath;
+        if (sourcePath) {
+          actions.push({
+            id: "source_preview",
+            label: "Show source preview",
+            payload: { sourcePath },
+          });
+        }
+        break;
+      }
       default:
         break;
     }
