@@ -1330,6 +1330,115 @@
   color: #a9f0c8;
 }
 
+.plan-selected-object-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.plan-selected-object-header {
+  margin: 0;
+}
+
+.plan-selected-object-kind {
+  margin: 0 0 0.2rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plan-selected-object-title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.plan-selected-object-summary {
+  margin: 0;
+  color: var(--fg, #e6e9ef);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.plan-selected-object-fields {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.plan-selected-object-fields dt {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plan-selected-object-fields dd {
+  margin: 0.15rem 0 0;
+}
+
+.plan-selected-object-fields-secondary dt,
+.plan-selected-object-fields-secondary dd {
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.plan-selected-object-source-label {
+  margin: 0 0 0.2rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plan-selected-object-source-path {
+  display: block;
+  font-family: var(--mono, monospace);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.plan-selected-object-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.plan-selected-object-action {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg, #e6e9ef);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.55rem;
+  text-decoration: none;
+}
+
+.plan-selected-object-action:hover:not(:disabled) {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-selected-object-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.plan-selected-object-diagnostics {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.plan-selected-object-card--unresolved .plan-selected-object-summary,
+.plan-selected-object-card--error .plan-selected-object-summary {
+  color: var(--fg-mute, #9aa3b5);
+}
+
 @media (max-width: 960px) {
   .plan-surface-layout {
     grid-template-columns: 1fr;

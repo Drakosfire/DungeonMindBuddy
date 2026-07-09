@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -875,7 +875,11 @@ describe("PlanSurfaceShell", () => {
     await waitFor(() => {
       expect(screen.getByRole("complementary", { name: /North Reach Gate projection/i })).toBeInTheDocument();
     });
-    expect(screen.getByText(/Resolved from live location index/i)).toBeInTheDocument();
+    const projection = screen.getByRole("complementary", { name: /North Reach Gate projection/i });
+    expect(within(projection).getByLabelText(/North Reach Gate selected object/i)).toBeInTheDocument();
+    expect(within(projection).getByText("Location")).toBeInTheDocument();
+    expect(within(projection).getByText("Source")).toBeInTheDocument();
+    expect(within(projection).queryByText(/Resolved from live location index/i)).not.toBeInTheDocument();
   });
 
   it("shows Markdown save controls in the edit bar", () => {
