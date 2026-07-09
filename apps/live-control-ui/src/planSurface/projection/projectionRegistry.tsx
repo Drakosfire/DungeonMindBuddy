@@ -11,8 +11,7 @@ import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor } from "../types";
 import type { ReferenceResolution } from "../reference/referenceResolver";
-import { resolutionToSourceUnit } from "../derivedViews/derivedViewsAdapter";
-import { useEditCapability } from "../edit/editCapability";
+import { SelectedObjectCard } from "../selectedObject/SelectedObjectCard";
 
 export interface ToolProjectionProps {
   context: PlanContextDescriptor;
@@ -20,46 +19,6 @@ export interface ToolProjectionProps {
 
 export interface ContentProjectionProps {
   resolution: ReferenceResolution;
-}
-
-function ContentSurfacePanel({ resolution }: ContentProjectionProps) {
-  const unit = resolutionToSourceUnit(resolution);
-  const { isLocked, toggleLock, canEdit } = useEditCapability();
-
-  return (
-    <section className="plan-content-surface" aria-label="Reference content">
-      <header className="plan-content-surface-header">
-        <div>
-          <p className="plan-surface-kicker">Resolved reference</p>
-          <h3>{resolution.ref.label}</h3>
-        </div>
-        <button type="button" onClick={toggleLock} aria-pressed={isLocked}>
-          {isLocked ? "Unlock edit" : "Lock edit"}
-        </button>
-      </header>
-      <p className="plan-content-summary">{unit.summary}</p>
-      {unit.sourcePath ? (
-        <p className="plan-content-path">
-          <code>{unit.sourcePath}</code>
-        </p>
-      ) : null}
-      <dl className="plan-content-fields">
-        {Object.entries(unit.fields).map(([key, value]) => (
-          <div key={key}>
-            <dt>{key}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {!canEdit ? (
-        <p className="plan-content-note">Read-only until unlocked. Edits commit through the two-phase corpus writer.</p>
-      ) : (
-        <p className="plan-content-note plan-content-note-editable">
-          Edit unlocked. Use the canvas Edit bar or file-write flow for committed changes.
-        </p>
-      )}
-    </section>
-  );
 }
 
 export function renderToolProjection(toolId: string, context: PlanContextDescriptor): ReactNode {
@@ -99,5 +58,5 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
 }
 
 export function renderContentProjection(resolution: ReferenceResolution): ReactNode {
-  return <ContentSurfacePanel resolution={resolution} />;
+  return <SelectedObjectCard resolution={resolution} />;
 }
