@@ -19,6 +19,24 @@ export interface SelectedObjectAction {
   disabled?: boolean;
   reason?: string;
   href?: string;
+  payload?: {
+    dice?: string;
+  };
+}
+
+export type SelectedObjectActionIntent =
+  | "expand"
+  | "ingest"
+  | "statblock_tool"
+  | "roll";
+
+export interface SelectedObjectMetadata {
+  refType: string;
+  refId: string;
+  dice?: string;
+  corpusDisplayPath?: string;
+  indexId?: string;
+  artifactId?: string;
 }
 
 export interface SelectedObjectCardModel {
@@ -30,7 +48,8 @@ export interface SelectedObjectCardModel {
   sourcePath?: string;
   primaryFields: SelectedObjectField[];
   secondaryFields: SelectedObjectField[];
-  actions: SelectedObjectAction[];
+  actionIntents: SelectedObjectActionIntent[];
+  metadata?: SelectedObjectMetadata;
   diagnostics?: string[];
 }
 
@@ -201,17 +220,37 @@ function fieldsForKind(
   }
 }
 
-function defaultActions(kind: SelectedObjectKind): SelectedObjectAction[] {
-  const actions: SelectedObjectAction[] = [
-    { id: "expand", label: "Expand details" },
-    { id: "ingest", label: "Review memory in /ingest", href: "/ingest" },
-  ];
+function extractMetadata(
+  kind: SelectedObjectKind,
+  item: Record<string, unknown>,
+  refType: string,
+  refId: string,
+): SelectedObjectMetadata {
+  return {
+    refType,
+    refId,
+    dice: kind === "roll-table" ? pickString(item, ["dice", "die"]) : undefined,
+    corpusDisplayPath: pickString(item, ["corpus_display_path", "primary_doc_path", "hub_path"]),
+    indexId: pickString(item, ["index_id"]),
+    artifactId: pickString(item, ["artifact_id"]),
+  };
+}
+
+function defaultActionIntents(
+  kind: SelectedObjectKind,
+  metadata?: SelectedObjectMetadata,
+): SelectedObjectActionIntent[] {
+  const intents: SelectedObjectActionIntent[] = ["expand", "ingest"];
 
   if (kind === "statblock") {
-    actions.push({ id: "statblock", label: "Open statblock workbench" });
+    intents.push("statblock_tool");
   }
 
-  return actions;
+  if (kind === "roll-table" && metadata?.dice) {
+    intents.push("roll");
+  }
+
+  return intents;
 }
 
 function unresolvedSummary(resolution: ReferenceResolution): string {
@@ -253,9 +292,13 @@ export function buildSelectedObjectCardModel(resolution: ReferenceResolution): S
       summary: unresolvedSummary(resolution),
       primaryFields: isAction || isCitation ? [] : unresolvedFields(resolution),
       secondaryFields: [],
-      actions: isAction
-        ? []
-        : [{ id: "ingest", label: "Review memory in /ingest", href: "/ingest" }],
+      actionIntents: isAction ? [] : ["ingest"],
+      metadata: isAction || isCitation
+        ? undefined
+        : {
+            refType: resolution.ref.refType,
+            refId: resolution.ref.refId,
+          },
       diagnostics: resolution.status === "error" && resolution.message
         ? [resolution.message]
         : undefined,
@@ -264,6 +307,7 @@ export function buildSelectedObjectCardModel(resolution: ReferenceResolution): S
 
   const item = asRecord(resolution.item)!;
   const { primary, secondary } = fieldsForKind(kind, item);
+  const metadata = extractMetadata(kind, item, resolution.ref.refType, resolution.ref.refId);
 
   return {
     status: "resolved",
@@ -274,7 +318,8 @@ export function buildSelectedObjectCardModel(resolution: ReferenceResolution): S
     sourcePath: resolution.sourcePath,
     primaryFields: primary,
     secondaryFields: secondary,
-    actions: defaultActions(kind),
+    actionIntents: defaultActionIntents(kind, metadata),
+    metadata,
     diagnostics: resolution.message ? [resolution.message] : undefined,
   };
 }

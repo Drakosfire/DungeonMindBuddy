@@ -166,7 +166,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
           {!active ? null : active.kind === "tool" ? (
             renderToolProjection(active.key, config.context)
           ) : activeResolution ? (
-            renderContentProjection(activeResolution)
+            renderContentProjection(activeResolution, config)
           ) : (
             <p className="plan-projection-empty">Loading reference…</p>
           )}

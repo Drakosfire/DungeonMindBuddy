@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReferenceResolution } from "../reference/referenceResolver";
+import { buildSelectedObjectActions } from "./selectedObjectActions";
 import { buildSelectedObjectCardModel } from "./selectedObjectCardModel";
 
 function resolvedResolution(
@@ -43,6 +44,8 @@ describe("buildSelectedObjectCardModel", () => {
     expect(model.summary).not.toBe("Resolved from live location index.");
     expect(model.sourcePath).toContain("north_reach_gate.md");
     expect(model.primaryFields.some((field) => field.label === "District")).toBe(true);
+    expect(model.metadata?.corpusDisplayPath).toContain("north_reach_gate.md");
+    expect(model.metadata?.indexId).toBe("north-reach-gate");
   });
 
   it("maps statblock resolution with CR / HP / AC when present", () => {
@@ -55,6 +58,7 @@ describe("buildSelectedObjectCardModel", () => {
         creature_type: "construct",
         role_tag: "Siege scout",
         corpus_display_path: "corpus/bestiary/tripod_null_calf_statblock_cr5.md",
+        index_id: "tripod-null-calf",
       }),
     );
 
@@ -67,7 +71,21 @@ describe("buildSelectedObjectCardModel", () => {
         expect.objectContaining({ label: "Creature type", value: "construct" }),
       ]),
     );
-    expect(model.actions.some((action) => action.id === "statblock")).toBe(true);
+    expect(model.actionIntents).toContain("statblock_tool");
+    expect(model.metadata?.corpusDisplayPath).toContain("tripod_null_calf");
+    expect(model.metadata?.indexId).toBe("tripod-null-calf");
+  });
+
+  it("uses generic statblock tool intent even when artifact id exists", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution("statblock", {
+        title: "Tripod Null-Calf",
+        artifact_id: "artifact-tripod-null-calf",
+      }),
+    );
+
+    expect(model.actionIntents).toContain("statblock_tool");
+    expect(model.metadata?.artifactId).toBe("artifact-tripod-null-calf");
   });
 
   it("maps npc resolution with role, faction, and location when present", () => {
@@ -91,7 +109,7 @@ describe("buildSelectedObjectCardModel", () => {
     );
   });
 
-  it("maps roll-table resolution with table metadata when present", () => {
+  it("maps roll-table resolution with dice metadata and roll intent", () => {
     const model = buildSelectedObjectCardModel(
       resolvedResolution("roll-table", {
         table_id: "gate-dilemma-d12",
@@ -105,15 +123,27 @@ describe("buildSelectedObjectCardModel", () => {
     );
 
     expect(model.kind).toBe("roll-table");
+    expect(model.metadata?.dice).toBe("1d12");
+    expect(model.actionIntents).toContain("roll");
     expect(model.primaryFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "Table id", value: "gate-dilemma-d12" }),
-        expect.objectContaining({ label: "Category", value: "pressure" }),
         expect.objectContaining({ label: "Dice", value: "1d12" }),
-        expect.objectContaining({ label: "Row count", value: "12" }),
       ]),
     );
     expect(model.summary).toBe("Pressure at North Reach Gate.");
+  });
+
+  it("omits roll intent when roll-table dice metadata is missing", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution("roll-table", {
+        table_id: "gate-dilemma",
+        title: "Gate Dilemma",
+      }),
+    );
+
+    expect(model.metadata?.dice).toBeUndefined();
+    expect(model.actionIntents).not.toContain("roll");
   });
 
   it("maps unresolved resolution with helpful fallback copy", () => {
@@ -131,12 +161,7 @@ describe("buildSelectedObjectCardModel", () => {
     expect(model.status).toBe("unresolved");
     expect(model.title).toBe("North Reach Gate");
     expect(model.summary).toMatch(/Could not resolve this reference/i);
-    expect(model.primaryFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: "Type", value: "location" }),
-        expect.objectContaining({ label: "Id", value: "north-reach-gate" }),
-      ]),
-    );
+    expect(model.actionIntents).toEqual(["ingest"]);
   });
 
   it("maps action and citation placeholders without inventing fields", () => {
@@ -155,6 +180,7 @@ describe("buildSelectedObjectCardModel", () => {
     expect(actionModel.title).toBe("Action placeholder");
     expect(actionModel.summary).toMatch(/intentionally disabled/i);
     expect(actionModel.primaryFields).toHaveLength(0);
+    expect(actionModel.actionIntents).toHaveLength(0);
 
     const citationModel = buildSelectedObjectCardModel({
       status: "unresolved",
@@ -169,5 +195,66 @@ describe("buildSelectedObjectCardModel", () => {
     });
 
     expect(citationModel.summary).toBe("Citation resolver pending.");
+  });
+});
+
+describe("buildSelectedObjectActions", () => {
+  it("builds context-aware ingest href when supplied", () => {
+    const model = buildSelectedObjectCardModel({
+      status: "unresolved",
+      ref: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
+      message: "Could not resolve this reference.",
+    });
+
+    const actions = buildSelectedObjectActions(model, {
+      ingestHref: "/ingest?campaign=longmont-c2&session=session-23",
+    });
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        id: "ingest",
+        href: "/ingest?campaign=longmont-c2&session=session-23",
+      }),
+    ]);
+  });
+
+  it("labels statblock tool action honestly without object-specific wording", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution("statblock", {
+        title: "Tripod Null-Calf",
+      }),
+    );
+
+    const actions = buildSelectedObjectActions(model);
+    const statblockAction = actions.find((action) => action.id === "statblock");
+
+    expect(statblockAction?.label).toBe("Open statblock tool");
+    expect(statblockAction?.label).not.toMatch(/Tripod Null-Calf/i);
+  });
+
+  it("adds roll action for roll-table cards with dice metadata", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution("roll-table", {
+        table_id: "gate-dilemma-d12",
+        title: "Gate Dilemma d12",
+        dice: "d12",
+      }),
+    );
+
+    const actions = buildSelectedObjectActions(model);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "roll",
+          label: "Roll d12",
+          payload: { dice: "d12" },
+        }),
+      ]),
+    );
   });
 });
