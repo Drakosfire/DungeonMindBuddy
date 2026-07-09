@@ -38,7 +38,7 @@ export function buildSelectedObjectActions(
         break;
       }
       case "source_preview": {
-        const sourcePath = model.sourcePath ?? model.metadata?.corpusDisplayPath;
+        const sourcePath = model.sourcePath || model.metadata?.corpusDisplayPath;
         if (sourcePath) {
           actions.push({
             id: "source_preview",

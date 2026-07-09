@@ -314,4 +314,22 @@ describe("buildSelectedObjectActions", () => {
 
     expect(sourceAction?.payload?.sourcePath).toBe("corpus/bestiary/from-resolution.md");
   });
+
+  it("falls back to metadata corpus path when model.sourcePath is empty", () => {
+    const model = buildSelectedObjectCardModel(
+      resolvedResolution(
+        "statblock",
+        {
+          title: "Tripod Null-Calf",
+          corpus_display_path: "corpus/bestiary/from-metadata.md",
+        },
+        { sourcePath: "" },
+      ),
+    );
+
+    const actions = buildSelectedObjectActions(model);
+    const sourceAction = actions.find((action) => action.id === "source_preview");
+
+    expect(sourceAction?.payload?.sourcePath).toBe("corpus/bestiary/from-metadata.md");
+  });
 });
