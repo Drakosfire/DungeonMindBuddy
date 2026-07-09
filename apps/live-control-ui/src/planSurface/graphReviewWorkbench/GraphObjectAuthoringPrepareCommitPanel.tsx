@@ -16,6 +16,7 @@ import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverl
 import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { serializeGraphObjectAuthoringProposalForApi } from "./graphObjectAuthoringDraft";
+import { parseGraphObjectAuthoringApiError } from "./graphObjectAuthoringApiErrors";
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
   return serializeGraphObjectAuthoringProposalForApi(
@@ -42,22 +43,6 @@ function toOverlapWarnings(diagnostics: GraphAuthoringDiagnostic[]) {
       message: item.message,
       localProposalId: item.local_proposal_id ?? undefined,
     }));
-}
-
-function parseApiError(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message;
-    try {
-      const parsed = JSON.parse(message) as { code?: string; message?: string };
-      if (parsed.message) {
-        return parsed.message;
-      }
-    } catch {
-      // keep raw message
-    }
-    return message;
-  }
-  return "Request failed.";
 }
 
 function formatAssertionSummary(summary: GraphObjectAuthoringPrepareResponse["overlay_summary"]): string[] {
@@ -389,7 +374,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       setPreparedForFingerprint(currentFingerprint);
     } catch (error) {
       setPrepared(null);
-      setPrepareError(parseApiError(error));
+      setPrepareError(parseGraphObjectAuthoringApiError(error));
     } finally {
       setPreparing(false);
     }
@@ -438,13 +423,13 @@ export function GraphObjectAuthoringPrepareCommitPanel({
             ) ?? [];
           setProjectionDiagnostics(diagnostics);
         } catch (error) {
-          setRefreshProjectionError(parseApiError(error));
+          setRefreshProjectionError(parseGraphObjectAuthoringApiError(error));
         } finally {
           setRefreshingProjection(false);
         }
       }
     } catch (error) {
-      const message = parseApiError(error);
+      const message = parseGraphObjectAuthoringApiError(error);
       if (message.includes("stale_overlay") || message.includes("changed since")) {
         setCommitError(
           "The authored graph changed since this preview was prepared. Prepare again before committing.",
@@ -469,7 +454,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
     setRefreshingProjection(true);
     void onRefreshProjection()
       .catch((error) => {
-        setRefreshProjectionError(parseApiError(error));
+        setRefreshProjectionError(parseGraphObjectAuthoringApiError(error));
       })
       .finally(() => {
         setRefreshingProjection(false);

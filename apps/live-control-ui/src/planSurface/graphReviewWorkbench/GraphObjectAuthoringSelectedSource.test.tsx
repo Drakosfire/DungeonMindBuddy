@@ -48,6 +48,24 @@ describe("GraphObjectAuthoringSelectedSource", () => {
     expect(screen.getByText("Selected phrase from the recap.")).toBeInTheDocument();
   });
 
+  it("shows manual-entry copy instead of a quoted phrase when there is no recap selection", () => {
+    const manualSelection: GraphAuthoringSelection = {
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+      selectionKind: "text_span",
+      selectedText: "",
+      normalizedSelectedText: "",
+      graphId: "graph-c1s2",
+      laneRole: "live",
+    };
+    render(<GraphObjectAuthoringSelectedSource selection={manualSelection} />);
+
+    expect(screen.getByText("New object")).toBeInTheDocument();
+    expect(screen.getByText(/Authored directly/i)).toBeInTheDocument();
+    expect(screen.queryByText("Context")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected phrase from the recap.")).not.toBeInTheDocument();
+  });
+
   it("does not show technical metadata in the primary view", () => {
     render(<GraphObjectAuthoringSelectedSource selection={selectionWithContext} />);
 

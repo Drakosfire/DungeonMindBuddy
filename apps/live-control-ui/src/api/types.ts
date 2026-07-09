@@ -2383,6 +2383,7 @@ export interface GraphObjectAuthoringCommitResponse {
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
   union_store_materialization?: GraphObjectAuthoringUnionStoreMaterializationSummary | null;
+  created_node_ids?: Record<string, string>;
 }
 
 export interface GraphMergeReconciliationDiagnostic {

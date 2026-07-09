@@ -212,7 +212,8 @@ export function GraphProjectionReader({
   const explorerOpen = !useExternalInspection && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
   const effectiveSelectedSpanId = selectedSourceSpanId ?? selectedEvidenceSpanId;
-  const showAuthoringAction = authoringEnabled && pendingAuthoringSelection !== null;
+  const showAuthoringAction =
+    authoringEnabled && pendingAuthoringSelection !== null && Boolean(onGraphAuthoringAction);
 
   return (
     <div className={rootClassName}>

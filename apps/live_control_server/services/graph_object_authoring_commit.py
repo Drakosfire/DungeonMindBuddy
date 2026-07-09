@@ -26,6 +26,9 @@ from apps.live_control_server.services.graph_object_authoring_merge_guard import
     detect_merge_assertion_conflicts,
     find_superseded_merge_assertion_ids,
 )
+from apps.live_control_server.services.graph_authoring_overlay_projection import (
+    authored_object_node_id,
+)
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphAuthoringDiagnostic,
     GraphObjectAuthoringCommitRequest,
@@ -56,6 +59,21 @@ def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
 
         return GraphAuthoringOverlayStore(default_corpus_root())
     return GraphAuthoringOverlayStore(corpus_root)
+
+
+def _created_node_ids_for_assertions(
+    assertions: list,
+    local_proposal_id_by_assertion_id: dict[str, str],
+) -> dict[str, str]:
+    created: dict[str, str] = {}
+    for assertion in assertions:
+        if assertion.assertion_kind != "object":
+            continue
+        local_proposal_id = local_proposal_id_by_assertion_id.get(assertion.assertion_id)
+        if not local_proposal_id:
+            continue
+        created[local_proposal_id] = authored_object_node_id(assertion.assertion_id)
+    return created
 
 
 def _backup_overlay(
@@ -308,6 +326,7 @@ def commit_graph_object_authoring_write(
                 applied=False,
                 reason="event_log_failed",
             ),
+            created_node_ids={},
         )
 
     materialization = _materialize_union_store_merges(
@@ -332,4 +351,5 @@ def commit_graph_object_authoring_write(
             union_store_materialized=materialization.applied,
         ),
         union_store_materialization=materialization,
+        created_node_ids=_created_node_ids_for_assertions(assertions, local_proposal_ids),
     )

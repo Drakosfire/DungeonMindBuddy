@@ -106,6 +106,7 @@ export function ExistingObjectResolverPanel({
   onReviewMerge,
   onStageSearchMerge,
   onStageSearchMergeComplete,
+  autoSearchQuery = null,
 }: {
   campaignId: string;
   sessionId: string;
@@ -123,6 +124,8 @@ export function ExistingObjectResolverPanel({
   onReviewMerge?: (candidate: GraphObjectMergeCandidate) => void;
   onStageSearchMerge?: (input: SearchMergeStageInput) => boolean;
   onStageSearchMergeComplete?: () => void;
+  /** When set (e.g. after create-object wizard), seeds search and runs resolver once. */
+  autoSearchQuery?: string | null;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -144,6 +147,7 @@ export function ExistingObjectResolverPanel({
   >("idle");
   const stagedMergeSeenInOverlayRef = useRef(false);
   const lastSearchQueryRef = useRef("");
+  const lastAutoSearchQueryRef = useRef<string | null>(null);
 
   const storageScope = useMemo(
     () => ({ campaignId, sessionId }),
@@ -245,7 +249,8 @@ export function ExistingObjectResolverPanel({
 
   const canStageLinkIntent = Boolean(linkSourceNode && onStageLinkIntent);
 
-  const runResolver = () => {
+  const runResolver = (overridePhrase?: string) => {
+    const searchPhrase = (overridePhrase ?? query).trim();
     if (!searchPhrase) {
       setError("Enter a search phrase to find existing objects.");
       setStatus("error");
@@ -296,6 +301,16 @@ export function ExistingObjectResolverPanel({
         setStatus("error");
       });
   };
+
+  useEffect(() => {
+    const phrase = autoSearchQuery?.trim();
+    if (!phrase || lastAutoSearchQueryRef.current === phrase) {
+      return;
+    }
+    lastAutoSearchQueryRef.current = phrase;
+    setQuery(phrase);
+    runResolver(phrase);
+  }, [autoSearchQuery]);
 
   const handleStageSearchMerge = () => {
     if (!searchMergeInput || !onStageSearchMerge) {

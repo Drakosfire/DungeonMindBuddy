@@ -97,6 +97,14 @@ def test_commit_with_matching_token_writes_overlay(store: GraphAuthoringOverlayS
     overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert len(overlay.assertions) == 1
     assert overlay.assertions[0].assertion_kind == "object"
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        authored_object_node_id,
+    )
+
+    assertion = overlay.assertions[0]
+    assert response.created_node_ids == {
+        "local-object-1": authored_object_node_id(assertion.assertion_id),
+    }
 
 
 def test_commit_appends_event_log(store: GraphAuthoringOverlayStore, corpus_root: Path) -> None:

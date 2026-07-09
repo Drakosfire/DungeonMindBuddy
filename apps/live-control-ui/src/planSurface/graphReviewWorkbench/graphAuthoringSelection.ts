@@ -217,6 +217,31 @@ export function buildGraphAuthoringSelectionFromEditor(
   };
 }
 
+/**
+ * A selection with no recap grounding, used to start an object draft directly
+ * from the New object tab without first highlighting text in the recap. Kept
+ * as `selectionKind: "text_span"` with an empty `selectedText` so the backend
+ * source-anchor contract (which only recognizes a fixed set of anchor kinds)
+ * accepts it unchanged.
+ */
+export function buildManualGraphAuthoringSelection(context: {
+  campaignId: string;
+  sessionId: string;
+  graphId?: string | null;
+  laneRole?: GraphAuthoringLaneRole | null;
+}): GraphAuthoringSelection {
+  return {
+    ...baseSelectionFields({ ...context, sourceArtifactPath: null, sourceArtifactSha256: null }),
+    selectionKind: "text_span",
+    selectedText: "",
+    normalizedSelectedText: "",
+  };
+}
+
+export function isManualGraphAuthoringSelection(selection: GraphAuthoringSelection): boolean {
+  return !selection.selectedText.trim();
+}
+
 export function buildGraphAuthoringSelectionFromRecapNode(input: {
   campaignId: string;
   sessionId: string;

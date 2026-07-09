@@ -1130,3 +1130,99 @@ def test_alias_decision_survives_store_reload_and_reprojects(
     assert any(
         item.code == "authored_alias_propagation_applied" for item in overlay_summary.diagnostics
     )
+
+
+def test_authored_relationship_inherits_source_object_paragraph_excerpt() -> None:
+    paragraph = (
+        "The messenger claimed the town was under siege from horrific monsters "
+        "and that a group of survivors were leaving for Mireward Reach, but no one had arrived."
+    )
+    linked_paragraph = paragraph.replace(
+        "Mireward Reach",
+        "[Mireward Reach](dmb-node:location_mireward_reach)",
+    )
+    markdown = (
+        "# Session 23\n\n"
+        "On top of [the wall](dmb-node:location_the_wall) is a well dressed man.\n\n"
+        f"{linked_paragraph}"
+    )
+    threat = object_assertion(
+        assertion_id="assert-horrific-monsters",
+        object_ref={
+            "ref_kind": "local_proposal",
+            "local_proposal_id": "local-threat",
+            "label": "horrific monsters",
+            "kind": "threat",
+        },
+        source_anchor=GraphAuthoringSourceAnchor(
+            anchor_kind="text_span",
+            selected_text="horrific monsters",
+            normalized_selected_text="horrific monsters",
+            surrounding_text_before=(
+                " the outskirts of the Swamp. The messenger claimed the town was under siege from"
+            ),
+            surrounding_text_after=(
+                "and that a group of survivors were leaving for Mireward Reach, but no one had arrived."
+            ),
+            paragraph_ordinal=2,
+        ).model_dump(),
+        summary="Almost certainly meat monsters",
+    )
+    relationship = relationship_assertion(
+        assertion_id="assert-rel-threat-wave",
+        source_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": authored_object_node_id("assert-horrific-monsters"),
+            "label": "horrific monsters",
+            "kind": "threat",
+        },
+        target_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": "node:first-meat-wave",
+            "label": "First meat wave",
+            "kind": "event",
+        },
+        summary=None,
+    )
+    overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
+        update={"assertions": [threat, relationship]}
+    )
+    projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-23",
+        graph_id="graph-1",
+        markdown=markdown,
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={
+            "node:first-meat-wave": GraphProjectionNodeView(
+                node_id="node:first-meat-wave",
+                label="First meat wave",
+                kind="event",
+                role="source_evidence",
+                aliases=[],
+                source_domains=["live_projection"],
+                evidence_badges=[],
+                adjacency=[],
+            )
+        },
+        mentions=[],
+        source_spans=[],
+    )
+
+    enriched, _ = apply_authored_overlay_to_graph_review_projection(projection, overlay)
+    source_id = authored_object_node_id("assert-horrific-monsters")
+    source_view = enriched.node_views[source_id]
+    edge = next(
+        candidate
+        for candidate in source_view.adjacency
+        if candidate.node_id == "node:first-meat-wave"
+    )
+
+    assert edge.source_excerpt == paragraph
+    assert "dmb-node:" not in (edge.source_excerpt or "")
+    assert edge.source_excerpt_is_full_paragraph is True
+    highlighted = [
+        edge.source_excerpt[span.start : span.end]
+        for span in edge.source_excerpt_highlight_spans
+    ]
+    assert highlighted == ["horrific monsters"]

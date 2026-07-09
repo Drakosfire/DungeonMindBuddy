@@ -7,6 +7,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -32,9 +33,11 @@ from apps.live_control_server.services.graph_authoring_visibility import (
     visibility_policy_from_projection_object,
     visibility_policy_projection_fields,
 )
+from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
+    GraphProjectionTextHighlightSpan,
 )
 from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
@@ -476,12 +479,131 @@ def build_authored_projection_node_views(
     return node_views
 
 
+@dataclass(frozen=True)
+class _ResolvedAuthoredSourceExcerpt:
+    text: str | None = None
+    is_full_paragraph: bool = False
+    highlight_spans: list[GraphProjectionTextHighlightSpan] | None = None
+
+
+def _object_assertion_for_authored_node_id(
+    overlay: AuthoredGraphOverlay,
+    node_id: str,
+) -> AuthoredGraphObjectAssertion | None:
+    prefix = "authored:"
+    if not node_id.startswith(prefix) or node_id.startswith("authored:manual:"):
+        return None
+    assertion_id = node_id[len(prefix) :]
+    for assertion in overlay.assertions:
+        if assertion.assertion_kind != "object" or assertion.status != "authored":
+            continue
+        if assertion.assertion_id == assertion_id:
+            return assertion
+    return None
+
+
+def _strip_dmb_node_links_for_display(text: str) -> str:
+    """Reduce projection markdown links to readable prose for excerpt display."""
+    return _DMB_NODE_LINK_PATTERN.sub(r"\1", text)
+
+
+def _display_paragraph_excerpt(
+    paragraph_text: str,
+    selected_fragments: list[str],
+) -> _ResolvedAuthoredSourceExcerpt:
+    display_text = _strip_dmb_node_links_for_display(paragraph_text)
+    highlight_spans = [
+        GraphProjectionTextHighlightSpan(start=match.char_start, end=match.char_end)
+        for match in find_anchor_quote_matches(display_text, selected_fragments)
+    ]
+    return _ResolvedAuthoredSourceExcerpt(
+        display_text,
+        is_full_paragraph=True,
+        highlight_spans=highlight_spans,
+    )
+
+
+def _paragraph_text_containing_span(span: tuple[int, int], markdown: str) -> str | None:
+    for paragraph in _paragraph_spans(markdown):
+        if _span_in_paragraph(span, paragraph):
+            return markdown[paragraph[0] : paragraph[1]].strip()
+    return None
+
+
+def _resolve_authored_source_excerpt_from_anchor(
+    markdown: str | None,
+    source_anchor: GraphAuthoringSourceAnchor | None,
+    *,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
+) -> _ResolvedAuthoredSourceExcerpt:
+    if source_anchor is None:
+        return _ResolvedAuthoredSourceExcerpt()
+
+    selected = (
+        source_anchor.normalized_selected_text or source_anchor.selected_text or ""
+    ).strip()
+    if not selected:
+        return _ResolvedAuthoredSourceExcerpt()
+
+    span_ref_id = (source_anchor.source_span_ref_id or "").strip()
+    if span_ref_id and paragraph_text_by_span_id:
+        paragraph_text = paragraph_text_by_span_id.get(span_ref_id)
+        if paragraph_text:
+            return _display_paragraph_excerpt(paragraph_text, [selected])
+
+    if markdown:
+        span, _resolution_code = _find_authored_alias_span_in_markdown(
+            markdown,
+            selected,
+            source_anchor=source_anchor,
+            occupied=[],
+        )
+        if span is not None:
+            paragraph_text = _paragraph_text_containing_span(span, markdown)
+            if paragraph_text:
+                return _display_paragraph_excerpt(paragraph_text, [selected])
+
+    return _ResolvedAuthoredSourceExcerpt(selected)
+
+
+def _source_excerpt_for_authored_relationship(
+    rel_assertion: AuthoredGraphRelationshipAssertion,
+    overlay: AuthoredGraphOverlay,
+    source_id: str,
+    *,
+    markdown: str | None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
+) -> _ResolvedAuthoredSourceExcerpt:
+    if isinstance(rel_assertion.summary, str) and rel_assertion.summary.strip():
+        return _ResolvedAuthoredSourceExcerpt(rel_assertion.summary.strip())
+
+    excerpt = _resolve_authored_source_excerpt_from_anchor(
+        markdown,
+        rel_assertion.source_anchor,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
+    )
+    if excerpt.text:
+        return excerpt
+
+    source_object = _object_assertion_for_authored_node_id(overlay, source_id)
+    if source_object is not None:
+        return _resolve_authored_source_excerpt_from_anchor(
+            markdown,
+            source_object.source_anchor,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
+        )
+
+    return _ResolvedAuthoredSourceExcerpt()
+
+
 def build_authored_projection_relationship_views(
     overlay: AuthoredGraphOverlay,
     node_views: dict[str, GraphProjectionNodeView],
     *,
     diagnostics: list[GraphAuthoringOverlayDiagnostic] | None = None,
     durable_redirect_map: dict[str, str] | None = None,
+    markdown: str | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> list[GraphProjectionAdjacencyCandidate]:
     unresolved = diagnostics if diagnostics is not None else []
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
@@ -544,6 +666,13 @@ def build_authored_projection_relationship_views(
         edge_label = rel_assertion.relationship_label or (
             f"{node_views[source_id].label} {predicate} {target_view.label}"
         )
+        resolved_excerpt = _source_excerpt_for_authored_relationship(
+            rel_assertion,
+            overlay,
+            source_id,
+            markdown=markdown,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
+        )
         relationships.append(
             GraphProjectionAdjacencyCandidate(
                 edge_id=edge_id,
@@ -558,11 +687,9 @@ def build_authored_projection_relationship_views(
                 edge_label=edge_label,
                 session_ids=[rel_assertion.session_id] if rel_assertion.session_id else [],
                 related_summary=target_view.summary,
-                source_excerpt=(
-                    rel_assertion.summary.strip()
-                    if isinstance(rel_assertion.summary, str) and rel_assertion.summary.strip()
-                    else None
-                ),
+                source_excerpt=resolved_excerpt.text,
+                source_excerpt_is_full_paragraph=resolved_excerpt.is_full_paragraph,
+                source_excerpt_highlight_spans=resolved_excerpt.highlight_spans or [],
                 source=AUTHORED_SOURCE_DOMAIN,
                 authored=True,
                 assertion_id=rel_assertion.assertion_id,
@@ -1745,6 +1872,7 @@ def apply_authored_overlay_to_graph_review_projection(
         merged_node_views,
         diagnostics=diagnostics,
         durable_redirect_map=durable_redirect_map,
+        markdown=projection.markdown,
     )
     for relationship in relationship_views:
         source_candidates = [

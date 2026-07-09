@@ -7,13 +7,11 @@ import {
   buildGraphObjectAuthoringProposal,
   buildGraphObjectAuthoringRelationshipProposal,
   createDefaultGraphObjectAuthoringFormState,
-  createDefaultGraphObjectAuthoringLinkExistingFormState,
   createDefaultGraphObjectAuthoringRelationshipFormState,
   createLocalGraphObjectProposalId,
   findDuplicateMergeProposal,
   findConflictingMergeProposal,
   type GraphObjectAuthoringFormState,
-  type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
@@ -31,13 +29,6 @@ export interface UseGraphObjectAuthoringDraftResult {
   ) => void;
   stageProposal: () => void;
   removeProposal: (localProposalId: string) => void;
-
-  linkExistingFormState: GraphObjectAuthoringLinkExistingFormState;
-  updateLinkExistingField: <K extends keyof GraphObjectAuthoringLinkExistingFormState>(
-    field: K,
-    value: GraphObjectAuthoringLinkExistingFormState[K],
-  ) => void;
-  stageLinkExistingProposal: () => void;
 
   relationshipFormState: GraphObjectAuthoringRelationshipFormState;
   updateRelationshipField: <K extends keyof GraphObjectAuthoringRelationshipFormState>(
@@ -108,10 +99,6 @@ export function useGraphObjectAuthoringDraft(
   const [formState, setFormState] = useState<GraphObjectAuthoringFormState>(
     createDefaultGraphObjectAuthoringFormState(null),
   );
-  const [linkExistingFormState, setLinkExistingFormState] =
-    useState<GraphObjectAuthoringLinkExistingFormState>(
-      createDefaultGraphObjectAuthoringLinkExistingFormState(),
-    );
   const [relationshipFormState, setRelationshipFormState] =
     useState<GraphObjectAuthoringRelationshipFormState>(
       createDefaultGraphObjectAuthoringRelationshipFormState(),
@@ -127,13 +114,11 @@ export function useGraphObjectAuthoringDraft(
   const openWithSelection = useCallback((selection: GraphAuthoringSelection) => {
     setSelectedSource(selection);
     setFormState(createDefaultGraphObjectAuthoringFormState(selection));
-    setLinkExistingFormState(createDefaultGraphObjectAuthoringLinkExistingFormState());
   }, []);
 
   const dismissSelection = useCallback(() => {
     setSelectedSource(null);
     setFormState(createDefaultGraphObjectAuthoringFormState(null));
-    setLinkExistingFormState(createDefaultGraphObjectAuthoringLinkExistingFormState());
   }, []);
 
   const updateFormField = useCallback(
@@ -158,36 +143,7 @@ export function useGraphObjectAuthoringDraft(
     setProposals((prev) => [...prev, proposal]);
     setSelectedSource(null);
     setFormState(createDefaultGraphObjectAuthoringFormState(null));
-    setLinkExistingFormState(createDefaultGraphObjectAuthoringLinkExistingFormState());
   }, [selectedSource, formState]);
-
-  const updateLinkExistingField = useCallback(
-    <K extends keyof GraphObjectAuthoringLinkExistingFormState>(
-      field: K,
-      value: GraphObjectAuthoringLinkExistingFormState[K],
-    ) => {
-      setLinkExistingFormState((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
-
-  const stageLinkExistingProposal = useCallback(() => {
-    if (!selectedSource) {
-      return;
-    }
-    const proposal = buildGraphObjectAuthoringLinkExistingProposal(
-      selectedSource,
-      linkExistingFormState,
-      createLocalGraphObjectProposalId(),
-    );
-    if (!proposal) {
-      return;
-    }
-    setProposals((prev) => [...prev, proposal]);
-    setSelectedSource(null);
-    setFormState(createDefaultGraphObjectAuthoringFormState(null));
-    setLinkExistingFormState(createDefaultGraphObjectAuthoringLinkExistingFormState());
-  }, [selectedSource, linkExistingFormState]);
 
   const updateRelationshipField = useCallback(
     <K extends keyof GraphObjectAuthoringRelationshipFormState>(
@@ -322,9 +278,6 @@ export function useGraphObjectAuthoringDraft(
     updateFormField,
     stageProposal,
     removeProposal,
-    linkExistingFormState,
-    updateLinkExistingField,
-    stageLinkExistingProposal,
     relationshipFormState,
     updateRelationshipField,
     stageRelationshipProposal,

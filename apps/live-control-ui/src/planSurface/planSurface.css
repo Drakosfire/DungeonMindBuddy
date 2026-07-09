@@ -4709,6 +4709,38 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.88rem;
 }
 
+.graph-object-authoring-surface-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.graph-object-authoring-pending-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 0.6rem;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.graph-object-authoring-pending-selection-label {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.graph-object-authoring-pending-selection-quote {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .graph-object-authoring-surface-actions {
   display: flex;
   justify-content: flex-start;
@@ -4882,6 +4914,13 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.78rem;
 }
 
+.graph-object-authoring-field-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .graph-object-authoring-review-staged-memory {
   margin-top: 0.75rem;
   padding: 0.85rem;
@@ -4979,36 +5018,11 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 0.1rem 0.5rem;
 }
 
-.graph-object-authoring-mode-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.graph-object-authoring-mode-tabs button {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
-  background: transparent;
-  color: #cbd5e1;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.35rem 0.85rem;
-}
-
-.graph-object-authoring-mode-tabs button.is-active {
-  border-color: rgba(96, 165, 250, 0.6);
-  background: rgba(37, 99, 235, 0.24);
-  color: #dbeafe;
-}
-
-.graph-object-authoring-link-existing-section,
 .graph-object-authoring-relationship-form {
   display: grid;
   gap: 0.65rem;
 }
 
-.graph-object-authoring-link-existing-lede,
 .graph-object-authoring-relationship-lede {
   margin: 0;
   color: #94a3b8;

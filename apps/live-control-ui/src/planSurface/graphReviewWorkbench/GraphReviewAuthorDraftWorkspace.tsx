@@ -36,6 +36,8 @@ export function GraphReviewAuthorDraftWorkspace() {
   const [selectedAuthoringNode, setSelectedAuthoringNode] =
     useState<GraphReviewSelectedNode | null>(null);
   const [activeTab, setActiveTab] = useState<AuthoringWorkflowTab>("create_new");
+  const [pendingAuthoringSelection, setPendingAuthoringSelection] =
+    useState<GraphAuthoringSelection | null>(null);
   const [railFraction, setRailFraction] = useState(DEFAULT_RAIL_FRACTION);
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{ startX: number; startFraction: number } | null>(null);
@@ -59,6 +61,7 @@ export function GraphReviewAuthorDraftWorkspace() {
 
   const handleGraphAuthoringSelection = useCallback(
     (selection: GraphAuthoringSelection | null) => {
+      setPendingAuthoringSelection(selection);
       if (!selection?.selectedText.trim()) {
         authorDraft.setSelectedText(null);
         return;
@@ -148,10 +151,6 @@ export function GraphReviewAuthorDraftWorkspace() {
             authoringEnabled
             onInspectNode={handleAuthoringNodeClick}
             onGraphAuthoringSelection={handleGraphAuthoringSelection}
-            onGraphAuthoringAction={(selection) => {
-              graphObjectAuthoringDraft.openWithSelection(selection);
-              setActiveTab("create_new");
-            }}
           />
         </div>
         <div
@@ -174,6 +173,8 @@ export function GraphReviewAuthorDraftWorkspace() {
           graphObjectAuthoringDraft={graphObjectAuthoringDraft}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
+          pendingAuthoringSelection={pendingAuthoringSelection}
+          onSelectAuthoringNode={setSelectedAuthoringNode}
         />
       </div>
     </section>

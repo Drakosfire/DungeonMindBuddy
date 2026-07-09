@@ -343,6 +343,7 @@ class GraphObjectAuthoringCommitResponse(BaseModel):
     diagnostics: list[GraphAuthoringDiagnostic]
     no_mutation_guarantees: list[str]
     union_store_materialization: GraphObjectAuthoringUnionStoreMaterializationSummary | None = None
+    created_node_ids: dict[str, str] = Field(default_factory=dict)
 
 
 def stable_json_digest(payload: object) -> str:

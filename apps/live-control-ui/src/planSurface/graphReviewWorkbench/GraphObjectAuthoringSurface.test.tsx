@@ -19,7 +19,7 @@ vi.mock("../../api/liveApi", () => ({
 }));
 
 import { prepareGraphObjectAuthoringWrite, commitGraphObjectAuthoringWrite } from "../../api/liveApi";
-import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
+import { buildManualGraphAuthoringSelection, type GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
@@ -43,11 +43,13 @@ function Harness({
   existingNodes = defaultExistingNodes,
   withPrepareCommit = false,
   focusPanel,
+  pendingSelection = null,
 }: {
   initialSelection?: GraphAuthoringSelection;
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   withPrepareCommit?: boolean;
   focusPanel?: import("./GraphObjectAuthoringSurface").GraphObjectAuthoringFocusPanel;
+  pendingSelection?: GraphAuthoringSelection | null;
 }) {
   const draft = useGraphObjectAuthoringDraft();
 
@@ -64,9 +66,16 @@ function Harness({
         onFormFieldChange={draft.updateFormField}
         onStageProposal={draft.stageProposal}
         onRemoveProposal={draft.removeProposal}
-        linkExistingFormState={draft.linkExistingFormState}
-        onLinkExistingFieldChange={draft.updateLinkExistingField}
-        onStageLinkExistingProposal={draft.stageLinkExistingProposal}
+        onStartManualDraft={() =>
+          draft.openWithSelection(
+            buildManualGraphAuthoringSelection({
+              campaignId: "longmont-c1",
+              sessionId: "session-2",
+            }),
+          )
+        }
+        pendingSelection={pendingSelection}
+        onUseSelectedText={(nextSelection) => draft.openWithSelection(nextSelection)}
         relationshipFormState={draft.relationshipFormState}
         onRelationshipFieldChange={draft.updateRelationshipField}
         onStageRelationshipProposal={draft.stageRelationshipProposal}
@@ -88,6 +97,80 @@ describe("GraphObjectAuthoringSurface", () => {
       screen.getByText(/Highlight source text in the recap/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/No staged memory yet/i)).toBeInTheDocument();
+  });
+
+  it("lets the user start and stage a manual object draft without a recap selection", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
+
+    expect(screen.getByText("New object")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Label"), {
+      target: { value: "Questionable Company" },
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(stagedProposal).toHaveTextContent("Questionable Company");
+  });
+
+  it("shows a call-to-action to use highlighted recap text inside the New object pane", () => {
+    render(<Harness pendingSelection={selection} />);
+
+    expect(screen.getByTestId("graph-object-authoring-pending-selection")).toBeInTheDocument();
+    expect(screen.getByText("“gang”")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-use-selected-text-button"));
+
+    expect(screen.getByLabelText("Label")).toHaveValue("gang");
+    expect(
+      screen.queryByTestId("graph-object-authoring-pending-selection"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show the pending-selection call-to-action once its text is already loaded", () => {
+    render(<Harness initialSelection={selection} pendingSelection={selection} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
+
+    expect(
+      screen.queryByTestId("graph-object-authoring-pending-selection"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables staging a manual draft until a label is entered", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
+
+    expect(screen.getByTestId("graph-object-authoring-stage-button")).toBeDisabled();
+  });
+
+  it("shows creating state and error feedback from quick commit", () => {
+    render(
+      <GraphObjectAuthoringSurface
+        focusPanel="create_new"
+        selectedSource={selection}
+        formState={{
+          label: "Questionable Company",
+          kind: "party",
+          role: "",
+          aliasesText: "",
+          summary: "",
+          operatorNote: "",
+          visibility: "gm_private",
+        }}
+        proposals={[]}
+        onFormFieldChange={() => {}}
+        onStageProposal={() => {}}
+        onRemoveProposal={() => {}}
+        creatingObject
+        createObjectError="Commit did not complete."
+      />,
+    );
+
+    expect(screen.getByTestId("graph-object-authoring-stage-button")).toBeDisabled();
+    expect(screen.getByTestId("graph-object-authoring-stage-button")).toHaveTextContent(
+      "Creating…",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Commit did not complete.");
   });
 
   it("seeds the label field from the selected text once opened", () => {
@@ -172,54 +255,6 @@ describe("GraphObjectAuthoringSurface", () => {
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "   " } });
 
     expect(screen.getByTestId("graph-object-authoring-stage-button")).toBeDisabled();
-  });
-
-  it("stages a link-existing proposal from selected text via the Link existing tab", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
-    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
-
-    fireEvent.change(screen.getByLabelText("Existing object"), {
-      target: { value: "manual" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "Questionable Company" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
-
-    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposal).toHaveAttribute("data-proposal-kind", "link_existing");
-    expect(stagedProposal).toHaveTextContent("Link existing");
-    expect(stagedProposal).toHaveTextContent("Questionable Company");
-    expect(stagedProposal).toHaveTextContent("gang");
-    expect(
-      screen.getByText(/These drafts are local until you prepare and commit them/i),
-    ).toBeInTheDocument();
-  });
-
-  it("disables link-existing staging until an existing object ref is chosen", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
-    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
-
-    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
-  });
-
-  it("keeps link-existing staging disabled when manual entry is selected but the label is blank", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
-    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
-
-    fireEvent.change(screen.getByLabelText("Existing object"), {
-      target: { value: "manual" },
-    });
-
-    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "   " },
-    });
-    expect(screen.getByTestId("graph-object-authoring-stage-link-existing-button")).toBeDisabled();
   });
 
   it("stages a relationship proposal between the inspected node and a manual ref without requiring a selection", () => {
@@ -351,27 +386,6 @@ describe("GraphObjectAuthoringSurface", () => {
 
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeEnabled();
     expect(screen.queryByTestId("graph-object-authoring-same-object-warning")).not.toBeInTheDocument();
-  });
-
-  it("lets link-existing drafts use player_visible visibility", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
-    fireEvent.click(screen.getByTestId("graph-object-authoring-mode-link-existing"));
-
-    fireEvent.change(screen.getByLabelText("Existing object"), {
-      target: { value: "manual" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "Questionable Company" },
-    });
-    fireEvent.change(screen.getByLabelText("Link visibility"), {
-      target: { value: "player_visible" },
-    });
-    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-link-existing-button"));
-
-    expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent(
-      "Player visible",
-    );
   });
 
   it("lets relationship drafts use player_visible visibility", () => {
