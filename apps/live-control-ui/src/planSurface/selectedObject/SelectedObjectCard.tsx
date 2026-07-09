@@ -1,5 +1,12 @@
+import { useCallback, useState } from "react";
+
+import { resolveRoll } from "../../api/liveApi";
 import type { ReferenceResolution } from "../reference/referenceResolver";
+import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import { useOptionalProjection } from "../projection/projectionContext";
+import type { PlanSessionDescriptor } from "../types";
+import { formatResolvedRoll } from "./formatResolvedRoll";
+import { buildSelectedObjectActions } from "./selectedObjectActions";
 import {
   buildSelectedObjectCardModel,
   type SelectedObjectAction,
@@ -8,7 +15,15 @@ import {
 
 export interface SelectedObjectCardProps {
   resolution: ReferenceResolution;
+  sessionDescriptor?: PlanSessionDescriptor;
 }
+
+type SelectedObjectActionState =
+  | { status: "idle" }
+  | { status: "rolling" }
+  | { status: "rolled"; label: string; resultText: string }
+  | { status: "opened_tool"; message: string }
+  | { status: "error"; message: string };
 
 function FieldList({
   fields,
@@ -35,10 +50,14 @@ function CardAction({
   action,
   onExpand,
   onOpenStatblock,
+  onRoll,
+  rolling,
 }: {
   action: SelectedObjectAction;
   onExpand: () => void;
   onOpenStatblock: () => void;
+  onRoll: (dice: string) => void;
+  rolling: boolean;
 }) {
   if (action.href) {
     return (
@@ -51,27 +70,87 @@ function CardAction({
   const handleClick = () => {
     if (action.id === "expand") onExpand();
     if (action.id === "statblock") onOpenStatblock();
+    if (action.id === "roll" && action.label.startsWith("Roll ")) {
+      onRoll(action.label.slice("Roll ".length));
+    }
   };
 
   return (
     <button
       type="button"
       className="plan-selected-object-action"
-      disabled={action.disabled}
+      disabled={action.disabled || (action.id === "roll" && rolling)}
       title={action.reason}
       onClick={handleClick}
     >
-      {action.label}
+      {action.id === "roll" && rolling ? "Rolling…" : action.label}
     </button>
   );
 }
 
-export function SelectedObjectCard({ resolution }: SelectedObjectCardProps) {
-  const projection = useOptionalProjection();
-  const model = buildSelectedObjectCardModel(resolution);
+function ActionFeedback({ state }: { state: SelectedObjectActionState }) {
+  if (state.status === "idle" || state.status === "rolling") return null;
 
-  const onExpand = () => projection?.expandContent();
-  const onOpenStatblock = () => projection?.openTool("statblock");
+  if (state.status === "rolled") {
+    return (
+      <p className="plan-selected-object-action-feedback plan-selected-object-action-feedback-roll">
+        Roll result: {state.resultText}
+      </p>
+    );
+  }
+
+  if (state.status === "opened_tool") {
+    return (
+      <p className="plan-selected-object-action-feedback plan-selected-object-action-feedback-tool">
+        {state.message}
+      </p>
+    );
+  }
+
+  return (
+    <p className="plan-selected-object-action-feedback plan-selected-object-action-feedback-error">
+      {state.message}
+    </p>
+  );
+}
+
+export function SelectedObjectCard({ resolution, sessionDescriptor }: SelectedObjectCardProps) {
+  const projection = useOptionalProjection();
+  const [actionState, setActionState] = useState<SelectedObjectActionState>({ status: "idle" });
+
+  const model = buildSelectedObjectCardModel(resolution);
+  const ingestHref = sessionDescriptor ? buildPlanIngestHref(sessionDescriptor) : "/ingest";
+  const actions = buildSelectedObjectActions(model, { ingestHref });
+
+  const onExpand = useCallback(() => {
+    projection?.expandContent();
+  }, [projection]);
+
+  const onOpenStatblock = useCallback(() => {
+    projection?.openTool("statblock");
+    setActionState({
+      status: "opened_tool",
+      message:
+        "Opened statblock tool. Selected object context is not loaded into the workbench yet.",
+    });
+  }, [projection]);
+
+  const onRoll = useCallback(async (dice: string) => {
+    setActionState({ status: "rolling" });
+    try {
+      const result = await resolveRoll(dice);
+      setActionState({
+        status: "rolled",
+        label: dice,
+        resultText: formatResolvedRoll(dice, result),
+      });
+    } catch (error) {
+      setActionState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Roll failed.",
+      });
+    }
+  }, []);
 
   return (
     <section
@@ -99,18 +178,22 @@ export function SelectedObjectCard({ resolution }: SelectedObjectCardProps) {
         </div>
       ) : null}
 
-      {model.actions.length > 0 ? (
+      {actions.length > 0 ? (
         <div className="plan-selected-object-actions" aria-label="Follow-up actions">
-          {model.actions.map((action) => (
+          {actions.map((action) => (
             <CardAction
               key={action.id}
               action={action}
               onExpand={onExpand}
               onOpenStatblock={onOpenStatblock}
+              onRoll={onRoll}
+              rolling={actionState.status === "rolling"}
             />
           ))}
         </div>
       ) : null}
+
+      <ActionFeedback state={actionState} />
 
       {model.diagnostics && model.status !== "resolved" ? (
         <p className="plan-selected-object-diagnostics">{model.diagnostics[0]}</p>

@@ -9,7 +9,7 @@ import { GraphReviewAuthorDraftToolPanel } from "../graphReviewWorkbench/GraphRe
 import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
-import type { PlanContextDescriptor } from "../types";
+import type { PlanContextDescriptor, SurfaceConfig } from "../types";
 import type { ReferenceResolution } from "../reference/referenceResolver";
 import { SelectedObjectCard } from "../selectedObject/SelectedObjectCard";
 
@@ -57,6 +57,14 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   return <p className="plan-projection-empty">Unknown tool: {toolId}</p>;
 }
 
-export function renderContentProjection(resolution: ReferenceResolution): ReactNode {
-  return <SelectedObjectCard resolution={resolution} />;
+export function renderContentProjection(
+  resolution: ReferenceResolution,
+  config: SurfaceConfig,
+): ReactNode {
+  return (
+    <SelectedObjectCard
+      resolution={resolution}
+      sessionDescriptor={config.sessionDescriptor}
+    />
+  );
 }

@@ -1439,6 +1439,24 @@
   color: var(--fg-mute, #9aa3b5);
 }
 
+.plan-selected-object-action-feedback {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.plan-selected-object-action-feedback-roll {
+  color: var(--fg, #e6e9ef);
+}
+
+.plan-selected-object-action-feedback-tool {
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.plan-selected-object-action-feedback-error {
+  color: #f5a8a8;
+}
+
 @media (max-width: 960px) {
   .plan-surface-layout {
     grid-template-columns: 1fr;

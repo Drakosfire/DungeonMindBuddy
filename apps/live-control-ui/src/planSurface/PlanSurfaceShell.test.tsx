@@ -880,6 +880,10 @@ describe("PlanSurfaceShell", () => {
     expect(within(projection).getByText("Location")).toBeInTheDocument();
     expect(within(projection).getByText("Source")).toBeInTheDocument();
     expect(within(projection).queryByText(/Resolved from live location index/i)).not.toBeInTheDocument();
+    expect(within(projection).getByRole("link", { name: "Review memory in /ingest" })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
   });
 
   it("shows Markdown save controls in the edit bar", () => {
