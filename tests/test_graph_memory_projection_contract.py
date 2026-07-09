@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -10,7 +13,12 @@ from graph_memory.projection import (
     build_node_view,
     build_recap_graph_projection,
 )
-from graph_memory.union_supergraph.load import load_union_supergraph_store
+from graph_memory.union_supergraph.load import (
+    DEFAULT_FIXTURE_PATH,
+    load_union_supergraph_payload,
+    load_union_supergraph_store,
+    parse_union_supergraph_store,
+)
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 
@@ -82,6 +90,110 @@ def test_node_view_adjacency_includes_edge_label_and_session_ids(
 
     assert gate_candidate.edge_label == "participated in"
     assert gate_candidate.session_ids == ["session-23"]
+
+
+def test_node_view_adjacency_includes_related_summary_and_source_excerpt() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    source = (
+        repo_root
+        / "out/graph_memory/runs/longmont-c2/session-23/20260629T183113Z/preview_union_supergraph.json"
+    )
+    if not source.is_file():
+        return
+
+    store = load_union_supergraph_store(source)
+    node_view = build_node_view(
+        store,
+        "party:captain_lysandra_ironveil",
+        focus_session_id="session-23",
+    )
+    inn = next(
+        candidate
+        for candidate in node_view.adjacency
+        if candidate.node_id == "location_inn_mireward_reach"
+    )
+
+    assert inn.source_excerpt
+    assert "inn" in inn.source_excerpt.casefold()
+
+
+def test_node_view_adjacency_resolves_full_paragraph_and_highlights_label_fragments() -> None:
+    """When a paragraph text index is available, source_excerpt should resolve
+    to the verbatim paragraph (not the pre-abridged evidence label), with
+    highlight spans covering the label's verbatim fragments."""
+    payload = json.loads(json.dumps(load_union_supergraph_payload(DEFAULT_FIXTURE_PATH)))
+    payload["evidence"]["evidence:session-23:caelynn:recap-mention"]["label"] = (
+        "Caelynn arrives at the gate ... to help defend the town"
+    )
+    store = parse_union_supergraph_store(payload)
+
+    full_paragraph = (
+        "Caelynn arrives at the gate just as the horde crashes through the outer wall, "
+        "and she draws her blade to help defend the town alongside the others."
+    )
+    node_view = build_node_view(
+        store,
+        "pc_caelynn",
+        focus_session_id="session-23",
+        paragraph_text_by_span_id={"spref:session-23:p014": full_paragraph},
+    )
+    gate_candidate = next(
+        candidate
+        for candidate in node_view.adjacency
+        if candidate.node_id == "event_session_23_mireward_gate"
+    )
+
+    assert gate_candidate.source_excerpt == full_paragraph
+    assert gate_candidate.source_excerpt_is_full_paragraph is True
+    fragments = [
+        full_paragraph[span.start : span.end]
+        for span in gate_candidate.source_excerpt_highlight_spans
+    ]
+    assert "Caelynn arrives at the gate" in fragments
+    assert "to help defend the town" in fragments
+
+
+def test_node_view_adjacency_falls_back_to_label_without_paragraph_index() -> None:
+    """Without a paragraph text index, the (possibly abridged) label remains
+    the excerpt and no highlight spans are produced."""
+    payload = json.loads(json.dumps(load_union_supergraph_payload(DEFAULT_FIXTURE_PATH)))
+    payload["evidence"]["evidence:session-23:caelynn:recap-mention"]["label"] = (
+        "Caelynn arrives at the gate ... to help defend the town"
+    )
+    store = parse_union_supergraph_store(payload)
+
+    node_view = build_node_view(store, "pc_caelynn", focus_session_id="session-23")
+    gate_candidate = next(
+        candidate
+        for candidate in node_view.adjacency
+        if candidate.node_id == "event_session_23_mireward_gate"
+    )
+
+    assert gate_candidate.source_excerpt == (
+        "Caelynn arrives at the gate ... to help defend the town"
+    )
+    assert gate_candidate.source_excerpt_is_full_paragraph is False
+    assert gate_candidate.source_excerpt_highlight_spans == []
+
+
+def test_node_view_adjacency_filters_placeholder_related_summary() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    source = (
+        repo_root
+        / "out/graph_memory/runs/longmont-c2/session-23/20260629T183113Z/preview_union_supergraph.json"
+    )
+    if not source.is_file():
+        return
+
+    store = load_union_supergraph_store(source)
+    node_view = build_node_view(
+        store,
+        "party:captain_lysandra_ironveil",
+        focus_session_id="session-23",
+    )
+
+    for candidate in node_view.adjacency:
+        assert candidate.related_summary != "Deterministic party context anchor"
 
 
 def test_node_view_suggested_expansions_are_ranked_focus_first(

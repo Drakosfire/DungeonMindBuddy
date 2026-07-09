@@ -1776,6 +1776,23 @@ export interface GraphProjectionAdjacencyCandidate {
   evidence_ref_ids: string[];
   edge_label?: string | null;
   session_ids?: string[];
+  /** Brief summary of the related node (not the selected node). */
+  related_summary?: string | null;
+  /**
+   * Recap/source excerpt supporting this relationship. Resolves to the full
+   * source paragraph when `source_excerpt_is_full_paragraph` is true;
+   * otherwise it's a pre-abridged evidence label (fallback when no paragraph
+   * text index is available for this run).
+   */
+  source_excerpt?: string | null;
+  source_excerpt_is_full_paragraph?: boolean;
+  /** Character-offset ranges within `source_excerpt` to visually highlight. */
+  source_excerpt_highlight_spans?: GraphProjectionTextHighlightSpan[];
+}
+
+export interface GraphProjectionTextHighlightSpan {
+  start: number;
+  end: number;
 }
 
 export interface GraphProjectionSuggestedExpansion extends GraphProjectionAdjacencyCandidate {

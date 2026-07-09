@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,12 +9,14 @@ from graph_memory.projection.focus_overlay import (
     GraphFocusOverlay,
     GraphProjectionEvidenceBadge,
 )
+from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
     GraphProjectionSuggestedExpansion,
+    GraphProjectionTextHighlightSpan,
 )
-from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.union_supergraph.model import UnionSupergraphNode, UnionSupergraphStore
 from graph_memory.union_supergraph.projection_identity import (
     UnionProjectionIdentityContext,
     UnionProjectionIdentityDiagnostic,
@@ -26,6 +29,95 @@ from graph_memory.union_supergraph.projection_identity import (
     resolve_projection_markdown_dmb_node_links,
     survivor_identity_provenance,
 )
+
+_PLACEHOLDER_NODE_SUMMARIES = frozenset({"deterministic party context anchor"})
+
+
+def _node_projection_summary(node: UnionSupergraphNode) -> str | None:
+    node_extra = node.model_extra or {}
+    description = node_extra.get("description")
+    if not isinstance(description, str):
+        return None
+    trimmed = description.strip()
+    if not trimmed or trimmed.casefold() in _PLACEHOLDER_NODE_SUMMARIES:
+        return None
+    return trimmed
+
+
+_LABEL_ELLIPSIS_PATTERN = re.compile(r"\s*(?:\.\.\.|\u2026)\s*")
+
+
+def _split_label_fragments(label: str) -> list[str]:
+    """Split a (possibly elided) evidence label into its verbatim fragments.
+
+    Evidence labels are frequently built by excerpting literal substrings of
+    the source paragraph and joining the gaps with an ellipsis. Splitting on
+    that ellipsis recovers the original verbatim fragments, which can then be
+    literally re-located in the full paragraph for highlighting.
+    """
+    fragments = [part.strip() for part in _LABEL_ELLIPSIS_PATTERN.split(label)]
+    return [fragment for fragment in fragments if fragment]
+
+
+class _ResolvedSourceExcerpt:
+    __slots__ = ("text", "is_full_paragraph", "highlight_spans")
+
+    def __init__(
+        self,
+        text: str | None,
+        *,
+        is_full_paragraph: bool = False,
+        highlight_spans: list[GraphProjectionTextHighlightSpan] | None = None,
+    ) -> None:
+        self.text = text
+        self.is_full_paragraph = is_full_paragraph
+        self.highlight_spans = highlight_spans or []
+
+
+def _resolve_evidence_source_excerpt(
+    store: UnionSupergraphStore,
+    evidence_ref_ids: Sequence[str],
+    *,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
+) -> _ResolvedSourceExcerpt:
+    for evidence_ref_id in evidence_ref_ids:
+        evidence = store.evidence.get(evidence_ref_id)
+        if evidence is None:
+            continue
+        evidence_extra = evidence.model_extra or {}
+        label = evidence_extra.get("label")
+        label_text = label.strip() if isinstance(label, str) and label.strip() else None
+        anchor_quotes_raw = evidence_extra.get("anchor_quotes")
+        anchor_quotes = [
+            quote.strip()
+            for quote in anchor_quotes_raw
+            if isinstance(quote, str) and quote.strip()
+        ] if isinstance(anchor_quotes_raw, list) else []
+
+        paragraph_text = (
+            paragraph_text_by_span_id.get(evidence.source_span_ref_id or "")
+            if paragraph_text_by_span_id
+            else None
+        )
+        if paragraph_text:
+            fragments = anchor_quotes or (
+                _split_label_fragments(label_text) if label_text else []
+            )
+            highlight_spans = [
+                GraphProjectionTextHighlightSpan(start=match.char_start, end=match.char_end)
+                for match in find_anchor_quote_matches(paragraph_text, fragments)
+            ]
+            return _ResolvedSourceExcerpt(
+                paragraph_text,
+                is_full_paragraph=True,
+                highlight_spans=highlight_spans,
+            )
+
+        if label_text:
+            return _ResolvedSourceExcerpt(label_text)
+        if anchor_quotes:
+            return _ResolvedSourceExcerpt(anchor_quotes[0])
+    return _ResolvedSourceExcerpt(None)
 
 
 class RecapProjectionSourceSpan(BaseModel):
@@ -122,6 +214,7 @@ def build_node_view(
     focus_session_id: str | None = None,
     *,
     identity_context: UnionProjectionIdentityContext | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> GraphProjectionNodeView:
     """Build a projection-ready view for one global node."""
 
@@ -130,6 +223,7 @@ def build_node_view(
         node_id,
         focus_session_id=focus_session_id,
         identity_context=identity_context,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
     )
     return view
 
@@ -140,6 +234,7 @@ def _build_node_view_with_identity(
     *,
     focus_session_id: str | None = None,
     identity_context: UnionProjectionIdentityContext | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> tuple[GraphProjectionNodeView, int]:
     context = identity_context or build_union_projection_identity_context(store)
     node = store.nodes[node_id]
@@ -161,6 +256,7 @@ def _build_node_view_with_identity(
         node_id,
         focus_session_id=resolved_focus_session_id,
         identity_context=context,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
     )
 
     suggested_expansions = _build_suggested_expansions(store, adjacency)
@@ -197,6 +293,8 @@ def build_recap_graph_projection(
     session_id: str,
     markdown: str | None = None,
     source_spans: list[RecapProjectionSourceSpan] | None = None,
+    *,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> RecapGraphProjection:
     """Build a backend-neutral recap graph projection from a union-supergraph store."""
 
@@ -235,6 +333,7 @@ def build_recap_graph_projection(
             node_id,
             focus_session_id=session_id,
             identity_context=identity_context,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
         )
         edge_endpoints_resolved += resolved_count
         node_views[node_id] = view
@@ -367,6 +466,7 @@ def _build_node_adjacency(
     *,
     focus_session_id: str | None,
     identity_context: UnionProjectionIdentityContext,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> tuple[list[GraphProjectionAdjacencyCandidate], int]:
     adjacency: list[GraphProjectionAdjacencyCandidate] = []
     edge_endpoints_resolved = 0
@@ -404,6 +504,7 @@ def _build_node_adjacency(
                 direction,
                 anchored_to_focus_session,
                 identity_context=identity_context,
+                paragraph_text_by_span_id=paragraph_text_by_span_id,
             )
         )
 
@@ -477,6 +578,7 @@ def _build_adjacency_candidate(
     anchored_to_focus_session: bool,
     *,
     identity_context: UnionProjectionIdentityContext | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> GraphProjectionAdjacencyCandidate:
     context = identity_context or build_union_projection_identity_context(store)
     edge = store.edges[edge_id]
@@ -484,6 +586,11 @@ def _build_adjacency_candidate(
     resolved_target_id = resolve_projected_node_id(edge.target_node_id, context)
     adjacent_node = store.nodes[adjacent_node_id]
     edge_label = edge.label.strip() if isinstance(edge.label, str) and edge.label.strip() else None
+    resolved_excerpt = _resolve_evidence_source_excerpt(
+        store,
+        edge.evidence_ref_ids,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
+    )
     return GraphProjectionAdjacencyCandidate(
         edge_id=edge.edge_id,
         node_id=adjacent_node.node_id,
@@ -498,6 +605,10 @@ def _build_adjacency_candidate(
         session_ids=list(edge.session_ids),
         source_node_id=resolved_source_id,
         target_node_id=resolved_target_id,
+        related_summary=_node_projection_summary(adjacent_node),
+        source_excerpt=resolved_excerpt.text,
+        source_excerpt_is_full_paragraph=resolved_excerpt.is_full_paragraph,
+        source_excerpt_highlight_spans=resolved_excerpt.highlight_spans,
     )
 
 
