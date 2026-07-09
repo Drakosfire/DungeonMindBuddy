@@ -557,6 +557,12 @@ def build_authored_projection_relationship_views(
                 evidence_ref_ids=[],
                 edge_label=edge_label,
                 session_ids=[rel_assertion.session_id] if rel_assertion.session_id else [],
+                related_summary=target_view.summary,
+                source_excerpt=(
+                    rel_assertion.summary.strip()
+                    if isinstance(rel_assertion.summary, str) and rel_assertion.summary.strip()
+                    else None
+                ),
                 source=AUTHORED_SOURCE_DOMAIN,
                 authored=True,
                 assertion_id=rel_assertion.assertion_id,

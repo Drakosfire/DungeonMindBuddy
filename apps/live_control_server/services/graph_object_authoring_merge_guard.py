@@ -42,7 +42,47 @@ def merge_assertions_conflict(
     right_survivor = _object_ref_identity_key(right.survivor_object_ref)
     if left_survivor == right_survivor:
         return False
+    if merge_assertion_supersedes_existing(proposed=left, existing=right):
+        return False
+    if merge_assertion_supersedes_existing(proposed=right, existing=left):
+        return False
     return True
+
+
+def merge_assertion_supersedes_existing(
+    *,
+    proposed: AuthoredGraphMergeObjectsAssertion,
+    existing: AuthoredGraphMergeObjectsAssertion,
+) -> bool:
+    """True when a new merge intentionally replaces an older survivor choice."""
+    if proposed.assertion_id == existing.assertion_id:
+        return False
+    if not merge_assertions_share_cluster(proposed, existing):
+        return False
+    proposed_survivor = _object_ref_identity_key(proposed.survivor_object_ref)
+    existing_survivor = _object_ref_identity_key(existing.survivor_object_ref)
+    if proposed_survivor == existing_survivor:
+        return False
+    proposed_merged_keys = merge_assertion_cluster_keys(proposed) - {proposed_survivor}
+    existing_merged_keys = merge_assertion_cluster_keys(existing) - {existing_survivor}
+    if proposed_survivor in existing_merged_keys:
+        return False
+    return existing_survivor in proposed_merged_keys
+
+
+def find_superseded_merge_assertion_ids(
+    proposed_assertions: list[AuthoredGraphAssertion],
+    *,
+    existing_assertions: list[AuthoredGraphAssertion],
+) -> set[str]:
+    proposed_merges = _active_merge_assertions(proposed_assertions)
+    existing_merges = _active_merge_assertions(existing_assertions)
+    superseded: set[str] = set()
+    for proposed in proposed_merges:
+        for existing in existing_merges:
+            if merge_assertion_supersedes_existing(proposed=proposed, existing=existing):
+                superseded.add(existing.assertion_id)
+    return superseded
 
 
 def _active_merge_assertions(
@@ -67,7 +107,8 @@ def _conflict_message(
         f"Identity merge conflicts with existing assertion {existing.assertion_id}: "
         f"both touch the same record cluster but choose different survivors "
         f"({proposed_survivor!r} vs {existing_survivor!r}). "
-        "Revoke or supersede the existing merge before committing a different survivor."
+        "Include the prior survivor as a duplicate to correct it, or revoke/supersede "
+        "the existing merge before committing a different survivor."
     )
 
 

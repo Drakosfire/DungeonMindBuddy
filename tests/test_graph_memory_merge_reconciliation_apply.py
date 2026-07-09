@@ -263,6 +263,7 @@ def test_mixed_redirect_conflict_skips_assertion_without_partial_mutation() -> N
                 merged_away_original_refs=("node:lysandra", "character_lysandra"),
                 merged_away_node_ids=("node:lysandra", "character_lysandra"),
                 redirects=redirects,
+                redirects_to_retract=(),
                 aliases_to_union=("Lysandra", "Captain Lysandra Ironveil"),
                 evidence_ref_ids_to_union=(
                     "evidence:session-23:lysandra:recap-mention",

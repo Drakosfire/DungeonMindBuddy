@@ -24,6 +24,7 @@ from apps.live_control_server.services.graph_merge_reconciliation_materialize im
 )
 from apps.live_control_server.services.graph_object_authoring_merge_guard import (
     detect_merge_assertion_conflicts,
+    find_superseded_merge_assertion_ids,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphAuthoringDiagnostic,
@@ -236,6 +237,16 @@ def commit_graph_object_authoring_write(
     )
 
     try:
+        superseded_ids = find_superseded_merge_assertion_ids(
+            assertions,
+            existing_assertions=existing_overlay.assertions,
+        )
+        if superseded_ids:
+            store.supersede_assertions(
+                request.campaign_id,
+                superseded_ids,
+                campaign_rel=request.campaign_rel,
+            )
         store.append_assertions(
             request.campaign_id,
             assertions,

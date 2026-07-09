@@ -7,6 +7,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 )
 from apps.live_control_server.services.graph_object_authoring_merge_guard import (
     detect_merge_assertion_conflicts,
+    find_superseded_merge_assertion_ids,
     merge_assertions_conflict,
 )
 from tests.test_graph_memory_merge_reconciliation_planner import (
@@ -53,6 +54,27 @@ def test_merge_assertions_do_not_conflict_when_survivors_match() -> None:
         merged_object_refs=[_ref("node:mireward-reach").model_dump()],
     )
     assert not merge_assertions_conflict(left, right)
+
+
+def test_merge_assertions_do_not_conflict_when_proposed_supersedes_existing_survivor() -> None:
+    existing = merge_assertion(
+        assertion_id="assert-existing",
+        survivor_object_ref=_ref("character_captain_lysandra_ironveil", kind="character").model_dump(),
+        merged_object_refs=[_ref("node:lysandra").model_dump()],
+    )
+    proposed = merge_assertion(
+        assertion_id="assert-proposed",
+        survivor_object_ref=_ref("party:captain_lysandra_ironveil", kind="companion").model_dump(),
+        merged_object_refs=[
+            _ref("node:lysandra").model_dump(),
+            _ref("character_captain_lysandra_ironveil", kind="character").model_dump(),
+        ],
+    )
+    assert not merge_assertions_conflict(proposed, existing)
+    assert find_superseded_merge_assertion_ids(
+        [proposed],
+        existing_assertions=[existing],
+    ) == {"assert-existing"}
 
 
 def test_detect_merge_assertion_conflicts_blocks_against_existing_overlay() -> None:

@@ -25,6 +25,9 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.union_supergraph.redirects import active_identity_redirect_map
+from graph_memory.union_supergraph.session_peer_edge_supplement import (
+    supplement_identity_cluster_edges_from_session_peers,
+)
 
 
 @dataclass(frozen=True)
@@ -180,6 +183,35 @@ def applied_identity_merge_assertion_ids(store: UnionSupergraphStore) -> frozens
     )
 
 
+def _retract_redirects_for_from_nodes(
+    store: UnionSupergraphStore,
+    from_node_ids: Sequence[str],
+    *,
+    materialization_pass_id: str,
+) -> int:
+    if not from_node_ids:
+        return 0
+    retract_targets = set(from_node_ids)
+    retracted = 0
+    updated_redirects: list[UnionIdentityRedirect] = []
+    for redirect in store.identity_redirects:
+        if redirect.status == "active" and redirect.from_node_id in retract_targets:
+            updated_redirects.append(
+                redirect.model_copy(
+                    update={
+                        "status": "retracted",
+                        "materialization_pass_id": materialization_pass_id,
+                    }
+                )
+            )
+            retracted += 1
+            continue
+        updated_redirects.append(redirect)
+    if retracted:
+        store.identity_redirects = updated_redirects
+    return retracted
+
+
 def _retract_outbound_redirects_for_survivor(
     store: UnionSupergraphStore,
     survivor_node_id: str,
@@ -287,6 +319,12 @@ def _apply_assertion_plan(
         return None
 
     active_redirects = active_identity_redirect_map(store.identity_redirects)
+    counts["redirects_retracted"] += _retract_redirects_for_from_nodes(
+        store,
+        assertion_plan.redirects_to_retract,
+        materialization_pass_id=materialization_pass_id,
+    )
+    active_redirects = active_identity_redirect_map(store.identity_redirects)
     redirects_to_add = _resolve_redirects_for_assertion(
         assertion_plan,
         active_redirects,
@@ -302,7 +340,7 @@ def _apply_assertion_plan(
 
     hydration = assertion_plan.survivor_hydration
     survivor_node_id = assertion_plan.survivor_node_id
-    counts["redirects_retracted"] = _retract_outbound_redirects_for_survivor(
+    counts["redirects_retracted"] += _retract_outbound_redirects_for_survivor(
         store,
         survivor_node_id,
         assertion_id=assertion_plan.assertion_id,
@@ -531,6 +569,7 @@ def apply_union_supergraph_merge_plan(
     union_store: UnionSupergraphStore,
     plan: UnionSupergraphMergePlan,
     applied_at: str,
+    union_store_path: Path | None = None,
 ) -> tuple[UnionSupergraphStore, UnionSupergraphApplyResult]:
     """Return a new store with merge reconciliation plan applied."""
     if plan.campaign_id != union_store.campaign_id:
@@ -571,6 +610,15 @@ def apply_union_supergraph_merge_plan(
         totals["merge_records_added"] += 1
         for key, value in counts.items():
             totals[key] += value
+
+        if union_store_path is not None:
+            imported, import_diagnostics = supplement_identity_cluster_edges_from_session_peers(
+                updated_store,
+                assertion_plan,
+                union_store_path=union_store_path,
+            )
+            diagnostics.extend(import_diagnostics)
+            totals["edges_rewired"] += imported
 
     if applied_assertion_ids:
         updated_store.adjacency = _rebuild_adjacency(updated_store)
@@ -633,6 +681,7 @@ def apply_union_supergraph_merge_plan_to_file(
         union_store=union_store,
         plan=plan,
         applied_at=applied_at,
+        union_store_path=union_store_path,
     )
 
     write_union_supergraph_store(union_store_path, updated_store)
