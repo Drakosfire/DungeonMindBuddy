@@ -5,6 +5,7 @@ import {
   type GraphReviewRelationshipPredicate,
 } from "./graphReviewLocalAuthoringState";
 import {
+  displayAliasesForNode,
   durableIdentitySummaryForNode,
   formatGraphObjectType,
   gameSummaryForNode,
@@ -85,51 +86,61 @@ function shouldShowReviewStatus(viewModel: GraphReviewSelectedNodeViewModel): bo
   );
 }
 
-function NodeIdentityHeader({ viewModel }: { viewModel: GraphReviewSelectedNodeViewModel }) {
-  const node = viewModel.node;
+function NodeIdentityHeader({ node }: { node: GraphProjectionNodeView }) {
+  const aliases = displayAliasesForNode(node);
   return (
     <>
-      <p className="plan-surface-kicker">{laneBadgeCopy(viewModel)}</p>
       <h4>{node.label}</h4>
       <p className="graph-review-game-kind">
         {formatGraphObjectType(node.kind, node.role)}
       </p>
+      {aliases.length ? (
+        <p className="graph-review-node-aliases">
+          Also known as: {aliases.join(", ")}
+        </p>
+      ) : null}
     </>
   );
 }
 
 function NodeGameSummary({ node }: { node: GraphProjectionNodeView }) {
+  const summary = gameSummaryForNode(node);
+  if (!summary) return null;
+
   return (
     <section aria-label="Campaign summary">
-      <p>{gameSummaryForNode(node)}</p>
+      <p>{summary}</p>
     </section>
   );
 }
 
-function NodeAliasMemoryNote({ node }: { node: GraphProjectionNodeView }) {
-  if (!isAuthoredNode(node) && !node.aliases.length) return null;
+function NodeMemoryDetails({
+  viewModel,
+  sourceAnchorShownAbove,
+}: {
+  viewModel: GraphReviewSelectedNodeViewModel;
+  sourceAnchorShownAbove: boolean;
+}) {
+  const node = viewModel.node;
 
   return (
-    <section className="graph-review-alias-memory-note" aria-label="Aliases and memory">
+    <details className="graph-review-memory-details-panel">
+      <summary>Memory &amp; visibility</summary>
+      <p className="graph-review-muted">{laneBadgeCopy(viewModel)}</p>
       {isAuthoredNode(node) ? (
         <p className="graph-review-muted">This node includes authored memory.</p>
-      ) : null}
-      {node.aliases.length ? (
-        <p>
-          Also known as: {node.aliases.join(", ")}
-        </p>
-      ) : null}
-      {node.source_anchor_text ? (
-        <p className="graph-review-muted">
-          Grounded from source phrase: “{node.source_anchor_text}”
-        </p>
       ) : null}
       {node.visibility ? (
         <p className="graph-review-muted">
           Visibility: {friendlyVisibilityCopy(node.visibility)}
         </p>
       ) : null}
-    </section>
+      {!sourceAnchorShownAbove && node.source_anchor_text ? (
+        <p className="graph-review-muted">
+          Grounded from source phrase: “{node.source_anchor_text}”
+        </p>
+      ) : null}
+    </details>
   );
 }
 
@@ -137,7 +148,10 @@ function NodeDurableIdentityNote({ node }: { node: GraphProjectionNodeView }) {
   const summary = durableIdentitySummaryForNode(node);
   if (!summary) return null;
 
-  const { foldedLine, contextLine } = mergedIdentityNoteCopy(summary, node.aliases);
+  const { foldedLine, contextLine } = mergedIdentityNoteCopy(summary, node.aliases, {
+    adjacencyCount: node.adjacency.length,
+    evidenceCount: node.evidence_badges.length,
+  });
 
   return (
     <section className="graph-review-durable-identity-note" aria-label="Merged identity">
@@ -145,12 +159,6 @@ function NodeDurableIdentityNote({ node }: { node: GraphProjectionNodeView }) {
       <p>
         {foldedLine} {contextLine}
       </p>
-      {node.evidence_badges.length > 0 ? (
-        <p className="graph-review-muted">
-          Includes {node.evidence_badges.length} evidence badge
-          {node.evidence_badges.length === 1 ? "" : "s"}.
-        </p>
-      ) : null}
     </section>
   );
 }
@@ -159,19 +167,24 @@ function NodeRelationshipSection({
   node,
   selectedEdgeId,
   onSelectRelationship,
+  onClearRelationship,
 }: {
   node: GraphProjectionNodeView;
   selectedEdgeId: string | null;
   onSelectRelationship: (relationship: GraphProjectionAdjacencyCandidate) => void;
+  onClearRelationship?: () => void;
 }) {
   return (
-    <section aria-label="Connected objects and relationships">
-      <h5>Connected objects / relationships</h5>
+    <section
+      className="graph-review-node-relationships-primary"
+      aria-label="Connected objects and relationships"
+    >
+      <h5>Related objects</h5>
       <GraphReviewRelationshipChips
-        sourceLabel={node.label}
         relationships={node.adjacency}
         selectedEdgeId={selectedEdgeId}
         onSelect={onSelectRelationship}
+        onClear={onClearRelationship}
       />
     </section>
   );
@@ -405,6 +418,7 @@ export function GraphReviewNodeGameCard({
   viewModel,
   selectedEdgeId,
   onSelectRelationship,
+  onClearRelationship,
   onSelectEvidenceDelta,
   actions = [],
   draftActionsNote,
@@ -415,28 +429,29 @@ export function GraphReviewNodeGameCard({
   onSelectRelationship: (
     relationship: GraphProjectionAdjacencyCandidate,
   ) => void;
+  onClearRelationship?: () => void;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
   actions?: GraphReviewSelectedObjectAction[];
   draftActionsNote?: string;
   relationshipStaging?: GraphReviewNodeGameCardRelationshipStaging;
 }) {
   const node = viewModel.node;
-  const sourceAnchorShownAbove = Boolean(isAuthoredNode(node) && node.source_anchor_text);
+  const sourceAnchorShownAbove = false;
 
   return (
     <article
       className="graph-review-node-game-card"
       aria-label={`${node.label} game card`}
     >
-      <NodeIdentityHeader viewModel={viewModel} />
-      <NodeGameSummary node={node} />
-      <NodeAliasMemoryNote node={node} />
-      <NodeDurableIdentityNote node={node} />
+      <NodeIdentityHeader node={node} />
       <NodeRelationshipSection
         node={node}
         selectedEdgeId={selectedEdgeId}
         onSelectRelationship={onSelectRelationship}
+        onClearRelationship={onClearRelationship}
       />
+      <NodeGameSummary node={node} />
+      <NodeDurableIdentityNote node={node} />
       <NodeActionsSection
         actions={actions}
         deltaId={viewModel.deltaId}
@@ -445,6 +460,10 @@ export function GraphReviewNodeGameCard({
         relationshipStaging={relationshipStaging}
       />
       <NodeReviewStatusDetails viewModel={viewModel} />
+      <NodeMemoryDetails
+        viewModel={viewModel}
+        sourceAnchorShownAbove={sourceAnchorShownAbove}
+      />
       <NodeEvidenceSourceDetails
         node={node}
         sourceAnchorShownAbove={sourceAnchorShownAbove}

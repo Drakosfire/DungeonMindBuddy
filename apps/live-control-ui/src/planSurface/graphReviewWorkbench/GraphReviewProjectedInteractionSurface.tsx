@@ -2,7 +2,6 @@ import { useEffect } from "react";
 
 import type { GraphProjectionAdjacencyCandidate } from "../../api/types";
 import { GraphReviewNodeGameCard } from "./GraphReviewNodeGameCard";
-import { GraphReviewRelationshipCard } from "./GraphReviewRelationshipCard";
 import {
   findSelectedAdjacency,
   type GraphReviewSelectedNodeViewModel,
@@ -15,6 +14,7 @@ export function GraphReviewProjectedInteractionSurface({
   selectedRelationship,
   onClose,
   onSelectRelationship,
+  onClearRelationship,
   onSelectEvidenceDelta,
 }: {
   open: boolean;
@@ -24,6 +24,7 @@ export function GraphReviewProjectedInteractionSurface({
   onSelectRelationship: (
     relationship: GraphProjectionAdjacencyCandidate,
   ) => void;
+  onClearRelationship?: () => void;
   onSelectEvidenceDelta: (deltaId: string | null) => void;
 }) {
   useEffect(() => {
@@ -65,15 +66,10 @@ export function GraphReviewProjectedInteractionSurface({
           viewModel={selectedNode}
           selectedEdgeId={relationship?.edge_id ?? null}
           onSelectRelationship={onSelectRelationship}
+          onClearRelationship={onClearRelationship}
           onSelectEvidenceDelta={onSelectEvidenceDelta}
           actions={[]}
         />
-        {relationship ? (
-          <GraphReviewRelationshipCard
-            sourceNode={selectedNode.node}
-            relationship={relationship}
-          />
-        ) : null}
       </section>
     </div>
   );

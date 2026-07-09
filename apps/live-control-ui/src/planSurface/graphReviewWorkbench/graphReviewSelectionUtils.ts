@@ -92,12 +92,182 @@ export function findSelectedAdjacency(
 }
 
 export function formatGraphReviewRelationshipStatement(
-  sourceLabel: string,
+  _sourceLabel: string,
   adjacency: GraphProjectionAdjacencyCandidate,
 ): string {
-  const predicate = adjacency.edge_label || adjacency.predicate || "relates to";
-  if (adjacency.direction === "incoming") return `${adjacency.label} ${predicate} ${sourceLabel}`;
-  return `${sourceLabel} ${predicate} ${adjacency.label}`;
+  const predicate = relationshipPredicateLabel(adjacency);
+  const summary = relatedSummaryForRelationship(adjacency);
+  if (summary) return `${adjacency.label} · ${predicate} · ${summary}`;
+  return `${adjacency.label} · ${predicate}`;
+}
+
+export function humanizeRelationshipPredicate(predicate: string): string {
+  return predicate.replace(/_/g, " ").trim() || "connected";
+}
+
+export function relationshipPredicateLabel(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): string {
+  const edgeLabel = adjacency.edge_label?.trim();
+  if (edgeLabel && edgeLabel.toLowerCase() !== "related") {
+    return humanizeRelationshipPredicate(edgeLabel);
+  }
+  const predicate = adjacency.predicate?.trim();
+  if (!predicate || predicate.toLowerCase() === "related") {
+    return "connected";
+  }
+  return humanizeRelationshipPredicate(predicate);
+}
+
+export function relatedSummaryForRelationship(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): string | null {
+  const related = adjacency.related_summary?.trim();
+  if (related && !isPlaceholderNodeSummary(related)) return related;
+  return null;
+}
+
+export function relationshipSourceExcerpt(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): string | null {
+  const excerpt = adjacency.source_excerpt?.trim();
+  return excerpt || null;
+}
+
+export function relationshipSourceExcerptIsFullParagraph(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): boolean {
+  return Boolean(adjacency.source_excerpt_is_full_paragraph);
+}
+
+export interface RelationshipSourceExcerptSegment {
+  text: string;
+  highlighted: boolean;
+}
+
+/**
+ * Split a relationship's source excerpt into segments so the UI can visually
+ * mark the fragments that actually ground this relationship (only populated
+ * when the excerpt resolved to the full source paragraph).
+ */
+export function relationshipSourceExcerptSegments(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): RelationshipSourceExcerptSegment[] {
+  const excerpt = relationshipSourceExcerpt(adjacency);
+  if (!excerpt) return [];
+  const spans = (adjacency.source_excerpt_highlight_spans ?? [])
+    .filter((span) => span.end > span.start && span.start >= 0 && span.end <= excerpt.length)
+    .sort((left, right) => left.start - right.start);
+  if (!spans.length) return [{ text: excerpt, highlighted: false }];
+
+  const segments: RelationshipSourceExcerptSegment[] = [];
+  let cursor = 0;
+  for (const span of spans) {
+    if (span.start < cursor) continue;
+    if (span.start > cursor) {
+      segments.push({ text: excerpt.slice(cursor, span.start), highlighted: false });
+    }
+    segments.push({ text: excerpt.slice(span.start, span.end), highlighted: true });
+    cursor = span.end;
+  }
+  if (cursor < excerpt.length) {
+    segments.push({ text: excerpt.slice(cursor), highlighted: false });
+  }
+  return segments;
+}
+
+export function relationshipMetaLine(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): string | null {
+  const parts: string[] = [relationshipPredicateLabel(adjacency)];
+  const kind = adjacency.kind?.trim();
+  if (kind) parts.push(kind);
+  const summary = relatedSummaryForRelationship(adjacency);
+  if (summary) parts.push(summary);
+  return parts.join(" · ");
+}
+
+export interface GraphReviewRelationshipGroup {
+  key: string;
+  members: GraphProjectionAdjacencyCandidate[];
+}
+
+/**
+ * Signature identifying relationships grounded in the exact same source
+ * phrase: same predicate/direction from the focus node, and the identical
+ * highlighted fragment within an identical excerpt. Returns null when there
+ * isn't a resolved highlighted phrase to compare, so relationships are only
+ * ever grouped on a real shared-evidence signal (never merged just because
+ * both lack an excerpt).
+ */
+function relationshipEvidenceSignature(
+  adjacency: GraphProjectionAdjacencyCandidate,
+): string | null {
+  const excerpt = relationshipSourceExcerpt(adjacency);
+  if (!excerpt) return null;
+  const highlighted = relationshipSourceExcerptSegments(adjacency)
+    .filter((segment) => segment.highlighted)
+    .map((segment) => segment.text.trim().toLowerCase())
+    .filter(Boolean);
+  if (!highlighted.length) return null;
+  const predicate = adjacency.predicate?.trim().toLowerCase() ?? "";
+  const direction = adjacency.direction?.trim().toLowerCase() ?? "";
+  return `${direction}|${predicate}|${excerpt}|${highlighted.join("¦")}`;
+}
+
+/**
+ * Groups adjacency candidates that are grounded in the identical source
+ * phrase (same paragraph, same highlighted fragment) into a single row, so
+ * e.g. "Bonogo" and "Karsemine" both attested by "Bonogo and Karsemine
+ * slipped past the guards" collapse into one relationship instead of
+ * repeating the same excerpt twice.
+ */
+export function groupRelationshipsByEvidence(
+  relationships: GraphProjectionAdjacencyCandidate[],
+): GraphReviewRelationshipGroup[] {
+  const groups: GraphReviewRelationshipGroup[] = [];
+  const groupIndexBySignature = new Map<string, number>();
+
+  for (const relationship of relationships) {
+    const signature = relationshipEvidenceSignature(relationship);
+    const existingIndex = signature ? groupIndexBySignature.get(signature) : undefined;
+    if (existingIndex !== undefined) {
+      groups[existingIndex].members.push(relationship);
+      continue;
+    }
+    const index = groups.length;
+    groups.push({
+      key: signature ?? `${relationship.edge_id}:${relationship.node_id}`,
+      members: [relationship],
+    });
+    if (signature) groupIndexBySignature.set(signature, index);
+  }
+  return groups;
+}
+
+export function relationshipGroupLabel(
+  members: GraphProjectionAdjacencyCandidate[],
+): string {
+  const labels = [...new Set(members.map((member) => member.label))];
+  if (labels.length <= 1) return labels[0] ?? "";
+  if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")} & ${labels[labels.length - 1]}`;
+}
+
+export function relationshipGroupMetaLine(
+  members: GraphProjectionAdjacencyCandidate[],
+): string | null {
+  const first = members[0];
+  if (!first) return null;
+  if (members.length === 1) return relationshipMetaLine(first);
+
+  // Multiple related objects: their individual summaries differ (shown per
+  // object in the expanded detail instead), so the row meta line only
+  // states what's true for the whole group.
+  const parts: string[] = [relationshipPredicateLabel(first)];
+  const kinds = [...new Set(members.map((member) => member.kind?.trim()).filter(Boolean))];
+  if (kinds.length === 1) parts.push(kinds[0] as string);
+  return parts.join(" · ");
 }
 
 export function formatGraphObjectType(
@@ -181,9 +351,25 @@ export function foldedIdentityLabels(
   });
 }
 
+const PLACEHOLDER_NODE_SUMMARIES = new Set([
+  "deterministic party context anchor",
+]);
+
+export function isPlaceholderNodeSummary(summary: string | null | undefined): boolean {
+  const normalized = summary?.trim().toLowerCase();
+  if (!normalized) return false;
+  return PLACEHOLDER_NODE_SUMMARIES.has(normalized);
+}
+
+export function displayAliasesForNode(node: GraphProjectionNodeView): string[] {
+  const label = node.label.trim().toLowerCase();
+  return node.aliases.filter((alias) => alias.trim() && alias.trim().toLowerCase() !== label);
+}
+
 export function mergedIdentityNoteCopy(
   summary: DurableIdentitySummary,
   aliases: string[],
+  options?: { adjacencyCount?: number; evidenceCount?: number },
 ): { foldedLine: string; contextLine: string } {
   const count = summary.foldedIdentityCount;
   const names = foldedIdentityLabels(summary.mergedAwayIds, aliases);
@@ -208,23 +394,46 @@ export function mergedIdentityNoteCopy(
     foldedLine = "This node includes durable merged identity context.";
   }
 
-  const contextLine =
-    count > 1
-      ? "Old links to those nodes now open this survivor. Evidence and relationships from merged duplicates are shown on this card."
-      : "Evidence and relationships from the duplicate are now shown here.";
+  const adjacencyCount = options?.adjacencyCount ?? 0;
+  const evidenceCount = options?.evidenceCount ?? 0;
+  let contextLine: string;
+  if (count > 1) {
+    if (adjacencyCount > 0 && evidenceCount > 0) {
+      contextLine =
+        "Old links to those nodes now open this survivor. Evidence and relationships from merged duplicates are shown on this card.";
+    } else if (adjacencyCount > 0) {
+      contextLine =
+        "Old links to those nodes now open this survivor. Relationships from merged duplicates are shown on this card.";
+    } else if (evidenceCount > 0) {
+      contextLine =
+        "Old links to those nodes now open this survivor. Evidence from merged duplicates is shown on this card.";
+    } else {
+      contextLine = "Old links to those nodes now open this survivor.";
+    }
+  } else if (adjacencyCount > 0 && evidenceCount > 0) {
+    contextLine = "Evidence and relationships from the duplicate are now shown here.";
+  } else if (adjacencyCount > 0) {
+    contextLine = "Relationships from the duplicate are now shown here.";
+  } else if (evidenceCount > 0) {
+    contextLine = "Evidence from the duplicate is now shown here.";
+  } else {
+    contextLine = "This node absorbed the duplicate identity.";
+  }
 
   return { foldedLine, contextLine };
 }
 
-export function gameSummaryForNode(node: GraphProjectionNodeView): string {
-  if (node.summary?.trim()) return node.summary;
+export function gameSummaryForNode(node: GraphProjectionNodeView): string | null {
+  const summary = node.summary?.trim();
+  if (summary && !isPlaceholderNodeSummary(summary)) return summary;
   const kind = (node.kind || "object").toLowerCase();
   const connectionCount = node.adjacency.length;
   if (connectionCount > 0) {
     return `This ${kind} has ${connectionCount} connected campaign relationship${connectionCount === 1 ? "" : "s"} in this session.`;
   }
-  if (node.aliases.length) {
-    return `This ${kind} is also known as ${node.aliases.join(", ")}.`;
+  const aliases = displayAliasesForNode(node);
+  if (aliases.length) {
+    return `This ${kind} is also known as ${aliases.join(", ")}.`;
   }
-  return "No campaign summary has been authored yet.";
+  return null;
 }

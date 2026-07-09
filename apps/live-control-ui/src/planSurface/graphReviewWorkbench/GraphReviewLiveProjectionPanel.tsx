@@ -181,6 +181,7 @@ export function GraphReviewLiveProjectionPanel() {
                   })
                 : undefined
             }
+            onClearRelationship={() => setSelectedRelationship(null)}
             onSelectEvidenceDelta={setSelectedEvidenceDeltaId}
           />
         </>

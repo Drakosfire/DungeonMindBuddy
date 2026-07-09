@@ -3939,6 +3939,87 @@ body.plan-toolbox-open .plan-agent-shell {
   align-items: center;
 }
 
+.graph-review-relationship-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.graph-review-relationship-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+  cursor: pointer;
+}
+
+.graph-review-relationship-row[aria-expanded="true"] {
+  border-color: rgba(125, 211, 252, 0.85);
+  background: rgba(14, 165, 233, 0.18);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.graph-review-relationship-target {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.graph-review-relationship-meta {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.graph-review-relationship-inline-detail {
+  border: 1px solid rgba(125, 211, 252, 0.85);
+  border-top: none;
+  border-radius: 0 0 0.55rem 0.55rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+  background: rgba(14, 165, 233, 0.06);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.graph-review-relationship-inline-detail p {
+  margin: 0;
+}
+
+.graph-review-relationship-source-excerpt {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid rgba(125, 211, 252, 0.55);
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 0.35rem;
+}
+
+.graph-review-relationship-source-excerpt p {
+  margin: 0.15rem 0 0;
+}
+
+.graph-review-relationship-source-excerpt mark {
+  background: rgba(250, 204, 21, 0.35);
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+.graph-review-relationship-technical-details {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.85rem;
+}
+
 .graph-review-authoring-mode-strip button,
 .graph-review-authoring-lane-badges button,
 .graph-review-card-actions button,
@@ -4060,6 +4141,30 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .graph-review-node-game-card section {
   margin-top: 0.75rem;
+}
+
+.graph-review-node-relationships-primary {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.graph-review-node-relationships-primary h5 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.graph-review-node-aliases {
+  margin: 0.15rem 0 0;
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.92rem;
+}
+
+.graph-review-memory-details-panel {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.9rem;
 }
 
 .graph-review-durable-identity-note {

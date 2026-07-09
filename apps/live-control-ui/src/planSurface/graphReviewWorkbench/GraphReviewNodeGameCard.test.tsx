@@ -63,7 +63,141 @@ function viewModel(
 }
 
 describe("GraphReviewNodeGameCard", () => {
-  it("renders summary before technical details in DOM order", () => {
+  const innRelationship = {
+    edge_id: "edge-inn",
+    node_id: "location_inn",
+    label: "Inn (Mireward Reach)",
+    kind: "location",
+    predicate: "related",
+    direction: "outgoing",
+    anchored_to_focus_session: true,
+    source_domains: ["recap"],
+    evidence_ref_ids: ["ev-inn"],
+    related_summary: "The party's meeting place with the town leader.",
+    source_excerpt: "They all head to the Inn to speak with the town leader.",
+  };
+
+  it("shows related object name with meta line and expands detail inline on click", async () => {
+    const user = userEvent.setup();
+    const onSelectRelationship = vi.fn();
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { adjacency: [innRelationship] })}
+        selectedEdgeId={null}
+        onSelectRelationship={onSelectRelationship}
+      />,
+    );
+
+    expect(screen.getByText("Inn (Mireward Reach)")).toBeInTheDocument();
+    expect(
+      screen.getByText(/connected · location · The party's meeting place/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Source excerpt")).not.toBeInTheDocument();
+
+    const row = screen.getByRole("button", { name: /Inn \(Mireward Reach\)/i });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(row);
+    expect(onSelectRelationship).toHaveBeenCalledWith(innRelationship);
+  });
+
+  it("expands inline relationship detail directly under the clicked row when selected", async () => {
+    const user = userEvent.setup();
+    const onClearRelationship = vi.fn();
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { adjacency: [innRelationship] })}
+        selectedEdgeId="edge-inn"
+        onSelectRelationship={vi.fn()}
+        onClearRelationship={onClearRelationship}
+      />,
+    );
+
+    const row = screen.getByRole("button", { name: /Inn \(Mireward Reach\)/i });
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Source excerpt")).toBeInTheDocument();
+    expect(
+      screen.getByText("They all head to the Inn to speak with the town leader."),
+    ).toBeInTheDocument();
+
+    const rowItem = row.closest("li");
+    expect(rowItem?.textContent).toContain("Source excerpt");
+
+    await user.click(row);
+    expect(onClearRelationship).toHaveBeenCalledOnce();
+  });
+
+  it("highlights the verbatim fragments within a resolved source paragraph", () => {
+    const fullParagraphRelationship = {
+      ...innRelationship,
+      source_excerpt:
+        "They all head to the Inn where they can clearly hear lots of voices before they even open the doors.",
+      source_excerpt_is_full_paragraph: true,
+      source_excerpt_highlight_spans: [{ start: 0, end: 20 }],
+    };
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { adjacency: [fullParagraphRelationship] })}
+        selectedEdgeId="edge-inn"
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Source paragraph \(highlighted excerpt below\)/i)).toBeInTheDocument();
+    const mark = screen.getByText("They all head to the");
+    expect(mark.tagName).toBe("MARK");
+    expect(screen.getByText(/where they can clearly hear/)).toBeInTheDocument();
+  });
+
+  it("groups relationships sharing the same highlighted source phrase into one row", () => {
+    const sharedExcerpt =
+      "Bonogo and Karsemine slipped past the guards while the others caused a distraction.";
+    const bonogoRelationship = {
+      edge_id: "edge-bonogo",
+      node_id: "pc_bonogo",
+      label: "Bonogo",
+      kind: "pc",
+      predicate: "present_at",
+      direction: "outgoing",
+      anchored_to_focus_session: true,
+      source_domains: ["recap"],
+      evidence_ref_ids: ["ev-bonogo"],
+      related_summary: "A rogue skilled at moving unseen.",
+      source_excerpt: sharedExcerpt,
+      source_excerpt_is_full_paragraph: true,
+      source_excerpt_highlight_spans: [{ start: 0, end: 24 }],
+    };
+    const karsemineRelationship = {
+      ...bonogoRelationship,
+      edge_id: "edge-karsemine",
+      node_id: "pc_karsemine",
+      label: "Karsemine",
+      related_summary: "A ranger watching the party's back.",
+      evidence_ref_ids: ["ev-karsemine"],
+    };
+
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel({}, { adjacency: [bonogoRelationship, karsemineRelationship] })}
+        selectedEdgeId="edge-bonogo"
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Bonogo & Karsemine")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Bonogo$/ })).not.toBeInTheDocument();
+
+    const row = screen.getByRole("button", { name: /Bonogo & Karsemine/i });
+    expect(row).toHaveAttribute("aria-expanded", "true");
+
+    expect(screen.getByText(/About Bonogo:/)).toBeInTheDocument();
+    expect(screen.getByText(/About Karsemine:/)).toBeInTheDocument();
+    const excerptHeader = screen.getByText(/Source paragraph \(shared by these linked objects/i);
+    const excerptBlock = excerptHeader.closest("blockquote");
+    expect(excerptBlock?.textContent).toContain(sharedExcerpt);
+  });
+
+  it("renders relationships before summary and technical details in DOM order", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -73,11 +207,13 @@ describe("GraphReviewNodeGameCard", () => {
     );
 
     const card = screen.getByLabelText(/the group game card/i);
+    const relationshipIndex = card.textContent!.indexOf("Related objects");
     const summaryIndex = card.textContent!.indexOf(
       "The adventuring collective that cleared the tower basement.",
     );
     const technicalIndex = card.textContent!.indexOf("Technical details");
-    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(relationshipIndex).toBeGreaterThanOrEqual(0);
+    expect(summaryIndex).toBeGreaterThan(relationshipIndex);
     expect(technicalIndex).toBeGreaterThan(summaryIndex);
   });
 
@@ -91,9 +227,7 @@ describe("GraphReviewNodeGameCard", () => {
     );
 
     const card = screen.getByLabelText(/the group game card/i);
-    const relationshipIndex = card.textContent!.indexOf(
-      "Connected objects / relationships",
-    );
+    const relationshipIndex = card.textContent!.indexOf("Related objects");
     const technicalIndex = card.textContent!.indexOf("Technical details");
     expect(relationshipIndex).toBeGreaterThanOrEqual(0);
     expect(technicalIndex).toBeGreaterThan(relationshipIndex);
@@ -186,7 +320,8 @@ describe("GraphReviewNodeGameCard", () => {
     expect(evidencePanel).not.toHaveAttribute("open");
   });
 
-  it("renders friendly authored memory copy for authored overlay nodes", () => {
+  it("keeps authored memory metadata collapsed by default", async () => {
+    const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -195,13 +330,20 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    expect(screen.getByText(/Authored memory/)).toBeInTheDocument();
-    expect(screen.getByText(/This node includes authored memory\./)).toBeInTheDocument();
+    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
+    expect(memoryPanel).not.toHaveAttribute("open");
+    expect(screen.queryByText(/This node includes authored memory\./)).not.toBeVisible();
+
+    await user.click(screen.getByText("Memory & visibility"));
+
+    expect(within(memoryPanel!).getByText(/Authored memory/)).toBeVisible();
+    expect(within(memoryPanel!).getByText(/This node includes authored memory\./)).toBeVisible();
+    expect(within(memoryPanel!).getByText(/Grounded from source phrase: “gang”/)).toBeVisible();
     expect(screen.queryByText("Authored overlay")).not.toBeInTheDocument();
-    expect(screen.getByText(/Grounded from source phrase: “gang”/)).toBeInTheDocument();
   });
 
-  it("renders friendly visibility copy for graph authoring enum values", () => {
+  it("renders friendly visibility copy inside memory details", async () => {
+    const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({}, { visibility: "player_visible" })}
@@ -210,12 +352,15 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    const aliasNote = screen.getByLabelText("Aliases and memory");
-    expect(within(aliasNote).getByText("Visibility: Player visible")).toBeInTheDocument();
-    expect(within(aliasNote).queryByText(/player_visible/i)).not.toBeInTheDocument();
+    await user.click(screen.getByText("Memory & visibility"));
+    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
+    expect(memoryPanel).not.toBeNull();
+    expect(within(memoryPanel!).getByText("Visibility: Player visible")).toBeInTheDocument();
+    expect(within(memoryPanel!).queryByText(/player_visible/i)).not.toBeInTheDocument();
   });
 
-  it("renders table_known visibility as friendly copy in the primary card", () => {
+  it("renders table_known visibility as friendly copy inside memory details", async () => {
+    const user = userEvent.setup();
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel({}, { visibility: "table_known" })}
@@ -224,9 +369,11 @@ describe("GraphReviewNodeGameCard", () => {
       />,
     );
 
-    const aliasNote = screen.getByLabelText("Aliases and memory");
-    expect(within(aliasNote).getByText("Visibility: Table known")).toBeInTheDocument();
-    expect(within(aliasNote).queryByText(/table_known/i)).not.toBeInTheDocument();
+    await user.click(screen.getByText("Memory & visibility"));
+    const memoryPanel = screen.getByText("Memory & visibility").closest("details");
+    expect(memoryPanel).not.toBeNull();
+    expect(within(memoryPanel!).getByText("Visibility: Table known")).toBeInTheDocument();
+    expect(within(memoryPanel!).queryByText(/table_known/i)).not.toBeInTheDocument();
   });
 
   it("renders a single object type line when kind and role match", () => {
@@ -424,8 +571,8 @@ describe("GraphReviewNodeGameCard", () => {
     expect(
       within(mergedIdentity).getByText(/Evidence and relationships from the duplicate are now shown here\./),
     ).toBeInTheDocument();
-    expect(within(mergedIdentity).getByText(/Includes 2 evidence badges\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /travels_to Mireward/i })).toBeInTheDocument();
+    expect(within(mergedIdentity).queryByText(/Includes .* evidence badge/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Mireward/i })).toBeInTheDocument();
     expect(screen.queryByText("0.92")).not.toBeInTheDocument();
     expect(screen.queryByText("evidence:session-23:lysandra:recap-mention")).not.toBeInTheDocument();
   });
@@ -474,7 +621,7 @@ describe("GraphReviewNodeGameCard", () => {
     expect(within(technicalPanel!).getByText("merge_record:lysandra")).toBeVisible();
   });
 
-  it("renders merged identity note before relationships in DOM order", () => {
+  it("renders relationships before merged identity in DOM order", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel(
@@ -490,9 +637,31 @@ describe("GraphReviewNodeGameCard", () => {
     );
 
     const card = screen.getByLabelText(/the group game card/i);
+    const relationshipIndex = card.textContent!.indexOf("Related objects");
     const mergedIdentityIndex = card.textContent!.indexOf("Merged identity");
-    const relationshipIndex = card.textContent!.indexOf("Connected objects / relationships");
-    expect(mergedIdentityIndex).toBeGreaterThanOrEqual(0);
-    expect(relationshipIndex).toBeGreaterThan(mergedIdentityIndex);
+    expect(relationshipIndex).toBeGreaterThanOrEqual(0);
+    expect(mergedIdentityIndex).toBeGreaterThan(relationshipIndex);
+  });
+
+  it("hides placeholder ingest summaries from the primary card", () => {
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel(
+          {},
+          {
+            summary: "Deterministic party context anchor",
+            adjacency: [],
+            aliases: ["Lysandra"],
+          },
+        )}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText("Deterministic party context anchor"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Also known as: Lysandra/)).toBeInTheDocument();
   });
 });
