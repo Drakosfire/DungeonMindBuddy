@@ -60,10 +60,20 @@ def build_union_projection_identity_context(
             continue
         applied_assertion_ids.add(record.assertion_id)
         merge_records_by_survivor[record.survivor_node_id].append(record)
+
+    for record in store.identity_merge_records:
+        if record.status != "applied":
+            continue
+        survivor_id = record.survivor_node_id
+        merged_away_to_survivor.pop(survivor_id, None)
         for merged_away_id in record.merged_away_node_ids:
-            merged_away_to_survivor[merged_away_id] = record.survivor_node_id
+            if merged_away_id == survivor_id:
+                continue
+            merged_away_to_survivor[merged_away_id] = survivor_id
         for original_ref_id in record.merged_away_original_refs:
-            merged_away_to_survivor.setdefault(original_ref_id, record.survivor_node_id)
+            if original_ref_id == survivor_id:
+                continue
+            merged_away_to_survivor.setdefault(original_ref_id, survivor_id)
 
     for from_node_id, redirect in redirects_by_from.items():
         merged_away_to_survivor.setdefault(from_node_id, redirect.to_node_id)

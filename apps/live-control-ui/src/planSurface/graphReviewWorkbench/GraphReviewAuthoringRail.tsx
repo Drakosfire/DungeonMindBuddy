@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphMergeReconciliationMaterializationPanel } from "./GraphMergeReconciliationMaterializationPanel";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
-import { buildGraphAuthoringSelectionFromRecapNode } from "./graphAuthoringSelection";
+import {
+  buildGraphAuthoringSelectionFromRecapNode,
+  buildManualGraphAuthoringSelection,
+  type GraphAuthoringSelection,
+} from "./graphAuthoringSelection";
 import { GraphReviewAuthoringPreparePreviewPanel } from "./GraphReviewAuthoringPreparePreviewPanel";
 import { GraphReviewLocalStagingTray } from "./GraphReviewLocalStagingTray";
 import { GraphReviewMergeCandidatesPanel } from "./GraphReviewMergeCandidatesPanel";
 import type { GraphObjectMergeCandidate } from "./graphObjectMergeCandidates";
-import { buildObjectRefFromInspectedNode } from "./graphObjectAuthoringDraft";
+import {
+  buildGraphObjectAuthoringProposal,
+  buildObjectRefFromInspectedNode,
+  createLocalGraphObjectProposalId,
+} from "./graphObjectAuthoringDraft";
 import {
   formatGraphObjectType,
   gameSummaryForNode,
@@ -17,6 +25,7 @@ import {
   type GraphReviewSelectedNode,
 } from "./graphReviewSelectionUtils";
 import type { UseGraphObjectAuthoringDraftResult } from "./useGraphObjectAuthoringDraft";
+import { useGraphObjectAuthoringQuickCommit } from "./useGraphObjectAuthoringQuickCommit";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 export type AuthoringWorkflowTab =
@@ -47,6 +56,8 @@ export interface GraphReviewAuthoringRailProps {
   graphObjectAuthoringDraft: UseGraphObjectAuthoringDraftResult;
   activeTab: AuthoringWorkflowTab;
   onActiveTabChange: (tab: AuthoringWorkflowTab) => void;
+  pendingAuthoringSelection?: GraphAuthoringSelection | null;
+  onSelectAuthoringNode: (node: GraphReviewSelectedNode) => void;
 }
 
 export function GraphReviewAuthoringRail({
@@ -54,6 +65,8 @@ export function GraphReviewAuthoringRail({
   graphObjectAuthoringDraft,
   activeTab,
   onActiveTabChange,
+  pendingAuthoringSelection = null,
+  onSelectAuthoringNode,
 }: GraphReviewAuthoringRailProps) {
   const {
     campaignId,
@@ -83,6 +96,69 @@ export function GraphReviewAuthoringRail({
   const [linkRecapPillEnabled, setLinkRecapPillEnabled] = useState(false);
   const [focusedMergeCandidate, setFocusedMergeCandidate] =
     useState<GraphObjectMergeCandidate | null>(null);
+  const [wizardAutoSearchQuery, setWizardAutoSearchQuery] = useState<string | null>(null);
+
+  const quickCommit = useGraphObjectAuthoringQuickCommit({
+    campaignId,
+    sessionId,
+    sourceRunId: liveRun?.run_id ?? null,
+    sourceGraphId: projection?.graph_id ?? null,
+    previewUnionStorePath: liveRun?.preview_union_store_path ?? null,
+  });
+
+  const handleCreateObject = useCallback(async () => {
+    const { selectedSource, formState } = graphObjectAuthoringDraft;
+    if (!selectedSource || !formState.label.trim()) {
+      return;
+    }
+    quickCommit.clearError();
+    const proposal = buildGraphObjectAuthoringProposal(
+      selectedSource,
+      formState,
+      createLocalGraphObjectProposalId(),
+    );
+    const result = await quickCommit.commitObjectProposal(proposal);
+    if (!result.committed) {
+      return;
+    }
+    if (reloadLiveProjection) {
+      await reloadLiveProjection();
+    }
+    graphObjectAuthoringDraft.dismissSelection();
+    const nodeId = result.nodeId;
+    if (nodeId) {
+      onSelectAuthoringNode({ laneRole: "live", nodeId });
+      setWizardAutoSearchQuery(proposal.objectRef.label);
+    }
+    onActiveTabChange("modify_existing");
+  }, [
+    graphObjectAuthoringDraft,
+    onActiveTabChange,
+    onSelectAuthoringNode,
+    quickCommit,
+    reloadLiveProjection,
+  ]);
+
+  const handleAdvanceToRelationships = useCallback(() => {
+    if (!selectedAuthoringViewModel) {
+      return;
+    }
+    applyAuthoringPillSelection({
+      nodeId: selectedAuthoringViewModel.node.node_id,
+      projection,
+      goldProjection,
+      relationshipFormState: graphObjectAuthoringDraft.relationshipFormState,
+      updateRelationshipField: graphObjectAuthoringDraft.updateRelationshipField,
+    });
+    onActiveTabChange("relationships");
+  }, [
+    goldProjection,
+    graphObjectAuthoringDraft.relationshipFormState,
+    graphObjectAuthoringDraft.updateRelationshipField,
+    onActiveTabChange,
+    projection,
+    selectedAuthoringViewModel,
+  ]);
 
   useEffect(() => {
     setLinkRecapPillEnabled(false);
@@ -101,11 +177,24 @@ export function GraphReviewAuthoringRail({
     formState: graphObjectAuthoringDraft.formState,
     proposals: graphObjectAuthoringDraft.proposals,
     onFormFieldChange: graphObjectAuthoringDraft.updateFormField,
-    onStageProposal: graphObjectAuthoringDraft.stageProposal,
+    onStageProposal: () => {
+      void handleCreateObject();
+    },
     onRemoveProposal: graphObjectAuthoringDraft.removeProposal,
-    linkExistingFormState: graphObjectAuthoringDraft.linkExistingFormState,
-    onLinkExistingFieldChange: graphObjectAuthoringDraft.updateLinkExistingField,
-    onStageLinkExistingProposal: graphObjectAuthoringDraft.stageLinkExistingProposal,
+    onStartManualDraft: () =>
+      graphObjectAuthoringDraft.openWithSelection(
+        buildManualGraphAuthoringSelection({
+          campaignId,
+          sessionId,
+          graphId: projection?.graph_id ?? null,
+          laneRole: "live",
+        }),
+      ),
+    pendingSelection: pendingAuthoringSelection,
+    onUseSelectedText: (selection: GraphAuthoringSelection) =>
+      graphObjectAuthoringDraft.openWithSelection(selection),
+    creatingObject: quickCommit.committing,
+    createObjectError: quickCommit.error,
     relationshipFormState: graphObjectAuthoringDraft.relationshipFormState,
     onRelationshipFieldChange: graphObjectAuthoringDraft.updateRelationshipField,
     onStageRelationshipProposal: graphObjectAuthoringDraft.stageRelationshipProposal,
@@ -122,6 +211,7 @@ export function GraphReviewAuthoringRail({
     existingNodes: existingGraphObjectNodes,
     laneRole: "live" as const,
     liveRunManifestPath: liveRun?.manifest_path ?? null,
+    previewUnionStorePath: liveRun?.preview_union_store_path ?? null,
     projectionNodeViews: projection?.node_views,
   };
 
@@ -251,10 +341,22 @@ export function GraphReviewAuthoringRail({
               ) : null}
             </div>
           ) : null}
+          {selectedAuthoringViewModel ? (
+            <div className="graph-object-authoring-surface-actions">
+              <button
+                type="button"
+                data-testid="graph-review-authoring-next-relationships-button"
+                onClick={handleAdvanceToRelationships}
+              >
+                Next: Relationships
+              </button>
+            </div>
+          ) : null}
           <ExistingObjectResolverPanel
             campaignId={campaignId}
             sessionId={sessionId}
             laneRole="live"
+            autoSearchQuery={wizardAutoSearchQuery}
             linkSourceNode={
               linkRecapPillEnabled && selectedAuthoringViewModel
                 ? selectedAuthoringViewModel.node
@@ -344,12 +446,18 @@ export function GraphReviewAuthoringRail({
             {...sharedSurfaceProps}
             focusPanel="stage_overlay"
           />
-          <GraphMergeReconciliationMaterializationPanel
-            campaignId={campaignId}
-            sessionId={sessionId}
-            previewUnionStorePath={liveRun?.preview_union_store_path ?? null}
-            onRefreshProjection={reloadLiveProjection}
-          />
+          <details
+            className="graph-review-advanced-materialization-panel"
+            data-testid="graph-review-advanced-materialization-panel"
+          >
+            <summary>Advanced: backfill durable materialization</summary>
+            <GraphMergeReconciliationMaterializationPanel
+              campaignId={campaignId}
+              sessionId={sessionId}
+              previewUnionStorePath={liveRun?.preview_union_store_path ?? null}
+              onRefreshProjection={reloadLiveProjection}
+            />
+          </details>
           {hasGold || authorDraft.localProposals.length > 0 ? (
             <details
               className="graph-review-gold-fixture-draft-panel"

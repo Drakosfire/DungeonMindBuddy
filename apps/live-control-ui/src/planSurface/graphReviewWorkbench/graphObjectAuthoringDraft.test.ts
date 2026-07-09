@@ -16,6 +16,7 @@ import {
   createDefaultGraphObjectAuthoringRelationshipFormState,
   dedupeAliasesCaseInsensitive,
   findDuplicateMergeProposal,
+  findConflictingMergeProposal,
   formatAuthoringRelationshipStatement,
   friendlyVisibilityLabel,
   GRAPH_OBJECT_AUTHORING_VISIBILITY_OPTIONS,
@@ -379,6 +380,88 @@ describe("merge proposal dedupe helpers", () => {
       staged ? [staged] : [],
     );
     expect(duplicate).toBe(staged);
+  });
+
+  it("de-duplicates merged refs that resolve to the same node id", () => {
+    const dupeMerged = buildObjectRefFromInspectedNode({
+      node_id: "edge-b",
+      label: "The Edge (again)",
+      kind: "location",
+    });
+    const staged = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: edgeSurvivor,
+      mergedObjectRefs: [edgeMerged, dupeMerged],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    });
+    expect(staged).not.toBeNull();
+    expect(staged?.mergedObjectRefs).toHaveLength(1);
+    expect(staged?.mergedObjectRefs[0]?.nodeId).toBe("edge-b");
+  });
+
+  it("drops merged refs that collide with the survivor and keeps the rest", () => {
+    const survivorCopy = buildObjectRefFromInspectedNode({
+      node_id: "edge-a",
+      label: "Edge (duplicate selection)",
+      kind: "location",
+    });
+    const staged = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: edgeSurvivor,
+      mergedObjectRefs: [survivorCopy, edgeMerged],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    });
+    expect(staged).not.toBeNull();
+    expect(staged?.mergedObjectRefs).toHaveLength(1);
+    expect(staged?.mergedObjectRefs[0]?.nodeId).toBe("edge-b");
+  });
+
+  it("returns null when every merged ref collides with the survivor", () => {
+    const survivorCopy = buildObjectRefFromInspectedNode({
+      node_id: "edge-a",
+      label: "Edge (duplicate selection)",
+      kind: "location",
+    });
+    const staged = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: edgeSurvivor,
+      mergedObjectRefs: [survivorCopy],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+    });
+    expect(staged).toBeNull();
+  });
+
+  it("detects conflicting merge proposals for the same cluster with different survivors", () => {
+    const orgSurvivor = buildObjectRefFromInspectedNode({
+      node_id: "organization_mireward_reach",
+      label: "Mireward Reach",
+      kind: "organization",
+    });
+    const locationMerged = buildObjectRefFromInspectedNode({
+      node_id: "location_mireward_reach",
+      label: "Mireward Reach",
+      kind: "location",
+    });
+    const locationSurvivor = buildObjectRefFromInspectedNode({
+      node_id: "location_mireward_reach",
+      label: "Mireward Reach",
+      kind: "location",
+    });
+    const orgMerged = buildObjectRefFromInspectedNode({
+      node_id: "organization_mireward_reach",
+      label: "Mireward Reach",
+      kind: "organization",
+    });
+    const staged = buildGraphObjectAuthoringMergeProposal({
+      survivorObjectRef: orgSurvivor,
+      mergedObjectRefs: [locationMerged],
+      mergeReason: "org canonical",
+      matchedFeatures: ["label"],
+    });
+    expect(staged).toBeTruthy();
+    expect(
+      findConflictingMergeProposal(locationSurvivor, [orgMerged], staged ? [staged] : []),
+    ).toBe(staged);
   });
 });
 

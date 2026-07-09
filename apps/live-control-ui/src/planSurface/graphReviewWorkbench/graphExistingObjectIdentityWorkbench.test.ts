@@ -155,7 +155,7 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     expect(input?.matchedFeatures).toContain("search_identity_workbench");
   });
 
-  it("preserves external canonical survivor ids when duplicate maps to projection node", () => {
+  it("preserves canonical and duplicate search record ids instead of projection remapping", () => {
     const nodeViews: Record<string, GraphProjectionNodeView> = {
       character_lysandra: {
         node_id: "character_lysandra",
@@ -201,12 +201,73 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     const input = buildSearchMergeStageInput(state, "graph-live-1", nodeViews);
     expect(input?.survivorObjectRef.nodeId).toBe("party:captain_lysandra_ironveil");
     expect(input?.mergedObjectRefs.map((ref) => ref.nodeId)).toEqual([
-      "character_lysandra",
+      "node:lysandra",
     ]);
     expect(isSearchMergeStageInputBlocked(input)).toBe(false);
   });
 
-  it("blocks staging when survivor and merged-away refs share a projection node id", () => {
+  it("allows staging when duplicate records differ from canonical even if projection fuzzy-match would collapse them", () => {
+    const mirewardCanonical: GraphReviewExistingObjectCandidate = {
+      ...lysandraSession,
+      candidate_id: "loc_mireward_reach",
+      label: "Mireward Reach",
+      kind: "location",
+      role: "settlement",
+      graph_scope: "current_recap_projection",
+      source_label: "Current recap",
+      aliases: ["Mireward Reach"],
+    };
+    const mirewardOrgDuplicate: GraphReviewExistingObjectCandidate = {
+      ...lysandraSession,
+      candidate_id: "organization_mireward_reach",
+      label: "Mireward Reach",
+      kind: "organization",
+      role: "faction",
+      graph_scope: "campaign_memory",
+      source_label: "Campaign memory",
+      aliases: ["Mireward Reach org"],
+    };
+    const mirewardLocationDuplicate: GraphReviewExistingObjectCandidate = {
+      ...lysandraSession,
+      candidate_id: "location_mireward_reach",
+      label: "Mireward Reach",
+      kind: "location",
+      role: "settlement",
+      graph_scope: "union_supergraph",
+      source_label: "Union supergraph",
+      aliases: ["Mireward"],
+    };
+    const nodeViews: Record<string, GraphProjectionNodeView> = {
+      loc_mireward_reach: {
+        node_id: "loc_mireward_reach",
+        label: "Mireward Reach",
+        kind: "location",
+        role: "settlement",
+        aliases: ["Mireward Reach", "Mireward"],
+        source_domains: ["recap"],
+        evidence_badges: [],
+        adjacency: [],
+        anchored_to_focus_session: true,
+        summary: null,
+      },
+    };
+
+    let state = createEmptyIdentitySelection();
+    state = setCanonicalCandidate(state, mirewardCanonical);
+    state = toggleDuplicateCandidate(state, mirewardOrgDuplicate);
+    state = toggleDuplicateCandidate(state, mirewardLocationDuplicate);
+
+    const input = buildSearchMergeStageInput(state, "graph-live-1", nodeViews);
+    expect(input).toBeTruthy();
+    expect(input?.survivorObjectRef.nodeId).toBe("loc_mireward_reach");
+    expect(input?.mergedObjectRefs.map((ref) => ref.nodeId)).toEqual([
+      "organization_mireward_reach",
+      "location_mireward_reach",
+    ]);
+    expect(isSearchMergeStageInputBlocked(input)).toBe(false);
+  });
+
+  it("blocks staging when every duplicate record shares the canonical survivor identity", () => {
     const input = buildSearchMergeStageInput({
       canonical: lysandraParty,
       duplicates: [lysandraSession],
@@ -215,10 +276,10 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     if (!input) {
       return;
     }
-    input.mergedObjectRefs[0] = {
-      ...input.mergedObjectRefs[0],
+    input.mergedObjectRefs = input.mergedObjectRefs.map((ref) => ({
+      ...ref,
       nodeId: input.survivorObjectRef.nodeId,
-    };
+    }));
     expect(getSearchMergeStageBlockReason(input)).toBe(
       "survivor_collides_with_merged_away",
     );

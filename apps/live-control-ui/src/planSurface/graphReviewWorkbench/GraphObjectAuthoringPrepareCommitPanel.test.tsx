@@ -275,6 +275,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
         sessionId="session-2"
         sourceRunId="run-c1s2"
         sourceGraphId="graph-c1s2"
+        previewUnionStorePath="/stores/preview_union.json"
         proposals={[stagedProposal]}
         onCommitted={onCommitted}
       />,
@@ -292,6 +293,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
         expect.objectContaining({
           sourceRunId: "run-c1s2",
           sourceGraphId: "graph-c1s2",
+          previewUnionStorePath: "/stores/preview_union.json",
         }),
       );
       expect(onCommitted).toHaveBeenCalledWith(["local-object-1"]);
@@ -394,6 +396,83 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       expect(
         screen.getByText(/Prepare again before committing/i),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("shows union graph materialization outcome after merge commit", async () => {
+    const mergeProposal = {
+      localProposalId: "local-merge-1",
+      proposalKind: "merge_objects",
+      status: "staged_local",
+      survivorObjectRef: {
+        refKind: "existing_graph_node",
+        nodeId: "survivor-node",
+        label: "Tripod Null-Calf",
+        kind: "threat",
+      },
+      mergedObjectRefs: [
+        {
+          refKind: "existing_graph_node",
+          nodeId: "merged-node",
+          label: "Tripod Null Calf",
+          kind: "threat",
+        },
+      ],
+      mergeReason: "Exact normalized label match",
+      matchedFeatures: ["Exact normalized label match"],
+      aliasPolicy: "preserve_all_aliases",
+      relationshipPolicy: "preserve_all_relationships",
+      evidencePolicy: "preserve_all_evidence",
+      visibility: { visibility: "gm_private", revealState: "unrevealed" },
+      graphScopes: ["recap_graph", "campaign_memory_graph"],
+      provenancePreview: {
+        origin: "human_authored",
+        authoringSurface: "memory_ingest_graph_authoring",
+      },
+    } as GraphObjectAuthoringProposal;
+
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      ...prepareResponse,
+      overlay_summary: {
+        ...prepareResponse.overlay_summary,
+        merge_objects_count: 1,
+      },
+    });
+    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue({
+      ...commitResponse,
+      union_store_materialization: {
+        attempted: true,
+        applied: true,
+        reason: "materialized",
+        applied_assertion_ids: ["assert-merge-1"],
+        redirects_added: 1,
+        edges_rewired: 1,
+        survivor_nodes_updated: 1,
+        diagnostics: [],
+      },
+    });
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        previewUnionStorePath="/stores/preview_union.json"
+        proposals={[mergeProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-object-authoring-commit-materialization-outcome"),
+      ).toHaveTextContent(/Merged directly into the union graph/i);
+      expect(screen.getByText(/1 redirect/i)).toBeInTheDocument();
     });
   });
 });

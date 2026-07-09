@@ -3939,6 +3939,87 @@ body.plan-toolbox-open .plan-agent-shell {
   align-items: center;
 }
 
+.graph-review-relationship-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.graph-review-relationship-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+  cursor: pointer;
+}
+
+.graph-review-relationship-row[aria-expanded="true"] {
+  border-color: rgba(125, 211, 252, 0.85);
+  background: rgba(14, 165, 233, 0.18);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.graph-review-relationship-target {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.graph-review-relationship-meta {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.graph-review-relationship-inline-detail {
+  border: 1px solid rgba(125, 211, 252, 0.85);
+  border-top: none;
+  border-radius: 0 0 0.55rem 0.55rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+  background: rgba(14, 165, 233, 0.06);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.graph-review-relationship-inline-detail p {
+  margin: 0;
+}
+
+.graph-review-relationship-source-excerpt {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid rgba(125, 211, 252, 0.55);
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 0.35rem;
+}
+
+.graph-review-relationship-source-excerpt p {
+  margin: 0.15rem 0 0;
+}
+
+.graph-review-relationship-source-excerpt mark {
+  background: rgba(250, 204, 21, 0.35);
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+.graph-review-relationship-technical-details {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.85rem;
+}
+
 .graph-review-authoring-mode-strip button,
 .graph-review-authoring-lane-badges button,
 .graph-review-card-actions button,
@@ -4060,6 +4141,90 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .graph-review-node-game-card section {
   margin-top: 0.75rem;
+}
+
+.graph-review-node-identity-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.graph-review-node-identity-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.55rem;
+}
+
+.graph-review-node-identity-header h4 {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+.graph-review-object-type-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.14rem 0.52rem;
+  border: 1px solid rgba(125, 211, 252, 0.38);
+  background: rgba(14, 165, 233, 0.14);
+  color: #bae6fd;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.graph-review-node-role-subtitle {
+  margin: 0;
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.82rem;
+}
+
+.graph-review-node-aliases {
+  margin: 0;
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.86rem;
+}
+
+.graph-review-node-relationships-primary {
+  margin-top: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.graph-review-node-relationships-primary h5 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.graph-review-projected-interaction-surface .graph-review-node-game-card {
+  border: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.graph-review-details-panel {
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.9rem;
+}
+
+.graph-review-details-section {
+  margin-top: 0.65rem;
+}
+
+.graph-review-details-section:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.graph-review-details-section h6 {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: inherit;
 }
 
 .graph-review-durable-identity-note {
@@ -4604,6 +4769,38 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.88rem;
 }
 
+.graph-object-authoring-surface-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.graph-object-authoring-pending-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 0.6rem;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.graph-object-authoring-pending-selection-label {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.graph-object-authoring-pending-selection-quote {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .graph-object-authoring-surface-actions {
   display: flex;
   justify-content: flex-start;
@@ -4777,6 +4974,13 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.78rem;
 }
 
+.graph-object-authoring-field-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .graph-object-authoring-review-staged-memory {
   margin-top: 0.75rem;
   padding: 0.85rem;
@@ -4874,36 +5078,11 @@ body.plan-toolbox-open .plan-agent-shell {
   padding: 0.1rem 0.5rem;
 }
 
-.graph-object-authoring-mode-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.graph-object-authoring-mode-tabs button {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
-  background: transparent;
-  color: #cbd5e1;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.35rem 0.85rem;
-}
-
-.graph-object-authoring-mode-tabs button.is-active {
-  border-color: rgba(96, 165, 250, 0.6);
-  background: rgba(37, 99, 235, 0.24);
-  color: #dbeafe;
-}
-
-.graph-object-authoring-link-existing-section,
 .graph-object-authoring-relationship-form {
   display: grid;
   gap: 0.65rem;
 }
 
-.graph-object-authoring-link-existing-lede,
 .graph-object-authoring-relationship-lede {
   margin: 0;
   color: #94a3b8;
@@ -5311,11 +5490,11 @@ body.plan-toolbox-open .plan-agent-shell {
   overflow: auto;
   border: 1px solid rgba(125, 211, 252, 0.38);
   border-radius: 1rem;
-  padding: 1rem;
+  padding: 0.85rem 1rem 1rem;
   background: rgba(15, 23, 42, 0.97);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
   display: grid;
-  gap: 1rem;
+  gap: 0.65rem;
 }
 
 .graph-review-projected-interaction-header {
@@ -5327,8 +5506,8 @@ body.plan-toolbox-open .plan-agent-shell {
   gap: 1rem;
   align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  padding: 0.75rem 0;
-  margin-bottom: 0.25rem;
+  padding: 0.35rem 0 0.55rem;
+  margin-bottom: 0;
   background: rgba(15, 23, 42, 0.97);
 }
 

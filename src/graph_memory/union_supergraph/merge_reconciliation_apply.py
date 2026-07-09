@@ -180,6 +180,67 @@ def applied_identity_merge_assertion_ids(store: UnionSupergraphStore) -> frozens
     )
 
 
+def _retract_redirects_for_from_nodes(
+    store: UnionSupergraphStore,
+    from_node_ids: Sequence[str],
+    *,
+    materialization_pass_id: str,
+) -> int:
+    if not from_node_ids:
+        return 0
+    retract_targets = set(from_node_ids)
+    retracted = 0
+    updated_redirects: list[UnionIdentityRedirect] = []
+    for redirect in store.identity_redirects:
+        if redirect.status == "active" and redirect.from_node_id in retract_targets:
+            updated_redirects.append(
+                redirect.model_copy(
+                    update={
+                        "status": "retracted",
+                        "materialization_pass_id": materialization_pass_id,
+                    }
+                )
+            )
+            retracted += 1
+            continue
+        updated_redirects.append(redirect)
+    if retracted:
+        store.identity_redirects = updated_redirects
+    return retracted
+
+
+def _retract_outbound_redirects_for_survivor(
+    store: UnionSupergraphStore,
+    survivor_node_id: str,
+    *,
+    assertion_id: str,
+    materialization_pass_id: str,
+) -> int:
+    """Retract active redirects that still map the canonical survivor away from itself."""
+    retracted = 0
+    updated_redirects: list[UnionIdentityRedirect] = []
+    for redirect in store.identity_redirects:
+        if (
+            redirect.status == "active"
+            and redirect.from_node_id == survivor_node_id
+            and redirect.to_node_id != survivor_node_id
+        ):
+            updated_redirects.append(
+                redirect.model_copy(
+                    update={
+                        "status": "retracted",
+                        "materialization_pass_id": materialization_pass_id,
+                    }
+                )
+            )
+            retracted += 1
+            continue
+        updated_redirects.append(redirect)
+    if retracted:
+        store.identity_redirects = updated_redirects
+    return retracted
+
+
 def _applied_assertion_ids(store: UnionSupergraphStore) -> set[str]:
     return set(applied_identity_merge_assertion_ids(store))
 
@@ -234,6 +295,7 @@ def _apply_assertion_plan(
 ) -> dict[str, int] | None:
     counts = {
         "redirects_added": 0,
+        "redirects_retracted": 0,
         "survivor_nodes_created": 0,
         "survivor_nodes_updated": 0,
         "merged_away_nodes_marked": 0,
@@ -254,6 +316,12 @@ def _apply_assertion_plan(
         return None
 
     active_redirects = active_identity_redirect_map(store.identity_redirects)
+    counts["redirects_retracted"] += _retract_redirects_for_from_nodes(
+        store,
+        assertion_plan.redirects_to_retract,
+        materialization_pass_id=materialization_pass_id,
+    )
+    active_redirects = active_identity_redirect_map(store.identity_redirects)
     redirects_to_add = _resolve_redirects_for_assertion(
         assertion_plan,
         active_redirects,
@@ -269,6 +337,12 @@ def _apply_assertion_plan(
 
     hydration = assertion_plan.survivor_hydration
     survivor_node_id = assertion_plan.survivor_node_id
+    counts["redirects_retracted"] += _retract_outbound_redirects_for_survivor(
+        store,
+        survivor_node_id,
+        assertion_id=assertion_plan.assertion_id,
+        materialization_pass_id=materialization_pass_id,
+    )
     aliases_to_add = list(assertion_plan.aliases_to_union)
     evidence_to_add = list(assertion_plan.evidence_ref_ids_to_union)
     domains_to_add = list(hydration.source_domains_to_add if hydration else ())
@@ -306,7 +380,8 @@ def _apply_assertion_plan(
         )
     else:
         updated_state = dict(existing_survivor.state)
-        updated_state.setdefault("memory_state", "graph_read_model")
+        updated_state["memory_state"] = "graph_read_model"
+        updated_state.pop("merged_into", None)
         updated_state["identity_state"] = "survivor"
         updated_state["merge_assertion_id"] = assertion_plan.assertion_id
         updated_state["materialization_pass_id"] = materialization_pass_id
@@ -491,6 +566,7 @@ def apply_union_supergraph_merge_plan(
     union_store: UnionSupergraphStore,
     plan: UnionSupergraphMergePlan,
     applied_at: str,
+    union_store_path: Path | None = None,
 ) -> tuple[UnionSupergraphStore, UnionSupergraphApplyResult]:
     """Return a new store with merge reconciliation plan applied."""
     if plan.campaign_id != union_store.campaign_id:
@@ -506,6 +582,7 @@ def apply_union_supergraph_merge_plan(
 
     totals = {
         "redirects_added": 0,
+        "redirects_retracted": 0,
         "merge_records_added": 0,
         "survivor_nodes_created": 0,
         "survivor_nodes_updated": 0,
@@ -592,6 +669,7 @@ def apply_union_supergraph_merge_plan_to_file(
         union_store=union_store,
         plan=plan,
         applied_at=applied_at,
+        union_store_path=union_store_path,
     )
 
     write_union_supergraph_store(union_store_path, updated_store)

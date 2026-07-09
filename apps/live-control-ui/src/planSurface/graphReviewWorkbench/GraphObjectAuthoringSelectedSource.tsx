@@ -1,4 +1,4 @@
-import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
+import { isManualGraphAuthoringSelection, type GraphAuthoringSelection } from "./graphAuthoringSelection";
 
 function fieldValue(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") {
@@ -90,20 +90,30 @@ export function GraphObjectAuthoringSelectedSource({
 }: {
   selection: GraphAuthoringSelection;
 }) {
+  const isManual = isManualGraphAuthoringSelection(selection);
+
   return (
     <section
       className="graph-object-authoring-selected-source"
       aria-label="Selected source"
     >
       <header className="graph-object-authoring-selected-source-header">
-        <p className="graph-object-authoring-selected-source-label">Selected source</p>
-        <p className="graph-object-authoring-selected-source-phrase">“{selection.selectedText}”</p>
+        <p className="graph-object-authoring-selected-source-label">
+          {isManual ? "New object" : "Selected source"}
+        </p>
+        {isManual ? (
+          <p className="graph-object-authoring-selected-source-phrase">
+            Authored directly — not grounded to recap text.
+          </p>
+        ) : (
+          <p className="graph-object-authoring-selected-source-phrase">“{selection.selectedText}”</p>
+        )}
       </header>
 
-      <SelectedSourceContext selection={selection} />
+      {isManual ? null : <SelectedSourceContext selection={selection} />}
 
       <p className="graph-object-authoring-selected-source-lede">
-        Draft only. Nothing has been written.
+        Draft only. Create object saves it to authored memory immediately.
       </p>
 
       <SourceDetailsPanel selection={selection} />

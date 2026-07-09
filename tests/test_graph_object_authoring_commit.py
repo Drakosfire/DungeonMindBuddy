@@ -60,9 +60,11 @@ def _commit_request_from_prepare(
     proposals: list[dict[str, object]] | None = None,
     source_run_id: str | None = None,
     source_graph_id: str | None = None,
+    preview_union_store_path: str | None = None,
+    campaign_id: str = CAMPAIGN_ID,
 ) -> GraphObjectAuthoringCommitRequest:
     payload: dict[str, object] = {
-        "campaignId": CAMPAIGN_ID,
+        "campaignId": campaign_id,
         "campaignRel": TEST_CAMPAIGN_REL,
         "sessionId": "session-2",
         "proposals": proposals or [object_proposal()],
@@ -73,6 +75,8 @@ def _commit_request_from_prepare(
         payload["sourceRunId"] = source_run_id
     if source_graph_id is not None:
         payload["sourceGraphId"] = source_graph_id
+    if preview_union_store_path is not None:
+        payload["previewUnionStorePath"] = preview_union_store_path
     return GraphObjectAuthoringCommitRequest.model_validate(payload)
 
 
@@ -93,6 +97,14 @@ def test_commit_with_matching_token_writes_overlay(store: GraphAuthoringOverlayS
     overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert len(overlay.assertions) == 1
     assert overlay.assertions[0].assertion_kind == "object"
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        authored_object_node_id,
+    )
+
+    assertion = overlay.assertions[0]
+    assert response.created_node_ids == {
+        "local-object-1": authored_object_node_id(assertion.assertion_id),
+    }
 
 
 def test_commit_appends_event_log(store: GraphAuthoringOverlayStore, corpus_root: Path) -> None:
@@ -112,6 +124,99 @@ def test_commit_appends_event_log(store: GraphAuthoringOverlayStore, corpus_root
     lines = events_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == response.event_count
     assert response.event_count == 3  # batch + 2 assertions
+
+
+def test_commit_audits_superseded_merge_assertion(
+    store: GraphAuthoringOverlayStore,
+    corpus_root: Path,
+) -> None:
+    from tests.test_graph_object_authoring_merge_prepare import merge_proposal
+
+    existing_merge = merge_proposal(
+        localProposalId="local-merge-existing",
+        survivorObjectRef={
+            "refKind": "existing_graph_node",
+            "nodeId": "character_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+        },
+        mergedObjectRefs=[
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "node:lysandra",
+                "label": "Lysandra",
+                "kind": "character",
+            }
+        ],
+    )
+    first_prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[existing_merge]),
+        corpus_root=corpus_root,
+    )
+    first_response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(first_prepare, proposals=[existing_merge]),
+        corpus_root=corpus_root,
+    )
+    assert first_response.committed is True
+    existing_assertion_id = store.load_overlay(
+        CAMPAIGN_ID,
+        campaign_rel=TEST_CAMPAIGN_REL,
+    ).assertions[0].assertion_id
+
+    replacement_merge = merge_proposal(
+        localProposalId="local-merge-replacement",
+        survivorObjectRef={
+            "refKind": "existing_graph_node",
+            "nodeId": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "companion",
+        },
+        mergedObjectRefs=[
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "node:lysandra",
+                "label": "Lysandra",
+                "kind": "character",
+            },
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": "character_captain_lysandra_ironveil",
+                "label": "Captain Lysandra Ironveil",
+                "kind": "character",
+            },
+        ],
+    )
+    second_prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[replacement_merge]),
+        corpus_root=corpus_root,
+    )
+    second_response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(second_prepare, proposals=[replacement_merge]),
+        corpus_root=corpus_root,
+    )
+
+    assert second_response.committed is True
+    assert second_response.event_count == 3  # batch + supersession + merge
+    overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+    assert overlay.assertions[0].status == "superseded"
+    replacement_assertion_id = overlay.assertions[1].assertion_id
+    events = [
+        json.loads(line)
+        for line in store.events_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert {
+        "assertion_id": existing_assertion_id,
+        "superseding_assertion_id": replacement_assertion_id,
+    } in [
+        {
+            "assertion_id": event["assertion_id"],
+            "superseding_assertion_id": event["superseding_assertion_id"],
+        }
+        for event in events
+        if event["event_kind"] == "authored_graph_assertion_superseded"
+    ]
 
 
 def test_commit_with_bad_token_fails(store: GraphAuthoringOverlayStore, corpus_root: Path) -> None:
@@ -358,6 +463,254 @@ def test_commit_event_log_failure_returns_partial_guarantees(
     assert "event log was not appended" in joined
     assert "committed authored graph memory" not in joined
     assert "appended authoring event log" not in joined
+    assert "updated preview union graph store" not in joined
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.attempted is False
+    assert response.union_store_materialization.applied is False
+    assert response.union_store_materialization.reason == "event_log_failed"
 
     overlay = store.load_overlay(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert len(overlay.assertions) == 1
+
+
+def test_commit_event_log_failure_does_not_materialize_union_store(
+    merge_materialization_workspace: dict[str, Path],
+) -> None:
+    from tests.test_graph_memory_merge_reconciliation_planner import CAMPAIGN_ID as MERGE_CAMPAIGN_ID
+
+    corpus_root = merge_materialization_workspace["corpus_root"]
+    root = merge_materialization_workspace["root"]
+    union_store_path = merge_materialization_workspace["union_store_path"]
+    union_store_bytes_before = union_store_path.read_bytes()
+    merge_proposal_payload = _lysandra_merge_proposal()
+
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload], campaignId=MERGE_CAMPAIGN_ID),
+        corpus_root=corpus_root,
+    )
+    with patch(
+        "apps.live_control_server.services.graph_object_authoring_commit.append_graph_authoring_events",
+        side_effect=GraphAuthoringEventLogError("disk full"),
+    ):
+        response = commit_graph_object_authoring_write(
+            _commit_request_from_prepare(
+                prepare,
+                proposals=[merge_proposal_payload],
+                preview_union_store_path=str(union_store_path),
+                campaign_id=MERGE_CAMPAIGN_ID,
+            ),
+            corpus_root=corpus_root,
+            repo_root_override=root,
+        )
+
+    assert response.committed is False
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.reason == "event_log_failed"
+    assert response.union_store_materialization.applied is False
+    assert union_store_path.read_bytes() == union_store_bytes_before
+
+
+def _lysandra_merge_proposal() -> dict[str, object]:
+    from tests.test_graph_object_authoring_merge_prepare import merge_proposal
+    from tests.test_a10m_lysandra_durable_identity_dogfood import (
+        MERGED_AWAY_NODE_ID,
+        SURVIVOR_NODE_ID,
+    )
+
+    return merge_proposal(
+        survivorObjectRef={
+            "refKind": "existing_graph_node",
+            "nodeId": SURVIVOR_NODE_ID,
+            "label": "Captain Lysandra Ironveil",
+            "kind": "companion",
+        },
+        mergedObjectRefs=[
+            {
+                "refKind": "existing_graph_node",
+                "nodeId": MERGED_AWAY_NODE_ID,
+                "label": "Lysandra",
+                "kind": "character",
+            }
+        ],
+    )
+
+
+@pytest.fixture
+def merge_materialization_workspace(tmp_path: Path) -> dict[str, Path]:
+    from graph_memory.union_supergraph.load import write_union_supergraph_store
+    from tests.test_a10m_lysandra_durable_identity_dogfood import (
+        _lysandra_pre_reconciliation_store,
+    )
+
+    root = tmp_path
+    corpus_root = root / "corpus"
+    campaign_dir = corpus_root / TEST_CAMPAIGN_REL
+    campaign_dir.mkdir(parents=True)
+    (campaign_dir / "Session Recaps").mkdir()
+    (campaign_dir / "Session Recaps" / "recap.md").write_text("# recap\n", encoding="utf-8")
+
+    store_dir = root / "stores"
+    store_dir.mkdir()
+    union_store_path = store_dir / "preview_union.json"
+    write_union_supergraph_store(union_store_path, _lysandra_pre_reconciliation_store())
+
+    return {
+        "root": root,
+        "corpus_root": corpus_root,
+        "union_store_path": union_store_path,
+    }
+
+
+def test_commit_materializes_merge_when_preview_union_store_path_set(
+    merge_materialization_workspace: dict[str, Path],
+) -> None:
+    from graph_memory.union_supergraph.load import load_union_supergraph_store
+    from graph_memory.union_supergraph.redirects import (
+        active_identity_redirect_map,
+        resolve_union_node_id,
+    )
+    from tests.test_a10m_lysandra_durable_identity_dogfood import MERGED_AWAY_NODE_ID, SURVIVOR_NODE_ID
+    from tests.test_graph_memory_merge_reconciliation_planner import CAMPAIGN_ID as MERGE_CAMPAIGN_ID
+
+    corpus_root = merge_materialization_workspace["corpus_root"]
+    root = merge_materialization_workspace["root"]
+    union_store_path = merge_materialization_workspace["union_store_path"]
+    merge_proposal_payload = _lysandra_merge_proposal()
+
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload], campaignId=MERGE_CAMPAIGN_ID),
+        corpus_root=corpus_root,
+    )
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare,
+            proposals=[merge_proposal_payload],
+            preview_union_store_path=str(union_store_path),
+            campaign_id=MERGE_CAMPAIGN_ID,
+        ),
+        corpus_root=corpus_root,
+        repo_root_override=root,
+    )
+
+    assert response.committed is True
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.applied is True
+    assert response.union_store_materialization.reason == "materialized"
+    assert response.union_store_materialization.redirects_added == 1
+
+    updated_store = load_union_supergraph_store(union_store_path)
+    redirect_map = active_identity_redirect_map(updated_store.identity_redirects)
+    assert (
+        resolve_union_node_id(MERGED_AWAY_NODE_ID, redirect_map) == SURVIVOR_NODE_ID
+    )
+
+
+def test_commit_without_preview_union_store_path_skips_materialization(
+    corpus_root: Path,
+) -> None:
+    merge_proposal_payload = _lysandra_merge_proposal()
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload]),
+        corpus_root=corpus_root,
+    )
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare,
+            proposals=[merge_proposal_payload],
+        ),
+        corpus_root=corpus_root,
+    )
+
+    assert response.committed is True
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.applied is False
+    assert (
+        response.union_store_materialization.reason
+        == "no_preview_union_store_selected"
+    )
+
+
+def test_commit_after_merge_materialized_reports_no_actionable_assertions(
+    merge_materialization_workspace: dict[str, Path],
+) -> None:
+    from tests.test_graph_memory_merge_reconciliation_planner import CAMPAIGN_ID as MERGE_CAMPAIGN_ID
+
+    corpus_root = merge_materialization_workspace["corpus_root"]
+    root = merge_materialization_workspace["root"]
+    union_store_path = merge_materialization_workspace["union_store_path"]
+    merge_proposal_payload = _lysandra_merge_proposal()
+
+    prepare_merge = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload], campaignId=MERGE_CAMPAIGN_ID),
+        corpus_root=corpus_root,
+    )
+    commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare_merge,
+            proposals=[merge_proposal_payload],
+            preview_union_store_path=str(union_store_path),
+            campaign_id=MERGE_CAMPAIGN_ID,
+        ),
+        corpus_root=corpus_root,
+        repo_root_override=root,
+    )
+
+    prepare_object = prepare_graph_object_authoring_write(
+        prepare_request(
+            proposals=[object_proposal(localProposalId="local-object-2")],
+            campaignId=MERGE_CAMPAIGN_ID,
+        ),
+        corpus_root=corpus_root,
+    )
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare_object,
+            proposals=[object_proposal(localProposalId="local-object-2")],
+            preview_union_store_path=str(union_store_path),
+            campaign_id=MERGE_CAMPAIGN_ID,
+        ),
+        corpus_root=corpus_root,
+        repo_root_override=root,
+    )
+
+    assert response.committed is True
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.applied is False
+    assert (
+        response.union_store_materialization.reason
+        == "no_actionable_merge_assertions"
+    )
+
+
+def test_commit_materialization_failure_does_not_fail_commit(
+    merge_materialization_workspace: dict[str, Path],
+) -> None:
+    from tests.test_graph_memory_merge_reconciliation_planner import CAMPAIGN_ID as MERGE_CAMPAIGN_ID
+
+    corpus_root = merge_materialization_workspace["corpus_root"]
+    root = merge_materialization_workspace["root"]
+    merge_proposal_payload = _lysandra_merge_proposal()
+
+    prepare = prepare_graph_object_authoring_write(
+        prepare_request(proposals=[merge_proposal_payload], campaignId=MERGE_CAMPAIGN_ID),
+        corpus_root=corpus_root,
+    )
+    response = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare,
+            proposals=[merge_proposal_payload],
+            preview_union_store_path=str(root / "missing" / "preview_union.json"),
+            campaign_id=MERGE_CAMPAIGN_ID,
+        ),
+        corpus_root=corpus_root,
+        repo_root_override=root,
+    )
+
+    assert response.committed is True
+    assert response.union_store_materialization is not None
+    assert response.union_store_materialization.applied is False
+    assert response.union_store_materialization.reason == "materialization_failed"
+    assert any(
+        item.code == "union_store_materialization_failed"
+        for item in response.union_store_materialization.diagnostics
+    )

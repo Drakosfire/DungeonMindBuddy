@@ -3,8 +3,10 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  commitGraphObjectAuthoringWrite,
   getGoldGraphProjection,
   getUnionSupergraphProjection,
+  prepareGraphObjectAuthoringWrite,
 } from "../../api/liveApi";
 import type {
   GraphIngestRunSummary,
@@ -42,6 +44,8 @@ vi.mock("../../api/liveApi", async () => {
     ...actual,
     getGoldGraphProjection: vi.fn(),
     getUnionSupergraphProjection: vi.fn(),
+    prepareGraphObjectAuthoringWrite: vi.fn(),
+    commitGraphObjectAuthoringWrite: vi.fn(),
   };
 });
 
@@ -261,11 +265,67 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
   });
 
   it("opens graph object authoring from Tiptap text selection in the rail", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue({
+    const projectionAfterCreate = {
       ...projectionWithMentions,
       markdown: "The gang arrived at the gate.",
-      node_views: {},
+      node_views: {
+        "authored:assert-test123": {
+          node_id: "authored:assert-test123",
+          label: "Questionable Company",
+          kind: "party",
+          role: null,
+          aliases: ["gang"],
+          summary: null,
+          source_domains: ["authored_overlay"],
+          adjacency: [],
+          evidence_badges: [],
+        },
+      },
+    };
+    vi.mocked(getUnionSupergraphProjection)
+      .mockResolvedValueOnce({
+        ...projectionWithMentions,
+        markdown: "The gang arrived at the gate.",
+        node_views: {},
+      })
+      .mockResolvedValue(projectionAfterCreate);
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
+      prepared: true,
+      campaign_id: "longmont-c2",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      current_overlay_token: "token-before",
+      proposed_assertions_digest: "digest",
+      confirm_token: "confirm-token",
+      assertion_count: 1,
+      event_count: 1,
+      assertions_preview: [],
+      overlay_summary: {
+        existing_assertion_count: 0,
+        proposed_assertion_count: 1,
+        total_assertion_count: 1,
+        object_count: 1,
+        link_existing_count: 0,
+        relationship_count: 0,
+        merge_objects_count: 0,
+      },
+      diagnostics: [],
+      no_mutation_guarantees: [],
     });
+    vi.mocked(commitGraphObjectAuthoringWrite).mockImplementation(async (request) => ({
+      committed: true,
+      campaign_id: "longmont-c2",
+      overlay_path: "/tmp/overlay.json",
+      event_log_path: "/tmp/events.jsonl",
+      assertion_count: 1,
+      event_count: 1,
+      new_overlay_token: "token-after",
+      diagnostics: [],
+      no_mutation_guarantees: [],
+      created_node_ids: {
+        [request.proposals[0]?.localProposalId ?? "missing"]: "authored:assert-test123",
+      },
+    }));
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
@@ -289,19 +349,34 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.mouseUp(proseMirror);
 
     await waitFor(() => {
-      expect(screen.getByTestId("graph-authoring-action")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("graph-object-authoring-use-selected-text-button"),
+      ).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId("graph-authoring-action"));
+    fireEvent.click(screen.getByTestId("graph-object-authoring-use-selected-text-button"));
 
     expect(screen.getByLabelText("Label")).toHaveValue("gang");
     fireEvent.change(screen.getByLabelText("Label"), {
       target: { value: "Questionable Company" },
     });
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
-    fireEvent.click(screen.getByRole("tab", { name: "Stage & commit" }));
 
-    const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(stagedProposal).toHaveTextContent("Questionable Company");
+    await waitFor(() => {
+      expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalled();
+      expect(commitGraphObjectAuthoringWrite).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Existing object" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-review-authoring-next-relationships-button"),
+      ).toBeInTheDocument();
+    });
   });
 });
 

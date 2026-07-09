@@ -39,13 +39,33 @@ describe("GraphObjectAuthoringSelectedSource", () => {
     expect(screen.getByText(/Context/i)).toBeInTheDocument();
     expect(screen.getByText(/The/)).toBeInTheDocument();
     expect(screen.getByText(/survived the night/)).toBeInTheDocument();
-    expect(screen.getByText(/Draft only. Nothing has been written./i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Draft only. Create object saves it to authored memory immediately./i),
+    ).toBeInTheDocument();
   });
 
   it("shows fallback context copy when no surrounding text exists", () => {
     render(<GraphObjectAuthoringSelectedSource selection={selectionWithoutContext} />);
 
     expect(screen.getByText("Selected phrase from the recap.")).toBeInTheDocument();
+  });
+
+  it("shows manual-entry copy instead of a quoted phrase when there is no recap selection", () => {
+    const manualSelection: GraphAuthoringSelection = {
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+      selectionKind: "text_span",
+      selectedText: "",
+      normalizedSelectedText: "",
+      graphId: "graph-c1s2",
+      laneRole: "live",
+    };
+    render(<GraphObjectAuthoringSelectedSource selection={manualSelection} />);
+
+    expect(screen.getByText("New object")).toBeInTheDocument();
+    expect(screen.getByText(/Authored directly/i)).toBeInTheDocument();
+    expect(screen.queryByText("Context")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected phrase from the recap.")).not.toBeInTheDocument();
   });
 
   it("does not show technical metadata in the primary view", () => {

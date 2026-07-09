@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import {
   buildGraphAuthoringSelectionFromEditor,
+  buildManualGraphAuthoringSelection,
   graphAuthoringSelectionsEqual,
+  isManualGraphAuthoringSelection,
   MAX_AUTHORING_SELECTED_TEXT_LENGTH,
   normalizeAuthoringSelectedText,
 } from "./graphAuthoringSelection";
@@ -30,6 +32,27 @@ function createAuthoringEditor(content: Parameters<Editor["commands"]["setConten
 describe("graphAuthoringSelection", () => {
   it("normalizes selected text whitespace", () => {
     expect(normalizeAuthoringSelectedText("  gang\n  members  ")).toBe("gang members");
+  });
+
+  it("builds a manual selection with no recap grounding and flags it as manual", () => {
+    const selection = buildManualGraphAuthoringSelection({
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+      graphId: "graph-c1s2",
+      laneRole: "live",
+    });
+
+    expect(selection.selectedText).toBe("");
+    expect(selection.sourceArtifactPath).toBeNull();
+    expect(isManualGraphAuthoringSelection(selection)).toBe(true);
+  });
+
+  it("does not flag a recap-grounded selection as manual", () => {
+    const selection = buildManualGraphAuthoringSelection({
+      campaignId: "longmont-c1",
+      sessionId: "session-2",
+    });
+    expect(isManualGraphAuthoringSelection({ ...selection, selectedText: "gang" })).toBe(false);
   });
 
   it("builds a text_span selection from ProseMirror text selection", () => {

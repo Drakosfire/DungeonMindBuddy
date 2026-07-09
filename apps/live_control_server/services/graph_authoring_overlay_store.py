@@ -156,9 +156,48 @@ class GraphAuthoringOverlayStore:
                 raise GraphAuthoringOverlayStoreError(
                     "assertion campaign_id must match overlay campaign_id"
                 )
+        updated_assertions = list(overlay.assertions)
+        index_by_id = {
+            assertion.assertion_id: index for index, assertion in enumerate(updated_assertions)
+        }
+        for assertion in assertions:
+            if assertion.assertion_id in index_by_id:
+                updated_assertions[index_by_id[assertion.assertion_id]] = assertion
+            else:
+                index_by_id[assertion.assertion_id] = len(updated_assertions)
+                updated_assertions.append(assertion)
         updated = overlay.model_copy(
             update={
-                "assertions": [*overlay.assertions, *assertions],
+                "assertions": updated_assertions,
+                "updated_at": isoformat_z(datetime.now(UTC)),
+            }
+        )
+        if campaign_rel is not None:
+            self.save_overlay(updated, campaign_rel=campaign_rel)
+        else:
+            self.save_overlay(updated)
+        return updated
+
+    def supersede_assertions(
+        self,
+        campaign_id: str,
+        assertion_ids: set[str],
+        *,
+        campaign_rel: str | None = None,
+    ) -> AuthoredGraphOverlay:
+        if not assertion_ids:
+            return self.load_overlay(campaign_id, campaign_rel=campaign_rel)
+        safe_campaign_id = validate_campaign_id(campaign_id)
+        overlay = self.load_overlay(safe_campaign_id, campaign_rel=campaign_rel)
+        updated_assertions: list[AuthoredGraphAssertion] = []
+        for assertion in overlay.assertions:
+            if assertion.assertion_id in assertion_ids and assertion.status == "authored":
+                updated_assertions.append(assertion.model_copy(update={"status": "superseded"}))
+            else:
+                updated_assertions.append(assertion)
+        updated = overlay.model_copy(
+            update={
+                "assertions": updated_assertions,
                 "updated_at": isoformat_z(datetime.now(UTC)),
             }
         )

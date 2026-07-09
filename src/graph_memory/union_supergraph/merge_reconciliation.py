@@ -60,6 +60,7 @@ class MergeAssertionPlan:
     merged_away_original_refs: tuple[str, ...]
     merged_away_node_ids: tuple[str, ...]
     redirects: tuple[UnionIdentityRedirect, ...]
+    redirects_to_retract: tuple[str, ...]
     aliases_to_union: tuple[str, ...]
     evidence_ref_ids_to_union: tuple[str, ...]
     edges_to_rewire: tuple[EdgeRewirePlan, ...]
@@ -410,6 +411,8 @@ def _plan_merge_assertion(
         )
 
     redirects: list[UnionIdentityRedirect] = []
+    redirects_to_retract: list[str] = []
+    merged_away_ref_set = set(merged_away_original_refs)
     for merged_away_id in merged_away_node_ids:
         existing = active_redirects.get(merged_away_id)
         if existing is not None:
@@ -426,19 +429,33 @@ def _plan_merge_assertion(
                     node_id=merged_away_id,
                 )
                 continue
-            _append_diagnostic(
-                diagnostics,
-                severity="error",
-                code="merge_redirect_conflict",
-                message=(
-                    f"Skipping merge assertion {assertion.assertion_id}: active redirect "
-                    f"maps {merged_away_id} to {existing.to_node_id}, not survivor "
-                    f"{survivor_node_id}"
-                ),
-                assertion_id=assertion.assertion_id,
-                node_id=merged_away_id,
-            )
-            return None, diagnostics
+            if existing.to_node_id in merged_away_ref_set:
+                redirects_to_retract.append(merged_away_id)
+                _append_diagnostic(
+                    diagnostics,
+                    severity="info",
+                    code="merge_redirect_superseded",
+                    message=(
+                        f"Replacing active redirect for {merged_away_id} "
+                        f"({existing.to_node_id} → {survivor_node_id})"
+                    ),
+                    assertion_id=assertion.assertion_id,
+                    node_id=merged_away_id,
+                )
+            else:
+                _append_diagnostic(
+                    diagnostics,
+                    severity="error",
+                    code="merge_redirect_conflict",
+                    message=(
+                        f"Skipping merge assertion {assertion.assertion_id}: active redirect "
+                        f"maps {merged_away_id} to {existing.to_node_id}, not survivor "
+                        f"{survivor_node_id}"
+                    ),
+                    assertion_id=assertion.assertion_id,
+                    node_id=merged_away_id,
+                )
+                return None, diagnostics
 
         redirects.append(
             UnionIdentityRedirect(
@@ -524,6 +541,7 @@ def _plan_merge_assertion(
             merged_away_original_refs=merged_away_original_refs,
             merged_away_node_ids=merged_away_node_ids,
             redirects=tuple(redirects),
+            redirects_to_retract=tuple(redirects_to_retract),
             aliases_to_union=aliases_to_union,
             evidence_ref_ids_to_union=evidence_to_union,
             edges_to_rewire=edges_to_rewire,

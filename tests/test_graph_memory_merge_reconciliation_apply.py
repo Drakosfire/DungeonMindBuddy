@@ -27,6 +27,7 @@ from tests.test_graph_memory_merge_reconciliation_planner import (
     STAMP,
     merge_assertion,
     minimal_union_store,
+    object_ref,
     overlay_with_assertions,
     union_edge,
     union_node,
@@ -262,6 +263,7 @@ def test_mixed_redirect_conflict_skips_assertion_without_partial_mutation() -> N
                 merged_away_original_refs=("node:lysandra", "character_lysandra"),
                 merged_away_node_ids=("node:lysandra", "character_lysandra"),
                 redirects=redirects,
+                redirects_to_retract=(),
                 aliases_to_union=("Lysandra", "Captain Lysandra Ironveil"),
                 evidence_ref_ids_to_union=(
                     "evidence:session-23:lysandra:recap-mention",
@@ -305,6 +307,97 @@ def test_mixed_redirect_conflict_skips_assertion_without_partial_mutation() -> N
     assert updated_store.identity_redirects[0].to_node_id == "character:other_person"
     assert updated_store.identity_merge_records == []
     assert updated_store.model_dump() == original_snapshot
+
+
+def test_survivor_update_clears_prior_merged_away_state() -> None:
+    """A later merge that picks a previously merged-away node as survivor must re-project it."""
+    location_id = "location_mireward_reach"
+    organization_id = "organization_mireward_reach"
+    store = minimal_union_store(
+        nodes={
+            location_id: union_node(
+                node_id=location_id,
+                label="Mireward Reach",
+                kind="location",
+                role="location",
+                aliases=["Mireward Reach"],
+                evidence_ref_ids=["evidence:session-23:mireward:recap"],
+            ),
+            organization_id: union_node(
+                node_id=organization_id,
+                label="Mireward Reach",
+                kind="organization",
+                role="organization",
+                aliases=["Mireward Reach org"],
+                evidence_ref_ids=[],
+            ),
+        },
+        edges={},
+    )
+
+    org_first_overlay = overlay_with_assertions(
+        merge_assertion(
+            assertion_id="assert-org-first",
+            survivor_object_ref=object_ref(
+                node_id=organization_id,
+                label="Mireward Reach",
+                kind="organization",
+            ).model_dump(),
+            merged_object_refs=[
+                object_ref(
+                    node_id=location_id,
+                    label="Mireward Reach",
+                    kind="location",
+                ).model_dump(),
+            ],
+        )
+    )
+    org_first_plan = plan_authored_merge_reconciliation(
+        campaign_id=CAMPAIGN_ID,
+        overlay=org_first_overlay,
+        union_store=store,
+        materialization_pass_id=PASS_ID,
+    )
+    store, _ = apply_union_supergraph_merge_plan(
+        union_store=store,
+        plan=org_first_plan,
+        applied_at=STAMP,
+    )
+    assert store.nodes[location_id].state["memory_state"] == "merged_away"
+
+    location_survivor_overlay = overlay_with_assertions(
+        merge_assertion(
+            assertion_id="assert-location-survivor",
+            survivor_object_ref=object_ref(
+                node_id=location_id,
+                label="Mireward Reach",
+                kind="location",
+            ).model_dump(),
+            merged_object_refs=[
+                object_ref(
+                    node_id=organization_id,
+                    label="Mireward Reach",
+                    kind="organization",
+                ).model_dump(),
+            ],
+        )
+    )
+    location_plan = plan_authored_merge_reconciliation(
+        campaign_id=CAMPAIGN_ID,
+        overlay=location_survivor_overlay,
+        union_store=store,
+        materialization_pass_id=f"{PASS_ID}:location-survivor",
+    )
+    store, result = apply_union_supergraph_merge_plan(
+        union_store=store,
+        plan=location_plan,
+        applied_at=STAMP,
+    )
+
+    assert result.survivor_nodes_updated == 1
+    assert store.nodes[location_id].state["memory_state"] == "graph_read_model"
+    assert "merged_into" not in store.nodes[location_id].state
+    assert store.nodes[organization_id].state["memory_state"] == "merged_away"
 
 
 def test_dedupes_equivalent_survivor_edge() -> None:

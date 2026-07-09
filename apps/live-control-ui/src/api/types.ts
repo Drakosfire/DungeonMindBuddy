@@ -1776,6 +1776,23 @@ export interface GraphProjectionAdjacencyCandidate {
   evidence_ref_ids: string[];
   edge_label?: string | null;
   session_ids?: string[];
+  /** Brief summary of the related node (not the selected node). */
+  related_summary?: string | null;
+  /**
+   * Recap/source excerpt supporting this relationship. Resolves to the full
+   * source paragraph when `source_excerpt_is_full_paragraph` is true;
+   * otherwise it's a pre-abridged evidence label (fallback when no paragraph
+   * text index is available for this run).
+   */
+  source_excerpt?: string | null;
+  source_excerpt_is_full_paragraph?: boolean;
+  /** Character-offset ranges within `source_excerpt` to visually highlight. */
+  source_excerpt_highlight_spans?: GraphProjectionTextHighlightSpan[];
+}
+
+export interface GraphProjectionTextHighlightSpan {
+  start: number;
+  end: number;
 }
 
 export interface GraphProjectionSuggestedExpansion extends GraphProjectionAdjacencyCandidate {
@@ -2331,6 +2348,27 @@ export interface GraphObjectAuthoringCommitRequest {
   confirmToken: string;
   currentOverlayToken: string;
   operatorNote?: string | null;
+  previewUnionStorePath?: string | null;
+}
+
+export type UnionStoreMaterializationReason =
+  | "no_preview_union_store_selected"
+  | "no_actionable_merge_assertions"
+  | "materialized"
+  | "materialization_failed"
+  | "event_log_failed";
+
+export interface GraphObjectAuthoringUnionStoreMaterializationSummary {
+  attempted: boolean;
+  applied: boolean;
+  reason: UnionStoreMaterializationReason;
+  union_store_path?: string | null;
+  backup_path?: string | null;
+  applied_assertion_ids: string[];
+  redirects_added: number;
+  edges_rewired: number;
+  survivor_nodes_updated: number;
+  diagnostics: GraphAuthoringDiagnostic[];
 }
 
 export interface GraphObjectAuthoringCommitResponse {
@@ -2344,6 +2382,8 @@ export interface GraphObjectAuthoringCommitResponse {
   new_overlay_token: string;
   diagnostics: GraphAuthoringDiagnostic[];
   no_mutation_guarantees: string[];
+  union_store_materialization?: GraphObjectAuthoringUnionStoreMaterializationSummary | null;
+  created_node_ids?: Record<string, string>;
 }
 
 export interface GraphMergeReconciliationDiagnostic {

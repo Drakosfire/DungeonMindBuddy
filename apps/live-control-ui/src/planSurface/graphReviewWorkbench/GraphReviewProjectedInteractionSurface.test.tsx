@@ -52,8 +52,7 @@ describe("GraphReviewProjectedInteractionSurface", () => {
     expect(chromeHeader).toBeTruthy();
     expect(within(chromeHeader!).queryByText("The wall")).not.toBeInTheDocument();
     expect(screen.getAllByText("The wall")).toHaveLength(1);
-    expect(screen.getAllByText("Live Run · read-only")).toHaveLength(1);
-    expect(screen.getAllByText("location")).toHaveLength(1);
+    expect(screen.getByLabelText("Object type: Location")).toHaveTextContent("Location");
     expect(screen.queryByText("location / location")).not.toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: "Close selected object" }),
@@ -104,7 +103,7 @@ describe("GraphReviewProjectedInteractionSurface", () => {
     expect(within(dialog).queryByText("Find existing object")).not.toBeInTheDocument();
   });
 
-  it("keeps technical details collapsed by default", () => {
+  it("keeps details collapsed by default", () => {
     render(
       <GraphReviewProjectedInteractionSurface
         open
@@ -116,9 +115,7 @@ describe("GraphReviewProjectedInteractionSurface", () => {
       />,
     );
 
-    const evidencePanel = screen.getByText("Evidence / Source").closest("details");
-    const technicalPanel = screen.getByText("Technical details").closest("details");
-    expect(evidencePanel).not.toHaveAttribute("open");
-    expect(technicalPanel).not.toHaveAttribute("open");
+    const detailsPanel = screen.getByText("Details").closest("details");
+    expect(detailsPanel).not.toHaveAttribute("open");
   });
 });

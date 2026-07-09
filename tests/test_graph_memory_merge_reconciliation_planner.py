@@ -266,6 +266,50 @@ def test_conflicting_active_redirect_skips_assertion() -> None:
     assert "merge_redirect_conflict" in _diagnostic_codes(plan)
 
 
+def test_wrong_target_redirect_is_superseded_when_prior_survivor_is_merged_away() -> None:
+    store = minimal_union_store(
+        nodes={
+            "node:lysandra": union_node(),
+            "character_captain_lysandra_ironveil": union_node(
+                node_id="character_captain_lysandra_ironveil",
+                label="Captain Lysandra Ironveil",
+                aliases=["Captain Lysandra Ironveil"],
+                evidence_ref_ids=[],
+            ),
+        },
+        identity_redirects=[
+            _redirect(
+                redirect_id="redirect:wrong-survivor",
+                from_node_id="node:lysandra",
+                to_node_id="character_captain_lysandra_ironveil",
+            )
+        ],
+    )
+    overlay = overlay_with_assertions(
+        merge_assertion(
+            merged_object_refs=[
+                object_ref(node_id="node:lysandra", label="Lysandra").model_dump(),
+                object_ref(
+                    node_id="character_captain_lysandra_ironveil",
+                    label="Captain Lysandra Ironveil",
+                ).model_dump(),
+            ],
+        )
+    )
+
+    plan = plan_authored_merge_reconciliation(
+        campaign_id=CAMPAIGN_ID,
+        overlay=overlay,
+        union_store=store,
+        materialization_pass_id=PASS_ID,
+    )
+
+    assertion_plan = plan.plans[0]
+    assert assertion_plan.redirects_to_retract == ("node:lysandra",)
+    assert assertion_plan.redirects[0].to_node_id == "party:captain_lysandra_ironveil"
+    assert "merge_redirect_superseded" in _diagnostic_codes(plan)
+
+
 def test_self_merge_skipped() -> None:
     store = minimal_union_store(
         nodes={

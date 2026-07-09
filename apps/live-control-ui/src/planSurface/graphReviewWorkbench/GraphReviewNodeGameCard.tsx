@@ -5,10 +5,13 @@ import {
   type GraphReviewRelationshipPredicate,
 } from "./graphReviewLocalAuthoringState";
 import {
+  detailsConnectionContextForNode,
+  displayAliasesForNode,
   durableIdentitySummaryForNode,
-  formatGraphObjectType,
-  gameSummaryForNode,
+  graphObjectSecondaryRoleLabel,
+  graphObjectTypeBadgeLabel,
   mergedIdentityNoteCopy,
+  primaryGameSummaryForNode,
   type GraphReviewSelectedNodeViewModel,
 } from "./graphReviewSelectionUtils";
 
@@ -85,72 +88,41 @@ function shouldShowReviewStatus(viewModel: GraphReviewSelectedNodeViewModel): bo
   );
 }
 
-function NodeIdentityHeader({ viewModel }: { viewModel: GraphReviewSelectedNodeViewModel }) {
-  const node = viewModel.node;
+function NodeIdentityHeader({ node }: { node: GraphProjectionNodeView }) {
+  const aliases = displayAliasesForNode(node);
+  const typeBadge = graphObjectTypeBadgeLabel(node.kind, node.role);
+  const secondaryRole = graphObjectSecondaryRoleLabel(node.kind, node.role);
+
   return (
-    <>
-      <p className="plan-surface-kicker">{laneBadgeCopy(viewModel)}</p>
-      <h4>{node.label}</h4>
-      <p className="graph-review-game-kind">
-        {formatGraphObjectType(node.kind, node.role)}
-      </p>
-    </>
+    <header className="graph-review-node-identity-header">
+      <div className="graph-review-node-identity-title-row">
+        <span
+          className="graph-review-object-type-badge"
+          aria-label={`Object type: ${typeBadge}`}
+        >
+          {typeBadge}
+        </span>
+        <h4>{node.label}</h4>
+      </div>
+      {secondaryRole ? (
+        <p className="graph-review-node-role-subtitle">{secondaryRole}</p>
+      ) : null}
+      {aliases.length ? (
+        <p className="graph-review-node-aliases">
+          Also known as: {aliases.join(", ")}
+        </p>
+      ) : null}
+    </header>
   );
 }
 
 function NodeGameSummary({ node }: { node: GraphProjectionNodeView }) {
-  return (
-    <section aria-label="Campaign summary">
-      <p>{gameSummaryForNode(node)}</p>
-    </section>
-  );
-}
-
-function NodeAliasMemoryNote({ node }: { node: GraphProjectionNodeView }) {
-  if (!isAuthoredNode(node) && !node.aliases.length) return null;
-
-  return (
-    <section className="graph-review-alias-memory-note" aria-label="Aliases and memory">
-      {isAuthoredNode(node) ? (
-        <p className="graph-review-muted">This node includes authored memory.</p>
-      ) : null}
-      {node.aliases.length ? (
-        <p>
-          Also known as: {node.aliases.join(", ")}
-        </p>
-      ) : null}
-      {node.source_anchor_text ? (
-        <p className="graph-review-muted">
-          Grounded from source phrase: “{node.source_anchor_text}”
-        </p>
-      ) : null}
-      {node.visibility ? (
-        <p className="graph-review-muted">
-          Visibility: {friendlyVisibilityCopy(node.visibility)}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function NodeDurableIdentityNote({ node }: { node: GraphProjectionNodeView }) {
-  const summary = durableIdentitySummaryForNode(node);
+  const summary = primaryGameSummaryForNode(node);
   if (!summary) return null;
 
-  const { foldedLine, contextLine } = mergedIdentityNoteCopy(summary, node.aliases);
-
   return (
-    <section className="graph-review-durable-identity-note" aria-label="Merged identity">
-      <h5>Merged identity</h5>
-      <p>
-        {foldedLine} {contextLine}
-      </p>
-      {node.evidence_badges.length > 0 ? (
-        <p className="graph-review-muted">
-          Includes {node.evidence_badges.length} evidence badge
-          {node.evidence_badges.length === 1 ? "" : "s"}.
-        </p>
-      ) : null}
+    <section aria-label="Campaign summary">
+      <p>{summary}</p>
     </section>
   );
 }
@@ -159,19 +131,24 @@ function NodeRelationshipSection({
   node,
   selectedEdgeId,
   onSelectRelationship,
+  onClearRelationship,
 }: {
   node: GraphProjectionNodeView;
   selectedEdgeId: string | null;
   onSelectRelationship: (relationship: GraphProjectionAdjacencyCandidate) => void;
+  onClearRelationship?: () => void;
 }) {
   return (
-    <section aria-label="Connected objects and relationships">
-      <h5>Connected objects / relationships</h5>
+    <section
+      className="graph-review-node-relationships-primary"
+      aria-label="Connected objects and relationships"
+    >
+      <h5>Related objects</h5>
       <GraphReviewRelationshipChips
-        sourceLabel={node.label}
         relationships={node.adjacency}
         selectedEdgeId={selectedEdgeId}
         onSelect={onSelectRelationship}
+        onClear={onClearRelationship}
       />
     </section>
   );
@@ -266,137 +243,154 @@ function NodeActionsSection({
   );
 }
 
-function NodeReviewStatusDetails({ viewModel }: { viewModel: GraphReviewSelectedNodeViewModel }) {
-  if (!shouldShowReviewStatus(viewModel)) return null;
-
-  return (
-    <section aria-label="Review status">
-      <h5>Review status</h5>
-      <p>{statusCopy(viewModel)}</p>
-      {viewModel.counterpart ? (
-        <p>
-          <strong>Counterpart:</strong> {viewModel.counterpart.label} (
-          {viewModel.counterpart.laneRole})
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function NodeEvidenceSourceDetails({
-  node,
+function NodeDetailsPanel({
+  viewModel,
   sourceAnchorShownAbove,
-  deltaId,
   onSelectEvidenceDelta,
 }: {
-  node: GraphProjectionNodeView;
+  viewModel: GraphReviewSelectedNodeViewModel;
   sourceAnchorShownAbove: boolean;
-  deltaId?: string | null;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
 }) {
-  return (
-    <details className="graph-review-evidence-source-panel">
-      <summary>Evidence / Source</summary>
-      <p>
-        {node.evidence_badges.length} evidence badge
-        {node.evidence_badges.length === 1 ? "" : "s"}
-        {node.source_domains.length
-          ? `; source domains: ${node.source_domains.join(", ")}`
-          : "; no source domains"}
-        .
-      </p>
-      {!sourceAnchorShownAbove && node.source_anchor_text ? (
-        <p>
-          <strong>Source phrase:</strong> {node.source_anchor_text}
-        </p>
-      ) : null}
-      {deltaId && onSelectEvidenceDelta ? (
-        <div className="graph-review-card-actions">
-          <button type="button" onClick={() => onSelectEvidenceDelta(deltaId)}>
-            Open evidence
-          </button>
-        </div>
-      ) : null}
-    </details>
-  );
-}
-
-function NodeTechnicalDetails({ viewModel }: { viewModel: GraphReviewSelectedNodeViewModel }) {
   const node = viewModel.node;
   const durableSummary = durableIdentitySummaryForNode(node);
-  const hasTechnicalContent =
-    node.assertion_id ||
-    node.visibility ||
-    (node.graph_scope && node.graph_scope.length) ||
-    node.source_domains.length ||
-    viewModel.laneRole ||
-    node.node_id ||
-    viewModel.deltaId ||
-    durableSummary;
-
-  if (!hasTechnicalContent) return null;
+  const showReviewStatus = shouldShowReviewStatus(viewModel);
+  const connectionContext = detailsConnectionContextForNode(node);
+  const mergedIdentityCopy = durableSummary
+    ? mergedIdentityNoteCopy(durableSummary, node.aliases, {
+        adjacencyCount: node.adjacency.length,
+        evidenceCount: node.evidence_badges.length,
+      })
+    : null;
 
   return (
-    <details className="graph-review-technical-details-panel">
-      <summary>Technical details</summary>
-      {node.assertion_id ? (
-        <p>
-          <strong>Assertion ID:</strong> {node.assertion_id}
-        </p>
+    <details className="graph-review-details-panel">
+      <summary>Details</summary>
+      <section className="graph-review-details-section" aria-label="Memory and visibility">
+        <p className="graph-review-muted">{laneBadgeCopy(viewModel)}</p>
+        {isAuthoredNode(node) ? (
+          <p className="graph-review-muted">This node includes authored memory.</p>
+        ) : null}
+        {node.visibility ? (
+          <p className="graph-review-muted">
+            Visibility: {friendlyVisibilityCopy(node.visibility)}
+          </p>
+        ) : null}
+        {!sourceAnchorShownAbove && node.source_anchor_text ? (
+          <p className="graph-review-muted">
+            Grounded from source phrase: “{node.source_anchor_text}”
+          </p>
+        ) : null}
+      </section>
+      {mergedIdentityCopy ? (
+        <section className="graph-review-details-section" aria-label="Merged identity">
+          <h6>Merged identity</h6>
+          <p>
+            {mergedIdentityCopy.foldedLine} {mergedIdentityCopy.contextLine}
+          </p>
+        </section>
       ) : null}
-      {node.visibility ? (
-        <p>
-          <strong>Visibility:</strong> {node.visibility}
-        </p>
+      {connectionContext ? (
+        <section className="graph-review-details-section" aria-label="Connection context">
+          <p>{connectionContext}</p>
+        </section>
       ) : null}
-      {node.graph_scope?.length ? (
-        <p>
-          <strong>Graph scope:</strong> {node.graph_scope.join(", ")}
-        </p>
-      ) : null}
-      {node.source_domains.length ? (
-        <p>
-          <strong>Source domains:</strong> {node.source_domains.join(", ")}
-        </p>
-      ) : null}
-      <p>
-        <strong>Lane role:</strong> {viewModel.laneRole}
-      </p>
-      <p>
-        <strong>Node ID:</strong> {node.node_id}
-      </p>
-      {viewModel.deltaId ? (
-        <p>
-          <strong>Delta ID:</strong> {viewModel.deltaId}
-        </p>
-      ) : null}
-      {durableSummary ? (
-        <div className="graph-review-merge-provenance-details" aria-label="Merge provenance">
-          <h6>Merge provenance</h6>
-          {durableSummary.mergedAwayIds.length ? (
+      {showReviewStatus ? (
+        <section className="graph-review-details-section" aria-label="Review status">
+          <h6>Review status</h6>
+          <p>{statusCopy(viewModel)}</p>
+          {viewModel.counterpart ? (
             <p>
-              <strong>Merged-away IDs:</strong> {durableSummary.mergedAwayIds.join(", ")}
+              <strong>Counterpart:</strong> {viewModel.counterpart.label} (
+              {viewModel.counterpart.laneRole})
             </p>
           ) : null}
-          {durableSummary.mergeAssertionIds.length ? (
-            <p>
-              <strong>Merge assertion IDs:</strong>{" "}
-              {durableSummary.mergeAssertionIds.join(", ")}
-            </p>
-          ) : null}
-          {durableSummary.redirectIds.length ? (
-            <p>
-              <strong>Redirect IDs:</strong> {durableSummary.redirectIds.join(", ")}
-            </p>
-          ) : null}
-          {durableSummary.mergeRecordIds.length ? (
-            <p>
-              <strong>Merge record IDs:</strong>{" "}
-              {durableSummary.mergeRecordIds.join(", ")}
-            </p>
-          ) : null}
-        </div>
+        </section>
       ) : null}
+      <section className="graph-review-details-section" aria-label="Evidence and source">
+        <h6>Evidence and source</h6>
+        <p>
+          {node.evidence_badges.length} evidence badge
+          {node.evidence_badges.length === 1 ? "" : "s"}
+          {node.source_domains.length
+            ? `; source domains: ${node.source_domains.join(", ")}`
+            : "; no source domains"}
+          .
+        </p>
+        {!sourceAnchorShownAbove && node.source_anchor_text ? (
+          <p>
+            <strong>Source phrase:</strong> {node.source_anchor_text}
+          </p>
+        ) : null}
+        {viewModel.deltaId && onSelectEvidenceDelta ? (
+          <div className="graph-review-card-actions">
+            <button type="button" onClick={() => onSelectEvidenceDelta(viewModel.deltaId ?? null)}>
+              Open evidence
+            </button>
+          </div>
+        ) : null}
+      </section>
+      <section className="graph-review-details-section" aria-label="Identifiers">
+        <h6>Identifiers</h6>
+        {node.assertion_id ? (
+          <p>
+            <strong>Assertion ID:</strong> {node.assertion_id}
+          </p>
+        ) : null}
+        {node.visibility ? (
+          <p>
+            <strong>Visibility:</strong> {node.visibility}
+          </p>
+        ) : null}
+        {node.graph_scope?.length ? (
+          <p>
+            <strong>Graph scope:</strong> {node.graph_scope.join(", ")}
+          </p>
+        ) : null}
+        {node.source_domains.length ? (
+          <p>
+            <strong>Source domains:</strong> {node.source_domains.join(", ")}
+          </p>
+        ) : null}
+        <p>
+          <strong>Lane role:</strong> {viewModel.laneRole}
+        </p>
+        <p>
+          <strong>Node ID:</strong> {node.node_id}
+        </p>
+        {viewModel.deltaId ? (
+          <p>
+            <strong>Delta ID:</strong> {viewModel.deltaId}
+          </p>
+        ) : null}
+        {durableSummary ? (
+          <div className="graph-review-merge-provenance-details" aria-label="Merge provenance">
+            <h6>Merge provenance</h6>
+            {durableSummary.mergedAwayIds.length ? (
+              <p>
+                <strong>Merged-away IDs:</strong> {durableSummary.mergedAwayIds.join(", ")}
+              </p>
+            ) : null}
+            {durableSummary.mergeAssertionIds.length ? (
+              <p>
+                <strong>Merge assertion IDs:</strong>{" "}
+                {durableSummary.mergeAssertionIds.join(", ")}
+              </p>
+            ) : null}
+            {durableSummary.redirectIds.length ? (
+              <p>
+                <strong>Redirect IDs:</strong> {durableSummary.redirectIds.join(", ")}
+              </p>
+            ) : null}
+            {durableSummary.mergeRecordIds.length ? (
+              <p>
+                <strong>Merge record IDs:</strong>{" "}
+                {durableSummary.mergeRecordIds.join(", ")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
     </details>
   );
 }
@@ -405,6 +399,7 @@ export function GraphReviewNodeGameCard({
   viewModel,
   selectedEdgeId,
   onSelectRelationship,
+  onClearRelationship,
   onSelectEvidenceDelta,
   actions = [],
   draftActionsNote,
@@ -415,28 +410,28 @@ export function GraphReviewNodeGameCard({
   onSelectRelationship: (
     relationship: GraphProjectionAdjacencyCandidate,
   ) => void;
+  onClearRelationship?: () => void;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
   actions?: GraphReviewSelectedObjectAction[];
   draftActionsNote?: string;
   relationshipStaging?: GraphReviewNodeGameCardRelationshipStaging;
 }) {
   const node = viewModel.node;
-  const sourceAnchorShownAbove = Boolean(isAuthoredNode(node) && node.source_anchor_text);
+  const sourceAnchorShownAbove = false;
 
   return (
     <article
       className="graph-review-node-game-card"
       aria-label={`${node.label} game card`}
     >
-      <NodeIdentityHeader viewModel={viewModel} />
-      <NodeGameSummary node={node} />
-      <NodeAliasMemoryNote node={node} />
-      <NodeDurableIdentityNote node={node} />
+      <NodeIdentityHeader node={node} />
       <NodeRelationshipSection
         node={node}
         selectedEdgeId={selectedEdgeId}
         onSelectRelationship={onSelectRelationship}
+        onClearRelationship={onClearRelationship}
       />
+      <NodeGameSummary node={node} />
       <NodeActionsSection
         actions={actions}
         deltaId={viewModel.deltaId}
@@ -444,14 +439,11 @@ export function GraphReviewNodeGameCard({
         draftActionsNote={draftActionsNote}
         relationshipStaging={relationshipStaging}
       />
-      <NodeReviewStatusDetails viewModel={viewModel} />
-      <NodeEvidenceSourceDetails
-        node={node}
+      <NodeDetailsPanel
+        viewModel={viewModel}
         sourceAnchorShownAbove={sourceAnchorShownAbove}
-        deltaId={viewModel.deltaId}
         onSelectEvidenceDelta={onSelectEvidenceDelta}
       />
-      <NodeTechnicalDetails viewModel={viewModel} />
     </article>
   );
 }

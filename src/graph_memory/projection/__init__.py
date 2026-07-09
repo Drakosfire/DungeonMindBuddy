@@ -6,6 +6,7 @@ from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
     GraphProjectionNodeView,
     GraphProjectionSuggestedExpansion,
+    GraphProjectionTextHighlightSpan,
 )
 from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
@@ -21,6 +22,7 @@ __all__ = [
     "GraphProjectionAdjacencyCandidate",
     "GraphProjectionSuggestedExpansion",
     "GraphProjectionNodeView",
+    "GraphProjectionTextHighlightSpan",
     "RecapGraphProjection",
     "RecapProjectionMention",
     "build_focus_overlay",

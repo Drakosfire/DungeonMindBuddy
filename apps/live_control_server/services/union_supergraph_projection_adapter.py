@@ -60,13 +60,13 @@ def build_plan_union_supergraph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
-    if graph_run_manifest_path is not None:
+    if preview_union_store_path is not None:
+        store = load_preview_union_store(preview_union_store_path)
+    elif graph_run_manifest_path is not None:
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
         if persisted is not None:
             return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
-    elif preview_union_store_path is not None:
-        store = load_preview_union_store(preview_union_store_path)
     elif store_path is not None:
         store = load_union_supergraph_store(store_path)
     elif preview_source:
@@ -80,7 +80,18 @@ def build_plan_union_supergraph_projection(
             session_id=session_id,
         )
     source_spans = _load_manifest_source_spans(graph_run_manifest_path) if graph_run_manifest_path is not None else []
-    return build_recap_graph_projection(store, session_id=session_id, markdown=markdown or "", source_spans=source_spans)
+    paragraph_text_by_span_id = (
+        _load_manifest_source_span_full_text_index(graph_run_manifest_path)
+        if graph_run_manifest_path is not None
+        else {}
+    )
+    return build_recap_graph_projection(
+        store,
+        session_id=session_id,
+        markdown=markdown or "",
+        source_spans=source_spans,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
+    )
 
 
 def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
@@ -104,20 +115,26 @@ def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dic
 
 
 
-def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
+def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any]] | None:
     root = repo_root().resolve()
     payload = json.loads(_resolve_repo_contained_path(graph_run_manifest_path, root).read_text(encoding="utf-8"))
     uri = ((payload.get("source") or {}).get("source_span_index_uri"))
     if not isinstance(uri, str) or not uri:
-        return []
+        return None
     index_path = _resolve_repo_contained_path(root / uri, root)
     if not index_path.is_file():
-        return []
+        return None
     index = json.loads(index_path.read_text(encoding="utf-8"))
+    spans = index.get("spans", [])
+    return [span for span in spans if isinstance(span, dict)]
+
+
+def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
+    raw_spans = _load_source_span_index(graph_run_manifest_path)
+    if raw_spans is None:
+        return []
     spans: list[RecapProjectionSourceSpan] = []
-    for span in index.get("spans", []):
-        if not isinstance(span, dict):
-            continue
+    for span in raw_spans:
         span_id = span.get("span_id") or span.get("source_span_ref_id")
         if not isinstance(span_id, str):
             continue
@@ -132,6 +149,29 @@ def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProj
             )
         )
     return spans
+
+
+def _load_manifest_source_span_full_text_index(
+    graph_run_manifest_path: Path,
+) -> dict[str, str]:
+    """Untruncated span_id -> full source text, for resolving verbatim excerpts.
+
+    Distinct from ``_load_manifest_source_spans``, whose ``text_excerpt`` is
+    capped at 240 chars for the paragraph-jump source-span list; relationship
+    excerpts need the complete paragraph.
+    """
+    raw_spans = _load_source_span_index(graph_run_manifest_path)
+    if raw_spans is None:
+        return {}
+    full_text_by_span_id: dict[str, str] = {}
+    for span in raw_spans:
+        if span.get("kind") != "paragraph":
+            continue
+        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        text = span.get("text") or span.get("text_excerpt")
+        if isinstance(span_id, str) and isinstance(text, str) and text.strip():
+            full_text_by_span_id[span_id] = text
+    return full_text_by_span_id
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,

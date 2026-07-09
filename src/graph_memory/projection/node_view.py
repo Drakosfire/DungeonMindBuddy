@@ -5,6 +5,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from graph_memory.projection.focus_overlay import GraphProjectionEvidenceBadge
 
 
+class GraphProjectionTextHighlightSpan(BaseModel):
+    """A character-offset range within ``source_excerpt`` to visually highlight."""
+
+    model_config = ConfigDict(extra="allow", strict=True)
+
+    start: int
+    end: int
+
+
 class GraphProjectionAdjacencyCandidate(BaseModel):
     """A projection-ready adjacent node candidate."""
 
@@ -21,6 +30,15 @@ class GraphProjectionAdjacencyCandidate(BaseModel):
     evidence_ref_ids: list[str] = Field(default_factory=list)
     edge_label: str | None = None
     session_ids: list[str] = Field(default_factory=list)
+    related_summary: str | None = None
+    source_excerpt: str | None = None
+    """Recap source text supporting this relationship. Resolves to the full
+    source paragraph when a paragraph text index is available; otherwise
+    falls back to the (often pre-abridged) evidence label."""
+    source_excerpt_is_full_paragraph: bool = False
+    source_excerpt_highlight_spans: list[GraphProjectionTextHighlightSpan] = Field(
+        default_factory=list
+    )
 
 
 class GraphProjectionSuggestedExpansion(GraphProjectionAdjacencyCandidate):

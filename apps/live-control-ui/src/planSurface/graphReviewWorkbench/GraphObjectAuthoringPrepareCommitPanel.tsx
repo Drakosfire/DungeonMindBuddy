@@ -8,6 +8,7 @@ import type {
   GraphObjectAuthoringCommitResponse,
   GraphObjectAuthoringPrepareResponse,
   GraphObjectAuthoringProposalPayload,
+  GraphObjectAuthoringUnionStoreMaterializationSummary,
   GraphAuthoringDiagnostic,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
@@ -15,6 +16,7 @@ import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverl
 import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { serializeGraphObjectAuthoringProposalForApi } from "./graphObjectAuthoringDraft";
+import { parseGraphObjectAuthoringApiError } from "./graphObjectAuthoringApiErrors";
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
   return serializeGraphObjectAuthoringProposalForApi(
@@ -41,22 +43,6 @@ function toOverlapWarnings(diagnostics: GraphAuthoringDiagnostic[]) {
       message: item.message,
       localProposalId: item.local_proposal_id ?? undefined,
     }));
-}
-
-function parseApiError(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message;
-    try {
-      const parsed = JSON.parse(message) as { code?: string; message?: string };
-      if (parsed.message) {
-        return parsed.message;
-      }
-    } catch {
-      // keep raw message
-    }
-    return message;
-  }
-  return "Request failed.";
 }
 
 function formatAssertionSummary(summary: GraphObjectAuthoringPrepareResponse["overlay_summary"]): string[] {
@@ -148,8 +134,46 @@ function PreparePreviewPrimary({
   );
 }
 
+function formatMaterializationOutcome(
+  materialization: GraphObjectAuthoringUnionStoreMaterializationSummary | null | undefined,
+  committedBatchHadMerge: boolean,
+): string | null {
+  if (!materialization) {
+    return null;
+  }
+  if (materialization.applied) {
+    const parts: string[] = [];
+    if (materialization.redirects_added) {
+      parts.push(
+        `${materialization.redirects_added} redirect${materialization.redirects_added === 1 ? "" : "s"}`,
+      );
+    }
+    if (materialization.edges_rewired) {
+      parts.push(
+        `${materialization.edges_rewired} edge rewire${materialization.edges_rewired === 1 ? "" : "s"}`,
+      );
+    }
+    const detail = parts.length ? ` (${parts.join(", ")})` : "";
+    return `Merged directly into the union graph${detail}.`;
+  }
+  if (
+    materialization.reason === "no_preview_union_store_selected" &&
+    committedBatchHadMerge
+  ) {
+    return "No live run selected — this merge is staged in authored memory only. Select a live run to make it durable.";
+  }
+  if (materialization.reason === "materialization_failed") {
+    const message =
+      materialization.diagnostics.find((item) => item.severity === "error")?.message ??
+      "Union graph materialization failed.";
+    return `${message} Use Advanced: backfill durable materialization to retry.`;
+  }
+  return null;
+}
+
 function CommitSuccessPrimary({
   committed,
+  committedBatchHadMerge,
   onRefreshProjection,
   refreshingProjection,
   refreshProjectionError,
@@ -158,6 +182,7 @@ function CommitSuccessPrimary({
   onDismiss,
 }: {
   committed: GraphObjectAuthoringCommitResponse;
+  committedBatchHadMerge: boolean;
   onRefreshProjection?: () => Promise<unknown>;
   refreshingProjection: boolean;
   refreshProjectionError: string | null;
@@ -165,6 +190,11 @@ function CommitSuccessPrimary({
   onRefresh: () => void;
   onDismiss: () => void;
 }) {
+  const materializationMessage = formatMaterializationOutcome(
+    committed.union_store_materialization,
+    committedBatchHadMerge,
+  );
+
   return (
     <div
       className="graph-object-authoring-commit-summary graph-object-authoring-commit-summary--success"
@@ -185,6 +215,14 @@ function CommitSuccessPrimary({
       <p className="graph-object-authoring-commit-success-lead">
         Authored graph memory was saved.
       </p>
+      {materializationMessage ? (
+        <p
+          className="graph-object-authoring-commit-materialization-outcome"
+          data-testid="graph-object-authoring-commit-materialization-outcome"
+        >
+          {materializationMessage}
+        </p>
+      ) : null}
       <p className="graph-object-authoring-commit-success-next">
         {refreshingProjection
           ? "Refreshing graph review…"
@@ -272,6 +310,7 @@ export interface GraphObjectAuthoringPrepareCommitPanelProps {
   campaignRel?: string | null;
   sourceRunId?: string | null;
   sourceGraphId?: string | null;
+  previewUnionStorePath?: string | null;
   proposals: GraphObjectAuthoringProposal[];
   onCommitted: (localProposalIds: string[]) => void;
   onRefreshProjection?: () => Promise<unknown>;
@@ -283,6 +322,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   campaignRel,
   sourceRunId,
   sourceGraphId,
+  previewUnionStorePath,
   proposals,
   onCommitted,
   onRefreshProjection,
@@ -312,6 +352,9 @@ export function GraphObjectAuthoringPrepareCommitPanel({
 
   const canPrepare = proposals.length > 0 && !preparing;
   const canCommit = prepared !== null && !proposalsChangedSincePrepare && !committing;
+  const committedBatchHadMerge = proposals.some(
+    (proposal) => proposal.proposalKind === "merge_objects",
+  );
 
   async function handlePrepare() {
     setPrepareError(null);
@@ -331,7 +374,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       setPreparedForFingerprint(currentFingerprint);
     } catch (error) {
       setPrepared(null);
-      setPrepareError(parseApiError(error));
+      setPrepareError(parseGraphObjectAuthoringApiError(error));
     } finally {
       setPreparing(false);
     }
@@ -353,6 +396,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         proposals: proposals.map(toProposalPayload),
         confirmToken: prepared.confirm_token,
         currentOverlayToken: prepared.current_overlay_token,
+        previewUnionStorePath,
       });
       if (!response.committed) {
         setCommitError(
@@ -379,13 +423,13 @@ export function GraphObjectAuthoringPrepareCommitPanel({
             ) ?? [];
           setProjectionDiagnostics(diagnostics);
         } catch (error) {
-          setRefreshProjectionError(parseApiError(error));
+          setRefreshProjectionError(parseGraphObjectAuthoringApiError(error));
         } finally {
           setRefreshingProjection(false);
         }
       }
     } catch (error) {
-      const message = parseApiError(error);
+      const message = parseGraphObjectAuthoringApiError(error);
       if (message.includes("stale_overlay") || message.includes("changed since")) {
         setCommitError(
           "The authored graph changed since this preview was prepared. Prepare again before committing.",
@@ -410,7 +454,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
     setRefreshingProjection(true);
     void onRefreshProjection()
       .catch((error) => {
-        setRefreshProjectionError(parseApiError(error));
+        setRefreshProjectionError(parseGraphObjectAuthoringApiError(error));
       })
       .finally(() => {
         setRefreshingProjection(false);
@@ -469,6 +513,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       {committed ? (
         <CommitSuccessPrimary
           committed={committed}
+          committedBatchHadMerge={committedBatchHadMerge}
           onRefreshProjection={onRefreshProjection}
           refreshingProjection={refreshingProjection}
           refreshProjectionError={refreshProjectionError}

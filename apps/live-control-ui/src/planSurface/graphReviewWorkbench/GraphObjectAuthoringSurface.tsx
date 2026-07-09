@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
-import { GraphObjectAuthoringLinkExistingSection } from "./GraphObjectAuthoringLinkExistingSection";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
@@ -16,23 +15,18 @@ import {
 import { GraphObjectAuthoringVisibilitySection } from "./GraphObjectAuthoringVisibilitySection";
 import {
   buildOverlapContextFromProjection,
-  detectLinkExistingFormOverlapWarnings,
   detectObjectFormOverlapWarnings,
   type GraphObjectAuthoringOverlapContext,
 } from "./graphObjectAuthoringOverlap";
 import {
   canStageRelationshipForm,
-  isValidObjectRef,
   type GraphObjectAuthoringFormState,
-  type GraphObjectAuthoringLinkExistingFormState,
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
 import { useGraphObjectCrossScopeCandidates } from "./useGraphObjectCrossScopeCandidates";
 import type { GraphProjectionNodeView } from "../../api/types";
-
-type GraphObjectAuthoringSelectionMode = "object" | "link_existing";
 
 export type GraphObjectAuthoringFocusPanel =
   | "all"
@@ -51,13 +45,11 @@ export interface GraphObjectAuthoringSurfaceProps {
   ) => void;
   onStageProposal: () => void;
   onRemoveProposal: (localProposalId: string) => void;
-
-  linkExistingFormState?: GraphObjectAuthoringLinkExistingFormState;
-  onLinkExistingFieldChange?: <K extends keyof GraphObjectAuthoringLinkExistingFormState>(
-    field: K,
-    value: GraphObjectAuthoringLinkExistingFormState[K],
-  ) => void;
-  onStageLinkExistingProposal?: () => void;
+  onStartManualDraft?: () => void;
+  pendingSelection?: GraphAuthoringSelection | null;
+  onUseSelectedText?: (selection: GraphAuthoringSelection) => void;
+  creatingObject?: boolean;
+  createObjectError?: string | null;
 
   relationshipFormState?: GraphObjectAuthoringRelationshipFormState;
   onRelationshipFieldChange?: <K extends keyof GraphObjectAuthoringRelationshipFormState>(
@@ -78,6 +70,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   laneRole?: GraphReviewProjectionLaneRole;
   liveRunManifestPath?: string | null;
+  previewUnionStorePath?: string | null;
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
 }
 
@@ -89,9 +82,11 @@ export function GraphObjectAuthoringSurface({
   onFormFieldChange,
   onStageProposal,
   onRemoveProposal,
-  linkExistingFormState,
-  onLinkExistingFieldChange,
-  onStageLinkExistingProposal,
+  onStartManualDraft,
+  pendingSelection = null,
+  onUseSelectedText,
+  creatingObject = false,
+  createObjectError = null,
   relationshipFormState,
   onRelationshipFieldChange,
   onStageRelationshipProposal,
@@ -106,22 +101,12 @@ export function GraphObjectAuthoringSurface({
   existingNodes = [],
   laneRole = "live",
   liveRunManifestPath = null,
+  previewUnionStorePath = null,
   projectionNodeViews,
 }: GraphObjectAuthoringSurfaceProps) {
-  const [selectionMode, setSelectionMode] = useState<GraphObjectAuthoringSelectionMode>("object");
-  const supportsLinkExisting = Boolean(linkExistingFormState && onLinkExistingFieldChange && onStageLinkExistingProposal);
   const supportsRelationship = Boolean(relationshipFormState && onRelationshipFieldChange && onStageRelationshipProposal);
 
-  useEffect(() => {
-    if (selectedSource) {
-      setSelectionMode("object");
-    }
-  }, [selectedSource]);
-
   const canStage = Boolean(selectedSource && formState.label.trim());
-  const canStageLinkExisting = Boolean(
-    selectedSource && isValidObjectRef(linkExistingFormState?.existingObjectRef),
-  );
   const canStageRelationship = Boolean(
     relationshipFormState && canStageRelationshipForm(relationshipFormState),
   );
@@ -164,27 +149,23 @@ export function GraphObjectAuthoringSurface({
     [formState, selectedSource, overlapContext],
   );
 
-  const linkExistingOverlapWarnings = useMemo(() => {
-    if (!selectedSource || !linkExistingFormState) {
-      return [];
-    }
-    return detectLinkExistingFormOverlapWarnings(
-      linkExistingFormState,
-      selectedSource.selectedText,
-      overlapContext,
-    );
-  }, [selectedSource, linkExistingFormState, overlapContext]);
-
   const showCreateNew = focusPanel === "all" || focusPanel === "create_new";
   const showRelationships = focusPanel === "all" || focusPanel === "relationships";
   const showStageOverlay = focusPanel === "all" || focusPanel === "stage_overlay";
+
+  const hasUnusedPendingSelection = Boolean(
+    pendingSelection &&
+      pendingSelection.selectedText.trim() &&
+      (!selectedSource || selectedSource.selectedText !== pendingSelection.selectedText),
+  );
 
   const headerCopy =
     focusPanel === "create_new"
       ? {
           kicker: "Create new object",
-          title: "Draft a new graph object",
-          hint: "Highlight recap text and choose “Author graph object”.",
+          title: "Create a graph object",
+          hint:
+            "Highlight recap text, then use it below. Create object saves to authored memory immediately, then continues in Existing object.",
         }
       : focusPanel === "relationships"
         ? {
@@ -218,37 +199,34 @@ export function GraphObjectAuthoringSurface({
       </header>
 
       {showCreateNew ? (
-        selectedSource ? (
         <>
-          <GraphObjectAuthoringSelectedSource selection={selectedSource} />
-
-          {supportsLinkExisting ? (
-            <div className="graph-object-authoring-mode-tabs" role="tablist" aria-label="Authoring mode">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={selectionMode === "object"}
-                data-testid="graph-object-authoring-mode-object"
-                className={selectionMode === "object" ? "is-active" : ""}
-                onClick={() => setSelectionMode("object")}
-              >
-                Object draft
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={selectionMode === "link_existing"}
-                data-testid="graph-object-authoring-mode-link-existing"
-                className={selectionMode === "link_existing" ? "is-active" : ""}
-                onClick={() => setSelectionMode("link_existing")}
-              >
-                Link existing
-              </button>
+          {hasUnusedPendingSelection && pendingSelection && onUseSelectedText ? (
+            <div
+              className="graph-object-authoring-pending-selection"
+              data-testid="graph-object-authoring-pending-selection"
+            >
+              <p className="graph-object-authoring-pending-selection-label">
+                Highlighted in recap
+              </p>
+              <p className="graph-object-authoring-pending-selection-quote">
+                “{pendingSelection.selectedText}”
+              </p>
+              <div className="graph-object-authoring-surface-actions">
+                <button
+                  type="button"
+                  data-testid="graph-object-authoring-use-selected-text-button"
+                  onClick={() => onUseSelectedText(pendingSelection)}
+                >
+                  Use this text
+                </button>
+              </div>
             </div>
           ) : null}
 
-          {selectionMode === "object" ? (
+          {selectedSource ? (
             <>
+              <GraphObjectAuthoringSelectedSource selection={selectedSource} />
+
               <GraphObjectAuthoringObjectForm formState={formState} onChange={onFormFieldChange} />
               <GraphObjectAuthoringOverlapWarnings warnings={objectFormOverlapWarnings} />
               <GraphObjectAuthoringVisibilitySection
@@ -259,53 +237,38 @@ export function GraphObjectAuthoringSurface({
                 <button
                   type="button"
                   data-testid="graph-object-authoring-stage-button"
-                  disabled={!canStage}
+                  disabled={!canStage || creatingObject}
                   onClick={onStageProposal}
                 >
-                  Stage object draft
+                  {creatingObject ? "Creating…" : "Create object"}
                 </button>
               </div>
+              {createObjectError ? (
+                <p className="graph-object-authoring-prepare-commit-error" role="alert">
+                  {createObjectError}
+                </p>
+              ) : null}
             </>
-          ) : null}
-
-          {selectionMode === "link_existing" && linkExistingFormState && onLinkExistingFieldChange ? (
-            <>
-              <GraphObjectAuthoringLinkExistingSection
-                selectedText={selectedSource.selectedText}
-                formState={linkExistingFormState}
-                onChange={onLinkExistingFieldChange}
-                proposals={proposals}
-                existingNodes={existingNodes}
-                scopeCandidates={scopeCandidates}
-                overlapContext={overlapContext}
-              />
-              <GraphObjectAuthoringOverlapWarnings warnings={linkExistingOverlapWarnings} />
-              <GraphObjectAuthoringVisibilitySection
-                visibility={linkExistingFormState.visibility}
-                onChange={(visibility) => onLinkExistingFieldChange("visibility", visibility)}
-                fieldId="graph-object-authoring-link-existing-visibility"
-                fieldLabel="Link visibility"
-                sectionLabel="Link-existing visibility"
-              />
-              <div className="graph-object-authoring-surface-actions">
-                <button
-                  type="button"
-                  data-testid="graph-object-authoring-stage-link-existing-button"
-                  disabled={!canStageLinkExisting}
-                  onClick={onStageLinkExistingProposal}
-                >
-                  Stage link-existing draft
-                </button>
-              </div>
-            </>
-          ) : null}
+          ) : (
+            <div className="graph-object-authoring-surface-empty-state">
+              <p className="graph-object-authoring-surface-empty-hint">
+                Highlight source text in the recap to use it here, or start a draft
+                directly below.
+              </p>
+              {onStartManualDraft ? (
+                <div className="graph-object-authoring-surface-actions">
+                  <button
+                    type="button"
+                    data-testid="graph-object-authoring-start-manual-draft-button"
+                    onClick={onStartManualDraft}
+                  >
+                    Create new object
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
         </>
-      ) : (
-        <p className="graph-object-authoring-surface-empty-hint">
-          Highlight source text in the recap and choose “Author graph object” to
-          start a draft.
-        </p>
-      )
       ) : null}
 
       {showRelationships && supportsRelationship && relationshipFormState && onRelationshipFieldChange ? (
@@ -380,6 +343,7 @@ export function GraphObjectAuthoringSurface({
             sourceRunId={sourceRunId}
             sourceGraphId={sourceGraphId}
             proposals={proposals}
+            previewUnionStorePath={previewUnionStorePath}
             onCommitted={onCommittedProposals}
             onRefreshProjection={onRefreshProjection}
           />
