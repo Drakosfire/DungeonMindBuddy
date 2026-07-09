@@ -72,12 +72,11 @@ describe("buildSelectedObjectCardModel", () => {
       ]),
     );
     expect(model.actionIntents).toContain("statblock_tool");
-    expect(model.actionIntents).not.toContain("statblock_selected");
     expect(model.metadata?.corpusDisplayPath).toContain("tripod_null_calf");
     expect(model.metadata?.indexId).toBe("tripod-null-calf");
   });
 
-  it("uses selected statblock intent when artifact id exists", () => {
+  it("uses generic statblock tool intent even when artifact id exists", () => {
     const model = buildSelectedObjectCardModel(
       resolvedResolution("statblock", {
         title: "Tripod Null-Calf",
@@ -85,8 +84,7 @@ describe("buildSelectedObjectCardModel", () => {
       }),
     );
 
-    expect(model.actionIntents).toContain("statblock_selected");
-    expect(model.actionIntents).not.toContain("statblock_tool");
+    expect(model.actionIntents).toContain("statblock_tool");
     expect(model.metadata?.artifactId).toBe("artifact-tripod-null-calf");
   });
 
@@ -249,6 +247,14 @@ describe("buildSelectedObjectActions", () => {
     );
 
     const actions = buildSelectedObjectActions(model);
-    expect(actions.some((action) => action.id === "roll" && action.label === "Roll d12")).toBe(true);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "roll",
+          label: "Roll d12",
+          payload: { dice: "d12" },
+        }),
+      ]),
+    );
   });
 });

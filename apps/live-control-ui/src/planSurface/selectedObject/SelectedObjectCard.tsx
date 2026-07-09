@@ -70,8 +70,8 @@ function CardAction({
   const handleClick = () => {
     if (action.id === "expand") onExpand();
     if (action.id === "statblock") onOpenStatblock();
-    if (action.id === "roll" && action.label.startsWith("Roll ")) {
-      onRoll(action.label.slice("Roll ".length));
+    if (action.id === "roll" && action.payload?.dice) {
+      onRoll(action.payload.dice);
     }
   };
 

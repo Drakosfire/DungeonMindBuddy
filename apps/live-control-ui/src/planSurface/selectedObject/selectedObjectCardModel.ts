@@ -19,13 +19,15 @@ export interface SelectedObjectAction {
   disabled?: boolean;
   reason?: string;
   href?: string;
+  payload?: {
+    dice?: string;
+  };
 }
 
 export type SelectedObjectActionIntent =
   | "expand"
   | "ingest"
   | "statblock_tool"
-  | "statblock_selected"
   | "roll";
 
 export interface SelectedObjectMetadata {
@@ -241,7 +243,7 @@ function defaultActionIntents(
   const intents: SelectedObjectActionIntent[] = ["expand", "ingest"];
 
   if (kind === "statblock") {
-    intents.push(metadata?.artifactId ? "statblock_selected" : "statblock_tool");
+    intents.push("statblock_tool");
   }
 
   if (kind === "roll-table" && metadata?.dice) {

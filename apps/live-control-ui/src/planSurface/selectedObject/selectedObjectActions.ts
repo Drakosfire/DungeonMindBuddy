@@ -26,13 +26,14 @@ export function buildSelectedObjectActions(
       case "statblock_tool":
         actions.push({ id: "statblock", label: "Open statblock tool" });
         break;
-      case "statblock_selected":
-        actions.push({ id: "statblock", label: "Open selected statblock" });
-        break;
       case "roll": {
         const dice = model.metadata?.dice;
         if (dice) {
-          actions.push({ id: "roll", label: `Roll ${dice}` });
+          actions.push({
+            id: "roll",
+            label: `Roll ${dice}`,
+            payload: { dice },
+          });
         }
         break;
       }
