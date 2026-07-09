@@ -181,6 +181,79 @@
   font-size: 0.8rem;
 }
 
+.plan-markdown-save-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: rgba(18, 20, 26, 0.72);
+  padding: 0.85rem 1rem;
+}
+
+.plan-markdown-save-target {
+  margin: 0 0 0.5rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.plan-markdown-save-diff {
+  margin: 0.5rem 0;
+  padding: 0.65rem;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+.plan-markdown-save-warning {
+  margin: 0.35rem 0;
+  color: #e0af68;
+  font-size: 0.85rem;
+}
+
+.plan-markdown-save-error {
+  margin: 0.35rem 0;
+  color: #f7768e;
+  font-size: 0.85rem;
+}
+
+.plan-markdown-save-diagnostic {
+  margin: 0.2rem 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.82rem;
+}
+
+.plan-markdown-save-success {
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.25rem;
+  color: #9ece6a;
+  font-size: 0.85rem;
+}
+
+.plan-markdown-save-success div {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+}
+
+.plan-markdown-save-success dt {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-weight: 600;
+}
+
+.plan-markdown-save-success dd {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
 .plan-canvas-doc-label {
   display: block;
   margin-bottom: 0.35rem;

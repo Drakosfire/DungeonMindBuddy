@@ -9,9 +9,23 @@ from typing import Literal
 import blake3
 from pydantic import BaseModel, Field
 
-_ALLOWED_TIPTAP_MARKDOWN_RE = re.compile(
+_ALLOWED_EVAL_TIPTAP_MARKDOWN_RE = re.compile(
     r"^evals/c2_live_prep/mireward-prep/content/tiptap/[a-z0-9][a-z0-9_-]*\.md$"
 )
+_ALLOWED_PLAN_SESSION_PREP_RE = re.compile(
+    r"^corpus/eldyrwild-markdown/Longmont Campaign/Campaign \d+/Session Prep/Session \d+ Prep\.md$"
+)
+
+
+def _is_allowed_tiptap_target_relpath(value: str) -> bool:
+    return bool(
+        _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(value)
+        or _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(value)
+    )
+
+
+def _is_corpus_tiptap_target_relpath(value: str) -> bool:
+    return value.startswith("corpus/eldyrwild-markdown/")
 
 
 class TiptapMarkdownWriteError(ValueError):
@@ -77,9 +91,9 @@ def normalize_tiptap_target_relpath(value: str) -> str:
         raise TiptapMarkdownWriteError(
             "target_relpath must be a normalized repo-relative path"
         )
-    if not _ALLOWED_TIPTAP_MARKDOWN_RE.fullmatch(value):
+    if not _is_allowed_tiptap_target_relpath(value):
         raise TiptapMarkdownWriteError(
-            "target_relpath must match evals/c2_live_prep/mireward-prep/content/tiptap/<safe-slug>.md"
+            "target_relpath must match an allowed Tiptap Markdown write path"
         )
     return value
 
@@ -144,12 +158,19 @@ def prepare_tiptap_markdown_write(
         warnings=["Existing file will be replaced after explicit commit."]
         if exists
         else [],
-        diagnostics=[
-            "dry-run only; no file was written",
-            "local Tiptap JSON was not persisted to backend",
-            "corpus was not mutated",
-        ],
+        diagnostics=_prepare_diagnostics(relpath),
     )
+
+
+def _prepare_diagnostics(relpath: str) -> list[str]:
+    diagnostics = [
+        "dry-run only; no file was written",
+        "review the Markdown diff before commit",
+        "local Tiptap JSON remains browser-local",
+    ]
+    if not _is_corpus_tiptap_target_relpath(relpath):
+        diagnostics.append("corpus was not mutated")
+    return diagnostics
 
 
 def commit_tiptap_markdown_write(
@@ -189,9 +210,16 @@ def commit_tiptap_markdown_write(
         bytes_written=len(content.encode()),
         file_fingerprint=blake3.blake3(content.encode()).hexdigest(),
         backup_relpath=backup_relpath,
-        diagnostics=[
-            "reviewed Markdown file written to prep content",
-            "local Tiptap JSON remains browser-local",
-            "corpus was not mutated",
-        ],
+        diagnostics=_commit_diagnostics(relpath),
     )
+
+
+def _commit_diagnostics(relpath: str) -> list[str]:
+    diagnostics = [
+        "reviewed Markdown file written",
+        "local Tiptap JSON remains browser-local",
+        "backend wrote Markdown only; no graph memory or ingest mutation occurred",
+    ]
+    if not _is_corpus_tiptap_target_relpath(relpath):
+        diagnostics.append("corpus was not mutated")
+    return diagnostics

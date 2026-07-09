@@ -24,6 +24,7 @@ function themeStyle(config: PlanSurfaceConfig): CSSProperties {
 export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
   const config = useMemo(() => createPlanSurfaceConfig(planView), [planView]);
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
 
   return (
     <EditCapabilityProvider>
@@ -34,13 +35,14 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
           data-md-theme={config.theme.themeId}
           style={themeStyle(config)}
         >
-          <PlanNavBar config={config} />
+          <PlanNavBar config={config} saveStatusLabel={saveStatusLabel} />
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
               <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}
                 onEditorToolsChange={setEditorTools}
+                onSaveStatusChange={setSaveStatusLabel}
               />
             </div>
             <AdaptiveProjectionContainer config={config} />
