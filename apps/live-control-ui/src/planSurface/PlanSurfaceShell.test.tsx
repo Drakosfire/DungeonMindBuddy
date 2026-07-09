@@ -39,6 +39,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
     expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
     expect(screen.getByTestId("plan-document-context")).toHaveTextContent(/C2 Session 23 Prep · local draft/i);
+    expect(screen.getByTestId("plan-document-target")).toHaveTextContent(/TBD durable planning path/i);
     expect(screen.getByRole("link", { name: "Review memory" })).toHaveAttribute(
       "href",
       "/ingest?campaign=longmont-c2&session=session-21",

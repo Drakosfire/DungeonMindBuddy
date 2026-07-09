@@ -1,12 +1,12 @@
-import type { SurfaceConfig } from "../types";
+import type { PlanSurfaceConfig } from "../types";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 
 interface PlanNavBarProps {
-  config: SurfaceConfig;
+  config: PlanSurfaceConfig;
 }
 
 function formatDocumentStatus(
-  status: NonNullable<SurfaceConfig["sessionDescriptor"]>["planningDocument"]["status"],
+  status: PlanSurfaceConfig["sessionDescriptor"]["planningDocument"]["status"],
 ): string {
   switch (status) {
     case "local_draft":
@@ -22,7 +22,7 @@ function formatDocumentStatus(
 
 export function PlanNavBar({ config }: PlanNavBarProps) {
   const sessionDescriptor = config.sessionDescriptor;
-  const planningDocument = sessionDescriptor?.planningDocument;
+  const planningDocument = sessionDescriptor.planningDocument;
 
   return (
     <header className="plan-nav-bar">
@@ -31,35 +31,23 @@ export function PlanNavBar({ config }: PlanNavBarProps) {
         <h1 className="plan-nav-title" data-testid="plan-context-header">
           {config.context.headerLabel}
         </h1>
-        {sessionDescriptor ? (
-          <div className="plan-nav-context-strip" aria-label="Plan session context">
-            <p className="plan-nav-context-line" data-testid="plan-memory-source">
-              Memory/source: {sessionDescriptor.sourceStatusLabel}
-            </p>
-            {planningDocument ? (
-              <>
-                <p className="plan-nav-context-line" data-testid="plan-document-context">
-                  Board: {planningDocument.title} · {formatDocumentStatus(planningDocument.status)}
-                </p>
-                <p className="plan-nav-context-line plan-nav-context-mono" data-testid="plan-document-target">
-                  Target: {planningDocument.targetRelpath ?? "TBD durable planning path"}
-                </p>
-                <p className="plan-nav-context-line plan-nav-draft-note" data-testid="plan-local-draft-note">
-                  Local draft · browser-local until durable save lands
-                </p>
-              </>
-            ) : null}
-          </div>
-        ) : (
-          <p className="plan-nav-subtitle">
-            Intentional planning surface. Use Live Play as the static command-board baseline.
+        <div className="plan-nav-context-strip" aria-label="Plan session context">
+          <p className="plan-nav-context-line" data-testid="plan-memory-source">
+            Memory/source: {sessionDescriptor.sourceStatusLabel}
           </p>
-        )}
+          <p className="plan-nav-context-line" data-testid="plan-document-context">
+            Board: {planningDocument.title} · {formatDocumentStatus(planningDocument.status)}
+          </p>
+          <p className="plan-nav-context-line plan-nav-context-mono" data-testid="plan-document-target">
+            Target: {planningDocument.targetRelpath ?? "TBD durable planning path"}
+          </p>
+          <p className="plan-nav-context-line plan-nav-draft-note" data-testid="plan-local-draft-note">
+            Local draft · browser-local until durable save lands
+          </p>
+        </div>
       </div>
       <nav className="plan-nav-links" aria-label="Plan surface navigation">
-        {sessionDescriptor ? (
-          <a href={buildPlanIngestHref(sessionDescriptor)}>Review memory</a>
-        ) : null}
+        <a href={buildPlanIngestHref(sessionDescriptor)}>Review memory</a>
         <a href="/plan" aria-current="page">
           Plan
         </a>

@@ -19,13 +19,13 @@ import { createCorpusDerivedViewsReader } from "../derivedViews/derivedViewsAdap
 import { useEditCapability } from "../edit/editCapability";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement, resolveReference } from "../reference/referenceResolver";
-import type { SurfaceCanvasConfig, SurfaceConfig, SurfaceThemeConfig } from "../types";
+import type { PlanSessionDescriptor, SurfaceCanvasConfig, SurfaceThemeConfig } from "../types";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 
 interface PlanSurfaceCanvasProps {
   canvas: SurfaceCanvasConfig;
-  sessionDescriptor?: SurfaceConfig["sessionDescriptor"];
+  sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
 }
@@ -36,14 +36,12 @@ export function PlanSurfaceCanvas({
   theme,
   onEditorToolsChange,
 }: PlanSurfaceCanvasProps) {
-  const descriptor = useMemo(() => {
-    if (sessionDescriptor) {
-      return planDocumentToRunbookDescriptor(sessionDescriptor);
-    }
-    throw new Error("PlanSurfaceCanvas requires a session descriptor.");
-  }, [sessionDescriptor]);
+  const descriptor = useMemo(
+    () => planDocumentToRunbookDescriptor(sessionDescriptor),
+    [sessionDescriptor],
+  );
   const documentOptions = useMemo(
-    () => (sessionDescriptor ? listSelectablePlanDocuments(sessionDescriptor) : []),
+    () => listSelectablePlanDocuments(sessionDescriptor),
     [sessionDescriptor],
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
@@ -109,18 +107,16 @@ export function PlanSurfaceCanvas({
   }, [isLocked, onEditorToolsChange, toggleLock]);
 
   const editorThemeClass = `md-theme-${theme.themeId ?? descriptor.themeId}`;
-  const planningDocument = sessionDescriptor?.planningDocument;
+  const planningDocument = sessionDescriptor.planningDocument;
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
       <div className="plan-canvas-heading">
         <p className="plan-surface-kicker">Working board</p>
         <h2 data-testid="plan-canvas-title">{descriptor.title}</h2>
-        {planningDocument ? (
-          <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
-            Document <code>{planningDocument.documentId}</code> · local draft · corpus writes not enabled yet
-          </p>
-        ) : null}
+        <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
+          Document <code>{planningDocument.documentId}</code> · local draft · corpus writes not enabled yet
+        </p>
         <label htmlFor="plan-runbook-document" className="plan-canvas-doc-label">
           Planning document
         </label>

@@ -27,6 +27,20 @@ export interface PlanContextDescriptor {
   headerLabel: string;
 }
 
+export type PlanDocumentStatus = "local_draft" | "durable" | "missing" | "unknown";
+export type PlanDocumentStarterKind = "blank" | "session_prep" | "legacy_north_gate";
+export type PlanSourceStatusKind = "ready" | "missing" | "stale" | "unknown";
+
+export interface PlanDocumentDescriptor {
+  documentId: string;
+  title: string;
+  description?: string;
+  targetRelpath?: string;
+  storageKey: string;
+  status: PlanDocumentStatus;
+  starterKind: PlanDocumentStarterKind;
+}
+
 export interface PlanSessionDescriptor {
   surfaceId: "plan";
   campaignId: string;
@@ -35,16 +49,14 @@ export interface PlanSessionDescriptor {
   memorySession: number;
   liveSession: number;
   sourceStatusLabel: string;
-  sourceStatusKind: "ready" | "missing" | "stale" | "unknown";
-  planningDocument: {
-    documentId: string;
-    title: string;
-    description?: string;
-    targetRelpath?: string;
-    storageKey: string;
-    status: "local_draft" | "durable" | "missing" | "unknown";
-    starterKind: "blank" | "session_prep" | "legacy_north_gate";
-  };
+  sourceStatusKind: PlanSourceStatusKind;
+  planningDocument: PlanDocumentDescriptor;
+}
+
+export interface PlanDocumentOption {
+  documentId: string;
+  title: string;
+  starterKind: PlanDocumentStarterKind;
 }
 
 export interface SurfaceConfig {
@@ -55,6 +67,11 @@ export interface SurfaceConfig {
   tools: SurfaceToolConfig[];
   canvas: SurfaceCanvasConfig;
   theme: SurfaceThemeConfig;
+}
+
+export interface PlanSurfaceConfig extends Omit<SurfaceConfig, "id" | "sessionDescriptor"> {
+  id: "plan";
+  sessionDescriptor: PlanSessionDescriptor;
 }
 
 export interface ActiveProjection {

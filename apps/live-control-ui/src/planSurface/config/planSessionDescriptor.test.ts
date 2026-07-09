@@ -8,6 +8,7 @@ import {
   createPlanSessionDescriptor,
   defaultSessionPrepDocumentId,
   isLegacyNorthGateDocumentId,
+  listSelectablePlanDocuments,
 } from "./planSessionDescriptor";
 
 describe("planSessionDescriptor", () => {
@@ -29,7 +30,15 @@ describe("planSessionDescriptor", () => {
     expect(document.title).toBe("C2 Session 23 Prep");
     expect(document.starterKind).toBe("session_prep");
     expect(document.status).toBe("local_draft");
-    expect(document.targetRelpath).toContain("C2S23-prep.md");
+    expect(document.targetRelpath).toBe("TBD durable planning path");
+  });
+
+  it("keeps generic prep selectable when legacy north gate is active", () => {
+    const sessionDescriptor = createPlanSessionDescriptor(mockPlanView, "north-gate-session-runbook");
+    const options = listSelectablePlanDocuments(sessionDescriptor);
+    expect(options[0].documentId).toBe("longmont-c2-session-23-prep");
+    expect(options[0].starterKind).toBe("session_prep");
+    expect(options.some((option) => option.documentId === "north-gate-session-runbook")).toBe(true);
   });
 
   it("keeps legacy north gate only when explicitly requested", () => {

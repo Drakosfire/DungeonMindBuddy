@@ -9,39 +9,21 @@ import {
   type TiptapRunbookDescriptor,
 } from "../../tiptap/descriptors/tiptapRunbookDescriptors";
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
-import type { PlanContextDescriptor } from "../types";
+import type {
+  PlanContextDescriptor,
+  PlanDocumentDescriptor,
+  PlanDocumentOption,
+  PlanSessionDescriptor,
+} from "../types";
 
-export type PlanDocumentStatus = "local_draft" | "durable" | "missing" | "unknown";
-export type PlanDocumentStarterKind = "blank" | "session_prep" | "legacy_north_gate";
-export type PlanSourceStatusKind = "ready" | "missing" | "stale" | "unknown";
-
-export interface PlanDocumentDescriptor {
-  documentId: string;
-  title: string;
-  description?: string;
-  targetRelpath?: string;
-  storageKey: string;
-  status: PlanDocumentStatus;
-  starterKind: PlanDocumentStarterKind;
-}
-
-export interface PlanSessionDescriptor {
-  surfaceId: "plan";
-  campaignId: string;
-  campaignLabel: string;
-  prepSession: number;
-  memorySession: number;
-  liveSession: number;
-  sourceStatusLabel: string;
-  sourceStatusKind: PlanSourceStatusKind;
-  planningDocument: PlanDocumentDescriptor;
-}
-
-export interface PlanDocumentOption {
-  documentId: string;
-  title: string;
-  starterKind: PlanDocumentStarterKind;
-}
+export type {
+  PlanDocumentDescriptor,
+  PlanDocumentOption,
+  PlanDocumentStarterKind,
+  PlanDocumentStatus,
+  PlanSessionDescriptor,
+  PlanSourceStatusKind,
+} from "../types";
 
 const LEGACY_NORTH_GATE_DOCUMENT_IDS = new Set(
   TIPTAP_RUNBOOK_DESCRIPTORS.map((descriptor) => descriptor.documentId),
@@ -78,12 +60,8 @@ export function defaultSessionPrepTitle(campaignLabel: string, prepSession: numb
   return `${shortLabel} Session ${prepSession} Prep`;
 }
 
-export function defaultPlanTargetRelpath(campaignId: string, prepSession: number): string {
-  const campaignNum = campaignId.match(/^longmont-c(\d+)$/i)?.[1];
-  if (!campaignNum) {
-    return "TBD durable planning path";
-  }
-  return `corpus/eldyrwild-markdown/Longmont Campaign/Campaign ${campaignNum}/planning/C${campaignNum}S${prepSession}-prep.md`;
+export function defaultPlanTargetRelpath(_campaignId: string, _prepSession: number): string {
+  return "TBD durable planning path";
 }
 
 export function resolveRequestedPlanDocumentId(
@@ -155,16 +133,24 @@ export function createPlanSessionDescriptor(
 export function listSelectablePlanDocuments(
   sessionDescriptor: PlanSessionDescriptor,
 ): PlanDocumentOption[] {
+  const genericDocument = createPlanDocumentDescriptor({
+    campaignId: sessionDescriptor.campaignId,
+    liveSession: sessionDescriptor.liveSession,
+    prepSession: sessionDescriptor.prepSession,
+    ingestSession: sessionDescriptor.memorySession,
+    headerLabel: `Plan · ${sessionDescriptor.campaignLabel} · preparing Session ${sessionDescriptor.prepSession}`,
+  });
+
   const options: PlanDocumentOption[] = [
     {
-      documentId: sessionDescriptor.planningDocument.documentId,
-      title: sessionDescriptor.planningDocument.title,
-      starterKind: sessionDescriptor.planningDocument.starterKind,
+      documentId: genericDocument.documentId,
+      title: genericDocument.title,
+      starterKind: genericDocument.starterKind,
     },
   ];
 
   for (const legacy of TIPTAP_RUNBOOK_DESCRIPTORS) {
-    if (legacy.documentId === sessionDescriptor.planningDocument.documentId) continue;
+    if (legacy.documentId === genericDocument.documentId) continue;
     options.push({
       documentId: legacy.documentId,
       title: legacy.title,

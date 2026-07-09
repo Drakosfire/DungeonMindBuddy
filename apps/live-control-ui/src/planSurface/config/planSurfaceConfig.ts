@@ -1,5 +1,5 @@
 import type { PlanViewProjection } from "../../api/types";
-import type { SurfaceConfig } from "../types";
+import type { PlanSurfaceConfig } from "../types";
 import {
   buildPlanContextFromPlanView,
   createPlanSessionDescriptor,
@@ -24,7 +24,7 @@ export { buildPlanContextFromPlanView } from "./planSessionDescriptor";
 export function createPlanSurfaceConfig(
   planView: PlanViewProjection,
   requestedDocumentId: string | null = resolveRequestedPlanDocumentId(),
-): SurfaceConfig {
+): PlanSurfaceConfig {
   const sessionDescriptor = createPlanSessionDescriptor(planView, requestedDocumentId);
   return {
     id: "plan",
