@@ -26,7 +26,7 @@ export function planMarkdownSaveStatusLabel(state: PlanMarkdownSaveState): strin
     case "idle":
       return "Local draft · not yet saved to Markdown";
     case "dirty":
-      return "Local changes since last Markdown save";
+      return state.error ?? "Local changes since last Markdown save";
     case "preparing":
       return "Preparing Markdown save preview…";
     case "preview_ready":

@@ -12,4 +12,13 @@ describe("planMarkdownSaveStatusLabel", () => {
     expect(planMarkdownSaveStatusLabel({ status: "committed" })).toMatch(/Saved to Markdown/i);
     expect(planMarkdownSaveStatusLabel({ status: "error", error: "boom" })).toBe("boom");
   });
+
+  it("shows stale-preview error on dirty state when present", () => {
+    expect(
+      planMarkdownSaveStatusLabel({
+        status: "dirty",
+        error: "Editor changed after preview. Preview the save again before committing.",
+      }),
+    ).toMatch(/Preview the save again/i);
+  });
 });

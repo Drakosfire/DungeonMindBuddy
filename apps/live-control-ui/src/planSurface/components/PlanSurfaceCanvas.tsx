@@ -82,7 +82,6 @@ export function PlanSurfaceCanvas({
     markDirty,
     prepareSave,
     commitSave,
-    exportCurrentMarkdown,
   } = usePlanMarkdownSave({ editor, sessionDescriptor });
 
   useEffect(() => {
@@ -161,12 +160,6 @@ export function PlanSurfaceCanvas({
 
   const editorThemeClass = `md-theme-${theme.themeId ?? descriptor.themeId}`;
   const planningDocument = sessionDescriptor.planningDocument;
-  const currentMarkdown = exportCurrentMarkdown();
-  const preparedMarkdownStale = Boolean(
-    saveState.prepared
-      && saveState.preparedMarkdown
-      && currentMarkdown !== saveState.preparedMarkdown,
-  );
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
@@ -200,11 +193,6 @@ export function PlanSurfaceCanvas({
             Target: {planningDocument.targetRelpath}
             {saveState.prepared ? ` · ${saveState.prepared.file_exists ? "replace existing file" : "new file"}` : null}
           </p>
-          {preparedMarkdownStale && (
-            <p className="plan-markdown-save-warning" role="alert">
-              Editor changed after preview. Preview the save again before committing.
-            </p>
-          )}
           {saveState.prepared?.writer_diff != null && (
             <pre className="plan-markdown-save-diff" data-testid="plan-markdown-save-diff">
               {saveState.prepared.writer_diff}

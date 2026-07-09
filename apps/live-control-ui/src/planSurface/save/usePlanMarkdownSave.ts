@@ -29,11 +29,25 @@ export function usePlanMarkdownSave(args: {
 
   const markDirty = useCallback(() => {
     setState((current) => {
-      if (current.status === "committed") {
-        return { ...current, status: "dirty", prepared: undefined, preparedMarkdown: undefined };
+      if (current.status === "preview_ready") {
+        return {
+          status: "dirty",
+          prepared: undefined,
+          preparedMarkdown: undefined,
+          error: "Editor changed after preview. Preview the save again before committing.",
+        };
       }
-      if (current.status === "preview_ready" || current.status === "preparing" || current.status === "committing") {
+      if (current.status === "preparing" || current.status === "committing") {
         return current;
+      }
+      if (current.status === "committed") {
+        return {
+          ...current,
+          status: "dirty",
+          prepared: undefined,
+          preparedMarkdown: undefined,
+          error: undefined,
+        };
       }
       if (current.status === "idle") {
         return { ...current, status: "dirty" };
@@ -78,6 +92,9 @@ export function usePlanMarkdownSave(args: {
   }, [exportCurrentMarkdown, planningDocument.documentId, planningDocument.targetRelpath, planningDocument.title]);
 
   const canCommit = useMemo(() => {
+    if (state.status !== "preview_ready") {
+      return false;
+    }
     if (!state.prepared?.writer_ok || !state.prepared.writer_confirm_token || !state.preparedMarkdown) {
       return false;
     }
@@ -86,7 +103,7 @@ export function usePlanMarkdownSave(args: {
       currentMarkdown === state.preparedMarkdown
       && state.prepared.target_relpath === planningDocument.targetRelpath
     );
-  }, [exportCurrentMarkdown, planningDocument.targetRelpath, state.prepared, state.preparedMarkdown]);
+  }, [exportCurrentMarkdown, planningDocument.targetRelpath, state.prepared, state.preparedMarkdown, state.status]);
 
   const commitSave = useCallback(async () => {
     if (!state.prepared?.writer_confirm_token || !state.preparedMarkdown || !canCommit) return;
