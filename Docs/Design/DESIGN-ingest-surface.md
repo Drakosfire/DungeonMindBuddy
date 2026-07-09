@@ -1,5 +1,7 @@
 # DESIGN - Ingest Surface
 
+**Status:** Historical route-move / reader-cleanup note. Current Graph Review and authored-memory authority is `Docs/Design/DESIGN-graph-object-authoring-surface.md`; current `/plan` consumption boundary is `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
+
 ## Product definition
 
 The Ingest Surface is the workspace for converting source artifacts into reviewed campaign memory.
@@ -12,7 +14,7 @@ The Ingest Surface is the workspace for converting source artifacts into reviewe
 
 ## Why this is a surface, not a Plan toolbox tool
 
-Graph Review + Gold Authoring now contains a full editorial loop:
+Graph Review now contains a full editorial loop:
 source artifact -> projection comparison -> Author Draft -> prepare preview -> guarded commit -> reload/verify.
 
 That loop needs its own canvas and safety model.
@@ -26,7 +28,7 @@ Ingest reviews what source artifacts should become in memory.
 
 This PR only moves Graph Review into `/ingest` and removes legacy graph/ingest destinations from the Plan toolbox.
 
-Legacy Plan toolbox entries for Ingest Recap, Graph Preview, Graph Gold Review, Graph Review, and Vocabulary Review are archived from normal navigation. The active Graph Review + Gold Authoring Workbench now lives in `/ingest`; old Plan query-string destinations are no longer treated as first-class user surfaces.
+Legacy Plan toolbox entries for Ingest Recap, Graph Preview, Graph Gold Review, Graph Review, and Vocabulary Review are archived from normal navigation. The active Graph Review / authored-memory workbench now lives in `/ingest`; old Plan query-string destinations are no longer treated as first-class user surfaces. Gold comparison remains optional developer/evaluation support, not the normal authoring destination.
 
 ## Reader regression cleanup - PR 11E
 

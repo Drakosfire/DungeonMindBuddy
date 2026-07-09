@@ -14,6 +14,7 @@
 - `Docs/Plans/AUDIT-ingest-surface-page-inventory.md`
 - `Docs/Plans/FOLLOWUP-raw-dmb-node-links-and-duplicate-projected-objects.md`
 - `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
+- `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
 - `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`
 
 ---
@@ -30,6 +31,10 @@ The core authored-memory loop has landed through PR #305. Graph Review is a GM-f
 - The selected-object card is game-first; evidence, provenance, review state, and raw IDs sit behind collapsed **Details**.
 
 Materialization does not mutate source recap markdown, ingest artifacts, or gold fixtures. It does not import sibling-run nodes, evidence, or edges. Undo/retract, player-facing views, LLM assistance, and broader graph editing remain deferred.
+
+### Plan consumption boundary
+
+Graph Object Authoring owns campaign-memory correction and writes. `/plan` consumes reviewed graph/corpus memory for session preparation, including reusable game-facing selected-object cards and source-context projections. It does not own Author Draft, authored-overlay/event-log commits, identity merging, or diagnostics in its default prep flow unless a future dogfood pass proves one specific correction need. See `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 
 ## 1. Prime Design decision
 
