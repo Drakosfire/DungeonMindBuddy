@@ -7,9 +7,9 @@ import type { AppChromeTools } from "../../chrome/AppChrome";
 import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
 import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
 import {
-  getTiptapRunbookDescriptor,
-  TIPTAP_RUNBOOK_DESCRIPTORS,
-} from "../../tiptap/descriptors/tiptapRunbookDescriptors";
+  listSelectablePlanDocuments,
+  planDocumentToRunbookDescriptor,
+} from "../config/planSessionDescriptor";
 import {
   buildInitialWorkingBoardState,
   readTiptapWorkingBoardState,
@@ -19,20 +19,32 @@ import { createCorpusDerivedViewsReader } from "../derivedViews/derivedViewsAdap
 import { useEditCapability } from "../edit/editCapability";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement, resolveReference } from "../reference/referenceResolver";
-import type { SurfaceCanvasConfig, SurfaceThemeConfig } from "../types";
+import type { SurfaceCanvasConfig, SurfaceConfig, SurfaceThemeConfig } from "../types";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 
 interface PlanSurfaceCanvasProps {
   canvas: SurfaceCanvasConfig;
+  sessionDescriptor?: SurfaceConfig["sessionDescriptor"];
   theme: SurfaceThemeConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
 }
 
-export function PlanSurfaceCanvas({ canvas, theme, onEditorToolsChange }: PlanSurfaceCanvasProps) {
-  const descriptor = useMemo(
-    () => getTiptapRunbookDescriptor(canvas.documentId),
-    [canvas.documentId],
+export function PlanSurfaceCanvas({
+  canvas,
+  sessionDescriptor,
+  theme,
+  onEditorToolsChange,
+}: PlanSurfaceCanvasProps) {
+  const descriptor = useMemo(() => {
+    if (sessionDescriptor) {
+      return planDocumentToRunbookDescriptor(sessionDescriptor);
+    }
+    throw new Error("PlanSurfaceCanvas requires a session descriptor.");
+  }, [sessionDescriptor]);
+  const documentOptions = useMemo(
+    () => (sessionDescriptor ? listSelectablePlanDocuments(sessionDescriptor) : []),
+    [sessionDescriptor],
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip } = useProjection();
@@ -97,27 +109,34 @@ export function PlanSurfaceCanvas({ canvas, theme, onEditorToolsChange }: PlanSu
   }, [isLocked, onEditorToolsChange, toggleLock]);
 
   const editorThemeClass = `md-theme-${theme.themeId ?? descriptor.themeId}`;
+  const planningDocument = sessionDescriptor?.planningDocument;
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
       <div className="plan-canvas-heading">
         <p className="plan-surface-kicker">Working board</p>
-        <h2>{descriptor.title}</h2>
+        <h2 data-testid="plan-canvas-title">{descriptor.title}</h2>
+        {planningDocument ? (
+          <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
+            Document <code>{planningDocument.documentId}</code> · local draft · corpus writes not enabled yet
+          </p>
+        ) : null}
         <label htmlFor="plan-runbook-document" className="plan-canvas-doc-label">
-          Runbook document
+          Planning document
         </label>
         <select
           id="plan-runbook-document"
-          value={descriptor.documentId}
+          value={canvas.documentId}
           onChange={(event) => {
             const params = new URLSearchParams(window.location.search);
             params.set("doc", event.target.value);
             window.location.href = `/plan?${params.toString()}`;
           }}
         >
-          {TIPTAP_RUNBOOK_DESCRIPTORS.map((option) => (
+          {documentOptions.map((option) => (
             <option key={option.documentId} value={option.documentId}>
               {option.title}
+              {option.starterKind === "legacy_north_gate" ? " (legacy demo)" : ""}
             </option>
           ))}
         </select>

@@ -27,10 +27,31 @@ export interface PlanContextDescriptor {
   headerLabel: string;
 }
 
+export interface PlanSessionDescriptor {
+  surfaceId: "plan";
+  campaignId: string;
+  campaignLabel: string;
+  prepSession: number;
+  memorySession: number;
+  liveSession: number;
+  sourceStatusLabel: string;
+  sourceStatusKind: "ready" | "missing" | "stale" | "unknown";
+  planningDocument: {
+    documentId: string;
+    title: string;
+    description?: string;
+    targetRelpath?: string;
+    storageKey: string;
+    status: "local_draft" | "durable" | "missing" | "unknown";
+    starterKind: "blank" | "session_prep" | "legacy_north_gate";
+  };
+}
+
 export interface SurfaceConfig {
   id: SurfaceMode;
   label: string;
   context: PlanContextDescriptor;
+  sessionDescriptor?: PlanSessionDescriptor;
   tools: SurfaceToolConfig[];
   canvas: SurfaceCanvasConfig;
   theme: SurfaceThemeConfig;
