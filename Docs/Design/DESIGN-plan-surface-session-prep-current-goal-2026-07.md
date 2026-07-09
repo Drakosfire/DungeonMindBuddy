@@ -151,3 +151,5 @@ Start from the existing route and seams. Make the planning board, context, refer
 ## 12. Implementation checkpoint — session context slice (2026-07)
 
 The first post-re-anchor implementation slice makes `/plan` explicit about campaign, prep session, memory/source session, planning document identity, intended durable target path, and local-draft status. Generic `/plan` opens one derived session-prep board from `PlanView`; North Gate and other eval runbooks stay on `/tiptap-callout-spike` and fixture routes, not in the `/plan` document model. Local Tiptap state is keyed by `campaignId + prepSession + documentId`. Durable target paths for Longmont campaigns follow the existing `Session Prep/Session N Prep.md` corpus convention. Memory review escalates to `/ingest` from the plan header.
+
+The next slice adds guarded durable Markdown save for that one board: preview diff via `POST /api/live/tiptap/markdown-write/prepare`, explicit commit to the Session Prep target, and honest save-state copy in the plan header and canvas. Browser-local Tiptap remains the working draft; Markdown commit is manual and review-first.

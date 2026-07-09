@@ -3,6 +3,7 @@ import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 
 interface PlanNavBarProps {
   config: PlanSurfaceConfig;
+  saveStatusLabel?: string;
 }
 
 function formatDocumentStatus(
@@ -20,7 +21,7 @@ function formatDocumentStatus(
   }
 }
 
-export function PlanNavBar({ config }: PlanNavBarProps) {
+export function PlanNavBar({ config, saveStatusLabel }: PlanNavBarProps) {
   const sessionDescriptor = config.sessionDescriptor;
   const planningDocument = sessionDescriptor.planningDocument;
 
@@ -42,7 +43,7 @@ export function PlanNavBar({ config }: PlanNavBarProps) {
             Target: {planningDocument.targetRelpath}
           </p>
           <p className="plan-nav-context-line plan-nav-draft-note" data-testid="plan-local-draft-note">
-            Local draft · browser-local until durable save lands
+            {saveStatusLabel ?? "Local draft · not yet saved to Markdown"}
           </p>
         </div>
       </div>

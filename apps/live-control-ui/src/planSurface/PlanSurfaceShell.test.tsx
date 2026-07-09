@@ -39,6 +39,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
     expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
     expect(screen.getByTestId("plan-document-context")).toHaveTextContent(/C2 Session 23 Prep · local draft/i);
+    expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/not yet saved to Markdown/i);
     expect(screen.getByTestId("plan-document-target")).toHaveTextContent(
       /Session Prep\/Session 23 Prep\.md/i,
     );
@@ -875,5 +876,76 @@ describe("PlanSurfaceShell", () => {
       expect(screen.getByRole("complementary", { name: /North Reach Gate projection/i })).toBeInTheDocument();
     });
     expect(screen.getByText(/Resolved from live location index/i)).toBeInTheDocument();
+  });
+
+  it("shows Markdown save controls in the edit bar", () => {
+    renderPlanSurface();
+
+    expect(screen.getByRole("button", { name: "Preview Markdown Save" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Commit Markdown" })).toBeDisabled();
+  });
+
+  it("previews and commits Markdown for the active planning document", async () => {
+    const user = userEvent.setup();
+    const planTarget =
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+            document_id: "longmont-c2-session-23-prep",
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            file_exists: false,
+            writer_ok: true,
+            writer_phase: "prepare",
+            writer_confirm_token: "confirm-token",
+            writer_diff: "+# C2 Session 23 Prep\n",
+            warnings: [],
+            diagnostics: ["dry-run only; no file was written"],
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_commit_v1",
+            document_id: "longmont-c2-session-23-prep",
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            writer_ok: true,
+            writer_phase: "commit",
+            bytes_written: 42,
+            file_fingerprint: "abc123",
+            diagnostics: ["reviewed Markdown file written"],
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Preview Markdown Save" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-markdown-save-panel")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("plan-markdown-save-diff")).toHaveTextContent(/C2 Session 23 Prep/);
+    expect(fetchSpy.mock.calls[0][0]).toBe("/api/live/tiptap/markdown-write/prepare");
+    const prepareBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
+    expect(prepareBody.target_relpath).toBe(planTarget);
+    expect(prepareBody.document_id).toBe("longmont-c2-session-23-prep");
+    expect(prepareBody.markdown).toContain("C2 Session 23 Prep");
+
+    await user.click(screen.getByRole("button", { name: "Commit Markdown" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
+    });
+    expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
+    expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/Saved to Markdown/i);
   });
 });
