@@ -6,6 +6,14 @@ import StarterKit from "@tiptap/starter-kit";
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
 import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
+import {
+  CALLOUT_KINDS,
+  defaultCalloutLabel,
+  tiptapJsonToSemanticMarkdown,
+  type CalloutKind,
+} from "../../tiptap/markdown/calloutMarkdown";
+import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import { RUNBOOK_REFERENCE_SAMPLES } from "../../tiptap/TiptapCalloutBridgeSpike";
 import { planDocumentToRunbookDescriptor } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkingBoardState,
@@ -78,10 +86,8 @@ export function PlanSurfaceCanvas({
     state: saveState,
     statusLabel,
     saveDisabled,
-    canCommit,
     markDirty,
-    prepareSave,
-    commitSave,
+    saveMarkdown,
   } = usePlanMarkdownSave({ editor, sessionDescriptor });
 
   useEffect(() => {
@@ -95,6 +101,30 @@ export function PlanSurfaceCanvas({
   useEffect(() => {
     editor?.setEditable(canEdit);
   }, [canEdit, editor]);
+
+  const insertCallout = useCallback(
+    (kind: CalloutKind) => {
+      editor?.chain().focus().insertCallout({ kind }).run();
+    },
+    [editor],
+  );
+
+  const insertRunbookReference = useCallback(
+    (attrs: RunbookReferenceAttrs) => {
+      editor?.chain().focus().insertRunbookReference(attrs).run();
+    },
+    [editor],
+  );
+
+  const copyMarkdown = useCallback(async () => {
+    if (!editor || !navigator.clipboard?.writeText) return;
+    const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    await navigator.clipboard.writeText(markdown);
+  }, [editor]);
+
+  const removeActiveBlock = useCallback(() => {
+    editor?.chain().focus().deleteActiveBlock().run();
+  }, [editor]);
 
   const handleChipActivate = useCallback(
     async (target: EventTarget | null) => {
@@ -122,25 +152,71 @@ export function PlanSurfaceCanvas({
       ],
       sections: [
         {
+          id: "plan-insert-blocks",
+          title: "Insert blocks",
+          defaultOpen: true,
+          actions: CALLOUT_KINDS.map((kind) => ({
+            id: `plan-insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isLocked,
+          })),
+        },
+        {
+          id: "plan-insert-refs",
+          title: "Insert refs",
+          defaultOpen: true,
+          actions: RUNBOOK_REFERENCE_SAMPLES.map((sample) => ({
+            id: `plan-insert-${sample.kind}-${sample.refType}-${sample.refId}`,
+            eyebrow: sample.kind === "action" ? "Action" : sample.refType,
+            label: sample.label,
+            onClick: () => insertRunbookReference(sample),
+            disabled: !editor || isLocked,
+          })),
+        },
+        {
+          id: "plan-edit-blocks",
+          title: "Edit blocks",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "plan-remove-block",
+              eyebrow: "Remove",
+              label: "Remove block",
+              onClick: removeActiveBlock,
+              disabled: !editor || isLocked,
+            },
+          ],
+        },
+        {
+          id: "plan-markdown-export",
+          title: "Markdown export",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "plan-copy-markdown",
+              eyebrow: "Export",
+              label: "Copy Markdown",
+              onClick: () => {
+                void copyMarkdown();
+              },
+              disabled: !editor,
+            },
+          ],
+        },
+        {
           id: "plan-markdown-save",
           title: "Markdown save",
           defaultOpen: true,
           actions: [
             {
-              id: "plan-preview-markdown-save",
-              label: "Preview Markdown Save",
+              id: "plan-save-markdown",
+              label: "Save to Markdown",
               onClick: () => {
-                void prepareSave();
+                void saveMarkdown();
               },
-              disabled: saveDisabled || saveState.status === "preparing",
-            },
-            {
-              id: "plan-commit-markdown-save",
-              label: "Commit Markdown",
-              onClick: () => {
-                void commitSave();
-              },
-              disabled: !canCommit || saveState.status === "committing",
+              disabled: saveDisabled,
             },
           ],
         },
@@ -148,13 +224,15 @@ export function PlanSurfaceCanvas({
     });
     return () => onEditorToolsChange?.(null);
   }, [
-    canCommit,
-    commitSave,
+    copyMarkdown,
+    editor,
+    insertCallout,
+    insertRunbookReference,
     isLocked,
     onEditorToolsChange,
-    prepareSave,
+    removeActiveBlock,
     saveDisabled,
-    saveState.status,
+    saveMarkdown,
     toggleLock,
   ]);
 
@@ -182,28 +260,22 @@ export function PlanSurfaceCanvas({
         <EditorContent editor={editor} />
       </div>
 
-      {(saveState.status === "preview_ready" || saveState.status === "committing" || saveState.committed || saveState.error) && (
+      {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (
         <section
           className="plan-markdown-save-panel"
-          aria-label="Markdown save preview"
+          aria-label="Markdown save status"
           data-testid="plan-markdown-save-panel"
         >
           <p className="plan-surface-kicker">Durable save</p>
           <p className="plan-markdown-save-target" data-testid="plan-markdown-save-target">
             Target: {planningDocument.targetRelpath}
-            {saveState.prepared ? ` · ${saveState.prepared.file_exists ? "replace existing file" : "new file"}` : null}
           </p>
-          {saveState.prepared?.writer_diff != null && (
-            <pre className="plan-markdown-save-diff" data-testid="plan-markdown-save-diff">
-              {saveState.prepared.writer_diff}
-            </pre>
-          )}
-          {saveState.prepared?.warnings.map((warning) => (
+          {saveState.warnings?.map((warning) => (
             <p className="plan-markdown-save-warning" key={warning}>
               {warning}
             </p>
           ))}
-          {saveState.prepared?.diagnostics.map((diagnostic) => (
+          {saveState.diagnostics?.map((diagnostic) => (
             <p className="plan-markdown-save-diagnostic" key={diagnostic}>
               {diagnostic}
             </p>

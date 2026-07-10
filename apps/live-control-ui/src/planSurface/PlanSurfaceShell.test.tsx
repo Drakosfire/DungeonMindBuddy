@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
+import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -13,12 +15,20 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
-function renderPlanSurface() {
-  return render(
+function PlanSurfaceTestHarness() {
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+
+  return (
     <AgentInteractionProvider>
-      <PlanSurfaceShell planView={mockPlanView} />
-    </AgentInteractionProvider>,
+      <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+        <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+      </AppChrome>
+    </AgentInteractionProvider>
   );
+}
+
+function renderPlanSurface() {
+  return render(<PlanSurfaceTestHarness />);
 }
 
 describe("PlanSurfaceShell", () => {
@@ -34,7 +44,6 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("navigation", { name: "Plan surface navigation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Edit bar" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
     expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
@@ -49,11 +58,12 @@ describe("PlanSurfaceShell", () => {
     );
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit", hidden: true })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
-    expect(screen.getByText(/Document controls for the selected planning canvas/i)).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -63,6 +73,23 @@ describe("PlanSurfaceShell", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true"),
     );
+  });
+
+  it("does not render dogfood checklist without ?dogfood=1", () => {
+    window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22");
+    renderPlanSurface();
+
+    expect(screen.queryByTestId("plan-dogfood-panel")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dogfood checklist")).not.toBeInTheDocument();
+  });
+
+  it("renders dogfood checklist when ?dogfood=1 is present", () => {
+    window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22&dogfood=1");
+    renderPlanSurface();
+
+    expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
+    expect(screen.getByText(/smoke-test real prep/i)).toBeInTheDocument();
   });
 
   it("opens the prep memory Q&A drawer", async () => {
@@ -952,14 +979,13 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("shows Markdown save controls in the edit bar", () => {
+  it("shows Markdown save control in the edit toolbar", () => {
     renderPlanSurface();
 
-    expect(screen.getByRole("button", { name: "Preview Markdown Save" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Commit Markdown" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
   });
 
-  it("previews and commits Markdown for the active planning document", async () => {
+  it("saves Markdown for the active planning document", async () => {
     const user = userEvent.setup();
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
@@ -1001,23 +1027,16 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
 
-    await user.click(screen.getByRole("button", { name: "Preview Markdown Save" }));
+    await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("plan-markdown-save-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("plan-markdown-save-diff")).toHaveTextContent(/C2 Session 23 Prep/);
     expect(fetchSpy.mock.calls[0][0]).toBe("/api/live/tiptap/markdown-write/prepare");
     const prepareBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
     expect(prepareBody.target_relpath).toBe(planTarget);
     expect(prepareBody.document_id).toBe("longmont-c2-session-23-prep");
     expect(prepareBody.markdown).toContain("C2 Session 23 Prep");
-
-    await user.click(screen.getByRole("button", { name: "Commit Markdown" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
-    });
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/Saved to Markdown/i);

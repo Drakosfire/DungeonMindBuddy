@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Editor } from "@tiptap/react";
 
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../../api/liveApi";
@@ -29,34 +29,25 @@ export function usePlanMarkdownSave(args: {
 
   const markDirty = useCallback(() => {
     setState((current) => {
-      if (current.status === "preview_ready") {
-        return {
-          status: "dirty",
-          prepared: undefined,
-          preparedMarkdown: undefined,
-          error: "Editor changed after preview. Preview the save again before committing.",
-        };
-      }
-      if (current.status === "preparing" || current.status === "committing") {
+      if (current.status === "saving") {
         return current;
       }
-      if (current.status === "committed") {
-        return {
-          ...current,
-          status: "dirty",
-          prepared: undefined,
-          preparedMarkdown: undefined,
-          error: undefined,
-        };
-      }
       if (current.status === "idle") {
-        return { ...current, status: "dirty" };
+        return { status: "dirty" };
+      }
+      if (current.status === "committed" || current.status === "error") {
+        return {
+          status: "dirty",
+          error: undefined,
+          warnings: undefined,
+          diagnostics: undefined,
+        };
       }
       return current;
     });
   }, []);
 
-  const prepareSave = useCallback(async () => {
+  const saveMarkdown = useCallback(async () => {
     const markdown = exportCurrentMarkdown();
     if (!markdown?.trim()) {
       setState({ status: "error", error: "Board is empty; add content before saving." });
@@ -70,85 +61,60 @@ export function usePlanMarkdownSave(args: {
       return;
     }
 
-    setState({ status: "preparing" });
+    setState({ status: "saving", error: undefined, warnings: undefined, diagnostics: undefined });
     try {
-      const response = await prepareTiptapMarkdownWrite({
+      const prepared = await prepareTiptapMarkdownWrite({
         document_id: planningDocument.documentId,
         title: planningDocument.title,
         target_relpath: planningDocument.targetRelpath,
         markdown,
       });
+
+      if (!prepared.writer_ok || !prepared.writer_confirm_token) {
+        setState({
+          status: "error",
+          error: "Markdown save could not be prepared.",
+          warnings: prepared.warnings,
+          diagnostics: prepared.diagnostics,
+        });
+        return;
+      }
+
+      const committed = await commitTiptapMarkdownWrite({
+        document_id: planningDocument.documentId,
+        title: planningDocument.title,
+        target_relpath: prepared.target_relpath,
+        markdown,
+        writer_confirm_token: prepared.writer_confirm_token,
+      });
+
       setState({
-        status: "preview_ready",
-        prepared: response,
-        preparedMarkdown: markdown,
+        status: "committed",
+        committed,
+        lastCommittedAt: new Date().toISOString(),
+        warnings: prepared.warnings,
+        diagnostics: committed.diagnostics.length > 0 ? committed.diagnostics : prepared.diagnostics,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Markdown save failed.";
       setState({
         status: "error",
-        error: error instanceof Error ? error.message : "Markdown save preview failed.",
+        error: message.toLowerCase().includes("stale")
+          ? "The target file changed while saving. Try again."
+          : message,
       });
     }
   }, [exportCurrentMarkdown, planningDocument.documentId, planningDocument.targetRelpath, planningDocument.title]);
 
-  const canCommit = useMemo(() => {
-    if (state.status !== "preview_ready") {
-      return false;
-    }
-    if (!state.prepared?.writer_ok || !state.prepared.writer_confirm_token || !state.preparedMarkdown) {
-      return false;
-    }
-    const currentMarkdown = exportCurrentMarkdown();
-    return (
-      currentMarkdown === state.preparedMarkdown
-      && state.prepared.target_relpath === planningDocument.targetRelpath
-    );
-  }, [exportCurrentMarkdown, planningDocument.targetRelpath, state.prepared, state.preparedMarkdown, state.status]);
-
-  const commitSave = useCallback(async () => {
-    if (!state.prepared?.writer_confirm_token || !state.preparedMarkdown || !canCommit) return;
-
-    setState((current) => ({ ...current, status: "committing", error: undefined }));
-    try {
-      const response = await commitTiptapMarkdownWrite({
-        document_id: planningDocument.documentId,
-        title: planningDocument.title,
-        target_relpath: state.prepared.target_relpath,
-        markdown: state.preparedMarkdown,
-        writer_confirm_token: state.prepared.writer_confirm_token,
-      });
-      setState({
-        status: "committed",
-        committed: response,
-        lastCommittedAt: new Date().toISOString(),
-        prepared: undefined,
-        preparedMarkdown: undefined,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Markdown save commit failed.";
-      const stale = message.toLowerCase().includes("stale");
-      setState({
-        status: "error",
-        error: stale
-          ? "The target file changed. Preview the save again."
-          : message,
-        prepared: stale ? undefined : state.prepared,
-        preparedMarkdown: stale ? undefined : state.preparedMarkdown,
-      });
-    }
-  }, [canCommit, planningDocument.documentId, planningDocument.title, state.prepared, state.preparedMarkdown]);
-
   const statusLabel = planMarkdownSaveStatusLabel(state);
-  const saveDisabled = !editor || !canSaveToTarget(planningDocument.targetRelpath);
+  const saveDisabled = !editor || !canSaveToTarget(planningDocument.targetRelpath) || state.status === "saving";
 
   return {
     state,
     statusLabel,
     saveDisabled,
-    canCommit,
     markDirty,
-    prepareSave,
-    commitSave,
+    saveMarkdown,
     exportCurrentMarkdown,
   };
 }

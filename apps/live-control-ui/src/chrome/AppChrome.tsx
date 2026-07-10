@@ -27,6 +27,7 @@ interface AppChromeProps {
   activeRoute: AppRouteKey;
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeTools | null;
+  editToolboxLayout?: "overlay" | "dock";
   children: ReactNode;
 }
 
@@ -39,91 +40,169 @@ function ChromeActionButton({ action }: { action: AppChromeAction }) {
   );
 }
 
-export function AppChrome({ activeRoute, pageActions = [], editorTools, children }: AppChromeProps) {
-  const [isEditOpen, setIsEditOpen] = useState(false);
+interface EditToolboxDrawerProps {
+  pinnedActions: AppChromeAction[];
+  sections: AppChromeToolSection[];
+  onClose: () => void;
+}
+
+function EditToolboxDrawer({ pinnedActions, sections, onClose }: EditToolboxDrawerProps) {
+  return (
+    <aside id="app-edit-toolbox-drawer" className="app-edit-toolbox-drawer" aria-label="Edit toolbar">
+      <header className="app-edit-toolbox-hd">
+        <div>
+          <div className="app-edit-toolbox-eyebrow">Command Board</div>
+          <h2 className="app-edit-toolbox-title">Edit</h2>
+        </div>
+        <button type="button" className="app-edit-toolbox-close" onClick={onClose} aria-label="Close Edit">
+          x
+        </button>
+      </header>
+      <nav className="app-edit-toolbox-nav" aria-label="Edit tool groups">
+        <button type="button" className="app-edit-toolbox-nav-btn active">
+          Tiptap
+        </button>
+      </nav>
+      <div className="app-edit-toolbox-body">
+        {pinnedActions.length > 0 ? (
+          <details className="app-edit-fold" open>
+            <summary>Edit state</summary>
+            <div className="app-edit-fold-bd app-edit-actions">
+              {pinnedActions.map((action) => (
+                <ChromeActionButton key={action.id} action={action} />
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        {sections.map((section) => (
+          <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
+            <summary>{section.title}</summary>
+            <div className="app-edit-fold-bd app-edit-actions">
+              {section.actions.map((action) => (
+                <ChromeActionButton key={action.id} action={action} />
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+interface EditToolboxProps {
+  layout: "overlay" | "dock";
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  pinnedActions: AppChromeAction[];
+  sections: AppChromeToolSection[];
+}
+
+function EditToolbox({
+  layout,
+  isOpen,
+  onToggle,
+  onClose,
+  pinnedActions,
+  sections,
+}: EditToolboxProps) {
+  const isDocked = layout === "dock";
+
+  return (
+    <div
+      className={[
+        "app-edit-toolbox",
+        isDocked ? "app-edit-toolbox--docked" : "",
+        isOpen ? "open" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-layout={layout}
+    >
+      <button
+        type="button"
+        className="app-edit-toolbox-toggle"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls="app-edit-toolbox-drawer"
+        title="Edit"
+      >
+        Edit
+      </button>
+      <div
+        className="app-edit-toolbox-backdrop"
+        hidden={!isOpen}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {isOpen ? <EditToolboxDrawer pinnedActions={pinnedActions} sections={sections} onClose={onClose} /> : null}
+    </div>
+  );
+}
+
+export function AppChrome({
+  activeRoute,
+  pageActions = [],
+  editorTools,
+  editToolboxLayout = "overlay",
+  children,
+}: AppChromeProps) {
+  const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const pinnedActions = editorTools?.pinnedActions ?? [];
   const sections = editorTools?.sections ?? [];
   const hasEditTools = pinnedActions.length > 0 || sections.length > 0;
   const hasPageTools = pageActions.length > 0;
+  const isDockedEdit = editToolboxLayout === "dock" && hasEditTools;
+
+  const shellClassName = [
+    "app-shell",
+    isDockedEdit ? "app-shell--edit-dock" : "",
+    isDockedEdit && isEditOpen ? "app-shell--edit-dock-open" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const mainContent = (
+    <div className="app-wrap">
+      <nav className="app-site-nav" aria-label="Command board navigation">
+        {APP_NAV_ITEMS.map((item) => (
+          <a key={item.href} href={item.href} className={item.route === activeRoute ? "active" : undefined}>
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      {children}
+    </div>
+  );
 
   return (
-    <div className="app-shell">
-      <div className="app-wrap">
-        <nav className="app-site-nav" aria-label="Command board navigation">
-          {APP_NAV_ITEMS.map((item) => (
-            <a key={item.href} href={item.href} className={item.route === activeRoute ? "active" : undefined}>
-              {item.label}
-            </a>
-          ))}
-        </nav>
-
-        {children}
+    <div className={shellClassName}>
+      <div className="app-shell-layout">
+        {isDockedEdit ? (
+          <EditToolbox
+            layout="dock"
+            isOpen={isEditOpen}
+            onToggle={() => setIsEditOpen((current) => !current)}
+            onClose={() => setIsEditOpen(false)}
+            pinnedActions={pinnedActions}
+            sections={sections}
+          />
+        ) : null}
+        {mainContent}
       </div>
 
-      {hasEditTools ? (
-        <div className={`app-edit-toolbox${isEditOpen ? " open" : ""}`}>
-          <button
-            type="button"
-            className="app-edit-toolbox-toggle"
-            onClick={() => setIsEditOpen((current) => !current)}
-            aria-expanded={isEditOpen}
-            aria-controls="app-edit-toolbox-drawer"
-            title="Edit"
-          >
-            Edit
-          </button>
-          <div
-            className="app-edit-toolbox-backdrop"
-            hidden={!isEditOpen}
-            onClick={() => setIsEditOpen(false)}
-            aria-hidden="true"
-          />
-          <aside id="app-edit-toolbox-drawer" className="app-edit-toolbox-drawer" aria-label="Edit toolbar">
-            <header className="app-edit-toolbox-hd">
-              <div>
-                <div className="app-edit-toolbox-eyebrow">Command Board</div>
-                <h2 className="app-edit-toolbox-title">Edit</h2>
-              </div>
-              <button
-                type="button"
-                className="app-edit-toolbox-close"
-                onClick={() => setIsEditOpen(false)}
-                aria-label="Close Edit"
-              >
-                x
-              </button>
-            </header>
-            <nav className="app-edit-toolbox-nav" aria-label="Edit tool groups">
-              <button type="button" className="app-edit-toolbox-nav-btn active">
-                Tiptap
-              </button>
-            </nav>
-            <div className="app-edit-toolbox-body">
-              {pinnedActions.length > 0 ? (
-                <details className="app-edit-fold" open>
-                  <summary>Edit state</summary>
-                  <div className="app-edit-fold-bd app-edit-actions">
-                    {pinnedActions.map((action) => (
-                      <ChromeActionButton key={action.id} action={action} />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-
-              {sections.map((section) => (
-                <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
-                  <summary>{section.title}</summary>
-                  <div className="app-edit-fold-bd app-edit-actions">
-                    {section.actions.map((action) => (
-                      <ChromeActionButton key={action.id} action={action} />
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </div>
-          </aside>
-        </div>
+      {hasEditTools && !isDockedEdit ? (
+        <EditToolbox
+          layout="overlay"
+          isOpen={isEditOpen}
+          onToggle={() => setIsEditOpen((current) => !current)}
+          onClose={() => setIsEditOpen(false)}
+          pinnedActions={pinnedActions}
+          sections={sections}
+        />
       ) : null}
 
       {hasPageTools ? (

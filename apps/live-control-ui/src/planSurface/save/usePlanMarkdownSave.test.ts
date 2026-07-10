@@ -60,35 +60,48 @@ describe("usePlanMarkdownSave", () => {
       warnings: [],
       diagnostics: [],
     });
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: "longmont-c2-session-23-prep",
+      title: "C2 Session 23 Prep",
+      target_relpath: sessionDescriptor.planningDocument.targetRelpath,
+      target_display_path: sessionDescriptor.planningDocument.targetRelpath,
+      writer_ok: true,
+      writer_phase: "commit",
+      bytes_written: 42,
+      file_fingerprint: "abc123",
+      diagnostics: ["reviewed Markdown file written"],
+    });
   });
 
-  it("invalidates preview and disables commit when editor content changes after preview", async () => {
+  it("prepares and commits in one saveMarkdown call", async () => {
     const editor = createEditor("C2 Session 23 Prep");
     const { result } = renderHook(() => usePlanMarkdownSave({ editor, sessionDescriptor }));
 
     await act(async () => {
-      await result.current.prepareSave();
+      await result.current.saveMarkdown();
     });
 
     await waitFor(() => {
-      expect(result.current.state.status).toBe("preview_ready");
+      expect(result.current.state.status).toBe("committed");
     });
-    expect(result.current.canCommit).toBe(true);
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(result.current.saveDisabled).toBe(false);
+  });
+
+  it("marks dirty after a successful save when the board changes", async () => {
+    const editor = createEditor("C2 Session 23 Prep");
+    const { result } = renderHook(() => usePlanMarkdownSave({ editor, sessionDescriptor }));
+
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
 
     act(() => {
       result.current.markDirty();
     });
 
     expect(result.current.state.status).toBe("dirty");
-    expect(result.current.state.prepared).toBeUndefined();
-    expect(result.current.state.preparedMarkdown).toBeUndefined();
-    expect(result.current.state.error).toMatch(/Preview the save again/i);
-    expect(result.current.canCommit).toBe(false);
-
-    await act(async () => {
-      await result.current.commitSave();
-    });
-
-    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,6 @@
 import { mergeAttributes, Node } from "@tiptap/core";
+import type { ResolvedPos } from "@tiptap/pm/model";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 
 import {
   defaultCalloutLabel,
@@ -7,10 +9,36 @@ import {
   type CalloutKind,
 } from "../markdown/calloutMarkdown";
 
+function findCalloutDepth($from: ResolvedPos): number | null {
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === "callout") {
+      return depth;
+    }
+  }
+  return null;
+}
+
+function deleteNodeAtDepth(
+  state: EditorState,
+  dispatch: ((tr: Transaction) => void) | undefined,
+  $from: ResolvedPos,
+  depth: number,
+): boolean {
+  const node = $from.node(depth);
+  const pos = $from.before(depth);
+  const tr = state.tr.delete(pos, pos + node.nodeSize);
+  if (dispatch) {
+    dispatch(tr);
+  }
+  return true;
+}
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     callout: {
       insertCallout: (attrs: Partial<CalloutAttrs>) => ReturnType;
+      deleteParentCallout: () => ReturnType;
+      deleteActiveBlock: () => ReturnType;
     };
   }
 }
@@ -78,6 +106,62 @@ export const CalloutNode = Node.create({
             },
             content: [{ type: "paragraph" }],
           }),
+      deleteParentCallout:
+        () =>
+        ({ state, dispatch }) => {
+          const { $from } = state.selection;
+          const calloutDepth = findCalloutDepth($from);
+          if (calloutDepth === null) {
+            return false;
+          }
+          return deleteNodeAtDepth(state, dispatch, $from, calloutDepth);
+        },
+      deleteActiveBlock:
+        () =>
+        ({ state, dispatch }) => {
+          const { $from } = state.selection;
+          const calloutDepth = findCalloutDepth($from);
+          if (calloutDepth !== null) {
+            return deleteNodeAtDepth(state, dispatch, $from, calloutDepth);
+          }
+
+          for (let depth = $from.depth; depth > 0; depth -= 1) {
+            const node = $from.node(depth);
+            if (node.isBlock && node.type.name !== "doc") {
+              return deleteNodeAtDepth(state, dispatch, $from, depth);
+            }
+          }
+
+          return false;
+        },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Backspace: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        if (!selection.empty) {
+          return false;
+        }
+
+        const { $from } = selection;
+        const calloutDepth = findCalloutDepth($from);
+        if (calloutDepth === null) {
+          return false;
+        }
+
+        if ($from.index(calloutDepth) !== 0 || $from.parentOffset !== 0) {
+          return false;
+        }
+
+        if ($from.parent.content.size > 0) {
+          return false;
+        }
+
+        return editor.commands.deleteParentCallout();
+      },
     };
   },
 });
