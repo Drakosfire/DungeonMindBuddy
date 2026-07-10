@@ -4369,8 +4369,10 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-review-authoring-mode-strip button,
 .graph-review-authoring-lane-badges button,
 .graph-review-card-actions button,
+.graph-object-card__actions button,
 .graph-review-relationship-chips button,
 .graph-review-node-game-card button,
+.graph-object-card button,
 .graph-review-authoring-rail > button {
   border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 999px;
@@ -4402,6 +4404,7 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-review-authoring-lane,
 .graph-review-authoring-staging-tray,
 .graph-review-node-game-card,
+.graph-object-card,
 .graph-review-relationship-card {
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 0.9rem;
@@ -4485,30 +4488,35 @@ body.plan-toolbox-open .plan-agent-shell {
   margin-top: 0.75rem;
 }
 
-.graph-review-node-game-card section {
+.graph-review-node-game-card section,
+.graph-object-card section {
   margin-top: 0.75rem;
 }
 
-.graph-review-node-identity-header {
+.graph-review-node-identity-header,
+.graph-object-card__identity-header {
   display: grid;
   gap: 0.2rem;
 }
 
-.graph-review-node-identity-title-row {
+.graph-review-node-identity-title-row,
+.graph-object-card__title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.45rem 0.55rem;
 }
 
-.graph-review-node-identity-header h4 {
+.graph-review-node-identity-header h4,
+.graph-object-card__identity-header h4 {
   margin: 0;
   font-size: 1.12rem;
   line-height: 1.25;
   font-weight: 650;
 }
 
-.graph-review-object-type-badge {
+.graph-review-object-type-badge,
+.graph-object-card__type-badge {
   flex-shrink: 0;
   border-radius: 999px;
   padding: 0.14rem 0.52rem;
@@ -4521,19 +4529,22 @@ body.plan-toolbox-open .plan-agent-shell {
   text-transform: uppercase;
 }
 
-.graph-review-node-role-subtitle {
+.graph-review-node-role-subtitle,
+.graph-object-card__role-subtitle {
   margin: 0;
   color: var(--muted-text, #94a3b8);
   font-size: 0.82rem;
 }
 
-.graph-review-node-aliases {
+.graph-review-node-aliases,
+.graph-object-card__aliases {
   margin: 0;
   color: var(--muted-text, #94a3b8);
   font-size: 0.86rem;
 }
 
-.graph-review-node-relationships-primary {
+.graph-review-node-relationships-primary,
+.graph-object-card__relationships {
   margin-top: 0.55rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.55rem;
@@ -4541,32 +4552,38 @@ body.plan-toolbox-open .plan-agent-shell {
   background: rgba(14, 165, 233, 0.08);
 }
 
-.graph-review-node-relationships-primary h5 {
+.graph-review-node-relationships-primary h5,
+.graph-object-card__relationships h5 {
   margin: 0 0 0.55rem;
   font-size: 0.95rem;
 }
 
-.graph-review-projected-interaction-surface .graph-review-node-game-card {
+.graph-review-projected-interaction-surface .graph-review-node-game-card,
+.graph-review-projected-interaction-surface .graph-object-card {
   border: none;
   padding: 0;
   background: transparent;
   border-radius: 0;
 }
 
-.graph-review-details-panel {
+.graph-review-details-panel,
+.graph-object-card__details {
   color: var(--muted-text, #94a3b8);
   font-size: 0.9rem;
 }
 
-.graph-review-details-section {
+.graph-review-details-section,
+.graph-object-card__details-section {
   margin-top: 0.65rem;
 }
 
-.graph-review-details-section:first-of-type {
+.graph-review-details-section:first-of-type,
+.graph-object-card__details-section:first-of-type {
   margin-top: 0.35rem;
 }
 
-.graph-review-details-section h6 {
+.graph-review-details-section h6,
+.graph-object-card__details-section h6 {
   margin: 0 0 0.35rem;
   font-size: 0.85rem;
   font-weight: 600;
@@ -5815,7 +5832,8 @@ body.plan-toolbox-open .plan-agent-shell {
   gap: 1rem;
 }
 
-.graph-review-muted {
+.graph-review-muted,
+.graph-object-card__muted {
   color: #94a3b8;
 }
 

@@ -16,6 +16,12 @@ export interface GraphObjectRelationshipViewModel {
   targetId?: string | null;
   targetKind?: string | null;
   evidenceRefIds?: string[];
+  sourceDomains?: string[];
+  anchoredToFocusSession?: boolean;
+  sessionIds?: string[];
+  sourceExcerpt?: string | null;
+  sourceExcerptIsFullParagraph?: boolean;
+  sourceExcerptHighlightSpans?: Array<{ start: number; end: number }>;
 }
 
 export interface GraphObjectEvidenceViewModel {
