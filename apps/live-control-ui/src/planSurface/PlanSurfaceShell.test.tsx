@@ -947,16 +947,35 @@ describe("PlanSurfaceShell", () => {
 
   it("projects reference chip resolution through the shared container", async () => {
     const user = userEvent.setup();
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        locations: [{
-          index_id: "north-reach-gate",
-          title: "North Reach Gate",
-          corpus_display_path: "corpus/locations/north_reach_gate.md",
-        }],
-      }),
-    } as Response);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/graph-preview/union-supergraph/projection")) {
+        return {
+          ok: true,
+          json: async () => ({
+            campaign_id: "longmont-c2",
+            session_id: "session-21",
+            node_views: {},
+            focus: {
+              focused_evidence_ref_ids: [],
+              focused_edge_ids: [],
+              focused_node_ids: [],
+            },
+            mentions: [],
+          }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          locations: [{
+            index_id: "north-reach-gate",
+            title: "North Reach Gate",
+            corpus_display_path: "corpus/locations/north_reach_gate.md",
+          }],
+        }),
+      } as Response;
+    });
 
     renderPlanSurface();
 
@@ -968,15 +987,12 @@ describe("PlanSurfaceShell", () => {
       expect(screen.getByRole("complementary", { name: /North Reach Gate projection/i })).toBeInTheDocument();
     });
     const projection = screen.getByRole("complementary", { name: /North Reach Gate projection/i });
-    expect(within(projection).getByLabelText(/North Reach Gate selected object/i)).toBeInTheDocument();
-    expect(within(projection).getByText("Location")).toBeInTheDocument();
-    expect(within(projection).getByText("Source")).toBeInTheDocument();
-    expect(within(projection).getByRole("button", { name: "Show source preview" })).toBeInTheDocument();
-    expect(within(projection).queryByText(/Resolved from live location index/i)).not.toBeInTheDocument();
-    expect(within(projection).getByRole("link", { name: "Review memory in /ingest" })).toHaveAttribute(
-      "href",
-      "/ingest?campaign=longmont-c2&session=session-21",
+    expect(screen.getByTestId("plan-reference-fallback-banner")).toHaveTextContent(
+      /Graph memory did not resolve this yet/i,
     );
+    expect(within(projection).getByLabelText(/North Reach Gate corpus fallback object/i)).toBeInTheDocument();
+    expect(within(projection).getByText(/Location reference resolved from corpus index/i)).toBeInTheDocument();
+    expect(within(projection).queryByLabelText(/selected object/i)).not.toBeInTheDocument();
   });
 
   it("shows Markdown save control in the edit toolbar", () => {

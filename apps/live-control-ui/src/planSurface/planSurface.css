@@ -1373,6 +1373,44 @@
   gap: 0.75rem;
 }
 
+.plan-reference-object-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.plan-reference-object-card__banner {
+  border: 1px solid rgba(255, 196, 120, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(255, 196, 120, 0.08);
+}
+
+.plan-reference-object-card__banner p {
+  margin: 0;
+}
+
+.plan-reference-object-card__banner p + p {
+  margin-top: 0.45rem;
+}
+
+.plan-reference-object-card__muted,
+.plan-reference-object-card--unresolved .plan-reference-object-card__muted {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.92rem;
+}
+
+.plan-reference-object-card--unresolved .plan-reference-object-card__message {
+  margin: 0;
+}
+
+.plan-reference-object-card__technical-details {
+  margin-top: 0.5rem;
+}
+
+.plan-reference-object-card__technical-details summary {
+  cursor: pointer;
+}
+
 .plan-selected-object-header {
   margin: 0;
 }

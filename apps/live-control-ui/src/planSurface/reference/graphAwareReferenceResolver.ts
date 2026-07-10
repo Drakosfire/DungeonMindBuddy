@@ -11,6 +11,12 @@ export type PlanReferenceResolutionKind =
   | "unresolved"
   | "error";
 
+export type PlanGraphProjectionState =
+  | "loading"
+  | "ready"
+  | "unavailable"
+  | "error";
+
 export interface PlanReferenceResolution {
   kind: PlanReferenceResolutionKind;
   locator: string;
@@ -18,9 +24,13 @@ export interface PlanReferenceResolution {
   refId?: string | null;
   graphObject?: GraphObjectCardViewModel | null;
   graphNodeId?: string | null;
+  /** Populated when label/alias lookup matched more than one graph node. */
+  ambiguousNodeIds?: string[];
   fallback?: ReferenceResolution | null;
   source: "union-supergraph" | "corpus-index" | "unresolved" | "error";
   message?: string | null;
+  /** Union Supergraph projection availability at resolve time. */
+  graphProjectionState?: PlanGraphProjectionState | null;
 }
 
 export interface UnionSupergraphNodeIndex {
@@ -198,10 +208,11 @@ function ambiguousGraphResolution(
     refId: refId ?? null,
     graphObject: null,
     graphNodeId: null,
+    ambiguousNodeIds: matchingNodeIds,
     fallback: null,
     source: "unresolved",
     message: appendIngestEscalationHint(
-      `Multiple graph nodes match this label or alias (${matchingNodeIds.join(", ")}). Use an exact graph-node locator instead.`,
+      "Could not uniquely resolve this object from graph memory. Use /ingest to review aliases or identity.",
     ),
   };
 }

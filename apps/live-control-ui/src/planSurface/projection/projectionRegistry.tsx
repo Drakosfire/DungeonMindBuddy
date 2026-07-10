@@ -10,15 +10,16 @@ import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphRe
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor, SurfaceConfig } from "../types";
-import type { ReferenceResolution } from "../reference/referenceResolver";
-import { SelectedObjectCard } from "../selectedObject/SelectedObjectCard";
+import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
+import { PlanReferenceObjectCard } from "../reference/PlanReferenceObjectCard";
 
 export interface ToolProjectionProps {
   context: PlanContextDescriptor;
 }
 
 export interface ContentProjectionProps {
-  resolution: ReferenceResolution;
+  resolution: PlanReferenceResolution;
+  projectionState?: PlanGraphProjectionState | null;
 }
 
 export function renderToolProjection(toolId: string, context: PlanContextDescriptor): ReactNode {
@@ -58,13 +59,15 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
 }
 
 export function renderContentProjection(
-  resolution: ReferenceResolution,
+  resolution: PlanReferenceResolution,
   config: SurfaceConfig,
+  projectionState?: PlanGraphProjectionState | null,
 ): ReactNode {
   return (
-    <SelectedObjectCard
+    <PlanReferenceObjectCard
       resolution={resolution}
       sessionDescriptor={config.sessionDescriptor}
+      projectionState={projectionState}
     />
   );
 }

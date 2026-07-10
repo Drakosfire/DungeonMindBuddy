@@ -36,7 +36,7 @@ const SESSION_AWARE_TOOLS = new Set([
 ]);
 
 export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
-  const { active, activeResolution, close, expandContent, openTool } = useProjection();
+  const { active, activePlanReference, close, expandContent, openTool, planProjectionState } = useProjection();
   const isOpen = Boolean(active);
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
@@ -165,8 +165,8 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         <div className="plan-projection-body">
           {!active ? null : active.kind === "tool" ? (
             renderToolProjection(active.key, config.context)
-          ) : activeResolution ? (
-            renderContentProjection(activeResolution, config)
+          ) : activePlanReference ? (
+            renderContentProjection(activePlanReference, config, planProjectionState)
           ) : (
             <p className="plan-projection-empty">Loading reference…</p>
           )}

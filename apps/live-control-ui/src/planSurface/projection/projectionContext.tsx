@@ -8,22 +8,28 @@ import {
 } from "react";
 
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import type { ReferenceResolution } from "../reference/referenceResolver";
+import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { ActiveProjection, ProjectionSize, SurfaceConfig } from "../types";
 
 interface ProjectionContextValue {
   active: ActiveProjection | null;
-  activeResolution: ReferenceResolution | null;
+  activePlanReference: PlanReferenceResolution | null;
+  planProjectionState: PlanGraphProjectionState | null;
   openTool: (toolId: string) => void;
-  openContentFromChip: (ref: RunbookReferenceAttrs, resolution: ReferenceResolution, glanceOnly?: boolean) => void;
+  openContentFromChip: (
+    ref: RunbookReferenceAttrs,
+    resolution: PlanReferenceResolution,
+    glanceOnly?: boolean,
+    projectionState?: PlanGraphProjectionState | null,
+  ) => void;
   expandContent: () => void;
   close: () => void;
 }
 
 const ProjectionContext = createContext<ProjectionContextValue | null>(null);
 
-function contentSize(resolution: ReferenceResolution): ProjectionSize {
-  if (resolution.status === "resolved") return "wide";
+function contentSize(resolution: PlanReferenceResolution): ProjectionSize {
+  if (resolution.kind === "graph-node" || resolution.kind === "corpus-index") return "wide";
   return "compact";
 }
 
@@ -35,18 +41,21 @@ export function ProjectionProvider({
   children: ReactNode;
 }) {
   const [active, setActive] = useState<ActiveProjection | null>(null);
-  const [activeResolution, setActiveResolution] = useState<ReferenceResolution | null>(null);
+  const [activePlanReference, setActivePlanReference] = useState<PlanReferenceResolution | null>(null);
+  const [planProjectionState, setPlanProjectionState] = useState<PlanGraphProjectionState | null>(null);
 
   const close = useCallback(() => {
     setActive(null);
-    setActiveResolution(null);
+    setActivePlanReference(null);
+    setPlanProjectionState(null);
   }, []);
 
   const openTool = useCallback(
     (toolId: string) => {
       const tool = config.tools.find((entry) => entry.id === toolId);
       if (!tool) return;
-      setActiveResolution(null);
+      setActivePlanReference(null);
+      setPlanProjectionState(null);
       setActive({
         kind: "tool",
         key: toolId,
@@ -58,8 +67,14 @@ export function ProjectionProvider({
   );
 
   const openContentFromChip = useCallback(
-    (ref: RunbookReferenceAttrs, resolution: ReferenceResolution, glanceOnly = true) => {
-      setActiveResolution(resolution);
+    (
+      ref: RunbookReferenceAttrs,
+      resolution: PlanReferenceResolution,
+      glanceOnly = true,
+      projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
+    ) => {
+      setActivePlanReference(resolution);
+      setPlanProjectionState(projectionState);
       setActive({
         kind: "content",
         key: ref.refType,
@@ -81,13 +96,14 @@ export function ProjectionProvider({
   const value = useMemo(
     () => ({
       active,
-      activeResolution,
+      activePlanReference,
+      planProjectionState,
       openTool,
       openContentFromChip,
       expandContent,
       close,
     }),
-    [active, activeResolution, close, expandContent, openContentFromChip, openTool],
+    [active, activePlanReference, close, expandContent, openContentFromChip, openTool, planProjectionState],
   );
 
   return <ProjectionContext.Provider value={value}>{children}</ProjectionContext.Provider>;
