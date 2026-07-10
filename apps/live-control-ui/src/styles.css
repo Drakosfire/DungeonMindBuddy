@@ -322,6 +322,24 @@ code {
   padding: 0 12px 12px;
 }
 
+.app-edit-fold-panel {
+  margin-top: 0.55rem;
+}
+
+.app-edit-fold-panel .plan-graph-ref-search {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.app-edit-fold-panel .plan-graph-ref-search__title {
+  font-size: 0.88rem;
+}
+
+.app-edit-fold-panel .plan-graph-ref-search__results {
+  max-height: 12rem;
+}
+
 .app-edit-actions,
 .app-tools-actions {
   display: grid;

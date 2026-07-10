@@ -57,10 +57,8 @@ export function PlanSurfaceCanvas({
     projectionError,
   } = usePlanGraphReferenceResolver(sessionDescriptor);
   const editorShellRef = useRef<HTMLDivElement | null>(null);
-  const graphSearchRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
-  const [graphSearchOpen, setGraphSearchOpen] = useState(false);
   const [workingState] = useState(() =>
     readTiptapWorkingBoardState(window.localStorage, descriptor)
       ?? buildInitialWorkingBoardState(descriptor),
@@ -127,13 +125,6 @@ export function PlanSurfaceCanvas({
     [projection],
   );
 
-  const focusGraphSearch = useCallback(() => {
-    setGraphSearchOpen(true);
-    window.requestAnimationFrame(() => {
-      graphSearchRef.current?.querySelector<HTMLInputElement>("input[type='search']")?.focus();
-    });
-  }, []);
-
   const handleViewGraphNode = useCallback(
     (node: GraphProjectionNodeView) => {
       openPlanReferenceResolution(
@@ -153,6 +144,28 @@ export function PlanSurfaceCanvas({
       );
     },
     [openPlanReferenceResolution, projectionState],
+  );
+
+  const graphRefSearchPanel = useMemo(
+    () => (
+      <PlanGraphRefSearch
+        nodes={projectionNodes}
+        projectionState={projectionState}
+        projectionError={projectionError}
+        disabled={!editor || isLocked}
+        onInsert={insertRunbookReference}
+        onView={handleViewGraphNode}
+      />
+    ),
+    [
+      editor,
+      handleViewGraphNode,
+      insertRunbookReference,
+      isLocked,
+      projectionError,
+      projectionNodes,
+      projectionState,
+    ],
   );
 
   const copyMarkdown = useCallback(async () => {
@@ -206,22 +219,8 @@ export function PlanSurfaceCanvas({
           id: "plan-insert-refs",
           title: "Insert refs",
           defaultOpen: true,
-          actions: [
-            {
-              id: "plan-search-graph-refs",
-              eyebrow: "Graph",
-              label: graphSearchOpen ? "Hide graph search" : "Search graph objects…",
-              onClick: () => {
-                if (graphSearchOpen) {
-                  setGraphSearchOpen(false);
-                  return;
-                }
-                focusGraphSearch();
-              },
-              disabled: !editor || isLocked,
-              pressed: graphSearchOpen,
-            },
-          ],
+          actions: [],
+          panel: graphRefSearchPanel,
         },
         {
           id: "plan-edit-blocks",
@@ -274,8 +273,7 @@ export function PlanSurfaceCanvas({
   }, [
     copyMarkdown,
     editor,
-    focusGraphSearch,
-    graphSearchOpen,
+    graphRefSearchPanel,
     insertCallout,
     isLocked,
     onEditorToolsChange,
@@ -297,21 +295,6 @@ export function PlanSurfaceCanvas({
           Document <code>{planningDocument.documentId}</code> · {statusLabel}
         </p>
       </div>
-
-      {graphSearchOpen ? (
-        <div ref={graphSearchRef} className="plan-canvas-graph-search">
-          <PlanGraphRefSearch
-            nodes={projectionNodes}
-            projectionState={projectionState}
-            projectionError={projectionError}
-            disabled={!editor || isLocked}
-            onInsert={(attrs) => {
-              insertRunbookReference(attrs);
-            }}
-            onView={handleViewGraphNode}
-          />
-        </div>
-      ) : null}
 
       <div
         ref={editorShellRef}

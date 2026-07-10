@@ -42,7 +42,7 @@ export function PlanGraphRefSearch({
       <header className="plan-graph-ref-search__header">
         <h3 className="plan-graph-ref-search__title">Search graph objects</h3>
         <p className="plan-graph-ref-search__subtitle">
-          Find Union Supergraph nodes by label, alias, kind, or id — not the old sample ref list.
+          Match label, alias, kind, or id from the current Union Supergraph projection.
         </p>
       </header>
 
@@ -58,7 +58,8 @@ export function PlanGraphRefSearch({
       ) : null}
       {projectionState === "unavailable" ? (
         <p className="plan-graph-ref-search__status" role="status">
-          Graph projection unavailable for this session.
+          No Union Supergraph projection for this memory session yet. Open /ingest to review or
+          build graph memory, then reload /plan.
         </p>
       ) : null}
 

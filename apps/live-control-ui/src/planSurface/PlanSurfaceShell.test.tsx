@@ -1019,6 +1019,17 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
   });
 
+  it("keeps graph object search in the edit toolbar, not the canvas", async () => {
+    renderPlanSurface();
+
+    const editToolbar = screen.getByRole("complementary", { name: "Edit toolbar" });
+    expect(await within(editToolbar).findByText("Search graph objects")).toBeInTheDocument();
+    expect(within(editToolbar).getByText(/Insert refs/i)).toBeInTheDocument();
+
+    const canvas = screen.getByLabelText("Plan canvas");
+    expect(within(canvas).queryByText("Search graph objects")).not.toBeInTheDocument();
+  });
+
   it("saves Markdown for the active planning document", async () => {
     const user = userEvent.setup();
     const planTarget =
