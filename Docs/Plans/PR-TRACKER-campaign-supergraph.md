@@ -81,7 +81,7 @@ PR012 Obsolete-path cleanup safety net
 
 ## PR001 — Architecture Reset
 
-**Status:** `DOING` (GitHub #322)  
+**Status:** `DONE` (GitHub #322 merged 2026-07-10)  
 **Phase:** 0  
 **Purpose:** Reset documentation around the Campaign / World Supergraph north star before more implementation.
 
@@ -108,7 +108,7 @@ PR012 Obsolete-path cleanup safety net
 
 ## PR002 — World Supergraph Storage + Graph-Head Contract
 
-**Status:** `READY` (after PR001)  
+**Status:** `DOING` (GitHub #323)  
 **Phase:** 1  
 **Purpose:** Persistent per-`worldId` graph store with **immutable revisions** and an **atomic graph head**; not session-owned preview state; not mutable in-place JSON as the product model.
 
