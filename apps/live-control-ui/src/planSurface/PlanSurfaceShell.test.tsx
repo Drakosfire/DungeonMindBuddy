@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
+import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -13,12 +15,20 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
-function renderPlanSurface() {
-  return render(
+function PlanSurfaceTestHarness() {
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+
+  return (
     <AgentInteractionProvider>
-      <PlanSurfaceShell planView={mockPlanView} />
-    </AgentInteractionProvider>,
+      <AppChrome activeRoute="plan" editorTools={editorTools}>
+        <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+      </AppChrome>
+    </AgentInteractionProvider>
   );
+}
+
+function renderPlanSurface() {
+  return render(<PlanSurfaceTestHarness />);
 }
 
 describe("PlanSurfaceShell", () => {
@@ -34,7 +44,6 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("navigation", { name: "Plan surface navigation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Edit bar" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
     expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
@@ -49,11 +58,12 @@ describe("PlanSurfaceShell", () => {
     );
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit", hidden: true })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
-    expect(screen.getByText(/Document controls for the selected planning canvas/i)).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -969,7 +979,7 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("shows Markdown save controls in the edit bar", () => {
+  it("shows Markdown save controls in the edit toolbar", () => {
     renderPlanSurface();
 
     expect(screen.getByRole("button", { name: "Preview Markdown Save" })).toBeInTheDocument();

@@ -92,15 +92,11 @@
 .plan-surface-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    "main"
-    "edit";
   gap: 1rem;
   align-items: start;
 }
 
 .plan-surface-main {
-  grid-area: main;
   display: grid;
   gap: 1rem;
 }

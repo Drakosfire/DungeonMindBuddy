@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getPlanView } from "../api/liveApi";
 import type { PlanViewProjection } from "../api/types";
-import { AppChrome } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
 type LoadStatus = "loading" | "ready" | "error";
@@ -11,6 +11,7 @@ export function PlanSurfacePage() {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await getPlanView();
@@ -59,8 +60,8 @@ export function PlanSurfacePage() {
   }
 
   return (
-    <AppChrome activeRoute="plan">
-      <PlanSurfaceShell planView={planView} />
+    <AppChrome activeRoute="plan" editorTools={editorTools}>
+      <PlanSurfaceShell planView={planView} onEditorToolsChange={setEditorTools} />
     </AppChrome>
   );
 }

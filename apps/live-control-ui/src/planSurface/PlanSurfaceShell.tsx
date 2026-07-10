@@ -3,7 +3,6 @@ import { useMemo, useState, type CSSProperties } from "react";
 import type { AppChromeTools } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
-import { PlanEditBar } from "./components/PlanEditBar";
 import { PlanNavBar } from "./components/PlanNavBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
@@ -17,15 +16,15 @@ import "./planSurface.css";
 
 interface PlanSurfaceShellProps {
   planView: PlanViewProjection;
+  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
 }
 
 function themeStyle(config: PlanSurfaceConfig): CSSProperties {
   return (config.theme.tokens ?? {}) as CSSProperties;
 }
 
-export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
+export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceShellProps) {
   const config = useMemo(() => createPlanSurfaceConfig(planView), [planView]);
-  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
@@ -50,12 +49,11 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
               <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}
-                onEditorToolsChange={setEditorTools}
+                onEditorToolsChange={onEditorToolsChange}
                 onSaveStatusChange={setSaveStatusLabel}
               />
             </div>
             <AdaptiveProjectionContainer config={config} />
-            <PlanEditBar editorTools={editorTools} />
           </div>
           <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
         </div>

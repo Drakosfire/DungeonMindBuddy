@@ -6,6 +6,14 @@ import StarterKit from "@tiptap/starter-kit";
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
 import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
+import {
+  CALLOUT_KINDS,
+  defaultCalloutLabel,
+  tiptapJsonToSemanticMarkdown,
+  type CalloutKind,
+} from "../../tiptap/markdown/calloutMarkdown";
+import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import { RUNBOOK_REFERENCE_SAMPLES } from "../../tiptap/TiptapCalloutBridgeSpike";
 import { planDocumentToRunbookDescriptor } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkingBoardState,
@@ -96,6 +104,26 @@ export function PlanSurfaceCanvas({
     editor?.setEditable(canEdit);
   }, [canEdit, editor]);
 
+  const insertCallout = useCallback(
+    (kind: CalloutKind) => {
+      editor?.chain().focus().insertCallout({ kind }).run();
+    },
+    [editor],
+  );
+
+  const insertRunbookReference = useCallback(
+    (attrs: RunbookReferenceAttrs) => {
+      editor?.chain().focus().insertRunbookReference(attrs).run();
+    },
+    [editor],
+  );
+
+  const copyMarkdown = useCallback(async () => {
+    if (!editor || !navigator.clipboard?.writeText) return;
+    const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    await navigator.clipboard.writeText(markdown);
+  }, [editor]);
+
   const handleChipActivate = useCallback(
     async (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement) || !editorShellRef.current?.contains(target)) return;
@@ -121,6 +149,46 @@ export function PlanSurfaceCanvas({
         },
       ],
       sections: [
+        {
+          id: "plan-insert-blocks",
+          title: "Insert blocks",
+          defaultOpen: true,
+          actions: CALLOUT_KINDS.map((kind) => ({
+            id: `plan-insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isLocked,
+          })),
+        },
+        {
+          id: "plan-insert-refs",
+          title: "Insert refs",
+          defaultOpen: true,
+          actions: RUNBOOK_REFERENCE_SAMPLES.map((sample) => ({
+            id: `plan-insert-${sample.kind}-${sample.refType}-${sample.refId}`,
+            eyebrow: sample.kind === "action" ? "Action" : sample.refType,
+            label: sample.label,
+            onClick: () => insertRunbookReference(sample),
+            disabled: !editor || isLocked,
+          })),
+        },
+        {
+          id: "plan-markdown-export",
+          title: "Markdown export",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "plan-copy-markdown",
+              eyebrow: "Export",
+              label: "Copy Markdown",
+              onClick: () => {
+                void copyMarkdown();
+              },
+              disabled: !editor,
+            },
+          ],
+        },
         {
           id: "plan-markdown-save",
           title: "Markdown save",
@@ -150,6 +218,10 @@ export function PlanSurfaceCanvas({
   }, [
     canCommit,
     commitSave,
+    copyMarkdown,
+    editor,
+    insertCallout,
+    insertRunbookReference,
     isLocked,
     onEditorToolsChange,
     prepareSave,
