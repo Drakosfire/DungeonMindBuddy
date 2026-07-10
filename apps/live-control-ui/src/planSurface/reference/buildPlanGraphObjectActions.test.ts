@@ -1,0 +1,319 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import type { GraphProjectionNodeView } from "../../api/types";
+import {
+  buildPlanGraphObjectActions,
+  hasPlanSourceOrEvidence,
+} from "./buildPlanGraphObjectActions";
+import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
+
+const sessionDescriptor = {
+  surfaceId: "plan" as const,
+  campaignId: "longmont-c2",
+  campaignLabel: "Longmont C2",
+  prepSession: 23,
+  memorySession: 21,
+  liveSession: 22,
+  sourceStatusLabel: "Session 21",
+  sourceStatusKind: "unknown" as const,
+  planningDocument: {
+    documentId: "longmont-c2-session-23-prep",
+    title: "C2 Session 23 Prep",
+    targetRelpath: "corpus/example.md",
+    storageKey: "storage-key",
+    status: "local_draft" as const,
+  },
+};
+
+function makeNode(overrides: Partial<GraphProjectionNodeView> = {}): GraphProjectionNodeView {
+  return {
+    node_id: "npc-glowkindle",
+    label: "Glowkindle",
+    kind: "npc",
+    role: "merchant",
+    aliases: [],
+    source_domains: ["recap"],
+    evidence_badges: [
+      {
+        evidence_ref_id: "ev-1",
+        label: "Session recap mention",
+        source_domain: "recap",
+        source_artifact_id: "artifact-1",
+        evidence_role: "source_evidence",
+        is_focus_session_evidence: true,
+        can_open_source: true,
+        can_highlight_span: false,
+      },
+    ],
+    adjacency: [],
+    anchored_to_focus_session: true,
+    summary: "A friendly merchant.",
+    source_anchor_text: "Glowkindle waved from the inn.",
+    ...overrides,
+  };
+}
+
+describe("buildPlanGraphObjectActions", () => {
+  it("orders source, grounded tools, then /ingest for graph hits", () => {
+    const onOpenStatblock = vi.fn();
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:statblock-tripod",
+      refType: "statblock",
+      graphObject: buildGraphObjectCardFromNodeView(
+        makeNode({
+          node_id: "statblock-tripod",
+          label: "Tripod Null-Calf",
+          kind: "statblock",
+          role: "creature",
+        }),
+      ),
+      graphNodeId: "statblock-tripod",
+      fallback: null,
+      source: "union-supergraph",
+    };
+
+    const actions = buildPlanGraphObjectActions({
+      resolution,
+      sessionDescriptor,
+      onOpenStatblock,
+    });
+
+    expect(actions.map((action) => action.id)).toEqual([
+      "open-source",
+      "open-statblock",
+      "open-ingest",
+    ]);
+    expect(actions[2]).toMatchObject({
+      label: "Review memory in /ingest",
+      href: "/ingest?campaign=longmont-c2&session=session-21",
+    });
+  });
+
+  it("includes Inspect source/evidence only when evidence or source data exists", () => {
+    const withEvidence: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+    };
+    const withoutEvidence: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-empty",
+      graphObject: buildGraphObjectCardFromNodeView(
+        makeNode({
+          node_id: "npc-empty",
+          label: "Empty",
+          source_domains: [],
+          evidence_badges: [],
+          source_anchor_text: null,
+          summary: null,
+        }),
+      ),
+      graphNodeId: "npc-empty",
+      fallback: null,
+      source: "union-supergraph",
+    };
+
+    expect(
+      buildPlanGraphObjectActions({ resolution: withEvidence, sessionDescriptor }).some(
+        (action) => action.id === "open-source",
+      ),
+    ).toBe(true);
+    expect(
+      buildPlanGraphObjectActions({ resolution: withoutEvidence, sessionDescriptor }).some(
+        (action) => action.id === "open-source",
+      ),
+    ).toBe(false);
+  });
+
+  it("adds Open statblock tool when grounded and open behavior is provided", () => {
+    const onOpenStatblock = vi.fn();
+    const relatedStatblock: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-lysandra",
+      graphObject: buildGraphObjectCardFromNodeView(
+        makeNode({
+          node_id: "npc-lysandra",
+          label: "Lysandra",
+          adjacency: [
+            {
+              edge_id: "edge-sb",
+              node_id: "statblock-lysandra",
+              label: "Lysandra statblock",
+              kind: "statblock",
+              predicate: "has_statblock",
+              direction: "outgoing",
+              related_summary: null,
+              evidence_ref_ids: [],
+              source_domains: [],
+              anchored_to_focus_session: true,
+              session_ids: [],
+            },
+          ],
+        }),
+      ),
+      graphNodeId: "npc-lysandra",
+      fallback: null,
+      source: "union-supergraph",
+    };
+    const noStatblock: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+    };
+
+    const withAction = buildPlanGraphObjectActions({
+      resolution: relatedStatblock,
+      sessionDescriptor,
+      onOpenStatblock,
+    });
+    expect(withAction.find((action) => action.id === "open-statblock")).toMatchObject({
+      label: "Open statblock tool",
+    });
+    withAction.find((action) => action.id === "open-statblock")?.onClick?.();
+    expect(onOpenStatblock).toHaveBeenCalledOnce();
+
+    expect(
+      buildPlanGraphObjectActions({
+        resolution: noStatblock,
+        sessionDescriptor,
+        onOpenStatblock,
+      }).some((action) => action.id === "open-statblock"),
+    ).toBe(false);
+
+    expect(
+      buildPlanGraphObjectActions({
+        resolution: relatedStatblock,
+        sessionDescriptor,
+      }).some((action) => action.id === "open-statblock"),
+    ).toBe(false);
+  });
+
+  it("adds Open roll table tool when grounded and open behavior is provided", () => {
+    const onOpenRollTable = vi.fn();
+    const rollTable: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:roll-table-gate",
+      refType: "roll-table",
+      graphObject: buildGraphObjectCardFromNodeView(
+        makeNode({
+          node_id: "roll-table-gate",
+          label: "Gate Dilemma d12",
+          kind: "roll-table",
+          role: "table",
+        }),
+      ),
+      graphNodeId: "roll-table-gate",
+      fallback: null,
+      source: "union-supergraph",
+    };
+    const noRollTable: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+    };
+
+    const withAction = buildPlanGraphObjectActions({
+      resolution: rollTable,
+      sessionDescriptor,
+      onOpenRollTable,
+    });
+    expect(withAction.find((action) => action.id === "open-roll-table")).toMatchObject({
+      label: "Open roll table tool",
+    });
+    withAction.find((action) => action.id === "open-roll-table")?.onClick?.();
+    expect(onOpenRollTable).toHaveBeenCalledOnce();
+
+    expect(
+      buildPlanGraphObjectActions({
+        resolution: noRollTable,
+        sessionDescriptor,
+        onOpenRollTable,
+      }).some((action) => action.id === "open-roll-table"),
+    ).toBe(false);
+
+    expect(
+      buildPlanGraphObjectActions({
+        resolution: rollTable,
+        sessionDescriptor,
+      }).some((action) => action.id === "open-roll-table"),
+    ).toBe(false);
+  });
+
+  it("keeps corpus fallback actions from implying authoritative graph memory", () => {
+    const resolution: PlanReferenceResolution = {
+      kind: "corpus-index",
+      locator: "#dmb-ref:location:north-reach-gate",
+      refType: "location",
+      refId: "north-reach-gate",
+      graphObject: null,
+      graphNodeId: null,
+      fallback: {
+        status: "resolved",
+        ref: {
+          kind: "ref",
+          refType: "location",
+          refId: "north-reach-gate",
+          label: "North Reach Gate",
+        },
+        source: "location-index",
+        sourcePath: "corpus/locations/north_reach_gate.md",
+        message: "Resolved from live location index.",
+      },
+      source: "corpus-index",
+    };
+
+    const actions = buildPlanGraphObjectActions({ resolution, sessionDescriptor });
+    expect(actions.map((action) => action.id)).toEqual(["open-source", "open-ingest"]);
+    expect(actions.find((action) => action.id === "open-ingest")?.helpText).toMatch(/Corpus fallback/i);
+  });
+
+  it("uses Fix memory copy for unresolved resolutions", () => {
+    const resolution: PlanReferenceResolution = {
+      kind: "unresolved",
+      locator: "#dmb-ref:npc:lysandra",
+      refType: "npc",
+      refId: "lysandra",
+      graphObject: null,
+      graphNodeId: null,
+      ambiguousNodeIds: ["npc-a", "npc-b"],
+      fallback: null,
+      source: "unresolved",
+      message: "Could not uniquely resolve this object from graph memory.",
+    };
+
+    const actions = buildPlanGraphObjectActions({ resolution, sessionDescriptor });
+    expect(actions).toEqual([
+      expect.objectContaining({
+        id: "open-ingest",
+        label: "Fix memory in /ingest",
+        href: "/ingest?campaign=longmont-c2&session=session-21",
+      }),
+    ]);
+  });
+
+  it("detects source/evidence presence for Plan cards", () => {
+    expect(hasPlanSourceOrEvidence(buildGraphObjectCardFromNodeView(makeNode()))).toBe(true);
+    expect(
+      hasPlanSourceOrEvidence(
+        buildGraphObjectCardFromNodeView(
+          makeNode({
+            source_domains: [],
+            evidence_badges: [],
+            source_anchor_text: null,
+          }),
+        ),
+      ),
+    ).toBe(false);
+  });
+});

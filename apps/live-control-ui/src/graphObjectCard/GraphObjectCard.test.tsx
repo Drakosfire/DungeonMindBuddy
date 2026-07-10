@@ -106,4 +106,47 @@ describe("GraphObjectCard", () => {
     expect(screen.queryByText("Stage relationship")).not.toBeInTheDocument();
     expect(screen.queryByText("Review status")).not.toBeInTheDocument();
   });
+
+  it("renders Plan actions and expands Details for Inspect source/evidence", async () => {
+    const user = userEvent.setup();
+    const modelWithActions: GraphObjectCardViewModel = {
+      ...planModel,
+      actions: [
+        {
+          id: "open-source",
+          label: "Inspect source/evidence",
+          kind: "open-source",
+          helpText: "Opens the card Details section for evidence and source context.",
+        },
+        {
+          id: "open-ingest",
+          label: "Review memory in /ingest",
+          kind: "open-ingest",
+          href: "/ingest?campaign=longmont-c2&session=session-21",
+        },
+      ],
+    };
+
+    render(<GraphObjectCard mode="plan" model={modelWithActions} />);
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(within(card).getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
+
+    const details = within(card).getByText("Details").closest("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+
+    await user.click(within(card).getByRole("button", { name: /Inspect source\/evidence/i }));
+    expect(details).toHaveAttribute("open");
+    expect(within(details!).queryByText(/Node ID:/)).not.toBeInTheDocument();
+  });
+
+  it("does not render an Actions heading when there are no actions", () => {
+    render(<GraphObjectCard mode="plan" model={planModel} />);
+    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+  });
 });
