@@ -6527,3 +6527,134 @@ body.plan-toolbox-open .plan-agent-shell {
 .graph-object-dogfood-card-item--missing code {
   font-size: 0.78rem;
 }
+
+.graph-object-dogfood-result-count {
+  margin: 0.35rem 0 0.45rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.graph-object-dogfood-field-label input[type="search"] {
+  width: 100%;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.65);
+  color: var(--fg, #e8eaef);
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-weight: 400;
+}
+
+.plan-canvas-graph-search {
+  margin: 0 0 0.85rem;
+}
+
+.plan-graph-ref-search {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: rgba(18, 20, 26, 0.55);
+  padding: 0.75rem 0.85rem;
+}
+
+.plan-graph-ref-search__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.plan-graph-ref-search__subtitle {
+  margin: 0.3rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.8rem;
+}
+
+.plan-graph-ref-search__status {
+  margin: 0.55rem 0 0;
+  font-size: 0.84rem;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.plan-graph-ref-search__status--error {
+  color: #fca5a5;
+}
+
+.plan-graph-ref-search__label {
+  display: block;
+  margin: 0.65rem 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.plan-graph-ref-search__input {
+  width: 100%;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.65);
+  color: var(--fg, #e8eaef);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.plan-graph-ref-search__empty {
+  margin: 0.55rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.84rem;
+}
+
+.plan-graph-ref-search__results {
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.plan-graph-ref-search__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.45);
+  padding: 0.45rem 0.55rem;
+}
+
+.plan-graph-ref-search__copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.plan-graph-ref-search__meta {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.76rem;
+}
+
+.plan-graph-ref-search__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.plan-graph-ref-search__button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(30, 35, 48, 0.85);
+  color: var(--fg, #e8eaef);
+  padding: 0.28rem 0.5rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.plan-graph-ref-search__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.plan-graph-ref-search__button--primary {
+  border-color: rgba(122, 162, 247, 0.45);
+}

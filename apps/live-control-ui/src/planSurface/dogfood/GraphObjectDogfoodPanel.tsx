@@ -8,6 +8,10 @@ import {
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
+import {
+  searchGraphProjectionNodes,
+  sortGraphProjectionNodes,
+} from "../reference/searchGraphProjectionNodes";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import type { PlanSessionDescriptor } from "../types";
 import {
@@ -31,14 +35,6 @@ import {
 
 export interface GraphObjectDogfoodPanelProps {
   sessionDescriptor: PlanSessionDescriptor;
-}
-
-function sortNodes(nodes: GraphProjectionNodeView[]): GraphProjectionNodeView[] {
-  return [...nodes].sort((a, b) => {
-    const kindCmp = String(a.kind).localeCompare(String(b.kind));
-    if (kindCmp !== 0) return kindCmp;
-    return String(a.label).localeCompare(String(b.label));
-  });
 }
 
 function buildViewModelForNode(
@@ -122,6 +118,7 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
   const [state, setState] = useState<GraphObjectDogfoodState>(() =>
     loadGraphObjectDogfoodState(window.localStorage, sessionDescriptor),
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setState(loadGraphObjectDogfoodState(window.localStorage, sessionDescriptor));
@@ -135,8 +132,13 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
     [sessionDescriptor],
   );
 
-  const availableNodes = useMemo(
-    () => sortNodes(Object.values(projection?.node_views ?? {})),
+  const availableNodes = useMemo(() => {
+    const all = Object.values(projection?.node_views ?? {});
+    return sortGraphProjectionNodes(searchGraphProjectionNodes(all, searchQuery));
+  }, [projection, searchQuery]);
+
+  const totalNodeCount = useMemo(
+    () => Object.keys(projection?.node_views ?? {}).length,
     [projection],
   );
 
@@ -202,9 +204,9 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
       <header className="graph-object-dogfood-header">
         <h3 className="graph-object-dogfood-title">Graph objects</h3>
         <p className="graph-object-dogfood-subtitle">
-          Add projected campaign objects to a local dogfood list, view them through the real Plan
-          card path, remove them from the list, and record whether they are useful. Remove never
-          deletes graph or corpus memory.
+          Search the Union Supergraph projection, add cards to a local dogfood list, view them
+          through the real Plan card path, and record whether they are useful. Remove never deletes
+          graph or corpus memory.
         </p>
       </header>
 
@@ -227,34 +229,66 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
       {projectionState === "ready" ? (
         <>
           <div className="graph-object-dogfood-section">
-            <h4 className="graph-object-dogfood-section-title">Available projection nodes</h4>
-            {availableNodes.length === 0 ? (
+            <h4 className="graph-object-dogfood-section-title">Search projection nodes</h4>
+            <label className="graph-object-dogfood-field-label" htmlFor="graph-object-dogfood-search">
+              Search graph
+              <input
+                id="graph-object-dogfood-search"
+                type="search"
+                value={searchQuery}
+                placeholder="e.g. Glowkindle, inn, merchant…"
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </label>
+            {totalNodeCount === 0 ? (
               <p className="graph-object-dogfood-empty">No nodes in the current projection.</p>
+            ) : availableNodes.length === 0 ? (
+              <p className="graph-object-dogfood-empty">
+                No graph objects match “{searchQuery.trim()}”.
+              </p>
             ) : (
-              <ul className="graph-object-dogfood-node-list" data-testid="graph-object-dogfood-available">
-                {availableNodes.map((node) => {
-                  const alreadyAdded = state.addedNodeIds.includes(node.node_id);
-                  return (
-                    <li key={node.node_id} className="graph-object-dogfood-node-row">
-                      <div className="graph-object-dogfood-node-copy">
-                        <strong>{node.label}</strong>
-                        <span className="graph-object-dogfood-node-meta">
-                          {node.kind}
-                          {node.role ? ` · ${node.role}` : ""}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="graph-object-dogfood-button"
-                        disabled={alreadyAdded}
-                        onClick={() => handleAdd(node.node_id)}
-                      >
-                        {alreadyAdded ? "Added" : "Add card"}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <p className="graph-object-dogfood-result-count" role="status">
+                  Showing {availableNodes.length} of {totalNodeCount} nodes
+                  {searchQuery.trim() ? " matching search" : ""}.
+                </p>
+                <ul
+                  className="graph-object-dogfood-node-list"
+                  data-testid="graph-object-dogfood-available"
+                >
+                  {availableNodes.map((node) => {
+                    const alreadyAdded = state.addedNodeIds.includes(node.node_id);
+                    return (
+                      <li key={node.node_id} className="graph-object-dogfood-node-row">
+                        <div className="graph-object-dogfood-node-copy">
+                          <strong>{node.label}</strong>
+                          <span className="graph-object-dogfood-node-meta">
+                            {node.kind}
+                            {node.role ? ` · ${node.role}` : ""}
+                          </span>
+                        </div>
+                        <div className="graph-object-dogfood-card-actions">
+                          <button
+                            type="button"
+                            className="graph-object-dogfood-button graph-object-dogfood-button--primary"
+                            onClick={() => handleView(node)}
+                          >
+                            View card
+                          </button>
+                          <button
+                            type="button"
+                            className="graph-object-dogfood-button"
+                            disabled={alreadyAdded}
+                            onClick={() => handleAdd(node.node_id)}
+                          >
+                            {alreadyAdded ? "Added" : "Add card"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </div>
 
@@ -262,9 +296,7 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
             <h4 className="graph-object-dogfood-section-title">Dogfood list</h4>
             {activeViewedNodeId && !state.addedNodeIds.includes(activeViewedNodeId) ? (
               <div className="graph-object-dogfood-active-add">
-                <p>
-                  Viewing a related card that is not on the dogfood list.
-                </p>
+                <p>Viewing a related card that is not on the dogfood list.</p>
                 <button
                   type="button"
                   className="graph-object-dogfood-button"
@@ -278,7 +310,10 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
             {addedNodes.length === 0 && missingAddedIds.length === 0 ? (
               <p className="graph-object-dogfood-empty">No cards on the dogfood list yet.</p>
             ) : (
-              <ul className="graph-object-dogfood-collection" data-testid="graph-object-dogfood-collection">
+              <ul
+                className="graph-object-dogfood-collection"
+                data-testid="graph-object-dogfood-collection"
+              >
                 {addedNodes.map((node) => {
                   const model = buildViewModelForNode(node, sessionDescriptor);
                   const usefulness = state.usefulnessByNodeId[node.node_id] ?? "unknown";
@@ -347,7 +382,10 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
                   );
                 })}
                 {missingAddedIds.map((nodeId) => (
-                  <li key={nodeId} className="graph-object-dogfood-card-item graph-object-dogfood-card-item--missing">
+                  <li
+                    key={nodeId}
+                    className="graph-object-dogfood-card-item graph-object-dogfood-card-item--missing"
+                  >
                     <p>
                       Previously added node <code>{nodeId}</code> is not in the current projection.
                     </p>

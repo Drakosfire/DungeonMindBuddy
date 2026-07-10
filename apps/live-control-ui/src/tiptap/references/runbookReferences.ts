@@ -1,4 +1,12 @@
-export const RUNBOOK_REF_TYPES = ["npc", "location", "statblock", "roll-table", "citation"] as const;
+export const RUNBOOK_REF_TYPES = [
+  "npc",
+  "location",
+  "statblock",
+  "roll-table",
+  "citation",
+  /** Graph-backed object when kind is not one of the corpus index types. */
+  "node",
+] as const;
 export const RUNBOOK_ACTION_TYPES = ["combat"] as const;
 
 export type RunbookRefKind = "ref" | "action";

@@ -173,6 +173,19 @@ describe("GraphObjectDogfoodPanel", () => {
     expect(within(available).getByText("Inn")).toBeInTheDocument();
   });
 
+  it("filters available nodes by graph search", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await screen.findByTestId("graph-object-dogfood-available");
+    await user.type(screen.getByLabelText("Search graph"), "glow");
+
+    const available = screen.getByTestId("graph-object-dogfood-available");
+    expect(within(available).getByText("Glowkindle")).toBeInTheDocument();
+    expect(within(available).queryByText("Thin NPC")).not.toBeInTheDocument();
+    expect(within(available).queryByText("Inn")).not.toBeInTheDocument();
+  });
+
   it("adds a card to the local dogfood list without duplicating", async () => {
     const user = userEvent.setup();
     renderPanel();
@@ -199,7 +212,8 @@ describe("GraphObjectDogfoodPanel", () => {
     const available = await screen.findByTestId("graph-object-dogfood-available");
     const glowRow = within(available).getByText("Glowkindle").closest("li") as HTMLElement;
     await user.click(within(glowRow).getByRole("button", { name: "Add card" }));
-    await user.click(screen.getByRole("button", { name: "View card" }));
+    const collection = screen.getByTestId("graph-object-dogfood-collection");
+    await user.click(within(collection).getByRole("button", { name: "View card" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("active-title")).toHaveTextContent("Glowkindle");
