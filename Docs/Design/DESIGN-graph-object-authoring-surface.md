@@ -15,7 +15,7 @@
 - `Docs/Plans/FOLLOWUP-raw-dmb-node-links-and-duplicate-projected-objects.md`
 - `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
 - `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
-- `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`
+- `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
 
 ---
 

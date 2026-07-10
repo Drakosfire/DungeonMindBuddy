@@ -4,10 +4,9 @@
 **Date:** 2026-07-10  
 **Scope:** `/plan`, session preparation, graph-memory consumption, planning-oriented Agent Interaction, and the Tiptap/Markdown planning board  
 **Architecture authority:** `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`  
-**Post-dogfood graph-memory re-anchor:** `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`  
+**Campaign supergraph authority:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`  
 **Graph Review authority:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Graph Review evidence / pause point:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`  
-**Union Supergraph authority:** `Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md`  
 **Source-vocabulary boundary:** `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`
 
 ---
@@ -83,7 +82,7 @@ Plan consumes the resulting reviewed graph/corpus memory through adapters and pr
 | Does Plan use Graph Review selected-object cards? | Yes as the durable target shape. Extract a **neutral shared** graph-object card/view-model primitive from the `GraphReviewNodeGameCard` shape; do not import Graph Review workbench internals into `/plan`, and do not keep growing the index-shaped Plan `SelectedObjectCard` as the final UI. |
 | Does Plan include Author Draft? | No, not in the default prep flow. Escalate to `/ingest` when memory is wrong. |
 | Does Plan write graph memory? | Not in the next dogfood slice. Its future write target is planning Markdown through the edit capability and two-phase writer; graph-memory writes remain in `/ingest`. |
-| Does Plan depend on Hermes? | Current prep-memory Q&A uses Hermes/live-query as a **transitional** seam. The target is a plan-scoped graph-memory query over the Union Supergraph. Until then, show citation, trace, and freshness limits honestly, including live-packet mismatch failures. |
+| Does Plan depend on Hermes? | Current prep-memory Q&A uses Hermes/live-query as a **transitional** seam. The target is a plan-scoped graph-memory query over the Campaign Supergraph. Until then, show citation, trace, and freshness limits honestly, including live-packet mismatch failures. |
 
 ## 6. Lessons Plan imports from Graph Review
 
@@ -102,14 +101,14 @@ The next `/plan` implementation slices succeed only if one GM can use `/plan` to
 
 1. Resolve and display the current campaign, prep session, and relevant ingested memory/source context.
 2. Load one planning document into a usable planning board.
-3. Follow a reference chip or graph-node link to a game-facing selected-object card (target: shared graph-object card over Union Supergraph; corpus-index card remains transitional fallback).
+3. Follow a reference chip or graph-node link to a game-facing selected-object card (target: shared graph-object card over Campaign Supergraph; corpus-index card remains transitional fallback).
 4. Ask one grounded planning question and inspect its source/citation or freshness state (target: plan-scoped graph-memory query; current live-query/Hermes path is transitional).
 5. Open relevant statblock, roll-table, or context projections from that flow.
 6. Escalate memory correction to `/ingest`, rather than correcting graph memory inline.
 
 This creates a falsifiable dogfood path. A feature that adds generic projection machinery but does not make one of these prep steps work does not meet this checkpoint’s goal.
 
-Implementation order after this re-anchor is recorded in `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7.
+Implementation order for Plan-facing slices is recorded in `Docs/Design/ARCHITECTURE-campaign-supergraph.md` (Plan consumption) and `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`.
 
 ## 8. Non-goals for that slice
 
@@ -126,9 +125,9 @@ Implementation order after this re-anchor is recorded in `Docs/Design/DESIGN-pla
 | Concern | Authority |
 | --- | --- |
 | `/plan` product goal and next dogfood target | This document |
-| Post-PR314 transitional vs durable graph-memory path for Plan | `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` |
+| Campaign supergraph architecture and Plan consumption | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` |
 | SurfaceConfig, resolver, projection, edit-capability, Tiptap canvas, and Agent Interaction target architecture | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
-| Union Supergraph read model and projection lenses | `Docs/Design/GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md` |
+| Supergraph roadmap and PR sequence | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` · `Docs/Plans/PR-TRACKER-campaign-supergraph.md` |
 | Graph Review, authored overlay/event log, and selected preview-union identity materialization | `Docs/Design/DESIGN-graph-object-authoring-surface.md` |
 | Current Graph Review pause point and proven safety invariants | `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` |
 | Source-facing envelope and evidence vocabulary | `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` |
@@ -168,4 +167,4 @@ Landed and dogfoodable:
 - Prep-memory Q&A drawer (live-query / Hermes; **transitional**; can fail on live-packet session mismatch).
 - Optional `/plan?dogfood=1` checklist, notes, report copy, and recovery runbook (**scaffold**, not product UI).
 
-**Next code work** is not more checklist polish. Follow `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7 as the default order (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again), with dogfood allowed to pull Q&A ahead when live-packet blockage is the sharper prep-loop blocker.
+**Next code work** is not more checklist polish. Follow `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` as the default order (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again), with dogfood allowed to pull Q&A ahead when live-packet blockage is the sharper prep-loop blocker.

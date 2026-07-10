@@ -6,9 +6,10 @@ These reports document proof milestones (materializer gates, projection readines
 
 ## Current authority
 
+- `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
 - `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`
-- `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`
-- `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md`
+- `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`
+- `Docs/Plans/PR-TRACKER-campaign-supergraph.md`
 
 ## Active eval commands
 

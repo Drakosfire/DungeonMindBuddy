@@ -1,5 +1,7 @@
 # Graph Memory Extraction Spike Anchor
 
+> **Superseded operational anchor (2026-07-10):** Durable architecture → [`ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md). PR tracking → [`PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md). Body below retained as spike evidence.
+
 **Status:** Spike anchor  
 **Created:** 2026-07-01  
 **Workstream:** Graph Memory / extraction taxonomy / pass design / consolidation dogfood  
@@ -20,9 +22,9 @@ This document therefore records the baseline dogfood set, manual review surfaces
 |---|---|
 | `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md` | Primary extraction-taxonomy handoff named by this spike; currently missing on this branch, so later agents must restore or identify the intended archived source before treating it as authoritative. |
 | `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md` | Detailed manual review report establishing that vocabulary helps but the larger pressure is extraction structure, consolidation, party context, and qualitative review. |
-| `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | Durable architecture boundary: reusable campaign/worldbuilding union supergraph contracts belong in `src/graph_memory`, while evals remain proof machinery. |
+| `Docs/Design/ARCHITECTURE-campaign-supergraph.md` | Durable architecture boundary: reusable campaign/worldbuilding union supergraph contracts belong in `src/graph_memory`, while evals remain proof machinery. |
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | Current path-ownership map for graph-memory implementation, eval examples, artifacts, and proven extraction pipeline components. |
-| `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md` | Older operational anchor for the union-supergraph / recap-projection workstream, including Session 23 projection goals and the no-hand-authored-local-graph constraint. |
+| `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Operational PR tracker for the campaign supergraph workstream (supersedes the archived workstream anchor). |
 | `Backlog.md` | Current dated observations, especially Mirathorn governance retrieval/ingest pressure and live C2 dogfood lessons that may affect bed selection. |
 
 The missing primary handoff and the older workstream anchor must be reconciled, not treated as competing truths. The vocabulary-ablation report supplies the immediate extraction-structure evidence; the workstream anchor supplies the durable union-supergraph and `/plan` projection direction. Later code PRs should explicitly align those threads before changing graph contracts or extraction passes.

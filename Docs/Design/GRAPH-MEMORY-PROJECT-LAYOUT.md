@@ -2,7 +2,7 @@
 
 This note records the current path boundary for graph-memory work. It is intentionally short: durable contracts should be easy to find without turning evaluation directories into architecture owners.
 
-**Canonical anchors:** [`GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) · [`GRAPH-MEMORY-WORKSTREAM-ANCHOR.md`](../Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md)
+**Canonical anchors:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) · [`ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) · [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 
 ## Boundaries
 
@@ -110,7 +110,7 @@ See each archive's `README.md` for what was moved and why.
 
 ## Roadmap pointer
 
-`Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` is the current architecture roadmap for this layout. It treats this file as the short boundary note and records the longer target hierarchy, lifecycle, and PR sequence for graduating reusable contracts into `src/graph_memory`.
+[`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) is the current architecture authority for this layout; [`ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) records the PR sequence. This file remains the short boundary note for path ownership.
 
 ## Follow-up implementation
 

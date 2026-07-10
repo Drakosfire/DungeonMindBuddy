@@ -1,10 +1,12 @@
 # Design — Graph Review + Gold Authoring Workbench
 
-**Status:** Accepted design direction  
+**Status:** SUPERSEDED 2026-07-10 — historical gold-workbench design  
+**Current write-path authority:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
+**Campaign Supergraph authority:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`  
 **Date:** 2026-07-02  
 **Workstream:** Graph Memory / Graph Review / Gold Authoring  
 **Supersedes:** `Docs/Plans/HANDOFF-prime-design-graph-exploring-tool-consolidation.md`  
-**Companion roadmap:** `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md`
+**Companion roadmap (also superseded):** `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md`
 
 ## 1. Product thesis
 
