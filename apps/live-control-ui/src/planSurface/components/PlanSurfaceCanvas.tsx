@@ -124,6 +124,10 @@ export function PlanSurfaceCanvas({
     await navigator.clipboard.writeText(markdown);
   }, [editor]);
 
+  const removeActiveBlock = useCallback(() => {
+    editor?.chain().focus().deleteActiveBlock().run();
+  }, [editor]);
+
   const handleChipActivate = useCallback(
     async (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement) || !editorShellRef.current?.contains(target)) return;
@@ -172,6 +176,20 @@ export function PlanSurfaceCanvas({
             onClick: () => insertRunbookReference(sample),
             disabled: !editor || isLocked,
           })),
+        },
+        {
+          id: "plan-edit-blocks",
+          title: "Edit blocks",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "plan-remove-block",
+              eyebrow: "Remove",
+              label: "Remove block",
+              onClick: removeActiveBlock,
+              disabled: !editor || isLocked,
+            },
+          ],
         },
         {
           id: "plan-markdown-export",
@@ -225,6 +243,7 @@ export function PlanSurfaceCanvas({
     isLocked,
     onEditorToolsChange,
     prepareSave,
+    removeActiveBlock,
     saveDisabled,
     saveState.status,
     toggleLock,

@@ -147,6 +147,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     editor?.chain().focus().insertRunbookReference(attrs).run();
   }, [editor]);
 
+  const removeActiveBlock = useCallback(() => {
+    editor?.chain().focus().deleteActiveBlock().run();
+  }, [editor]);
+
   const clearActiveBlockDecoration = useCallback(() => {
     activeBlockRef.current?.removeAttribute("data-runbook-block-state");
     activeBlockRef.current?.removeAttribute("data-runbook-block-label");
@@ -377,6 +381,20 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           })),
         },
         {
+          id: "tiptap-edit-blocks",
+          title: "Edit blocks",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "tiptap-remove-block",
+              eyebrow: "Remove",
+              label: "Remove block",
+              onClick: removeActiveBlock,
+              disabled: !editor || isEditorLocked,
+            },
+          ],
+        },
+        {
           id: "tiptap-file-write",
           title: "File write",
           actions: [
@@ -389,7 +407,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     });
 
     return () => onEditorToolsChange?.(null);
-  }, [canCommit, commitFileWrite, copyMarkdown, editor, importCommittedMarkdown, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, resetLocalDraft, toggleEditorLock]);
+  }, [canCommit, commitFileWrite, copyMarkdown, editor, importCommittedMarkdown, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, removeActiveBlock, resetLocalDraft, toggleEditorLock]);
 
   const updatedAt = new Date(workingState.updated_at).toLocaleString();
   const editorThemeClass = `md-theme-${descriptor.themeId}`;
