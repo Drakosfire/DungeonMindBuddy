@@ -530,6 +530,48 @@
   padding: 0.45rem 0.6rem;
 }
 
+.plan-agent-grounding-warning {
+  margin: 0 0 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.4rem;
+  background: rgba(240, 180, 90, 0.12);
+  color: #f0d48a;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.plan-agent-prompt-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.plan-agent-prompt-suggestion {
+  border: 1px solid rgba(154, 163, 181, 0.28);
+  border-radius: 999px;
+  background: rgba(10, 14, 22, 0.45);
+  color: var(--fg, #e6e9ef);
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  padding: 0.35rem 0.65rem;
+}
+
+.plan-agent-prompt-suggestion:hover {
+  border-color: rgba(169, 240, 200, 0.45);
+}
+
+.plan-agent-diagnostics-drawer {
+  margin-top: 0.5rem;
+}
+
+.plan-agent-diagnostics-drawer > summary {
+  cursor: pointer;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .plan-agent-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

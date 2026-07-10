@@ -12,6 +12,7 @@ import type {
   PlanViewProjection,
   SourceUnit,
 } from "../../api/types";
+import type { PlanSessionDescriptor } from "../types";
 
 import {
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
@@ -26,9 +27,17 @@ import { buildPacketReview } from "./contextSufficiencyLadder";
 import { TraceDetailsPanel } from "./TraceDetailsPanel";
 import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
+import {
+  PREP_MEMORY_PROMPTS,
+  answerHeading,
+  hasGrounding,
+  prepMemoryLabel,
+  UNGROUNDED_ANSWER_WARNING,
+} from "./prepMemoryQa";
 
 interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;
+  sessionDescriptor: PlanSessionDescriptor;
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
   readCitationSource?: typeof postCitationSource;
@@ -149,6 +158,7 @@ function sessionNumbers(bundle: IngestionSourceBundle): number[] {
 
 export function PlanAgentInteractionBar({
   planView,
+  sessionDescriptor,
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
   readCitationSource = postCitationSource,
@@ -182,18 +192,30 @@ export function PlanAgentInteractionBar({
   const [titleDraft, setTitleDraft] = useState("");
   const [freshnessChecking, setFreshnessChecking] = useState(false);
 
+  const memorySessionLabel = prepMemoryLabel(sessionDescriptor);
+  const querySession = sessionDescriptor.memorySession;
+
   useEffect(() => {
-    agentInteraction.rehydrateScope({ campaignId: planView.campaign_id, sessionNumber: planView.session, surfaceId: "plan" });
+    agentInteraction.rehydrateScope({
+      campaignId: sessionDescriptor.campaignId,
+      sessionNumber: sessionDescriptor.prepSession,
+      surfaceId: "plan",
+    });
     agentInteraction.publishSurfaceContext({
       surfaceId: "plan",
-      label: `Plan · Session ${planView.session}`,
-      campaignId: planView.campaign_id,
-      sessionNumber: planView.session,
-      ambientSummary: `Plan surface for ${planView.campaign_id}, session ${planView.session}`,
+      label: `Plan · Session ${sessionDescriptor.prepSession}`,
+      campaignId: sessionDescriptor.campaignId,
+      sessionNumber: sessionDescriptor.prepSession,
+      ambientSummary: `Plan prep for ${sessionDescriptor.campaignLabel}, ${memorySessionLabel}`,
       sourceEnvelope: null,
       updatedAt: new Date().toISOString(),
     });
-  }, [planView.campaign_id, planView.session]);
+  }, [
+    sessionDescriptor.campaignId,
+    sessionDescriptor.campaignLabel,
+    sessionDescriptor.prepSession,
+    memorySessionLabel,
+  ]);
 
   useEffect(() => {
     if (!thread) {
@@ -262,7 +284,7 @@ export function PlanAgentInteractionBar({
     setStatus("loading");
     setError(null);
     try {
-      const response = await loadBundle("campaign-ingested", planView.campaign_id);
+      const response = await loadBundle("campaign-ingested", sessionDescriptor.campaignId);
       setBundle(response);
       setStatus("ready");
     } catch (loadError) {
@@ -303,8 +325,8 @@ export function PlanAgentInteractionBar({
 
   function createNewThread() {
     const nextThread = createAgentInteractionThread(
-      planView.campaign_id,
-      planView.session,
+      sessionDescriptor.campaignId,
+      querySession,
       "plan",
       queryBackend,
     );
@@ -334,7 +356,12 @@ export function PlanAgentInteractionBar({
   }
 
   function saveRename() {
-    const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
+    const baseThread = thread ?? createAgentInteractionThread(
+      sessionDescriptor.campaignId,
+      querySession,
+      "plan",
+      queryBackend,
+    );
     const nextThread = agentInteraction.renameThread(titleDraft) ?? baseThread;
     activateThread(nextThread);
     setRenaming(false);
@@ -417,16 +444,16 @@ export function PlanAgentInteractionBar({
     setAskError(null);
     try {
       const currentThread = thread ?? createAgentInteractionThread(
-        planView.campaign_id,
-        planView.session,
+        sessionDescriptor.campaignId,
+        querySession,
         "plan",
         queryBackend,
         threadTitleFromQuestion(trimmed),
       );
       const response = await askCorpus(
         trimmed,
-        planView.campaign_id,
-        planView.session,
+        sessionDescriptor.campaignId,
+        querySession,
         queryBackend,
         {
           agentThreadId: currentThread.threadId,
@@ -469,7 +496,7 @@ export function PlanAgentInteractionBar({
   const routesOnDisk = numberField(coverage.ingestRoutesOnDisk);
   const dogfoodRoutes = numberField(coverage.ingestRoutesInDogfoodFullManifest);
   const slimRoutes = numberField(coverage.ingestRoutesInC2S23Manifest);
-  const activeSessionUnits = bundle ? unitsForSession(bundle, planView.session) : [];
+  const activeSessionUnits = bundle ? unitsForSession(bundle, querySession) : [];
   const activeStageKinds = new Set(activeSessionUnits.map(sourceKind));
   const missingStages = REQUIRED_INGEST_STAGES.filter((stage) => !activeStageKinds.has(stage));
   const activeSessionComplete = bundle ? missingStages.length === 0 : false;
@@ -478,17 +505,17 @@ export function PlanAgentInteractionBar({
   return (
     <section
       className={`plan-agent-shell ${open ? "open" : "closed"}`}
-      aria-label="Agent Interaction placeholder"
+      aria-label="Ask prep memory"
     >
       {open ? (
-        <div className="plan-agent-pane" role="complementary" aria-label="Agent Interaction drawer">
+        <div className="plan-agent-pane" role="complementary" aria-label="Prep memory drawer">
           <header className="plan-agent-pane-header">
             <div>
-              <p className="plan-surface-kicker">Agent Interaction</p>
+              <p className="plan-surface-kicker">Ask prep memory</p>
               {renaming ? (
                 <div className="plan-agent-title-editor">
                   <label>
-                    <span>Thread title</span>
+                    <span>Prep thread title</span>
                     <input value={titleDraft} onChange={(event) => setTitleDraft(event.currentTarget.value)} />
                   </label>
                   <button type="button" onClick={saveRename}>Save title</button>
@@ -497,11 +524,8 @@ export function PlanAgentInteractionBar({
               ) : (
                 <h2>{threadTitle}</h2>
               )}
-              <p>Ingested corpus interaction proof</p>
-              <p>
-                This local `/plan` pane consumes the future Agent Interaction contract before the
-                global provider is built.
-              </p>
+              <p>{memorySessionLabel}</p>
+              <p>Ask grounded questions against reviewed campaign memory while writing prep.</p>
             </div>
             <div className="plan-agent-pane-actions">
               <button type="button" onClick={() => {
@@ -510,15 +534,15 @@ export function PlanAgentInteractionBar({
               }}>
                 Rename
               </button>
-              <button type="button" onClick={createNewThread}>New thread</button>
-              <button type="button" onClick={() => setThreadSwitcherOpen((value) => !value)}>Threads</button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close Agent Interaction drawer">
+              <button type="button" onClick={createNewThread}>New prep thread</button>
+              <button type="button" onClick={() => setThreadSwitcherOpen((value) => !value)}>Prep threads</button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close prep memory drawer">
                 Close
               </button>
             </div>
           </header>
           {threadSwitcherOpen ? (
-            <section className="plan-agent-thread-switcher" aria-label="Agent Interaction threads">
+            <section className="plan-agent-thread-switcher" aria-label="Prep memory threads">
               <h3>Prep threads</h3>
               {threadSummaries.length ? (
                 <ul>
@@ -561,13 +585,9 @@ export function PlanAgentInteractionBar({
                 </section>
               ) : null}
               <form className="plan-agent-ask" onSubmit={submitQuestion}>
-                <h3>Ask ingested corpus</h3>
-                <p>
-                  Ask first. Results show admitted campaign text, a preliminary sufficiency verdict,
-                  agent trace metadata, and suggested source reads before advanced metadata.
-                </p>
+                <h3>Ask prep memory</h3>
                 <fieldset className="plan-agent-backend-picker">
-                  <legend>Query backend</legend>
+                  <legend>Answer mode</legend>
                   <label>
                     <input
                       type="radio"
@@ -576,7 +596,7 @@ export function PlanAgentInteractionBar({
                       checked={queryBackend === "live"}
                       onChange={() => setQueryBackend("live")}
                     />
-                    <span>Live loop</span>
+                    <span>Live retrieval</span>
                   </label>
                   <label>
                     <input
@@ -589,17 +609,29 @@ export function PlanAgentInteractionBar({
                     <span>Hermes tools</span>
                   </label>
                 </fieldset>
+                <div className="plan-agent-prompt-suggestions" aria-label="Suggested prep questions">
+                  {PREP_MEMORY_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      className="plan-agent-prompt-suggestion"
+                      onClick={() => setQuestion(prompt)}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
                 <label>
                   <span>Question</span>
                   <textarea
                     value={question}
                     onChange={(event) => setQuestion(event.currentTarget.value)}
-                    placeholder="What changed after the latest ingested recap?"
+                    placeholder="What should I remember about the North Gate pressure sequence?"
                     rows={3}
                   />
                 </label>
                 <button type="submit" disabled={!question.trim() || askStatus === "asking"}>
-                  {askStatus === "asking" ? "Asking…" : "Ask"}
+                  {askStatus === "asking" ? "Asking…" : "Ask prep memory"}
                 </button>
                 {askStatus === "error" ? (
                   <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
@@ -610,7 +642,12 @@ export function PlanAgentInteractionBar({
                     <div className="plan-agent-history-header">
                       <h4>Conversation ({turns.length})</h4>
                       <button type="button" onClick={() => {
-                        const baseThread = thread ?? createAgentInteractionThread(planView.campaign_id, planView.session, "plan", queryBackend);
+                        const baseThread = thread ?? createAgentInteractionThread(
+                          sessionDescriptor.campaignId,
+                          querySession,
+                          "plan",
+                          queryBackend,
+                        );
                         const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
                         setThread(nextThread);
                       }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
@@ -659,9 +696,14 @@ export function PlanAgentInteractionBar({
                         answer={packetReview ? null : answer.answer}
                       />
                     ) : null}
+                    {!hasGrounding(answer) ? (
+                      <p className="plan-agent-grounding-warning">
+                        {UNGROUNDED_ANSWER_WARNING}
+                      </p>
+                    ) : null}
                     {!(answer.agent_trace && traceVisible && !packetReview) ? (
-                      <section className="plan-agent-answer-card" aria-label="Agent answer">
-                        <p className="plan-surface-kicker">Answer</p>
+                      <section className="plan-agent-answer-card" aria-label={answerHeading(answer)}>
+                        <p className="plan-surface-kicker">{answerHeading(answer)}</p>
                         <p>{answer.answer}</p>
                       </section>
                     ) : null}
@@ -677,13 +719,13 @@ export function PlanAgentInteractionBar({
                       />
                     ) : null}
                     {citationCards.length ? (
-                      <section className="plan-agent-citation-cards" aria-label="Citation cards">
-                        <h4>Citation card</h4>
+                      <section className="plan-agent-citation-cards" aria-label="Supporting sources">
+                        <h4>Supporting sources</h4>
                         <ul>
                           {citationCards.map((card) => (
                             <li key={`${card.path}-${card.evidenceId}`} data-selected={selectedCitationKey === citationKey(card.path, card.evidenceId)}>
-                              <strong>{card.evidenceId}</strong>
-                              <span>{card.sourceRole} · {card.authority} · {card.lineLabel}</span>
+                              <strong>{card.sourceRole} · {card.authority} · {card.lineLabel}</strong>
+                              <span className="plan-agent-muted">{card.evidenceId}</span>
                               <code>{card.path}</code>
                               {card.textExcerpt ? <p>{card.textExcerpt}</p> : null}
                               <button type="button" onClick={() => void openCitationSource(card)}>
@@ -695,9 +737,9 @@ export function PlanAgentInteractionBar({
                       </section>
                     ) : null}
                     {sourceStatus !== "idle" ? (
-                      <section className="plan-agent-source-reader" aria-label="Current source reader">
+                      <section className="plan-agent-source-reader" aria-label="Source preview">
                         <div>
-                          <p className="plan-surface-kicker">Current source reader</p>
+                          <p className="plan-surface-kicker">Source preview</p>
                           <h4>{sourceStatus === "loading" ? "Loading source…" : sourceResponse?.path ?? "Source unavailable"}</h4>
                           {sourceResponse ? <code>{sourceResponse.path}</code> : null}
                         </div>
@@ -722,40 +764,40 @@ export function PlanAgentInteractionBar({
                   </div>
                 ) : activeTurn ? (
                   <div className="plan-agent-answer">
-                    <p className="plan-agent-muted">Stored turn from this Agent Interaction thread.</p>
+                    <p className="plan-agent-muted">Stored turn from this prep thread.</p>
                     <p>{activeTurn.answer}</p>
                   </div>
                 ) : null}
               </form>
 
-              <section className="plan-agent-proof" aria-label="Ingestion proof">
-                <div>
-                  <p className="plan-surface-kicker">Ingestion proof</p>
-                  <h3>
-                    {activeSessionComplete
-                      ? `Session ${planView.session} has all expected ingest layers`
-                      : `Session ${planView.session} is missing ${missingStages.length} ingest layers`}
-                  </h3>
-                  <p>
-                    The bundle exposes {unitCount} SourceUnits across {artifactCount} artifacts.
-                    Latest sessions visible in the scan:{" "}
-                    {latestSessions.length ? latestSessions.join(", ") : "none"}.
-                  </p>
-                  {!activeSessionComplete ? (
-                    <p className="plan-agent-warning">Missing: {missingStages.join(", ")}</p>
-                  ) : null}
-                </div>
-                <div className="plan-agent-proof-pills">
-                  {REQUIRED_INGEST_STAGES.map((stage) => (
-                    <span key={stage} data-present={activeStageKinds.has(stage)}>
-                      {stage.replaceAll("_", " ")}
-                    </span>
-                  ))}
-                </div>
-              </section>
+              <details className="plan-agent-diagnostics-drawer">
+                <summary>Memory coverage diagnostics</summary>
+                <section className="plan-agent-proof" aria-label="Ingestion proof">
+                  <div>
+                    <p className="plan-surface-kicker">Ingestion proof</p>
+                    <h3>
+                      {activeSessionComplete
+                        ? `Session ${querySession} has all expected ingest layers`
+                        : `Session ${querySession} is missing ${missingStages.length} ingest layers`}
+                    </h3>
+                    <p>
+                      The bundle exposes {unitCount} SourceUnits across {artifactCount} artifacts.
+                      Latest sessions visible in the scan:{" "}
+                      {latestSessions.length ? latestSessions.join(", ") : "none"}.
+                    </p>
+                    {!activeSessionComplete ? (
+                      <p className="plan-agent-warning">Missing: {missingStages.join(", ")}</p>
+                    ) : null}
+                  </div>
+                  <div className="plan-agent-proof-pills">
+                    {REQUIRED_INGEST_STAGES.map((stage) => (
+                      <span key={stage} data-present={activeStageKinds.has(stage)}>
+                        {stage.replaceAll("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                </section>
 
-              <details className="plan-agent-advanced">
-                <summary>Advanced source metadata</summary>
                 <div className="plan-agent-proof-grid">
                   <div className="plan-agent-stat">
                     <span>Ingest routes</span>
@@ -773,7 +815,7 @@ export function PlanAgentInteractionBar({
                   <div className="plan-agent-units">
                     <h3>Representative SourceUnits</h3>
                     <ul>
-                      {representativeUnits(bundle, planView.session).map((unit) => (
+                      {representativeUnits(bundle, querySession).map((unit) => (
                         <li key={unit.unitId}>
                           <strong>{unit.label}</strong>
                           <span>
@@ -802,8 +844,8 @@ export function PlanAgentInteractionBar({
 
       <div className="plan-agent-bar">
         <div>
-          <p className="plan-surface-kicker">Agent Interaction</p>
-          <strong>Agent Interaction · {threadTitle}</strong>
+          <p className="plan-surface-kicker">Ask prep memory</p>
+          <strong>Ask prep memory · {threadTitle}</strong>
         </div>
         <button type="button" onClick={toggleDrawer} aria-expanded={open}>
           {open ? "Close drawer" : "Open drawer"}
