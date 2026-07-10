@@ -82,6 +82,39 @@ describe("usePlanGraphReferenceResolver", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("resolves relationship targetId through resolvePlanRelationship", async () => {
+    const innNode: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "location-inn",
+      label: "Inn",
+      kind: "location",
+      role: "location",
+      aliases: [],
+    };
+    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      ...projection,
+      node_views: {
+        "npc-glowkindle": glowkindleNode,
+        "location-inn": innNode,
+      },
+    });
+
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(sessionDescriptor));
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+
+    const resolution = await result.current.resolvePlanRelationship({
+      id: "edge-1",
+      label: "Inn",
+      targetId: "location-inn",
+      targetKind: "location",
+      predicate: "met at",
+    });
+
+    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.locator).toBe("dmb-node:location-inn");
+    expect(resolution.graphNodeId).toBe("location-inn");
+  });
+
   it("marks projection unavailable without crashing resolution", async () => {
     vi.spyOn(liveApi, "getUnionSupergraphProjection").mockRejectedValue(
       new LiveApiError("missing projection", 404),

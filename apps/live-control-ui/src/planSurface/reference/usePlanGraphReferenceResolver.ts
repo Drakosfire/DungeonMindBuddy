@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getUnionSupergraphProjection, LiveApiError } from "../../api/liveApi";
 import type { UnionSupergraphProjectionResponse } from "../../api/types";
+import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
 import {
@@ -10,12 +11,16 @@ import {
   type PlanReferenceResolution,
 } from "./graphAwareReferenceResolver";
 import { resolveReference } from "./referenceResolver";
+import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
 
 export interface UsePlanGraphReferenceResolverResult {
   projection: UnionSupergraphProjectionResponse | null;
   projectionState: PlanGraphProjectionState;
   projectionError: string | null;
   resolvePlanReference: (ref: RunbookReferenceAttrs) => Promise<PlanReferenceResolution>;
+  resolvePlanRelationship: (
+    relationship: GraphObjectRelationshipViewModel,
+  ) => Promise<PlanReferenceResolution>;
 }
 
 function isExpectedProjectionMiss(error: unknown): boolean {
@@ -79,21 +84,28 @@ export async function resolvePlanReferenceWithFallback(
 }
 
 export function usePlanGraphReferenceResolver(
-  sessionDescriptor: PlanSessionDescriptor,
+  sessionDescriptor: PlanSessionDescriptor | null | undefined,
 ): UsePlanGraphReferenceResolverResult {
   const [projection, setProjection] = useState<UnionSupergraphProjectionResponse | null>(null);
   const [projectionState, setProjectionState] = useState<PlanGraphProjectionState>("loading");
   const [projectionError, setProjectionError] = useState<string | null>(null);
 
   const sessionId = useMemo(
-    () => `session-${sessionDescriptor.memorySession}`,
-    [sessionDescriptor.memorySession],
+    () => (sessionDescriptor ? `session-${sessionDescriptor.memorySession}` : null),
+    [sessionDescriptor],
   );
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadProjection() {
+      if (!sessionDescriptor || !sessionId) {
+        setProjection(null);
+        setProjectionState("unavailable");
+        setProjectionError(null);
+        return;
+      }
+
       setProjectionState("loading");
       setProjectionError(null);
 
@@ -124,11 +136,21 @@ export function usePlanGraphReferenceResolver(
     return () => {
       cancelled = true;
     };
-  }, [sessionDescriptor.campaignId, sessionId]);
+  }, [sessionDescriptor?.campaignId, sessionId]);
 
   const resolvePlanReference = useCallback(
     async (ref: RunbookReferenceAttrs) =>
       resolvePlanReferenceWithFallback(ref, {
+        projection,
+        projectionState,
+      }),
+    [projection, projectionState],
+  );
+
+  const resolvePlanRelationship = useCallback(
+    async (relationship: GraphObjectRelationshipViewModel) =>
+      resolvePlanRelationshipTarget({
+        relationship,
         projection,
         projectionState,
       }),
@@ -140,5 +162,6 @@ export function usePlanGraphReferenceResolver(
     projectionState,
     projectionError,
     resolvePlanReference,
+    resolvePlanRelationship,
   };
 }

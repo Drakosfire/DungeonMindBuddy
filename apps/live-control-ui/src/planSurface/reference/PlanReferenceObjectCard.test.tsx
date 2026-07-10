@@ -1,14 +1,38 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { useEffect, useRef } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GraphProjectionNodeView } from "../../api/types";
+import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import { ProjectionProvider } from "../projection/projectionContext";
+import { ProjectionProvider, useProjection } from "../projection/projectionContext";
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
+
+vi.mock("../../api/liveApi", async () => {
+  const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
+  return {
+    ...actual,
+    getUnionSupergraphProjection: vi.fn(),
+  };
+});
+
+import * as liveApi from "../../api/liveApi";
+
+const innNode: GraphProjectionNodeView = {
+  node_id: "location-inn",
+  label: "Inn",
+  kind: "location",
+  role: "location",
+  aliases: ["The Inn"],
+  source_domains: ["recap"],
+  evidence_badges: [],
+  adjacency: [],
+  anchored_to_focus_session: true,
+  summary: "Meeting place.",
+};
 
 const glowkindleNode: GraphProjectionNodeView = {
   node_id: "npc-glowkindle",
@@ -45,6 +69,39 @@ const glowkindleNode: GraphProjectionNodeView = {
   anchored_to_focus_session: true,
   summary: "A friendly merchant.",
   source_anchor_text: "Glowkindle waved from the inn.",
+};
+
+const lysandraA: GraphProjectionNodeView = {
+  ...glowkindleNode,
+  node_id: "npc-lysandra-a",
+  label: "Lysandra Ironveil",
+  aliases: ["Lysandra"],
+  adjacency: [],
+};
+
+const lysandraB: GraphProjectionNodeView = {
+  ...glowkindleNode,
+  node_id: "npc-lysandra-b",
+  label: "Lysandra of the Gate",
+  aliases: ["Lysandra"],
+  adjacency: [],
+};
+
+const projection: UnionSupergraphProjectionResponse = {
+  campaign_id: "longmont-c2",
+  session_id: "session-21",
+  node_views: {
+    "npc-glowkindle": glowkindleNode,
+    "location-inn": innNode,
+    "npc-lysandra-a": lysandraA,
+    "npc-lysandra-b": lysandraB,
+  },
+  focus: {
+    focused_evidence_ref_ids: [],
+    focused_edge_ids: [],
+    focused_node_ids: [],
+  },
+  mentions: [],
 };
 
 const sessionDescriptor = {
@@ -85,7 +142,38 @@ function renderWithProjection(ui: ReactElement) {
   return render(<ProjectionProvider config={surfaceConfig}>{ui}</ProjectionProvider>);
 }
 
+function PlanReferenceProjectionHarness({
+  initialResolution,
+}: {
+  initialResolution: PlanReferenceResolution;
+}) {
+  const { activePlanReference, planProjectionState, openPlanReferenceResolution } = useProjection();
+  const seeded = useRef(false);
+
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    openPlanReferenceResolution(initialResolution, initialResolution.graphProjectionState ?? "ready");
+  }, [initialResolution, openPlanReferenceResolution]);
+
+  if (!activePlanReference) {
+    return <p>Seeding projection…</p>;
+  }
+
+  return (
+    <PlanReferenceObjectCard
+      resolution={activePlanReference}
+      sessionDescriptor={sessionDescriptor}
+      projectionState={planProjectionState}
+    />
+  );
+}
+
 describe("PlanReferenceObjectCard", () => {
+  beforeEach(() => {
+    vi.mocked(liveApi.getUnionSupergraphProjection).mockResolvedValue(projection);
+  });
+
   it("renders GraphObjectCard for graph-node hits", async () => {
     const resolution: PlanReferenceResolution = {
       kind: "graph-node",
@@ -178,7 +266,6 @@ describe("PlanReferenceObjectCard", () => {
     );
 
     await user.click(within(card).getByRole("button", { name: "Open statblock tool" }));
-    // Click must not crash; tool open is handled by ProjectionProvider.
     expect(within(card).getByRole("button", { name: "Open statblock tool" })).toBeInTheDocument();
   });
 
@@ -204,6 +291,158 @@ describe("PlanReferenceObjectCard", () => {
 
     expect(screen.queryByRole("button", { name: "Open statblock tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toBeInTheDocument();
+  });
+
+  it("opens related graph node by targetId and updates the projection rail", async () => {
+    const user = userEvent.setup();
+    const initialResolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Open related object Inn/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Inn graph object/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText(/Glowkindle graph object/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
+  });
+
+  it("disables related-object buttons while the card-local graph projection is loading", async () => {
+    vi.mocked(liveApi.getUnionSupergraphProjection).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    renderWithProjection(
+      <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
+    );
+
+    const related = await screen.findByRole("button", { name: /Open related object Inn/i });
+    expect(related).toBeDisabled();
+  });
+
+  it("shows ambiguous unresolved card for related-object label collisions", async () => {
+    const user = userEvent.setup();
+    const nodeWithAmbiguousRelation: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      adjacency: [
+        {
+          edge_id: "edge-lysandra",
+          node_id: "",
+          label: "Lysandra",
+          kind: "npc",
+          predicate: "knows",
+          direction: "outgoing",
+          related_summary: null,
+          evidence_ref_ids: [],
+          source_domains: [],
+          anchored_to_focus_session: true,
+          session_ids: [],
+        },
+      ],
+    };
+
+    const initialResolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(nodeWithAmbiguousRelation),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /Open related object Lysandra/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-reference-unresolved-card")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: /Fix memory in \/ingest/i })).toBeInTheDocument();
+    const technical = screen.getByText("Matching graph node ids").closest("details");
+    expect(technical).not.toBeNull();
+    expect(within(technical!).getByText("npc-lysandra-a")).toBeInTheDocument();
+    expect(within(technical!).getByText("npc-lysandra-b")).toBeInTheDocument();
+  });
+
+  it("shows unresolved miss card when related target is missing", async () => {
+    const user = userEvent.setup();
+    const nodeWithMissingRelation: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      adjacency: [
+        {
+          edge_id: "edge-missing",
+          node_id: "location-missing",
+          label: "Missing Gate",
+          kind: "location",
+          predicate: "near",
+          direction: "outgoing",
+          related_summary: null,
+          evidence_ref_ids: [],
+          source_domains: [],
+          anchored_to_focus_session: true,
+          session_ids: [],
+        },
+      ],
+    };
+
+    const initialResolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(nodeWithMissingRelation),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ locations: [] }),
+    } as Response);
+
+    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /Open related object Missing Gate/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-reference-unresolved-card")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: /Fix memory in \/ingest/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Glowkindle graph object/i)).not.toBeInTheDocument();
   });
 
   it("renders unresolved state for ambiguous graph matches", () => {

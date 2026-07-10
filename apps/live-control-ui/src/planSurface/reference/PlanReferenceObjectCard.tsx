@@ -1,10 +1,14 @@
+import { useCallback, useState } from "react";
+
 import { GraphObjectCard } from "../../graphObjectCard";
+import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import { useOptionalProjection } from "../projection/projectionContext";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
 import { buildPlanGraphObjectActions } from "./buildPlanGraphObjectActions";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "./graphAwareReferenceResolver";
+import { usePlanGraphReferenceResolver } from "./usePlanGraphReferenceResolver";
 
 export interface PlanReferenceObjectCardProps {
   resolution: PlanReferenceResolution;
@@ -109,8 +113,41 @@ export function PlanReferenceObjectCard({
   projectionState,
 }: PlanReferenceObjectCardProps) {
   const projection = useOptionalProjection();
-  const effectiveProjectionState = projectionState ?? resolution.graphProjectionState ?? null;
+  const { resolvePlanRelationship, projectionState: resolverProjectionState } =
+    usePlanGraphReferenceResolver(sessionDescriptor);
+  const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
+
+  const effectiveProjectionState =
+    projectionState ?? resolution.graphProjectionState ?? resolverProjectionState ?? null;
   const onOpenStatblock = projection ? () => projection.openTool("statblock") : undefined;
+
+  const onSelectRelationship = useCallback(
+    async (relationship: GraphObjectRelationshipViewModel) => {
+      if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
+      if (resolverProjectionState === "loading") return;
+
+      setNavigatingRelationshipId(relationship.id);
+      try {
+        const nextResolution = await resolvePlanRelationship(relationship);
+        projection.openPlanReferenceResolution(
+          nextResolution,
+          nextResolution.graphProjectionState ?? effectiveProjectionState,
+        );
+      } finally {
+        setNavigatingRelationshipId(null);
+      }
+    },
+    [
+      effectiveProjectionState,
+      navigatingRelationshipId,
+      projection,
+      resolvePlanRelationship,
+      resolverProjectionState,
+    ],
+  );
+
+  const relationshipsDisabled =
+    Boolean(navigatingRelationshipId) || resolverProjectionState === "loading";
 
   if (resolution.kind === "graph-node" && resolution.graphObject) {
     const model = {
@@ -127,6 +164,9 @@ export function PlanReferenceObjectCard({
         mode="plan"
         model={model}
         aria-label={`${model.label} graph object`}
+        onSelectRelationship={projection ? onSelectRelationship : undefined}
+        selectedRelationshipId={navigatingRelationshipId}
+        relationshipsDisabled={relationshipsDisabled}
       />
     );
   }

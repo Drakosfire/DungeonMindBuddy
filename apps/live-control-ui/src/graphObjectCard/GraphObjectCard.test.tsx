@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { GraphObjectCard } from "./GraphObjectCard";
 import type { GraphObjectCardViewModel } from "./types";
@@ -148,5 +148,47 @@ describe("GraphObjectCard", () => {
   it("does not render an Actions heading when there are no actions", () => {
     render(<GraphObjectCard mode="plan" model={planModel} />);
     expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+  });
+
+  it("renders related objects as plain list items without a callback", () => {
+    render(<GraphObjectCard mode="plan" model={planModel} />);
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(within(card).getByText("Glowkindle")).toBeInTheDocument();
+    expect(
+      within(card).queryByRole("button", { name: /Open related object/i }),
+    ).not.toBeInTheDocument();
+    expect(within(card).queryByText("location-inn")).not.toBeInTheDocument();
+  });
+
+  it("renders related objects as buttons and calls onSelectRelationship", async () => {
+    const user = userEvent.setup();
+    const onSelectRelationship = vi.fn();
+
+    render(
+      <GraphObjectCard
+        mode="plan"
+        model={planModel}
+        onSelectRelationship={onSelectRelationship}
+      />,
+    );
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    const button = within(card).getByRole("button", {
+      name: /Open related object Glowkindle/i,
+    });
+    expect(button).toBeInTheDocument();
+    expect(button).not.toHaveTextContent("edge-1");
+    expect(within(card).queryByText(/node_id|location-inn/i)).not.toBeInTheDocument();
+
+    await user.click(button);
+    expect(onSelectRelationship).toHaveBeenCalledOnce();
+    expect(onSelectRelationship).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "edge-1",
+        label: "Glowkindle",
+        predicate: "negotiated with",
+      }),
+    );
   });
 });

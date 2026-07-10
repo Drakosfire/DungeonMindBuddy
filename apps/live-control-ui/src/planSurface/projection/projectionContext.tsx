@@ -22,6 +22,11 @@ interface ProjectionContextValue {
     glanceOnly?: boolean,
     projectionState?: PlanGraphProjectionState | null,
   ) => void;
+  /** Open a Plan reference resolution without a chip click (e.g. relationship traversal). */
+  openPlanReferenceResolution: (
+    resolution: PlanReferenceResolution,
+    projectionState?: PlanGraphProjectionState | null,
+  ) => void;
   expandContent: () => void;
   close: () => void;
 }
@@ -86,6 +91,29 @@ export function ProjectionProvider({
     [],
   );
 
+  const openPlanReferenceResolution = useCallback(
+    (
+      resolution: PlanReferenceResolution,
+      projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
+    ) => {
+      const title =
+        resolution.graphObject?.label
+        ?? resolution.fallback?.ref.label
+        ?? resolution.locator
+        ?? "Related object";
+      setActivePlanReference(resolution);
+      setPlanProjectionState(projectionState);
+      setActive({
+        kind: "content",
+        key: resolution.refType ?? resolution.graphNodeId ?? "plan-reference",
+        size: contentSize(resolution),
+        title,
+        glanceOnly: false,
+      });
+    },
+    [],
+  );
+
   const expandContent = useCallback(() => {
     setActive((current) => {
       if (!current || current.kind !== "content") return current;
@@ -100,10 +128,20 @@ export function ProjectionProvider({
       planProjectionState,
       openTool,
       openContentFromChip,
+      openPlanReferenceResolution,
       expandContent,
       close,
     }),
-    [active, activePlanReference, close, expandContent, openContentFromChip, openTool, planProjectionState],
+    [
+      active,
+      activePlanReference,
+      close,
+      expandContent,
+      openContentFromChip,
+      openPlanReferenceResolution,
+      openTool,
+      planProjectionState,
+    ],
   );
 
   return <ProjectionContext.Provider value={value}>{children}</ProjectionContext.Provider>;
