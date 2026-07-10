@@ -10,6 +10,24 @@ import {
   dogfoodModeFromLocation,
 } from "./planDogfoodState";
 
+vi.mock("../../api/liveApi", async () => {
+  const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
+  return {
+    ...actual,
+    getUnionSupergraphProjection: vi.fn().mockResolvedValue({
+      campaign_id: "longmont-c2",
+      session_id: "session-21",
+      node_views: {},
+      focus: {
+        focused_evidence_ref_ids: [],
+        focused_node_ids: [],
+        focused_edge_ids: [],
+      },
+      mentions: [],
+    }),
+  };
+});
+
 const sessionDescriptor: PlanSessionDescriptor = {
   surfaceId: "plan",
   campaignId: "longmont-c2",
@@ -42,6 +60,15 @@ function renderPanel(saveStatusLabel = "Local draft · not yet saved to Markdown
   );
 }
 
+async function renderPanelReady(saveStatusLabel = "Local draft · not yet saved to Markdown") {
+  const view = renderPanel(saveStatusLabel);
+  await screen.findByTestId("graph-object-dogfood-panel");
+  await waitFor(() => {
+    expect(screen.getByText("No nodes in the current projection.")).toBeInTheDocument();
+  });
+  return view;
+}
+
 describe("dogfoodModeFromLocation", () => {
   it("returns true only when dogfood=1", () => {
     expect(
@@ -57,17 +84,18 @@ describe("PlanDogfoodPanel", () => {
     localStorage.clear();
   });
 
-  it("renders checklist and notes", () => {
-    renderPanel();
+  it("renders checklist and notes", async () => {
+    await renderPanelReady();
 
     expect(screen.getByRole("region", { name: "Dogfood checklist" })).toBeInTheDocument();
     expect(screen.getByText("Add real prep notes to the board")).toBeInTheDocument();
     expect(screen.getByLabelText("Dogfood notes")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-dogfood-panel")).toBeInTheDocument();
   });
 
   it("checking an item persists to localStorage", async () => {
     const user = userEvent.setup();
-    renderPanel();
+    await renderPanelReady();
 
     const checkbox = screen.getByRole("checkbox", {
       name: "Add real prep notes to the board",
@@ -81,7 +109,7 @@ describe("PlanDogfoodPanel", () => {
     expect(stored.checked["add-real-notes"]).toBe(true);
   });
 
-  it("reloads checked state from localStorage on remount", () => {
+  it("reloads checked state from localStorage on remount", async () => {
     localStorage.setItem(
       planDogfoodStorageKey(sessionDescriptor),
       JSON.stringify({
@@ -91,14 +119,14 @@ describe("PlanDogfoodPanel", () => {
       }),
     );
 
-    renderPanel();
+    await renderPanelReady();
 
     expect(screen.getByRole("checkbox", { name: "Save to Markdown" })).toBeChecked();
   });
 
   it("persists notes to localStorage", async () => {
     const user = userEvent.setup();
-    renderPanel();
+    await renderPanelReady();
 
     await user.type(screen.getByLabelText("Dogfood notes"), "Recovery felt solid.");
 
@@ -123,7 +151,7 @@ describe("PlanDogfoodPanel", () => {
       }),
     );
 
-    renderPanel();
+    await renderPanelReady();
     await user.type(screen.getByLabelText("Dogfood notes"), " extra");
     await user.click(screen.getByRole("button", { name: "Reset dogfood checklist" }));
 
@@ -141,7 +169,7 @@ describe("PlanDogfoodPanel", () => {
       value: { writeText },
     });
 
-    renderPanel("Saved to Markdown");
+    await renderPanelReady("Saved to Markdown");
     await user.click(screen.getByRole("checkbox", { name: "Open /plan for the intended campaign/session" }));
     await user.type(screen.getByLabelText("Dogfood notes"), "Useful source preview.");
     await user.click(screen.getByRole("button", { name: "Copy dogfood report" }));
@@ -166,7 +194,7 @@ describe("PlanDogfoodPanel", () => {
       },
     });
 
-    renderPanel();
+    await renderPanelReady();
     await user.click(screen.getByRole("button", { name: "Copy dogfood report" }));
 
     expect(

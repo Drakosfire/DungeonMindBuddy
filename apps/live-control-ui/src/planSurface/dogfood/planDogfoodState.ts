@@ -36,6 +36,22 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
     label: "Click a reference chip and inspect the selected-object card",
   },
   { id: "source-preview", label: "Use Show source preview from the card" },
+  {
+    id: "graph-object-add",
+    label: "Add at least one graph-projected object to the dogfood list",
+  },
+  {
+    id: "graph-object-view",
+    label: "View a dogfood card through the real GraphObjectCard path",
+  },
+  {
+    id: "graph-object-traverse",
+    label: "Traverse a related object and judge whether the card stays useful",
+  },
+  {
+    id: "graph-object-remove",
+    label: "Remove a card from the dogfood list (local only)",
+  },
   { id: "ask-prep-memory", label: "Ask prep memory a real question" },
   {
     id: "open-supporting-source",

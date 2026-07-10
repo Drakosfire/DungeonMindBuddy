@@ -6314,3 +6314,216 @@ body.plan-toolbox-open .plan-agent-shell {
   color: var(--fg-mute, #9aa3b5);
   font-size: 0.8rem;
 }
+
+.graph-object-dogfood-panel {
+  margin: 1rem 0;
+  border-top: 1px solid var(--border, #2a3142);
+  padding-top: 0.85rem;
+}
+
+.graph-object-dogfood-header {
+  margin-bottom: 0.65rem;
+}
+
+.graph-object-dogfood-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.graph-object-dogfood-subtitle {
+  margin: 0.3rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.82rem;
+}
+
+.graph-object-dogfood-status {
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-object-dogfood-status--error {
+  color: #fca5a5;
+}
+
+.graph-object-dogfood-section {
+  margin-top: 0.75rem;
+}
+
+.graph-object-dogfood-section-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.graph-object-dogfood-empty {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.84rem;
+}
+
+.graph-object-dogfood-node-list,
+.graph-object-dogfood-collection {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.graph-object-dogfood-collection {
+  max-height: none;
+  overflow: visible;
+}
+
+.graph-object-dogfood-node-row,
+.graph-object-dogfood-card-item {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.45);
+  padding: 0.55rem 0.65rem;
+}
+
+.graph-object-dogfood-node-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.graph-object-dogfood-node-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.graph-object-dogfood-node-meta {
+  display: block;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.graph-object-dogfood-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.graph-object-dogfood-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.graph-object-dogfood-button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(30, 35, 48, 0.85);
+  color: var(--fg, #e8eaef);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.graph-object-dogfood-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.graph-object-dogfood-button--primary {
+  border-color: rgba(122, 162, 247, 0.45);
+}
+
+.graph-object-dogfood-coverage {
+  margin-top: 0.55rem;
+}
+
+.graph-object-dogfood-coverage-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-object-dogfood-thin {
+  margin: 0.25rem 0 0;
+  color: #fcd34d;
+  font-size: 0.8rem;
+}
+
+.graph-object-dogfood-coverage-list {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.graph-object-dogfood-coverage-flag {
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.72rem;
+  color: #c7d2fe;
+}
+
+.graph-object-dogfood-coverage-flag--missing {
+  border-color: rgba(252, 165, 165, 0.4);
+  color: #fecaca;
+}
+
+.graph-object-dogfood-field-label {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-object-dogfood-field-label select,
+.graph-object-dogfood-field-label textarea {
+  width: 100%;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.65);
+  color: var(--fg, #e8eaef);
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-weight: 400;
+}
+
+.graph-object-dogfood-active-add {
+  margin-bottom: 0.55rem;
+  border: 1px dashed rgba(122, 162, 247, 0.4);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.graph-object-dogfood-active-add p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-object-dogfood-footer {
+  margin-top: 0.75rem;
+}
+
+.graph-object-dogfood-footer-note {
+  margin: 0.4rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.graph-object-dogfood-card-item--missing code {
+  font-size: 0.78rem;
+}

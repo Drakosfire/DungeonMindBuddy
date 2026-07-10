@@ -15,6 +15,24 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
+vi.mock("../api/liveApi", async () => {
+  const actual = await vi.importActual<typeof import("../api/liveApi")>("../api/liveApi");
+  return {
+    ...actual,
+    getUnionSupergraphProjection: vi.fn().mockResolvedValue({
+      campaign_id: "longmont-c2",
+      session_id: "session-21",
+      node_views: {},
+      focus: {
+        focused_evidence_ref_ids: [],
+        focused_node_ids: [],
+        focused_edge_ids: [],
+      },
+      mentions: [],
+    }),
+  };
+});
+
 function PlanSurfaceTestHarness() {
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
 
