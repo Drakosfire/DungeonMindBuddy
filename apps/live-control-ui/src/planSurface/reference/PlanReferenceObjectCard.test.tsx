@@ -112,8 +112,8 @@ describe("PlanReferenceObjectCard", () => {
       "/ingest?campaign=longmont-c2&session=session-21",
     );
     expect(within(card).getByRole("button", { name: /Inspect source\/evidence/i })).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: /Open statblock/i })).not.toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: /Open roll table/i })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open statblock tool/i })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open roll table tool/i })).not.toBeInTheDocument();
 
     await user.click(within(card).getByText("Details"));
     expect(within(card).getByText(/1 evidence badge/)).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe("PlanReferenceObjectCard", () => {
     expect(details).toHaveAttribute("open");
   });
 
-  it("renders Open statblock for grounded statblock graph nodes when projection can open tools", async () => {
+  it("renders Open statblock tool for grounded statblock graph nodes when projection can open tools", async () => {
     const resolution: PlanReferenceResolution = {
       kind: "graph-node",
       locator: "dmb-node:statblock-tripod",
@@ -170,19 +170,19 @@ describe("PlanReferenceObjectCard", () => {
     );
 
     const card = screen.getByLabelText(/Tripod Null-Calf graph object/i);
-    expect(within(card).getByRole("button", { name: /Open statblock/i })).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: /Open roll table/i })).not.toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Open statblock tool" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open roll table tool/i })).not.toBeInTheDocument();
     expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
       "href",
       "/ingest?campaign=longmont-c2&session=session-21",
     );
 
-    await user.click(within(card).getByRole("button", { name: /Open statblock/i }));
+    await user.click(within(card).getByRole("button", { name: "Open statblock tool" }));
     // Click must not crash; tool open is handled by ProjectionProvider.
-    expect(within(card).getByRole("button", { name: /Open statblock/i })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Open statblock tool" })).toBeInTheDocument();
   });
 
-  it("omits Open statblock when projection context is unavailable", () => {
+  it("omits Open statblock tool when projection context is unavailable", () => {
     const resolution: PlanReferenceResolution = {
       kind: "graph-node",
       locator: "dmb-node:statblock-tripod",
@@ -202,7 +202,7 @@ describe("PlanReferenceObjectCard", () => {
 
     render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
-    expect(screen.queryByRole("button", { name: /Open statblock/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open statblock tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toBeInTheDocument();
   });
 

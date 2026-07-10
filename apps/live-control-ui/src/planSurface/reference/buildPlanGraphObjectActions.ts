@@ -121,9 +121,9 @@ export function buildPlanGraphObjectActions({
     if (resolutionIndicatesStatblock(resolution) && onOpenStatblock) {
       actions.push({
         id: "open-statblock",
-        label: "Open statblock",
+        label: "Open statblock tool",
         kind: "open-statblock",
-        helpText: "Opens the Plan statblock tool.",
+        helpText: "Opens the Plan statblock tool. Does not load this object's specific statblock yet.",
         onClick: onOpenStatblock,
       });
     }
@@ -131,9 +131,9 @@ export function buildPlanGraphObjectActions({
     if (resolutionIndicatesRollTable(resolution) && onOpenRollTable) {
       actions.push({
         id: "open-roll-table",
-        label: "Open roll table",
+        label: "Open roll table tool",
         kind: "open-roll-table",
-        helpText: "Opens the Plan roll-table surface.",
+        helpText: "Opens the Plan roll-table tool. Does not load this object's specific table yet.",
         onClick: onOpenRollTable,
       });
     }

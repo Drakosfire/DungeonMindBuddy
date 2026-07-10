@@ -130,7 +130,7 @@ describe("buildPlanGraphObjectActions", () => {
     ).toBe(false);
   });
 
-  it("adds Open statblock when grounded and open behavior is provided", () => {
+  it("adds Open statblock tool when grounded and open behavior is provided", () => {
     const onOpenStatblock = vi.fn();
     const relatedStatblock: PlanReferenceResolution = {
       kind: "graph-node",
@@ -174,7 +174,9 @@ describe("buildPlanGraphObjectActions", () => {
       sessionDescriptor,
       onOpenStatblock,
     });
-    expect(withAction.some((action) => action.id === "open-statblock")).toBe(true);
+    expect(withAction.find((action) => action.id === "open-statblock")).toMatchObject({
+      label: "Open statblock tool",
+    });
     withAction.find((action) => action.id === "open-statblock")?.onClick?.();
     expect(onOpenStatblock).toHaveBeenCalledOnce();
 
@@ -194,7 +196,7 @@ describe("buildPlanGraphObjectActions", () => {
     ).toBe(false);
   });
 
-  it("adds Open roll table when grounded and open behavior is provided", () => {
+  it("adds Open roll table tool when grounded and open behavior is provided", () => {
     const onOpenRollTable = vi.fn();
     const rollTable: PlanReferenceResolution = {
       kind: "graph-node",
@@ -226,7 +228,9 @@ describe("buildPlanGraphObjectActions", () => {
       sessionDescriptor,
       onOpenRollTable,
     });
-    expect(withAction.some((action) => action.id === "open-roll-table")).toBe(true);
+    expect(withAction.find((action) => action.id === "open-roll-table")).toMatchObject({
+      label: "Open roll table tool",
+    });
     withAction.find((action) => action.id === "open-roll-table")?.onClick?.();
     expect(onOpenRollTable).toHaveBeenCalledOnce();
 
