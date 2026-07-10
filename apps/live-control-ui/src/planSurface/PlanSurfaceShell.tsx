@@ -6,6 +6,8 @@ import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
 import { PlanEditBar } from "./components/PlanEditBar";
 import { PlanNavBar } from "./components/PlanNavBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
+import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
+import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
@@ -25,6 +27,7 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
   const config = useMemo(() => createPlanSurfaceConfig(planView), [planView]);
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
+  const dogfoodMode = dogfoodModeFromLocation();
 
   return (
     <EditCapabilityProvider>
@@ -36,6 +39,12 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
           style={themeStyle(config)}
         >
           <PlanNavBar config={config} saveStatusLabel={saveStatusLabel} />
+          {dogfoodMode ? (
+            <PlanDogfoodPanel
+              sessionDescriptor={config.sessionDescriptor}
+              saveStatusLabel={saveStatusLabel}
+            />
+          ) : null}
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
               <PlanSurfaceCanvas

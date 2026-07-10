@@ -65,6 +65,23 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
+  it("does not render dogfood checklist without ?dogfood=1", () => {
+    window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22");
+    renderPlanSurface();
+
+    expect(screen.queryByTestId("plan-dogfood-panel")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dogfood checklist")).not.toBeInTheDocument();
+  });
+
+  it("renders dogfood checklist when ?dogfood=1 is present", () => {
+    window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22&dogfood=1");
+    renderPlanSurface();
+
+    expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
+    expect(screen.getByText(/smoke-test real prep/i)).toBeInTheDocument();
+  });
+
   it("opens the prep memory Q&A drawer", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
