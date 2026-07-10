@@ -1,7 +1,7 @@
 # Graph Document Audit — Campaign Supergraph Reset
 
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR322 review — sharper authority classes)  
+**Updated:** 2026-07-10 (PR322 re-review — FAQ aligned to tenancy/authority/lifecycle decisions)  
 **Status:** Active audit record for Phase 0  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
@@ -171,13 +171,16 @@ Already under archive trees, or in-place historical:
 
 | Question | Read |
 |---|---|
-| What is the Campaign Supergraph? | Architecture §1–§2 |
-| What owns graph state? | Architecture §3 |
-| How does data enter? | Architecture §4, §9 |
-| How do surfaces consume? | Architecture §5–§6, §8 |
-| What is the Graph Kernel? | Architecture §7 |
-| Ingestion vs projection? | Architecture §4 vs §5–§6 |
-| First real populated union? | Roadmap Phase 3 · Tracker **PR006** |
+| What is the Campaign / World Supergraph? | Architecture §1–§2 |
+| Tenancy (why not one graph per campaign)? | Architecture §3 (Model B) |
+| Corpus vs graph authority / corrections? | Architecture §4 |
+| GraphContribution / retract / replay? | Architecture §5–§6 |
+| Graph head / immutable revisions? | Architecture §7 |
+| How do surfaces consume? | Architecture §8, §11 |
+| Epistemic / visibility invariants? | Architecture §9 |
+| Identity outcomes / split-unmerge? | Architecture §10 |
+| What is the Graph Kernel? | Architecture §12 |
+| First real populated union (named corpus)? | Roadmap Phase 3 · Tracker **PR006** |
 | Long-term roadmap? | `ROADMAP-campaign-supergraph.md` |
 | Implementation PRs? | `PR-TRACKER-campaign-supergraph.md` only |
 | What was superseded? | This audit + `Docs/Archive/Architecture/README.md` |
