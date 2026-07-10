@@ -60,7 +60,7 @@ export function PlanSurfacePage() {
   }
 
   return (
-    <AppChrome activeRoute="plan" editorTools={editorTools}>
+    <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
       <PlanSurfaceShell planView={planView} onEditorToolsChange={setEditorTools} />
     </AppChrome>
   );

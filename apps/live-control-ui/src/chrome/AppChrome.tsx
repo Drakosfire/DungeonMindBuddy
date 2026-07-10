@@ -27,6 +27,7 @@ interface AppChromeProps {
   activeRoute: AppRouteKey;
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeTools | null;
+  editToolboxLayout?: "overlay" | "dock";
   children: ReactNode;
 }
 
@@ -39,7 +40,13 @@ function ChromeActionButton({ action }: { action: AppChromeAction }) {
   );
 }
 
-export function AppChrome({ activeRoute, pageActions = [], editorTools, children }: AppChromeProps) {
+export function AppChrome({
+  activeRoute,
+  pageActions = [],
+  editorTools,
+  editToolboxLayout = "overlay",
+  children,
+}: AppChromeProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const pinnedActions = editorTools?.pinnedActions ?? [];
@@ -62,7 +69,10 @@ export function AppChrome({ activeRoute, pageActions = [], editorTools, children
       </div>
 
       {hasEditTools ? (
-        <div className={`app-edit-toolbox${isEditOpen ? " open" : ""}`}>
+        <div
+          className={`app-edit-toolbox${isEditOpen ? " open" : ""}`}
+          data-layout={editToolboxLayout}
+        >
           <button
             type="button"
             className="app-edit-toolbox-toggle"

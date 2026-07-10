@@ -20,7 +20,7 @@ function PlanSurfaceTestHarness() {
 
   return (
     <AgentInteractionProvider>
-      <AppChrome activeRoute="plan" editorTools={editorTools}>
+      <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
         <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
       </AppChrome>
     </AgentInteractionProvider>
