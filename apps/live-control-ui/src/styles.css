@@ -170,30 +170,40 @@ code {
 }
 
 .app-shell--edit-dock .app-shell-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-shell--edit-dock.app-shell--edit-dock-open .app-shell-layout {
+  padding-left: min(380px, 32vw);
 }
 
 .app-shell--edit-dock .app-edit-toolbox--docked {
   flex: 0 0 auto;
 }
 
-.app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-drawer {
-  position: sticky;
+.app-shell--edit-dock.app-shell--edit-dock-open .app-edit-toolbox--docked .app-edit-toolbox-drawer {
+  position: fixed;
   top: 0;
-  left: auto;
-  bottom: auto;
-  z-index: 1;
+  left: 0;
+  bottom: 0;
+  z-index: 30;
   width: min(380px, 32vw);
   height: 100vh;
+  max-height: 100vh;
   transform: none;
   box-shadow: none;
+  overflow: hidden;
+}
+
+.app-shell--edit-dock.app-shell--edit-dock-open .app-edit-toolbox--docked .app-edit-toolbox-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .app-shell--edit-dock .app-wrap {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   max-width: none;
   margin: 0;
 }
