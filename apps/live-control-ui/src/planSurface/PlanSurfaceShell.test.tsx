@@ -65,7 +65,7 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("opens the local Agent Interaction placeholder proof pane", async () => {
+  it("opens the prep memory Q&A drawer", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
@@ -77,19 +77,36 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
     expect(
-      await screen.findByRole("complementary", { name: "Agent Interaction drawer" }),
+      await screen.findByRole("complementary", { name: "Prep memory drawer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Ingested corpus interaction proof")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ask ingested corpus" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Live loop" })).toBeChecked();
+    expect(screen.getByText("Memory through Session 21 · preparing Session 23")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Live retrieval" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Hermes tools" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Ingestion proof" })).toBeInTheDocument();
-    expect(screen.getByText("Advanced source metadata")).toBeInTheDocument();
-    expect(screen.getByText("longmont-c2 Session 22: normalized")).toBeInTheDocument();
-    expect(screen.getByText("corpus_bodies_not_embedded")).toBeInTheDocument();
+    expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
+    expect(screen.queryByText("Advanced source metadata")).not.toBeInTheDocument();
+    expect(screen.queryByText(/future Agent Interaction contract/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Ask prep memory · New prep thread")).toBeInTheDocument();
   });
 
-  it("asks through the Agent Interaction placeholder using live query", async () => {
+  it("fills the question field when a suggested prep prompt is clicked", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.click(screen.getByRole("button", { name: "What threats should I have ready?" }));
+
+    expect(screen.getByLabelText("Question")).toHaveValue("What threats should I have ready?");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks prep memory through live query using the memory session", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
@@ -155,24 +172,24 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
-    expect(screen.getByRole("heading", { name: "Ask ingested corpus" })).toBeInTheDocument();
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    expect(screen.getByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
     await user.type(
       screen.getByLabelText("Question"),
       "What changed after Session 22?",
     );
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByRole("region", { name: "Agent answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
+    expect(screen.getByRole("region", { name: "Grounded answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
     expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Citation cards" })).toHaveTextContent("play_recap · canon_play");
-    expect(screen.queryByRole("region", { name: "Current source reader" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Supporting sources" })).toHaveTextContent("play_recap · canon_play");
+    expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Open source" }));
 
-    const sourceReader = await screen.findByRole("region", { name: "Current source reader" });
+    const sourceReader = await screen.findByRole("region", { name: "Source preview" });
     expect(sourceReader).toHaveTextContent("Current source content has the Lysandro gate reveal.");
     expect(sourceReader).not.toHaveTextContent("Stale packet excerpt should not be the reader body.");
     const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
@@ -182,8 +199,14 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
     expect(screen.getByText("Fresh corpus evidence was admitted for this turn.")).toBeInTheDocument();
     expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
+    expect(screen.getByText("Grounded answer")).toBeInTheDocument();
+    expect(screen.getByText("Supporting sources")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "live" });
+    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
+      campaign_id: "longmont-c2",
+      session: 21,
+      query_backend: "live",
+    });
     const sourceCall = vi.mocked(globalThis.fetch).mock.calls[2];
     expect(String(sourceCall[0])).toContain("/api/live/citation-source");
     expect(JSON.parse(String(sourceCall[1]?.body))).toMatchObject({ path: "corpus/test/session.md", line_start: 2, line_end: 2 });
@@ -250,7 +273,7 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Is this still current?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Unknown");
     await user.click(screen.getByRole("button", { name: "Check current source state" }));
@@ -272,7 +295,7 @@ describe("PlanSurfaceShell", () => {
     expect(indexJson).not.toContain("corpus/test/session.md");
   });
 
-  it("can route the Agent Interaction drawer through Hermes tools", async () => {
+  it("can route the Prep memory drawer through Hermes tools", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
@@ -321,15 +344,56 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Blended").length).toBeGreaterThan(0);
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "hermes" });
+  });
+
+  it("warns when a prep memory answer has no grounding evidence", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "I can speculate, but I did not find supporting campaign text.",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: [],
+            provenance: {},
+            citations: [],
+            retrieval_freshness: null,
+            context_packet: {
+              admitted_evidence: [],
+              rejected_evidence: [],
+            },
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    const answerRegion = await screen.findByRole("region", { name: "Ungrounded draft" });
+    expect(within(answerRegion).getByText(/No grounded evidence returned/i)).toBeInTheDocument();
+    expect(screen.getByText("Ungrounded draft")).toBeInTheDocument();
+    expect(screen.getByText("I can speculate, but I did not find supporting campaign text.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Supporting sources" })).not.toBeInTheDocument();
   });
 
   it("shows agent trace panel for Hermes CLI answers without context packet", async () => {
@@ -361,10 +425,10 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("CLI synthesized answer for operator.")).toBeInTheDocument();
@@ -412,15 +476,15 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
 
     await user.type(screen.getByLabelText("Question"), "First question?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
     expect(screen.getByText("Conversation (1)")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
     expect(screen.getByText("Conversation (2)")).toBeInTheDocument();
 
@@ -480,18 +544,18 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Session 24 inn prep");
     expect(screen.getByText("The inn has Mireward rumors.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Threads" }));
-    const switcher = screen.getByRole("region", { name: "Agent Interaction threads" });
+    await user.click(screen.getByRole("button", { name: "Prep threads" }));
+    const switcher = screen.getByRole("region", { name: "Prep memory threads" });
     expect(switcher).toHaveTextContent("Session 24 inn prep");
     expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Session 24 inn prep");
 
     await user.click(screen.getByRole("button", { name: "Rename" }));
-    await user.clear(screen.getByLabelText("Thread title"));
-    await user.type(screen.getByLabelText("Thread title"), "Mireward inn prep");
+    await user.clear(screen.getByLabelText("Prep thread title"));
+    await user.type(screen.getByLabelText("Prep thread title"), "Mireward inn prep");
     await user.click(screen.getByRole("button", { name: "Save title" }));
 
     expect(screen.getAllByText("Mireward inn prep").length).toBeGreaterThan(0);
-    expect(screen.getByText("Agent Interaction · Mireward inn prep")).toBeInTheDocument();
+    expect(screen.getByText("Ask prep memory · Mireward inn prep")).toBeInTheDocument();
     expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Mireward inn prep");
   });
 
@@ -531,21 +595,21 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.type(screen.getByLabelText("Question"), "Thread A question?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open source" }));
-    expect(await screen.findByRole("region", { name: "Current source reader" })).toHaveTextContent("Thread A source body");
+    expect(await screen.findByRole("region", { name: "Source preview" })).toHaveTextContent("Thread A source body");
 
-    await user.click(screen.getByRole("button", { name: "New thread" }));
+    await user.click(screen.getByRole("button", { name: "New prep thread" }));
     expect(screen.queryByText("Answer for thread A")).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Current source reader" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Thread B question?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("Answer for thread B")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Threads" }));
+    await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Thread A question/i })[0]);
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     expect(screen.queryByText("Answer for thread B")).not.toBeInTheDocument();
@@ -582,11 +646,11 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
-      await user.click(screen.getByRole("button", { name: "Ask" }));
+      await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
       expect(await screen.findByText(`Answer ${index}`)).toBeInTheDocument();
     }
 
@@ -622,11 +686,11 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
-      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ask prep memory" }));
       expect(await screen.findByText(`Clear reset answer ${index}`)).toBeInTheDocument();
     }
 
@@ -637,7 +701,7 @@ describe("PlanSurfaceShell", () => {
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `After clear ${index}?` } });
-      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ask prep memory" }));
       expect(await screen.findByText(`Clear reset answer ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS + index}`)).toBeInTheDocument();
     }
 
@@ -658,17 +722,17 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Long question ${index}?`);
-      await user.click(screen.getByRole("button", { name: "Ask" }));
+      await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
       expect(await screen.findByText(`Long answer ${index}`)).toBeInTheDocument();
     }
 
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
-    expect(screen.getByText("Agent Interaction · New prep thread")).toBeInTheDocument();
+    expect(screen.getByText("Ask prep memory · New prep thread")).toBeInTheDocument();
     expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
     const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
     const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
@@ -686,15 +750,15 @@ describe("PlanSurfaceShell", () => {
 
     const rendered = renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "New thread" }));
+    await user.click(screen.getByRole("button", { name: "New prep thread" }));
     await user.type(screen.getByLabelText("Question"), "Restore thread B?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
     expect(await screen.findByText("Answer for restore B")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Threads" }));
+    await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Restore thread A\?/i })[0]);
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
 
@@ -702,11 +766,11 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Threads" }));
-    const switcher = screen.getByRole("region", { name: "Agent Interaction threads" });
+    await user.click(screen.getByRole("button", { name: "Prep threads" }));
+    const switcher = screen.getByRole("region", { name: "Prep memory threads" });
     expect(switcher).toHaveTextContent("Restore thread A?");
     expect(switcher).toHaveTextContent("Restore thread B?");
-    expect(screen.getByText("Agent Interaction · Restore thread A?")).toBeInTheDocument();
+    expect(screen.getByText("Ask prep memory · Restore thread A?")).toBeInTheDocument();
   });
 
   it("ignores corrupt thread index localStorage", async () => {
@@ -719,8 +783,8 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
-    await user.click(screen.getByRole("button", { name: "Threads" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.click(screen.getByRole("button", { name: "Prep threads" }));
     expect(screen.getByText("No saved prep threads yet.")).toBeInTheDocument();
   });
 
@@ -761,9 +825,9 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.type(screen.getByLabelText("Question"), "What happened at bootstrap?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByText("Preliminary verdict · Weak context")).toBeInTheDocument();
     expect(screen.getByText(/operational metadata/i)).toBeInTheDocument();
@@ -813,9 +877,9 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Ingested corpus interaction proof");
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     expect(await screen.findByText("Retrieved text (2)")).toBeInTheDocument();
     expect(screen.getAllByText(/Session 21 - Drake Nest Mirathorn Call.md/).length).toBeGreaterThan(0);

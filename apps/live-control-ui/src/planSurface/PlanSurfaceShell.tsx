@@ -48,7 +48,7 @@ export function PlanSurfaceShell({ planView }: PlanSurfaceShellProps) {
             <AdaptiveProjectionContainer config={config} />
             <PlanEditBar editorTools={editorTools} />
           </div>
-          <PlanAgentInteractionBar planView={planView} />
+          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
         </div>
       </ProjectionProvider>
     </EditCapabilityProvider>
