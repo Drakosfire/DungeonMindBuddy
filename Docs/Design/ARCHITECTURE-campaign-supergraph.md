@@ -2,6 +2,7 @@
 
 **Status:** Canonical architecture authority  
 **Date:** 2026-07-10  
+**Updated:** 2026-07-10 (PR322 review — materialization bridge, forward-only selectors, surface model)  
 **Mode:** Documentation / architectural north star  
 **Supersedes as architecture authority:**
 
@@ -16,13 +17,15 @@
 - PR tracker: [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 - Document audit: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
 
-**Still in force (contracts / surface product, not graph ownership):**
+**Still in force as contracts / surface product (not graph-workstream roadmap authority):**
 
 - [`CONTRACT-surface-vocabulary-boundary-v0.md`](CONTRACT-surface-vocabulary-boundary-v0.md)
 - [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md)
 - [`DESIGN-graph-object-authoring-surface.md`](DESIGN-graph-object-authoring-surface.md)
 - [`DESIGN-plan-surface-session-prep-current-goal-2026-07.md`](DESIGN-plan-surface-session-prep-current-goal-2026-07.md)
-- Evidence / identity / taxonomy contracts under `Docs/Design/GRAPH-MEMORY-*` that this audit marks KEEP
+- Evidence / identity / taxonomy contracts under `Docs/Design/GRAPH-MEMORY-*` that the audit marks KEEP
+
+The **only** active implementation sequence for Campaign Supergraph work is [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md). Older handoffs are reference or historical evidence; they cannot override this architecture or tracker.
 
 ---
 
@@ -30,7 +33,7 @@
 
 DungeonMindBuddy is building a **persistent Campaign Supergraph**.
 
-The Campaign Supergraph is the product’s memory backend. Every surface — Plan, Play, Combat, Build, Graph Review, Agent Interaction — either contributes data to it, reads from it, validates it, or visualizes it.
+The Campaign Supergraph is the product’s memory backend. Every surface — Plan, Play, Build, Graph Review, and Agent Interaction — either contributes data to it, reads from it, validates it, or visualizes it.
 
 This project is **not** building a graph-extraction experiment, a session-local graph product, or a preview-graph architecture. Those were useful proofs. Their lessons remain. Their ownership models do not.
 
@@ -38,7 +41,7 @@ This project is **not** building a graph-extraction experiment, a session-local 
 One campaign → one authoritative graph → many projections → many surfaces
 ```
 
-There is no backwards-compatibility requirement for obsolete abstractions. Prefer clarity over historical continuity.
+There is no backwards-compatibility requirement for obsolete abstractions. Prefer clarity over historical continuity. A forward-only project does not indefinitely run two architectures.
 
 ---
 
@@ -56,6 +59,7 @@ It holds:
 - source domains (recap, worldbuilding, prep, authored overlay, etc.)
 - source artifacts and evidence refs
 - merge / reconciliation history as needed for inspectability
+- a campaign **graph head** (the current durable revision surfaces read)
 - safety / visibility / canon-state metadata when required
 
 It does **not** hold:
@@ -77,10 +81,12 @@ Campaign Supergraph
    Projection Engine
    focus = Session 23 (or prep window, or live turn, or none)
         ↓
-   Surface (Plan / Play / …)
+   Surface (Plan / Play / Build / …)
 ```
 
 A projection applies focus, ranking, highlighting, and admissibility. The graph owns identity. A projection never invents a second Caelynn for “Session 23 Caelynn.”
+
+Combat and encounter operation are **Play modes / Play projection lenses**, not separate top-level surfaces and not separate graphs.
 
 ### 2.3 Read and write are separate systems
 
@@ -91,13 +97,13 @@ Source Artifact
   → Extraction (candidates)
   → Identity Resolution
   → Merge / Reconciliation
-  → Campaign Supergraph
+  → Campaign Supergraph (advances graph head)
 ```
 
 **Read path**
 
 ```text
-Campaign Supergraph
+Campaign Supergraph (current graph head)
   → Projection Engine
   → Surface
 ```
@@ -106,7 +112,7 @@ These must not intertwine. Surfaces do not extract. Extractors do not render. Pr
 
 ### 2.4 Surfaces never own graph behavior
 
-Plan, Play, Combat, Build, Graph Review, and Agent Interaction **consume projections**.
+Plan, Play, Build, Graph Review, and Agent Interaction **consume projections** (Graph Review also authors write-path corrections).
 
 None of them:
 
@@ -114,7 +120,7 @@ None of them:
 - invent evidence semantics
 - invent merge rules
 - reach into graph storage files or eval fixture internals
-- treat “latest ingest for session-N” as a substitute for an explicit graph-context contract
+- select a graph by ingest-run ID, preview source, manifest path, or “latest ingest for session-N”
 
 Graph Review may **author corrections** that flow through the write path. That is still write-pipeline work, not “the surface owns the graph.”
 
@@ -132,13 +138,15 @@ If an experiment proved something valuable, keep the **lesson**, not the impleme
 | Union of campaign + worldbuilding sources | “Preview union” keyed only to one session’s latest ingest as the product model |
 | Shared `GraphObjectCard` across surfaces | Parallel Plan-only object cards |
 
+Obsolete runtime paths (preview routes, latest-ingest selectors, fixture-specific adapters) are **deleted** by owned tracker slices — not left as dual architecture.
+
 ---
 
 ## 3. Graph ownership
 
 | Concern | Owner |
 |---|---|
-| Graph state | Campaign Supergraph (`src/graph_memory` durable contracts + persistent store) |
+| Graph state + graph head | Campaign Supergraph (`src/graph_memory` durable contracts + persistent store) |
 | Identity / aliases / merge | Graph Kernel |
 | Evidence / provenance | Graph Kernel + evidence contracts |
 | Projection focus / lenses | Projection Engine |
@@ -157,7 +165,7 @@ flowchart TD
   S[Source artifacts<br/>recaps, worldbuilding, prep, overlays] --> E[Extraction<br/>candidates + spans]
   E --> I[Identity resolution]
   I --> M[Merge / reconciliation]
-  M --> G[Campaign Supergraph]
+  M --> G[Campaign Supergraph<br/>graph head advances]
   R[Human review / authoring<br/>Graph Review] --> M
   V[Validation / evals] -.-> E
   V -.-> I
@@ -171,10 +179,11 @@ flowchart TD
 3. **Identity is global.** Cross-session and cross-artifact resolution happens before or at merge, not in the UI.
 4. **Authoring is a write path.** Graph Review overlays and merges are first-class write inputs, not UI-only patches.
 5. **Multi-source is normal.** Recaps, worldbuilding hubs, prep notes, and future artifact families all feed the same graph.
+6. **Initial materialization is required.** Storage and merge APIs are not enough; a real campaign union must be populated and validated before surfaces migrate.
 
 ### What “preview ingest” was
 
-Preview / session-keyed ingest runs were a **temporary materialization strategy** to prove extraction → projection. They are not the long-term write architecture. The long-term write path materializes into the persistent Campaign Supergraph, not into a family of session-owned preview stores that surfaces must guess among.
+Preview / session-keyed ingest runs were a **temporary materialization strategy** to prove extraction → projection. They are not the long-term write architecture and are not a production graph-selection mode. The long-term write path materializes into the persistent Campaign Supergraph and advances the campaign graph head.
 
 ---
 
@@ -182,10 +191,9 @@ Preview / session-keyed ingest runs were a **temporary materialization strategy*
 
 ```mermaid
 flowchart TD
-  G[Campaign Supergraph] --> P[Projection Engine]
+  G[Campaign Supergraph<br/>current graph head] --> P[Projection Engine]
   P --> Plan[Plan]
-  P --> Play[Play]
-  P --> Combat[Combat]
+  P --> Play[Play<br/>incl. combat / encounter lenses]
   P --> Build[Build]
   P --> Review[Graph Review]
   P --> Agent[Agent Interaction]
@@ -193,10 +201,23 @@ flowchart TD
 
 ### Principles
 
-1. Surfaces request a **graph context** (campaign + focus lens + projection mode), not “whatever latest ingest exists for memorySession-1.”
-2. Projection payloads are backend-neutral contracts in `src/graph_memory/projection`.
-3. Runtime adapters in `apps/live_control_server` translate store → projection contract. They do not redefine identity.
-4. UI components (`GraphObjectCard`, chips, search) render projection views. They do not load graph files.
+1. Surfaces request a **graph context** (campaign + focus lens + projection mode). They never select an ingest run, preview source, store path, or manifest as the graph.
+2. **Projection always reads the persistent Campaign Supergraph.** Ingest-run IDs may appear as provenance or operational metadata; they are never graph-selection modes for surfaces.
+3. Projection payloads are backend-neutral contracts in `src/graph_memory/projection`.
+4. Runtime adapters in `apps/live_control_server` translate store → projection contract. They do not redefine identity.
+5. UI components (`GraphObjectCard`, chips, search) render projection views. They do not load graph files.
+
+### Production graph-context contract (absolute)
+
+Surface-facing graph APIs **must not** expose:
+
+- `preview-source` production selectors
+- `latest-ingest` / `useLatestGraphIngest` production selectors
+- `recap-only` graph modes as the campaign memory backend
+- explicit store paths or manifest paths as graph identity
+- session-derived “pick the latest ingest for memorySession-N” as graph context
+
+Test and developer loaders may exist **outside** the production context contract (isolated tests, offline tools). They must not appear in surface-facing acceptance criteria as selectable backends.
 
 ### Graph context (read contract sketch)
 
@@ -204,12 +225,12 @@ A surface asks for something like:
 
 ```text
 campaignId
-focus (session id, prep window, live turn, or unfocused)
-projectionMode (e.g. campaign-supergraph + focus overlay)
+focus (session id, prep window, live turn, combat/encounter lens, or unfocused)
+projectionMode (campaign-supergraph + focus overlay)
 admissibility / visibility rules
 ```
 
-The Projection Engine returns node views, relationships, evidence summaries, and focus highlights. Missing projection is an honest failure of context or materialization — not a prompt to invent a session graph.
+The Projection Engine returns node views, relationships, evidence summaries, and focus highlights from the current campaign graph head. Missing projection is an honest failure of materialization or focus — not a prompt to invent a session graph or fall back to latest-ingest.
 
 ---
 
@@ -219,11 +240,12 @@ A projection is a **lens**, not a store.
 
 | Projection concern | Meaning |
 |---|---|
-| Focus overlay | Which evidence/edges are highlighted for the current session or prep window |
+| Focus overlay | Which evidence/edges are highlighted for the current session, prep window, or Play lens |
 | Node view | GM-facing card fields: label, kind, role, aliases, summary, relationships, evidence, actions |
 | Recap projection | Mentions in a recap resolve to global nodes |
 | Adjacency | Traversal candidates for related-object navigation |
 | Search index over projection | Label/alias/kind/id search for insert-refs and dogfood |
+| Play combat/encounter lens | Play-mode focus over the same Campaign Supergraph — not a combat graph |
 
 Incorrect models (do not reintroduce):
 
@@ -231,12 +253,14 @@ Incorrect models (do not reintroduce):
 session_23_graph as architecture
 plan_graph vs play_graph as separate stores
 preview_graph as the product memory backend
+latest-ingest as a projection mode
 ```
 
 Correct model:
 
 ```text
-Campaign Supergraph + focus=session-23 → Plan / Recap / Object cards
+Campaign Supergraph (graph head) + focus=session-23 → Plan / Recap / Object cards
+Campaign Supergraph (graph head) + Play combat lens → encounter-relevant objects
 ```
 
 ---
@@ -252,7 +276,7 @@ The Graph Kernel is the durable core inside `src/graph_memory` that owns graph s
 - Merge / reconciliation rules
 - Evidence ref and source-domain contracts
 - Validation and inspectability reports
-- Persistent load/store seams for the Campaign Supergraph
+- Persistent load/store seams and graph-head advancement
 - Projection-ready adjacency primitives (not surface UX)
 
 ### Out of scope
@@ -263,20 +287,33 @@ The Graph Kernel is the durable core inside `src/graph_memory` that owns graph s
 - Corpus markdown editing UX
 - Retrieval ranking policies that belong to the retrieval layer (Kernel provides graph facts; retrieval composes them)
 
+### Implementation sequencing (not three unrelated products)
+
+The Kernel is filled in stages (see tracker):
+
+1. **Public boundary and invariants** — package/API surface, what adapters may call, what is forbidden
+2. **Identity and reconciliation semantics** — fill the boundary with real identity behavior
+3. **Durable contribution merge** — fill the boundary with merge into the persistent store / graph head
+
+A “Kernel” PR that only rearranges packages without identity or merge is incomplete relative to this definition; the thin boundary PR is allowed only when explicitly scoped as contract-boundary work.
+
 Surfaces and adapters call the Kernel. They do not reimplement it.
 
 ---
 
 ## 8. Surface architecture
 
+Top-level product surfaces:
+
 | Surface | Role relative to the graph |
 |---|---|
 | **Plan** | Prep cockpit. Consumes focused projections for object cards, chip insert, and (later) prep Q&A. Escalates corrections to Graph Review / ingest write path. |
-| **Play** | Live table. Consumes projections for turn-relevant objects; does not own merge. |
-| **Combat** | Encounter tooling. May resolve graph objects to tools (statblocks); does not invent identity. |
+| **Play** | Live table, including combat and encounter operation as Play modes/lenses. Consumes projections for turn-relevant objects; does not own merge. |
 | **Build** | Authoring / worldbuilding tooling. May feed write path; does not become a second graph. |
-| **Graph Review** (`/ingest` workbench) | Correction and authored-memory cockpit. Writes through Kernel merge; reads projections for review. |
-| **Agent Interaction** | Asks questions against admissible projected/retrieved context. Does not own graph semantics. |
+| **Graph Review** (`/ingest` workbench) | Controlled write workbench. Writes through Kernel merge; reads projections for review. |
+| **Agent Interaction** | Cross-surface interaction layer / graph consumer. Asks questions against admissible projected/retrieved context. Does not own graph semantics. |
+
+**Combat is not a peer surface.** Combat-specific projection behavior is a Play mode or Play projection lens.
 
 Shared UI primitives (especially `GraphObjectCard`) are **presentation of projection**, reusable across surfaces with surface-safe action policies.
 
@@ -294,14 +331,15 @@ raw / normalized source
   → category-decomposed (or successor) extraction
   → candidate validation
   → identity resolution
-  → merge into Campaign Supergraph
+  → merge into Campaign Supergraph (advance graph head)
 ```
 
 ### Rules
 
 - Graph-first: durable graph memory must not depend on breadcrumb / session-memory steps as a gate.
 - Evals prove extraction quality; they do not own the runtime store.
-- Multi-source ingestion (Phase 5) expands artifact families without creating per-family graphs.
+- **Initial campaign materialization** populates the first real union from supported sources before Projection Engine and Plan migration.
+- Later multi-source expansion adds artifact families without creating per-family graphs.
 
 ---
 
@@ -311,11 +349,11 @@ v0 may remain file-backed and inspectable. That is an implementation detail.
 
 Requirements that do not change with storage technology:
 
-1. One authoritative graph per campaign.
+1. One authoritative graph per campaign with an explicit graph head.
 2. Deterministic load/validate.
 3. Evidence-bearing nodes/edges.
 4. Merge history inspectable enough to debug identity mistakes.
-5. No surface reaches into storage internals.
+5. No surface reaches into storage internals or selects stores by path/manifest.
 
 When storage evolves (DB, event log, etc.), the Kernel API and projection contracts stay stable; adapters change.
 
@@ -329,8 +367,9 @@ Version:
 - **Projection payload contracts** (read API)
 - **Extraction profiles** (write pipeline knobs)
 - **Gold fixtures** (eval only)
+- **Campaign graph head** (durable revision identity)
 
-Do not version “session graphs.” Do not treat preview run IDs as the product identity of campaign memory — they may remain operational run metadata.
+Do not version “session graphs.” Do not treat preview run IDs as the product identity of campaign memory — they may remain operational/provenance metadata only.
 
 ---
 
@@ -340,8 +379,8 @@ Long-term retrieval is **graph-native**: traverse and admit evidence through the
 
 Near-term:
 
-- Surfaces may still use transitional corpus-index / live-query paths.
-- Those paths are **not** the architecture target.
+- Surfaces may still use transitional corpus-index / live-query paths for **non-graph** memory answers until graph-native retrieval lands.
+- Those paths are **not** the graph architecture target and must not be used as a substitute Campaign Supergraph.
 - Graph-backed prep Q&A and agent context must consume validated projections / Kernel retrieval, not invent a parallel memory model.
 
 See also: surface vocabulary boundary (`SourceArtifact → SourceAnchor → SourceUnit`) — still the shared language for source-facing consumers until graph-native retrieval fully replaces transitional adapters.
@@ -350,7 +389,7 @@ See also: surface vocabulary boundary (`SourceArtifact → SourceAnchor → Sour
 
 ## 13. Agent architecture
 
-Agents are surfaces with tools.
+Agents are graph consumers with tools (cross-surface), not a separate memory backend.
 
 They:
 
@@ -368,30 +407,35 @@ Agent Interaction’s durable backend is the Campaign Supergraph + retrieval lay
 Ordered product evolution (detail in the roadmap):
 
 0. Architecture reset (this document set)
-1. Persistent Campaign Supergraph storage
-2. Graph Kernel hardening
-3. Projection Engine (focus as lens; honest graph context)
-4. Surface integration (Plan first, then Play / others)
-5. Multi-source ingestion
-6. Graph-native retrieval
-7. Agent backend on graph memory
-8. Living campaign memory (continuous correctable memory at the table)
+1. Persistent Campaign Supergraph storage + graph-head contract
+2. Graph Kernel (boundary → identity → merge)
+3. **Initial real Campaign Supergraph materialization** (populated union before projection)
+4. Projection Engine (focus as lens; production context bans obsolete selectors)
+5. Surface integration (Plan, then Play including combat lenses, Build as needed)
+6. Multi-source ingestion expansion
+7. Graph-native retrieval
+8. Agent backend on graph memory
+9. Living campaign memory + obsolete-path cleanup closeout
 
-Each phase must preserve: one graph, session-as-lens, read/write separation, surfaces-as-consumers.
+Each phase must preserve: one graph, session-as-lens, read/write separation, surfaces-as-consumers, forward-only demolition of rejected runtime paths.
 
 ---
 
 ## 15. Explicit non-concepts
 
-Do not reintroduce these as architectural entities:
+Do not reintroduce these as architectural entities or production selectors:
 
 - Session graph / plan graph / play graph / recap graph (as stores)
 - Preview graph (as product memory)
 - Eval-owned durable graph
 - UI-owned identity merge
-- “Latest ingest for derived memorySession” as the Plan graph-context contract
+- `latest-ingest` / `useLatestGraphIngest` as graph context
+- `preview-source` as graph context
+- Recap-only graph mode as the campaign backend
+- Explicit store/manifest paths in surface-facing graph APIs
+- Combat as a peer top-level surface (use Play lenses instead)
 
-Those may appear as **temporary implementation artifacts or tests**. They are not the design.
+Isolated tests and developer tools may load fixtures. They are not the design and not production graph context.
 
 ---
 
@@ -405,8 +449,9 @@ A new contributor can answer, from this document and its companions alone:
 4. How do surfaces consume the graph?
 5. What belongs in the Graph Kernel?
 6. What is the difference between ingestion and projection?
-7. What is the long-term roadmap?
-8. What implementation PRs remain?
-9. Which older design documents are superseded?
+7. How is the first real populated campaign union created before Plan migrates?
+8. What is the long-term roadmap?
+9. What implementation PRs remain?
+10. Which older design documents have been superseded, and which may only be referenced?
 
-If answering any of those requires reading experimental ladder docs, the documentation reset is incomplete.
+If answering any of those requires reading experimental ladder docs as authority, the documentation reset is incomplete.

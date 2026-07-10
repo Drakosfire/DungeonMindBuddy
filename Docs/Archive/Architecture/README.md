@@ -8,7 +8,7 @@ Historical graph-memory architecture, roadmap, and operational anchor documents 
 | --- | --- |
 | [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md) | Architecture authority |
 | [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) | Roadmap authority |
-| [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) | PR / operational tracker |
+| [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) | Sole ACTIVE AUTHORITY for Campaign Supergraph sequencing |
 | [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | Audit record for this reset |
 
 ## Archived files
