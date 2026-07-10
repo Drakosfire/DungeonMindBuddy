@@ -4,6 +4,11 @@ import type {
   GraphProjectionNodeView,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import {
+  displayAliasesForNode,
+  isPlaceholderNodeSummary,
+  primaryGameSummaryForNode,
+} from "../../graphObjectCard";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
 import type { GraphReviewDeltaIndex, GraphReviewDeltaStatus } from "./graphReviewDeltaTypes";
 
@@ -270,42 +275,14 @@ export function relationshipGroupMetaLine(
   return parts.join(" · ");
 }
 
-export function formatGraphObjectType(
-  kind?: string | null,
-  role?: string | null,
-): string {
-  const values = [kind, role]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value));
-  const uniqueValues = [...new Set(values)];
-  return uniqueValues.join(" / ") || "Graph object";
-}
-
-function titleCaseGraphToken(value: string): string {
-  return value
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
-
-export function graphObjectTypeBadgeLabel(
-  kind?: string | null,
-  role?: string | null,
-): string {
-  const primary = kind?.trim() || role?.trim();
-  return primary ? titleCaseGraphToken(primary) : "Object";
-}
-
-export function graphObjectSecondaryRoleLabel(
-  kind?: string | null,
-  role?: string | null,
-): string | null {
-  const normalizedKind = kind?.trim().toLowerCase();
-  const normalizedRole = role?.trim().toLowerCase();
-  if (!normalizedRole || normalizedRole === normalizedKind) return null;
-  return titleCaseGraphToken(role!.trim());
-}
+export {
+  displayAliasesForNode,
+  formatGraphObjectType,
+  graphObjectSecondaryRoleLabel,
+  graphObjectTypeBadgeLabel,
+  isPlaceholderNodeSummary,
+  primaryGameSummaryForNode,
+} from "../../graphObjectCard";
 
 export type DurableIdentitySummary = {
   mergedAwayIds: string[];
@@ -377,21 +354,6 @@ export function foldedIdentityLabels(
   });
 }
 
-const PLACEHOLDER_NODE_SUMMARIES = new Set([
-  "deterministic party context anchor",
-]);
-
-export function isPlaceholderNodeSummary(summary: string | null | undefined): boolean {
-  const normalized = summary?.trim().toLowerCase();
-  if (!normalized) return false;
-  return PLACEHOLDER_NODE_SUMMARIES.has(normalized);
-}
-
-export function displayAliasesForNode(node: GraphProjectionNodeView): string[] {
-  const label = node.label.trim().toLowerCase();
-  return node.aliases.filter((alias) => alias.trim() && alias.trim().toLowerCase() !== label);
-}
-
 export function mergedIdentityNoteCopy(
   summary: DurableIdentitySummary,
   aliases: string[],
@@ -447,12 +409,6 @@ export function mergedIdentityNoteCopy(
   }
 
   return { foldedLine, contextLine };
-}
-
-export function primaryGameSummaryForNode(node: GraphProjectionNodeView): string | null {
-  const summary = node.summary?.trim();
-  if (summary && !isPlaceholderNodeSummary(summary)) return summary;
-  return null;
 }
 
 export function detailsConnectionContextForNode(node: GraphProjectionNodeView): string | null {

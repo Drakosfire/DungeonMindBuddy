@@ -1,4 +1,9 @@
 import type { GraphProjectionAdjacencyCandidate, GraphProjectionNodeView } from "../../api/types";
+import {
+  GraphObjectCard,
+  buildGraphObjectCardFromNodeView,
+  friendlyVisibilityCopy,
+} from "../../graphObjectCard";
 import { GraphReviewRelationshipChips } from "./GraphReviewRelationshipChips";
 import {
   GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
@@ -6,12 +11,8 @@ import {
 } from "./graphReviewLocalAuthoringState";
 import {
   detailsConnectionContextForNode,
-  displayAliasesForNode,
   durableIdentitySummaryForNode,
-  graphObjectSecondaryRoleLabel,
-  graphObjectTypeBadgeLabel,
   mergedIdentityNoteCopy,
-  primaryGameSummaryForNode,
   type GraphReviewSelectedNodeViewModel,
 } from "./graphReviewSelectionUtils";
 
@@ -50,23 +51,6 @@ function laneBadgeCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
   return parts.join(" · ");
 }
 
-const VISIBILITY_FRIENDLY_COPY: Record<string, string> = {
-  gm_private: "GM private",
-  gm: "GM private",
-  table_known: "Table known",
-  table: "Table",
-  player_visible: "Player visible",
-  player: "Player",
-  character_specific: "Character-specific",
-  character: "Character",
-  hidden_until_revealed: "Hidden until revealed",
-};
-
-function friendlyVisibilityCopy(visibility: string): string {
-  const key = visibility.trim().toLowerCase();
-  return VISIBILITY_FRIENDLY_COPY[key] ?? visibility;
-}
-
 function statusCopy(viewModel: GraphReviewSelectedNodeViewModel): string {
   if (viewModel.status === "matched") return "Matched with the other lane.";
   if (viewModel.status === "gold_only")
@@ -85,45 +69,6 @@ function shouldShowReviewStatus(viewModel: GraphReviewSelectedNodeViewModel): bo
     viewModel.status !== "unknown" ||
     Boolean(viewModel.counterpart) ||
     Boolean(viewModel.deltaId)
-  );
-}
-
-function NodeIdentityHeader({ node }: { node: GraphProjectionNodeView }) {
-  const aliases = displayAliasesForNode(node);
-  const typeBadge = graphObjectTypeBadgeLabel(node.kind, node.role);
-  const secondaryRole = graphObjectSecondaryRoleLabel(node.kind, node.role);
-
-  return (
-    <header className="graph-review-node-identity-header">
-      <div className="graph-review-node-identity-title-row">
-        <span
-          className="graph-review-object-type-badge"
-          aria-label={`Object type: ${typeBadge}`}
-        >
-          {typeBadge}
-        </span>
-        <h4>{node.label}</h4>
-      </div>
-      {secondaryRole ? (
-        <p className="graph-review-node-role-subtitle">{secondaryRole}</p>
-      ) : null}
-      {aliases.length ? (
-        <p className="graph-review-node-aliases">
-          Also known as: {aliases.join(", ")}
-        </p>
-      ) : null}
-    </header>
-  );
-}
-
-function NodeGameSummary({ node }: { node: GraphProjectionNodeView }) {
-  const summary = primaryGameSummaryForNode(node);
-  if (!summary) return null;
-
-  return (
-    <section aria-label="Campaign summary">
-      <p>{summary}</p>
-    </section>
   );
 }
 
@@ -418,32 +363,37 @@ export function GraphReviewNodeGameCard({
 }) {
   const node = viewModel.node;
   const sourceAnchorShownAbove = false;
+  const model = buildGraphObjectCardFromNodeView(node);
 
   return (
-    <article
-      className="graph-review-node-game-card"
+    <GraphObjectCard
+      mode="review"
+      model={model}
       aria-label={`${node.label} game card`}
-    >
-      <NodeIdentityHeader node={node} />
-      <NodeRelationshipSection
-        node={node}
-        selectedEdgeId={selectedEdgeId}
-        onSelectRelationship={onSelectRelationship}
-        onClearRelationship={onClearRelationship}
-      />
-      <NodeGameSummary node={node} />
-      <NodeActionsSection
-        actions={actions}
-        deltaId={viewModel.deltaId}
-        onSelectEvidenceDelta={onSelectEvidenceDelta}
-        draftActionsNote={draftActionsNote}
-        relationshipStaging={relationshipStaging}
-      />
-      <NodeDetailsPanel
-        viewModel={viewModel}
-        sourceAnchorShownAbove={sourceAnchorShownAbove}
-        onSelectEvidenceDelta={onSelectEvidenceDelta}
-      />
-    </article>
+      relationshipsSlot={
+        <NodeRelationshipSection
+          node={node}
+          selectedEdgeId={selectedEdgeId}
+          onSelectRelationship={onSelectRelationship}
+          onClearRelationship={onClearRelationship}
+        />
+      }
+      actionsSlot={
+        <NodeActionsSection
+          actions={actions}
+          deltaId={viewModel.deltaId}
+          onSelectEvidenceDelta={onSelectEvidenceDelta}
+          draftActionsNote={draftActionsNote}
+          relationshipStaging={relationshipStaging}
+        />
+      }
+      detailsSlot={
+        <NodeDetailsPanel
+          viewModel={viewModel}
+          sourceAnchorShownAbove={sourceAnchorShownAbove}
+          onSelectEvidenceDelta={onSelectEvidenceDelta}
+        />
+      }
+    />
   );
 }

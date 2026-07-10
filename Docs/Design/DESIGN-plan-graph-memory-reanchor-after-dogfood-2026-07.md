@@ -233,6 +233,16 @@ Plan may show memory status, freshness, unresolved warnings, source/evidence rea
 
 **Reprioritization rule:** if dogfood reports show live-packet-blocked or otherwise unusable prep-memory Q&A as the sharper prep-loop blocker, it is correct to pull steps 3–4 ahead of card extraction. The sequence above is the default architecture order, not a veto of dogfood-driven triage.
 
+### Implementation checkpoint — shared card primitive (PR316)
+
+Landed under `apps/live-control-ui/src/graphObjectCard/`:
+
+- `GraphObjectCard` + `GraphObjectCardViewModel` (modes `plan` | `review`)
+- `buildGraphObjectCardFromNodeView` adapter from `GraphProjectionNodeView`
+- `GraphReviewNodeGameCard` delegates to the shared card and injects review-only slots
+
+Still transitional / not in this PR: Plan chip routing still uses `SelectedObjectCard`; no graph-aware resolver; no plan-scoped graph-memory Q&A.
+
 ## 8. Acceptance criteria for this re-anchor
 
 - Docs distinguish PR314 dogfood scaffolding from durable product architecture.
