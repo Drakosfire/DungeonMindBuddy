@@ -6,7 +6,11 @@ This document remains the architecture authority for `SurfaceConfig`, projection
 
 Current product framing for the next `/plan` dogfood phase is in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 
+Post-PR314 transitional vs durable graph-memory path for Plan (selected-object card convergence, graph-aware resolver, plan-scoped prep-memory query, Union Supergraph as target read model) is in `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`.
+
 Since this architecture was written, `/ingest` has matured into the Graph Review / authored-memory cockpit. `/plan` should consume reviewed graph memory and reuse selected-object projections from that work; it should not absorb Graph Review diagnostics, Author Draft, identity merging, or authored-memory writes as its default session-prep UX. The current right-side Plan projection container remains transitional implementation state.
+
+**Resolver note (2026-07 re-anchor):** corpus-index resolution remains the valid **fallback**. The durable ladder is graph-aware resolver → Union Supergraph node view → corpus-index fallback → unresolved `/ingest` escalation. Do not treat “resolve kind from corpus indexes” as the final architecture.
 
 ## Product Direction
 
@@ -30,7 +34,7 @@ The ToolBar consumes shared knowledge and schemas, then projects configured work
 - The registry stays open so a new workflow is added by config, but the plan only commits what has a real backing today; speculative surfaces are not pre-built.
 - The drawer/container adapts to the active workflow: narrow for simple tools, wide for review surfaces, and mobile/full-screen when needed.
 
-Reference chips on the canvas are navigation handles into corpus detail, and resolving one is the same projection primitive as opening a tool. A chip (for example a statblock mentioned inside a related reference) resolves to a glance card, then can expand into the content surface registered for whatever kind the resolver returns — rendered by the same adaptive container, sized to the content. From that projected content surface the GM can toggle edit. So "open a tool" and "follow a reference into its content surface" share one registry and one container; they differ only in what is projected and where it was triggered from. The surface does not declare a category vocabulary of its own: it resolves the kind from the existing corpus indexes and treats the chip's `refId` as an opaque locator.
+Reference chips on the canvas are navigation handles into corpus/graph detail, and resolving one is the same projection primitive as opening a tool. A chip resolves to a glance/selected-object card, then can expand into the content surface registered for whatever kind the resolver returns — rendered by the same adaptive container, sized to the content. From that projected content surface the GM can toggle edit. So "open a tool" and "follow a reference into its content surface" share one registry and one container; they differ only in what is projected and where it was triggered from. The surface does not declare a category vocabulary of its own: it treats the chip's `refId` as an opaque locator. Kind resolution today often comes from corpus indexes; the target path prefers Union Supergraph node views via a graph-aware resolver, with corpus indexes as fallback (see the post-dogfood re-anchor).
 
 ## Architecture Shape
 
