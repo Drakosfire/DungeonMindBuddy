@@ -6,19 +6,16 @@ These docs remain useful for understanding how eval fixtures and static prototyp
 
 ## Canonical docs (stay in `Docs/Design/`)
 
+- `ARCHITECTURE-campaign-supergraph.md` — campaign supergraph architecture authority
 - `GRAPH-MEMORY-PROJECT-LAYOUT.md` — path boundaries and authority map
-- `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` — architecture roadmap
-- `GRAPH-MEMORY-UNION-SUPERGRAPH-PROJECTION.md` — union supergraph projection design
 - `GRAPH-MEMORY-MULTI-PASS-EXTRACTION-CONTRACT.md` — intended extraction contract (not yet runtime)
 - `GRAPH-MEMORY-CANDIDATE-GRAPH-PREVIEW-IR.md` — candidate graph preview IR
 - `GRAPH-MEMORY-SOURCE-SPAN-EVIDENCE-RESOLVER.md` — evidence resolver
-- `GRAPH-MEMORY-LIVE-EXTRACTOR-PROMPT-HARNESS.md` — live prompt harness
 - `GRAPH-MEMORY-LIVE-EXTRACTOR-OUTPUT-RECONCILIATION.md` — reconciliation contract
-- `GRAPH-MEMORY-LIVE-RECAP-INGEST-RUN-BUNDLE.md` — live recap ingest bundle
 
-## Operational anchor
+Roadmap and operational tracking: `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`, `Docs/Plans/PR-TRACKER-campaign-supergraph.md`.
 
-- `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md`
+Superseded architecture docs (2026-07-10): stubs in `Docs/Design/` and `Docs/Experiments/` point to `Docs/Archive/Architecture/`.
 
 ## Archived here
 

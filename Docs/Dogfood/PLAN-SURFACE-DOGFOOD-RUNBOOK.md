@@ -6,7 +6,7 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 
 `/plan?dogfood=1` is an **operator measurement scaffold** (checklist, notes, report copy). It is not the final product shape. Judge success against the real prep loop — board, save/recovery, reference inspection, prep-memory Q&A, `/ingest` escalation — not against checklist completeness as a UI destination.
 
-Architecture context after PR314: `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`.
+Architecture context after PR314: `Docs/Design/ARCHITECTURE-campaign-supergraph.md` (Plan consumption).
 
 ## Preconditions
 

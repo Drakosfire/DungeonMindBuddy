@@ -95,5 +95,6 @@ Manual smoke: paste Session 23 raw recap → Generate Recap Memory → confirm g
 ## References
 
 - `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`
-- `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md`
+- `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
+- `Docs/Plans/PR-TRACKER-campaign-supergraph.md`
 - `evals/graph_memory_layer/FIXTURE-STATUS.md`

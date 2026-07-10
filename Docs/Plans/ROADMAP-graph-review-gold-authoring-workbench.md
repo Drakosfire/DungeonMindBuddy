@@ -1,9 +1,11 @@
 # Roadmap — Graph Review + Gold Authoring Workbench
 
-**Status:** Active roadmap  
+**Status:** SUPERSEDED 2026-07-10 — historical gold-workbench roadmap  
+**Current authoring roadmap:** `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`  
+**Campaign Supergraph roadmap / tracker:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` · `Docs/Plans/PR-TRACKER-campaign-supergraph.md`  
 **Date:** 2026-07-02  
 **Workstream:** Graph Memory / Graph Review / Gold Authoring  
-**Design doc:** `Docs/Design/DESIGN-graph-review-gold-authoring-workbench.md`  
+**Design doc (also superseded):** `Docs/Design/DESIGN-graph-review-gold-authoring-workbench.md`  
 **Archived predecessor:** `Docs/Plans/archive/2026-07-02/handoffs/HANDOFF-prime-design-graph-exploring-tool-consolidation.md`
 
 ## 1. Roadmap goal
