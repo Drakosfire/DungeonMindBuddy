@@ -1,0 +1,69 @@
+# Contract — Graph Kernel Public Boundary
+
+**Status:** ACTIVE AUTHORITY (boundary contract for PR003+)  
+**Date:** 2026-07-10  
+**Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](./ARCHITECTURE-campaign-supergraph.md)  
+**Tracker:** [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) (PR003)
+
+## Legal import surface
+
+Application and runtime code outside `src/graph_memory` should import durable
+graph operations from:
+
+```text
+graph_memory.kernel
+```
+
+Do **not** import these as application API:
+
+```text
+graph_memory.world_supergraph.storage
+graph_memory.world_supergraph.paths
+graph_memory.world_supergraph.integrity
+graph_memory.world_supergraph.model
+graph_memory.union_supergraph.load
+graph_memory.union_supergraph.validate
+graph_memory.union_supergraph.preview_import
+graph_memory.union_supergraph.preview_run_materialize
+```
+
+Legacy preview adapters may retain those imports only with an explicit
+`PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION` comment tied to PR006–PR008 deletion.
+
+## Available in PR003
+
+World SuperGraph head/revision operations re-exported from PR002 storage:
+
+- `open_world_graph_head` / `open_current_world_graph`
+- `load_current_world_graph` / `load_world_graph_revision`
+- `publish_world_graph_revision` / `publish_world_revision`
+- `rollback_world_graph_head`
+- `build_world_graph_integrity_report` / `build_world_integrity_report`
+
+## Reserved (not complete)
+
+Placeholders live in `src/graph_memory/kernel/contracts.py` and raise
+`NotImplementedError`. They are **not** exported from `graph_memory.kernel`.
+
+### PR004 — identity
+
+`resolve_identity`, `record_identity_decision`, `merge_identity`,
+`split_identity`, `unmerge_identity`, `classify_identity_outcome`
+
+### PR005 — contribution / merge
+
+`create_graph_contribution`, `supersede_graph_contribution`,
+`retract_graph_contribution`, `merge_contribution_to_revision`,
+`rebuild_from_contributions`
+
+### PR007 — projection
+
+`project_world_graph`, `build_projection_payload`,
+`resolve_projection_admissibility`
+
+## Enforcement
+
+CI tests:
+
+- `tests/test_graph_kernel_public_api.py`
+- `tests/test_graph_kernel_boundaries.py`

@@ -1,3 +1,5 @@
+// PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
+// Retained until PR007/PR008 removes preview/latest-ingest selectors from surface APIs.
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
