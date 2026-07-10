@@ -7,13 +7,15 @@ this contract (retained temporarily for Graph Review until PR006–PR008).
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import tempfile
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from graph_memory.union_supergraph.load import (
     dump_union_supergraph_store,
@@ -40,6 +42,41 @@ from graph_memory.world_supergraph import paths as world_paths
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+@contextmanager
+def _exclusive_world_write_lock(root: Path, world_id: str) -> Iterator[None]:
+    """Per-world exclusive lock covering head read → revision write → head advance.
+
+    Serializes concurrent publishers for the same ``world_id`` so a stale-parent
+    check cannot race past an unguarded head replace.
+    """
+    world_paths.assert_safe_world_id(world_id)
+    world_paths.world_dir(root, world_id).mkdir(parents=True, exist_ok=True)
+    lock_path = world_paths.write_lock_path(root, world_id)
+    with open(lock_path, "a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _require_parent_matches(
+    *,
+    expected_parent_revision_id: str | None,
+    current_parent: str | None,
+) -> None:
+    """Reject when the caller supplied a parent that no longer matches the head."""
+    if (
+        expected_parent_revision_id is not None
+        and expected_parent_revision_id != current_parent
+    ):
+        raise WorldGraphStaleParentError(
+            "stale parent: "
+            f"expected_parent_revision_id={expected_parent_revision_id!r} "
+            f"current_head_revision_id={current_parent!r}"
+        )
 
 
 def canonicalize_graph_payload(payload: dict[str, Any]) -> str:
@@ -157,28 +194,16 @@ def publish_world_graph_revision(
 ) -> WorldGraphPublishResult:
     """Validate, write an immutable revision directory, then atomically advance head.
 
-    Failed validation never mutates ``head.json``. Stale ``expected_parent_revision_id``
-    is rejected before any write.
+    Failed validation never mutates ``head.json``. Head read → revision write →
+    head advance runs under a per-world exclusive lock; a non-None
+    ``expected_parent_revision_id`` is compare-and-swapped against the head
+    observed under that lock (stale-parent reject).
     """
     world_paths.assert_safe_world_id(world_id)
     if not operation_ids:
         raise ValueError("operation_ids must be non-empty")
 
-    current_head = try_open_world_graph_head(root, world_id)
-    current_parent = current_head.head_revision_id if current_head is not None else None
-
-    # None means "attach to current head" (or create the first revision).
-    # A non-None expected parent must match the current head (CAS / stale reject).
-    if (
-        expected_parent_revision_id is not None
-        and expected_parent_revision_id != current_parent
-    ):
-        raise WorldGraphStaleParentError(
-            "stale parent: "
-            f"expected_parent_revision_id={expected_parent_revision_id!r} "
-            f"current_head_revision_id={current_parent!r}"
-        )
-
+    # Validate outside the lock (CPU-bound); parent CAS happens under the lock.
     payload = dump_union_supergraph_store(graph)
     try:
         validate_union_supergraph_fixture(payload)
@@ -187,52 +212,78 @@ def publish_world_graph_revision(
 
     canonical = canonicalize_graph_payload(payload)
     payload_sha = sha256_hex(canonical)
-    revision_id = compute_revision_id(
-        world_id=world_id,
-        parent_revision_id=current_parent,
-        operation_ids=list(operation_ids),
-        canonical_graph_json=canonical,
-    )
-    world_paths.assert_safe_revision_id(revision_id)
+    op_ids = list(operation_ids)
+    graph_schema = str(payload.get("schema") or graph.schema)
 
-    rev_dir = world_paths.revision_dir(root, world_id, revision_id)
-    if rev_dir.exists():
-        raise WorldGraphRevisionExistsError(
-            f"revision directory already exists: {revision_id}"
+    with _exclusive_world_write_lock(root, world_id):
+        current_head = try_open_world_graph_head(root, world_id)
+        current_parent = (
+            current_head.head_revision_id if current_head is not None else None
         )
 
-    created_at = _utc_now_iso()
-    revision = WorldGraphRevision(
-        world_id=world_id,
-        revision_id=revision_id,
-        parent_revision_id=current_parent,
-        created_at=created_at,
-        operation_ids=list(operation_ids),
-        graph_schema=str(payload.get("schema") or graph.schema),
-        graph_payload_sha256=payload_sha,
-        graph_payload_path=world_paths.relative_graph_payload_path(revision_id),
-        status="published",
-    )
+        # None means "attach to current head" (or create the first revision).
+        # A non-None expected parent must match the head under this lock (CAS).
+        _require_parent_matches(
+            expected_parent_revision_id=expected_parent_revision_id,
+            current_parent=current_parent,
+        )
 
-    # Write complete revision directory before touching head.json.
-    rev_dir.mkdir(parents=True, exist_ok=False)
-    graph_path = world_paths.graph_payload_path(root, world_id, revision_id)
-    _write_text_atomic(graph_path, canonical)
-    _write_json_atomic(
-        world_paths.revision_manifest_path(root, world_id, revision_id),
-        revision.model_dump(mode="json"),
-    )
+        revision_id = compute_revision_id(
+            world_id=world_id,
+            parent_revision_id=current_parent,
+            operation_ids=op_ids,
+            canonical_graph_json=canonical,
+        )
+        world_paths.assert_safe_revision_id(revision_id)
 
-    new_head = WorldGraphHead(
-        world_id=world_id,
-        head_revision_id=revision_id,
-        updated_at=created_at,
-    )
-    _write_json_atomic(
-        world_paths.head_path(root, world_id),
-        new_head.model_dump(mode="json"),
-    )
-    return WorldGraphPublishResult(head=new_head, revision=revision)
+        rev_dir = world_paths.revision_dir(root, world_id, revision_id)
+        if rev_dir.exists():
+            raise WorldGraphRevisionExistsError(
+                f"revision directory already exists: {revision_id}"
+            )
+
+        created_at = _utc_now_iso()
+        revision = WorldGraphRevision(
+            world_id=world_id,
+            revision_id=revision_id,
+            parent_revision_id=current_parent,
+            created_at=created_at,
+            operation_ids=op_ids,
+            graph_schema=graph_schema,
+            graph_payload_sha256=payload_sha,
+            graph_payload_path=world_paths.relative_graph_payload_path(revision_id),
+            status="published",
+        )
+
+        # Write complete revision directory before touching head.json.
+        rev_dir.mkdir(parents=True, exist_ok=False)
+        graph_path = world_paths.graph_payload_path(root, world_id, revision_id)
+        _write_text_atomic(graph_path, canonical)
+        _write_json_atomic(
+            world_paths.revision_manifest_path(root, world_id, revision_id),
+            revision.model_dump(mode="json"),
+        )
+
+        # Re-check parent immediately before head advance (true CAS under lock).
+        head_now = try_open_world_graph_head(root, world_id)
+        parent_now = head_now.head_revision_id if head_now is not None else None
+        if parent_now != current_parent:
+            raise WorldGraphStaleParentError(
+                "stale parent at head advance: "
+                f"observed_parent_revision_id={current_parent!r} "
+                f"current_head_revision_id={parent_now!r}"
+            )
+
+        new_head = WorldGraphHead(
+            world_id=world_id,
+            head_revision_id=revision_id,
+            updated_at=created_at,
+        )
+        _write_json_atomic(
+            world_paths.head_path(root, world_id),
+            new_head.model_dump(mode="json"),
+        )
+        return WorldGraphPublishResult(head=new_head, revision=revision)
 
 
 def rollback_world_graph_head(
@@ -242,9 +293,6 @@ def rollback_world_graph_head(
     world_paths.assert_safe_world_id(world_id)
     world_paths.assert_safe_revision_id(revision_id)
 
-    # Ensure current head exists (world has been published at least once).
-    open_world_graph_head(root, world_id)
-
     graph_path = world_paths.graph_payload_path(root, world_id, revision_id)
     manifest_path = world_paths.revision_manifest_path(root, world_id, revision_id)
     if not graph_path.is_file() or not manifest_path.is_file():
@@ -252,7 +300,7 @@ def rollback_world_graph_head(
             f"cannot rollback: revision {revision_id!r} incomplete or missing"
         )
 
-    # Re-validate target revision before repointing.
+    # Re-validate target revision before taking the write lock.
     payload = _read_json(graph_path)
     try:
         validate_union_supergraph_fixture(payload)
@@ -261,16 +309,19 @@ def rollback_world_graph_head(
 
     load_world_graph_revision_manifest(root, world_id, revision_id)
 
-    new_head = WorldGraphHead(
-        world_id=world_id,
-        head_revision_id=revision_id,
-        updated_at=_utc_now_iso(),
-    )
-    _write_json_atomic(
-        world_paths.head_path(root, world_id),
-        new_head.model_dump(mode="json"),
-    )
-    return new_head
+    with _exclusive_world_write_lock(root, world_id):
+        # Ensure current head exists (world has been published at least once).
+        open_world_graph_head(root, world_id)
+        new_head = WorldGraphHead(
+            world_id=world_id,
+            head_revision_id=revision_id,
+            updated_at=_utc_now_iso(),
+        )
+        _write_json_atomic(
+            world_paths.head_path(root, world_id),
+            new_head.model_dump(mode="json"),
+        )
+        return new_head
 
 
 def list_revision_ids(root: Path, world_id: str) -> list[str]:

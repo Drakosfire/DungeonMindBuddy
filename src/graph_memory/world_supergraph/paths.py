@@ -52,6 +52,11 @@ def head_path(root: Path, world_id: str) -> Path:
     return world_dir(root, world_id) / "head.json"
 
 
+def write_lock_path(root: Path, world_id: str) -> Path:
+    """Per-world exclusive lock file for publish / rollback critical sections."""
+    return world_dir(root, world_id) / ".write.lock"
+
+
 def revisions_dir(root: Path, world_id: str) -> Path:
     return world_dir(root, world_id) / "revisions"
 

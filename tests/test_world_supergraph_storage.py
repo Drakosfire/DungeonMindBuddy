@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from graph_memory.union_supergraph.load import (
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 from graph_memory.world_supergraph import (
+    WorldGraphPublishResult,
     WorldGraphStaleParentError,
     WorldGraphValidationError,
     build_world_graph_integrity_report,
@@ -40,13 +42,15 @@ def store_root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _mutated_label_store(store: UnionSupergraphStore) -> UnionSupergraphStore:
+def _mutated_label_store(
+    store: UnionSupergraphStore, *, suffix: str = " (rev2)"
+) -> UnionSupergraphStore:
     payload = store.model_dump(mode="json", by_alias=True)
     payload = copy.deepcopy(payload)
     # Small safe change that still validates.
     first_node_id = next(iter(payload["nodes"]))
     payload["nodes"][first_node_id]["label"] = (
-        payload["nodes"][first_node_id]["label"] + " (rev2)"
+        payload["nodes"][first_node_id]["label"] + suffix
     )
     return parse_union_supergraph_store(payload)
 
@@ -181,6 +185,60 @@ def test_stale_parent_publish_rejected(
     head = open_world_graph_head(store_root, WORLD_ID)
     assert head.head_revision_id == first.revision.revision_id
 
+
+def test_concurrent_same_parent_publish_only_one_succeeds(
+    store_root: Path, fixture_store: UnionSupergraphStore
+) -> None:
+    """Two publishers racing from the same parent: exactly one advances the head."""
+    first = publish_world_graph_revision(
+        store_root,
+        WORLD_ID,
+        fixture_store,
+        operation_ids=["op:seed"],
+    )
+    parent = first.revision.revision_id
+    store_a = _mutated_label_store(fixture_store, suffix=" (concurrent-a)")
+    store_b = _mutated_label_store(fixture_store, suffix=" (concurrent-b)")
+
+    barrier = threading.Barrier(2)
+    successes: list[WorldGraphPublishResult] = []
+    failures: list[BaseException] = []
+    guard = threading.Lock()
+
+    def worker(store: UnionSupergraphStore, operation_id: str) -> None:
+        barrier.wait()
+        try:
+            result = publish_world_graph_revision(
+                store_root,
+                WORLD_ID,
+                store,
+                operation_ids=[operation_id],
+                expected_parent_revision_id=parent,
+            )
+            with guard:
+                successes.append(result)
+        except BaseException as exc:  # noqa: BLE001 — collect for assertion
+            with guard:
+                failures.append(exc)
+
+    threads = [
+        threading.Thread(target=worker, args=(store_a, "op:concurrent-a")),
+        threading.Thread(target=worker, args=(store_b, "op:concurrent-b")),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(successes) == 1, f"expected one success, got {successes!r} failures={failures!r}"
+    assert len(failures) == 1, f"expected one failure, got {failures!r}"
+    assert isinstance(failures[0], WorldGraphStaleParentError)
+
+    winner = successes[0]
+    assert winner.revision.parent_revision_id == parent
+    head = open_world_graph_head(store_root, WORLD_ID)
+    assert head.head_revision_id == winner.revision.revision_id
+    assert head.head_revision_id != parent
 
 def test_rollback_repoints_head_to_existing_revision(
     store_root: Path, fixture_store: UnionSupergraphStore
