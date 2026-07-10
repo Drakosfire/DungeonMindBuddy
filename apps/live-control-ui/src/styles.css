@@ -169,6 +169,11 @@ code {
   transform: translateX(0);
 }
 
+.app-shell--edit-dock:has(.plan-surface-root) {
+  --plan-agent-bar-height: 4.75rem;
+  --plan-agent-open-chrome-height: calc(var(--plan-agent-bar-height) + min(64vh, 680px));
+}
+
 .app-shell--edit-dock .app-shell-layout {
   width: 100%;
   box-sizing: border-box;
@@ -186,14 +191,22 @@ code {
   position: fixed;
   top: 0;
   left: 0;
-  bottom: 0;
+  bottom: var(--plan-agent-bar-height, 4.75rem);
   z-index: 30;
   width: min(380px, 32vw);
-  height: 100vh;
-  max-height: 100vh;
+  height: auto;
+  max-height: calc(100vh - var(--plan-agent-bar-height, 4.75rem));
   transform: none;
   box-shadow: none;
   overflow: hidden;
+  transition: bottom 0.2s ease, max-height 0.2s ease;
+}
+
+.app-shell--edit-dock.app-shell--edit-dock-open:has(.plan-agent-shell.open)
+  .app-edit-toolbox--docked
+  .app-edit-toolbox-drawer {
+  bottom: var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px)));
+  max-height: calc(100vh - var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))));
 }
 
 .app-shell--edit-dock.app-shell--edit-dock-open .app-edit-toolbox--docked .app-edit-toolbox-body {
@@ -1841,11 +1854,17 @@ button:disabled {
     position: fixed;
     top: 0;
     left: 0;
-    bottom: 0;
+    bottom: var(--plan-agent-bar-height, 4.75rem);
     z-index: 860;
     width: min(440px, 94vw);
+    max-height: calc(100vh - var(--plan-agent-bar-height, 4.75rem));
     transform: translateX(-100%);
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox--docked .app-edit-toolbox-drawer {
+    bottom: var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px)));
+    max-height: calc(100vh - var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))));
   }
 
   .app-shell--edit-dock .app-edit-toolbox--docked.open .app-edit-toolbox-drawer {
@@ -1860,8 +1879,18 @@ button:disabled {
     background: rgba(8, 10, 14, 0.45);
   }
 
-  .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-backdrop[hidden] {
+  .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox--docked .app-edit-toolbox-backdrop[hidden] {
     display: none !important;
+  }
+
+  .app-shell--edit-dock:has(.plan-surface-root) .app-edit-toolbox-toggle {
+    top: auto;
+    bottom: calc(var(--plan-agent-bar-height, 4.75rem) + 0.75rem);
+    transform: none;
+  }
+
+  .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox-toggle {
+    bottom: calc(var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))) + 0.75rem);
   }
 
   .app-edit-toolbox-toggle,
