@@ -1,9 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { ProjectionProvider } from "../projection/projectionContext";
+import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
@@ -62,6 +65,26 @@ const sessionDescriptor = {
   },
 };
 
+const surfaceConfig: SurfaceConfig = {
+  id: "plan",
+  label: "Plan",
+  context: {
+    campaignId: "longmont-c2",
+    headerLabel: "Longmont C2",
+    prepSession: 23,
+    ingestSession: 21,
+    liveSession: 22,
+  },
+  tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
+  canvas: { documentId: "longmont-c2-session-23-prep" },
+  theme: {},
+  sessionDescriptor,
+};
+
+function renderWithProjection(ui: ReactElement) {
+  return render(<ProjectionProvider config={surfaceConfig}>{ui}</ProjectionProvider>);
+}
+
 describe("PlanReferenceObjectCard", () => {
   it("renders GraphObjectCard for graph-node hits", async () => {
     const resolution: PlanReferenceResolution = {
@@ -84,11 +107,103 @@ describe("PlanReferenceObjectCard", () => {
     expect(within(card).getByText("A friendly merchant.")).toBeInTheDocument();
     expect(within(card).getByRole("heading", { name: "Related objects" })).toBeInTheDocument();
 
+    expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
+    expect(within(card).getByRole("button", { name: /Inspect source\/evidence/i })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open statblock/i })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open roll table/i })).not.toBeInTheDocument();
+
     await user.click(within(card).getByText("Details"));
     expect(within(card).getByText(/1 evidence badge/)).toBeInTheDocument();
     expect(within(card).queryByText(/Node ID:/)).not.toBeInTheDocument();
+    expect(within(card).queryByText("npc-glowkindle")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-reference-fallback-banner")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-reference-unresolved-card")).not.toBeInTheDocument();
+  });
+
+  it("opens Details when Inspect source/evidence is clicked", async () => {
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    const user = userEvent.setup();
+    render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    const details = within(card).getByText("Details").closest("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+
+    await user.click(within(card).getByRole("button", { name: /Inspect source\/evidence/i }));
+    expect(details).toHaveAttribute("open");
+  });
+
+  it("renders Open statblock for grounded statblock graph nodes when projection can open tools", async () => {
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:statblock-tripod",
+      refType: "statblock",
+      graphObject: buildGraphObjectCardFromNodeView({
+        ...glowkindleNode,
+        node_id: "statblock-tripod",
+        label: "Tripod Null-Calf",
+        kind: "statblock",
+        role: "creature",
+      }),
+      graphNodeId: "statblock-tripod",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    const user = userEvent.setup();
+    renderWithProjection(
+      <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
+    );
+
+    const card = screen.getByLabelText(/Tripod Null-Calf graph object/i);
+    expect(within(card).getByRole("button", { name: /Open statblock/i })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: /Open roll table/i })).not.toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
+
+    await user.click(within(card).getByRole("button", { name: /Open statblock/i }));
+    // Click must not crash; tool open is handled by ProjectionProvider.
+    expect(within(card).getByRole("button", { name: /Open statblock/i })).toBeInTheDocument();
+  });
+
+  it("omits Open statblock when projection context is unavailable", () => {
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:statblock-tripod",
+      refType: "statblock",
+      graphObject: buildGraphObjectCardFromNodeView({
+        ...glowkindleNode,
+        node_id: "statblock-tripod",
+        label: "Tripod Null-Calf",
+        kind: "statblock",
+        role: "creature",
+      }),
+      graphNodeId: "statblock-tripod",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    expect(screen.queryByRole("button", { name: /Open statblock/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toBeInTheDocument();
   });
 
   it("renders unresolved state for ambiguous graph matches", () => {
@@ -116,7 +231,7 @@ describe("PlanReferenceObjectCard", () => {
 
     expect(screen.getByTestId("plan-reference-unresolved-card")).toBeInTheDocument();
     expect(screen.getByText(/Could not uniquely resolve this object from graph memory/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open \/ingest to review memory/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Fix memory in \/ingest/i })).toHaveAttribute(
       "href",
       "/ingest?campaign=longmont-c2&session=session-21",
     );
@@ -167,6 +282,16 @@ describe("PlanReferenceObjectCard", () => {
     expect(within(screen.getByLabelText(/North Reach Gate corpus fallback object/i)).getByText(
       "Location reference resolved from corpus index.",
     )).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText(/North Reach Gate corpus fallback object/i)).getByRole("link", {
+        name: /Review memory in \/ingest/i,
+      }),
+    ).toHaveAttribute("href", "/ingest?campaign=longmont-c2&session=session-21");
+    expect(
+      within(screen.getByLabelText(/North Reach Gate corpus fallback object/i)).getByText(
+        "Freshness: Corpus index fallback",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
   });
 

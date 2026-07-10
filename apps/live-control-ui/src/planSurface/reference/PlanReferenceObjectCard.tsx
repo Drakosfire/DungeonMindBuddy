@@ -1,7 +1,9 @@
 import { GraphObjectCard } from "../../graphObjectCard";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
+import { useOptionalProjection } from "../projection/projectionContext";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
+import { buildPlanGraphObjectActions } from "./buildPlanGraphObjectActions";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
 export interface PlanReferenceObjectCardProps {
@@ -80,7 +82,7 @@ function PlanReferenceUnresolvedCard({
       </p>
       {projectionNote ? <p className="plan-reference-object-card__muted">{projectionNote}</p> : null}
       <p>
-        <a href={ingestHref}>Open /ingest to review memory</a>
+        <a href={ingestHref}>Fix memory in /ingest</a>
       </p>
       {ambiguousIds.length ? (
         <details className="plan-reference-object-card__technical-details">
@@ -106,21 +108,41 @@ export function PlanReferenceObjectCard({
   sessionDescriptor,
   projectionState,
 }: PlanReferenceObjectCardProps) {
+  const projection = useOptionalProjection();
   const effectiveProjectionState = projectionState ?? resolution.graphProjectionState ?? null;
+  const onOpenStatblock = projection ? () => projection.openTool("statblock") : undefined;
 
   if (resolution.kind === "graph-node" && resolution.graphObject) {
+    const model = {
+      ...resolution.graphObject,
+      actions: buildPlanGraphObjectActions({
+        resolution,
+        sessionDescriptor,
+        onOpenStatblock,
+      }),
+    };
+
     return (
       <GraphObjectCard
         mode="plan"
-        model={resolution.graphObject}
-        aria-label={`${resolution.graphObject.label} graph object`}
+        model={model}
+        aria-label={`${model.label} graph object`}
       />
     );
   }
 
   if (resolution.kind === "corpus-index") {
-    const model = buildGraphObjectCardFromCorpusFallback(resolution);
-    if (model) {
+    const fallbackModel = buildGraphObjectCardFromCorpusFallback(resolution);
+    if (fallbackModel) {
+      const model = {
+        ...fallbackModel,
+        actions: buildPlanGraphObjectActions({
+          resolution,
+          sessionDescriptor,
+          onOpenStatblock,
+        }),
+      };
+
       return (
         <div className="plan-reference-object-card plan-reference-object-card--corpus-fallback">
           <PlanReferenceFallbackBanner

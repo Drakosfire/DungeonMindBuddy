@@ -69,6 +69,10 @@ describe("renderContentProjection", () => {
     );
 
     expect(screen.getByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
+      "href",
+      "/ingest?campaign=longmont-c2&session=session-21",
+    );
     expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,10 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 
-import type { GraphObjectCardMode, GraphObjectCardViewModel } from "./types";
+import type {
+  GraphObjectActionViewModel,
+  GraphObjectCardMode,
+  GraphObjectCardViewModel,
+} from "./types";
 
 export interface GraphObjectCardProps {
   model: GraphObjectCardViewModel;
@@ -78,7 +82,31 @@ function DefaultRelationships({ model }: { model: GraphObjectCardViewModel }) {
   );
 }
 
-function DefaultActions({ model }: { model: GraphObjectCardViewModel }) {
+function resolveActionHandler(
+  action: GraphObjectActionViewModel,
+  rootRef: RefObject<HTMLElement | null>,
+): (() => void) | undefined {
+  if (action.onClick) return action.onClick;
+  if (action.kind === "open-source") {
+    return () => {
+      const details = rootRef.current?.querySelector(".graph-object-card__details");
+      if (!(details instanceof HTMLDetailsElement)) return;
+      details.open = true;
+      if (typeof details.scrollIntoView === "function") {
+        details.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    };
+  }
+  return undefined;
+}
+
+function DefaultActions({
+  model,
+  rootRef,
+}: {
+  model: GraphObjectCardViewModel;
+  rootRef: RefObject<HTMLElement | null>;
+}) {
   const actions = model.actions ?? [];
   if (!actions.length) return null;
 
@@ -97,7 +125,7 @@ function DefaultActions({ model }: { model: GraphObjectCardViewModel }) {
               type="button"
               disabled={action.disabled}
               title={action.helpText}
-              onClick={action.onClick}
+              onClick={resolveActionHandler(action, rootRef)}
             >
               {action.label}
             </button>
@@ -207,8 +235,11 @@ export function GraphObjectCard({
   className = "graph-object-card",
   "aria-label": ariaLabel,
 }: GraphObjectCardProps) {
+  const rootRef = useRef<HTMLElement>(null);
+
   return (
     <article
+      ref={rootRef}
       className={className}
       data-graph-object-card-mode={mode}
       aria-label={ariaLabel ?? `${model.label} game card`}
@@ -216,7 +247,7 @@ export function GraphObjectCard({
       <GraphObjectIdentityHeader model={model} />
       {relationshipsSlot ?? <DefaultRelationships model={model} />}
       <GraphObjectSummary model={model} />
-      {actionsSlot ?? <DefaultActions model={model} />}
+      {actionsSlot ?? <DefaultActions model={model} rootRef={rootRef} />}
       {detailsSlot ?? (
         <DefaultDetails
           model={model}
