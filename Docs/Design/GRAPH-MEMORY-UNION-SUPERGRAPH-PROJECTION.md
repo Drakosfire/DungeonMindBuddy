@@ -4,6 +4,8 @@
 
 Architecture roadmap: `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` is the current post-PR196 roadmap for the broader supergraph architecture, lifecycle, ownership boundaries, and implementation sequence. This projection design remains the focused recap-projection design target under that roadmap.
 
+Plan-surface consumption after PR314 dogfood: `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` records that `/plan` selected-object navigation and prep-memory Q&A should target this Union Supergraph read model (with corpus-index / live-query paths as transitional fallbacks). That note does not change this document’s recap-projection contract; it names Plan as a second runtime consumer of the same substrate. Plan consumption must go through projection/adapter seams and must not reach into graph-memory storage files or eval fixture internals.
+
 Layout boundary: `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` records that reusable graph-memory contracts live in `src/graph_memory`, deterministic contract fixtures live in `tests/fixtures/graph_memory`, and `evals/graph_memory_layer` remains evaluation/dogfood territory.
 
 Date: 2026-06-27

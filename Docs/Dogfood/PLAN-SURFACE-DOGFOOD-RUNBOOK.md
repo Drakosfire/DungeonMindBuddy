@@ -4,9 +4,13 @@
 
 Use `/plan` for a real prep pass and capture feedback on the current prep cockpit.
 
+`/plan?dogfood=1` is an **operator measurement scaffold** (checklist, notes, report copy). It is not the final product shape. Judge success against the real prep loop — board, save/recovery, reference inspection, prep-memory Q&A, `/ingest` escalation — not against checklist completeness as a UI destination.
+
+Architecture context after PR314: `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`.
+
 ## Preconditions
 
-- PR #313 merged (prep memory Q&A drawer, selected-object cards, source preview, durable Markdown save).
+- PR #314 merged (dogfood checklist + this runbook; builds on prep memory Q&A, selected-object cards, source preview, durable Markdown save).
 - Dev server can run.
 - Corpus/source data exists for the target campaign.
 - You know the campaign/session route you want to prep.
@@ -50,6 +54,12 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
    - What threats should I prep?
 5. Open a supporting source from the prep-memory answer citations.
 
+**Known transitional limits (do not treat as product completion):**
+
+- Selected-object cards currently resolve from **corpus indexes**, not the Union Supergraph node view. Prefer reporting whether the card was game-useful; richer graph-backed cards are the next architecture target.
+- Prep-memory Q&A currently goes through **`/api/live/query`** (planning corpus manifest / Hermes). If you see `campaign_id/session do not match loaded live packet`, record it — that is a known live-packet gate, not a reason to “fix Hermes into Plan.” The target is a plan-scoped graph-memory query over the Union Supergraph.
+- Memory correction still belongs on `/ingest`, not inside `/plan`.
+
 ## Feedback capture
 
 1. Fill **Dogfood notes** in the checklist panel as you go.
@@ -66,6 +76,8 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 - Were source previews useful?
 - Did prep-memory answers cite enough?
 - Were ungrounded answers clearly marked?
+- Did live-packet / session mismatch block Q&A?
+- Did selected-object cards feel like game objects or like index dumps?
 - What did you expect DungeonBuddy to surface automatically?
 - What felt too graph-y or diagnostic-heavy?
 
@@ -93,10 +105,12 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 
 ## What this unlocks
 
-Dogfood reports should drive the next slice — not a predetermined roadmap. Common outcomes:
+Dogfood reports should drive the next slice — not a predetermined roadmap. Prefer routing findings through the post-dogfood re-anchor sequence (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query) as the **default** architecture order. If live-packet-blocked Q&A is the sharper prep-loop blocker, it is correct to pull the plan-scoped graph-memory query ahead of card extraction rather than polishing transitional index/live-query paths as if they were final.
 
-- Page feels empty → compact prep packet.
+Common outcomes:
+
+- Page feels empty → compact prep packet (later; not the immediate graph-memory path).
 - Save/recovery feels shaky → save/recovery polish.
-- Memory answers are weak → retrieval/query UX polish.
-- Selected cards feel shallow → richer selected-object details.
-- UI feels too metadata-heavy → hide/collapse more diagnostics.
+- Memory answers are weak or live-packet-blocked → plan-scoped graph-memory query (not more Hermes packet coupling).
+- Selected cards feel shallow or index-shaped → shared graph-object card over Union Supergraph.
+- UI feels too metadata-heavy → hide/collapse more diagnostics; keep correction on `/ingest`.
