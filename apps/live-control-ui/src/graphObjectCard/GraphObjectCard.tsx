@@ -21,10 +21,10 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
   const aliases = model.aliases ?? [];
 
   return (
-    <header className="graph-object-card__identity-header graph-review-node-identity-header">
-      <div className="graph-object-card__title-row graph-review-node-identity-title-row">
+    <header className="graph-object-card__identity-header">
+      <div className="graph-object-card__title-row">
         <span
-          className="graph-object-card__type-badge graph-review-object-type-badge"
+          className="graph-object-card__type-badge"
           aria-label={`Object type: ${model.typeBadgeLabel}`}
         >
           {model.typeBadgeLabel}
@@ -32,14 +32,10 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
         <h4>{model.label}</h4>
       </div>
       {model.secondaryRoleLabel ? (
-        <p className="graph-object-card__role-subtitle graph-review-node-role-subtitle">
-          {model.secondaryRoleLabel}
-        </p>
+        <p className="graph-object-card__role-subtitle">{model.secondaryRoleLabel}</p>
       ) : null}
       {aliases.length ? (
-        <p className="graph-object-card__aliases graph-review-node-aliases">
-          Also known as: {aliases.join(", ")}
-        </p>
+        <p className="graph-object-card__aliases">Also known as: {aliases.join(", ")}</p>
       ) : null}
     </header>
   );
@@ -53,7 +49,7 @@ function GraphObjectSummary({ model }: { model: GraphObjectCardViewModel }) {
     <section aria-label="Campaign summary">
       {summary ? <p>{summary}</p> : null}
       {model.whyItMattersNow ? (
-        <p className="graph-object-card-why-now">{model.whyItMattersNow}</p>
+        <p className="graph-object-card__why-now">{model.whyItMattersNow}</p>
       ) : null}
     </section>
   );
@@ -65,7 +61,7 @@ function DefaultRelationships({ model }: { model: GraphObjectCardViewModel }) {
 
   return (
     <section
-      className="graph-object-card__relationships graph-review-node-relationships-primary"
+      className="graph-object-card__relationships"
       aria-label="Connected objects and relationships"
     >
       <h5>Related objects</h5>
@@ -89,7 +85,7 @@ function DefaultActions({ model }: { model: GraphObjectCardViewModel }) {
   return (
     <section aria-label="Actions">
       <h5>Actions</h5>
-      <div className="graph-object-card__actions graph-review-card-actions">
+      <div className="graph-object-card__actions">
         {actions.map((action) =>
           action.href ? (
             <a key={action.id} href={action.href} title={action.helpText}>
@@ -139,29 +135,21 @@ function DefaultDetails({
   if (!hasBody) return null;
 
   return (
-    <details className="graph-object-card__details graph-review-details-panel">
+    <details className="graph-object-card__details">
       <summary>Details</summary>
       {(details?.visibilityLabel || model.visibilityLabel || model.freshnessLabel) ? (
-        <section
-          className="graph-object-card__details-section graph-review-details-section"
-          aria-label="Memory and visibility"
-        >
+        <section className="graph-object-card__details-section" aria-label="Memory and visibility">
           {details?.visibilityLabel || model.visibilityLabel ? (
-            <p className="graph-object-card__muted graph-review-muted">
+            <p className="graph-object-card__muted">
               Visibility: {details?.visibilityLabel ?? model.visibilityLabel}
             </p>
           ) : null}
           {model.freshnessLabel ? (
-            <p className="graph-object-card__muted graph-review-muted">
-              Freshness: {model.freshnessLabel}
-            </p>
+            <p className="graph-object-card__muted">Freshness: {model.freshnessLabel}</p>
           ) : null}
         </section>
       ) : null}
-      <section
-        className="graph-object-card__details-section graph-review-details-section"
-        aria-label="Evidence and source"
-      >
+      <section className="graph-object-card__details-section" aria-label="Evidence and source">
         <h6>Evidence and source</h6>
         <p>
           {evidenceCount} evidence badge
@@ -177,27 +165,21 @@ function DefaultDetails({
           </p>
         ) : null}
         {evidence.map((item) => (
-          <p key={item.id} className="graph-object-card__muted graph-review-muted">
+          <p key={item.id} className="graph-object-card__muted">
             {item.label ?? item.id}
             {item.sourceDomain ? ` · ${item.sourceDomain}` : ""}
           </p>
         ))}
       </section>
       {details?.lines?.length ? (
-        <section
-          className="graph-object-card__details-section graph-review-details-section"
-          aria-label="Additional details"
-        >
+        <section className="graph-object-card__details-section" aria-label="Additional details">
           {details.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}
         </section>
       ) : null}
       {showIdentifiers ? (
-        <section
-          className="graph-object-card__details-section graph-review-details-section"
-          aria-label="Identifiers"
-        >
+        <section className="graph-object-card__details-section" aria-label="Identifiers">
           <h6>Identifiers</h6>
           <p>
             <strong>Node ID:</strong> {details?.nodeId}

@@ -89,6 +89,13 @@ describe("GraphObjectCard", () => {
     expect(within(detailsPanel!).getByText("location-inn")).toBeInTheDocument();
   });
 
+  it("does not render graph-review class names in plan mode", () => {
+    const { container } = render(<GraphObjectCard mode="plan" model={planModel} />);
+
+    const graphReviewElements = container.querySelectorAll('[class*="graph-review"]');
+    expect(graphReviewElements).toHaveLength(0);
+  });
+
   it("does not render review-only copy in plan mode by default", () => {
     render(<GraphObjectCard mode="plan" model={planModel} />);
 

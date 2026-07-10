@@ -25,8 +25,14 @@ export interface PlanReferenceResolution {
 
 export interface UnionSupergraphNodeIndex {
   byNodeId: Map<string, GraphProjectionNodeView>;
-  byLabelKey: Map<string, GraphProjectionNodeView>;
+  /** Label/alias keys map to every node that claims that key; unique-only lookups use length === 1. */
+  byLabelKey: Map<string, GraphProjectionNodeView[]>;
 }
+
+export type GraphNodeProjectionLookup =
+  | { status: "found"; node: GraphProjectionNodeView }
+  | { status: "ambiguous"; matchingNodeIds: string[] }
+  | { status: "miss" };
 
 const GRAPH_NODE_LOCATOR_PATTERNS = [
   /^dmb-node:(.+)$/i,
@@ -52,12 +58,16 @@ export function buildUnionSupergraphNodeIndex(
   projection: UnionSupergraphProjectionResponse,
 ): UnionSupergraphNodeIndex {
   const byNodeId = new Map<string, GraphProjectionNodeView>();
-  const byLabelKey = new Map<string, GraphProjectionNodeView>();
+  const byLabelKey = new Map<string, GraphProjectionNodeView[]>();
 
   const registerLabelKey = (value: string, node: GraphProjectionNodeView) => {
     const key = normalizeReferenceKey(value);
-    if (!key || byLabelKey.has(key)) return;
-    byLabelKey.set(key, node);
+    if (!key) return;
+
+    const existing = byLabelKey.get(key) ?? [];
+    if (existing.some((entry) => entry.node_id === node.node_id)) return;
+
+    byLabelKey.set(key, [...existing, node]);
   };
 
   for (const node of Object.values(projection.node_views)) {
@@ -72,23 +82,38 @@ export function buildUnionSupergraphNodeIndex(
   return { byNodeId, byLabelKey };
 }
 
-function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphProjectionNodeView | null {
-  const trimmed = String(nodeId || "").trim();
-  if (!trimmed) return null;
+function uniqueLabelKeyMatch(
+  index: UnionSupergraphNodeIndex,
+  key: string,
+): GraphNodeProjectionLookup {
+  const normalized = normalizeReferenceKey(key);
+  if (!normalized) return { status: "miss" };
 
-  const direct = index.byNodeId.get(trimmed);
-  if (direct) return direct;
-
-  const normalized = normalizeReferenceKey(trimmed);
-  if (!normalized) return null;
-
-  return index.byLabelKey.get(normalized) ?? null;
+  const matches = index.byLabelKey.get(normalized) ?? [];
+  if (matches.length === 1) {
+    return { status: "found", node: matches[0] };
+  }
+  if (matches.length > 1) {
+    return {
+      status: "ambiguous",
+      matchingNodeIds: matches.map((node) => node.node_id),
+    };
+  }
+  return { status: "miss" };
 }
 
-function lookupNodeByLabel(index: UnionSupergraphNodeIndex, label: string): GraphProjectionNodeView | null {
-  const normalized = normalizeReferenceKey(label);
-  if (!normalized) return null;
-  return index.byLabelKey.get(normalized) ?? null;
+function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphNodeProjectionLookup {
+  const trimmed = String(nodeId || "").trim();
+  if (!trimmed) return { status: "miss" };
+
+  const direct = index.byNodeId.get(trimmed);
+  if (direct) return { status: "found", node: direct };
+
+  return uniqueLabelKeyMatch(index, trimmed);
+}
+
+function lookupNodeByLabel(index: UnionSupergraphNodeIndex, label: string): GraphNodeProjectionLookup {
+  return uniqueLabelKeyMatch(index, label);
 }
 
 export function findGraphNodeInProjection(
@@ -99,7 +124,7 @@ export function findGraphNodeInProjection(
     refId?: string | null;
     label?: string | null;
   },
-): GraphProjectionNodeView | null {
+): GraphNodeProjectionLookup {
   const candidates: string[] = [];
 
   const parsedLocator = options.locator ? parseGraphNodeLocator(options.locator) : null;
@@ -111,16 +136,17 @@ export function findGraphNodeInProjection(
   }
 
   for (const candidate of candidates) {
-    const node = lookupNodeById(index, candidate);
-    if (node) return node;
+    const lookup = lookupNodeById(index, candidate);
+    if (lookup.status === "found" || lookup.status === "ambiguous") {
+      return lookup;
+    }
   }
 
   if (options.label) {
-    const byLabel = lookupNodeByLabel(index, options.label);
-    if (byLabel) return byLabel;
+    return lookupNodeByLabel(index, options.label);
   }
 
-  return null;
+  return { status: "miss" };
 }
 
 function resolutionLocator(input: {
@@ -159,6 +185,33 @@ function graphNodeResolution(
   };
 }
 
+function ambiguousGraphResolution(
+  locator: string,
+  refType: string | null | undefined,
+  refId: string | null | undefined,
+  matchingNodeIds: string[],
+): PlanReferenceResolution {
+  return {
+    kind: "unresolved",
+    locator,
+    refType: refType ?? null,
+    refId: refId ?? null,
+    graphObject: null,
+    graphNodeId: null,
+    fallback: null,
+    source: "unresolved",
+    message: appendIngestEscalationHint(
+      `Multiple graph nodes match this label or alias (${matchingNodeIds.join(", ")}). Use an exact graph-node locator instead.`,
+    ),
+  };
+}
+
+/**
+ * Adapts a precomputed corpus-index `ReferenceResolution` into the Plan ladder.
+ *
+ * This seam does not call `resolveReference()` itself — the caller must fetch
+ * corpus indexes separately and pass `fallbackResolution` when wiring Plan chips.
+ */
 function fallbackPlanResolution(
   locator: string,
   refType: string | null | undefined,
@@ -235,6 +288,7 @@ export interface ResolvePlanReferenceFromGraphProjectionInput {
   label?: string | null;
   ref?: RunbookReferenceAttrs | null;
   projection?: UnionSupergraphProjectionResponse | null;
+  /** Precomputed corpus-index resolution from `resolveReference()` — not fetched here. */
   fallbackResolution?: ReferenceResolution | null;
 }
 
@@ -248,15 +302,19 @@ export function resolvePlanReferenceFromGraphProjection(
 
   if (input.projection) {
     const index = buildUnionSupergraphNodeIndex(input.projection);
-    const node = findGraphNodeInProjection(index, {
+    const lookup = findGraphNodeInProjection(index, {
       locator: input.locator ?? locator,
       refType,
       refId,
       label,
     });
 
-    if (node) {
-      return graphNodeResolution(node, locator, refType, refId);
+    if (lookup.status === "found") {
+      return graphNodeResolution(lookup.node, locator, refType, refId);
+    }
+
+    if (lookup.status === "ambiguous") {
+      return ambiguousGraphResolution(locator, refType, refId, lookup.matchingNodeIds);
     }
   }
 

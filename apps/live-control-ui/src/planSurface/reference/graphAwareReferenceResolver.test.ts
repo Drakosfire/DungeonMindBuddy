@@ -57,11 +57,14 @@ describe("graphAwareReferenceResolver", () => {
     expect(result.fallback).toBeNull();
   });
 
-  it("returns graph-node result for exact alias match", () => {
+  it("returns graph-node result for exact alias match when alias is unique", () => {
     const index = buildUnionSupergraphNodeIndex(projection);
-    const node = findGraphNodeInProjection(index, { label: "Glow" });
+    const lookup = findGraphNodeInProjection(index, { label: "Glow" });
 
-    expect(node?.node_id).toBe("npc-glowkindle");
+    expect(lookup.status).toBe("found");
+    if (lookup.status === "found") {
+      expect(lookup.node.node_id).toBe("npc-glowkindle");
+    }
 
     const result = resolvePlanReferenceFromGraphProjection({
       refType: "npc",
@@ -74,7 +77,47 @@ describe("graphAwareReferenceResolver", () => {
     expect(result.graphNodeId).toBe("npc-glowkindle");
   });
 
-  it("falls back to corpus-index result when graph misses", () => {
+  it("returns unresolved when duplicate label or alias keys are ambiguous", () => {
+    const lysandraA: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-lysandra-a",
+      label: "Lysandra Ironveil",
+      aliases: ["Lysandra"],
+    };
+    const lysandraB: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-lysandra-b",
+      label: "Lysandra of the Gate",
+      aliases: ["Lysandra"],
+    };
+    const ambiguousProjection: UnionSupergraphProjectionResponse = {
+      ...projection,
+      node_views: {
+        "npc-lysandra-a": lysandraA,
+        "npc-lysandra-b": lysandraB,
+      },
+    };
+
+    const index = buildUnionSupergraphNodeIndex(ambiguousProjection);
+    const lookup = findGraphNodeInProjection(index, { label: "Lysandra" });
+    expect(lookup.status).toBe("ambiguous");
+
+    const result = resolvePlanReferenceFromGraphProjection({
+      refType: "npc",
+      refId: "lysandra",
+      label: "Lysandra",
+      projection: ambiguousProjection,
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.source).toBe("unresolved");
+    expect(result.graphObject).toBeNull();
+    expect(result.message).toMatch(/Multiple graph nodes match/i);
+    expect(result.message).toMatch(/npc-lysandra-a/);
+    expect(result.message).toMatch(/npc-lysandra-b/);
+  });
+
+  it("adapts a precomputed corpus-index fallback result when graph misses", () => {
     const fallback = {
       status: "resolved" as const,
       ref: {
