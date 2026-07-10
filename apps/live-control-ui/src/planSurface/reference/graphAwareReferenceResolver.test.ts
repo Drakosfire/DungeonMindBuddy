@@ -112,9 +112,9 @@ describe("graphAwareReferenceResolver", () => {
     expect(result.kind).toBe("unresolved");
     expect(result.source).toBe("unresolved");
     expect(result.graphObject).toBeNull();
-    expect(result.message).toMatch(/Multiple graph nodes match/i);
-    expect(result.message).toMatch(/npc-lysandra-a/);
-    expect(result.message).toMatch(/npc-lysandra-b/);
+    expect(result.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    expect(result.message).toMatch(/Could not uniquely resolve this object from graph memory/i);
+    expect(result.message).toMatch(/ingest/i);
   });
 
   it("adapts a precomputed corpus-index fallback result when graph misses", () => {

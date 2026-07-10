@@ -20,10 +20,10 @@ import {
   readTiptapWorkingBoardState,
   writeTiptapWorkingBoardState,
 } from "../../tiptap/state/tiptapLocalState";
-import { createCorpusDerivedViewsReader } from "../derivedViews/derivedViewsAdapter";
 import { useEditCapability } from "../edit/editCapability";
 import { useProjection } from "../projection/projectionContext";
-import { readReferenceFromElement, resolveReference } from "../reference/referenceResolver";
+import { readReferenceFromElement } from "../reference/referenceResolver";
+import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
@@ -48,10 +48,7 @@ export function PlanSurfaceCanvas({
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip } = useProjection();
-  const derivedViews = useMemo(
-    () => createCorpusDerivedViewsReader(resolveReference),
-    [],
-  );
+  const { resolvePlanReference, projectionState } = usePlanGraphReferenceResolver(sessionDescriptor);
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
@@ -133,10 +130,10 @@ export function PlanSurfaceCanvas({
       if (!(chip instanceof HTMLElement)) return;
       const ref = readReferenceFromElement(chip);
       if (!ref) return;
-      const resolution = await derivedViews.resolveReference(ref);
-      openContentFromChip(ref, resolution, true);
+      const resolution = await resolvePlanReference(ref);
+      openContentFromChip(ref, resolution, true, projectionState);
     },
-    [derivedViews, openContentFromChip],
+    [openContentFromChip, projectionState, resolvePlanReference],
   );
 
   useEffect(() => {
