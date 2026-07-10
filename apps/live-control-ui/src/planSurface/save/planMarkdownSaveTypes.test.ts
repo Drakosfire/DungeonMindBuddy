@@ -8,17 +8,9 @@ describe("planMarkdownSaveStatusLabel", () => {
     expect(planMarkdownSaveStatusLabel({ status: "dirty" })).toMatch(/since last Markdown save/i);
   });
 
-  it("labels committed and error states", () => {
+  it("labels saving, committed, and error states", () => {
+    expect(planMarkdownSaveStatusLabel({ status: "saving" })).toMatch(/Saving to Markdown/i);
     expect(planMarkdownSaveStatusLabel({ status: "committed" })).toMatch(/Saved to Markdown/i);
     expect(planMarkdownSaveStatusLabel({ status: "error", error: "boom" })).toBe("boom");
-  });
-
-  it("shows stale-preview error on dirty state when present", () => {
-    expect(
-      planMarkdownSaveStatusLabel({
-        status: "dirty",
-        error: "Editor changed after preview. Preview the save again before committing.",
-      }),
-    ).toMatch(/Preview the save again/i);
   });
 });

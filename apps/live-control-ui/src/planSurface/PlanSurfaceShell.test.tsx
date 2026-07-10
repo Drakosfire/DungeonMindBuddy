@@ -979,14 +979,13 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("shows Markdown save controls in the edit toolbar", () => {
+  it("shows Markdown save control in the edit toolbar", () => {
     renderPlanSurface();
 
-    expect(screen.getByRole("button", { name: "Preview Markdown Save" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Commit Markdown" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
   });
 
-  it("previews and commits Markdown for the active planning document", async () => {
+  it("saves Markdown for the active planning document", async () => {
     const user = userEvent.setup();
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
@@ -1028,23 +1027,16 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
 
-    await user.click(screen.getByRole("button", { name: "Preview Markdown Save" }));
+    await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("plan-markdown-save-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("plan-markdown-save-diff")).toHaveTextContent(/C2 Session 23 Prep/);
     expect(fetchSpy.mock.calls[0][0]).toBe("/api/live/tiptap/markdown-write/prepare");
     const prepareBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
     expect(prepareBody.target_relpath).toBe(planTarget);
     expect(prepareBody.document_id).toBe("longmont-c2-session-23-prep");
     expect(prepareBody.markdown).toContain("C2 Session 23 Prep");
-
-    await user.click(screen.getByRole("button", { name: "Commit Markdown" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
-    });
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/Saved to Markdown/i);

@@ -86,10 +86,8 @@ export function PlanSurfaceCanvas({
     state: saveState,
     statusLabel,
     saveDisabled,
-    canCommit,
     markDirty,
-    prepareSave,
-    commitSave,
+    saveMarkdown,
   } = usePlanMarkdownSave({ editor, sessionDescriptor });
 
   useEffect(() => {
@@ -213,20 +211,12 @@ export function PlanSurfaceCanvas({
           defaultOpen: true,
           actions: [
             {
-              id: "plan-preview-markdown-save",
-              label: "Preview Markdown Save",
+              id: "plan-save-markdown",
+              label: "Save to Markdown",
               onClick: () => {
-                void prepareSave();
+                void saveMarkdown();
               },
-              disabled: saveDisabled || saveState.status === "preparing",
-            },
-            {
-              id: "plan-commit-markdown-save",
-              label: "Commit Markdown",
-              onClick: () => {
-                void commitSave();
-              },
-              disabled: !canCommit || saveState.status === "committing",
+              disabled: saveDisabled,
             },
           ],
         },
@@ -234,18 +224,15 @@ export function PlanSurfaceCanvas({
     });
     return () => onEditorToolsChange?.(null);
   }, [
-    canCommit,
-    commitSave,
     copyMarkdown,
     editor,
     insertCallout,
     insertRunbookReference,
     isLocked,
     onEditorToolsChange,
-    prepareSave,
     removeActiveBlock,
     saveDisabled,
-    saveState.status,
+    saveMarkdown,
     toggleLock,
   ]);
 
@@ -273,28 +260,22 @@ export function PlanSurfaceCanvas({
         <EditorContent editor={editor} />
       </div>
 
-      {(saveState.status === "preview_ready" || saveState.status === "committing" || saveState.committed || saveState.error) && (
+      {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (
         <section
           className="plan-markdown-save-panel"
-          aria-label="Markdown save preview"
+          aria-label="Markdown save status"
           data-testid="plan-markdown-save-panel"
         >
           <p className="plan-surface-kicker">Durable save</p>
           <p className="plan-markdown-save-target" data-testid="plan-markdown-save-target">
             Target: {planningDocument.targetRelpath}
-            {saveState.prepared ? ` · ${saveState.prepared.file_exists ? "replace existing file" : "new file"}` : null}
           </p>
-          {saveState.prepared?.writer_diff != null && (
-            <pre className="plan-markdown-save-diff" data-testid="plan-markdown-save-diff">
-              {saveState.prepared.writer_diff}
-            </pre>
-          )}
-          {saveState.prepared?.warnings.map((warning) => (
+          {saveState.warnings?.map((warning) => (
             <p className="plan-markdown-save-warning" key={warning}>
               {warning}
             </p>
           ))}
-          {saveState.prepared?.diagnostics.map((diagnostic) => (
+          {saveState.diagnostics?.map((diagnostic) => (
             <p className="plan-markdown-save-diagnostic" key={diagnostic}>
               {diagnostic}
             </p>

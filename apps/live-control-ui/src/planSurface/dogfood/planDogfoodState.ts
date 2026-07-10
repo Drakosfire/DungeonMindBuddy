@@ -20,8 +20,7 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
   },
   { id: "add-real-notes", label: "Add real prep notes to the board" },
   { id: "use-reference-chip", label: "Add or use at least one reference chip" },
-  { id: "preview-save", label: "Preview Markdown save" },
-  { id: "commit-save", label: "Commit Markdown save" },
+  { id: "save-markdown", label: "Save to Markdown" },
   {
     id: "reload-tab",
     label: "Reload the browser tab and confirm content remains",

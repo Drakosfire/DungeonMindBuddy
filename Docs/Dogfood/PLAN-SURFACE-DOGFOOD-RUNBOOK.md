@@ -28,8 +28,7 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 1. Add real prep notes to the Tiptap board.
 2. Add scene beats and unresolved threads.
 3. Add reference chips where relevant (e.g. NPCs, locations, roll tables).
-4. Click **Preview Markdown save** and review the diff.
-5. Click **Commit Markdown save** after confirming the preview.
+4. Click **Save to Markdown**.
 
 ## Recovery pass
 
@@ -76,21 +75,20 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 1. Start dev server.
 2. Open /plan with ?dogfood=1.
 3. Add real Session Prep content.
-4. Preview Markdown save.
-5. Commit Markdown save.
-6. Reload tab.
-7. Confirm content remains.
-8. Stop dev server.
-9. Restart dev server.
-10. Reopen /plan?dogfood=1.
-11. Confirm content recovers.
-12. Click a reference chip.
-13. Inspect selected-object card.
-14. Show source preview.
-15. Ask prep memory two real questions.
-16. Open supporting source.
-17. Fill dogfood notes.
-18. Copy dogfood report.
+4. Save to Markdown.
+5. Reload tab.
+6. Confirm content remains.
+7. Stop dev server.
+8. Restart dev server.
+9. Reopen /plan?dogfood=1.
+10. Confirm content recovers.
+11. Click a reference chip.
+12. Inspect selected-object card.
+13. Show source preview.
+14. Ask prep memory two real questions.
+15. Open supporting source.
+16. Fill dogfood notes.
+17. Copy dogfood report.
 ```
 
 ## What this unlocks

@@ -85,7 +85,7 @@ describe("PlanDogfoodPanel", () => {
     localStorage.setItem(
       planDogfoodStorageKey(sessionDescriptor),
       JSON.stringify({
-        checked: { "preview-save": true },
+        checked: { "save-markdown": true },
         notes: "",
         updatedAt: "2026-07-09T00:00:00.000Z",
       }),
@@ -93,7 +93,7 @@ describe("PlanDogfoodPanel", () => {
 
     renderPanel();
 
-    expect(screen.getByRole("checkbox", { name: "Preview Markdown save" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Save to Markdown" })).toBeChecked();
   });
 
   it("persists notes to localStorage", async () => {
