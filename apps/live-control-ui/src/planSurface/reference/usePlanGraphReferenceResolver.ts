@@ -30,16 +30,51 @@ export async function resolvePlanReferenceWithFallback(
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<PlanReferenceResolution> {
+  const projectionState = options.projectionState ?? null;
+
+  if (options.projection) {
+    const graphResolution = resolvePlanReferenceFromGraphProjection({
+      ref,
+      projection: options.projection,
+    });
+
+    if (graphResolution.kind === "graph-node") {
+      return {
+        ...graphResolution,
+        graphProjectionState: projectionState,
+      };
+    }
+
+    if (graphResolution.ambiguousNodeIds?.length) {
+      return {
+        ...graphResolution,
+        graphProjectionState: projectionState,
+      };
+    }
+
+    const fallbackResolution = await resolveReference(ref, options.fetchImpl);
+    const resolution = resolvePlanReferenceFromGraphProjection({
+      ref,
+      projection: options.projection,
+      fallbackResolution,
+    });
+
+    return {
+      ...resolution,
+      graphProjectionState: projectionState,
+    };
+  }
+
   const fallbackResolution = await resolveReference(ref, options.fetchImpl);
   const resolution = resolvePlanReferenceFromGraphProjection({
     ref,
-    projection: options.projection ?? null,
+    projection: null,
     fallbackResolution,
   });
 
   return {
     ...resolution,
-    graphProjectionState: options.projectionState ?? null,
+    graphProjectionState: projectionState,
   };
 }
 

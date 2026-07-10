@@ -58,9 +58,9 @@ describe("usePlanGraphReferenceResolver", () => {
     resetReferenceIndexCache();
   });
 
-  it("loads projection and resolves graph-node hits", async () => {
+  it("loads projection and resolves graph-node hits without corpus-index fetch", async () => {
     vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue(projection);
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({ npcs: [] }),
     } as Response);
@@ -79,6 +79,7 @@ describe("usePlanGraphReferenceResolver", () => {
     expect(resolution.kind).toBe("graph-node");
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
     expect(resolution.graphProjectionState).toBe("ready");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("marks projection unavailable without crashing resolution", async () => {
@@ -113,10 +114,35 @@ describe("usePlanGraphReferenceResolver", () => {
 
 describe("resolvePlanReferenceWithFallback", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     resetReferenceIndexCache();
   });
 
-  it("returns ambiguous unresolved when duplicate aliases match", async () => {
+  it("does not fetch corpus index when graph projection resolves a unique node", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index should not be fetched for graph hits");
+    });
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "npc",
+        refId: "glowkindle",
+        label: "Glow",
+      },
+      {
+        projection,
+        projectionState: "ready",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.graphNodeId).toBe("npc-glowkindle");
+  });
+
+  it("does not fetch corpus index when graph projection match is ambiguous", async () => {
     const ambiguousProjection: UnionSupergraphProjectionResponse = {
       ...projection,
       node_views: {
@@ -135,6 +161,10 @@ describe("resolvePlanReferenceWithFallback", () => {
       },
     };
 
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index should not be fetched for ambiguous graph matches");
+    });
+
     const resolution = await resolvePlanReferenceWithFallback(
       {
         kind: "ref",
@@ -145,15 +175,42 @@ describe("resolvePlanReferenceWithFallback", () => {
       {
         projection: ambiguousProjection,
         projectionState: "ready",
-        fetchImpl: async () =>
-          ({
-            ok: true,
-            json: async () => ({ npcs: [] }),
-          }) as Response,
+        fetchImpl,
       },
     );
 
+    expect(fetchImpl).not.toHaveBeenCalled();
     expect(resolution.kind).toBe("unresolved");
     expect(resolution.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+  });
+
+  it("fetches corpus index only after a graph miss", async () => {
+    const fetchImpl = vi.fn(async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          npcs: [{
+            index_id: "missing-slug",
+            title: "Glowkindle",
+          }],
+        }),
+      }) as Response);
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "npc",
+        refId: "missing-slug",
+        label: "Not In Graph",
+      },
+      {
+        projection,
+        projectionState: "ready",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(resolution.kind).toBe("corpus-index");
   });
 });
