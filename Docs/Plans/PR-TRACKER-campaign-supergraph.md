@@ -108,7 +108,7 @@ PR012 Obsolete-path cleanup safety net
 
 ## PR002 — World Supergraph Storage + Graph-Head Contract
 
-**Status:** `DOING`  
+**Status:** `DOING` (GitHub #323)  
 **Phase:** 1  
 **Purpose:** Persistent per-`worldId` graph store with **immutable revisions** and an **atomic graph head**; not session-owned preview state; not mutable in-place JSON as the product model.
 
