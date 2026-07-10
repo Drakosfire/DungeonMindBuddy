@@ -4,6 +4,7 @@ import type {
   GraphObjectActionViewModel,
   GraphObjectCardMode,
   GraphObjectCardViewModel,
+  GraphObjectRelationshipViewModel,
 } from "./types";
 
 export interface GraphObjectCardProps {
@@ -11,6 +12,12 @@ export interface GraphObjectCardProps {
   mode?: GraphObjectCardMode;
   /** When true, plan-mode details may show raw node identifiers. */
   showDebugIdentifiers?: boolean;
+  /** When provided, related objects render as buttons and invoke this callback. */
+  onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
+  /** Optional highlight for the active relationship row. */
+  selectedRelationshipId?: string | null;
+  /** Disables relationship buttons (e.g. while navigating). */
+  relationshipsDisabled?: boolean;
   /** Optional override for related-objects body (e.g. Graph Review chips). */
   relationshipsSlot?: ReactNode;
   /** Optional override for actions body (e.g. review staging / evidence). */
@@ -19,6 +26,71 @@ export interface GraphObjectCardProps {
   detailsSlot?: ReactNode;
   className?: string;
   "aria-label"?: string;
+}
+
+function relationshipPrimaryCopy(relationship: GraphObjectRelationshipViewModel): string {
+  const parts = [relationship.label];
+  if (relationship.predicate) parts.push(relationship.predicate);
+  if (relationship.summary) parts.push(relationship.summary);
+  return parts.join(" · ");
+}
+
+function DefaultRelationships({
+  model,
+  onSelectRelationship,
+  selectedRelationshipId,
+  relationshipsDisabled,
+}: {
+  model: GraphObjectCardViewModel;
+  onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
+  selectedRelationshipId?: string | null;
+  relationshipsDisabled?: boolean;
+}) {
+  const relationships = model.relationships ?? [];
+  if (!relationships.length) return null;
+
+  return (
+    <section
+      className="graph-object-card__relationships"
+      aria-label="Connected objects and relationships"
+    >
+      <h5>Related objects</h5>
+      <ul className="graph-object-card__relationship-list">
+        {relationships.map((relationship) => {
+          const copy = (
+            <>
+              <strong>{relationship.label}</strong>
+              {relationship.predicate ? ` · ${relationship.predicate}` : ""}
+              {relationship.summary ? ` — ${relationship.summary}` : ""}
+            </>
+          );
+
+          if (!onSelectRelationship) {
+            return <li key={relationship.id}>{copy}</li>;
+          }
+
+          const selected = selectedRelationshipId === relationship.id;
+          return (
+            <li key={relationship.id}>
+              <button
+                type="button"
+                className={
+                  selected
+                    ? "graph-object-card__relationship-button graph-object-card__relationship-button--selected"
+                    : "graph-object-card__relationship-button"
+                }
+                disabled={relationshipsDisabled}
+                aria-label={`Open related object ${relationshipPrimaryCopy(relationship)}`}
+                onClick={() => onSelectRelationship(relationship)}
+              >
+                {copy}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel }) {
@@ -55,29 +127,6 @@ function GraphObjectSummary({ model }: { model: GraphObjectCardViewModel }) {
       {model.whyItMattersNow ? (
         <p className="graph-object-card__why-now">{model.whyItMattersNow}</p>
       ) : null}
-    </section>
-  );
-}
-
-function DefaultRelationships({ model }: { model: GraphObjectCardViewModel }) {
-  const relationships = model.relationships ?? [];
-  if (!relationships.length) return null;
-
-  return (
-    <section
-      className="graph-object-card__relationships"
-      aria-label="Connected objects and relationships"
-    >
-      <h5>Related objects</h5>
-      <ul className="graph-object-card__relationship-list">
-        {relationships.map((relationship) => (
-          <li key={relationship.id}>
-            <strong>{relationship.label}</strong>
-            {relationship.predicate ? ` · ${relationship.predicate}` : ""}
-            {relationship.summary ? ` — ${relationship.summary}` : ""}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
@@ -229,6 +278,9 @@ export function GraphObjectCard({
   model,
   mode = "plan",
   showDebugIdentifiers = false,
+  onSelectRelationship,
+  selectedRelationshipId = null,
+  relationshipsDisabled = false,
   relationshipsSlot,
   actionsSlot,
   detailsSlot,
@@ -245,7 +297,14 @@ export function GraphObjectCard({
       aria-label={ariaLabel ?? `${model.label} game card`}
     >
       <GraphObjectIdentityHeader model={model} />
-      {relationshipsSlot ?? <DefaultRelationships model={model} />}
+      {relationshipsSlot ?? (
+        <DefaultRelationships
+          model={model}
+          onSelectRelationship={onSelectRelationship}
+          selectedRelationshipId={selectedRelationshipId}
+          relationshipsDisabled={relationshipsDisabled}
+        />
+      )}
       <GraphObjectSummary model={model} />
       {actionsSlot ?? <DefaultActions model={model} rootRef={rootRef} />}
       {detailsSlot ?? (

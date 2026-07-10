@@ -4596,6 +4596,43 @@ body.plan-toolbox-open .plan-agent-shell {
   font-size: 0.95rem;
 }
 
+.graph-object-card__relationship-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-object-card__relationship-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 0.45rem;
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+}
+
+.graph-object-card__relationship-button:hover:not(:disabled),
+.graph-object-card__relationship-button:focus-visible {
+  border-color: rgba(125, 211, 252, 0.7);
+  background: rgba(14, 165, 233, 0.16);
+  outline: none;
+}
+
+.graph-object-card__relationship-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.graph-object-card__relationship-button--selected {
+  border-color: rgba(125, 211, 252, 0.85);
+  background: rgba(14, 165, 233, 0.22);
+}
+
 .graph-review-projected-interaction-surface .graph-review-node-game-card,
 .graph-review-projected-interaction-surface .graph-object-card {
   border: none;
