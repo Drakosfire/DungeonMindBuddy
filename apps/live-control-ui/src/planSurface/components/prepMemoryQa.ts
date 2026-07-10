@@ -1,4 +1,5 @@
-import type { LiveQueryResponse, PlanSessionDescriptor } from "../../api/types";
+import type { LiveQueryResponse } from "../../api/types";
+import type { PlanSessionDescriptor } from "../types";
 
 export const PREP_MEMORY_PROMPTS = [
   "What changed after the latest ingested recap?",
@@ -22,3 +23,6 @@ export function hasGrounding(answer: LiveQueryResponse): boolean {
 export function answerHeading(answer: LiveQueryResponse): string {
   return hasGrounding(answer) ? "Grounded answer" : "Ungrounded draft";
 }
+
+export const UNGROUNDED_ANSWER_WARNING =
+  "No grounded evidence returned. DungeonBuddy did not find supporting campaign text for this answer. Treat this as ungrounded and verify in /ingest or source memory.";

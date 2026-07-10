@@ -32,6 +32,7 @@ import {
   answerHeading,
   hasGrounding,
   prepMemoryLabel,
+  UNGROUNDED_ANSWER_WARNING,
 } from "./prepMemoryQa";
 
 interface PlanAgentInteractionBarProps {
@@ -695,16 +696,14 @@ export function PlanAgentInteractionBar({
                         answer={packetReview ? null : answer.answer}
                       />
                     ) : null}
+                    {!hasGrounding(answer) ? (
+                      <p className="plan-agent-grounding-warning">
+                        {UNGROUNDED_ANSWER_WARNING}
+                      </p>
+                    ) : null}
                     {!(answer.agent_trace && traceVisible && !packetReview) ? (
                       <section className="plan-agent-answer-card" aria-label={answerHeading(answer)}>
                         <p className="plan-surface-kicker">{answerHeading(answer)}</p>
-                        {!hasGrounding(answer) ? (
-                          <p className="plan-agent-grounding-warning">
-                            No grounded evidence returned. DungeonBuddy did not find supporting
-                            campaign text for this answer. Treat this as ungrounded and verify in
-                            /ingest or source memory.
-                          </p>
-                        ) : null}
                         <p>{answer.answer}</p>
                       </section>
                     ) : null}

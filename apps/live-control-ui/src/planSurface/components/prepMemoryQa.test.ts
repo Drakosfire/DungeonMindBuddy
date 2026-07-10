@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { LiveQueryResponse, PlanSessionDescriptor } from "../../api/types";
+import type { LiveQueryResponse } from "../../api/types";
+import type { PlanSessionDescriptor } from "../types";
 import {
   answerHeading,
   hasGrounding,

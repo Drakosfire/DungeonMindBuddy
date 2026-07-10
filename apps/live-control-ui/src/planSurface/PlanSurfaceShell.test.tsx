@@ -390,8 +390,8 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
 
     const answerRegion = await screen.findByRole("region", { name: "Ungrounded draft" });
-    expect(within(answerRegion).getByText(/No grounded evidence returned/i)).toBeInTheDocument();
-    expect(screen.getByText("Ungrounded draft")).toBeInTheDocument();
+    expect(screen.getByText(/No grounded evidence returned/i)).toBeInTheDocument();
+    expect(answerRegion).toBeInTheDocument();
     expect(screen.getByText("I can speculate, but I did not find supporting campaign text.")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Supporting sources" })).not.toBeInTheDocument();
   });
@@ -434,6 +434,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("CLI synthesized answer for operator.")).toBeInTheDocument();
     expect(screen.getByText(/3100 ms/)).toBeInTheDocument();
     expect(screen.getByText(/Prompt sent to Hermes/)).toBeInTheDocument();
+    expect(screen.getByText(/No grounded evidence returned/i)).toBeInTheDocument();
     expect(screen.queryByText("No context packet returned for this query.")).not.toBeInTheDocument();
   });
 
