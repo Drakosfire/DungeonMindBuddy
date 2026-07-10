@@ -161,27 +161,51 @@ code {
   transition: transform 0.2s ease;
 }
 
+.app-shell-layout {
+  width: 100%;
+}
+
 .app-edit-toolbox.open .app-edit-toolbox-drawer {
   transform: translateX(0);
 }
 
-.app-edit-toolbox[data-layout="dock"] {
-  --app-edit-toolbox-width: min(380px, 32vw);
+.app-shell--edit-dock .app-shell-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
 }
 
-.app-edit-toolbox[data-layout="dock"] .app-edit-toolbox-backdrop {
-  display: none !important;
+.app-shell--edit-dock .app-edit-toolbox--docked {
+  flex: 0 0 auto;
 }
 
-.app-edit-toolbox[data-layout="dock"] .app-edit-toolbox-drawer {
-  width: var(--app-edit-toolbox-width);
+.app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-drawer {
+  position: sticky;
+  top: 0;
+  left: auto;
+  bottom: auto;
+  z-index: 1;
+  width: min(380px, 32vw);
+  height: 100vh;
+  transform: none;
   box-shadow: none;
 }
 
-.app-shell:has(.app-edit-toolbox[data-layout="dock"].open) .app-wrap {
-  margin-left: var(--app-edit-toolbox-width);
-  max-width: min(1440px, calc(100% - var(--app-edit-toolbox-width) - 2rem));
-  transition: margin-left 0.2s ease, max-width 0.2s ease;
+.app-shell--edit-dock .app-wrap {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+}
+
+.app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-backdrop {
+  display: none !important;
+}
+
+.app-shell--edit-dock .plan-surface-root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .app-edit-toolbox-hd,
@@ -1799,13 +1823,35 @@ button:disabled {
     position: static;
   }
 
-  .app-shell:has(.app-edit-toolbox[data-layout="dock"].open) .app-wrap {
-    margin-left: 0;
-    max-width: min(1440px, calc(100% - 2rem));
+  .app-shell--edit-dock .app-shell-layout {
+    display: block;
   }
 
-  .app-edit-toolbox[data-layout="dock"] .app-edit-toolbox-backdrop {
+  .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 860;
+    width: min(440px, 94vw);
+    transform: translateX(-100%);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .app-shell--edit-dock .app-edit-toolbox--docked.open .app-edit-toolbox-drawer {
+    transform: translateX(0);
+  }
+
+  .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-backdrop {
     display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 855;
+    background: rgba(8, 10, 14, 0.45);
+  }
+
+  .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-backdrop[hidden] {
+    display: none !important;
   }
 
   .app-edit-toolbox-toggle,
