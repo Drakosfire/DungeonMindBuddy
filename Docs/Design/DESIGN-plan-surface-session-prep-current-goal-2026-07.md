@@ -80,7 +80,7 @@ Plan consumes the resulting reviewed graph/corpus memory through adapters and pr
 | Question | Decision |
 | --- | --- |
 | Does Plan still include an ingest tool? | Only as a lightweight status, launch, or escalation affordance. Serious ingest, review, and correction belong to `/ingest`. |
-| Does Plan use Graph Review selected-object cards? | Yes as the durable target. Extract or wrap the shared graph-object card (`GraphReviewNodeGameCard` shape); do not keep growing the index-shaped Plan `SelectedObjectCard` as the final UI. |
+| Does Plan use Graph Review selected-object cards? | Yes as the durable target shape. Extract a **neutral shared** graph-object card/view-model primitive from the `GraphReviewNodeGameCard` shape; do not import Graph Review workbench internals into `/plan`, and do not keep growing the index-shaped Plan `SelectedObjectCard` as the final UI. |
 | Does Plan include Author Draft? | No, not in the default prep flow. Escalate to `/ingest` when memory is wrong. |
 | Does Plan write graph memory? | Not in the next dogfood slice. Its future write target is planning Markdown through the edit capability and two-phase writer; graph-memory writes remain in `/ingest`. |
 | Does Plan depend on Hermes? | Current prep-memory Q&A uses Hermes/live-query as a **transitional** seam. The target is a plan-scoped graph-memory query over the Union Supergraph. Until then, show citation, trace, and freshness limits honestly, including live-packet mismatch failures. |
@@ -168,4 +168,4 @@ Landed and dogfoodable:
 - Prep-memory Q&A drawer (live-query / Hermes; **transitional**; can fail on live-packet session mismatch).
 - Optional `/plan?dogfood=1` checklist, notes, report copy, and recovery runbook (**scaffold**, not product UI).
 
-**Next code work** is not more checklist polish. Follow `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7: shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again.
+**Next code work** is not more checklist polish. Follow `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7 as the default order (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query → wire Q&A behind fallback → dogfood again), with dogfood allowed to pull Q&A ahead when live-packet blockage is the sharper prep-loop blocker.

@@ -105,7 +105,7 @@ Architecture context after PR314: `Docs/Design/DESIGN-plan-graph-memory-reanchor
 
 ## What this unlocks
 
-Dogfood reports should drive the next slice — not a predetermined roadmap. Prefer routing findings through the post-dogfood re-anchor sequence (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query) rather than polishing transitional index/live-query paths as if they were final.
+Dogfood reports should drive the next slice — not a predetermined roadmap. Prefer routing findings through the post-dogfood re-anchor sequence (shared graph-object card → graph-aware resolver → plan-scoped graph-memory query) as the **default** architecture order. If live-packet-blocked Q&A is the sharper prep-loop blocker, it is correct to pull the plan-scoped graph-memory query ahead of card extraction rather than polishing transitional index/live-query paths as if they were final.
 
 Common outcomes:
 

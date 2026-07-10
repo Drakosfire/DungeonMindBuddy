@@ -247,7 +247,7 @@ After the `/plan` dogfood checklist merge, Plan also needs:
 - a **graph-aware chip resolver** with corpus-index fallback;
 - a **plan-scoped graph-memory query contract** for prep Q&A that is not gated by the server’s loaded live-packet session.
 
-Authoritative sequencing for those Plan-facing slices: `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7. That work consumes this roadmap’s projection contracts; it does not redefine Union Supergraph semantics inside the UI.
+Authoritative sequencing for those Plan-facing slices: `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md` §7 (default order; dogfood may reprioritize Q&A when it is the sharper blocker). That work consumes this roadmap’s projection/adapter contracts; it does not redefine Union Supergraph semantics inside the UI, and must not reach into graph-memory storage or eval fixture internals.
 
 ## 10. What remains in evals
 

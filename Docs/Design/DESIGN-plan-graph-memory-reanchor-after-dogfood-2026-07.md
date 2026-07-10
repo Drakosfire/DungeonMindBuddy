@@ -81,7 +81,7 @@ Every graph-backed claim still needs source anchors / provenance. Preserve `Sour
 | Session / document descriptors | Explicit campaign/session/target context | **Durable** | Keep |
 | `/plan?dogfood=1` checklist + report | Operator measurement scaffold | **Scaffold** | Keep optional; never the product destination |
 | `PlanAgentInteractionBar` → `postLiveQuery` → `/api/live/query` | Prep Q&A via planning corpus manifest / live retrieval / Hermes | **Transitional** | Plan-scoped graph-memory query over Union Supergraph |
-| Plan `SelectedObjectCard` (corpus-index fields) | Game-facing chip card from npc/location/statblock/roll-table indexes | **Transitional** | Shared graph-object card primitive (extract/wrap `GraphReviewNodeGameCard`) |
+| Plan `SelectedObjectCard` (corpus-index fields) | Game-facing chip card from npc/location/statblock/roll-table indexes | **Transitional** | Neutral shared graph-object card/view-model primitive (extracted from `GraphReviewNodeGameCard` shape; not a Plan→Graph Review import) |
 | Chip resolver via corpus indexes | Opaque locator → index hit | **Fallback** | Graph-aware resolver first; index fallback; unresolved → `/ingest` |
 | Source preview via `postCitationSource` | Read-only file excerpt | **Durable enough as a read path** | Prefer evidence/source anchors from graph node view when available |
 | Party registry / statblock tool projections | Supporting prep tools | **Durable seams** | Keep as projections; do not invent parallel Plan tools |
@@ -121,7 +121,9 @@ Plan mode shows game-useful information first:
 - source/evidence access;
 - “open in `/ingest`” if correction is needed.
 
-Do **not** keep growing an independent index-shaped `SelectedObjectCard` as the durable object UI. Extract or wrap the existing Graph Review card shape (`GraphReviewNodeGameCard`) rather than rebuilding it.
+Do **not** keep growing an independent index-shaped `SelectedObjectCard` as the durable object UI.
+
+**Extraction rule:** lift a shared graph-object card / view-model primitive into a **neutral shared module** (for example under `apps/live-control-ui/src/graphObject/` or an equivalent non-surface-owned path). Plan mode and Graph Review mode both consume that primitive. Use `GraphReviewNodeGameCard` as the shape reference to extract from — do **not** import the Graph Review workbench wholesale into `/plan`, and do not create a Plan dependency on Graph Review internals while believing the surfaces “share a card.”
 
 ### 5.2 Graph-aware chip resolution ladder
 
@@ -157,7 +159,33 @@ Plan prep question
 → answer with object refs, citations, source anchors, freshness state
 ```
 
-This note does **not** implement that endpoint. The next implementation must define a plan-scoped contract that is not gated by live-packet session mismatch.
+This note does **not** implement that endpoint. The next implementation must define a plan-scoped contract that is not gated by live-packet session mismatch, and must not treat `/api/live/query` as the durable shape merely because it is the only concrete Q&A API in the repo today.
+
+#### Minimal contract stub (design sketch, not shipped schema)
+
+Request (illustrative):
+
+```text
+campaignId
+prepSessionId
+memorySessionId | focusSessionId
+question
+graphProjectionSource   # e.g. union_supergraph | unavailable
+```
+
+Response (illustrative):
+
+```text
+answer
+objectRefs[]            # opaque locators / node ids for chip follow-through
+citations[]
+sourceAnchors[]         # SourceArtifact → SourceAnchor → SourceUnit vocabulary
+freshnessState
+groundingState          # grounded | ungrounded | unavailable
+fallbackUsed            # none | live_query | corpus_index | none_available
+```
+
+The stub is enough to keep the next code agent from defaulting back through live-packet-gated `/api/live/query` as the only known contract. Exact field names and transport can land in the implementation PR; the invariants above must not.
 
 ### 5.4 Source / evidence / freshness envelope
 
@@ -195,13 +223,15 @@ Plan may show memory status, freshness, unresolved warnings, source/evidence rea
 
 ## 7. Next implementation sequence
 
-Small PRs, in order:
+**Default order** (unless dogfood shows a sharper blocker):
 
-1. **Extract shared graph-object card model** — shared view shape + Plan mode that hides review machinery; wrap or extract from `GraphReviewNodeGameCard` rather than extending index-shaped Plan card forever.
+1. **Extract shared graph-object card model** — lift a neutral shared view-model/card primitive from the `GraphReviewNodeGameCard` shape; Plan mode consumes it with review machinery hidden. Do not import Graph Review workbench internals into `/plan`.
 2. **Add graph-aware resolver seam / adapter** — resolution ladder above; keep corpus-index fallback.
-3. **Define plan-scoped graph-memory query contract** — not live-packet-gated; returns object refs, citations, source anchors, freshness.
+3. **Define plan-scoped graph-memory query contract** — not live-packet-gated; use the stub in §5.3 as the starting shape.
 4. **Wire Plan Q&A to graph-memory read path behind fallback** — keep current live-query path as fallback until the graph path is trustworthy.
 5. **Dogfood and report** — exercise via `/plan?dogfood=1` and the runbook; judge success against the real prep loop, not checklist completeness.
+
+**Reprioritization rule:** if dogfood reports show live-packet-blocked or otherwise unusable prep-memory Q&A as the sharper prep-loop blocker, it is correct to pull steps 3–4 ahead of card extraction. The sequence above is the default architecture order, not a veto of dogfood-driven triage.
 
 ## 8. Acceptance criteria for this re-anchor
 
