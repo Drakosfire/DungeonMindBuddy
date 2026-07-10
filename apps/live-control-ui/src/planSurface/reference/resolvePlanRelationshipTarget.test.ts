@@ -142,4 +142,27 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.graphObject).toBeNull();
     expect(resolution.message).toMatch(/ingest/i);
   });
+
+  it("does not label-fallback when targetId misses but label matches another node", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-stale",
+        label: "Inn",
+        targetId: "location-missing",
+        targetKind: "location",
+      },
+      projection,
+      projectionState: "ready",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ locations: [] }),
+        }) as Response,
+    });
+
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.graphNodeId).toBeNull();
+    expect(resolution.graphObject).toBeNull();
+    expect(resolution.locator).toBe("dmb-node:location-missing");
+  });
 });

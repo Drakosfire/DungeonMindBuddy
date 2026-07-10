@@ -124,6 +124,7 @@ export function PlanReferenceObjectCard({
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
       if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
+      if (resolverProjectionState === "loading") return;
 
       setNavigatingRelationshipId(relationship.id);
       try {
@@ -141,8 +142,12 @@ export function PlanReferenceObjectCard({
       navigatingRelationshipId,
       projection,
       resolvePlanRelationship,
+      resolverProjectionState,
     ],
   );
+
+  const relationshipsDisabled =
+    Boolean(navigatingRelationshipId) || resolverProjectionState === "loading";
 
   if (resolution.kind === "graph-node" && resolution.graphObject) {
     const model = {
@@ -161,7 +166,7 @@ export function PlanReferenceObjectCard({
         aria-label={`${model.label} graph object`}
         onSelectRelationship={projection ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
-        relationshipsDisabled={Boolean(navigatingRelationshipId)}
+        relationshipsDisabled={relationshipsDisabled}
       />
     );
   }

@@ -322,6 +322,29 @@ describe("PlanReferenceObjectCard", () => {
     expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
   });
 
+  it("disables related-object buttons while the card-local graph projection is loading", async () => {
+    vi.mocked(liveApi.getUnionSupergraphProjection).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    const resolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "union-supergraph",
+      graphProjectionState: "ready",
+    };
+
+    renderWithProjection(
+      <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
+    );
+
+    const related = await screen.findByRole("button", { name: /Open related object Inn/i });
+    expect(related).toBeDisabled();
+  });
+
   it("shows ambiguous unresolved card for related-object label collisions", async () => {
     const user = userEvent.setup();
     const nodeWithAmbiguousRelation: GraphProjectionNodeView = {

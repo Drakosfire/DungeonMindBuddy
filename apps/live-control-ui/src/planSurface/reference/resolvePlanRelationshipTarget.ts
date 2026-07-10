@@ -1,3 +1,4 @@
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { UnionSupergraphProjectionResponse } from "../../api/types";
 import {
@@ -48,7 +49,7 @@ function unresolvedRelationshipMiss(
  * Resolve a GraphObjectCard relationship target through the Plan graph-aware ladder.
  *
  * Rules:
- * - targetId → exact `dmb-node:<id>` lookup (no guessing)
+ * - targetId → exact `projection.node_views[targetId]` only (no label fallback)
  * - label-only → unique label/alias match only; ambiguous stays unresolved
  * - never first-win on duplicate aliases
  */
@@ -70,18 +71,24 @@ export async function resolvePlanRelationshipTarget({
   if (targetId) {
     const locator = `dmb-node:${targetId}`;
 
-    if (projection) {
-      const graphResolution = resolvePlanReferenceFromGraphProjection({
-        locator,
-        refType: targetKind,
-        refId: targetId,
-        label,
-        projection,
-      });
-
-      if (graphResolution.kind === "graph-node" || graphResolution.ambiguousNodeIds?.length) {
-        return withProjectionState(graphResolution, projectionState);
-      }
+    // Exact node-id lookup only — do not pass label into the general resolver,
+    // which would otherwise unique-match a different node by label on miss.
+    const exactNode = projection?.node_views?.[targetId] ?? null;
+    if (exactNode) {
+      return withProjectionState(
+        {
+          kind: "graph-node",
+          locator,
+          refType: targetKind,
+          refId: targetId,
+          graphObject: buildGraphObjectCardFromNodeView(exactNode),
+          graphNodeId: exactNode.node_id,
+          fallback: null,
+          source: "union-supergraph",
+          message: `Resolved graph node ${exactNode.label}.`,
+        },
+        projectionState,
+      );
     }
 
     const canUseCorpusIndex = Boolean(targetKind && REFERENCE_INDEX_ENDPOINTS[targetKind]);
@@ -95,12 +102,12 @@ export async function resolvePlanRelationshipTarget({
         },
         fetchImpl,
       );
+      // Omit label so an exact graph miss cannot label-fallback before corpus adapt.
       return withProjectionState(
         resolvePlanReferenceFromGraphProjection({
           locator,
           refType: targetKind,
           refId: targetId,
-          label,
           projection: projection ?? null,
           fallbackResolution,
         }),
