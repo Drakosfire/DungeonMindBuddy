@@ -5,6 +5,8 @@ import type { GraphObjectCardMode, GraphObjectCardViewModel } from "./types";
 export interface GraphObjectCardProps {
   model: GraphObjectCardViewModel;
   mode?: GraphObjectCardMode;
+  /** When true, plan-mode details may show raw node identifiers. */
+  showDebugIdentifiers?: boolean;
   /** Optional override for related-objects body (e.g. Graph Review chips). */
   relationshipsSlot?: ReactNode;
   /** Optional override for actions body (e.g. review staging / evidence). */
@@ -19,10 +21,10 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
   const aliases = model.aliases ?? [];
 
   return (
-    <header className="graph-review-node-identity-header">
-      <div className="graph-review-node-identity-title-row">
+    <header className="graph-object-card__identity-header graph-review-node-identity-header">
+      <div className="graph-object-card__title-row graph-review-node-identity-title-row">
         <span
-          className="graph-review-object-type-badge"
+          className="graph-object-card__type-badge graph-review-object-type-badge"
           aria-label={`Object type: ${model.typeBadgeLabel}`}
         >
           {model.typeBadgeLabel}
@@ -30,10 +32,12 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
         <h4>{model.label}</h4>
       </div>
       {model.secondaryRoleLabel ? (
-        <p className="graph-review-node-role-subtitle">{model.secondaryRoleLabel}</p>
+        <p className="graph-object-card__role-subtitle graph-review-node-role-subtitle">
+          {model.secondaryRoleLabel}
+        </p>
       ) : null}
       {aliases.length ? (
-        <p className="graph-review-node-aliases">
+        <p className="graph-object-card__aliases graph-review-node-aliases">
           Also known as: {aliases.join(", ")}
         </p>
       ) : null}
@@ -61,11 +65,11 @@ function DefaultRelationships({ model }: { model: GraphObjectCardViewModel }) {
 
   return (
     <section
-      className="graph-review-node-relationships-primary"
+      className="graph-object-card__relationships graph-review-node-relationships-primary"
       aria-label="Connected objects and relationships"
     >
       <h5>Related objects</h5>
-      <ul className="graph-object-card-relationship-list">
+      <ul className="graph-object-card__relationship-list">
         {relationships.map((relationship) => (
           <li key={relationship.id}>
             <strong>{relationship.label}</strong>
@@ -85,7 +89,7 @@ function DefaultActions({ model }: { model: GraphObjectCardViewModel }) {
   return (
     <section aria-label="Actions">
       <h5>Actions</h5>
-      <div className="graph-review-card-actions">
+      <div className="graph-object-card__actions graph-review-card-actions">
         {actions.map((action) =>
           action.href ? (
             <a key={action.id} href={action.href} title={action.helpText}>
@@ -111,18 +115,22 @@ function DefaultActions({ model }: { model: GraphObjectCardViewModel }) {
 function DefaultDetails({
   model,
   mode,
+  showDebugIdentifiers,
 }: {
   model: GraphObjectCardViewModel;
   mode: GraphObjectCardMode;
+  showDebugIdentifiers: boolean;
 }) {
   const details = model.details;
   const evidence = model.evidence ?? [];
   const sourceDomains = details?.sourceDomains ?? model.sourceDomains ?? [];
   const evidenceCount = details?.evidenceCount ?? evidence.length;
+  const showIdentifiers =
+    mode === "plan" && showDebugIdentifiers && Boolean(details?.nodeId);
   const hasBody =
     Boolean(details?.visibilityLabel || model.visibilityLabel) ||
     Boolean(details?.sourceAnchorText) ||
-    Boolean(details?.nodeId) ||
+    showIdentifiers ||
     evidenceCount > 0 ||
     sourceDomains.length > 0 ||
     Boolean(details?.lines?.length) ||
@@ -131,21 +139,29 @@ function DefaultDetails({
   if (!hasBody) return null;
 
   return (
-    <details className="graph-review-details-panel">
+    <details className="graph-object-card__details graph-review-details-panel">
       <summary>Details</summary>
       {(details?.visibilityLabel || model.visibilityLabel || model.freshnessLabel) ? (
-        <section className="graph-review-details-section" aria-label="Memory and visibility">
+        <section
+          className="graph-object-card__details-section graph-review-details-section"
+          aria-label="Memory and visibility"
+        >
           {details?.visibilityLabel || model.visibilityLabel ? (
-            <p className="graph-review-muted">
+            <p className="graph-object-card__muted graph-review-muted">
               Visibility: {details?.visibilityLabel ?? model.visibilityLabel}
             </p>
           ) : null}
           {model.freshnessLabel ? (
-            <p className="graph-review-muted">Freshness: {model.freshnessLabel}</p>
+            <p className="graph-object-card__muted graph-review-muted">
+              Freshness: {model.freshnessLabel}
+            </p>
           ) : null}
         </section>
       ) : null}
-      <section className="graph-review-details-section" aria-label="Evidence and source">
+      <section
+        className="graph-object-card__details-section graph-review-details-section"
+        aria-label="Evidence and source"
+      >
         <h6>Evidence and source</h6>
         <p>
           {evidenceCount} evidence badge
@@ -161,24 +177,30 @@ function DefaultDetails({
           </p>
         ) : null}
         {evidence.map((item) => (
-          <p key={item.id} className="graph-review-muted">
+          <p key={item.id} className="graph-object-card__muted graph-review-muted">
             {item.label ?? item.id}
             {item.sourceDomain ? ` · ${item.sourceDomain}` : ""}
           </p>
         ))}
       </section>
       {details?.lines?.length ? (
-        <section className="graph-review-details-section" aria-label="Additional details">
+        <section
+          className="graph-object-card__details-section graph-review-details-section"
+          aria-label="Additional details"
+        >
           {details.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}
         </section>
       ) : null}
-      {details?.nodeId && mode === "plan" ? (
-        <section className="graph-review-details-section" aria-label="Identifiers">
+      {showIdentifiers ? (
+        <section
+          className="graph-object-card__details-section graph-review-details-section"
+          aria-label="Identifiers"
+        >
           <h6>Identifiers</h6>
           <p>
-            <strong>Node ID:</strong> {details.nodeId}
+            <strong>Node ID:</strong> {details?.nodeId}
           </p>
         </section>
       ) : null}
@@ -196,10 +218,11 @@ function DefaultDetails({
 export function GraphObjectCard({
   model,
   mode = "plan",
+  showDebugIdentifiers = false,
   relationshipsSlot,
   actionsSlot,
   detailsSlot,
-  className = "graph-review-node-game-card",
+  className = "graph-object-card",
   "aria-label": ariaLabel,
 }: GraphObjectCardProps) {
   return (
@@ -212,7 +235,13 @@ export function GraphObjectCard({
       {relationshipsSlot ?? <DefaultRelationships model={model} />}
       <GraphObjectSummary model={model} />
       {actionsSlot ?? <DefaultActions model={model} />}
-      {detailsSlot ?? <DefaultDetails model={model} mode={mode} />}
+      {detailsSlot ?? (
+        <DefaultDetails
+          model={model}
+          mode={mode}
+          showDebugIdentifiers={showDebugIdentifiers}
+        />
+      )}
     </article>
   );
 }

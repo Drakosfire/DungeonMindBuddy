@@ -33,6 +33,15 @@ export function relationshipViewModelsFromAdjacency(
     targetId: edge.node_id,
     targetKind: edge.kind,
     evidenceRefIds: edge.evidence_ref_ids,
+    sourceDomains: edge.source_domains,
+    anchoredToFocusSession: edge.anchored_to_focus_session,
+    sessionIds: edge.session_ids,
+    sourceExcerpt: edge.source_excerpt ?? null,
+    sourceExcerptIsFullParagraph: edge.source_excerpt_is_full_paragraph,
+    sourceExcerptHighlightSpans: edge.source_excerpt_highlight_spans?.map((span) => ({
+      start: span.start,
+      end: span.end,
+    })),
   }));
 }
 

@@ -35,6 +35,9 @@ const baseNode: GraphProjectionNodeView = {
       evidence_ref_ids: ["ev-1"],
       session_ids: ["session-2"],
       related_summary: "The party's meeting place.",
+      source_excerpt: "They negotiated at the Inn after dusk.",
+      source_excerpt_is_full_paragraph: true,
+      source_excerpt_highlight_spans: [{ start: 24, end: 27 }],
     },
   ],
   anchored_to_focus_session: true,
@@ -64,6 +67,12 @@ describe("buildGraphObjectCardFromNodeView", () => {
         targetId: "location-inn",
         targetKind: "location",
         evidenceRefIds: ["ev-1"],
+        sourceDomains: ["recap"],
+        anchoredToFocusSession: true,
+        sessionIds: ["session-2"],
+        sourceExcerpt: "They negotiated at the Inn after dusk.",
+        sourceExcerptIsFullParagraph: true,
+        sourceExcerptHighlightSpans: [{ start: 24, end: 27 }],
       },
     ]);
     expect(model.evidence).toEqual([

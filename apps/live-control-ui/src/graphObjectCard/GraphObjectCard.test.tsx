@@ -49,8 +49,11 @@ describe("GraphObjectCard", () => {
     render(<GraphObjectCard mode="plan" model={planModel} />);
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(card).toHaveClass("graph-object-card");
     expect(card).toHaveAttribute("data-graph-object-card-mode", "plan");
-    expect(within(card).getByLabelText("Object type: Location")).toHaveTextContent("Location");
+    expect(within(card).getByLabelText("Object type: Location")).toHaveClass(
+      "graph-object-card__type-badge",
+    );
     expect(within(card).getByRole("heading", { level: 4 })).toHaveTextContent("Inn (Mireward Reach)");
     expect(within(card).getByText(/Also known as: The Inn, Mireward Inn/)).toBeInTheDocument();
     expect(
@@ -65,9 +68,24 @@ describe("GraphObjectCard", () => {
 
     const detailsPanel = within(card).getByText("Details").closest("details");
     expect(detailsPanel).not.toBeNull();
+    expect(detailsPanel).toHaveClass("graph-object-card__details");
     expect(within(detailsPanel!).getByText("Visibility: Table known")).toBeInTheDocument();
     expect(within(detailsPanel!).getByText(/1 evidence badge/)).toBeInTheDocument();
     expect(within(detailsPanel!).getByText("Session recap mention · recap")).toBeInTheDocument();
+    expect(within(detailsPanel!).queryByText("location-inn")).not.toBeInTheDocument();
+    expect(within(detailsPanel!).queryByText(/Node ID:/)).not.toBeInTheDocument();
+  });
+
+  it("shows node id in plan mode only when showDebugIdentifiers is true", async () => {
+    const user = userEvent.setup();
+    render(<GraphObjectCard mode="plan" model={planModel} showDebugIdentifiers />);
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    await user.click(within(card).getByText("Details"));
+
+    const detailsPanel = within(card).getByText("Details").closest("details");
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel!).getByText(/Node ID:/)).toBeInTheDocument();
     expect(within(detailsPanel!).getByText("location-inn")).toBeInTheDocument();
   });
 
