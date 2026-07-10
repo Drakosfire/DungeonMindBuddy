@@ -294,6 +294,32 @@ describe("GraphObjectDogfoodPanel", () => {
     expect(localStorage.getItem(graphObjectDogfoodStorageKey(sessionDescriptor))).toBeNull();
     expect(screen.getByText(/No cards on the dogfood list yet/i)).toBeInTheDocument();
   });
+
+  it("shows requested Plan graph context diagnostics", async () => {
+    renderPanel();
+
+    const diagnostics = await screen.findByTestId("plan-graph-context-diagnostics");
+    expect(within(diagnostics).getByText("longmont-c2")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("session-21")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("latest-ingest")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("23")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("21")).toBeInTheDocument();
+  });
+
+  it("softens unavailable copy and reports usefulness dogfood as blocked", async () => {
+    vi.mocked(liveApi.getUnionSupergraphProjection).mockRejectedValue(
+      new liveApi.LiveApiError("missing", 404),
+    );
+    renderPanel();
+
+    expect(
+      await screen.findByText(/No Plan graph projection is available for the current Plan graph context/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/did not validate card usefulness/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/local-only/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/memory session/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("plan-graph-context-diagnostics")).toBeInTheDocument();
+  });
 });
 
 describe("GraphObjectDogfoodPanel relationship traversal handoff", () => {

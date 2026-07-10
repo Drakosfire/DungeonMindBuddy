@@ -2,17 +2,22 @@ import { useMemo, useState } from "react";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 import type { PlanGraphProjectionState } from "../reference/graphAwareReferenceResolver";
+import type { PlanGraphContextRequest } from "../reference/planGraphContextRequest";
+import { PLAN_GRAPH_PROJECTION_UNAVAILABLE_COPY } from "../reference/planGraphContextRequest";
 import { runbookReferenceFromGraphNode } from "../reference/runbookReferenceFromGraphNode";
 import {
   searchGraphProjectionNodes,
   sortGraphProjectionNodes,
 } from "../reference/searchGraphProjectionNodes";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import { PlanGraphContextDiagnostics } from "./PlanGraphContextDiagnostics";
 
 export interface PlanGraphRefSearchProps {
   nodes: GraphProjectionNodeView[];
   projectionState: PlanGraphProjectionState;
   projectionError?: string | null;
+  /** Optional requested graph context for unavailable diagnostics. */
+  graphContext?: PlanGraphContextRequest | null;
   disabled?: boolean;
   onInsert: (attrs: RunbookReferenceAttrs) => void;
   onView?: (node: GraphProjectionNodeView) => void;
@@ -22,6 +27,7 @@ export function PlanGraphRefSearch({
   nodes,
   projectionState,
   projectionError = null,
+  graphContext = null,
   disabled = false,
   onInsert,
   onView,
@@ -57,10 +63,17 @@ export function PlanGraphRefSearch({
         </p>
       ) : null}
       {projectionState === "unavailable" ? (
-        <p className="plan-graph-ref-search__status" role="status">
-          No Union Supergraph projection for this memory session yet. Open /ingest to review or
-          build graph memory, then reload /plan.
-        </p>
+        <div className="plan-graph-ref-search__status" role="status">
+          <p>{PLAN_GRAPH_PROJECTION_UNAVAILABLE_COPY}</p>
+          {graphContext ? (
+            <PlanGraphContextDiagnostics graphContext={graphContext} compact />
+          ) : (
+            <p className="plan-graph-ref-search__diagnostic">
+              Open /ingest to review or build graph memory for the intended Plan graph context, then
+              reload /plan.
+            </p>
+          )}
+        </div>
       ) : null}
 
       {projectionState === "ready" ? (

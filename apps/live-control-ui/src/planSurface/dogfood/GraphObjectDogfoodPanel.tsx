@@ -5,9 +5,14 @@ import {
   buildGraphObjectCardFromNodeView,
   type GraphObjectCardViewModel,
 } from "../../graphObjectCard";
+import { PlanGraphContextDiagnostics } from "../components/PlanGraphContextDiagnostics";
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
+import {
+  buildPlanGraphContextRequest,
+  PLAN_GRAPH_PROJECTION_UNAVAILABLE_COPY,
+} from "../reference/planGraphContextRequest";
 import {
   searchGraphProjectionNodes,
   sortGraphProjectionNodes,
@@ -114,6 +119,10 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
   const projectionApi = useOptionalProjection();
   const { projection, projectionState, projectionError } =
     usePlanGraphReferenceResolver(sessionDescriptor);
+  const graphContext = useMemo(
+    () => buildPlanGraphContextRequest(sessionDescriptor),
+    [sessionDescriptor],
+  );
 
   const [state, setState] = useState<GraphObjectDogfoodState>(() =>
     loadGraphObjectDogfoodState(window.localStorage, sessionDescriptor),
@@ -205,10 +214,19 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
         <h3 className="graph-object-dogfood-title">Graph objects</h3>
         <p className="graph-object-dogfood-subtitle">
           Search the Union Supergraph projection, add cards to a local dogfood list, view them
-          through the real Plan card path, and record whether they are useful. Remove never deletes
-          graph or corpus memory.
+          through the real Plan card path, and record whether they are useful. “Remove from dogfood
+          list” is local-only — it never deletes graph nodes or corpus markdown.
         </p>
       </header>
+
+      <div className="graph-object-dogfood-section">
+        <h4 className="graph-object-dogfood-section-title">Requested Plan graph context</h4>
+        <p className="graph-object-dogfood-diagnostic-note">
+          Diagnostic only — what Plan asked the projection API for. Not a claim that this store
+          exists.
+        </p>
+        <PlanGraphContextDiagnostics graphContext={graphContext} />
+      </div>
 
       {projectionState === "loading" ? (
         <p className="graph-object-dogfood-status" role="status">
@@ -221,9 +239,14 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
         </p>
       ) : null}
       {projectionState === "unavailable" ? (
-        <p className="graph-object-dogfood-status" role="status">
-          Graph projection unavailable for this session.
-        </p>
+        <div className="graph-object-dogfood-status" role="status">
+          <p>{PLAN_GRAPH_PROJECTION_UNAVAILABLE_COPY}</p>
+          <p className="graph-object-dogfood-blocked-note">
+            This panel did not validate card usefulness — no projection loaded. Local dogfood list
+            add/remove/notes still work only after a projection is available; removal remains
+            local-only and never deletes graph or corpus memory.
+          </p>
+        </div>
       ) : null}
 
       {projectionState === "ready" ? (

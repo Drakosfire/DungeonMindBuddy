@@ -25,6 +25,7 @@ import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
+import { buildPlanGraphContextRequest } from "../reference/planGraphContextRequest";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
@@ -56,6 +57,10 @@ export function PlanSurfaceCanvas({
     projectionState,
     projectionError,
   } = usePlanGraphReferenceResolver(sessionDescriptor);
+  const graphContext = useMemo(
+    () => buildPlanGraphContextRequest(sessionDescriptor),
+    [sessionDescriptor],
+  );
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
@@ -152,6 +157,7 @@ export function PlanSurfaceCanvas({
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
+        graphContext={graphContext}
         disabled={!editor || isLocked}
         onInsert={insertRunbookReference}
         onView={handleViewGraphNode}
@@ -159,6 +165,7 @@ export function PlanSurfaceCanvas({
     ),
     [
       editor,
+      graphContext,
       handleViewGraphNode,
       insertRunbookReference,
       isLocked,

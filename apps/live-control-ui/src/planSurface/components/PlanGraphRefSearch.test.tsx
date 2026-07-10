@@ -58,4 +58,30 @@ describe("PlanGraphRefSearch", () => {
       label: "Glowkindle",
     });
   });
+
+  it("uses Plan graph context copy when projection is unavailable", () => {
+    render(
+      <PlanGraphRefSearch
+        nodes={[]}
+        projectionState="unavailable"
+        graphContext={{
+          campaignId: "longmont-c2",
+          prepSession: 23,
+          memorySession: 21,
+          liveSession: 22,
+          requestedSessionId: "session-21",
+          projectionMode: "latest-ingest",
+        }}
+        onInsert={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(/No Plan graph projection is available for the current Plan graph context/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/memory session/i)).not.toBeInTheDocument();
+    const diagnostics = screen.getByTestId("plan-graph-context-diagnostics");
+    expect(within(diagnostics).getByText("session-21")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("latest-ingest")).toBeInTheDocument();
+  });
 });
