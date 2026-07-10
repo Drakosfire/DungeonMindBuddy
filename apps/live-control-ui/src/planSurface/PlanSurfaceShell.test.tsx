@@ -15,6 +15,24 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 
+vi.mock("../api/liveApi", async () => {
+  const actual = await vi.importActual<typeof import("../api/liveApi")>("../api/liveApi");
+  return {
+    ...actual,
+    getUnionSupergraphProjection: vi.fn().mockResolvedValue({
+      campaign_id: "longmont-c2",
+      session_id: "session-21",
+      node_views: {},
+      focus: {
+        focused_evidence_ref_ids: [],
+        focused_node_ids: [],
+        focused_edge_ids: [],
+      },
+      mentions: [],
+    }),
+  };
+});
+
 function PlanSurfaceTestHarness() {
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
 
@@ -999,6 +1017,17 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
+  });
+
+  it("keeps graph object search in the edit toolbar, not the canvas", async () => {
+    renderPlanSurface();
+
+    const editToolbar = screen.getByRole("complementary", { name: "Edit toolbar" });
+    expect(await within(editToolbar).findByText("Search graph objects")).toBeInTheDocument();
+    expect(within(editToolbar).getByText(/Insert refs/i)).toBeInTheDocument();
+
+    const canvas = screen.getByLabelText("Plan canvas");
+    expect(within(canvas).queryByText("Search graph objects")).not.toBeInTheDocument();
   });
 
   it("saves Markdown for the active planning document", async () => {

@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [DOING] Plan insert-refs must search graph projection — captured 2026-07-10
+
+**Context:** PR321 dogfood. Insert refs toolbar only offered hardcoded `RUNBOOK_REFERENCE_SAMPLES` (Lysandro / North Reach Gate / etc.), so operators could not find current Union Supergraph objects.
+
+**Insight:** Corpus-index sample chips are not a substitute for graph search. Dogfood and chip insert both need client-side search over `projection.node_views` (label/alias/kind/id).
+
+**Action:** Ship graph search in dogfood panel + replace Insert refs samples with Search graph objects → Insert chip / View.
+
+**Surfaces when:** `/plan` reference insert, graph object dogfood, Plan chip authoring.
+
+**Refs:** PR #321, `PlanSurfaceCanvas.tsx`, `PlanGraphRefSearch.tsx`, `searchGraphProjectionNodes.ts`
+
 ## Resume after Graph Review authored-memory pause
 
 **Checkpoint:** PR #305 merged 2026-07-09. Read `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` before reopening this workstream.

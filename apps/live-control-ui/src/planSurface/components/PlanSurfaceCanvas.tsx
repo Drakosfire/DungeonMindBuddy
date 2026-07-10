@@ -13,7 +13,6 @@ import {
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import { RUNBOOK_REFERENCE_SAMPLES } from "../../tiptap/TiptapCalloutBridgeSpike";
 import { planDocumentToRunbookDescriptor } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkingBoardState,
@@ -22,10 +21,14 @@ import {
 } from "../../tiptap/state/tiptapLocalState";
 import { useEditCapability } from "../edit/editCapability";
 import { useProjection } from "../projection/projectionContext";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import type { GraphProjectionNodeView } from "../../api/types";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
+import { buildPlanGraphContextRequest } from "../reference/planGraphContextRequest";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
+import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 
@@ -47,8 +50,17 @@ export function PlanSurfaceCanvas({
     [sessionDescriptor],
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
-  const { openContentFromChip } = useProjection();
-  const { resolvePlanReference, projectionState } = usePlanGraphReferenceResolver(sessionDescriptor);
+  const { openContentFromChip, openPlanReferenceResolution } = useProjection();
+  const {
+    resolvePlanReference,
+    projection,
+    projectionState,
+    projectionError,
+  } = usePlanGraphReferenceResolver(sessionDescriptor);
+  const graphContext = useMemo(
+    () => buildPlanGraphContextRequest(sessionDescriptor),
+    [sessionDescriptor],
+  );
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
@@ -113,6 +125,56 @@ export function PlanSurfaceCanvas({
     [editor],
   );
 
+  const projectionNodes = useMemo(
+    () => Object.values(projection?.node_views ?? {}),
+    [projection],
+  );
+
+  const handleViewGraphNode = useCallback(
+    (node: GraphProjectionNodeView) => {
+      openPlanReferenceResolution(
+        {
+          kind: "graph-node",
+          locator: `dmb-node:${node.node_id}`,
+          refType: node.kind,
+          refId: node.node_id,
+          graphObject: buildGraphObjectCardFromNodeView(node),
+          graphNodeId: node.node_id,
+          fallback: null,
+          source: "union-supergraph",
+          message: `Resolved graph node ${node.label}.`,
+          graphProjectionState: projectionState,
+        },
+        projectionState,
+      );
+    },
+    [openPlanReferenceResolution, projectionState],
+  );
+
+  const graphRefSearchPanel = useMemo(
+    () => (
+      <PlanGraphRefSearch
+        nodes={projectionNodes}
+        projectionState={projectionState}
+        projectionError={projectionError}
+        graphContext={graphContext}
+        disabled={!editor || isLocked}
+        onInsert={insertRunbookReference}
+        onView={handleViewGraphNode}
+      />
+    ),
+    [
+      editor,
+      graphContext,
+      handleViewGraphNode,
+      insertRunbookReference,
+      isLocked,
+      projectionError,
+      projectionNodes,
+      projectionState,
+    ],
+  );
+
   const copyMarkdown = useCallback(async () => {
     if (!editor || !navigator.clipboard?.writeText) return;
     const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
@@ -164,13 +226,8 @@ export function PlanSurfaceCanvas({
           id: "plan-insert-refs",
           title: "Insert refs",
           defaultOpen: true,
-          actions: RUNBOOK_REFERENCE_SAMPLES.map((sample) => ({
-            id: `plan-insert-${sample.kind}-${sample.refType}-${sample.refId}`,
-            eyebrow: sample.kind === "action" ? "Action" : sample.refType,
-            label: sample.label,
-            onClick: () => insertRunbookReference(sample),
-            disabled: !editor || isLocked,
-          })),
+          actions: [],
+          panel: graphRefSearchPanel,
         },
         {
           id: "plan-edit-blocks",
@@ -223,8 +280,8 @@ export function PlanSurfaceCanvas({
   }, [
     copyMarkdown,
     editor,
+    graphRefSearchPanel,
     insertCallout,
-    insertRunbookReference,
     isLocked,
     onEditorToolsChange,
     removeActiveBlock,
@@ -245,6 +302,7 @@ export function PlanSurfaceCanvas({
           Document <code>{planningDocument.documentId}</code> · {statusLabel}
         </p>
       </div>
+
       <div
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
