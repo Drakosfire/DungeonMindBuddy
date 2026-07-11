@@ -148,7 +148,7 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 **Motivation:** Storage + merge APIs without a useful graph leave Plan migration circular. A multi-source fixture is not a substitute. “Real” is not the same as “representative.”
 
-**Dependencies:** Phase 2 (especially PR005). Phase 2.5 is docs-only and must not dilute Phase 3 into tool runtime.
+**Dependencies:** Phase 2 and completion of PR005A / PR005B, unless explicitly waived by the operator. Phase 2.5 is docs/design only and must not dilute Phase 3 into tool runtime — but docs-only does **not** mean optional when the tracker sequences those bridges before materialization.
 
 **Expected PR slices:** Tracker **PR006**.
 

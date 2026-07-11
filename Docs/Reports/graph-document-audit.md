@@ -49,13 +49,13 @@ These names often appear as Project Sources or local drafts. Classification belo
 
 | Document / name | Classification | Notes |
 |---|---|---|
-| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **ACTIVE OPERATING TEMPLATE** / local process rule | Process only; cannot override tracker |
+| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **ACTIVE_REFERENCE** / process template | Process only; cannot override tracker |
 | `PROPOSAL-context-audit-source-reanchor.md` | **PROPOSAL** | Proposal-only until absorbed into tracker/audit |
 | `LLM-graph-construction.md` | **RESEARCH_ONLY** | Extraction/eval patterns; not roadmap authority |
 | `Docs/Design/dungeonbuddy_spec_architecture_v0_2.md` | **SUPERSEDED** / **HISTORICAL** | Banner required; conceptual ancestor only |
 | `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | **SUPERSEDED** | Stub points at Campaign Supergraph authority |
 | `Docs/Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` (archived full copy) | **HISTORICAL** | Full historical copy; cannot direct work |
-| `Docs/Anchors/CORPUS-ANCHOR.md` | **SOURCE_ANCHOR** / **KEEP** | Corpus path grounding |
+| `Docs/Anchors/CORPUS-ANCHOR.md` | **SOURCE_ANCHOR** / **KEEP_CONTRACT** | Corpus path grounding |
 | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` | **ACTIVE_REFERENCE** | Surface composition; not Campaign Supergraph sequencing |
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | **ACTIVE_REFERENCE** | Layout note; sequencing lives in tracker |
 | `Docs/Plans/JUMPSTART-docs-relevance-first.md` | **ACTIVE_REFERENCE** / process template | Must defer to tracker on sequence |

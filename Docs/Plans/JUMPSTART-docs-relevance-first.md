@@ -20,7 +20,7 @@ Do not assume a local/project-attached doc is current merely because it is direc
 1. List the local/project-attached docs available to the agent.
 2. Map each local doc to its intended GitHub repo path.
 3. Fetch the current GitHub version of each mapped file.
-4. Classify each file:
+4. Classify each file’s sync state vs GitHub:
 
 ```text
 MATCH
@@ -29,20 +29,19 @@ GITHUB_AHEAD
 CONFLICT
 LOCAL_ONLY
 GITHUB_ONLY
-SUPERSEDED
-RESEARCH_ONLY
-SOURCE_ANCHOR
 ```
 
-5. Record whether the local document can direct work:
+5. Record whether the local document can direct work (authority state — must match audit vocabulary):
 
 ```text
 ACTIVE_AUTHORITY
 ACTIVE_REFERENCE
 KEEP_CONTRACT
+SOURCE_ANCHOR
 RESEARCH_ONLY
 HISTORICAL
 SUPERSEDED
+PROPOSAL
 DELETE_CANDIDATE
 ```
 
@@ -137,7 +136,7 @@ Expected preliminary classification:
 
 ```text
 PROJECT-SOURCES-OPERATING-TEMPLATE.md
-  ACTIVE OPERATING TEMPLATE / local process rule.
+  ACTIVE_REFERENCE / process template.
   Process only; cannot override the PR tracker.
 
 PROPOSAL-context-audit-source-reanchor.md
@@ -166,7 +165,7 @@ GRAPH-MEMORY-PROJECT-LAYOUT.md
   Layout note; sequencing lives in the tracker.
 
 CORPUS-ANCHOR.md
-  SOURCE_ANCHOR / KEEP.
+  SOURCE_ANCHOR / KEEP_CONTRACT.
   Still useful for corpus path grounding unless GitHub has a newer generated index.
 ```
 
@@ -182,7 +181,7 @@ PR004 — Identity outcomes + split/unmerge: DONE
 PR005 — Durable contribution merge: DONE
 PR005A — Context Audit + Source Reanchor: NEXT (this jumpstart / docs bridge)
 PR005B — Agent Tool Contract + Authored Prep Contributions: after PR005A
-PR006 — Initial real materialization: next implementation slice after docs bridges
+PR006 — Initial real materialization: BLOCKED on PR005B (next implementation slice after docs bridges)
 PR007 — Projection Engine
 PR008 — Plan migration
 PR009 — Play migration

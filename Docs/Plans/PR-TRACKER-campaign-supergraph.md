@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR005A Context Audit + Source Reanchor; PR005B Agent Tool Contract bridge; PR002–PR005 marked DONE)  
+**Updated:** 2026-07-10 (PR328 review — PR006 blocked on PR005B; jumpstart authority vocabulary aligned)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -389,9 +389,11 @@ Required deletion PR:
 
 ## PR006 — Initial World Supergraph Materialization
 
-**Status:** `READY` (unblocked by PR005; PR005A/PR005B are docs-only bridges and must not dilute this slice)  
+**Status:** `BLOCKED` on PR005B  
 **Phase:** 3  
 **Purpose:** Produce the first **real and representative** persistent union from the **named acceptance corpus**, and prove it before projection/Plan migration.
+
+PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Do not start PR006 before PR005B unless the operator explicitly chooses to parallelize.
 
 **Named acceptance corpus (required — not “if available”):**
 
@@ -437,7 +439,7 @@ Required deletion PR:
 
 **Non-goals:** Projection Engine; Plan UI migration; Hermes / Agent Tool Runtime; Plan encounter authoring; unbounded multi-source expansion (Phase 6); treating a synthetic multi-source fixture as this slice’s acceptance graph; optional worldbuilding.
 
-**Depends on:** PR005. PR005A/PR005B must not expand this slice into tool runtime.
+**Depends on:** PR005B (and thus PR005A). Docs-only does **not** mean optional when the tracker sequences those bridges before materialization. Operator may explicitly waive and parallelize; do not invent that waiver.
 
 ---
 
