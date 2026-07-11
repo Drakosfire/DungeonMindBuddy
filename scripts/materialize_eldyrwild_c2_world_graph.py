@@ -71,7 +71,7 @@ def _cmd_validate_bundle(args: argparse.Namespace) -> int:
     errors = validate_candidate_bundle(
         bundle,
         manifest_sha256=manifest_sha,
-        inventory_paths=inventory_paths,
+        inventory=inventory,
     )
     payload = {"ok": not errors, "errors": errors}
     print(json.dumps(payload, indent=2))

@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import graph_memory.kernel as kernel
+from graph_memory.kernel.contribution_merge import apply_accepted_assertions, rebuild_adjacency
+from graph_memory.kernel.contribution_rebuild import _canonical_graph_fingerprint
 from graph_memory.materialization.acceptance_manifest import (
     AcceptanceManifestError,
     build_inventory,
@@ -19,201 +21,40 @@ from graph_memory.materialization.candidate_bundle import (
 )
 from graph_memory.materialization.candidate_to_contribution import (
     bundle_sources_to_contributions,
+    resolve_contribution_identities,
 )
 from graph_memory.materialization.reporting import build_materialization_report
+from graph_memory.kernel import WorldGraphNotFoundError, WorldGraphValidationError
 from graph_memory.union_supergraph.model import (
-    UnionSupergraphAdjacencyItem,
     UnionSupergraphDiagnostics,
-    UnionSupergraphEdge,
-    UnionSupergraphEvidence,
-    UnionSupergraphNode,
-    UnionSupergraphNodeState,
-    UnionSupergraphSourceArtifact,
     UnionSupergraphStore,
 )
-from graph_memory.kernel import WorldGraphNotFoundError
 
 
-def build_pr006_baseline_store(*, campaign_scope: str = "longmont-c2") -> UnionSupergraphStore:
-    """Minimal valid baseline matching longmont_c2_minimal_graph constraints."""
-    store = UnionSupergraphStore(
+def _focus_session_id(inventory: dict[str, Any]) -> str:
+    sessions = inventory.get("recap_session_numbers") or []
+    if not sessions:
+        return "session-23"
+    return f"session-{max(sessions)}"
+
+
+def _empty_union_store(*, campaign_scope: str, focus_session_id: str) -> UnionSupergraphStore:
+    return UnionSupergraphStore(
         **{
             "schema": "dmb_union_supergraph_store_v0",
             "version": "0.1",
             "campaign_id": campaign_scope,
             "graph_id": f"{campaign_scope}:union-supergraph",
             "graph_domains": ["campaign", "worldbuilding"],
-            "source_domains": ["recap", "worldbuilding", "statblock", "session_memory"],
-            "focus_session_id": "session-23",
-            "nodes": {
-                "pc_caelynn": UnionSupergraphNode(
-                    node_id="pc_caelynn",
-                    label="Caelynn",
-                    kind="pc",
-                    role="pc",
-                    aliases=["Caelynn"],
-                    source_domains=["recap", "worldbuilding"],
-                    evidence_ref_ids=[
-                        "evidence:session-23:caelynn:recap-mention",
-                        "evidence:worldbuilding:caelynn:character-note",
-                    ],
-                    state=UnionSupergraphNodeState(
-                        memory_state="graph_read_model",
-                        canon_state="not_canon_promotion",
-                        approval_state="not_approval_write",
-                    ).model_dump(),
-                ),
-                "event_session_23_mireward_gate": UnionSupergraphNode(
-                    node_id="event_session_23_mireward_gate",
-                    label="Mireward Gate Incident",
-                    kind="event",
-                    role="event",
-                    aliases=["Mireward gate"],
-                    source_domains=["recap"],
-                    evidence_ref_ids=["evidence:session-23:caelynn:recap-mention"],
-                    state=UnionSupergraphNodeState(
-                        memory_state="graph_read_model",
-                        canon_state="not_canon_promotion",
-                        approval_state="not_approval_write",
-                    ).model_dump(),
-                ),
-                "loc_mirathorn": UnionSupergraphNode(
-                    node_id="loc_mirathorn",
-                    label="Mirathorn",
-                    kind="location",
-                    role="location",
-                    aliases=["Mirathorn"],
-                    source_domains=["worldbuilding"],
-                    evidence_ref_ids=["evidence:worldbuilding:mirathorn:gazetteer-note"],
-                    state=UnionSupergraphNodeState(
-                        memory_state="graph_read_model",
-                        canon_state="not_canon_promotion",
-                        approval_state="not_approval_write",
-                    ).model_dump(),
-                ),
-            },
-            "edges": {
-                "edge:pc_caelynn:participated_in:event_session_23_mireward_gate": UnionSupergraphEdge(
-                    edge_id="edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
-                    source_node_id="pc_caelynn",
-                    target_node_id="event_session_23_mireward_gate",
-                    predicate="participated_in",
-                    label="participated in",
-                    direction="outbound",
-                    source_domains=["recap"],
-                    session_ids=["session-23"],
-                    evidence_ref_ids=["evidence:session-23:caelynn:recap-mention"],
-                    state=UnionSupergraphNodeState(
-                        memory_state="graph_read_model",
-                        canon_state="not_canon_promotion",
-                        approval_state="not_approval_write",
-                    ).model_dump(),
-                ),
-                "edge:pc_caelynn:connected_to:loc_mirathorn": UnionSupergraphEdge(
-                    edge_id="edge:pc_caelynn:connected_to:loc_mirathorn",
-                    source_node_id="pc_caelynn",
-                    target_node_id="loc_mirathorn",
-                    predicate="connected_to",
-                    label="connected to",
-                    direction="outbound",
-                    source_domains=["worldbuilding"],
-                    session_ids=[],
-                    evidence_ref_ids=["evidence:worldbuilding:caelynn:character-note"],
-                    state=UnionSupergraphNodeState(
-                        memory_state="graph_read_model",
-                        canon_state="not_canon_promotion",
-                        approval_state="not_approval_write",
-                    ).model_dump(),
-                ),
-            },
-            "evidence": {
-                "evidence:session-23:caelynn:recap-mention": UnionSupergraphEvidence(
-                    evidence_ref_id="evidence:session-23:caelynn:recap-mention",
-                    source_artifact_id="artifact:recap:longmont-c2:session-23",
-                    source_domain="recap",
-                    evidence_role="focus_session_recap_mention",
-                    session_id="session-23",
-                    source_span_ref_id="spref:session-23:p014",
-                    can_open_source=True,
-                    can_highlight_span=True,
-                ),
-                "evidence:worldbuilding:caelynn:character-note": UnionSupergraphEvidence(
-                    evidence_ref_id="evidence:worldbuilding:caelynn:character-note",
-                    source_artifact_id="artifact:worldbuilding:longmont-c2:caelynn-note",
-                    source_domain="worldbuilding",
-                    evidence_role="character_context",
-                    locator="worldbuilding/characters/caelynn.md#read-model-example",
-                    can_open_source=True,
-                    can_highlight_span=False,
-                ),
-                "evidence:worldbuilding:mirathorn:gazetteer-note": UnionSupergraphEvidence(
-                    evidence_ref_id="evidence:worldbuilding:mirathorn:gazetteer-note",
-                    source_artifact_id="artifact:worldbuilding:longmont-c2:mirathorn-gazetteer",
-                    source_domain="worldbuilding",
-                    evidence_role="location_context",
-                    locator="worldbuilding/locations/mirathorn.md#overview",
-                    can_open_source=True,
-                    can_highlight_span=False,
-                ),
-            },
-            "source_artifacts": {
-                "artifact:recap:longmont-c2:session-23": UnionSupergraphSourceArtifact(
-                    source_artifact_id="artifact:recap:longmont-c2:session-23",
-                    source_domain="recap",
-                    campaign_id=campaign_scope,
-                    session_id="session-23",
-                    uri="fixture://recap/session-23",
-                ),
-                "artifact:worldbuilding:longmont-c2:caelynn-note": UnionSupergraphSourceArtifact(
-                    source_artifact_id="artifact:worldbuilding:longmont-c2:caelynn-note",
-                    source_domain="worldbuilding",
-                    campaign_id=campaign_scope,
-                    uri="fixture://worldbuilding/characters/caelynn.md",
-                ),
-                "artifact:worldbuilding:longmont-c2:mirathorn-gazetteer": UnionSupergraphSourceArtifact(
-                    source_artifact_id="artifact:worldbuilding:longmont-c2:mirathorn-gazetteer",
-                    source_domain="worldbuilding",
-                    campaign_id=campaign_scope,
-                    uri="fixture://worldbuilding/locations/mirathorn.md",
-                ),
-            },
-            "aliases": {"caelynn": "pc_caelynn", "mirathorn": "loc_mirathorn"},
-            "adjacency": {
-                "pc_caelynn": [
-                    UnionSupergraphAdjacencyItem(
-                        edge_id="edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
-                        node_id="event_session_23_mireward_gate",
-                        label="participated in",
-                        direction="outbound",
-                        anchored_to_focus_session=True,
-                    ),
-                    UnionSupergraphAdjacencyItem(
-                        edge_id="edge:pc_caelynn:connected_to:loc_mirathorn",
-                        node_id="loc_mirathorn",
-                        label="connected to",
-                        direction="outbound",
-                        anchored_to_focus_session=False,
-                    ),
-                ],
-                "event_session_23_mireward_gate": [
-                    UnionSupergraphAdjacencyItem(
-                        edge_id="edge:pc_caelynn:participated_in:event_session_23_mireward_gate",
-                        node_id="pc_caelynn",
-                        label="participated in",
-                        direction="inbound",
-                        anchored_to_focus_session=True,
-                    ),
-                ],
-                "loc_mirathorn": [
-                    UnionSupergraphAdjacencyItem(
-                        edge_id="edge:pc_caelynn:connected_to:loc_mirathorn",
-                        node_id="pc_caelynn",
-                        label="connected to",
-                        direction="inbound",
-                        anchored_to_focus_session=False,
-                    ),
-                ],
-            },
+            "source_domains": ["recap", "worldbuilding", "statblock", "session_memory", "npc_note"],
+            "focus_session_id": focus_session_id,
+            "nodes": {},
+            "edges": {},
+            "evidence": {},
+            "source_artifacts": {},
+            "aliases": {},
+            "adjacency": {},
+            "assertion_support": {},
             "diagnostics": UnionSupergraphDiagnostics(
                 canon_promotion=False,
                 approved_memory_write=False,
@@ -222,7 +63,29 @@ def build_pr006_baseline_store(*, campaign_scope: str = "longmont-c2") -> UnionS
             ),
         }
     )
-    return store
+
+
+def _assemble_store_from_contributions(
+    contributions: list[kernel.GraphContribution],
+    *,
+    campaign_scope: str,
+    focus_session_id: str,
+) -> UnionSupergraphStore:
+    working = _empty_union_store(
+        campaign_scope=campaign_scope,
+        focus_session_id=focus_session_id,
+    )
+    for contrib in contributions:
+        working, _, _ = apply_accepted_assertions(working, contrib)
+    return working.model_copy(update={"adjacency": rebuild_adjacency(working)})
+
+
+def _validate_publishable_store(store: UnionSupergraphStore) -> None:
+    """Publish validates via kernel; dry-run by attempting publish is too heavy."""
+    if not store.nodes or not store.edges:
+        raise WorldGraphValidationError("assembled store must have nodes and edges")
+    if not store.focus_session_id:
+        raise WorldGraphValidationError("assembled store missing focus_session_id")
 
 
 def _head_exists(root: Path, world_id: str) -> bool:
@@ -244,9 +107,15 @@ def _count_assertions_with_source(contribs: list[kernel.GraphContribution]) -> t
     return accepted, with_source
 
 
-def _counts_by_domain(sources: list[dict[str, Any]]) -> dict[str, int]:
+def _counts_by_domain(
+    sources: list[dict[str, Any]],
+    *,
+    status: str | None = None,
+) -> dict[str, int]:
     counts: dict[str, int] = {}
     for entry in sources:
+        if status is not None and entry.get("status") != status:
+            continue
         domain = entry.get("source_domain", "unknown")
         counts[domain] = counts.get(domain, 0) + 1
     return counts
@@ -262,7 +131,6 @@ def _hub_presence(store: UnionSupergraphStore) -> dict[str, bool]:
 
 
 def _required_hubs_present_list(store: UnionSupergraphStore) -> list[str]:
-    """Capitalized hub names for §7 assertions (`\"Mirathorn\" in required_hubs_present`)."""
     hubs = _hub_presence(store)
     names: list[str] = []
     if hubs.get("mirathorn"):
@@ -278,30 +146,98 @@ def _required_hub_names(inventory: dict[str, Any]) -> list[str]:
         if item.get("domain") != "worldbuilding":
             continue
         path = item.get("path", "")
-        if "Mirathorn" in path:
+        if path.endswith("/Mirathorn/README.md") or path.endswith("/Mirathorn.md"):
             names.append("mirathorn")
-        if "Mireward" in path:
+        if path.endswith("/Mireward/README.md") or path.endswith("/Mireward.md"):
             names.append("mireward")
     return list(dict.fromkeys(names))
+
+
+def _store_has_fixture_uris(store: UnionSupergraphStore) -> list[str]:
+    bad: list[str] = []
+    for artifact in store.source_artifacts.values():
+        uri = str(artifact.uri or "")
+        if uri.startswith("fixture://"):
+            bad.append(uri)
+    for evidence in store.evidence.values():
+        for field in ("uri", "locator", "source_locator"):
+            value = getattr(evidence, field, None)
+            if isinstance(value, str) and value.startswith("fixture://"):
+                bad.append(value)
+    return bad
+
+
+def _accepted_recap_count(bundle: dict[str, Any]) -> int:
+    return sum(
+        1
+        for entry in bundle.get("sources", [])
+        if entry.get("source_domain") == "recap"
+        and entry.get("status") == "accepted"
+        and _graph_has_content(entry.get("candidate_graph") or {})
+    )
+
+
+def _graph_has_content(graph: dict[str, Any]) -> bool:
+    return bool(graph.get("nodes")) and bool(graph.get("evidence_refs"))
+
+
+def _bundle_failed_required(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    failures: list[dict[str, Any]] = []
+    for entry in bundle.get("sources", []):
+        if not entry.get("required"):
+            continue
+        domain = entry.get("source_domain")
+        path = entry.get("source_uri")
+        if entry.get("status") == "skipped" and domain in {
+            "recap",
+            "pc_hub",
+            "campaign_hub",
+            "mechanical",
+        }:
+            failures.append(
+                {
+                    "kind": "required_source_skipped",
+                    "path": path,
+                    "domain": domain,
+                    "skip_reason": entry.get("skip_reason"),
+                }
+            )
+        elif domain == "worldbuilding" and (
+            path.endswith("/Mirathorn/README.md")
+            or path.endswith("/Mireward/README.md")
+            or path.endswith("/Mirathorn.md")
+            or path.endswith("/Mireward.md")
+        ):
+            if entry.get("status") != "accepted":
+                failures.append(
+                    {
+                        "kind": "required_hub_skipped",
+                        "path": path,
+                        "skip_reason": entry.get("skip_reason"),
+                    }
+                )
+    return failures
 
 
 def _acceptance_gates(
     *,
     inventory: dict[str, Any],
+    bundle: dict[str, Any],
     store: UnionSupergraphStore,
     accepted_assertion_count: int,
     assertions_with_source_artifact_count: int,
+    merged_contribution_count: int,
     world_integrity_valid: bool,
     rebuild_equivalent: bool,
 ) -> list[str]:
     failures: list[str] = []
     expected_recaps = len(inventory.get("recap_session_numbers") or [])
-    if inventory.get("recap_count") != expected_recaps:
-        failures.append(
-            f"expected {expected_recaps} recaps, got {inventory.get('recap_count')}"
-        )
-    if inventory.get("failed_required"):
-        failures.append("failed_required is non-empty")
+    recap_accepted = _accepted_recap_count(bundle)
+    if recap_accepted != expected_recaps:
+        failures.append(f"expected {expected_recaps} accepted recaps, got {recap_accepted}")
+    failed_required = _bundle_failed_required(bundle)
+    if failed_required:
+        failures.append("failed_required_sources is non-empty")
     required_pcs = inventory.get("required_pc_slugs") or []
     pc_nodes = [nid for nid in store.nodes if nid.startswith("pc_")]
     if len(pc_nodes) < len(required_pcs):
@@ -314,6 +250,11 @@ def _acceptance_gates(
         failures.append("head graph must have nodes and edges")
     if assertions_with_source_artifact_count != accepted_assertion_count:
         failures.append("not all accepted assertions have source artifact linkage")
+    if merged_contribution_count < recap_accepted:
+        failures.append("not all accepted sources produced merged contributions")
+    fixture_uris = _store_has_fixture_uris(store)
+    if fixture_uris:
+        failures.append(f"store contains fixture URIs: {fixture_uris[:3]}")
     if not world_integrity_valid:
         failures.append("world integrity invalid")
     if not rebuild_equivalent:
@@ -330,7 +271,7 @@ def materialize_world_graph(
     fresh_root: bool = False,
     expected_parent_revision_id: str | None = None,
 ) -> dict[str, Any]:
-    """Run full materialization: validate → baseline (optional) → merge → report."""
+    """Run full materialization: validate → assemble → publish → merge → report."""
     repo_root = repo_root.resolve()
     store_root = store_root.resolve()
     manifest = load_acceptance_manifest(manifest_path)
@@ -341,11 +282,12 @@ def materialize_world_graph(
     bundle = load_candidate_bundle(bundle_path)
     manifest_sha256 = sha256_bytes(manifest_path.read_bytes())
     bundle_sha256 = sha256_bytes(bundle_path.read_bytes())
+    focus_session_id = _focus_session_id(inventory)
 
     bundle_errors = validate_candidate_bundle(
         bundle,
         manifest_sha256=manifest_sha256,
-        inventory_paths={item["path"] for item in inventory["source_items"]},
+        inventory=inventory,
     )
     if bundle_errors:
         raise AcceptanceManifestError(
@@ -360,8 +302,20 @@ def materialize_world_graph(
             errors=[{"kind": "fresh_root_blocked"}],
         )
 
+    contributions = bundle_sources_to_contributions(
+        bundle,
+        store=_empty_union_store(
+            campaign_scope=campaign_scope,
+            focus_session_id=focus_session_id,
+        ),
+        world_id=world_id,
+    )
     baseline_revision_id: str | None = None
     parent_revision_id: str | None = None
+    duplicate_graph_state_created = False
+    contrib_count_before = 0
+    assembled: UnionSupergraphStore | None = None
+    head_before = None
 
     if not head_exists:
         if not fresh_root:
@@ -369,23 +323,47 @@ def materialize_world_graph(
                 "no world head; pass --fresh-root to publish baseline",
                 errors=[{"kind": "missing_head"}],
             )
-        baseline = build_pr006_baseline_store(campaign_scope=campaign_scope)
-        baseline_result = kernel.publish_world_revision(
-            store_root,
-            world_id,
-            baseline,
-            operation_ids=["op:pr006-baseline"],
+        assembled = _assemble_store_from_contributions(
+            contributions,
+            campaign_scope=campaign_scope,
+            focus_session_id=focus_session_id,
         )
+        try:
+            _validate_publishable_store(assembled)
+        except WorldGraphValidationError as exc:
+            raise AcceptanceManifestError(
+                f"assembled store failed publish validation: {exc}",
+                errors=[{"kind": "publish_validation", "message": str(exc)}],
+            ) from exc
+        try:
+            baseline_result = kernel.publish_world_revision(
+                store_root,
+                world_id,
+                assembled,
+                operation_ids=["op:pr006-corpus-assembled"],
+            )
+        except WorldGraphValidationError as exc:
+            raise AcceptanceManifestError(
+                f"assembled store failed publish validation: {exc}",
+                errors=[{"kind": "publish_validation", "message": str(exc)}],
+            ) from exc
         baseline_revision_id = baseline_result.revision.revision_id
         parent_revision_id = baseline_revision_id
+        current_parent = baseline_revision_id
     else:
         if expected_parent_revision_id is None:
             raise AcceptanceManifestError(
                 "expected_parent_revision_id required when world head exists",
                 errors=[{"kind": "missing_expected_parent"}],
             )
-        head = kernel.open_world_graph_head(store_root, world_id)
-        parent_revision_id = head.head_revision_id
+        head_before = kernel.open_world_graph_head(store_root, world_id)
+        _h, _r, store_before = kernel.open_current_world_graph(store_root, world_id)
+        fp_before = _canonical_graph_fingerprint(store_before)
+        contrib_health_before = kernel.build_contribution_integrity_report(
+            store_root, world_id=world_id, check_rebuild=False
+        )
+        contrib_count_before = contrib_health_before.active_contribution_count
+        parent_revision_id = head_before.head_revision_id
         if expected_parent_revision_id != parent_revision_id:
             raise AcceptanceManifestError(
                 "stale expected parent revision",
@@ -397,23 +375,37 @@ def materialize_world_graph(
                     }
                 ],
             )
+        current_parent = parent_revision_id
 
-    contributions = bundle_sources_to_contributions(bundle)
-    duplicate_graph_state_created = False
-    current_parent = parent_revision_id
-    published_any = False
-
+    merged_contribution_count = 0
+    resolved_existing_count = 0
+    if assembled is not None:
+        working_store = assembled
+    else:
+        _h0, _r0, working_store = kernel.open_current_world_graph(store_root, world_id)
     for contrib in contributions:
+        resolved = resolve_contribution_identities(
+            contrib,
+            working_store,
+            world_id=world_id,
+        )
+        resolved_existing_count += sum(
+            1
+            for assertion in resolved.accepted_assertions
+            if assertion.identity_resolution_outcome == "resolved_existing"
+        )
         result = kernel.merge_contribution_to_revision(
             store_root,
             world_id=world_id,
-            contribution=contrib,
+            contribution=resolved,
             expected_parent_revision_id=current_parent,
         )
         if result.published:
             current_parent = result.revision_id
-            published_any = True
+            merged_contribution_count += 1
+            _h, _r, working_store = kernel.open_current_world_graph(store_root, world_id)
         elif any("idempotent_noop" in d for d in result.diagnostics):
+            merged_contribution_count += 1
             continue
         else:
             raise AcceptanceManifestError(
@@ -421,9 +413,33 @@ def materialize_world_graph(
                 errors=[{"kind": "merge_failed", "diagnostics": result.diagnostics}],
             )
 
-    # Unchanged reprocessing must not invent a second graph state.
-    if head_exists and not published_any:
-        duplicate_graph_state_created = False
+    if head_exists:
+        head_after = kernel.open_world_graph_head(store_root, world_id)
+        _h2, _r2, store_after = kernel.open_current_world_graph(store_root, world_id)
+        fp_after = _canonical_graph_fingerprint(store_after)
+        contrib_health_after = kernel.build_contribution_integrity_report(
+            store_root, world_id=world_id, check_rebuild=False
+        )
+        contrib_count_after = contrib_health_after.active_contribution_count
+        duplicate_graph_state_created = (
+            head_after.head_revision_id != head_before.head_revision_id
+            or fp_after != fp_before
+            or contrib_count_after != contrib_count_before
+        )
+        if duplicate_graph_state_created:
+            raise AcceptanceManifestError(
+                "idempotent replay changed graph state",
+                errors=[
+                    {
+                        "kind": "duplicate_graph_state",
+                        "head_before": head_before.head_revision_id,
+                        "head_after": head_after.head_revision_id,
+                        "fp_changed": fp_after != fp_before,
+                        "contrib_count_before": contrib_count_before,
+                        "contrib_count_after": contrib_count_after,
+                    }
+                ],
+            )
 
     head = kernel.open_world_graph_head(store_root, world_id)
     _head_rev, _rev, store = kernel.open_current_world_graph(store_root, world_id)
@@ -442,13 +458,22 @@ def materialize_world_graph(
         for assertion in contrib.accepted_assertions
         if assertion.evidence_ref_ids
     )
-    hubs = _hub_presence(store)
+
+    bundle_sources = bundle.get("sources", [])
+    empty_skipped = [
+        {"uri": entry["source_uri"], "skip_reason": entry.get("skip_reason")}
+        for entry in bundle_sources
+        if entry.get("status") == "skipped"
+    ]
+    failed_required_sources = _bundle_failed_required(bundle)
 
     gate_failures = _acceptance_gates(
         inventory=inventory,
+        bundle=bundle,
         store=store,
         accepted_assertion_count=accepted_count,
         assertions_with_source_artifact_count=with_source_count,
+        merged_contribution_count=merged_contribution_count,
         world_integrity_valid=bool(world_health.load_ok and world_health.validation_ok),
         rebuild_equivalent=rebuild_equivalent,
     )
@@ -464,6 +489,7 @@ def materialize_world_graph(
         manifest_sha256=manifest_sha256,
         bundle_sha256=bundle_sha256,
         inventory=inventory,
+        bundle_sources=bundle_sources,
         head_revision_id=head.head_revision_id,
         parent_revision_id=parent_revision_id,
         baseline_revision_id=baseline_revision_id,
@@ -473,6 +499,8 @@ def materialize_world_graph(
         accepted_assertion_count=accepted_count,
         assertions_with_source_artifact_count=with_source_count,
         assertions_with_evidence_count=with_evidence_count,
+        produced_contribution_count=len(contributions),
+        merged_contribution_count=merged_contribution_count,
         contribution_count=len(contributions),
         active_contribution_count=contrib_health.active_contribution_count,
         superseded_contribution_count=contrib_health.superseded_contribution_count,
@@ -481,7 +509,8 @@ def materialize_world_graph(
         world_integrity_valid=bool(world_health.load_ok and world_health.validation_ok),
         contribution_integrity_valid=contrib_health.rebuild_equivalent_to_head is not False,
         rebuild_equivalent_to_head=rebuild_equivalent,
-        counts_by_source_domain=_counts_by_domain(bundle.get("sources", [])),
+        accepted_source_domain_counts=_counts_by_domain(bundle_sources, status="accepted"),
+        requested_source_domain_counts=_counts_by_domain(bundle_sources),
         identity_diagnostics={
             "unresolved_mention_count": sum(
                 len(c.unresolved_mentions) for c in contributions
@@ -502,8 +531,12 @@ def materialize_world_graph(
                 for m in c.unresolved_mentions
                 if m.identity_resolution_outcome == "blocked_collision"
             ),
+            "resolved_existing_count": resolved_existing_count,
         },
         required_hubs_present=_required_hubs_present_list(store),
+        empty_skipped_sources=empty_skipped,
+        failed_required_sources=failed_required_sources,
+        accepted_recap_count=_accepted_recap_count(bundle),
         retained_preview_paths=[
             "apps/live-control-ui graph-preview route parameters",
             "union_supergraph_projection_adapter preview selectors",
@@ -525,6 +558,7 @@ def verify_materialization(store_root: Path, world_id: str) -> dict[str, Any]:
         "edge_count": len(store.edges),
         "world_integrity_valid": bool(world_health.load_ok and world_health.validation_ok),
         "rebuild_equivalent_to_head": contrib_health.rebuild_equivalent_to_head,
+        "fixture_uri_count": len(_store_has_fixture_uris(store)),
     }
 
 

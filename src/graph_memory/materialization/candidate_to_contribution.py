@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 import graph_memory.kernel as kernel
+from graph_memory.kernel.identity import resolve_identity
+from graph_memory.kernel.identity_models import IdentityCandidate
 from graph_memory.materialization.acceptance_manifest import sha256_bytes
+from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 WORLD_ID = "eldyrwild"
 CAMPAIGN_SCOPE = "longmont-c2"
@@ -104,6 +107,45 @@ def _node_value(
     }
 
 
+def _resolve_node_outcome(
+    node: dict[str, Any],
+    *,
+    store: UnionSupergraphStore | None,
+    world_id: str,
+    campaign_scope: str,
+    source_artifact_id: str,
+) -> tuple[str, str]:
+    """Return (subject_node_id, identity_resolution_outcome)."""
+    node_id = node["node_id"]
+    label = node.get("label", node_id)
+    if store is None or not store.nodes:
+        return node_id, "created_new"
+    if node_id in store.nodes:
+        return node_id, "resolved_existing"
+    label_norm = label.strip().lower()
+    for existing_id, existing in store.nodes.items():
+        terms = {existing.label.strip().lower()}
+        terms.update(alias.strip().lower() for alias in existing.aliases if alias.strip())
+        if label_norm in terms and existing.kind == node.get("kind", existing.kind):
+            return existing_id, "resolved_existing"
+    candidate = IdentityCandidate(
+        world_id=world_id,
+        candidate_id=f"candidate:{node_id}",
+        label=label,
+        object_kind=str(node.get("kind", "unknown")),
+        aliases=list(node.get("aliases") or [label]),
+        campaign_scope=campaign_scope,
+        source_artifact_id=source_artifact_id,
+        proposed_node_id=node_id,
+    )
+    resolution = resolve_identity(store, candidate)
+    if resolution.outcome == "resolved_existing" and resolution.target_node_id:
+        return resolution.target_node_id, "resolved_existing"
+    if resolution.outcome in {"ambiguous", "blocked_collision", "rejected"}:
+        return node_id, "created_new"
+    return node_id, "created_new"
+
+
 def _build_node_assertion(
     node: dict[str, Any],
     *,
@@ -113,15 +155,24 @@ def _build_node_assertion(
     source_uri: str,
     campaign_scope: str,
     evidence_refs: list[dict[str, Any]],
+    store: UnionSupergraphStore | None = None,
+    world_id: str = WORLD_ID,
 ) -> kernel.GraphContributionAssertion:
-    node_id = node["node_id"]
+    subject_node_id, outcome = _resolve_node_outcome(
+        node,
+        store=store,
+        world_id=world_id,
+        campaign_scope=campaign_scope,
+        source_artifact_id=source_artifact_id,
+    )
+    node_payload = {**node, "node_id": subject_node_id}
     return kernel.build_assertion(
         assertion_kind="node",
         acceptance_state="accepted",
-        subject_node_id=node_id,
-        label=node.get("label", node_id),
+        subject_node_id=subject_node_id,
+        label=node.get("label", subject_node_id),
         value=_node_value(
-            node,
+            node_payload,
             kernel_domain=kernel_domain,
             source_artifact_id=source_artifact_id,
             source_uri=source_uri,
@@ -134,7 +185,7 @@ def _build_node_assertion(
         campaign_scope=campaign_scope,
         epistemic_kind="fact",
         visibility="gm",
-        identity_resolution_outcome="created_new",
+        identity_resolution_outcome=outcome,
     )
 
 
@@ -171,6 +222,8 @@ def source_entry_to_contribution(
     *,
     campaign_scope: str = CAMPAIGN_SCOPE,
     known_node_ids: set[str] | None = None,
+    store: UnionSupergraphStore | None = None,
+    world_id: str = WORLD_ID,
 ) -> kernel.GraphContribution:
     """Convert one accepted bundle source entry into a GraphContribution."""
     source_domain = entry["source_domain"]
@@ -206,6 +259,8 @@ def source_entry_to_contribution(
                 source_uri=source_uri,
                 campaign_scope=campaign_scope,
                 evidence_refs=evidence_refs,
+                store=store,
+                world_id=world_id,
             )
         )
 
@@ -333,9 +388,12 @@ def bundle_sources_to_contributions(
     bundle: dict[str, Any],
     *,
     campaign_scope: str | None = None,
+    store: UnionSupergraphStore | None = None,
+    world_id: str | None = None,
 ) -> list[kernel.GraphContribution]:
     """Convert all accepted bundle sources to contributions with cross-source node stubs."""
     scope = campaign_scope or bundle.get("campaign_scope") or CAMPAIGN_SCOPE
+    wid = world_id or bundle.get("world_id") or WORLD_ID
     sources = [s for s in bundle.get("sources", []) if s.get("status") == "accepted"]
 
     all_node_ids: set[str] = set()
@@ -345,11 +403,58 @@ def bundle_sources_to_contributions(
             all_node_ids.add(node["node_id"])
 
     ordered = sorted(sources, key=_contribution_sort_key)
-    return [
-        source_entry_to_contribution(
+    contributions: list[kernel.GraphContribution] = []
+    working_store = store
+    for entry in ordered:
+        contrib = source_entry_to_contribution(
             entry,
             campaign_scope=scope,
             known_node_ids=all_node_ids,
+            store=working_store,
+            world_id=wid,
         )
-        for entry in ordered
-    ]
+        contributions.append(contrib)
+        if working_store is not None:
+            from graph_memory.kernel.contribution_merge import apply_accepted_assertions
+
+            working_store, _, _ = apply_accepted_assertions(working_store, contrib)
+    return contributions
+
+
+def resolve_contribution_identities(
+    contribution: kernel.GraphContribution,
+    store: UnionSupergraphStore,
+    *,
+    world_id: str,
+) -> kernel.GraphContribution:
+    """Re-resolve node assertion outcomes against the current durable store."""
+    updated: list[kernel.GraphContributionAssertion] = []
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind != "node":
+            updated.append(assertion)
+            continue
+        node = {
+            "node_id": assertion.subject_node_id or "",
+            "label": assertion.label,
+            "kind": (assertion.value or {}).get("kind", "unknown"),
+            "aliases": (assertion.value or {}).get("aliases", []),
+        }
+        subject_node_id, outcome = _resolve_node_outcome(
+            node,
+            store=store,
+            world_id=world_id,
+            campaign_scope=assertion.campaign_scope or CAMPAIGN_SCOPE,
+            source_artifact_id=assertion.source_artifact_id or contribution.source_artifact_id or "",
+        )
+        value = dict(assertion.value or {})
+        value["node_id"] = subject_node_id
+        updated.append(
+            assertion.model_copy(
+                update={
+                    "subject_node_id": subject_node_id,
+                    "identity_resolution_outcome": outcome,
+                    "value": value,
+                }
+            )
+        )
+    return contribution.model_copy(update={"accepted_assertions": updated})

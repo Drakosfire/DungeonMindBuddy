@@ -22,15 +22,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_battle_with_the_wolf_and_aftermath",
+            "label": "Battle with The Wolf and Aftermath",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Battle with The Wolf and Aftermath"
             ],
-            "summary": "Worldbuilding: Battle with The Wolf and Aftermath.md"
+            "summary": "Worldbuilding note: Battle with The Wolf and Aftermath.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:4dedbc30ebd24036",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md#Battle with The Wolf and Aftermath"
           }
         ],
         "unresolved_mentions": []
@@ -53,15 +62,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_the_city_council",
+            "label": "The City Council",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "The City Council"
             ],
-            "summary": "Worldbuilding: The City Council.md"
+            "summary": "Worldbuilding note: The City Council.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:efb56bf310a16a4f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md#The City Council"
           }
         ],
         "unresolved_mentions": []
@@ -84,15 +102,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_council_room_description",
+            "label": "Council Room Description:",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Council Room Description:"
             ],
-            "summary": "Worldbuilding: The Council Room.md"
+            "summary": "Worldbuilding note: The Council Room.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c0ff8a82d394e165",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md#Council Room Description:"
           }
         ],
         "unresolved_mentions": []
@@ -115,15 +142,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_the_emergency_council_meeting",
+            "label": "The Emergency Council Meeting",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "The Emergency Council Meeting"
             ],
-            "summary": "Worldbuilding: The Emergency Council Meeting.md"
+            "summary": "Worldbuilding note: The Emergency Council Meeting.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9292b748a9273400",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md#The Emergency Council Meeting"
           }
         ],
         "unresolved_mentions": []
@@ -146,15 +182,35 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "note_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Captain Lysandra Ironveil"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Worldbuilding note: README.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3a52620641beea05",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md#Captain Lysandra Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -177,15 +233,35 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "note_captain_lysandra_ironveil_statblock_cr2",
+            "label": "captain_lysandra_ironveil_statblock_cr2",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "captain_lysandra_ironveil_statblock_cr2"
             ],
-            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr2.md"
+            "summary": "Worldbuilding note: captain_lysandra_ironveil_statblock_cr2.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:255c3fe387d3d45a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md#captain_lysandra_ironveil_statblock_cr2"
           }
         ],
         "unresolved_mentions": []
@@ -202,21 +278,32 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
             "aliases": [
-              "Mirathorn"
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "note_captain_lysandra_ironveil_statblock_cr4",
+            "label": "captain_lysandra_ironveil_statblock_cr4",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "captain_lysandra_ironveil_statblock_cr4"
             ],
-            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr4.md"
+            "summary": "Worldbuilding note: captain_lysandra_ironveil_statblock_cr4.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:0bf518a0753c76d5",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md#captain_lysandra_ironveil_statblock_cr4"
           }
         ],
         "unresolved_mentions": []
@@ -239,15 +326,54 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Captain Lysandra Ironveil"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding note: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:79de72763c80dc1f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md#Captain Lysandra Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -270,15 +396,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_torbin_jove",
+            "label": "Torbin Jove",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Torbin Jove"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Worldbuilding note: README.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:48c4d2c82b30e429",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md#Torbin Jove"
           }
         ],
         "unresolved_mentions": []
@@ -301,15 +436,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_torbin_jove",
+            "label": "Torbin Jove",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Torbin Jove"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding note: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:1ea29ca17f7cbe5f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md#Torbin Jove"
           }
         ],
         "unresolved_mentions": []
@@ -326,21 +470,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_torbin_jove_statblock",
+            "label": "torbin_jove_statblock",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "torbin_jove_statblock"
             ],
-            "summary": "Worldbuilding: torbin_jove_statblock.md"
+            "summary": "Worldbuilding note: torbin_jove_statblock.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:702623c8d980d5e5",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md#torbin_jove_statblock"
           }
         ],
         "unresolved_mentions": []
@@ -364,14 +508,14 @@
             "aliases": [
               "Mirathorn"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Location hub: Mirathorn"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:aad4f542ab4184dc",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md#Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -394,15 +538,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_framework_for_engaging_dungeon_design_the_sewers_beneath_mirathorn",
+            "label": "Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn"
             ],
-            "summary": "Worldbuilding: Mirathorn Sewers.md"
+            "summary": "Worldbuilding note: Mirathorn Sewers.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:960e5092bc7a5d93",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md#Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -419,21 +572,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_d20_sewer_trap_table",
+            "label": "D20 Sewer Trap Table",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "D20 Sewer Trap Table"
             ],
-            "summary": "Worldbuilding: Sewer Traps.md"
+            "summary": "Worldbuilding note: Sewer Traps.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:180f9c419b521b56",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md#D20 Sewer Trap Table"
           }
         ],
         "unresolved_mentions": []
@@ -450,21 +603,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_the_allies_hideout_refuge_of_the_resilient",
+            "label": "The Allies' Hideout: Refuge of the Resilient",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "The Allies' Hideout: Refuge of the Resilient"
             ],
-            "summary": "Worldbuilding: allies_hideout.md"
+            "summary": "Worldbuilding note: allies_hideout.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c899c84a8cded02d",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md#The Allies' Hideout: Refuge of the Resilient"
           }
         ],
         "unresolved_mentions": []
@@ -487,15 +640,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_the_loot_room_the_terrifying_meat_room",
+            "label": "The Loot Room: The Terrifying Meat Room",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "The Loot Room: The Terrifying Meat Room"
             ],
-            "summary": "Worldbuilding: loot_room.md"
+            "summary": "Worldbuilding note: loot_room.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:4dd2584ef6cc7e6c",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md#The Loot Room: The Terrifying Meat Room"
           }
         ],
         "unresolved_mentions": []
@@ -518,15 +680,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_the_hidden_temple_of_the_nameless_goddess",
+            "label": "The Hidden Temple of the Nameless Goddess",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "The Hidden Temple of the Nameless Goddess"
             ],
-            "summary": "Worldbuilding: nameless_goddess_temple.md"
+            "summary": "Worldbuilding note: nameless_goddess_temple.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:d5f6f904b742fd95",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md#The Hidden Temple of the Nameless Goddess"
           }
         ],
         "unresolved_mentions": []
@@ -549,15 +720,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_path_exploration_to_the_temple",
+            "label": "Path Exploration to the Temple",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Path Exploration to the Temple"
             ],
-            "summary": "Worldbuilding: path_to_temple.md"
+            "summary": "Worldbuilding note: path_to_temple.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:aed1002d3d9aa168",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md#Path Exploration to the Temple"
           }
         ],
         "unresolved_mentions": []
@@ -574,21 +754,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_the_pre_kaiju_ritual_chamber_description_and_mechanics",
+            "label": "The Pre-Kaiju Ritual Chamber: Description and Mechanics",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "The Pre-Kaiju Ritual Chamber: Description and Mechanics"
             ],
-            "summary": "Worldbuilding: ritual_chamber.md"
+            "summary": "Worldbuilding note: ritual_chamber.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:4eab61ec115b506a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md#The Pre-Kaiju Ritual Chamber: Description and Mechanics"
           }
         ],
         "unresolved_mentions": []
@@ -611,15 +791,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_stormspire_academy",
+            "label": "Stormspire Academy",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Stormspire Academy"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Worldbuilding note: README.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2f6a4cfb7a3d59b1",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md#Stormspire Academy"
           }
         ],
         "unresolved_mentions": []
@@ -636,21 +825,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_stormspire_academy",
+            "label": "Stormspire Academy",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "Stormspire Academy"
             ],
-            "summary": "Worldbuilding: Stormspire Academy.md"
+            "summary": "Worldbuilding note: Stormspire Academy.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:83011534276a3b6d",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md#Stormspire Academy"
           }
         ],
         "unresolved_mentions": []
@@ -667,21 +856,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_the_ritual_and_the_kaiju",
+            "label": "The Ritual and The Kaiju",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "The Ritual and The Kaiju"
             ],
-            "summary": "Worldbuilding: What the Wolf knows.md"
+            "summary": "Worldbuilding note: What the Wolf knows.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:96315db951028abe",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md#The Ritual and The Kaiju"
           }
         ],
         "unresolved_mentions": []
@@ -698,21 +887,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "note_reception_clerk_wynna_mossglade",
+            "label": "Reception Clerk: Wynna Mossglade",
+            "kind": "object",
+            "role": "note",
             "aliases": [
-              "Mirathorn"
+              "Reception Clerk: Wynna Mossglade"
             ],
-            "summary": "Worldbuilding: Wynna Mossglade _ Clerk.md"
+            "summary": "Worldbuilding note: Wynna Mossglade _ Clerk.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9496d430c681e162",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md#Reception Clerk: Wynna Mossglade"
           }
         ],
         "unresolved_mentions": []
@@ -735,15 +924,24 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "note_the_city_of_mirathorn",
+            "label": "The City of Mirathorn",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "The City of Mirathorn"
             ],
-            "summary": "Worldbuilding: The City of Mirathorn.md"
+            "summary": "Worldbuilding note: The City of Mirathorn.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2f9093291d72770a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md#The City of Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -760,21 +958,32 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "creature_tripod_null_calf",
+            "label": "Tripod Null Calf",
+            "kind": "creature",
+            "role": "creature",
             "aliases": [
-              "Mirathorn"
+              "Tripod Null Calf",
+              "Tripod Null-Calf",
+              "tripod"
+            ]
+          },
+          {
+            "node_id": "note_conventions",
+            "label": "\ud83d\udcd0 Conventions",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "\ud83d\udcd0 Conventions"
             ],
-            "summary": "Worldbuilding: Wolf_s Manor Architectural description_.md"
+            "summary": "Worldbuilding note: Wolf_s Manor Architectural description_.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9ca26abbfb09959e",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md#\ud83d\udcd0 Conventions"
           }
         ],
         "unresolved_mentions": []
@@ -796,16 +1005,17 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Caelynn"
+              "Caelynn",
+              "caelynn"
             ],
-            "summary": "PC hub: caelynn"
+            "summary": "PC hub: Caelynn"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:dfbe37d0bab75d59",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md#Caelynn"
           }
         ],
         "unresolved_mentions": []
@@ -823,48 +1033,29 @@
         "nodes": [
           {
             "node_id": "event_session_1",
-            "label": "Session 1 Event",
+            "label": "Session 1",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 1 Event"
+              "Session 1",
+              "Session 1"
             ],
             "summary": "Recap session 1"
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
           }
         ],
         "edges": [
           {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_1",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_bonogo",
-            "target_node_id": "event_session_1",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
             "source_node_id": "pc_caelynn",
-            "target_node_id": "event_session_1",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_ephanna",
-            "target_node_id": "event_session_1",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_karsemine",
-            "target_node_id": "event_session_1",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_stafl",
             "target_node_id": "event_session_1",
             "predicate": "participated_in",
             "label": "participated in"
@@ -873,7 +1064,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3fdb6fcbb9d45c4a",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md#Session 1",
             "session_id": "session-1"
           }
         ],
@@ -892,28 +1083,36 @@
         "nodes": [
           {
             "node_id": "event_session_2",
-            "label": "Session 2 Event",
+            "label": "Session 2",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 2 Event"
+              "Session 2",
+              "Session 2"
             ],
             "summary": "Recap session 2"
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_2",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_bonogo",
-            "target_node_id": "event_session_2",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_caelynn",
             "target_node_id": "event_session_2",
@@ -921,28 +1120,16 @@
             "label": "participated in"
           },
           {
-            "source_node_id": "pc_ephanna",
-            "target_node_id": "event_session_2",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_karsemine",
-            "target_node_id": "event_session_2",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_stafl",
-            "target_node_id": "event_session_2",
-            "predicate": "participated_in",
-            "label": "participated in"
+            "source_node_id": "event_session_2",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:75344d8cc30a085b",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md#Session 2",
             "session_id": "session-2"
           }
         ],

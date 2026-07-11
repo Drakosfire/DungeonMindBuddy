@@ -22,15 +22,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Battle with The Wolf and Aftermath.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:4dedbc30ebd24036",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md#Battle with The Wolf and Aftermath"
           }
         ],
         "unresolved_mentions": []
@@ -53,15 +52,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: The City Council.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:efb56bf310a16a4f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md#The City Council"
           }
         ],
         "unresolved_mentions": []
@@ -84,15 +82,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: The Council Room.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c0ff8a82d394e165",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md#Council Room Description:"
           }
         ],
         "unresolved_mentions": []
@@ -115,15 +112,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: The Emergency Council Meeting.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9292b748a9273400",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md#The Emergency Council Meeting"
           }
         ],
         "unresolved_mentions": []
@@ -146,15 +142,25 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: README.md"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3a52620641beea05",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md#Captain Lysandra Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -177,15 +183,35 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "creature_captain_lysandra_ironveil_statblock_cr2",
+            "label": "captain_lysandra_ironveil_statblock_cr2",
+            "kind": "creature",
+            "role": "creature",
+            "aliases": [
+              "captain_lysandra_ironveil_statblock_cr2"
             ],
-            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr2.md"
+            "summary": "Worldbuilding typed: captain_lysandra_ironveil_statblock_cr2.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:255c3fe387d3d45a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md#captain_lysandra_ironveil_statblock_cr2"
           }
         ],
         "unresolved_mentions": []
@@ -202,21 +228,32 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
             "aliases": [
-              "Mirathorn"
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "creature_captain_lysandra_ironveil_statblock_cr4",
+            "label": "captain_lysandra_ironveil_statblock_cr4",
+            "kind": "creature",
+            "role": "creature",
+            "aliases": [
+              "captain_lysandra_ironveil_statblock_cr4"
             ],
-            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr4.md"
+            "summary": "Worldbuilding typed: captain_lysandra_ironveil_statblock_cr4.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:0bf518a0753c76d5",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md#captain_lysandra_ironveil_statblock_cr4"
           }
         ],
         "unresolved_mentions": []
@@ -239,15 +276,44 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: character_seed.md"
+            ]
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:79de72763c80dc1f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md#Captain Lysandra Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -270,15 +336,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: README.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:48c4d2c82b30e429",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md#Torbin Jove"
           }
         ],
         "unresolved_mentions": []
@@ -301,15 +366,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: character_seed.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:1ea29ca17f7cbe5f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md#Torbin Jove"
           }
         ],
         "unresolved_mentions": []
@@ -326,21 +390,21 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "creature_torbin_jove_statblock",
+            "label": "torbin_jove_statblock",
+            "kind": "creature",
+            "role": "creature",
             "aliases": [
-              "Mirathorn"
+              "torbin_jove_statblock"
             ],
-            "summary": "Worldbuilding: torbin_jove_statblock.md"
+            "summary": "Worldbuilding typed: torbin_jove_statblock.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:702623c8d980d5e5",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md#torbin_jove_statblock"
           }
         ],
         "unresolved_mentions": []
@@ -364,14 +428,14 @@
             "aliases": [
               "Mirathorn"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Location hub: Mirathorn"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:aad4f542ab4184dc",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md#Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -394,15 +458,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Mirathorn Sewers.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:960e5092bc7a5d93",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md#Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -414,28 +477,12 @@
       "source_revision_id": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Sewer Traps.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:180f9c419b521b56",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -445,28 +492,12 @@
       "source_revision_id": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: allies_hideout.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:c899c84a8cded02d",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -487,15 +518,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: loot_room.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:4dd2584ef6cc7e6c",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md#The Loot Room: The Terrifying Meat Room"
           }
         ],
         "unresolved_mentions": []
@@ -518,15 +548,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: nameless_goddess_temple.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:d5f6f904b742fd95",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md#The Hidden Temple of the Nameless Goddess"
           }
         ],
         "unresolved_mentions": []
@@ -549,15 +578,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: path_to_temple.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:aed1002d3d9aa168",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md#Path Exploration to the Temple"
           }
         ],
         "unresolved_mentions": []
@@ -569,28 +597,12 @@
       "source_revision_id": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: ritual_chamber.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:4eab61ec115b506a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -611,15 +623,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: README.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2f6a4cfb7a3d59b1",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md#Stormspire Academy"
           }
         ],
         "unresolved_mentions": []
@@ -631,28 +642,12 @@
       "source_revision_id": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Stormspire Academy.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:83011534276a3b6d",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -662,28 +657,12 @@
       "source_revision_id": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: What the Wolf knows.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:96315db951028abe",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -693,28 +672,12 @@
       "source_revision_id": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79",
       "source_domain": "worldbuilding",
       "required": true,
-      "status": "accepted",
-      "skip_reason": null,
+      "status": "skipped",
+      "skip_reason": "no_extractable_entity_from_content",
       "candidate_graph": {
-        "nodes": [
-          {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
-            "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Wynna Mossglade _ Clerk.md"
-          }
-        ],
+        "nodes": [],
         "edges": [],
-        "evidence_refs": [
-          {
-            "evidence_ref_id": "evidence:9496d430c681e162",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md"
-          }
-        ],
+        "evidence_refs": [],
         "unresolved_mentions": []
       }
     },
@@ -735,15 +698,14 @@
             "role": "location",
             "aliases": [
               "Mirathorn"
-            ],
-            "summary": "Worldbuilding: The City of Mirathorn.md"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2f9093291d72770a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md#The City of Mirathorn"
           }
         ],
         "unresolved_mentions": []
@@ -760,21 +722,22 @@
       "candidate_graph": {
         "nodes": [
           {
-            "node_id": "loc_mirathorn",
-            "label": "Mirathorn",
-            "kind": "location",
-            "role": "location",
+            "node_id": "creature_tripod_null_calf",
+            "label": "Tripod Null Calf",
+            "kind": "creature",
+            "role": "creature",
             "aliases": [
-              "Mirathorn"
-            ],
-            "summary": "Worldbuilding: Wolf_s Manor Architectural description_.md"
+              "Tripod Null Calf",
+              "Tripod Null-Calf",
+              "tripod"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9ca26abbfb09959e",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md#\ud83d\udcd0 Conventions"
           }
         ],
         "unresolved_mentions": []
@@ -791,21 +754,110 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: Mireward_PLACE_BUILD_SCAFFOLD.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "loc_edge",
+            "label": "Edge of the World",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Edge of the World",
+              "Edge"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "npc_brin_holloway",
+            "label": "Brin Holloway",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Brin Holloway"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:24ca9566785e50cf",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md#Mireward Reach"
           }
         ],
         "unresolved_mentions": []
@@ -827,16 +879,25 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_brin_holloway",
+            "label": "Brin Holloway",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Brin Holloway"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:5f54b2e695efe86a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md#Brin Holloway"
           }
         ],
         "unresolved_mentions": []
@@ -853,21 +914,60 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_brin_holloway",
+            "label": "Brin Holloway",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Brin Holloway"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "note_brin_holloway",
+            "label": "Brin Holloway",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Brin Holloway"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:581b2c6d101936fa",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md#Brin Holloway"
           }
         ],
         "unresolved_mentions": []
@@ -889,16 +989,36 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:414d7e929891896f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md#Delwen Rast"
           }
         ],
         "unresolved_mentions": []
@@ -915,21 +1035,51 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "note_delwen_rast",
+            "label": "Delwen Rast",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Delwen Rast"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:330b01597f51ce1c",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md#Delwen Rast"
           }
         ],
         "unresolved_mentions": []
@@ -951,16 +1101,36 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c7758ff6203b3e1b",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md#Lysandro Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -982,16 +1152,46 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_lysandro_ironveil",
+            "label": "Lysandro Ironveil",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Lysandro Ironveil"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:1c4b3e58f96e9f96",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md#Lysandro Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -1008,21 +1208,60 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_lysandro_ironveil",
+            "label": "Lysandro Ironveil",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Lysandro Ironveil"
             ],
-            "summary": "Worldbuilding: lysandro_ironveil_character_dossier.md"
+            "summary": "Worldbuilding dossier: lysandro_ironveil_character_dossier.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:8652e1dd875b206f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md#Lysandro Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -1044,16 +1283,16 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:706332549f54414f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md#Maera Vell"
           }
         ],
         "unresolved_mentions": []
@@ -1070,21 +1309,51 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "note_maera_vell",
+            "label": "Maera Vell",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Maera Vell"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:974261a37669a004",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md#Maera Vell"
           }
         ],
         "unresolved_mentions": []
@@ -1106,16 +1375,16 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:f76c114854fbb1d8",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md#Nera Coalstep"
           }
         ],
         "unresolved_mentions": []
@@ -1132,21 +1401,49 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_nera_coalstep",
+            "label": "Nera Coalstep",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Nera Coalstep"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:f1404aa0ad4d9725",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md#Nera Coalstep"
           }
         ],
         "unresolved_mentions": []
@@ -1168,16 +1465,16 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:a2263161a50e6b1a",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md#Orin Vell"
           }
         ],
         "unresolved_mentions": []
@@ -1199,16 +1496,26 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "note_orin_vell",
+            "label": "Orin Vell",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Orin Vell"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c039b92b9eb1dd11",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md#Orin Vell"
           }
         ],
         "unresolved_mentions": []
@@ -1230,16 +1537,16 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:467ca027c07a9562",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md#Mayor Orric Tane"
           }
         ],
         "unresolved_mentions": []
@@ -1256,21 +1563,49 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_mayor_orric_tane",
+            "label": "Mayor Orric Tane",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Mayor Orric Tane"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:6caf4eaf187806ab",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md#Mayor Orric Tane"
           }
         ],
         "unresolved_mentions": []
@@ -1287,21 +1622,39 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:50c1e4b187d38a25",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md#Private Hester"
           }
         ],
         "unresolved_mentions": []
@@ -1318,21 +1671,80 @@
       "candidate_graph": {
         "nodes": [
           {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
             "node_id": "loc_mireward",
             "label": "Mireward",
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "note_private_hester",
+            "label": "Private Hester",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Private Hester"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:0273bca926a76cd1",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md#Private Hester"
           }
         ],
         "unresolved_mentions": []
@@ -1354,16 +1766,16 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Worldbuilding: README.md"
+              "Mireward",
+              "Mireward Reach"
+            ]
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:51e1255d1da5a032",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md#Reeve Salla Vey"
           }
         ],
         "unresolved_mentions": []
@@ -1385,16 +1797,35 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "note_reeve_salla_vey",
+            "label": "Reeve Salla Vey",
+            "kind": "object",
+            "role": "note",
+            "aliases": [
+              "Reeve Salla Vey"
             ],
-            "summary": "Worldbuilding: character_seed.md"
+            "summary": "Worldbuilding seed: character_seed.md"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2edb87fba3a8199f",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md#Reeve Salla Vey"
           }
         ],
         "unresolved_mentions": []
@@ -1416,16 +1847,17 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
             ],
-            "summary": "Worldbuilding: README.md"
+            "summary": "Location hub: Mireward"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:d0af2b1291de88ac",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md#Mireward Reach"
           }
         ],
         "unresolved_mentions": []
@@ -1443,11 +1875,12 @@
         "nodes": [
           {
             "node_id": "creature_latch_harrow",
-            "label": "Latch Harrow",
+            "label": "Latch-Harrow",
             "kind": "creature",
             "role": "creature",
             "aliases": [
-              "Latch Harrow"
+              "Latch-Harrow",
+              "Latch-Harrow"
             ],
             "summary": "Mechanical: latch_harrow_statblock_cr8"
           }
@@ -1456,7 +1889,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:da0702709b78a4a7",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md#Latch-Harrow"
           }
         ],
         "unresolved_mentions": []
@@ -1474,11 +1907,12 @@
         "nodes": [
           {
             "node_id": "creature_tripod_null_calf",
-            "label": "Tripod Null Calf",
+            "label": "Tripod Null-Calf",
             "kind": "creature",
             "role": "creature",
             "aliases": [
-              "Tripod Null Calf"
+              "Tripod Null-Calf",
+              "Tripod Null-Calf"
             ],
             "summary": "Mechanical: tripod_null_calf_statblock_cr5"
           }
@@ -1487,7 +1921,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3c43f2b7966be064",
-            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md"
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md#Tripod Null-Calf"
           }
         ],
         "unresolved_mentions": []
@@ -1511,7 +1945,7 @@
             "aliases": [
               "Journey to Mireward Reach"
             ],
-            "summary": "Journey to Mireward Reach"
+            "summary": "Journey tracker event"
           },
           {
             "node_id": "loc_mireward",
@@ -1519,9 +1953,49 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Journey destination hub"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "loc_edge",
+            "label": "Edge of the World",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Edge of the World",
+              "Edge"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
           }
         ],
         "edges": [
@@ -1535,7 +2009,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:808de567391aee9a",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md#Journey"
           }
         ],
         "unresolved_mentions": []
@@ -1557,7 +2031,9 @@
             "kind": "npc",
             "role": "npc",
             "aliases": [
-              "Captain Lysandra Ironveil"
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
             ]
           },
           {
@@ -1566,7 +2042,17 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
             ]
           }
         ],
@@ -1581,7 +2067,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:9df064233bc2e590",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md#Lysandra Ironveil"
           }
         ],
         "unresolved_mentions": []
@@ -1599,20 +2085,23 @@
         "nodes": [
           {
             "node_id": "pc_baergrom",
-            "label": "Baergrom",
+            "label": "Baergrom Stoutheart",
             "kind": "pc",
             "role": "pc",
             "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
               "Baergrom"
             ],
-            "summary": "PC hub: baergrom"
+            "summary": "PC hub: Baergrom Stoutheart"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:d4119ba2498447c9",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md#Baergrom Stoutheart"
           }
         ],
         "unresolved_mentions": []
@@ -1634,16 +2123,17 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Bonogo"
+              "Bonogo",
+              "bonogo"
             ],
-            "summary": "PC hub: bonogo"
+            "summary": "PC hub: Bonogo"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:74f54ff3b35932b3",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md#Bonogo"
           }
         ],
         "unresolved_mentions": []
@@ -1665,16 +2155,17 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Caelynn"
+              "Caelynn",
+              "caelynn"
             ],
-            "summary": "PC hub: caelynn"
+            "summary": "PC hub: Caelynn"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:dfbe37d0bab75d59",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md#Caelynn"
           }
         ],
         "unresolved_mentions": []
@@ -1696,16 +2187,17 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Ephanna"
+              "Ephanna",
+              "ephanna"
             ],
-            "summary": "PC hub: ephanna"
+            "summary": "PC hub: Ephanna"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:dc600120f0e7034c",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md#Ephanna"
           }
         ],
         "unresolved_mentions": []
@@ -1727,16 +2219,18 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Karsemine"
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
             ],
-            "summary": "PC hub: karsemine"
+            "summary": "PC hub: Karsemine"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:0f2b7d018062d8ef",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md#Karsemine"
           }
         ],
         "unresolved_mentions": []
@@ -1758,16 +2252,17 @@
             "kind": "pc",
             "role": "pc",
             "aliases": [
-              "Stafl"
+              "Stafl",
+              "stafl"
             ],
-            "summary": "PC hub: stafl"
+            "summary": "PC hub: Stafl"
           }
         ],
         "edges": [],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:13521ae035438cf2",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md#Stafl"
           }
         ],
         "unresolved_mentions": []
@@ -1785,13 +2280,77 @@
         "nodes": [
           {
             "node_id": "event_session_1",
-            "label": "Session 1 Event",
+            "label": "Session 1",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 1 Event"
+              "Session 1",
+              "Session 1"
             ],
             "summary": "Recap session 1"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [
@@ -1835,7 +2394,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3fdb6fcbb9d45c4a",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md#Session 1",
             "session_id": "session-1"
           }
         ],
@@ -1854,13 +2413,86 @@
         "nodes": [
           {
             "node_id": "event_session_2",
-            "label": "Session 2 Event",
+            "label": "Session 2",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 2 Event"
+              "Session 2",
+              "Session 2"
             ],
             "summary": "Recap session 2"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
           }
         ],
         "edges": [
@@ -1899,12 +2531,18 @@
             "target_node_id": "event_session_2",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_2",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:75344d8cc30a085b",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md#Session 2",
             "session_id": "session-2"
           }
         ],
@@ -1923,13 +2561,97 @@
         "nodes": [
           {
             "node_id": "event_session_3",
-            "label": "Session 3 Event",
+            "label": "Session 3",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 3 Event"
+              "Session 3",
+              "Session 3"
             ],
             "summary": "Recap session 3"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -1968,12 +2690,24 @@
             "target_node_id": "event_session_3",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_3",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:44ca2f1ca97907a8",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md#Session 3",
             "session_id": "session-3"
           }
         ],
@@ -1992,13 +2726,77 @@
         "nodes": [
           {
             "node_id": "event_session_4",
-            "label": "Session 4 Event",
+            "label": "Session 4",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 4 Event"
+              "Session 4",
+              "Session 4"
             ],
             "summary": "Recap session 4"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [
@@ -2042,7 +2840,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:36935dbe5e8f482f",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md#Session 4",
             "session_id": "session-4"
           }
         ],
@@ -2061,13 +2859,97 @@
         "nodes": [
           {
             "node_id": "event_session_5",
-            "label": "Session 5 Event",
+            "label": "Session 5",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 5 Event"
+              "Session 5",
+              "Session 5"
             ],
             "summary": "Recap session 5"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2106,12 +2988,24 @@
             "target_node_id": "event_session_5",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_5",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:38a549eda245d19c",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md#Session 5",
             "session_id": "session-5"
           }
         ],
@@ -2130,13 +3024,88 @@
         "nodes": [
           {
             "node_id": "event_session_6",
-            "label": "Session 6 Event",
+            "label": "Session 6",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 6 Event"
+              "Session 6",
+              "Session 6"
             ],
             "summary": "Recap session 6"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2175,12 +3144,18 @@
             "target_node_id": "event_session_6",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c72ad1ba1609bfea",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md#Session 6",
             "session_id": "session-6"
           }
         ],
@@ -2199,13 +3174,88 @@
         "nodes": [
           {
             "node_id": "event_session_7",
-            "label": "Session 7 Event",
+            "label": "Session 7",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 7 Event"
+              "Session 7",
+              "Session 7"
             ],
             "summary": "Recap session 7"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2244,12 +3294,18 @@
             "target_node_id": "event_session_7",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:3186187f22d2e0af",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md#Session 7",
             "session_id": "session-7"
           }
         ],
@@ -2268,13 +3324,97 @@
         "nodes": [
           {
             "node_id": "event_session_8",
-            "label": "Session 8 Event",
+            "label": "Session 8",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 8 Event"
+              "Session 8",
+              "Session 8"
             ],
             "summary": "Recap session 8"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2313,12 +3453,24 @@
             "target_node_id": "event_session_8",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_8",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:5fcb97bf89e22b43",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md#Session 8",
             "session_id": "session-8"
           }
         ],
@@ -2337,13 +3489,77 @@
         "nodes": [
           {
             "node_id": "event_session_9",
-            "label": "Session 9 Event",
+            "label": "Session 9",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 9 Event"
+              "Session 9",
+              "Session 9"
             ],
             "summary": "Recap session 9"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [
@@ -2387,7 +3603,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:89e4d32e4f75cca8",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md#Session 9",
             "session_id": "session-9"
           }
         ],
@@ -2406,13 +3622,67 @@
         "nodes": [
           {
             "node_id": "event_session_10",
-            "label": "Session 10 Event",
+            "label": "Session 10",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 10 Event"
+              "Session 10",
+              "Session 10"
             ],
             "summary": "Recap session 10"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
           }
         ],
         "edges": [
@@ -2445,18 +3715,12 @@
             "target_node_id": "event_session_10",
             "predicate": "participated_in",
             "label": "participated in"
-          },
-          {
-            "source_node_id": "pc_stafl",
-            "target_node_id": "event_session_10",
-            "predicate": "participated_in",
-            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:971e423f87a38d6b",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md#Session 10",
             "session_id": "session-10"
           }
         ],
@@ -2475,13 +3739,77 @@
         "nodes": [
           {
             "node_id": "event_session_11",
-            "label": "Session 11 Event",
+            "label": "Session 11",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 11 Event"
+              "Session 11",
+              "Session 11"
             ],
             "summary": "Recap session 11"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [
@@ -2525,7 +3853,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:b84a4af15daf97b9",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md#Session 11",
             "session_id": "session-11"
           }
         ],
@@ -2544,13 +3872,77 @@
         "nodes": [
           {
             "node_id": "event_session_12",
-            "label": "Session 12 Event",
+            "label": "Session 12",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 12 Event"
+              "Session 12",
+              "Session 12"
             ],
             "summary": "Recap session 12"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
           }
         ],
         "edges": [
@@ -2594,7 +3986,7 @@
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:6db838d5583ec88b",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md#Session 12",
             "session_id": "session-12"
           }
         ],
@@ -2613,13 +4005,97 @@
         "nodes": [
           {
             "node_id": "event_session_13",
-            "label": "Session 13 Event",
+            "label": "Session 13",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 13 Event"
+              "Session 13",
+              "Session 13"
             ],
             "summary": "Recap session 13"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2658,12 +4134,24 @@
             "target_node_id": "event_session_13",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_13",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:2d8cdd5074116168",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md#Session 13",
             "session_id": "session-13"
           }
         ],
@@ -2682,22 +4170,79 @@
         "nodes": [
           {
             "node_id": "event_session_14",
-            "label": "Session 14 Event",
+            "label": "Session 14",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 14 Event"
+              "Session 14",
+              "Session 14"
             ],
             "summary": "Recap session 14"
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_14",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_bonogo",
             "target_node_id": "event_session_14",
@@ -2727,12 +4272,18 @@
             "target_node_id": "event_session_14",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c4e183f1de83f2f0",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md#Session 14",
             "session_id": "session-14"
           }
         ],
@@ -2751,13 +4302,97 @@
         "nodes": [
           {
             "node_id": "event_session_15",
-            "label": "Session 15 Event",
+            "label": "Session 15",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 15 Event"
+              "Session 15",
+              "Session 15"
             ],
             "summary": "Recap session 15"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2796,12 +4431,24 @@
             "target_node_id": "event_session_15",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_15",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:ba71ddbf6058a6f9",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md#Session 15",
             "session_id": "session-15"
           }
         ],
@@ -2820,13 +4467,88 @@
         "nodes": [
           {
             "node_id": "event_session_16",
-            "label": "Session 16 Event",
+            "label": "Session 16",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 16 Event"
+              "Session 16",
+              "Session 16"
             ],
             "summary": "Recap session 16"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
           }
         ],
         "edges": [
@@ -2865,12 +4587,18 @@
             "target_node_id": "event_session_16",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:c8603b46dd853389",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md#Session 16",
             "session_id": "session-16"
           }
         ],
@@ -2889,13 +4617,87 @@
         "nodes": [
           {
             "node_id": "event_session_17",
-            "label": "Session 17 Event",
+            "label": "Session 17",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 17 Event"
+              "Session 17",
+              "Session 17"
             ],
             "summary": "Recap session 17"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
@@ -2934,12 +4736,18 @@
             "target_node_id": "event_session_17",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:da873ee9663d0d6b",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md#Session 17",
             "session_id": "session-17"
           }
         ],
@@ -2958,13 +4766,98 @@
         "nodes": [
           {
             "node_id": "event_session_18",
-            "label": "Session 18 Event",
+            "label": "Session 18",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 18 Event"
+              "Session 18",
+              "Session 18"
             ],
             "summary": "Recap session 18"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
@@ -3003,12 +4896,24 @@
             "target_node_id": "event_session_18",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:a2c952f9917233dd",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md#Session 18",
             "session_id": "session-18"
           }
         ],
@@ -3027,22 +4932,78 @@
         "nodes": [
           {
             "node_id": "event_session_19",
-            "label": "Session 19 Event",
+            "label": "Session 19",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 19 Event"
+              "Session 19",
+              "Session 19"
             ],
             "summary": "Recap session 19"
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_19",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_bonogo",
             "target_node_id": "event_session_19",
@@ -3072,12 +5033,18 @@
             "target_node_id": "event_session_19",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:6f139761d979b5c6",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md#Session 19",
             "session_id": "session-19"
           }
         ],
@@ -3096,22 +5063,98 @@
         "nodes": [
           {
             "node_id": "event_session_20",
-            "label": "Session 20 Event",
+            "label": "Session 20",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 20 Event"
+              "Session 20",
+              "Session 20"
             ],
             "summary": "Recap session 20"
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_20",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_bonogo",
             "target_node_id": "event_session_20",
@@ -3141,12 +5184,30 @@
             "target_node_id": "event_session_20",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_20",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:6a8718b731da9a4c",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md#Session 20",
             "session_id": "session-20"
           }
         ],
@@ -3165,22 +5226,118 @@
         "nodes": [
           {
             "node_id": "event_session_21",
-            "label": "Session 21 Event",
+            "label": "Session 21",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 21 Event"
+              "Session 21",
+              "Session 21"
             ],
             "summary": "Recap session 21"
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "loc_edge",
+            "label": "Edge of the World",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Edge of the World",
+              "Edge"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_21",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_bonogo",
             "target_node_id": "event_session_21",
@@ -3210,12 +5367,42 @@
             "target_node_id": "event_session_21",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_21",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "event_session_21",
+            "target_node_id": "loc_mireward",
+            "predicate": "occurred_at",
+            "label": "occurred at Mireward"
+          },
+          {
+            "source_node_id": "event_session_21",
+            "target_node_id": "loc_edge",
+            "predicate": "occurred_at",
+            "label": "occurred at Edge of the World"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:581d1c8eb0d8e113",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md#Session 21",
             "session_id": "session-21"
           }
         ],
@@ -3234,22 +5421,117 @@
         "nodes": [
           {
             "node_id": "event_session_22",
-            "label": "Session 22 Event",
+            "label": "Session 22",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 22 Event"
+              "Session 22",
+              "Session 22"
             ],
             "summary": "Recap session 22"
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
           }
         ],
         "edges": [
-          {
-            "source_node_id": "pc_baergrom",
-            "target_node_id": "event_session_22",
-            "predicate": "participated_in",
-            "label": "participated in"
-          },
           {
             "source_node_id": "pc_bonogo",
             "target_node_id": "event_session_22",
@@ -3279,12 +5561,42 @@
             "target_node_id": "event_session_22",
             "predicate": "participated_in",
             "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_22",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "event_session_22",
+            "target_node_id": "loc_mireward",
+            "predicate": "occurred_at",
+            "label": "occurred at Mireward"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandro",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:e9edc83be9b758f1",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md#Session 22",
             "session_id": "session-22"
           }
         ],
@@ -3303,13 +5615,86 @@
         "nodes": [
           {
             "node_id": "event_session_23",
-            "label": "Session 23 Event",
+            "label": "Session 23",
             "kind": "event",
             "role": "event",
             "aliases": [
-              "Session 23 Event"
+              "Session 23",
+              "Session 23"
             ],
             "summary": "Recap session 23"
+          },
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom Stoutheart",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom Stoutheart",
+              "baergrom",
+              "Baergorm",
+              "Baergrom"
+            ]
+          },
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo",
+              "bonogo"
+            ]
+          },
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn",
+              "caelynn"
+            ]
+          },
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna",
+              "ephanna"
+            ]
+          },
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine",
+              "karsemine",
+              "Kasemine"
+            ]
+          },
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl",
+              "stafl"
+            ]
+          },
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ]
           },
           {
             "node_id": "loc_mireward",
@@ -3317,9 +5702,68 @@
             "kind": "location",
             "role": "location",
             "aliases": [
-              "Mireward"
-            ],
-            "summary": "Mireward gate battle (Session 23)"
+              "Mireward",
+              "Mireward Reach"
+            ]
+          },
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil",
+              "Lysandra",
+              "Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "npc_lysandro",
+            "label": "Lysandro",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Lysandro"
+            ]
+          },
+          {
+            "node_id": "npc_thrin_branchborn",
+            "label": "Thrin",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Thrin",
+              "Thrin Branchborn"
+            ]
+          },
+          {
+            "node_id": "npc_orik_tane",
+            "label": "Orik Tane",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Orik Tane"
+            ]
+          },
+          {
+            "node_id": "npc_brin_holloway",
+            "label": "Brin Holloway",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Brin Holloway"
+            ]
+          },
+          {
+            "node_id": "creature_tripod_null_calf",
+            "label": "Tripod Null Calf",
+            "kind": "creature",
+            "role": "creature",
+            "aliases": [
+              "Tripod Null Calf",
+              "Tripod Null-Calf",
+              "tripod"
+            ]
           }
         ],
         "edges": [
@@ -3361,15 +5805,57 @@
           },
           {
             "source_node_id": "event_session_23",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "occurred_at",
+            "label": "occurred at Mirathorn"
+          },
+          {
+            "source_node_id": "event_session_23",
             "target_node_id": "loc_mireward",
             "predicate": "occurred_at",
-            "label": "gate battle at Mireward"
+            "label": "occurred at Mireward"
+          },
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_lysandro",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_thrin_branchborn",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_orik_tane",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "npc_brin_holloway",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "creature_tripod_null_calf",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
           }
         ],
         "evidence_refs": [
           {
             "evidence_ref_id": "evidence:43376e5999f1a735",
-            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md#Session 23",
             "session_id": "session-23"
           }
         ],

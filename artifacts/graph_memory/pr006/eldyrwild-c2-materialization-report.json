@@ -4,14 +4,44 @@
   "world_id": "eldyrwild",
   "campaign_scope": "longmont-c2",
   "manifest_sha256": "sha256:8b730f312e2f107b83c08aeee609986450a731a5886155fb3accea77df24536c",
-  "bundle_sha256": "sha256:55ba986a663410337dd5843f968f9662a21c19e42f34626272dc774d30bf8104",
-  "head_revision_id": "rev:e8693f31816f9424d73718247880d3fb",
-  "parent_revision_id": "rev:304b0b388299f13510c2b3fcfa8fcdea",
-  "baseline_revision_id": "rev:304b0b388299f13510c2b3fcfa8fcdea",
+  "bundle_sha256": "sha256:12e5f1115183a67a59d420f4c6a57b52ed82d083301fa518e28ba99993332b53",
+  "head_revision_id": "rev:92afbd56b2c8e6114e029f2b0d3be071",
+  "parent_revision_id": "rev:09e65958c1a61d139b8fa3604ae86c9b",
+  "baseline_revision_id": "rev:09e65958c1a61d139b8fa3604ae86c9b",
   "requested_source_count": 79,
-  "accepted_source_count": 79,
-  "skipped_source_count": 0,
+  "bundle_accepted_count": 73,
+  "bundle_skipped_count": 6,
+  "accepted_source_count": 73,
+  "skipped_source_count": 6,
+  "empty_skipped_sources": [
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    },
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    },
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    },
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    },
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    },
+    {
+      "uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+      "skip_reason": "no_extractable_entity_from_content"
+    }
+  ],
   "failed_required_sources": [],
+  "produced_contribution_count": 73,
+  "merged_contribution_count": 73,
   "source_inventory": [
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
@@ -511,33 +541,48 @@
       "session_number": 23
     }
   ],
-  "source_domain_counts": {
+  "accepted_source_domain_counts": {
+    "worldbuilding": 40,
+    "mechanical": 2,
+    "campaign_hub": 2,
+    "pc_hub": 6,
+    "recap": 23
+  },
+  "requested_source_domain_counts": {
     "worldbuilding": 46,
+    "mechanical": 2,
+    "campaign_hub": 2,
+    "pc_hub": 6,
+    "recap": 23
+  },
+  "source_domain_counts": {
+    "worldbuilding": 40,
     "mechanical": 2,
     "campaign_hub": 2,
     "pc_hub": 6,
     "recap": 23
   },
   "counts_by_source_domain": {
-    "worldbuilding": 46,
+    "worldbuilding": 40,
     "mechanical": 2,
     "campaign_hub": 2,
     "pc_hub": 6,
     "recap": 23
   },
-  "node_count": 36,
-  "edge_count": 143,
-  "evidence_ref_count": 82,
-  "accepted_assertion_count": 223,
-  "assertions_with_source_artifact_count": 223,
-  "assertions_with_evidence_count": 223,
+  "node_count": 52,
+  "edge_count": 174,
+  "evidence_ref_count": 73,
+  "accepted_assertion_count": 481,
+  "assertions_with_source_artifact_count": 481,
+  "assertions_with_evidence_count": 481,
   "unresolved_identity_count": 0,
   "provisional_identity_count": 0,
   "ambiguous_identity_count": 0,
   "blocked_collision_count": 0,
   "rejected_assertion_count": 0,
-  "contribution_count": 79,
-  "active_contribution_count": 79,
+  "resolved_existing_count": 307,
+  "contribution_count": 73,
+  "active_contribution_count": 73,
   "superseded_contribution_count": 0,
   "retracted_contribution_count": 0,
   "duplicate_graph_state_created": false,
@@ -551,7 +596,8 @@
     "rejected_assertion_count": 0,
     "provisional_identity_count": 0,
     "ambiguous_identity_count": 0,
-    "blocked_collision_count": 0
+    "blocked_collision_count": 0,
+    "resolved_existing_count": 307
   },
   "required_hubs_present": [
     "Mirathorn",
@@ -1571,7 +1617,8 @@
     "Mirathorn and Mireward location nodes present in merged head",
     "Six C2 PC hub nodes present with worldbuilding domain mapping",
     "Kernel merge + rebuild equivalence for contribution ledger",
-    "Every accepted assertion carries source_artifact_id + source_revision_id"
+    "Every accepted assertion carries source_artifact_id + source_revision_id",
+    "Corpus-assembled head has no fixture:// provenance URIs"
   ],
   "plan_cannot_trust": [
     "Revision-pinned projection slices (PR007 not landed)",
@@ -1583,5 +1630,5 @@
     "apps/live-control-ui graph-preview route parameters",
     "union_supergraph_projection_adapter preview selectors"
   ],
-  "generated_at": "2026-07-11T17:45:28Z"
+  "generated_at": "2026-07-11T18:01:20Z"
 }

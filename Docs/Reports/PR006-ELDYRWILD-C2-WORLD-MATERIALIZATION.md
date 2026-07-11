@@ -1,6 +1,6 @@
 # PR006 — Eldyrwild C2 World Materialization Report
 
-**Verdict:** PASS — acceptance corpus materialized to durable world graph head with provenance, integrity, and rebuild equivalence.
+**Verdict:** PASS — acceptance corpus materialized from **content-derived** candidates (deterministic parse of source markdown), published through Kernel contributions, with provenance, integrity, rebuild equivalence, and source-locked revisions.
 
 **Generated:** from `artifacts/graph_memory/pr006/eldyrwild-c2-materialization-report.json`
 
@@ -8,92 +8,99 @@
 
 | Field | Value |
 |---|---|
-| Baseline revision | `rev:304b0b388299f13510c2b3fcfa8fcdea` (`op:pr006-baseline`) |
-| Final head revision | `rev:e8693f31816f9424d73718247880d3fb` |
+| Corpus-assembled baseline | `rev:09e65958c1a61d139b8fa3604ae86c9b` (`op:pr006-corpus-assembled`) |
+| Final head revision | `rev:92afbd56b2c8e6114e029f2b0d3be071` |
 | Parent at materialize start | baseline revision above |
 
-## Inventory summary
+No `fixture://` baseline objects. The first published revision is assembled only from acceptance-corpus contributions applied in memory, then durable contribution merges advance the head.
+
+## Inventory / bundle honesty
 
 | Metric | Count |
 |---|---|
 | Requested sources | 79 |
-| Accepted sources | 79 |
-| Skipped | 0 |
+| Bundle accepted | 73 |
+| Bundle skipped | 6 |
+| Merged contributions | 73 |
 | Failed required | 0 |
-| Recaps (sessions 1–23) | 23 |
+| Recaps accepted (sessions 1–23) | 23 |
 | PC hubs | 6 |
-| Worldbuilding (Mirathorn + Mireward) | 46 |
-| Campaign hub sources | 2 |
-| Mechanical statblocks | 2 |
+| Mirathorn / Mireward hubs | present |
+
+### Skipped sources (explicit)
+
+Worldbuilding leaves without extractable hub/lexicon/typed-subject content are skipped rather than accepted with empty or filename-only graphs:
+
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md`: no_extractable_entity_from_content
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md`: no_extractable_entity_from_content
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md`: no_extractable_entity_from_content
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md`: no_extractable_entity_from_content
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md`: no_extractable_entity_from_content
+- `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md`: no_extractable_entity_from_content
 
 ## Graph counts
 
 | Metric | Value |
 |---|---|
-| Nodes | 36 |
-| Edges | 143 |
-| Contributions merged | 79 |
-| Accepted assertions | 223 |
-| Assertions with source artifact linkage | 223 |
+| Nodes | 52 |
+| Edges | 174 |
+| Accepted assertions | 481 |
+| Assertions with source artifact linkage | 481 |
+
+## Extraction method
+
+Deterministic content parse (no LLM in this PR):
+
+- Frontmatter title / H1 labels
+- Party-registry lexicon + hub README display names for PC mention detection
+- Recap participation = session roster ∩ in-text PC mentions (not unconditional six-PC edges)
+- Locations/NPCs/creatures only when mentioned in that source's body
+- Worldbuilding: hub READMEs + lexicon hits + typed subject docs (`statblock`/`dossier`/…); otherwise skip
 
 ## Identity diagnostics
 
-- Unresolved mentions: 0
-- Rejected assertions: 0
+{
+  "unresolved_mention_count": 0,
+  "rejected_assertion_count": 0,
+  "provisional_identity_count": 0,
+  "ambiguous_identity_count": 0,
+  "blocked_collision_count": 0,
+  "resolved_existing_count": 307
+}
 
 ## Integrity
 
 - World integrity: valid
 - Contribution integrity: valid
 - Rebuild equivalent to head: yes
-- Duplicate graph state created on idempotent replay: no
+- Idempotent replay: head unchanged; `duplicate_graph_state_created=False` (fingerprint-compared)
 
 ## Required hubs
 
-- Mirathorn (`loc_mirathorn`): present
-- Mireward (`loc_mireward`): present
-
-## Examples (stable node IDs)
-
-| Entity | Node ID | Source domain |
-|---|---|---|
-| PC Caelynn | `pc_caelynn` | worldbuilding (PC hub) |
-| Captain Lysandra Ironveil | `npc_lysandra_ironveil` | npc_note (campaign hub) |
-| Mirathorn | `loc_mirathorn` | worldbuilding |
-| Mireward | `loc_mireward` | worldbuilding |
-| Session 23 event | `event_session_23` | recap |
-| Cross-session edge | `pc_*` → `event_session_N` (`participated_in`) | recap |
-
-Session 23 additionally links `event_session_23` → `loc_mireward` (`occurred_at`, gate battle).
+- Mirathorn: present
+- Mireward: present
 
 ## Plan trust
 
 **Plan can trust:**
 
-- Persistent `eldyrwild` world graph head for `longmont-c2`
-- Session 1–23 recap inventory with sha256 provenance
-- Mirathorn + Mireward location nodes in merged head
-- Six C2 PC hub nodes with kernel domain mapping
-- Kernel merge + rebuild equivalence
-- Source artifact linkage on every accepted assertion
+- Persistent eldyrwild world graph head exists for longmont-c2
+- Session 1–23 recap sources inventoried with sha256 provenance
+- Mirathorn and Mireward location nodes present in merged head
+- Six C2 PC hub nodes present with worldbuilding domain mapping
+- Kernel merge + rebuild equivalence for contribution ledger
+- Every accepted assertion carries source_artifact_id + source_revision_id
+- Corpus-assembled head has no fixture:// provenance URIs
 
 **Plan cannot trust:**
 
-- Revision-pinned projection slices (PR007)
-- Latest-ingest / preview graph selection (PR008)
+- Revision-pinned projection slices (PR007 not landed)
+- Latest-ingest preview graph selection (PR008 not landed)
 - Graph Review preview union as durable authority
-- Autonomous agent writes without governed confirm (PR011)
+- Autonomous agent writes without governed confirm path (PR011)
 
-## Unsupported PR007 requirements
+## Retain / rewrite / delete
 
-- Revision-pinned Projection Engine
-- Plan latest-ingest / preview selection migration
-- Focus-session overlay semantics beyond read-model baseline
-- Production retrieval over graph head without projection contract
-
-## Retained temporarily
-
-```
 Retained temporarily:
 - Graph-preview route parameters and preview projection adapters.
 - Plan latest-ingest / preview selection consumers.
@@ -109,26 +116,3 @@ Required deletion PR:
 - PR007 removes production projection selectors.
 - PR008 removes Plan latest-ingest / preview selection.
 - PR012 catches only named leftovers.
-```
-
-## Bundle generation
-
-```bash
-uv run python -c 'from pathlib import Path; import json; from graph_memory.materialization.acceptance_manifest import load_acceptance_manifest; from graph_memory.materialization.candidate_bundle import build_deterministic_acceptance_bundle; repo=Path("."); mp=repo/"config/graph_memory/eldyrwild_c2_acceptance_manifest.json"; m=load_acceptance_manifest(mp); b=build_deterministic_acceptance_bundle(repo,m,manifest_path=mp); print(len(b["sources"]))'
-```
-
-## Operator CLI
-
-```bash
-uv run python scripts/materialize_eldyrwild_c2_world_graph.py inventory \
-  --repo-root . \
-  --manifest config/graph_memory/eldyrwild_c2_acceptance_manifest.json
-
-uv run python scripts/materialize_eldyrwild_c2_world_graph.py materialize \
-  --repo-root . \
-  --manifest config/graph_memory/eldyrwild_c2_acceptance_manifest.json \
-  --bundle artifacts/graph_memory/pr006/eldyrwild-c2-source-candidate-bundle.json \
-  --store-root /tmp/dmb-pr006-world \
-  --fresh-root \
-  --report artifacts/graph_memory/pr006/eldyrwild-c2-materialization-report.json
-```

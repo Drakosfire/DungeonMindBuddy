@@ -17,6 +17,7 @@ def build_materialization_report(
     manifest_sha256: str,
     bundle_sha256: str,
     inventory: dict[str, Any],
+    bundle_sources: list[dict[str, Any]] | None = None,
     head_revision_id: str | None,
     parent_revision_id: str | None,
     baseline_revision_id: str | None,
@@ -26,6 +27,8 @@ def build_materialization_report(
     accepted_assertion_count: int,
     assertions_with_source_artifact_count: int,
     assertions_with_evidence_count: int,
+    produced_contribution_count: int,
+    merged_contribution_count: int,
     contribution_count: int,
     active_contribution_count: int,
     superseded_contribution_count: int,
@@ -34,15 +37,19 @@ def build_materialization_report(
     world_integrity_valid: bool,
     contribution_integrity_valid: bool,
     rebuild_equivalent_to_head: bool,
-    counts_by_source_domain: dict[str, int],
+    accepted_source_domain_counts: dict[str, int],
+    requested_source_domain_counts: dict[str, int],
     identity_diagnostics: dict[str, Any],
     required_hubs_present: list[str],
+    empty_skipped_sources: list[dict[str, Any]],
+    failed_required_sources: list[dict[str, Any]],
+    accepted_recap_count: int,
     retained_preview_paths: list[str],
 ) -> dict[str, Any]:
     requested = list(inventory.get("requested") or [])
-    accepted = list(inventory.get("accepted") or [])
-    skipped = list(inventory.get("skipped") or [])
-    failed_required = list(inventory.get("failed_required") or [])
+    sources = bundle_sources or []
+    bundle_accepted_count = sum(1 for entry in sources if entry.get("status") == "accepted")
+    bundle_skipped_count = sum(1 for entry in sources if entry.get("status") == "skipped")
     return {
         "schema": "dmb_world_materialization_report_v1",
         "version": "1.0",
@@ -54,12 +61,19 @@ def build_materialization_report(
         "parent_revision_id": parent_revision_id,
         "baseline_revision_id": baseline_revision_id,
         "requested_source_count": len(requested),
-        "accepted_source_count": len(accepted),
-        "skipped_source_count": len(skipped),
-        "failed_required_sources": failed_required,
+        "bundle_accepted_count": bundle_accepted_count,
+        "bundle_skipped_count": bundle_skipped_count,
+        "accepted_source_count": bundle_accepted_count,
+        "skipped_source_count": bundle_skipped_count,
+        "empty_skipped_sources": empty_skipped_sources,
+        "failed_required_sources": failed_required_sources,
+        "produced_contribution_count": produced_contribution_count,
+        "merged_contribution_count": merged_contribution_count,
         "source_inventory": inventory.get("source_items") or [],
-        "source_domain_counts": counts_by_source_domain,
-        "counts_by_source_domain": counts_by_source_domain,
+        "accepted_source_domain_counts": accepted_source_domain_counts,
+        "requested_source_domain_counts": requested_source_domain_counts,
+        "source_domain_counts": accepted_source_domain_counts,
+        "counts_by_source_domain": accepted_source_domain_counts,
         "node_count": node_count,
         "edge_count": edge_count,
         "evidence_ref_count": evidence_ref_count,
@@ -81,6 +95,9 @@ def build_materialization_report(
         "rejected_assertion_count": int(
             identity_diagnostics.get("rejected_assertion_count") or 0
         ),
+        "resolved_existing_count": int(
+            identity_diagnostics.get("resolved_existing_count") or 0
+        ),
         "contribution_count": contribution_count,
         "active_contribution_count": active_contribution_count,
         "superseded_contribution_count": superseded_contribution_count,
@@ -90,14 +107,14 @@ def build_materialization_report(
         "contribution_integrity_valid": contribution_integrity_valid,
         "rebuild_equivalent_to_head": rebuild_equivalent_to_head,
         "requested_recap_count": len(inventory.get("recap_session_numbers") or []),
-        "accepted_recap_count": inventory.get("recap_count", 0),
+        "accepted_recap_count": accepted_recap_count,
         "identity_diagnostics": identity_diagnostics,
         "required_hubs_present": required_hubs_present,
         "inventory": {
             "requested": requested,
-            "accepted": accepted,
-            "skipped": skipped,
-            "failed_required": failed_required,
+            "accepted": list(inventory.get("accepted") or []),
+            "skipped": list(inventory.get("skipped") or []),
+            "failed_required": failed_required_sources,
         },
         "unsupported_projection_requirements": [
             "revision-pinned Projection Engine (PR007)",
@@ -112,6 +129,7 @@ def build_materialization_report(
             "Six C2 PC hub nodes present with worldbuilding domain mapping",
             "Kernel merge + rebuild equivalence for contribution ledger",
             "Every accepted assertion carries source_artifact_id + source_revision_id",
+            "Corpus-assembled head has no fixture:// provenance URIs",
         ],
         "plan_cannot_trust": [
             "Revision-pinned projection slices (PR007 not landed)",
