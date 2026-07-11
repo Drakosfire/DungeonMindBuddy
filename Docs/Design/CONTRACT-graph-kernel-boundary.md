@@ -21,6 +21,7 @@ graph_memory.world_supergraph.storage
 graph_memory.world_supergraph.paths
 graph_memory.world_supergraph.integrity
 graph_memory.world_supergraph.model
+graph_memory.world_supergraph.contribution_store
 graph_memory.union_supergraph.load
 graph_memory.union_supergraph.validate
 graph_memory.union_supergraph.preview_import
@@ -54,16 +55,26 @@ Exported from `graph_memory.kernel` (implemented; not reserved):
 - Models: `IdentityCandidate`, `IdentityResolution`, `IdentityDecisionRecord`,
   `IdentityResolutionPolicy`
 
+## Available in PR005 — contribution / merge
+
+Exported from `graph_memory.kernel` (implemented; not reserved):
+
+- `create_graph_contribution` / `build_assertion` / deterministic ID helpers
+- `merge_contribution_to_revision`
+- `supersede_graph_contribution` / `retract_graph_contribution`
+- `rebuild_from_contributions`
+- `build_contribution_integrity_report`
+- Models: `GraphContribution`, `GraphContributionAssertion`,
+  `DurableAssertionSupport`, `ContributionMergeResult`,
+  `ContributionIntegrityReport`
+
+Contribution ledger storage lives under `world_supergraph/contribution_store.py`
+and is **not** a legal app import — use the Kernel APIs above.
+
 ## Reserved (not complete)
 
 Placeholders live in `src/graph_memory/kernel/contracts.py` and raise
 `NotImplementedError`. They are **not** exported from `graph_memory.kernel`.
-
-### PR005 — contribution / merge
-
-`create_graph_contribution`, `supersede_graph_contribution`,
-`retract_graph_contribution`, `merge_contribution_to_revision`,
-`rebuild_from_contributions`
 
 ### PR007 — projection
 

@@ -55,3 +55,23 @@ def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
         assert name in public_names
         assert callable(getattr(kernel, name))
 
+    # PR005 contribution APIs are implemented and exported.
+    for name in (
+        "create_graph_contribution",
+        "merge_contribution_to_revision",
+        "supersede_graph_contribution",
+        "retract_graph_contribution",
+        "rebuild_from_contributions",
+        "build_contribution_integrity_report",
+    ):
+        assert name in public_names
+        assert callable(getattr(kernel, name))
+
+    # PR007 projection remains reserved.
+    for name in (
+        "project_world_graph",
+        "build_projection_payload",
+        "resolve_projection_admissibility",
+    ):
+        assert name not in public_names
+        assert not hasattr(kernel, name)

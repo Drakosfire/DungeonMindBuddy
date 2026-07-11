@@ -13,10 +13,18 @@ Layout::
                 revision.json
             integrity/
               latest.json
+            contributions/
+              <contribution_id>.json
+            contribution_index.json
+            contribution_rebuild/
+              latest.json
 
 ``root`` is caller-provided (repo runtime root or a test temp dir). Opening a
 world graph requires only ``root`` + ``world_id`` — never a preview source,
 ingest run id, session id, manifest path, or explicit store path selector.
+
+Contribution ledger paths (PR005) are internal to world_supergraph; apps must
+use ``graph_memory.kernel`` contribution APIs, not these path helpers.
 """
 
 from __future__ import annotations
@@ -85,3 +93,34 @@ def relative_graph_payload_path(revision_id: str) -> str:
     """Path relative to the world directory for revision metadata."""
     assert_safe_revision_id(revision_id)
     return f"revisions/{revision_id}/graph.json"
+
+
+_CONTRIBUTION_ID_RE = re.compile(r"^contribution:[a-f0-9]{8,64}$")
+
+
+def assert_safe_contribution_id(contribution_id: str) -> str:
+    if not _CONTRIBUTION_ID_RE.fullmatch(contribution_id):
+        raise ValueError(f"invalid contribution_id: {contribution_id!r}")
+    return contribution_id
+
+
+def contributions_dir(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "contributions"
+
+
+def contribution_path(root: Path, world_id: str, contribution_id: str) -> Path:
+    safe_id = assert_safe_contribution_id(contribution_id)
+    # Filesystem-safe filename: replace ':' with '__'.
+    return contributions_dir(root, world_id) / f"{safe_id.replace(':', '__')}.json"
+
+
+def contribution_index_path(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "contribution_index.json"
+
+
+def contribution_rebuild_dir(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "contribution_rebuild"
+
+
+def contribution_rebuild_latest_path(root: Path, world_id: str) -> Path:
+    return contribution_rebuild_dir(root, world_id) / "latest.json"
