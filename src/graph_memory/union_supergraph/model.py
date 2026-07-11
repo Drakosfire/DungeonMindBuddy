@@ -143,6 +143,8 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     # Kernel identity decision records (PR004). Stored as plain dicts so the
     # union payload stays free of a hard dependency on graph_memory.kernel.
     identity_decisions: list[dict[str, Any]] = Field(default_factory=list)
+    # PR005 durable assertion support ledger (plain dicts; Kernel owns typed models).
+    assertion_support: dict[str, dict[str, Any]] = Field(default_factory=dict)
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]]
     diagnostics: UnionSupergraphDiagnostics
 

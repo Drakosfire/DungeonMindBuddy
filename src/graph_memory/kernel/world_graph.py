@@ -27,8 +27,11 @@ from graph_memory.world_supergraph import (
     load_current_world_graph,
     load_world_graph_revision,
     open_world_graph_head,
-    publish_world_graph_revision,
+    publish_world_graph_revision as _publish_world_graph_revision_storage,
     rollback_world_graph_head,
+)
+from graph_memory.world_supergraph.identity_decision_store import (
+    sync_identity_decisions_from_store,
 )
 
 __all__ = [
@@ -59,6 +62,26 @@ def open_current_world_graph(
 ) -> tuple[WorldGraphHead, WorldGraphRevision, UnionSupergraphStore]:
     """Load the current world graph head + revision + payload (``root`` + ``world_id`` only)."""
     return load_current_world_graph(root, world_id)
+
+
+def publish_world_graph_revision(
+    root: Path,
+    world_id: str,
+    graph: UnionSupergraphStore,
+    operation_ids: list[str],
+    expected_parent_revision_id: str | None = None,
+) -> WorldGraphPublishResult:
+    """Publish an immutable revision, advance head, and sync identity-decision ledger."""
+    result = _publish_world_graph_revision_storage(
+        root,
+        world_id,
+        graph,
+        operation_ids=operation_ids,
+        expected_parent_revision_id=expected_parent_revision_id,
+    )
+    # Durable replay source for rebuild — independent of the current head.
+    sync_identity_decisions_from_store(root, world_id, graph)
+    return result
 
 
 def publish_world_revision(

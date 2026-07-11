@@ -223,7 +223,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR005 — Durable Contribution Merge
 
-**Status:** `READY`  
+**Status:** `DOING`  
 **Phase:** 2  
 **Purpose:** Extraction candidates and authored overlays merge into the World Supergraph as **GraphContributions**, with idempotency, supersession, retraction, rebuild, and atomic graph-head advancement.
 
@@ -252,8 +252,36 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 **Depends on:** PR002, PR003, PR004.
 
-**Retain / rewrite / delete:** State which preview-materialize vs durable-merge paths are rewritten or deleted as write destinations. Apply deletion-at-replacement when durable merge is production-ready for a former write destination.
+**Retain / rewrite / delete:**
 
+```text
+Retained temporarily:
+- Existing preview materialization paths.
+- Existing Graph Review preview panels and preview-store request fields.
+- Existing union_supergraph helpers reused internally where useful.
+
+Reason:
+- PR005 introduces durable contribution merge as a write destination, but PR006
+  performs the first real acceptance-corpus materialization and PR007/PR008
+  migrate projection/surface reads.
+
+Rewritten:
+- Extraction-like and authored graph writes now share GraphContribution merge
+  semantics via graph_memory.kernel.
+- Contribution records are durable under worlds/<worldId>/contributions/.
+- Supersession/retraction/update behavior happens through the Kernel.
+- Graph head advancement for contribution merges goes through immutable world
+  revisions.
+
+Deleted in this PR:
+- Fake PR005 reserved API placeholders (promoted to real Kernel exports).
+
+Required deletion PR:
+- PR006 removes reliance on preview graph availability for initial materialization.
+- PR007 replaces projection read paths with revision-pinned Projection Engine.
+- PR008 removes Plan latest-ingest selectors.
+- PR012 catches leftover preview/session graph paths.
+```
 ---
 
 ## PR006 — Initial World Supergraph Materialization

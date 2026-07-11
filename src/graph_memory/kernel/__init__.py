@@ -4,12 +4,38 @@ Runtime adapters and surfaces should import graph-memory operations from
 ``graph_memory.kernel`` only. Storage internals, preview loaders, and
 latest-ingest selectors are not the legal production graph API.
 
-Identity APIs (PR004) are exported below. Contribution/merge (PR005) and
-projection (PR007) APIs remain reserved — see ``graph_memory.kernel.contracts``.
+Identity APIs (PR004) and contribution/merge APIs (PR005) are exported below.
+Projection (PR007) APIs remain reserved — see ``graph_memory.kernel.contracts``.
 """
 
 from __future__ import annotations
 
+from graph_memory.kernel.contribution_diagnostics import (
+    build_contribution_integrity_report,
+)
+from graph_memory.kernel.contribution_merge import (
+    merge_contribution_to_revision,
+    retract_graph_contribution,
+    supersede_graph_contribution,
+)
+from graph_memory.kernel.contribution_models import (
+    ContributionAssertionStatus,
+    ContributionIdentityMention,
+    ContributionIntegrityReport,
+    ContributionMergeResult,
+    ContributionSourceKind,
+    ContributionStatus,
+    DurableAssertionSupport,
+    GraphContribution,
+    GraphContributionAssertion,
+)
+from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
+from graph_memory.kernel.contributions import (
+    build_assertion,
+    compute_assertion_id,
+    compute_contribution_id,
+    create_graph_contribution,
+)
 from graph_memory.kernel.identity import (
     classify_identity_outcome,
     resolve_identity,
@@ -27,6 +53,7 @@ from graph_memory.kernel.identity_models import (
     IdentityCanonState,
     IdentityDecisionKind,
     IdentityDecisionRecord,
+    IdentityAliasMapRewrite,
     IdentityMergeSideEffects,
     IdentityResolution,
     IdentityResolutionOutcome,
@@ -83,6 +110,7 @@ __all__ = [
     "IdentityCanonState",
     "IdentityDecisionKind",
     "IdentityDecisionRecord",
+    "IdentityAliasMapRewrite",
     "IdentityMergeSideEffects",
     "IdentityResolution",
     "IdentityResolutionOutcome",
@@ -96,4 +124,23 @@ __all__ = [
     "resolve_identity",
     "split_identity",
     "unmerge_identity",
+    # Contributions (PR005)
+    "ContributionAssertionStatus",
+    "ContributionIdentityMention",
+    "ContributionIntegrityReport",
+    "ContributionMergeResult",
+    "ContributionSourceKind",
+    "ContributionStatus",
+    "DurableAssertionSupport",
+    "GraphContribution",
+    "GraphContributionAssertion",
+    "build_assertion",
+    "build_contribution_integrity_report",
+    "compute_assertion_id",
+    "compute_contribution_id",
+    "create_graph_contribution",
+    "merge_contribution_to_revision",
+    "rebuild_from_contributions",
+    "retract_graph_contribution",
+    "supersede_graph_contribution",
 ]
