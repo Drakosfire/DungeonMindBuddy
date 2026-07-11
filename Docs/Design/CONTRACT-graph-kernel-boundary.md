@@ -44,15 +44,20 @@ World SuperGraph head/revision operations re-exported from PR002 storage:
 - `rollback_world_graph_head`
 - `build_world_graph_integrity_report` / `build_world_integrity_report`
 
+## Available in PR004 — identity
+
+Exported from `graph_memory.kernel` (implemented; not reserved):
+
+- `resolve_identity` / `classify_identity_outcome` (pure classifiers; no silent mutation)
+- `record_identity_decision`
+- `merge_identity` / `split_identity` / `unmerge_identity`
+- Models: `IdentityCandidate`, `IdentityResolution`, `IdentityDecisionRecord`,
+  `IdentityResolutionPolicy`
+
 ## Reserved (not complete)
 
 Placeholders live in `src/graph_memory/kernel/contracts.py` and raise
 `NotImplementedError`. They are **not** exported from `graph_memory.kernel`.
-
-### PR004 — identity
-
-`resolve_identity`, `record_identity_decision`, `merge_identity`,
-`split_identity`, `unmerge_identity`, `classify_identity_outcome`
 
 ### PR005 — contribution / merge
 

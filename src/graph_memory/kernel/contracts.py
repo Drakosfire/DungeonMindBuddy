@@ -1,7 +1,10 @@
-"""Reserved Graph Kernel APIs — intentionally incomplete in PR003.
+"""Reserved Graph Kernel APIs — intentionally incomplete.
 
-These names document the future Kernel surface. They are **not** available
-implementations. Callers must not treat them as working APIs.
+PR004 identity APIs are implemented in ``graph_memory.kernel.identity`` /
+``identity_decisions`` and exported from ``graph_memory.kernel``.
+
+PR005 contribution/merge and PR007 projection remain reserved placeholders.
+Callers must not treat them as working APIs.
 
 See also: ``Docs/Design/CONTRACT-graph-kernel-boundary.md``.
 """
@@ -10,9 +13,9 @@ from __future__ import annotations
 
 from typing import Any, NoReturn
 
-# --- Reserved for PR004 — identity ---
+# --- Implemented in PR004 — identity (exported from graph_memory.kernel) ---
 
-RESERVED_FOR_PR004_IDENTITY: tuple[str, ...] = (
+IMPLEMENTED_IN_PR004_IDENTITY: tuple[str, ...] = (
     "resolve_identity",
     "record_identity_decision",
     "merge_identity",
@@ -20,6 +23,9 @@ RESERVED_FOR_PR004_IDENTITY: tuple[str, ...] = (
     "unmerge_identity",
     "classify_identity_outcome",
 )
+
+# Kept for older references; empty — identity is no longer reserved.
+RESERVED_FOR_PR004_IDENTITY: tuple[str, ...] = ()
 
 # --- Reserved for PR005 — contribution / merge ---
 
@@ -40,40 +46,14 @@ RESERVED_FOR_PR007_PROJECTION: tuple[str, ...] = (
 )
 
 ALL_RESERVED_KERNEL_APIS: tuple[str, ...] = (
-    RESERVED_FOR_PR004_IDENTITY
-    + RESERVED_FOR_PR005_CONTRIBUTION
-    + RESERVED_FOR_PR007_PROJECTION
+    RESERVED_FOR_PR005_CONTRIBUTION + RESERVED_FOR_PR007_PROJECTION
 )
 
 
 def _reserved(name: str, pr_slice: str) -> NoReturn:
     raise NotImplementedError(
-        f"{name} is reserved for {pr_slice} and is not implemented in PR003"
+        f"{name} is reserved for {pr_slice} and is not implemented yet"
     )
-
-
-def resolve_identity(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("resolve_identity", "PR004 — identity")
-
-
-def record_identity_decision(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("record_identity_decision", "PR004 — identity")
-
-
-def merge_identity(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("merge_identity", "PR004 — identity")
-
-
-def split_identity(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("split_identity", "PR004 — identity")
-
-
-def unmerge_identity(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("unmerge_identity", "PR004 — identity")
-
-
-def classify_identity_outcome(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("classify_identity_outcome", "PR004 — identity")
 
 
 def create_graph_contribution(*_args: Any, **_kwargs: Any) -> NoReturn:

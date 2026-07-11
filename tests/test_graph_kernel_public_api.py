@@ -42,3 +42,16 @@ def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
             raise AssertionError(f"{name} must raise NotImplementedError")
         except NotImplementedError as exc:
             assert "reserved" in str(exc).lower() or "PR00" in str(exc)
+
+    # PR004 identity APIs are implemented and exported.
+    for name in (
+        "resolve_identity",
+        "record_identity_decision",
+        "merge_identity",
+        "split_identity",
+        "unmerge_identity",
+        "classify_identity_outcome",
+    ):
+        assert name in public_names
+        assert callable(getattr(kernel, name))
+
