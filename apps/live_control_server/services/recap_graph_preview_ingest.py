@@ -1,5 +1,8 @@
 """Preview-only graph-ingest wiring for recap ingestion."""
 
+# PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
+# Retained until PR006/PR007 replaces live Graph Review preview materialization.
+
 from __future__ import annotations
 
 import hashlib

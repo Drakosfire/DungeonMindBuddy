@@ -216,7 +216,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
   });
 
-
   it("postStatblockWorkbenchCommand posts command body to Workbench command endpoint", async () => {
     const request = {
       command_type: "statblock.draft.generate" as const,
@@ -243,7 +242,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(init?.headers).toEqual({ "Content-Type": "application/json" });
     expect(JSON.parse(String(init?.body))).toEqual(request);
   });
-
 
   it("storeStatblockWorkbenchDraft posts draft body to Workbench drafts endpoint", async () => {
     const request: StoreStatblockDraftRequest = {
@@ -462,7 +460,6 @@ describe("liveApi artifact/capability helpers", () => {
     });
   });
 
-
   it("activateStatblockRetrieval posts encoded activation request", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({ schema_version: "dmb_statblock_retrieval_activation_v1" }),
@@ -491,7 +488,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual(request);
   });
-
 
   it("postCommand posts command body unchanged to commands endpoint", async () => {
     const command: ProjectionCommand = {
