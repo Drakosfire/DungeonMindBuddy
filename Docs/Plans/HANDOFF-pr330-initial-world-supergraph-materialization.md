@@ -1,3 +1,10 @@
+> **ABANDONED — DO NOT DISPATCH**
+>
+> GitHub PR #330 and its prerequisite #331 were closed unmerged on 2026-07-11.
+> This monolithic handoff is retained only as failure evidence.
+> Replacement sequence: PR006A inventory → PR006B contribution conversion → PR006C publication.
+> Current dispatch handoff: `HANDOFF-pr332-eldyrwild-c2-acceptance-inventory.md`.
+
 ---
 pr_body_template: |
   ## Summary

@@ -1,0 +1,96 @@
+{
+  "schema": "dmb_world_acceptance_inventory_manifest_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild",
+  "campaign_id": "longmont-c2",
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "families": [
+    {
+      "family_id": "canonical_recaps",
+      "required": true,
+      "reason": "Canonical Longmont Campaign 2 recaps, Sessions 1-23",
+      "selection": {
+        "files": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md"
+        ]
+      }
+    },
+    {
+      "family_id": "party_registry",
+      "required": true,
+      "reason": "GM-declared party roster source",
+      "selection": {
+        "files": ["Longmont Campaign/Campaign 2/_party_registry.json"]
+      }
+    },
+    {
+      "family_id": "pc_hubs",
+      "required": true,
+      "reason": "Approved Questionable Company PC hub packages",
+      "selection": {
+        "roots": [
+          "Longmont Campaign/Campaign 2/PCs/baergrom",
+          "Longmont Campaign/Campaign 2/PCs/bonogo",
+          "Longmont Campaign/Campaign 2/PCs/caelynn",
+          "Longmont Campaign/Campaign 2/PCs/ephanna",
+          "Longmont Campaign/Campaign 2/PCs/karsemine",
+          "Longmont Campaign/Campaign 2/PCs/stafl"
+        ],
+        "glob": "**/*.md",
+        "minimum_per_root": 1
+      }
+    },
+    {
+      "family_id": "required_world_hubs",
+      "required": true,
+      "reason": "Required worldbuilding hubs",
+      "selection": {
+        "files": [
+          "Elderwyld/Cities and Towns/Mirathorn/README.md",
+          "Elderwyld/Cities and Towns/Mireward/README.md"
+        ]
+      }
+    },
+    {
+      "family_id": "campaign_support_candidates",
+      "required": false,
+      "reason": "Candidate support sources for later materialization; inventory only",
+      "selection": {
+        "roots": [
+          "Longmont Campaign/Campaign 2/NPCs",
+          "Longmont Campaign/Campaign 2/Factions",
+          "Longmont Campaign/Campaign 2/Statblocks",
+          "Elderwyld/Cities and Towns/Mirathorn",
+          "Elderwyld/Cities and Towns/Mireward"
+        ],
+        "glob": "**/*.md",
+        "exclude_files": [
+          "Elderwyld/Cities and Towns/Mirathorn/README.md",
+          "Elderwyld/Cities and Towns/Mireward/README.md"
+        ]
+      }
+    }
+  ]
+}
