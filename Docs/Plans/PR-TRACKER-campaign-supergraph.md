@@ -188,7 +188,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR004 — Identity and Reconciliation
 
-**Status:** `DOING`  
+**Status:** `DOING` (GitHub #326; stacked on PR003 / #325)  
 **Phase:** 2  
 **Purpose:** Fill the Kernel boundary with world-global identity, aliases, explicit resolution outcomes, provisional identities, and reversible merge/split/unmerge.
 
