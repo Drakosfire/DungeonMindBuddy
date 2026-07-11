@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B DOING #329; PR005A DONE #328; PR006 remains blocked on PR005B)  
+**Updated:** 2026-07-11 (PR005B DONE #329; PR006A graph-native union spike DOING #333)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -84,7 +84,9 @@ PR004 Identity outcomes + split/unmerge
 PR005 Durable contribution merge (idempotent, retractable, rebuildable)
 PR005A Context Audit + Source Reanchor  ← docs-only bridge
 PR005B Agent Tool Contract + Authored Prep Contributions  ← docs-only bridge
-PR006 Initial real materialization (named acceptance corpus)  ← before projection
+PR006A Graph-Native Contribution Union Spike
+PR006B Approved Initial World Supergraph Contribution Bundle
+PR006C Initial Eldyrwild C2 World Supergraph Publication  ← before projection
 PR007 Projection Engine (revision-pinned + admissibility)
 PR008 Plan surface migration
 PR009 Play surface migration (incl. combat lenses)
@@ -93,7 +95,9 @@ PR011 Agent Context + Tool Runtime
 PR012 Obsolete-path cleanup safety net
 ```
 
-Do **not** renumber PR006–PR012. PR005A and PR005B are docs/design bridge slices between durable merge and materialization.
+Do **not** renumber established PR007–PR012 roadmap slices. PR006 is split into
+PR006A–PR006C: graph-native proof, approved contribution bundle, then initial
+publication.
 
 ---
 
@@ -348,7 +352,7 @@ Required deletion PR:
 
 ## PR005B — Agent Tool Contract + Authored Prep Contributions
 
-**Status:** `DOING` (GitHub #329)  
+**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)
 **Phase:** 2.5 / docs bridge  
 **Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
 
@@ -389,13 +393,53 @@ Required deletion PR:
 
 ---
 
-## PR006 — Initial World Supergraph Materialization
+## PR006A — Graph-Native Contribution Union Spike
 
-**Status:** `BLOCKED` on PR005B  
+**Status:** `DOING` (GitHub #333)
+**Phase:** 3
+**Purpose:** Prove the existing public Kernel can merge two already-formed,
+graph-native contributions into one shared object with independent assertion
+support, immutable revisions, failed-write safety, and rebuild equivalence.
+
+**Deliverables:**
+
+- Graph-only spike script and test using two `manual_import` contributions
+- One shared Mireward assertion ID with two independent contribution/artifact supports
+- One event node and `occurred_at` edge merged through the public Kernel
+- Baseline → A → B immutable revision lineage, integrity, rebuild, and failed-write proof
+- Observed-results report; no source documents or extraction inputs
+- Observed proof: [`PR006A-GRAPH-NATIVE-CONTRIBUTION-UNION-SPIKE.md`](../Reports/PR006A-GRAPH-NATIVE-CONTRIBUTION-UNION-SPIKE.md)
+
+**Non-goals:** Document ingestion, extraction, corpus/source inventory, source
+selection, materialization quality, projection, runtime migration, or production
+module changes.
+
+**Depends on:** PR005B (DONE via #329).
+
+---
+
+## PR006B — Approved Initial World Supergraph Contribution Bundle
+
+**Status:** `BLOCKED` on PR006A
+**Phase:** 3
+**Purpose:** Define the approved, reviewable initial contribution bundle for
+the named Eldyrwild C2 acceptance corpus.
+
+**Non-goals:** Publishing the initial world head (PR006C); projection; surface
+migration.
+
+---
+
+## PR006C — Initial Eldyrwild C2 World Supergraph Publication
+
+**Status:** `BLOCKED` on PR006B
 **Phase:** 3  
 **Purpose:** Produce the first **real and representative** persistent union from the **named acceptance corpus**, and prove it before projection/Plan migration.
 
-PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Do not start PR006 before PR005B unless the operator explicitly chooses to parallelize.
+PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices
+landed. PR006A proves only graph-native union semantics; **PR006C is the first
+proof** that those contracts produce a representative, usable world graph
+(source inventory, coverage, reconstruction, and Plan trust boundaries).
 
 **Named acceptance corpus (required — not “if available”):**
 
@@ -441,13 +485,13 @@ PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices 
 
 **Non-goals:** Projection Engine; Plan UI migration; Hermes / Agent Tool Runtime; Plan encounter authoring; unbounded multi-source expansion (Phase 6); treating a synthetic multi-source fixture as this slice’s acceptance graph; optional worldbuilding.
 
-**Depends on:** PR005B (and thus PR005A). Docs-only does **not** mean optional when the tracker sequences those bridges before materialization. Operator may explicitly waive and parallelize; do not invent that waiver.
+**Depends on:** PR006B.
 
 ---
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006  
+**Status:** `BLOCKED` on PR006C
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
@@ -474,7 +518,7 @@ PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices 
 
 **Non-goals:** Plan Q&A; graph visualization product; write-path changes; reintroducing latest-ingest as a transitional production mode.
 
-**Depends on:** PR006.
+**Depends on:** PR006C.
 
 **Absorbs prior informal “plan graph-context contract” intent (without latest-ingest escape hatches).**
 
