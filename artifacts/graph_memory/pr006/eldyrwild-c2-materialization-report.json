@@ -1,0 +1,1587 @@
+{
+  "schema": "dmb_world_materialization_report_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild",
+  "campaign_scope": "longmont-c2",
+  "manifest_sha256": "sha256:8b730f312e2f107b83c08aeee609986450a731a5886155fb3accea77df24536c",
+  "bundle_sha256": "sha256:55ba986a663410337dd5843f968f9662a21c19e42f34626272dc774d30bf8104",
+  "head_revision_id": "rev:e8693f31816f9424d73718247880d3fb",
+  "parent_revision_id": "rev:304b0b388299f13510c2b3fcfa8fcdea",
+  "baseline_revision_id": "rev:304b0b388299f13510c2b3fcfa8fcdea",
+  "requested_source_count": 79,
+  "accepted_source_count": 79,
+  "skipped_source_count": 0,
+  "failed_required_sources": [],
+  "source_inventory": [
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:d4e602d2c822fde8b934e4a5bb9ddc8a6e4bb52bdb33d185795cea945c93d115"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+      "domain": "worldbuilding",
+      "required": true,
+      "sha256": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+      "domain": "mechanical",
+      "required": true,
+      "sha256": "sha256:0e5ccd56a1df60a582fba2a2286d071f3a6fde925b9d7b4d1f251555bc87316d"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+      "domain": "mechanical",
+      "required": true,
+      "sha256": "sha256:f1e8e77123a13b7ef26858b728172f6e83d98c813b0657899950d1c3e6f52943"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "domain": "campaign_hub",
+      "required": true,
+      "sha256": "sha256:9bcf2018a7941af512e28286e1446cdf5c450f525e9763e62bfd0fd56ca07d5e"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+      "domain": "campaign_hub",
+      "required": true,
+      "sha256": "sha256:d2d312fa500c99be7d2d08ff9fb105e5e4bbf9a0e37a370b607eacc760978035"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:10f8400916524ee05fa9b08ec9c18f70bfab16a168ae935d2c91a743ec1d2ff4"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:4bfd2de1aedce2095ef33021d9992e06d22bfdafdbde4b8a6f98662269255c20"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:091d19cde0c09b25d7bda94af3632c2e30af3e280436e533ca73cec434e6021b"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:a66b0d9ddccd1baffdff95de1fe29959edeca6f4f74dc316452b97d8031b51db"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:2e2aa9da3f4ccfd17959ad9229ee256561a3ed3add31f58f36fca0cbf7888f85"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+      "domain": "pc_hub",
+      "required": true,
+      "sha256": "sha256:4240da13e984f48e849ffd1e9ca09d37a606c5814243961c2cb41581d3259985"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:953eff87a9d0369d41518bb3cc7eb067a266f851b6134bef1d4f683bad0d4ba4",
+      "session_number": 1
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:23a116b2cbee83ce3be11a010cf22e58accbb0a022c9be7d960e23ad63a76f8d",
+      "session_number": 2
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:d0a29925ef3b95c5a61dcf87f71b8068db3de97d860f582a4be82cadbb12122b",
+      "session_number": 3
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:da0f4d81acce8cf9acafbfe868380251c6255fc3b6c8f4f4e1ceec3d4ef16d85",
+      "session_number": 4
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:d330ad378cba310dc8869410c3da88b0580cf740b6c84ce5079d1815ccb2e92a",
+      "session_number": 5
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:93b12101207298d1144c5e18c05ffff1f51fafd653ca2107b6542c505ab75b52",
+      "session_number": 6
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:2f3d49f2d51d64b24ef01a881f67e856e5ac74e672b4e357859d3c02ee832a87",
+      "session_number": 7
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:886ca827a74cf0af54b173c21743e3b101990b5ef425b9534b94f3dce3cd38ab",
+      "session_number": 8
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:f51bcdb08f95f3339c6fd642da2e1c99a44994e326a75331326ee7f8e91fb486",
+      "session_number": 9
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:786cf2c4223db358adb580e98d609e2494f298957cb0991a87c0f6d82340cbee",
+      "session_number": 10
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:2ca133fabd2fa1d70a5311e00516b1bd9821454c667cc06cda2ee95c907aafbc",
+      "session_number": 11
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:592c8c7537a3387454968e584dd1e24954b65b59d6447d9a5a5a8ca4ff84bae2",
+      "session_number": 12
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:34d3e824e4720ca19b5a8b25025b3c8b3047f70dbf10855a314f9a5b339a8439",
+      "session_number": 13
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:cdd401d3d70c8d6728163670f60d105f37db4b664aefd2f2438f82202836a1ed",
+      "session_number": 14
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:82ced04e66ee5c18f11e25bb475590bffbde8946e7ab18537d97955cd1196d8b",
+      "session_number": 15
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:33838351006fb5e386d8d7b6d93d6736b4a3ce44d402b57ad519494451f36973",
+      "session_number": 16
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:e5e68f10d80e37fa3b89e4ce8bbee07fed5d2a77eb1507e023173bb5257ae775",
+      "session_number": 17
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:87e643d1fbb2d1654dca8bfafe5459641ebf518a90bd3006de92da36542d330f",
+      "session_number": 18
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:1ee3fe8ab13ba170af1cc34a8774706029df0f5afdafe9430ceee34591a7e3bc",
+      "session_number": 19
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:d15563e5121a2b66ebbe34d2729788223c15f417b2376d106416326ff5c82b60",
+      "session_number": 20
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:0734069988fdfdb5b7f45859dd3fdbde5ae052892ff13ff7b408d37cfa3c5150",
+      "session_number": 21
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:2b3e4bdaa28d7bb1244a34ba4771e2ef56ebb38406df4c33e5f0f5bee5a23c45",
+      "session_number": 22
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      "domain": "recap",
+      "required": true,
+      "sha256": "sha256:aed38be1e2c20771eeb0f2c3248b991e859cf4c3dcaa631d7d88eeecc7f52b23",
+      "session_number": 23
+    }
+  ],
+  "source_domain_counts": {
+    "worldbuilding": 46,
+    "mechanical": 2,
+    "campaign_hub": 2,
+    "pc_hub": 6,
+    "recap": 23
+  },
+  "counts_by_source_domain": {
+    "worldbuilding": 46,
+    "mechanical": 2,
+    "campaign_hub": 2,
+    "pc_hub": 6,
+    "recap": 23
+  },
+  "node_count": 36,
+  "edge_count": 143,
+  "evidence_ref_count": 82,
+  "accepted_assertion_count": 223,
+  "assertions_with_source_artifact_count": 223,
+  "assertions_with_evidence_count": 223,
+  "unresolved_identity_count": 0,
+  "provisional_identity_count": 0,
+  "ambiguous_identity_count": 0,
+  "blocked_collision_count": 0,
+  "rejected_assertion_count": 0,
+  "contribution_count": 79,
+  "active_contribution_count": 79,
+  "superseded_contribution_count": 0,
+  "retracted_contribution_count": 0,
+  "duplicate_graph_state_created": false,
+  "world_integrity_valid": true,
+  "contribution_integrity_valid": true,
+  "rebuild_equivalent_to_head": true,
+  "requested_recap_count": 23,
+  "accepted_recap_count": 23,
+  "identity_diagnostics": {
+    "unresolved_mention_count": 0,
+    "rejected_assertion_count": 0,
+    "provisional_identity_count": 0,
+    "ambiguous_identity_count": 0,
+    "blocked_collision_count": 0
+  },
+  "required_hubs_present": [
+    "Mirathorn",
+    "Mireward"
+  ],
+  "inventory": {
+    "requested": [
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:d4e602d2c822fde8b934e4a5bb9ddc8a6e4bb52bdb33d185795cea945c93d115"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+        "domain": "mechanical",
+        "required": true,
+        "sha256": "sha256:0e5ccd56a1df60a582fba2a2286d071f3a6fde925b9d7b4d1f251555bc87316d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+        "domain": "mechanical",
+        "required": true,
+        "sha256": "sha256:f1e8e77123a13b7ef26858b728172f6e83d98c813b0657899950d1c3e6f52943"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+        "domain": "campaign_hub",
+        "required": true,
+        "sha256": "sha256:9bcf2018a7941af512e28286e1446cdf5c450f525e9763e62bfd0fd56ca07d5e"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "domain": "campaign_hub",
+        "required": true,
+        "sha256": "sha256:d2d312fa500c99be7d2d08ff9fb105e5e4bbf9a0e37a370b607eacc760978035"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:10f8400916524ee05fa9b08ec9c18f70bfab16a168ae935d2c91a743ec1d2ff4"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:4bfd2de1aedce2095ef33021d9992e06d22bfdafdbde4b8a6f98662269255c20"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:091d19cde0c09b25d7bda94af3632c2e30af3e280436e533ca73cec434e6021b"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:a66b0d9ddccd1baffdff95de1fe29959edeca6f4f74dc316452b97d8031b51db"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:2e2aa9da3f4ccfd17959ad9229ee256561a3ed3add31f58f36fca0cbf7888f85"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:4240da13e984f48e849ffd1e9ca09d37a606c5814243961c2cb41581d3259985"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:953eff87a9d0369d41518bb3cc7eb067a266f851b6134bef1d4f683bad0d4ba4",
+        "session_number": 1
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:23a116b2cbee83ce3be11a010cf22e58accbb0a022c9be7d960e23ad63a76f8d",
+        "session_number": 2
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d0a29925ef3b95c5a61dcf87f71b8068db3de97d860f582a4be82cadbb12122b",
+        "session_number": 3
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:da0f4d81acce8cf9acafbfe868380251c6255fc3b6c8f4f4e1ceec3d4ef16d85",
+        "session_number": 4
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d330ad378cba310dc8869410c3da88b0580cf740b6c84ce5079d1815ccb2e92a",
+        "session_number": 5
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:93b12101207298d1144c5e18c05ffff1f51fafd653ca2107b6542c505ab75b52",
+        "session_number": 6
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2f3d49f2d51d64b24ef01a881f67e856e5ac74e672b4e357859d3c02ee832a87",
+        "session_number": 7
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:886ca827a74cf0af54b173c21743e3b101990b5ef425b9534b94f3dce3cd38ab",
+        "session_number": 8
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:f51bcdb08f95f3339c6fd642da2e1c99a44994e326a75331326ee7f8e91fb486",
+        "session_number": 9
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:786cf2c4223db358adb580e98d609e2494f298957cb0991a87c0f6d82340cbee",
+        "session_number": 10
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2ca133fabd2fa1d70a5311e00516b1bd9821454c667cc06cda2ee95c907aafbc",
+        "session_number": 11
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:592c8c7537a3387454968e584dd1e24954b65b59d6447d9a5a5a8ca4ff84bae2",
+        "session_number": 12
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:34d3e824e4720ca19b5a8b25025b3c8b3047f70dbf10855a314f9a5b339a8439",
+        "session_number": 13
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:cdd401d3d70c8d6728163670f60d105f37db4b664aefd2f2438f82202836a1ed",
+        "session_number": 14
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:82ced04e66ee5c18f11e25bb475590bffbde8946e7ab18537d97955cd1196d8b",
+        "session_number": 15
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:33838351006fb5e386d8d7b6d93d6736b4a3ce44d402b57ad519494451f36973",
+        "session_number": 16
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:e5e68f10d80e37fa3b89e4ce8bbee07fed5d2a77eb1507e023173bb5257ae775",
+        "session_number": 17
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:87e643d1fbb2d1654dca8bfafe5459641ebf518a90bd3006de92da36542d330f",
+        "session_number": 18
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:1ee3fe8ab13ba170af1cc34a8774706029df0f5afdafe9430ceee34591a7e3bc",
+        "session_number": 19
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d15563e5121a2b66ebbe34d2729788223c15f417b2376d106416326ff5c82b60",
+        "session_number": 20
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:0734069988fdfdb5b7f45859dd3fdbde5ae052892ff13ff7b408d37cfa3c5150",
+        "session_number": 21
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2b3e4bdaa28d7bb1244a34ba4771e2ef56ebb38406df4c33e5f0f5bee5a23c45",
+        "session_number": 22
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:aed38be1e2c20771eeb0f2c3248b991e859cf4c3dcaa631d7d88eeecc7f52b23",
+        "session_number": 23
+      }
+    ],
+    "accepted": [
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:d4e602d2c822fde8b934e4a5bb9ddc8a6e4bb52bdb33d185795cea945c93d115"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+        "domain": "worldbuilding",
+        "required": true,
+        "sha256": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+        "domain": "mechanical",
+        "required": true,
+        "sha256": "sha256:0e5ccd56a1df60a582fba2a2286d071f3a6fde925b9d7b4d1f251555bc87316d"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+        "domain": "mechanical",
+        "required": true,
+        "sha256": "sha256:f1e8e77123a13b7ef26858b728172f6e83d98c813b0657899950d1c3e6f52943"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+        "domain": "campaign_hub",
+        "required": true,
+        "sha256": "sha256:9bcf2018a7941af512e28286e1446cdf5c450f525e9763e62bfd0fd56ca07d5e"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "domain": "campaign_hub",
+        "required": true,
+        "sha256": "sha256:d2d312fa500c99be7d2d08ff9fb105e5e4bbf9a0e37a370b607eacc760978035"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:10f8400916524ee05fa9b08ec9c18f70bfab16a168ae935d2c91a743ec1d2ff4"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:4bfd2de1aedce2095ef33021d9992e06d22bfdafdbde4b8a6f98662269255c20"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:091d19cde0c09b25d7bda94af3632c2e30af3e280436e533ca73cec434e6021b"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:a66b0d9ddccd1baffdff95de1fe29959edeca6f4f74dc316452b97d8031b51db"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:2e2aa9da3f4ccfd17959ad9229ee256561a3ed3add31f58f36fca0cbf7888f85"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "domain": "pc_hub",
+        "required": true,
+        "sha256": "sha256:4240da13e984f48e849ffd1e9ca09d37a606c5814243961c2cb41581d3259985"
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:953eff87a9d0369d41518bb3cc7eb067a266f851b6134bef1d4f683bad0d4ba4",
+        "session_number": 1
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:23a116b2cbee83ce3be11a010cf22e58accbb0a022c9be7d960e23ad63a76f8d",
+        "session_number": 2
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d0a29925ef3b95c5a61dcf87f71b8068db3de97d860f582a4be82cadbb12122b",
+        "session_number": 3
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:da0f4d81acce8cf9acafbfe868380251c6255fc3b6c8f4f4e1ceec3d4ef16d85",
+        "session_number": 4
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d330ad378cba310dc8869410c3da88b0580cf740b6c84ce5079d1815ccb2e92a",
+        "session_number": 5
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:93b12101207298d1144c5e18c05ffff1f51fafd653ca2107b6542c505ab75b52",
+        "session_number": 6
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2f3d49f2d51d64b24ef01a881f67e856e5ac74e672b4e357859d3c02ee832a87",
+        "session_number": 7
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:886ca827a74cf0af54b173c21743e3b101990b5ef425b9534b94f3dce3cd38ab",
+        "session_number": 8
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:f51bcdb08f95f3339c6fd642da2e1c99a44994e326a75331326ee7f8e91fb486",
+        "session_number": 9
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:786cf2c4223db358adb580e98d609e2494f298957cb0991a87c0f6d82340cbee",
+        "session_number": 10
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2ca133fabd2fa1d70a5311e00516b1bd9821454c667cc06cda2ee95c907aafbc",
+        "session_number": 11
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:592c8c7537a3387454968e584dd1e24954b65b59d6447d9a5a5a8ca4ff84bae2",
+        "session_number": 12
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:34d3e824e4720ca19b5a8b25025b3c8b3047f70dbf10855a314f9a5b339a8439",
+        "session_number": 13
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:cdd401d3d70c8d6728163670f60d105f37db4b664aefd2f2438f82202836a1ed",
+        "session_number": 14
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:82ced04e66ee5c18f11e25bb475590bffbde8946e7ab18537d97955cd1196d8b",
+        "session_number": 15
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:33838351006fb5e386d8d7b6d93d6736b4a3ce44d402b57ad519494451f36973",
+        "session_number": 16
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:e5e68f10d80e37fa3b89e4ce8bbee07fed5d2a77eb1507e023173bb5257ae775",
+        "session_number": 17
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:87e643d1fbb2d1654dca8bfafe5459641ebf518a90bd3006de92da36542d330f",
+        "session_number": 18
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:1ee3fe8ab13ba170af1cc34a8774706029df0f5afdafe9430ceee34591a7e3bc",
+        "session_number": 19
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:d15563e5121a2b66ebbe34d2729788223c15f417b2376d106416326ff5c82b60",
+        "session_number": 20
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:0734069988fdfdb5b7f45859dd3fdbde5ae052892ff13ff7b408d37cfa3c5150",
+        "session_number": 21
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:2b3e4bdaa28d7bb1244a34ba4771e2ef56ebb38406df4c33e5f0f5bee5a23c45",
+        "session_number": 22
+      },
+      {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+        "domain": "recap",
+        "required": true,
+        "sha256": "sha256:aed38be1e2c20771eeb0f2c3248b991e859cf4c3dcaa631d7d88eeecc7f52b23",
+        "session_number": 23
+      }
+    ],
+    "skipped": [],
+    "failed_required": []
+  },
+  "unsupported_projection_requirements": [
+    "revision-pinned Projection Engine (PR007)",
+    "Plan latest-ingest / preview selection migration (PR008)",
+    "focus-session overlay semantics beyond read-model baseline",
+    "production retrieval over graph head without projection contract"
+  ],
+  "plan_can_trust": [
+    "Persistent eldyrwild world graph head exists for longmont-c2",
+    "Session 1\u201323 recap sources inventoried with sha256 provenance",
+    "Mirathorn and Mireward location nodes present in merged head",
+    "Six C2 PC hub nodes present with worldbuilding domain mapping",
+    "Kernel merge + rebuild equivalence for contribution ledger",
+    "Every accepted assertion carries source_artifact_id + source_revision_id"
+  ],
+  "plan_cannot_trust": [
+    "Revision-pinned projection slices (PR007 not landed)",
+    "Latest-ingest preview graph selection (PR008 not landed)",
+    "Graph Review preview union as durable authority",
+    "Autonomous agent writes without governed confirm path (PR011)"
+  ],
+  "retained_preview_paths": [
+    "apps/live-control-ui graph-preview route parameters",
+    "union_supergraph_projection_adapter preview selectors"
+  ],
+  "generated_at": "2026-07-11T17:45:28Z"
+}

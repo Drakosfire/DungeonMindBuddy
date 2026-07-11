@@ -1,0 +1,3380 @@
+{
+  "schema": "dmb_world_materialization_candidate_bundle_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild",
+  "campaign_scope": "longmont-c2",
+  "manifest_sha256": "sha256:8b730f312e2f107b83c08aeee609986450a731a5886155fb3accea77df24536c",
+  "sources": [
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:4dedbc30ebd24036",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+      "source_revision_id": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Battle with The Wolf and Aftermath.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:4dedbc30ebd24036",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:efb56bf310a16a4f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+      "source_revision_id": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: The City Council.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:efb56bf310a16a4f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:c0ff8a82d394e165",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+      "source_revision_id": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: The Council Room.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c0ff8a82d394e165",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:9292b748a9273400",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+      "source_revision_id": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: The Emergency Council Meeting.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:9292b748a9273400",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:3a52620641beea05",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+      "source_revision_id": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:3a52620641beea05",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:255c3fe387d3d45a",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+      "source_revision_id": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr2.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:255c3fe387d3d45a",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:0bf518a0753c76d5",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+      "source_revision_id": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: captain_lysandra_ironveil_statblock_cr4.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:0bf518a0753c76d5",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:79de72763c80dc1f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+      "source_revision_id": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:79de72763c80dc1f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:48c4d2c82b30e429",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+      "source_revision_id": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:48c4d2c82b30e429",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:1ea29ca17f7cbe5f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+      "source_revision_id": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:1ea29ca17f7cbe5f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:702623c8d980d5e5",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+      "source_revision_id": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: torbin_jove_statblock.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:702623c8d980d5e5",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:aad4f542ab4184dc",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+      "source_revision_id": "sha256:d4e602d2c822fde8b934e4a5bb9ddc8a6e4bb52bdb33d185795cea945c93d115",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:aad4f542ab4184dc",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:960e5092bc7a5d93",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+      "source_revision_id": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Mirathorn Sewers.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:960e5092bc7a5d93",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:180f9c419b521b56",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+      "source_revision_id": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Sewer Traps.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:180f9c419b521b56",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:c899c84a8cded02d",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+      "source_revision_id": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: allies_hideout.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c899c84a8cded02d",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:4dd2584ef6cc7e6c",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+      "source_revision_id": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: loot_room.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:4dd2584ef6cc7e6c",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:d5f6f904b742fd95",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+      "source_revision_id": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: nameless_goddess_temple.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:d5f6f904b742fd95",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:aed1002d3d9aa168",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+      "source_revision_id": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: path_to_temple.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:aed1002d3d9aa168",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:4eab61ec115b506a",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+      "source_revision_id": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: ritual_chamber.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:4eab61ec115b506a",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:2f6a4cfb7a3d59b1",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+      "source_revision_id": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:2f6a4cfb7a3d59b1",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:83011534276a3b6d",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+      "source_revision_id": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Stormspire Academy.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:83011534276a3b6d",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:96315db951028abe",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+      "source_revision_id": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: What the Wolf knows.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:96315db951028abe",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:9496d430c681e162",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+      "source_revision_id": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Wynna Mossglade _ Clerk.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:9496d430c681e162",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:2f9093291d72770a",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "source_revision_id": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: The City of Mirathorn.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:2f9093291d72770a",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:9ca26abbfb09959e",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+      "source_revision_id": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "summary": "Worldbuilding: Wolf_s Manor Architectural description_.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:9ca26abbfb09959e",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:24ca9566785e50cf",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "source_revision_id": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: Mireward_PLACE_BUILD_SCAFFOLD.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:24ca9566785e50cf",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:5f54b2e695efe86a",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
+      "source_revision_id": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:5f54b2e695efe86a",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:581b2c6d101936fa",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+      "source_revision_id": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:581b2c6d101936fa",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:414d7e929891896f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
+      "source_revision_id": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:414d7e929891896f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:330b01597f51ce1c",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+      "source_revision_id": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:330b01597f51ce1c",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:c7758ff6203b3e1b",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+      "source_revision_id": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c7758ff6203b3e1b",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:1c4b3e58f96e9f96",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+      "source_revision_id": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:1c4b3e58f96e9f96",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:8652e1dd875b206f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+      "source_revision_id": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: lysandro_ironveil_character_dossier.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:8652e1dd875b206f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:706332549f54414f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
+      "source_revision_id": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:706332549f54414f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:974261a37669a004",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+      "source_revision_id": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:974261a37669a004",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:f76c114854fbb1d8",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+      "source_revision_id": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:f76c114854fbb1d8",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:f1404aa0ad4d9725",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+      "source_revision_id": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:f1404aa0ad4d9725",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:a2263161a50e6b1a",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+      "source_revision_id": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:a2263161a50e6b1a",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:c039b92b9eb1dd11",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+      "source_revision_id": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c039b92b9eb1dd11",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:467ca027c07a9562",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+      "source_revision_id": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:467ca027c07a9562",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:6caf4eaf187806ab",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+      "source_revision_id": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:6caf4eaf187806ab",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:50c1e4b187d38a25",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+      "source_revision_id": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:50c1e4b187d38a25",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:0273bca926a76cd1",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+      "source_revision_id": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:0273bca926a76cd1",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:51e1255d1da5a032",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
+      "source_revision_id": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:51e1255d1da5a032",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:2edb87fba3a8199f",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
+      "source_revision_id": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: character_seed.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:2edb87fba3a8199f",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:worldbuilding:longmont-c2:d0af2b1291de88ac",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+      "source_revision_id": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250",
+      "source_domain": "worldbuilding",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Worldbuilding: README.md"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:d0af2b1291de88ac",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:mechanical:longmont-c2:da0702709b78a4a7",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md",
+      "source_revision_id": "sha256:0e5ccd56a1df60a582fba2a2286d071f3a6fde925b9d7b4d1f251555bc87316d",
+      "source_domain": "mechanical",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "creature_latch_harrow",
+            "label": "Latch Harrow",
+            "kind": "creature",
+            "role": "creature",
+            "aliases": [
+              "Latch Harrow"
+            ],
+            "summary": "Mechanical: latch_harrow_statblock_cr8"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:da0702709b78a4a7",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:mechanical:longmont-c2:3c43f2b7966be064",
+      "source_uri": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+      "source_revision_id": "sha256:f1e8e77123a13b7ef26858b728172f6e83d98c813b0657899950d1c3e6f52943",
+      "source_domain": "mechanical",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "creature_tripod_null_calf",
+            "label": "Tripod Null Calf",
+            "kind": "creature",
+            "role": "creature",
+            "aliases": [
+              "Tripod Null Calf"
+            ],
+            "summary": "Mechanical: tripod_null_calf_statblock_cr5"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:3c43f2b7966be064",
+            "locator": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:campaign_hub:longmont-c2:808de567391aee9a",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "source_revision_id": "sha256:9bcf2018a7941af512e28286e1446cdf5c450f525e9763e62bfd0fd56ca07d5e",
+      "source_domain": "campaign_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_journey_mireward_reach",
+            "label": "Journey to Mireward Reach",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Journey to Mireward Reach"
+            ],
+            "summary": "Journey to Mireward Reach"
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Journey destination hub"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "event_journey_mireward_reach",
+            "target_node_id": "loc_mireward",
+            "predicate": "leads_to",
+            "label": "leads to Mireward"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:808de567391aee9a",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:campaign_hub:longmont-c2:9df064233bc2e590",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+      "source_revision_id": "sha256:d2d312fa500c99be7d2d08ff9fb105e5e4bbf9a0e37a370b607eacc760978035",
+      "source_domain": "campaign_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "npc_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "Captain Lysandra Ironveil"
+            ]
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "npc_lysandra_ironveil",
+            "target_node_id": "loc_mireward",
+            "predicate": "associated_with",
+            "label": "associated with Mireward"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:9df064233bc2e590",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:d4119ba2498447c9",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+      "source_revision_id": "sha256:10f8400916524ee05fa9b08ec9c18f70bfab16a168ae935d2c91a743ec1d2ff4",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_baergrom",
+            "label": "Baergrom",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Baergrom"
+            ],
+            "summary": "PC hub: baergrom"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:d4119ba2498447c9",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:74f54ff3b35932b3",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+      "source_revision_id": "sha256:4bfd2de1aedce2095ef33021d9992e06d22bfdafdbde4b8a6f98662269255c20",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_bonogo",
+            "label": "Bonogo",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Bonogo"
+            ],
+            "summary": "PC hub: bonogo"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:74f54ff3b35932b3",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:dfbe37d0bab75d59",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+      "source_revision_id": "sha256:091d19cde0c09b25d7bda94af3632c2e30af3e280436e533ca73cec434e6021b",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "summary": "PC hub: caelynn"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:dfbe37d0bab75d59",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:dc600120f0e7034c",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+      "source_revision_id": "sha256:a66b0d9ddccd1baffdff95de1fe29959edeca6f4f74dc316452b97d8031b51db",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_ephanna",
+            "label": "Ephanna",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Ephanna"
+            ],
+            "summary": "PC hub: ephanna"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:dc600120f0e7034c",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:0f2b7d018062d8ef",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+      "source_revision_id": "sha256:2e2aa9da3f4ccfd17959ad9229ee256561a3ed3add31f58f36fca0cbf7888f85",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_karsemine",
+            "label": "Karsemine",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Karsemine"
+            ],
+            "summary": "PC hub: karsemine"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:0f2b7d018062d8ef",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:pc_hub:longmont-c2:13521ae035438cf2",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+      "source_revision_id": "sha256:4240da13e984f48e849ffd1e9ca09d37a606c5814243961c2cb41581d3259985",
+      "source_domain": "pc_hub",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "pc_stafl",
+            "label": "Stafl",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Stafl"
+            ],
+            "summary": "PC hub: stafl"
+          }
+        ],
+        "edges": [],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:13521ae035438cf2",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:3fdb6fcbb9d45c4a",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+      "source_revision_id": "sha256:953eff87a9d0369d41518bb3cc7eb067a266f851b6134bef1d4f683bad0d4ba4",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_1",
+            "label": "Session 1 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 1 Event"
+            ],
+            "summary": "Recap session 1"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_1",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:3fdb6fcbb9d45c4a",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+            "session_id": "session-1"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:75344d8cc30a085b",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+      "source_revision_id": "sha256:23a116b2cbee83ce3be11a010cf22e58accbb0a022c9be7d960e23ad63a76f8d",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_2",
+            "label": "Session 2 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 2 Event"
+            ],
+            "summary": "Recap session 2"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_2",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:75344d8cc30a085b",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+            "session_id": "session-2"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:44ca2f1ca97907a8",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+      "source_revision_id": "sha256:d0a29925ef3b95c5a61dcf87f71b8068db3de97d860f582a4be82cadbb12122b",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_3",
+            "label": "Session 3 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 3 Event"
+            ],
+            "summary": "Recap session 3"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_3",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:44ca2f1ca97907a8",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+            "session_id": "session-3"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:36935dbe5e8f482f",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+      "source_revision_id": "sha256:da0f4d81acce8cf9acafbfe868380251c6255fc3b6c8f4f4e1ceec3d4ef16d85",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_4",
+            "label": "Session 4 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 4 Event"
+            ],
+            "summary": "Recap session 4"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_4",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:36935dbe5e8f482f",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+            "session_id": "session-4"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:38a549eda245d19c",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+      "source_revision_id": "sha256:d330ad378cba310dc8869410c3da88b0580cf740b6c84ce5079d1815ccb2e92a",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_5",
+            "label": "Session 5 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 5 Event"
+            ],
+            "summary": "Recap session 5"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_5",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:38a549eda245d19c",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+            "session_id": "session-5"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:c72ad1ba1609bfea",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+      "source_revision_id": "sha256:93b12101207298d1144c5e18c05ffff1f51fafd653ca2107b6542c505ab75b52",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_6",
+            "label": "Session 6 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 6 Event"
+            ],
+            "summary": "Recap session 6"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_6",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c72ad1ba1609bfea",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+            "session_id": "session-6"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:3186187f22d2e0af",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+      "source_revision_id": "sha256:2f3d49f2d51d64b24ef01a881f67e856e5ac74e672b4e357859d3c02ee832a87",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_7",
+            "label": "Session 7 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 7 Event"
+            ],
+            "summary": "Recap session 7"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_7",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:3186187f22d2e0af",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+            "session_id": "session-7"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:5fcb97bf89e22b43",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+      "source_revision_id": "sha256:886ca827a74cf0af54b173c21743e3b101990b5ef425b9534b94f3dce3cd38ab",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_8",
+            "label": "Session 8 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 8 Event"
+            ],
+            "summary": "Recap session 8"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_8",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:5fcb97bf89e22b43",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+            "session_id": "session-8"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:89e4d32e4f75cca8",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+      "source_revision_id": "sha256:f51bcdb08f95f3339c6fd642da2e1c99a44994e326a75331326ee7f8e91fb486",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_9",
+            "label": "Session 9 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 9 Event"
+            ],
+            "summary": "Recap session 9"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_9",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:89e4d32e4f75cca8",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+            "session_id": "session-9"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:971e423f87a38d6b",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+      "source_revision_id": "sha256:786cf2c4223db358adb580e98d609e2494f298957cb0991a87c0f6d82340cbee",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_10",
+            "label": "Session 10 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 10 Event"
+            ],
+            "summary": "Recap session 10"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_10",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:971e423f87a38d6b",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+            "session_id": "session-10"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:b84a4af15daf97b9",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+      "source_revision_id": "sha256:2ca133fabd2fa1d70a5311e00516b1bd9821454c667cc06cda2ee95c907aafbc",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_11",
+            "label": "Session 11 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 11 Event"
+            ],
+            "summary": "Recap session 11"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_11",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:b84a4af15daf97b9",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+            "session_id": "session-11"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:6db838d5583ec88b",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+      "source_revision_id": "sha256:592c8c7537a3387454968e584dd1e24954b65b59d6447d9a5a5a8ca4ff84bae2",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_12",
+            "label": "Session 12 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 12 Event"
+            ],
+            "summary": "Recap session 12"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_12",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:6db838d5583ec88b",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+            "session_id": "session-12"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:2d8cdd5074116168",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+      "source_revision_id": "sha256:34d3e824e4720ca19b5a8b25025b3c8b3047f70dbf10855a314f9a5b339a8439",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_13",
+            "label": "Session 13 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 13 Event"
+            ],
+            "summary": "Recap session 13"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_13",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:2d8cdd5074116168",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+            "session_id": "session-13"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:c4e183f1de83f2f0",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+      "source_revision_id": "sha256:cdd401d3d70c8d6728163670f60d105f37db4b664aefd2f2438f82202836a1ed",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_14",
+            "label": "Session 14 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 14 Event"
+            ],
+            "summary": "Recap session 14"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_14",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c4e183f1de83f2f0",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+            "session_id": "session-14"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:ba71ddbf6058a6f9",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+      "source_revision_id": "sha256:82ced04e66ee5c18f11e25bb475590bffbde8946e7ab18537d97955cd1196d8b",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_15",
+            "label": "Session 15 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 15 Event"
+            ],
+            "summary": "Recap session 15"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_15",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:ba71ddbf6058a6f9",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+            "session_id": "session-15"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:c8603b46dd853389",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+      "source_revision_id": "sha256:33838351006fb5e386d8d7b6d93d6736b4a3ce44d402b57ad519494451f36973",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_16",
+            "label": "Session 16 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 16 Event"
+            ],
+            "summary": "Recap session 16"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_16",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:c8603b46dd853389",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+            "session_id": "session-16"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:da873ee9663d0d6b",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+      "source_revision_id": "sha256:e5e68f10d80e37fa3b89e4ce8bbee07fed5d2a77eb1507e023173bb5257ae775",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_17",
+            "label": "Session 17 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 17 Event"
+            ],
+            "summary": "Recap session 17"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_17",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:da873ee9663d0d6b",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+            "session_id": "session-17"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:a2c952f9917233dd",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+      "source_revision_id": "sha256:87e643d1fbb2d1654dca8bfafe5459641ebf518a90bd3006de92da36542d330f",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_18",
+            "label": "Session 18 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 18 Event"
+            ],
+            "summary": "Recap session 18"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_18",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:a2c952f9917233dd",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+            "session_id": "session-18"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:6f139761d979b5c6",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+      "source_revision_id": "sha256:1ee3fe8ab13ba170af1cc34a8774706029df0f5afdafe9430ceee34591a7e3bc",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_19",
+            "label": "Session 19 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 19 Event"
+            ],
+            "summary": "Recap session 19"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_19",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:6f139761d979b5c6",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+            "session_id": "session-19"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:6a8718b731da9a4c",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+      "source_revision_id": "sha256:d15563e5121a2b66ebbe34d2729788223c15f417b2376d106416326ff5c82b60",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_20",
+            "label": "Session 20 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 20 Event"
+            ],
+            "summary": "Recap session 20"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_20",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:6a8718b731da9a4c",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+            "session_id": "session-20"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:581d1c8eb0d8e113",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_revision_id": "sha256:0734069988fdfdb5b7f45859dd3fdbde5ae052892ff13ff7b408d37cfa3c5150",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_21",
+            "label": "Session 21 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 21 Event"
+            ],
+            "summary": "Recap session 21"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_21",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:581d1c8eb0d8e113",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+            "session_id": "session-21"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:e9edc83be9b758f1",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_revision_id": "sha256:2b3e4bdaa28d7bb1244a34ba4771e2ef56ebb38406df4c33e5f0f5bee5a23c45",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_22",
+            "label": "Session 22 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 22 Event"
+            ],
+            "summary": "Recap session 22"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_22",
+            "predicate": "participated_in",
+            "label": "participated in"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:e9edc83be9b758f1",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+            "session_id": "session-22"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    },
+    {
+      "source_artifact_id": "artifact:recap:longmont-c2:43376e5999f1a735",
+      "source_uri": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      "source_revision_id": "sha256:aed38be1e2c20771eeb0f2c3248b991e859cf4c3dcaa631d7d88eeecc7f52b23",
+      "source_domain": "recap",
+      "required": true,
+      "status": "accepted",
+      "skip_reason": null,
+      "candidate_graph": {
+        "nodes": [
+          {
+            "node_id": "event_session_23",
+            "label": "Session 23 Event",
+            "kind": "event",
+            "role": "event",
+            "aliases": [
+              "Session 23 Event"
+            ],
+            "summary": "Recap session 23"
+          },
+          {
+            "node_id": "loc_mireward",
+            "label": "Mireward",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mireward"
+            ],
+            "summary": "Mireward gate battle (Session 23)"
+          }
+        ],
+        "edges": [
+          {
+            "source_node_id": "pc_baergrom",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_bonogo",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_ephanna",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_karsemine",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "pc_stafl",
+            "target_node_id": "event_session_23",
+            "predicate": "participated_in",
+            "label": "participated in"
+          },
+          {
+            "source_node_id": "event_session_23",
+            "target_node_id": "loc_mireward",
+            "predicate": "occurred_at",
+            "label": "gate battle at Mireward"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_ref_id": "evidence:43376e5999f1a735",
+            "locator": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+            "session_id": "session-23"
+          }
+        ],
+        "unresolved_mentions": []
+      }
+    }
+  ]
+}

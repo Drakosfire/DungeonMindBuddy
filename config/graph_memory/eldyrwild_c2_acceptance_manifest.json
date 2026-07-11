@@ -1,0 +1,37 @@
+{
+  "schema": "dmb_world_materialization_acceptance_manifest_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild",
+  "campaign_scope": "longmont-c2",
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "corpus_index": "corpus/CORPUS-INDEX.json",
+  "recaps": {
+    "index_key": "session_recaps.campaign_2.buckets._normalized",
+    "session_min": 1,
+    "session_max": 23,
+    "require_exactly_one_per_session": true,
+    "exclude_path_components": ["_archive"]
+  },
+  "party": {
+    "registry": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json",
+    "required_pc_slugs": ["baergrom", "bonogo", "caelynn", "ephanna", "karsemine", "stafl"],
+    "hub_template": "Longmont Campaign/Campaign 2/PCs/{slug}/README.md"
+  },
+  "required_world_roots": [
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn",
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward"
+  ],
+  "required_campaign_sources": [
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md"
+  ],
+  "required_mechanical_sources": [
+    "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md",
+    "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md"
+  ],
+  "authored_records": {
+    "include_active_graph_review_contributions": true,
+    "include_identity_decisions": true,
+    "absence_is_reportable_not_fatal": true
+  }
+}

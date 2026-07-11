@@ -1,0 +1,30 @@
+{
+  "schema": "dmb_world_materialization_acceptance_manifest_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild",
+  "campaign_scope": "longmont-c2",
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "corpus_index": "corpus/CORPUS-INDEX.json",
+  "recaps": {
+    "index_key": "session_recaps.campaign_2.buckets._normalized",
+    "session_min": 1,
+    "session_max": 2,
+    "require_exactly_one_per_session": true,
+    "exclude_path_components": ["_archive"]
+  },
+  "party": {
+    "registry": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json",
+    "required_pc_slugs": ["caelynn"],
+    "hub_template": "Longmont Campaign/Campaign 2/PCs/{slug}/README.md"
+  },
+  "required_world_roots": [
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn"
+  ],
+  "required_campaign_sources": [],
+  "required_mechanical_sources": [],
+  "authored_records": {
+    "include_active_graph_review_contributions": false,
+    "include_identity_decisions": false,
+    "absence_is_reportable_not_fatal": true
+  }
+}

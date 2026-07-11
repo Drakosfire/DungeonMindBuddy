@@ -531,3 +531,19 @@ def test_ts_selector_allowlist_is_selector_specific(tmp_path: Path) -> None:
     )
     assert len(violations) == 1
     assert "useLatestGraphIngest" in violations[0].offending
+
+
+def test_materialization_package_does_not_import_storage_or_preview_internals() -> None:
+    """PR006 materialization may use Kernel + union model only — not storage/preview."""
+    files = _iter_python_files("src/graph_memory/materialization")
+    assert files, "expected materialization package files"
+    banned = WORLD_STORAGE_INTERNALS + UNION_PREVIEW_INTERNALS
+    violations = _scan_python_imports(
+        files,
+        banned_prefixes=banned,
+        required_fix=(
+            "import graph_memory.kernel for durable writes; "
+            "do not import world_supergraph storage or union preview loaders"
+        ),
+    )
+    assert not violations, _format_violations(violations)
