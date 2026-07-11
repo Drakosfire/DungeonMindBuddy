@@ -1,5 +1,3 @@
-// PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-// Retained until PR007/PR008 removes preview/latest-ingest selectors from surface APIs.
 import { describe, expect, it } from "vitest";
 import type { GoldReviewCompareResponse, GoldReviewSessionSummary, GraphIngestRunSummary, ManualReviewBedDetail, ManualReviewVariantDetail } from "../../api/types";
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";

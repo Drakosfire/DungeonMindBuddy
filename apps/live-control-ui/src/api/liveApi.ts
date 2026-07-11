@@ -1,5 +1,3 @@
-// PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-// Retained until PR007/PR008 removes preview/latest-ingest selectors from surface APIs.
 import type {
   ArtifactReadResponse,
   CapabilityReadResponse,
@@ -414,7 +412,6 @@ export async function getDefaultUnionSupergraphProjection(
   return getUnionSupergraphProjection({ sessionId, previewSource });
 }
 
-
 export async function resolveGraphReviewExistingObjectCandidates(
   request: GraphReviewExistingObjectResolverRequest,
 ): Promise<GraphReviewExistingObjectResolverResponse> {
@@ -630,7 +627,6 @@ export async function postStatblockWorkbenchCommand(
   );
 }
 
-
 export async function storeStatblockWorkbenchDraft(
   request: StoreStatblockDraftRequest,
 ): Promise<StoreStatblockDraftResponse> {
@@ -657,8 +653,6 @@ export async function getStatblockWorkbenchDraft(
     `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}`,
   );
 }
-
-
 
 export async function listGeneratedStatblocks(): Promise<GeneratedStatblockListResponse> {
   return apiFetch<GeneratedStatblockListResponse>(
@@ -705,7 +699,6 @@ export async function previewStatblockCorpusPromotion(
     },
   );
 }
-
 
 export async function prepareStatblockCorpusWrite(
   artifactId: string,
@@ -771,7 +764,6 @@ export async function verifyStatblockRetrieval(
     { method: "POST", body: JSON.stringify(request) },
   );
 }
-
 
 export async function patchCombatEntity(
   entityId: string,

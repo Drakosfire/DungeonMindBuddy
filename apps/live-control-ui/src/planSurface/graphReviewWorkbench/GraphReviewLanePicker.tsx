@@ -1,5 +1,3 @@
-// PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-// Retained until PR007/PR008 removes preview/latest-ingest selectors from surface APIs.
 import type { GraphIngestRunSummary } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import { GraphGoldReviewRunPicker } from "../graphGoldReview/GraphGoldReviewRunPicker";

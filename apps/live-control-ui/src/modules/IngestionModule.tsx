@@ -1,5 +1,3 @@
-// PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-// Retained until PR007/PR008 removes preview/latest-ingest selectors from surface APIs.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getRecapArtifacts, postCitationSource } from "../api/liveApi";

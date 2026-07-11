@@ -27,8 +27,12 @@ graph_memory.union_supergraph.preview_import
 graph_memory.union_supergraph.preview_run_materialize
 ```
 
-Legacy preview adapters may retain those imports only with an explicit
+Legacy preview adapters may retain those Python imports only with an explicit
 `PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION` comment tied to PR006–PR008 deletion.
+
+TypeScript preview/latest-ingest selectors are gated by an **exact file + selector
+allowlist** in `tests/test_graph_kernel_boundaries.py` (`TS_LEGACY_SELECTOR_ALLOWLIST`).
+A file-level exemption comment does **not** bypass the TypeScript guard.
 
 ## Available in PR003
 
