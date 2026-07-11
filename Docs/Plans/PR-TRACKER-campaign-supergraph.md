@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR322 re-review — Model B tenancy, contribution lifecycle, head invariants, named PR006 corpus, enforceable boundaries, deletion-at-replacement)  
+**Updated:** 2026-07-10 (PR328 review — PR006 blocked on PR005B; jumpstart authority vocabulary aligned)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -45,6 +45,20 @@ Do not re-open in implementation PRs without an explicit architecture amendment:
 - Immutable revision + atomic head invariants
 - Mandatory epistemic / temporal / visibility metadata
 - Identity resolution outcomes including split/unmerge
+- GitHub repo docs are canonical; Project Sources are context inputs only (PR005A)
+- Agents are not privileged graph writers (tool categories + preview → GM confirm; PR005B)
+
+### Project Sources boundary (normative)
+
+```text
+GitHub repo docs are canonical.
+Project Sources are context inputs.
+Prepared replacement files are not active Project Sources until the human operator uploads them.
+Historical / research / proposal docs cannot direct implementation.
+When Project Sources conflict with GitHub, GitHub wins.
+```
+
+If this tracker and a jumpstart / Project Source / local handoff disagree, **this tracker wins**.
 
 ---
 
@@ -68,14 +82,18 @@ PR002 Storage + immutable revision / graph-head contract
 PR003 Kernel public boundary (thin, enforceable)
 PR004 Identity outcomes + split/unmerge
 PR005 Durable contribution merge (idempotent, retractable, rebuildable)
+PR005A Context Audit + Source Reanchor  ← docs-only bridge
+PR005B Agent Tool Contract + Authored Prep Contributions  ← docs-only bridge
 PR006 Initial real materialization (named acceptance corpus)  ← before projection
 PR007 Projection Engine (revision-pinned + admissibility)
 PR008 Plan surface migration
 PR009 Play surface migration (incl. combat lenses)
 PR010 Graph-backed retrieval
-PR011 Agent context service
+PR011 Agent Context + Tool Runtime
 PR012 Obsolete-path cleanup safety net
 ```
+
+Do **not** renumber PR006–PR012. PR005A and PR005B are docs/design bridge slices between durable merge and materialization.
 
 ---
 
@@ -108,7 +126,7 @@ PR012 Obsolete-path cleanup safety net
 
 ## PR002 — World Supergraph Storage + Graph-Head Contract
 
-**Status:** `DOING` (GitHub #323)  
+**Status:** `DONE` (GitHub #323 merged 2026-07-10)  
 **Phase:** 1  
 **Purpose:** Persistent per-`worldId` graph store with **immutable revisions** and an **atomic graph head**; not session-owned preview state; not mutable in-place JSON as the product model.
 
@@ -188,7 +206,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR004 — Identity and Reconciliation
 
-**Status:** `DOING` (GitHub #326; stacked on PR003 / #325)  
+**Status:** `DONE` (GitHub #326 merged 2026-07-10)  
 **Phase:** 2  
 **Purpose:** Fill the Kernel boundary with world-global identity, aliases, explicit resolution outcomes, provisional identities, and reversible merge/split/unmerge.
 
@@ -223,7 +241,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR005 — Durable Contribution Merge
 
-**Status:** `DOING`  
+**Status:** `DONE` (GitHub #327 merged 2026-07-10)  
 **Phase:** 2  
 **Purpose:** Extraction candidates and authored overlays merge into the World Supergraph as **GraphContributions**, with idempotency, supersession, retraction, rebuild, and atomic graph-head advancement.
 
@@ -282,13 +300,100 @@ Required deletion PR:
 - PR008 removes Plan latest-ingest selectors.
 - PR012 catches leftover preview/session graph paths.
 ```
+
+---
+
+## PR005A — Context Audit + Source Reanchor
+
+**Status:** `DOING`  
+**Phase:** 2.5 / docs bridge  
+**Purpose:** Reconcile Project Sources, local handoffs, active references, historical docs, and repo authority before agent tool contract work — so fresh agents cannot treat stale Project Sources, preview-union docs, research notes, or proposal-only handoffs as active repo authority.
+
+**Deliverables:**
+
+- Repo authority docs identify the PR005A / PR005B split
+- Project Sources boundary is documented (GitHub canonical; Project Sources are context inputs)
+- Local/source docs are classified as `ACTIVE_AUTHORITY`, `ACTIVE_REFERENCE`, `KEEP_CONTRACT`, `SOURCE_ANCHOR`, `RESEARCH_ONLY`, `HISTORICAL`, `SUPERSEDED`, or `PROPOSAL`
+- Stale or dangerous docs have clear banners or audit entries
+- No runtime code changes
+- Next handoff for PR005B is prepared or referenced
+
+**Success criteria:**
+
+- A fresh agent can identify current repo authority without relying on Project Sources
+- Historical/research/proposal docs cannot accidentally direct implementation
+- The tracker remains the sole Campaign Supergraph implementation sequence
+- PR006 remains Initial World Supergraph Materialization and is not renumbered
+- Project Sources are described as context inputs, not repo authority
+
+**Non-goals:**
+
+- Hermes runtime
+- Agent tool registry code
+- Projection Engine
+- Graph-backed retrieval
+- PR006 materialization
+- Plan encounter builder
+- Content-pack storage runtime
+- Autonomous writes
+- Graph Review UX rewrite
+
+**Depends on:** PR005 (landed).
+
+**Retain / rewrite / delete:** Docs only — tracker, roadmap, audit, jumpstart, superseded banners. No runtime paths.
+
+**Follow-up:** After this slice lands, author/run **PR005B** (Agent Tool Contract + Authored Prep Contributions).
+
+---
+
+## PR005B — Agent Tool Contract + Authored Prep Contributions
+
+**Status:** `BLOCKED` on PR005A  
+**Phase:** 2.5 / docs bridge  
+**Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
+
+**Deliverables:**
+
+- Agent tool capability categories: `read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic`
+- Authored prep lifecycle: `draft`, `planned`, `placed`, `played`, `world_canon`, `retracted`, `superseded`
+- Confirmed write boundaries through `GraphContribution`, Kernel merge/publish, source artifact revision, and governed identity/alias decision records
+- Explicit rule that agents are not privileged graph writers
+- Explicit rule that Plan remains a consumer surface
+- Explicit rule that Graph Review / Ingest remains the correction cockpit
+- Architecture / UX / anchor refinements so PR011 is clarified as Agent Context + Tool Runtime without moving runtime ahead of PR006/PR007
+
+**Success criteria:**
+
+- Agents cannot silently mutate the World Supergraph
+- Hermes memory, UI thread memory, summaries, and chat history are not campaign canon
+- Draft and planned prep are distinguishable from played and world-canon truth
+- Content packs and reusable prep artifacts have a review/confirmation path
+- PR006 can still focus on initial real materialization, not agent tooling
+
+**Non-goals:**
+
+- Hermes runtime implementation
+- Agent tool registry code
+- Plan encounter builder
+- Projection Engine
+- Graph-backed retrieval
+- Content-pack storage runtime
+- Autonomous writes
+- PR006 materialization
+
+**Depends on:** PR005A.
+
+**Retain / rewrite / delete:** Docs only — architecture § agent/tool contract, roadmap notes, Agent Interaction UX/anchor refinements. No runtime paths.
+
 ---
 
 ## PR006 — Initial World Supergraph Materialization
 
-**Status:** `BLOCKED` on PR005  
+**Status:** `BLOCKED` on PR005B  
 **Phase:** 3  
 **Purpose:** Produce the first **real and representative** persistent union from the **named acceptance corpus**, and prove it before projection/Plan migration.
+
+PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Do not start PR006 before PR005B unless the operator explicitly chooses to parallelize.
 
 **Named acceptance corpus (required — not “if available”):**
 
@@ -332,9 +437,9 @@ Required deletion PR:
 
 **Demolition:** Delete or quarantine production code paths that treat preview unions as the runtime campaign graph when the world head is the replacement. If a named consumer still requires a preview loader, record the retain block and required deletion PR.
 
-**Non-goals:** Projection Engine; Plan UI migration; unbounded multi-source expansion (Phase 6); treating a synthetic multi-source fixture as this slice’s acceptance graph; optional worldbuilding.
+**Non-goals:** Projection Engine; Plan UI migration; Hermes / Agent Tool Runtime; Plan encounter authoring; unbounded multi-source expansion (Phase 6); treating a synthetic multi-source fixture as this slice’s acceptance graph; optional worldbuilding.
 
-**Depends on:** PR005.
+**Depends on:** PR005B (and thus PR005A). Docs-only does **not** mean optional when the tracker sequences those bridges before materialization. Operator may explicitly waive and parallelize; do not invent that waiver.
 
 ---
 
@@ -456,25 +561,26 @@ Required deletion PR: this PR (PR008)
 
 ---
 
-## PR011 — Agent Context Service
+## PR011 — Agent Context + Tool Runtime
 
 **Status:** `BLOCKED` on PR010  
 **Phase:** 8  
-**Purpose:** Agent Interaction assembles context from World Supergraph + retrieval.
+**Purpose:** Agent Interaction assembles context from projections, retrieval, source units, thread state, and surface context, then exposes typed `read_only` / `draft_only` / `preview_write` / `confirm_commit` / `admin_diagnostic` tools with no silent graph mutation (contract defined in PR005B; implemented here).
 
 **Deliverables:**
 
-- Agent context service over projection/retrieval contracts
-- Clear no-silent-write policy
-- Tooling that escalates corrections to write path / Graph Review
+- Agent context service over projection/retrieval/source-unit contracts
+- Tool capability registry matching PR005B / architecture agent-tool contract
+- Clear no-silent-write policy; preview → explicit GM confirm for durable writes
+- Tooling that escalates corrections to Kernel write path / Graph Review
 
 **Success criteria:**
 
-- Agent backend is graph memory, not chat history or Hermes drawer internals
-- Agents cannot mutate the supergraph without an explicit write pipeline
+- Agent backend is graph memory + retrieval + source units, not chat history or Hermes drawer internals as canon
+- Agents cannot mutate the supergraph without an explicit write pipeline and GM confirmation
 - Player-facing agents cannot receive GM-only assertions via adjacency alone
 
-**Non-goals:** Fully autonomous campaign rewriting; replacing Graph Review.
+**Non-goals:** Fully autonomous campaign rewriting; replacing Graph Review; moving tool runtime ahead of PR006/PR007.
 
 **Depends on:** PR010.
 
@@ -528,6 +634,8 @@ Reserve tracker IDs when scoped:
 | Informal “graph-context” / old “PR322” | **PR007** (+ Plan wiring in **PR008**) |
 | Informal “continue dogfood” | **PR008** after **PR006** |
 | Informal “Plan Q&A” | Follow-on after PR008; uses PR010 when retrieval-backed |
+| Context audit / Project Sources boundary | **PR005A** (docs) |
+| Agent tool / authored prep contract | **PR005B** (docs); runtime in **PR011** |
 | GitHub #322 (this docs PR) | **PR001** |
 
 ---
