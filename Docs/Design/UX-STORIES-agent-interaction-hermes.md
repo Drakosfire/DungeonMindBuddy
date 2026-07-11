@@ -8,7 +8,9 @@
 
 ## Design north star
 
-Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `/plan` implementation has proven the interaction model through P3.1, but `/plan` is only the first intentional surface. Corpus remains canon; Hermes long-term memory is future and non-canon; graph/ontology work is sibling infrastructure consumed through source-vocabulary adapters, not owned by Agent Interaction.
+Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `/plan` implementation has proven the interaction model through P3.1, but `/plan` is only the first intentional surface.
+
+**Dual authority:** corpus/source artifacts are **prose and evidentiary authority**; the World Supergraph head is **durable materialized knowledge state**; governed authored assertions and identity decisions survive reconstruction; Hermes/UI/thread memory is **non-canonical continuity** (pointer-only). Agents are not privileged writers. Graph/ontology work is sibling infrastructure consumed through source-vocabulary adapters, not owned by Agent Interaction. Write contract: `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`.
 
 ---
 
@@ -22,8 +24,8 @@ Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `
 | **P2 — thread management** | Satisfied locally / partial target | Named thread create/rename/switch/delete and long-thread guardrails exist locally; app-level persistence waits for R10/P4. |
 | **P3 — retrieval freshness and source-currentness** | Satisfied locally / partial target | `retrieval_freshness`, `RetrievalFreshnessPanel`, `/api/live/citation-freshness`, `CorpusChangeSignalPanel`, evidence snapshots, and metadata-only source-line hash/status checks exist; automated corpus-change fan-out remains future. |
 | **P4 / R10 — app-level provider lift** | Future / next likely code rung | Move `AgentInteractionProvider` above routes/surfaces while preserving current `/plan` UX. |
-| **P5 — tool parity** | Future | Full operator tools in conversation; all writes remain preview -> GM confirm. |
-| **P6 — Hermes memory integration** | Future | Hermes long-term memory may help continuity/preferences only; campaign facts remain source-grounded corpus canon. |
+| **P5 — tool parity** | Future | Full operator tools in conversation; typed capability categories; durable writes via preview_write → proposal-bound GM confirm (PR005B contract; runtime PR011). |
+| **P6 — Hermes memory integration** | Future | Hermes long-term memory may help continuity/preferences only (pointer-only); campaign facts come from source artifacts and World Supergraph reads via tools, not chat memory. |
 
 React `/play` follows R10/P4 as the second-surface proof. Runtime graph retrieval is future adapter work, not a prerequisite for the provider lift. Agent Interaction consumes `SourceArtifact -> SourceAnchor -> SourceUnit` envelopes and must not treat graph summaries as source evidence.
 
@@ -60,7 +62,7 @@ This scenario should eventually pass end-to-end:
 | **S1.3** | **As a GM**, I want to **name threads** (not just timestamps), **so that** I can find "Session 24 inn prep" vs "post-S23 ingestion review" later. | Create/rename thread; title shown in collapsed bar and thread list. |
 | **S1.4** | **As a GM**, I want **as many threads as I need**, **so that** I can parallelize prep topics without losing context. | Support **2–3 live arcs same day** (inn prep, statblock, ingestion) with frequent switching; no artificial single-thread limit beyond sensible storage bounds. |
 | **S1.7** | **As a GM**, I want to **switch between parallel threads quickly** and **resume where I left off**, **so that** same-day multi-topic prep does not feel like losing my place. | Thread switcher surfaces named active arcs; restoring scroll/turn focus per thread; switching is a first-class action (not buried archive). |
-| **S1.8** | **As a GM**, I want **every thread to read and write against live corpus state**, **so that** no thread shows stale canon after another thread ingests or commits. | Reads always resolve current corpus (fresh retrieval / `get_document`); writes available in any thread with preview→confirm; cross-thread invalidation when underlying sources change. |
+| **S1.8** | **As a GM**, I want **every thread to read against current source and graph state**, **so that** no thread shows stale knowledge after another thread ingests, commits, or retracts. | Reads resolve current source artifacts and World Supergraph projections (fresh retrieval / `get_document` / read_only tools); writes available in any thread via preview_write → proposal-bound confirm; cross-thread invalidation when underlying sources or graph head change. **Target / future** for graph-head freshness; local `/plan` today resolves corpus reads. |
 | **S1.5** | **As a GM**, I want follow-up questions in the same thread to use **conversation history**, **so that** "Does the owner know Lysandra?" does not require repeating the inn context. | Turn N includes prior Q/A in agent context; Hermes session id reused across turns (not `--oneshot` per message). |
 
 ### Epic 2 — Corpus-grounded answers with rich citations
@@ -88,20 +90,21 @@ This scenario should eventually pass end-to-end:
 |----|-------|-------------------|
 | **S4.1** | **As a GM**, I want **thread history persisted across reload**, **so that** I never lose an prep conversation mid-session. | Full thread: questions, answers, citation pointers, trace ids — not metadata-only. |
 | **S4.2** | **As a GM**, I want **generous conversation memory** in v1 (pare down later), **so that** the agent feels like a continuous desk partner. | Server or client stores bounded but complete turn payloads; document cap and eviction policy. |
-| **S4.3** | **As a GM**, I want **Hermes session memory integrated** over time, **so that** orchestration state survives across turns while **corpus remains canon via tools**. | Phase 1: UI + Hermes session id continuity. Phase 2: Hermes long-term memory for non-canon preferences + thread continuity; campaign facts only via corpus tools. |
-| **S4.4** | **As a GM**, I want a **clear mental model** of what is remembered where, **so that** I know corpus ≠ chat ≠ Hermes ambient memory. | Visible policy indicators (e.g. thread memory on, Hermes memory mode); `.hermes.md` rules reflected in product copy. |
+| **S4.3** | **As a GM**, I want **Hermes session memory integrated** over time, **so that** orchestration state survives across turns while **campaign facts come from source and graph tools only**. | Phase 1: UI + Hermes session id continuity. Phase 2: Hermes long-term memory for non-canon preferences + thread continuity (pointer-only); campaign facts only via read_only / source tools and World Supergraph reads. |
+| **S4.4** | **As a GM**, I want a **clear mental model** of what is remembered where, **so that** I know source evidence ≠ chat ≠ Hermes ambient memory ≠ graph head. | Visible policy indicators (e.g. thread memory on, Hermes memory mode); `.hermes.md` rules reflected in product copy; dual-authority model surfaced. |
 
 **Memory layers (target model):**
 
 | Layer | Contents | Canon? | Persist |
 |-------|----------|--------|---------|
-| UI thread | Q/A, titles, citation pointers, trace ids, freshness metadata | No — pointers to canon | Yes, local reload now; app/user scope after R10 |
+| UI thread | Q/A, titles, citation pointers, trace ids, freshness metadata | No — pointer-only continuity | Yes, local reload now; app/user scope after R10 |
 | Retrieval proof | Admitted evidence per turn, retrieval decision metadata, `retrieval_freshness` | Evidence only when tied to source-grounded units | Per turn in thread |
-| Evidence snapshots / source-currentness metadata | Citation locators, line ranges, source-line hashes, Current / Changed / Unknown / Unavailable status | No — metadata-only check against canon | Per turn; must not store source bodies |
-| Hermes session | Tool loop state, turn context, orchestration continuity | No | Session id reuse / future hardening |
+| Evidence snapshots / source-currentness metadata | Citation locators, line ranges, source-line hashes, Current / Changed / Unknown / Unavailable status | No — metadata-only check against source authority | Per turn; must not store source bodies |
+| Hermes session | Tool loop state, turn context, orchestration continuity | No (pointer-only) | Session id reuse / future hardening |
 | Hermes long-term | Preferences and thread-continuity helpers | No for campaign facts | Future only |
-| Corpus | Campaign truth in markdown and promoted canonical artifacts | **Yes** | Corpus tools / explicit write APIs only |
-| Graph memory | Derived semantics, graph IR, validation reports, shadow retrieval outputs | No by itself; source evidence must come through `SourceUnit` envelopes | Ontology/taxonomy workstream; future adapter consumption only |
+| Source artifacts | Prose and evidentiary authority (markdown, promoted canonical artifacts) | **Prose/evidence authority** — not the only durable knowledge plane | Source revision / explicit write APIs |
+| World Supergraph head | Durable materialized knowledge state; governed assertions and identity decisions | **Materialized knowledge authority** | GraphContribution → Kernel → atomic graph-head |
+| Graph memory (derived) | Derived semantics, graph IR, validation reports, shadow retrieval outputs | No by itself; source evidence must come through `SourceUnit` envelopes | Ontology/taxonomy workstream; future adapter consumption only |
 
 Agent Interaction may use graph-backed retrieval only when it emits or enriches source-grounded `SourceUnit` envelopes. Graph summaries may help navigation or display, but they are not source evidence for factual claims.
 
@@ -117,11 +120,18 @@ Agent Interaction may use graph-backed retrieval only when it emits or enriches 
 
 | ID | Story | Acceptance sketch |
 |----|-------|-------------------|
-| **S6.1** | **As a GM**, I want the agent to use **all the same tools I have in the UI** (statblock generation, NPC workflows, tables, ingestion-adjacent reads, etc.), **so that** I can delegate any prep task in conversation—not only corpus Q&A. | Full operator tool parity is the goal; no artificial "retrieval first, other tools later" cap beyond engineering order. |
-| **S6.2** | **As a GM**, I want **every write previewed and explicitly approved by me** before commit, **so that** nothing mutates canon without consent. | **No autonomous writes** in plan mode; two-phase preview → confirm always; autonomous/agent-commit paths are out of scope until benchmarked and trusted. |
+| **S6.1** | **As a GM**, I want the agent to use **all the same tools I have in the UI** (statblock generation, NPC workflows, tables, ingestion-adjacent reads, etc.), **so that** I can delegate any prep task in conversation—not only corpus Q&A. | Full operator tool parity is the goal; no artificial "retrieval first, other tools later" cap beyond engineering order. **Target / PR011.** |
+| **S6.2** | **As a GM**, I want **every durable write previewed and explicitly approved by me** before commit, **so that** nothing mutates source or graph authority without consent. | **No autonomous writes**; two-phase preview_write → **proposal-bound / revision-bound** GM confirm always; `confirm_commit` fails closed on stale proposal. **Target / PR011.** |
 | **S6.3** | **As a GM**, I want retrieval, ingestion review, statblock, NPC, and table tasks in the **same thread**, **so that** one prep evening is one conversation arc. | Thread mixes Q&A, tool invocations, and post-ingestion "what changed?" turns; trace distinguishes step kinds. |
-| **S6.5** | **As a GM**, I want a **write in thread A to be visible to thread B on the next read**, **so that** parallel prep arcs stay coherent with live canon. | After approved commit (any thread), corpus fingerprint or change event propagates; other threads' agents prefer fresh reads over stale cited excerpts when answering new questions. |
+| **S6.5** | **As a GM**, I want a **commit in thread A to be visible to thread B on the next read**, **so that** parallel prep arcs stay coherent with current source and graph state. | After approved confirm_commit (any thread), change signal propagates; other threads' agents prefer fresh reads over stale cited excerpts. **Target / future** for graph-head fan-out. |
 | **S6.4** | **As a GM**, I want agent write/tool behavior **benchmarked before promotion**, **so that** confidence gates precede any loosening of consent rules. | Eval harness + rubric for tool calls and write previews; no production shortcut around measurement. |
+| **S6.6** | **As a GM**, I want to **draft prep without committing**, **so that** I can explore ideas before any durable effect. | `draft_only` produces speculative text/objects; no graph or source authority change until separate preview/confirm. **Target / PR011.** |
+| **S6.7** | **As a GM**, I want to **save a draft artifact** explicitly, **so that** prep work persists without becoming world canon. | Optional revisioned non-canonical draft artifact; distinct from GraphContribution activation. **Target / PR011.** |
+| **S6.8** | **As a GM**, I want a **preview_write to show the exact proposed effect** (diff, affected records, validation findings), **so that** I know what confirm would do. | Human-readable diff + machine-readable effect summary; expected parent graph revision pinned. **Target / PR011.** |
+| **S6.9** | **As a GM**, I want **stale previews rejected** when source or graph revision changed, **so that** I never confirm against outdated state. | confirm_commit fails closed when proposal digest, source revision, or expected parent graph revision is stale. **Target / PR011.** |
+| **S6.10** | **As a GM**, I want **fresh post-commit reads across threads**, **so that** all threads see the same graph head after any confirm. | read_only tools return coherent post-commit projection; thread memory remains pointer-only. **Target / PR011.** |
+| **S6.11** | **As a GM**, I want **retraction and supersession** of prior contributions when I correct mistakes, **so that** graph lineage stays honest. | Governed GraphContribution status (activation/supersession/retraction); not silent overwrite. **Target / PR005+.** |
+| **S6.12** | **As a GM**, I want **content-pack import and placement** through the same preview/confirm path, **so that** bulk prep enters the world graph with explicit consent. | preview_write for pack placement; confirm_commit through Kernel path. **Target / PR011.** |
 
 ---
 
@@ -144,7 +154,7 @@ Agent Interaction may use graph-backed retrieval only when it emits or enriches 
 | **P2 — Thread management** | S1.3, S1.4, S1.6, S1.7, S1.8, S5.2 | Satisfied locally / partial target | Named local threads and long-thread guardrails; app-level persistence waits for R10/P4. |
 | **P3 — Smart retrieval and source freshness** | S2.4, S2.5, S2.6, S4.3 (session) | Satisfied locally / partial target | Retrieval freshness and metadata-only corpus change signal; robust re-retrieval policy/fan-out remain future. |
 | **P4 / R10 — App hoist** | S5.1, S5.3 | Future / next likely code rung | App-level `AgentInteractionProvider`, cross-surface continuity. |
-| **P5 — Tool parity** | S6.1–S6.3 | Future | Statblock, NPC, tables, ingestion-adjacent tools via agent; no autonomous writes. |
+| **P5 — Tool parity** | S6.1–S6.4, S6.6–S6.12 | Future | Statblock, NPC, tables, ingestion-adjacent tools via agent; typed capabilities; proposal-bound confirm; no autonomous writes. |
 | **P6 — Memory integration** | S4.3, S4.4 | Future | Hermes long-term memory policy for non-canon continuity/preferences. |
 
 P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R10/P4 is the next likely code rung, and React `/play` follows as the second-surface proof.
@@ -159,8 +169,8 @@ P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R1
 | **New thread** | **Auto-suggest after N turns** (N configurable; value TBD); never silent fork |
 | **Ingestion + ask** | **Same thread** — ingest Session 23 and "what changed?" continue the active conversation |
 | **Tool parity scope** | **All operator tools** — retrieval, statblock, NPC, tables, etc.; no permanent "Q&A only" product ceiling |
-| **Writes from agent** | **Never autonomous** — always preview + explicit GM approve; benchmark heavily before any policy relaxation |
-| **Thread switching UX** | **B — 2–3 live arcs same day**, switch frequently; **every thread read/write against live corpus in real time** |
+| **Writes from agent** | **Never autonomous** — always preview_write + explicit **proposal-bound / revision-bound** GM confirm; benchmark heavily before any policy relaxation |
+| **Thread switching UX** | **B — 2–3 live arcs same day**, switch frequently; **every thread reads current source and graph state** |
 
 ---
 
@@ -170,16 +180,16 @@ P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R1
 
 **Real-time coherence (non-negotiable):**
 
-- **Every thread** can **read** (retrieval, get document, operator tools) and **write** (preview → GM confirm) — no read-only thread tier.
-- **Corpus is live:** a write or ingestion completed in thread A must be visible to thread B on the next read/ask — not served from frozen turn snapshots.
-- **Conversation history is per-thread; canon is shared.** Thread memory holds Q/A and pointers; answers ground on **current** corpus unless explicitly historical ("what did we think before ingest?").
+- **Every thread** can **read** (retrieval, get document, operator tools) and **propose writes** (preview_write → proposal-bound confirm) — no read-only thread tier.
+- **Source and graph are live:** a confirm_commit or ingestion completed in thread A must be visible to thread B on the next read/ask — not served from frozen turn snapshots.
+- **Conversation history is per-thread; authority is shared.** Thread memory holds Q/A and pointers (pointer-only continuity); answers ground on **current** source artifacts and World Supergraph projections unless explicitly historical ("what did we think before ingest?").
 - **Citation side pane** loads **current** document body inside the **Agent Interaction pane**; stale-turn indicators when source changed since the answer was generated. **Does not** take over or split the plan canvas — extends existing bar/pane design (`PlanAgentInteractionBar`, `plan-agent-pane` in `planSurface.css`).
 
 **Implied architecture (for implementers, not UI prescription):**
 
-- Shared corpus change signal (fingerprint, ingest-complete event, or write-commit hook) fan-out to all open threads.
+- Shared source/graph change signal (fingerprint, ingest-complete event, or confirm_commit hook) fan-out to all open threads.
 - Per-thread: Hermes session id, scroll/turn focus, full turn payloads.
-- Agent policy: on corpus change event, bias toward re-retrieval for factual questions; thread context still applies for operator intent ("continue the statblock we were editing").
+- Agent policy: on source or graph change event, bias toward re-retrieval for factual questions; thread context still applies for operator intent ("continue the statblock we were editing").
 - Future graph-backed retrieval must produce or enrich `SourceUnit` envelopes. Graph summaries are navigation/display material, not source evidence.
 
 ---
@@ -229,4 +239,4 @@ P0-P3.1 are landed locally in `/plan`; fresh agents should not start from P0. R1
 - **S1.7 / S1.8:** Two named threads active; write/ingest in thread A → ask factual question in thread B → answer reflects new canon.
 - **S2.5:** Open citation on pre-ingest turn after ingest → side pane shows current doc + "source updated" affordance.
 - **S2.6:** Stored turn with evidence snapshots → Check current source state → Current / Changed / Unknown / Unavailable shown without returning or persisting source bodies.
-- **S6.2 / S6.4:** Write tool invoked → preview diff shown → no commit until GM confirms; benchmark rubric exists before ship.
+- **S6.2 / S6.4 / S6.8 / S6.9:** Write tool invoked → preview_write diff shown → no commit until proposal-bound GM confirms; stale proposal rejected; benchmark rubric exists before ship.

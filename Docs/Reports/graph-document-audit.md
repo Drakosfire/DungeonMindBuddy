@@ -1,8 +1,8 @@
 # Graph Document Audit — Campaign Supergraph Reset
 
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR005A — Project Sources / local-doc boundary; PR005A/PR005B split)  
-**Status:** Active audit record for Phase 0 (+ PR005A source reanchor)  
+**Updated:** 2026-07-11 (PR005B — agent-tool / authored-prep contract classified)  
+**Status:** Active audit record for Phase 0 (+ PR005A source reanchor; PR005B contract)  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
 **PR tracker:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -13,7 +13,7 @@ Classify graph-related documentation under `Docs/` so contributors know what can
 
 **Rule:** For Campaign Supergraph sequencing, [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) is the **only** active implementation sequence. A fresh agent must not pick an older handoff and resume the superseded architecture.
 
-**PR005A note:** Tracker slice **PR005A (Context Audit + Source Reanchor)** enforces the Project Sources / local-doc boundary before **PR005B (Agent Tool Contract)**. Jumpstarts and Project Sources cannot invent a competing sequence.
+**PR005A / PR005B note:** Tracker slice **PR005A (Context Audit + Source Reanchor)** enforces the Project Sources / local-doc boundary. **PR005B** defines the agent-tool and authored-prep contract in [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md). Jumpstarts and Project Sources cannot invent a competing sequence.
 
 ## Action legend
 
@@ -113,6 +113,7 @@ Stub pointers remain at former paths.
 | Document | Purpose | Action | Reason |
 |---|---|---|---|
 | `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` | SourceArtifact→Anchor→Unit | **KEEP** | Surface vocabulary still in force |
+| `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md` | Agent tool capabilities + authored-prep lifecycle | **KEEP_CONTRACT** / ACTIVE DESIGN CONTRACT | Normative for PR011; not sequencing authority; not PR006 materialization |
 | `Docs/Design/GRAPH-MEMORY-SOURCE-SPAN-EVIDENCE-RESOLVER.md` | Source-span evidence | **KEEP** | Evidence contract |
 | `Docs/Design/GRAPH-MEMORY-CANDIDATE-GRAPH-PREVIEW-IR.md` | Candidate IR | **KEEP** | Extraction IR (candidates ≠ durable store) |
 | `Docs/Design/GRAPH-MEMORY-MULTI-PASS-EXTRACTION-CONTRACT.md` | Multi-pass extraction | **KEEP** | Write-path design contract |
@@ -223,7 +224,7 @@ Already under archive trees, or in-place historical:
 | What is the Graph Kernel? | Architecture §12 |
 | First real populated union (named corpus)? | Roadmap Phase 3 · Tracker **PR006** |
 | Project Sources vs GitHub authority? | This audit · Project Sources boundary · Tracker **PR005A** |
-| Agent tool / authored prep contracts? | Tracker **PR005B** (docs); runtime **PR011** |
+| Agent tool / authored prep contracts? | [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) · Tracker **PR005B** (docs); runtime **PR011** |
 | Long-term roadmap? | `ROADMAP-campaign-supergraph.md` |
 | Implementation PRs? | `PR-TRACKER-campaign-supergraph.md` only |
 | What was superseded? | This audit + `Docs/Archive/Architecture/README.md` |

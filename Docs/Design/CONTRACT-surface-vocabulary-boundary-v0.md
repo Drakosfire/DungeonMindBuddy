@@ -17,7 +17,7 @@ The ingestion adapter should translate current recap/session-memory outputs into
 
 The contract should be stable enough for Agent Interaction today and replaceable/enrichable later by taxonomy/ontology graph-backed retrieval.
 
-This is not a unified mutable knowledge store. Corpus markdown on disk remains the source of truth. The adapter only describes what was produced, where it lives, how it can be referenced, and what lifecycle/evidence/canon role it has.
+This is not a unified mutable knowledge store. **Dual authority:** corpus/source artifacts are prose and evidentiary authority; the World Supergraph head is durable materialized knowledge state. The adapter only describes what was produced, where it lives, how it can be referenced, and what lifecycle/evidence/canon role it has in the **source-facing envelope** — not authored-prep lifecycle, GraphContribution status, or graph assertion admissibility.
 
 ---
 
@@ -387,6 +387,23 @@ Minimum current values should be conservative:
 
 ---
 
+## 2b. Separate state dimensions (do not conflate)
+
+The `SourceArtifact` / `SourceAnchor` / `SourceUnit` lifecycle fields (`canonState`, `lifecycleState`, `evidenceRole`, `authorityState`, `visibilityState`) describe **source-facing envelopes and evidence roles only**. They do **not** replace authored-prep lifecycle, `GraphContribution` status, or graph assertion acceptance/epistemic metadata.
+
+**Source vocabulary does not replace authored-prep or GraphContribution state machines.**
+
+| State dimension | Owns | Example fields / states | Consumer |
+|---|---|---|---|
+| **Source envelope lifecycle** | Provenance of ingestion outputs; evidence vs diagnostic vs navigation roles | `canonState`, `lifecycleState`, `evidenceRole`, `authorityState`, `visibilityState` on `SourceArtifact` / `SourceAnchor` / `SourceUnit` | Agent Interaction, Plan read adapters, citation trust |
+| **Authored-prep lifecycle** | Speculative prep → placement → play → world canon history | `draft`, `planned`, `placed`, `played`, `world_canon`, `retracted`, `superseded` | Plan, Agent Interaction `draft_only` / prep projections |
+| **GraphContribution status** | Contribution activation, supersession, retraction | activation / supersession / retraction status on governed contributions | Graph Review/Ingest, Kernel merge, confirm_commit |
+| **Assertion acceptance / epistemic / visibility metadata** | Durable graph meaning and admissibility | acceptance state, epistemic kind, visibility, temporal scope on graph assertions | World Supergraph head, projection node views, read_only tools |
+
+A single user action may touch multiple dimensions (e.g. confirm_commit advances GraphContribution **and** may correlate with a source revision pin), but each dimension keeps its own lifecycle. Do not map `lifecycleState: promoted` on a `SourceUnit` to GraphContribution activation or authored-prep `world_canon` without an explicit governed transition on the owning plane.
+
+---
+
 ## 3. Mapping Current Recap / Session-Memory Outputs
 
 
@@ -621,7 +638,7 @@ The current contract should be graph-compatible, not graph-dependent.
 
 ## Non-Negotiable Invariants
 
-1. Corpus markdown on disk remains the source of truth.
+1. Corpus/source artifacts are prose and evidentiary authority; the World Supergraph head is durable materialized knowledge state (dual authority — see Campaign Supergraph architecture).
 2. Agent Interaction consumes source artifacts, anchors, and units, not ingestion internals.
 3. `displaySummary` is never evidence.
 4. Every source-backed claim must have a source anchor and provenance.

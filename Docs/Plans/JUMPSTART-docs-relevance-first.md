@@ -101,21 +101,14 @@ Examples:
 
 This jumpstart exists to re-anchor documentation authority and then produce the next safe PR.
 
-For the current workstream, the immediate target is:
+**Work selection:** read `Docs/Plans/PR-TRACKER-campaign-supergraph.md` for the current slice, sequencing, and blockers. This document is a **timeless process template** — it does not duplicate the tracker sequence.
 
-```text
-PR005A — Context Audit + Source Reanchor
-```
+**PR005B-specific starts (when active):**
 
-followed by:
+- Active handoff: `Docs/Plans/HANDOFF-pr329-agent-tool-authored-prep-contract.md` (while open)
+- Normative contract after merge: `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`
 
-```text
-PR005B — Agent Tool Contract + Authored Prep Contributions
-```
-
-**If the tracker and this jumpstart disagree, the tracker wins.**
-
-PR005A is docs/process: classify Project Sources and local docs, banner stale authority, and lock the GitHub-canonical rule before any agent-tool design work. PR005B is the subsequent docs/design bridge for Hermes tool categories and authored prep — still before PR006 materialization, and still without runtime implementation.
+**If this jumpstart and the tracker disagree, the tracker wins.**
 
 ## 4. Initial local docs to reconcile
 
@@ -171,30 +164,11 @@ CORPUS-ANCHOR.md
 
 ## 5. Roadmap re-anchor after reconciliation
 
-After doc reconciliation, update the roadmap position from the **tracker** (not from this jumpstart alone):
+After doc reconciliation, update the roadmap position from the **tracker** (`Docs/Plans/PR-TRACKER-campaign-supergraph.md`) — not from this jumpstart alone. Copy the current slice table from the tracker at reconciliation time; do not maintain a parallel sequence here.
 
-```text
-PR001 — Architecture reset: DONE
-PR002 — Storage + immutable revision / graph-head contract: DONE
-PR003 — Kernel public boundary: DONE
-PR004 — Identity outcomes + split/unmerge: DONE
-PR005 — Durable contribution merge: DONE
-PR005A — Context Audit + Source Reanchor: NEXT (this jumpstart / docs bridge)
-PR005B — Agent Tool Contract + Authored Prep Contributions: after PR005A
-PR006 — Initial real materialization: BLOCKED on PR005B (next implementation slice after docs bridges)
-PR007 — Projection Engine
-PR008 — Plan migration
-PR009 — Play migration
-PR010 — Graph-backed retrieval
-PR011 — Agent Context + Tool Runtime
-PR012 — Obsolete-path cleanup safety net
-```
+## 6. Context audit mission (example: PR005A)
 
-Do not renumber PR006–PR012. Insert PR005A / PR005B as docs/design bridge slices only.
-
-## 6. PR005A mission
-
-Reconcile Project Sources, local handoffs, active references, historical docs, and repo authority so agents cannot treat stale context as GitHub truth.
+When the tracker assigns a docs/process slice (e.g. PR005A Context Audit + Source Reanchor), reconcile Project Sources, local handoffs, active references, historical docs, and repo authority so agents cannot treat stale context as GitHub truth.
 
 Core rule:
 
@@ -205,9 +179,9 @@ Prepared replacement files are not active Project Sources until the human operat
 Historical / research / proposal docs cannot direct implementation.
 ```
 
-## 7. PR005B preview (do not implement in PR005A)
+## 7. Agent tool contract preview (example: PR005B)
 
-After PR005A lands, PR005B documents Hermes/agent tool contracts.
+When the tracker assigns PR005B or successor docs bridges, document Hermes/agent tool contracts without runtime implementation.
 
 Core rule:
 
@@ -246,20 +220,21 @@ identity decision record
 Kernel merge / publish
 ```
 
-## 8. Files likely to update in GitHub for PR005A
+Normative contract: `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`
 
-After reconciliation, expected GitHub updates for **this** slice are likely:
+## 8. Files likely to update in GitHub (per tracker slice)
+
+After reconciliation, expected GitHub updates depend on the **current tracker slice** — do not update blindly. Typical docs-bridge slices touch:
 
 ```text
 Docs/Plans/PR-TRACKER-campaign-supergraph.md
 Docs/Roadmaps/ROADMAP-campaign-supergraph.md
 Docs/Reports/graph-document-audit.md
 Docs/Plans/JUMPSTART-docs-relevance-first.md
-Docs/Design/dungeonbuddy_spec_architecture_v0_2.md
-Docs/Design/ARCHITECTURE-plan-surface-toolbox.md   # optional clarifying patch only
+Docs/Design/* (active references and contracts as named in the tracker handoff)
 ```
 
-PR005B (later) may additionally update architecture / Agent Interaction UX / anchors. Do not update all of these blindly. Update only after local-vs-GitHub reconciliation.
+Update only after local-vs-GitHub reconciliation and only the files named in the active handoff.
 
 ## 9. Required output of this jumpstart
 
@@ -268,11 +243,11 @@ The agent should produce:
 1. A doc relevance report.
 2. A local-vs-GitHub sync matrix.
 3. A proposed set of doc edits.
-4. A PR005A handoff or branch plan (Context Audit + Source Reanchor).
+4. A handoff or branch plan aligned to the **current tracker slice**.
 5. A GitHub sync preview.
 6. Only after approval, GitHub updates.
 7. A post-sync verification report proving GitHub matches intended local content.
-8. A follow-up pointer to PR005B (Agent Tool Contract).
+8. A follow-up pointer to the next tracker slice (and its handoff/contract if applicable).
 
 ## 10. Non-goals
 
@@ -297,9 +272,9 @@ The jumpstart succeeds when:
 
 ```text
 The agent can say which docs are current, stale, superseded, research-only, or proposal-only.
-The roadmap/tracker points clearly to PR005A then PR005B before PR006.
+The roadmap/tracker points clearly to the current slice and its blockers.
 Stale local/project docs no longer look like active authority.
 Project Sources are treated as context inputs, not repo authority.
 GitHub is synced and verified after explicit approval.
-PR006 remains Initial World Supergraph Materialization and is not renumbered.
+Tracker sequence is not duplicated in this jumpstart.
 ```

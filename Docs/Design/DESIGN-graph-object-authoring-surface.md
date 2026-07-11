@@ -19,22 +19,37 @@
 
 ---
 
-## Current implementation checkpoint
+## Current implementation checkpoint (historical / transitional truth)
 
-The core authored-memory loop has landed through PR #305. Graph Review is a GM-facing surface for inspecting a live projection, authoring campaign graph assertions, and reviewing the resulting memory.
+The core authored-memory loop has landed through PR #305. Graph Review is the **correction cockpit**: a GM-facing surface for inspecting a live projection, authoring campaign graph assertions, and reviewing the resulting memory.
 
-- Authored object, link-existing, relationship, and merge-object assertions write to a campaign-scoped overlay and append an event log.
-- Normal staged work uses prepare → review → commit. The create-object wizard intentionally prepares and commits one object immediately, then tells the operator that it saved authored memory.
-- A committed identity merge materializes into the selected preview union store only when `previewUnionStorePath` is present and overlay plus event-log writes both succeed.
-- Projection reload prefers that selected live store over a frozen manifest snapshot.
+**TRANSITIONAL (current runtime — not the target durable path):**
+
+- Authored object, link-existing, relationship, and merge-object assertions write to a campaign-scoped **authored overlay and event log** (not yet GraphContribution → Kernel → atomic graph-head).
+- Normal staged work uses prepare → review → commit. The create-object wizard prepares and commits one object in a compact review+confirm flow — **object creation is NOT implicit confirmation**; the operator still explicitly confirms that single proposal.
+- A committed identity merge materializes into the **selected preview union store** only when `previewUnionStorePath` is present and overlay plus event-log writes both succeed.
+- Projection reload **prefers that selected live store** over a frozen manifest snapshot.
 - A corrected merge supersedes an earlier survivor decision only when it explicitly merges away the prior survivor; the event log records old and new assertion IDs.
-- The selected-object card is game-first; evidence, provenance, review state, and raw IDs sit behind collapsed **Details**.
+
+**TARGET write path** (per `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md` and Campaign Supergraph architecture):
+
+```text
+preview_write proposal
+→ explicit proposal-bound / revision-bound GM confirm
+→ GraphContribution
+→ Kernel validation
+→ atomic graph-head advancement
+```
+
+Graph Review/Ingest remains the primary correction cockpit. Plan is a **consumer surface** that may draft and launch preview_write but does not own durable commit semantics.
+
+The selected-object card is game-first; evidence, provenance, review state, and raw IDs sit behind collapsed **Details**.
 
 Materialization does not mutate source recap markdown, ingest artifacts, or gold fixtures. It does not import sibling-run nodes, evidence, or edges. Undo/retract, player-facing views, LLM assistance, and broader graph editing remain deferred.
 
 ### Plan consumption boundary
 
-Graph Object Authoring owns campaign-memory correction and writes. `/plan` consumes reviewed graph/corpus memory for session preparation, including reusable game-facing selected-object cards and source-context projections. It does not own Author Draft, authored-overlay/event-log commits, identity merging, or diagnostics in its default prep flow unless a future dogfood pass proves one specific correction need. See `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
+Graph Object Authoring (Graph Review/Ingest) owns campaign-memory **correction and governed commits**. `/plan` is a **consumer surface** that consumes reviewed graph/corpus memory for session preparation, including reusable game-facing selected-object cards and source-context projections. It may draft prep and launch preview_write but does not own Author Draft, authored-overlay/event-log commits, identity merging, or diagnostics in its default prep flow unless a future dogfood pass proves one specific correction need. See `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 
 ## 1. Prime Design decision
 
@@ -136,7 +151,7 @@ apps/live_control_server/services/union_supergraph_projection_adapter.py
 src/graph_memory/union_supergraph/
 ```
 
-The current product write path is authored overlay plus event log. Gold-authoring services may remain for developer evaluation workflows, but they are not the normal Graph Review destination.
+The current **transitional** product write path is authored overlay plus event log. Gold-authoring services may remain for developer evaluation workflows, but they are not the normal Graph Review destination. The **target** path is GraphContribution → Kernel validation → atomic graph-head advancement.
 
 ### 4.2 Tiptap markdown infrastructure
 
@@ -991,18 +1006,18 @@ Do not build player access in the first implementation slice, but do not ship au
 Normal staged writes require:
 
 ```text
-prepare
+prepare (preview_write)
 preview/diff
-explicit commit
-stale-token rejection
+explicit proposal-bound / revision-bound commit (confirm_commit)
+stale-token / stale-revision rejection
 backup when replacing existing file
-append-only event log
+append-only event log (transitional) / GraphContribution lineage (target)
 clear diagnostics that no source markdown or extracted run artifact was mutated
 ```
 
-The create-object wizard is a documented exception to the visible staging step: it prepares and commits one object proposal immediately, clearly labels that authored-memory write, then advances to the linking and relationship steps.
+The create-object wizard uses a **compact review+confirm** for a single object proposal — it is **not** an exception to explicit confirmation. The operator still confirms that one bound proposal before any durable write. Object creation is NOT implicit confirmation.
 
-Committed identity merges may additionally materialize only into the selected live preview union store, after overlay and event-log success. This path must not import sibling-run artifacts and must never run after event-log failure.
+Committed identity merges may additionally materialize only into the selected live preview union store (**transitional**), after overlay and event-log success. This path must not import sibling-run artifacts and must never run after event-log failure. **Target:** materialization follows Kernel merge and atomic graph-head advancement only.
 
 The UI must always distinguish:
 
