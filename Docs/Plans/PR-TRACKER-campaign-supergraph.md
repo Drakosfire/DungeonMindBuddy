@@ -413,7 +413,7 @@ PR002–PR005 being complete means the storage / Kernel / identity / merge slice
 | Campaign scope | Longmont Campaign 2 |
 | Recaps | Canonical C2 Sessions **1–23** |
 | PCs | All approved C2 PC hub packages |
-| Worldbuilding | **Required:** Mirathorn + Mireward hubs under `Elderwyld/Cities and Towns/` |
+| Worldbuilding | **Required hubs:** Mirathorn + Mireward `README.md` under `Elderwyld/Cities and Towns/`; root trees expand for inventory but leaves are optional |
 | Campaign hubs | C2 NPC/faction/location hubs needed for Session 23–adjacent Plan dogfood (enumerate in inventory) |
 | Mechanical | Statblocks/encounters required by initial Plan dogfood |
 | Authored | Approved Graph Review assertions / identity decisions in scope at run time |
