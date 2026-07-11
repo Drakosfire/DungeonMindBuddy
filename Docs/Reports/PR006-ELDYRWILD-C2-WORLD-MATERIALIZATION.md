@@ -1,6 +1,6 @@
 # PR006 — Eldyrwild C2 World Materialization Report
 
-**Verdict:** PASS — acceptance corpus materialized from **content-derived** candidates (deterministic parse of source markdown), published through Kernel contributions, with provenance, integrity, rebuild equivalence, and source-locked revisions.
+**Verdict:** PASS — acceptance corpus materialized from **content-derived** candidates, published through an **empty Kernel baseline** plus `merge_contribution_to_revision` only, with provenance, integrity, rebuild equivalence, and source-locked revisions.
 
 **Generated:** from `artifacts/graph_memory/pr006/eldyrwild-c2-materialization-report.json`
 
@@ -8,28 +8,30 @@
 
 | Field | Value |
 |---|---|
-| Corpus-assembled baseline | `rev:09e65958c1a61d139b8fa3604ae86c9b` (`op:pr006-corpus-assembled`) |
-| Final head revision | `rev:92afbd56b2c8e6114e029f2b0d3be071` |
+| Empty baseline | `rev:fa7ed075db24b3fa9e893424c28ae63d` (`op:pr006-empty-baseline`) |
+| Final head revision | `rev:6fbddd0f9a05d44a8a36c27e4f00bd83` |
 | Parent at materialize start | baseline revision above |
 
-No `fixture://` baseline objects. The first published revision is assembled only from acceptance-corpus contributions applied in memory, then durable contribution merges advance the head.
+The baseline contains **no** corpus nodes, edges, evidence, or source artifacts. Every acceptance assertion reaches the head exclusively via Kernel `merge_contribution_to_revision`. Rebuild starts from that empty baseline and replays the contribution ledger — proving reconstruction is not circular.
 
-## Inventory / bundle honesty
+Materialization imports **`graph_memory.kernel` package exports only** (no private `contribution_merge` / `contribution_rebuild` / identity submodule imports). Idempotency fingerprints are computed locally from the publicly loaded store.
+
+## Inventory / required vs optional
+
+`required_world_roots` still expand Mirathorn/Mireward trees for inventory coverage, but only each root's hub `README.md` is `required=True` (`world_root_required_hub_basename`). Expanded leaves are optional and may be skipped. The materializer does not reinterpret `required=True`: any required source that is not accepted fails acceptance.
 
 | Metric | Count |
 |---|---|
 | Requested sources | 79 |
 | Bundle accepted | 73 |
-| Bundle skipped | 6 |
+| Bundle skipped (optional leaves) | 6 |
 | Merged contributions | 73 |
 | Failed required | 0 |
 | Recaps accepted (sessions 1–23) | 23 |
 | PC hubs | 6 |
 | Mirathorn / Mireward hubs | present |
 
-### Skipped sources (explicit)
-
-Worldbuilding leaves without extractable hub/lexicon/typed-subject content are skipped rather than accepted with empty or filename-only graphs:
+### Skipped sources (optional leaves)
 
 - `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md`: no_extractable_entity_from_content
 - `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md`: no_extractable_entity_from_content
@@ -42,10 +44,10 @@ Worldbuilding leaves without extractable hub/lexicon/typed-subject content are s
 
 | Metric | Value |
 |---|---|
-| Nodes | 52 |
+| Nodes | 51 |
 | Edges | 174 |
-| Accepted assertions | 481 |
-| Assertions with source artifact linkage | 481 |
+| Accepted assertions | 480 |
+| Assertions with source artifact linkage | 480 |
 
 ## Extraction method
 
@@ -53,27 +55,31 @@ Deterministic content parse (no LLM in this PR):
 
 - Frontmatter title / H1 labels
 - Party-registry lexicon + hub README display names for PC mention detection
-- Recap participation = session roster ∩ in-text PC mentions (not unconditional six-PC edges)
+- Recap participation = session roster ∩ in-text PC mentions
 - Locations/NPCs/creatures only when mentioned in that source's body
-- Worldbuilding: hub READMEs + lexicon hits + typed subject docs (`statblock`/`dossier`/…); otherwise skip
+- Worldbuilding: hub READMEs + lexicon hits + typed subject docs; otherwise skip (optional leaves only)
 
 ## Identity diagnostics
 
+Ambiguous / blocked_collision / rejected Kernel outcomes are **fail-closed**: unresolved mention + rejected assertion, accepted node omitted, edges using that endpoint rejected. They are never promoted to `created_new`.
+
+```json
 {
-  "unresolved_mention_count": 0,
-  "rejected_assertion_count": 0,
+  "unresolved_mention_count": 1,
+  "rejected_assertion_count": 1,
   "provisional_identity_count": 0,
   "ambiguous_identity_count": 0,
-  "blocked_collision_count": 0,
-  "resolved_existing_count": 307
+  "blocked_collision_count": 1,
+  "resolved_existing_count": 255
 }
+```
 
 ## Integrity
 
-- World integrity: valid
+- World integrity: valid (structural; demo-density is fixture-acceptance, not incremental publish)
 - Contribution integrity: valid
-- Rebuild equivalent to head: yes
-- Idempotent replay: head unchanged; `duplicate_graph_state_created=False` (fingerprint-compared)
+- Rebuild equivalent to head: yes (empty baseline + contribution replay)
+- Idempotent replay: head unchanged; `duplicate_graph_state_created=False` (local fingerprint compared)
 
 ## Required hubs
 
@@ -82,37 +88,9 @@ Deterministic content parse (no LLM in this PR):
 
 ## Plan trust
 
-**Plan can trust:**
+This graph is the PR006 acceptance World Supergraph for Eldyrwild / Longmont C2 Sessions 1–23. Projection (PR007), agent tooling (PR011), and Plan UI migration remain out of scope. Preview selectors remain quarantined until PR007.
 
-- Persistent eldyrwild world graph head exists for longmont-c2
-- Session 1–23 recap sources inventoried with sha256 provenance
-- Mirathorn and Mireward location nodes present in merged head
-- Six C2 PC hub nodes present with worldbuilding domain mapping
-- Kernel merge + rebuild equivalence for contribution ledger
-- Every accepted assertion carries source_artifact_id + source_revision_id
-- Corpus-assembled head has no fixture:// provenance URIs
+## Retained preview paths (not deleted this slice)
 
-**Plan cannot trust:**
-
-- Revision-pinned projection slices (PR007 not landed)
-- Latest-ingest preview graph selection (PR008 not landed)
-- Graph Review preview union as durable authority
-- Autonomous agent writes without governed confirm path (PR011)
-
-## Retain / rewrite / delete
-
-Retained temporarily:
-- Graph-preview route parameters and preview projection adapters.
-- Plan latest-ingest / preview selection consumers.
-
-Reason:
-- PR006 establishes persistent runtime graph availability but does not implement the revision-pinned Projection Engine or migrate Plan.
-
-Remaining consumer:
-- Existing Graph Review preview views.
-- Existing Plan graph-preview/dogfood views.
-
-Required deletion PR:
-- PR007 removes production projection selectors.
-- PR008 removes Plan latest-ingest / preview selection.
-- PR012 catches only named leftovers.
+- `apps/live-control-ui` graph-preview route parameters
+- `union_supergraph_projection_adapter` preview selectors

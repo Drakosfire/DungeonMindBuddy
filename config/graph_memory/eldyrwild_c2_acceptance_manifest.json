@@ -21,6 +21,7 @@
     "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn",
     "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward"
   ],
+  "world_root_required_hub_basename": "README.md",
   "required_campaign_sources": [
     "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
     "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md"

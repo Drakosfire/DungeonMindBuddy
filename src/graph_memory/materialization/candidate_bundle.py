@@ -93,8 +93,6 @@ GENERIC_HEADINGS = frozenset(
     }
 )
 
-_REQUIRED_FAIL_DOMAINS = frozenset({"recap", "pc_hub", "campaign_hub", "mechanical"})
-
 
 @dataclass(frozen=True)
 class LexiconEntry:
@@ -355,12 +353,8 @@ def _graph_is_meaningful(graph: dict[str, Any], *, domain: str) -> bool:
 
 
 def _must_fail_if_empty(item: SourceItem) -> bool:
-    if item.domain in _REQUIRED_FAIL_DOMAINS:
-        return True
-    if item.domain == "worldbuilding" and _is_location_hub_readme(item.path):
-        return True
-    return False
-
+    """Required inventory items may not be skipped; optional leaves may."""
+    return bool(item.required)
 
 def _candidate_graph_for_item(
     item: SourceItem,
@@ -587,7 +581,7 @@ def build_deterministic_acceptance_bundle(
             party_registry=party_registry,
         )
         if skip_reason:
-            if item.required and _must_fail_if_empty(item):
+            if item.required:
                 failed_required.append(
                     {
                         "kind": "required_source_empty_graph",

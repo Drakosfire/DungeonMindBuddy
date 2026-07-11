@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import graph_memory.kernel as kernel
-from graph_memory.kernel.contribution_merge import apply_accepted_assertions, rebuild_adjacency
-from graph_memory.kernel.contribution_rebuild import _canonical_graph_fingerprint
 from graph_memory.materialization.acceptance_manifest import (
     AcceptanceManifestError,
     build_inventory,
@@ -24,7 +22,6 @@ from graph_memory.materialization.candidate_to_contribution import (
     resolve_contribution_identities,
 )
 from graph_memory.materialization.reporting import build_materialization_report
-from graph_memory.kernel import WorldGraphNotFoundError, WorldGraphValidationError
 from graph_memory.union_supergraph.model import (
     UnionSupergraphDiagnostics,
     UnionSupergraphStore,
@@ -39,6 +36,7 @@ def _focus_session_id(inventory: dict[str, Any]) -> str:
 
 
 def _empty_union_store(*, campaign_scope: str, focus_session_id: str) -> UnionSupergraphStore:
+    """Structural empty store: no corpus assertions (nodes/edges/evidence)."""
     return UnionSupergraphStore(
         **{
             "schema": "dmb_union_supergraph_store_v0",
@@ -65,34 +63,25 @@ def _empty_union_store(*, campaign_scope: str, focus_session_id: str) -> UnionSu
     )
 
 
-def _assemble_store_from_contributions(
-    contributions: list[kernel.GraphContribution],
-    *,
-    campaign_scope: str,
-    focus_session_id: str,
-) -> UnionSupergraphStore:
-    working = _empty_union_store(
-        campaign_scope=campaign_scope,
-        focus_session_id=focus_session_id,
-    )
-    for contrib in contributions:
-        working, _, _ = apply_accepted_assertions(working, contrib)
-    return working.model_copy(update={"adjacency": rebuild_adjacency(working)})
-
-
-def _validate_publishable_store(store: UnionSupergraphStore) -> None:
-    """Publish validates via kernel; dry-run by attempting publish is too heavy."""
-    if not store.nodes or not store.edges:
-        raise WorldGraphValidationError("assembled store must have nodes and edges")
-    if not store.focus_session_id:
-        raise WorldGraphValidationError("assembled store missing focus_session_id")
+def _local_graph_fingerprint(store: UnionSupergraphStore) -> str:
+    """Idempotency fingerprint from a publicly loaded store (no private Kernel imports)."""
+    payload = store.model_dump(mode="json", by_alias=True)
+    focused = {
+        "nodes": payload.get("nodes", {}),
+        "edges": payload.get("edges", {}),
+        "aliases": payload.get("aliases", {}),
+        "assertion_support": payload.get("assertion_support", {}),
+        "evidence": payload.get("evidence", {}),
+        "source_artifacts": payload.get("source_artifacts", {}),
+    }
+    return json.dumps(focused, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 def _head_exists(root: Path, world_id: str) -> bool:
     try:
         kernel.open_world_graph_head(root, world_id)
         return True
-    except WorldGraphNotFoundError:
+    except kernel.WorldGraphNotFoundError:
         return False
 
 
@@ -143,12 +132,12 @@ def _required_hubs_present_list(store: UnionSupergraphStore) -> list[str]:
 def _required_hub_names(inventory: dict[str, Any]) -> list[str]:
     names: list[str] = []
     for item in inventory.get("source_items") or []:
-        if item.get("domain") != "worldbuilding":
+        if item.get("domain") != "worldbuilding" or not item.get("required"):
             continue
         path = item.get("path", "")
-        if path.endswith("/Mirathorn/README.md") or path.endswith("/Mirathorn.md"):
+        if path.endswith("/Mirathorn/README.md"):
             names.append("mirathorn")
-        if path.endswith("/Mireward/README.md") or path.endswith("/Mireward.md"):
+        if path.endswith("/Mireward/README.md"):
             names.append("mireward")
     return list(dict.fromkeys(names))
 
@@ -182,40 +171,22 @@ def _graph_has_content(graph: dict[str, Any]) -> bool:
 
 
 def _bundle_failed_required(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    """Any ``required=True`` source that is not accepted fails — no silent reclassification."""
     failures: list[dict[str, Any]] = []
     for entry in bundle.get("sources", []):
         if not entry.get("required"):
             continue
-        domain = entry.get("source_domain")
-        path = entry.get("source_uri")
-        if entry.get("status") == "skipped" and domain in {
-            "recap",
-            "pc_hub",
-            "campaign_hub",
-            "mechanical",
-        }:
-            failures.append(
-                {
-                    "kind": "required_source_skipped",
-                    "path": path,
-                    "domain": domain,
-                    "skip_reason": entry.get("skip_reason"),
-                }
-            )
-        elif domain == "worldbuilding" and (
-            path.endswith("/Mirathorn/README.md")
-            or path.endswith("/Mireward/README.md")
-            or path.endswith("/Mirathorn.md")
-            or path.endswith("/Mireward.md")
-        ):
-            if entry.get("status") != "accepted":
-                failures.append(
-                    {
-                        "kind": "required_hub_skipped",
-                        "path": path,
-                        "skip_reason": entry.get("skip_reason"),
-                    }
-                )
+        if entry.get("status") == "accepted":
+            continue
+        failures.append(
+            {
+                "kind": "required_source_not_accepted",
+                "path": entry.get("source_uri"),
+                "domain": entry.get("source_domain"),
+                "status": entry.get("status"),
+                "skip_reason": entry.get("skip_reason"),
+            }
+        )
     return failures
 
 
@@ -271,7 +242,7 @@ def materialize_world_graph(
     fresh_root: bool = False,
     expected_parent_revision_id: str | None = None,
 ) -> dict[str, Any]:
-    """Run full materialization: validate → assemble → publish → merge → report."""
+    """Run full materialization: empty baseline → Kernel merge per contribution → report."""
     repo_root = repo_root.resolve()
     store_root = store_root.resolve()
     manifest = load_acceptance_manifest(manifest_path)
@@ -302,20 +273,13 @@ def materialize_world_graph(
             errors=[{"kind": "fresh_root_blocked"}],
         )
 
-    contributions = bundle_sources_to_contributions(
-        bundle,
-        store=_empty_union_store(
-            campaign_scope=campaign_scope,
-            focus_session_id=focus_session_id,
-        ),
-        world_id=world_id,
-    )
+    contributions = bundle_sources_to_contributions(bundle, world_id=world_id)
     baseline_revision_id: str | None = None
     parent_revision_id: str | None = None
     duplicate_graph_state_created = False
     contrib_count_before = 0
-    assembled: UnionSupergraphStore | None = None
     head_before = None
+    fp_before = ""
 
     if not head_exists:
         if not fresh_root:
@@ -323,33 +287,31 @@ def materialize_world_graph(
                 "no world head; pass --fresh-root to publish baseline",
                 errors=[{"kind": "missing_head"}],
             )
-        assembled = _assemble_store_from_contributions(
-            contributions,
+        empty_baseline = _empty_union_store(
             campaign_scope=campaign_scope,
             focus_session_id=focus_session_id,
         )
         try:
-            _validate_publishable_store(assembled)
-        except WorldGraphValidationError as exc:
-            raise AcceptanceManifestError(
-                f"assembled store failed publish validation: {exc}",
-                errors=[{"kind": "publish_validation", "message": str(exc)}],
-            ) from exc
-        try:
             baseline_result = kernel.publish_world_revision(
                 store_root,
                 world_id,
-                assembled,
-                operation_ids=["op:pr006-corpus-assembled"],
+                empty_baseline,
+                operation_ids=["op:pr006-empty-baseline"],
             )
-        except WorldGraphValidationError as exc:
+        except kernel.WorldGraphValidationError as exc:
             raise AcceptanceManifestError(
-                f"assembled store failed publish validation: {exc}",
+                f"empty baseline failed publish validation: {exc}",
                 errors=[{"kind": "publish_validation", "message": str(exc)}],
             ) from exc
         baseline_revision_id = baseline_result.revision.revision_id
         parent_revision_id = baseline_revision_id
         current_parent = baseline_revision_id
+        _hb, _rb, baseline_store = kernel.open_current_world_graph(store_root, world_id)
+        if baseline_store.nodes or baseline_store.edges or baseline_store.evidence:
+            raise AcceptanceManifestError(
+                "empty baseline must contain no corpus assertions",
+                errors=[{"kind": "baseline_not_empty"}],
+            )
     else:
         if expected_parent_revision_id is None:
             raise AcceptanceManifestError(
@@ -358,7 +320,7 @@ def materialize_world_graph(
             )
         head_before = kernel.open_world_graph_head(store_root, world_id)
         _h, _r, store_before = kernel.open_current_world_graph(store_root, world_id)
-        fp_before = _canonical_graph_fingerprint(store_before)
+        fp_before = _local_graph_fingerprint(store_before)
         contrib_health_before = kernel.build_contribution_integrity_report(
             store_root, world_id=world_id, check_rebuild=False
         )
@@ -379,16 +341,15 @@ def materialize_world_graph(
 
     merged_contribution_count = 0
     resolved_existing_count = 0
-    if assembled is not None:
-        working_store = assembled
-    else:
-        _h0, _r0, working_store = kernel.open_current_world_graph(store_root, world_id)
+    resolved_contributions: list[kernel.GraphContribution] = []
+    _h0, _r0, working_store = kernel.open_current_world_graph(store_root, world_id)
     for contrib in contributions:
         resolved = resolve_contribution_identities(
             contrib,
             working_store,
             world_id=world_id,
         )
+        resolved_contributions.append(resolved)
         resolved_existing_count += sum(
             1
             for assertion in resolved.accepted_assertions
@@ -416,7 +377,7 @@ def materialize_world_graph(
     if head_exists:
         head_after = kernel.open_world_graph_head(store_root, world_id)
         _h2, _r2, store_after = kernel.open_current_world_graph(store_root, world_id)
-        fp_after = _canonical_graph_fingerprint(store_after)
+        fp_after = _local_graph_fingerprint(store_after)
         contrib_health_after = kernel.build_contribution_integrity_report(
             store_root, world_id=world_id, check_rebuild=False
         )
@@ -451,10 +412,10 @@ def materialize_world_graph(
     rebuild = kernel.rebuild_from_contributions(store_root, world_id=world_id, publish=False)
     rebuild_equivalent = "rebuild_equivalent_to_head" in rebuild.diagnostics
 
-    accepted_count, with_source_count = _count_assertions_with_source(contributions)
+    accepted_count, with_source_count = _count_assertions_with_source(resolved_contributions)
     with_evidence_count = sum(
         1
-        for contrib in contributions
+        for contrib in resolved_contributions
         for assertion in contrib.accepted_assertions
         if assertion.evidence_ref_ids
     )
@@ -499,9 +460,9 @@ def materialize_world_graph(
         accepted_assertion_count=accepted_count,
         assertions_with_source_artifact_count=with_source_count,
         assertions_with_evidence_count=with_evidence_count,
-        produced_contribution_count=len(contributions),
+        produced_contribution_count=len(resolved_contributions),
         merged_contribution_count=merged_contribution_count,
-        contribution_count=len(contributions),
+        contribution_count=len(resolved_contributions),
         active_contribution_count=contrib_health.active_contribution_count,
         superseded_contribution_count=contrib_health.superseded_contribution_count,
         retracted_contribution_count=contrib_health.retracted_contribution_count,
@@ -513,21 +474,21 @@ def materialize_world_graph(
         requested_source_domain_counts=_counts_by_domain(bundle_sources),
         identity_diagnostics={
             "unresolved_mention_count": sum(
-                len(c.unresolved_mentions) for c in contributions
+                len(c.unresolved_mentions) for c in resolved_contributions
             ),
             "rejected_assertion_count": sum(
-                len(c.rejected_assertions) for c in contributions
+                len(c.rejected_assertions) for c in resolved_contributions
             ),
             "provisional_identity_count": 0,
             "ambiguous_identity_count": sum(
                 1
-                for c in contributions
+                for c in resolved_contributions
                 for m in c.unresolved_mentions
                 if m.identity_resolution_outcome == "ambiguous"
             ),
             "blocked_collision_count": sum(
                 1
-                for c in contributions
+                for c in resolved_contributions
                 for m in c.unresolved_mentions
                 if m.identity_resolution_outcome == "blocked_collision"
             ),

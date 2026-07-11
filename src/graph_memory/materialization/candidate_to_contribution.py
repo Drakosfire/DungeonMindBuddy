@@ -5,14 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 import graph_memory.kernel as kernel
-from graph_memory.kernel.identity import resolve_identity
-from graph_memory.kernel.identity_models import IdentityCandidate
 from graph_memory.materialization.acceptance_manifest import sha256_bytes
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 WORLD_ID = "eldyrwild"
 CAMPAIGN_SCOPE = "longmont-c2"
 EXTRACTION_PROFILE = "pr006-acceptance-v1"
+
+FAIL_CLOSED_IDENTITY_OUTCOMES = frozenset(
+    {"ambiguous", "blocked_collision", "rejected"}
+)
 
 KERNEL_DOMAIN_MAP: dict[str, str] = {
     "recap": "recap",
@@ -115,7 +117,11 @@ def _resolve_node_outcome(
     campaign_scope: str,
     source_artifact_id: str,
 ) -> tuple[str, str]:
-    """Return (subject_node_id, identity_resolution_outcome)."""
+    """Return (subject_node_id, identity_resolution_outcome).
+
+    Ambiguous / blocked / rejected outcomes are returned as-is (fail-closed).
+    Callers must not promote them to ``created_new``.
+    """
     node_id = node["node_id"]
     label = node.get("label", node_id)
     if store is None or not store.nodes:
@@ -128,7 +134,7 @@ def _resolve_node_outcome(
         terms.update(alias.strip().lower() for alias in existing.aliases if alias.strip())
         if label_norm in terms and existing.kind == node.get("kind", existing.kind):
             return existing_id, "resolved_existing"
-    candidate = IdentityCandidate(
+    candidate = kernel.IdentityCandidate(
         world_id=world_id,
         candidate_id=f"candidate:{node_id}",
         label=label,
@@ -138,12 +144,40 @@ def _resolve_node_outcome(
         source_artifact_id=source_artifact_id,
         proposed_node_id=node_id,
     )
-    resolution = resolve_identity(store, candidate)
+    resolution = kernel.resolve_identity(store, candidate)
     if resolution.outcome == "resolved_existing" and resolution.target_node_id:
         return resolution.target_node_id, "resolved_existing"
-    if resolution.outcome in {"ambiguous", "blocked_collision", "rejected"}:
-        return node_id, "created_new"
+    if resolution.outcome in FAIL_CLOSED_IDENTITY_OUTCOMES:
+        return node_id, resolution.outcome
+    if resolution.outcome in {"provisional_new", "created_new", "human_override"}:
+        return node_id, (
+            "created_new"
+            if resolution.outcome in {"provisional_new", "human_override"}
+            else resolution.outcome
+        )
     return node_id, "created_new"
+
+
+def _unresolved_mention_for_node(
+    node: dict[str, Any],
+    *,
+    outcome: str,
+    evidence_ref_ids: list[str],
+) -> kernel.ContributionIdentityMention:
+    seed = f"{node.get('node_id', '')}:{outcome}"
+    mention_id = (
+        f"mention:{sha256_bytes(seed.encode()).replace('sha256:', '')[:12]}"
+    )
+    return kernel.ContributionIdentityMention(
+        mention_id=mention_id,
+        label=str(node.get("label") or node.get("node_id") or ""),
+        object_kind=str(node.get("kind") or "unknown"),
+        aliases=list(node.get("aliases") or []),
+        evidence_ref_ids=evidence_ref_ids,
+        identity_resolution_outcome=outcome,
+        diagnostics=[f"identity_fail_closed:{outcome}"],
+        candidate_node_ids=[str(node.get("node_id"))] if node.get("node_id") else [],
+    )
 
 
 def _build_node_assertion(
@@ -166,9 +200,12 @@ def _build_node_assertion(
         source_artifact_id=source_artifact_id,
     )
     node_payload = {**node, "node_id": subject_node_id}
+    acceptance = (
+        "rejected" if outcome in FAIL_CLOSED_IDENTITY_OUTCOMES else "accepted"
+    )
     return kernel.build_assertion(
         assertion_kind="node",
-        acceptance_state="accepted",
+        acceptance_state=acceptance,
         subject_node_id=subject_node_id,
         label=node.get("label", subject_node_id),
         value=_node_value(
@@ -244,25 +281,43 @@ def source_entry_to_contribution(
         endpoint_ids.add(edge["target_node_id"])
 
     accepted_nodes: list[kernel.GraphContributionAssertion] = []
+    rejected_nodes: list[kernel.GraphContributionAssertion] = []
+    identity_mentions: list[kernel.ContributionIdentityMention] = []
+    deferred_node_ids: set[str] = set()
     seen: set[str] = set()
+    evidence_ids = [
+        ref.get("evidence_ref_id", "")
+        for ref in evidence_refs
+        if ref.get("evidence_ref_id")
+    ]
     for node in nodes:
         nid = node["node_id"]
         if nid in seen:
             continue
         seen.add(nid)
-        accepted_nodes.append(
-            _build_node_assertion(
-                node,
-                kernel_domain=kernel_domain,
-                source_artifact_id=source_artifact_id,
-                source_revision_id=source_revision_id,
-                source_uri=source_uri,
-                campaign_scope=campaign_scope,
-                evidence_refs=evidence_refs,
-                store=store,
-                world_id=world_id,
-            )
+        assertion = _build_node_assertion(
+            node,
+            kernel_domain=kernel_domain,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            source_uri=source_uri,
+            campaign_scope=campaign_scope,
+            evidence_refs=evidence_refs,
+            store=store,
+            world_id=world_id,
         )
+        if assertion.acceptance_state == "rejected":
+            rejected_nodes.append(assertion)
+            deferred_node_ids.add(assertion.subject_node_id or nid)
+            identity_mentions.append(
+                _unresolved_mention_for_node(
+                    {**node, "node_id": assertion.subject_node_id or nid},
+                    outcome=assertion.identity_resolution_outcome or "rejected",
+                    evidence_ref_ids=evidence_ids,
+                )
+            )
+        else:
+            accepted_nodes.append(assertion)
 
     for node_id in sorted(endpoint_ids):
         if node_id in seen:
@@ -272,18 +327,22 @@ def source_entry_to_contribution(
         if node_id not in STUB_NODES:
             continue
         seen.add(node_id)
-        accepted_nodes.append(
-            _stub_node_assertion(
-                node_id,
-                kernel_domain=kernel_domain,
-                source_artifact_id=source_artifact_id,
-                source_revision_id=source_revision_id,
-                source_uri=source_uri,
-                campaign_scope=campaign_scope,
-            )
+        assertion = _stub_node_assertion(
+            node_id,
+            kernel_domain=kernel_domain,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            source_uri=source_uri,
+            campaign_scope=campaign_scope,
         )
+        if assertion.acceptance_state == "rejected":
+            rejected_nodes.append(assertion)
+            deferred_node_ids.add(assertion.subject_node_id or node_id)
+        else:
+            accepted_nodes.append(assertion)
 
     accepted_edges: list[kernel.GraphContributionAssertion] = []
+    rejected_edges: list[kernel.GraphContributionAssertion] = []
     session_ids: list[str] = []
     for ref in evidence_refs:
         sid = ref.get("session_id")
@@ -305,31 +364,36 @@ def source_entry_to_contribution(
         }
         if session_ids:
             edge_value["session_ids"] = list(dict.fromkeys(session_ids))
-        accepted_edges.append(
-            kernel.build_assertion(
-                assertion_kind="edge",
-                acceptance_state="accepted",
-                subject_node_id=edge["source_node_id"],
-                target_node_id=edge["target_node_id"],
-                predicate=edge["predicate"],
-                label=edge.get("label", edge["predicate"]),
-                value=edge_value,
-                evidence_ref_ids=[
-                    ref.get("evidence_ref_id", "")
-                    for ref in evidence_refs
-                    if ref.get("evidence_ref_id")
-                ],
-                source_artifact_id=source_artifact_id,
-                source_revision_id=source_revision_id,
-                campaign_scope=campaign_scope,
-                epistemic_kind="fact",
-                visibility="gm",
-                identity_resolution_outcome="created_new",
-            )
+        src = edge["source_node_id"]
+        tgt = edge["target_node_id"]
+        endpoint_deferred = src in deferred_node_ids or tgt in deferred_node_ids
+        edge_assertion = kernel.build_assertion(
+            assertion_kind="edge",
+            acceptance_state="rejected" if endpoint_deferred else "accepted",
+            subject_node_id=src,
+            target_node_id=tgt,
+            predicate=edge["predicate"],
+            label=edge.get("label", edge["predicate"]),
+            value=edge_value,
+            evidence_ref_ids=evidence_ids,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            campaign_scope=campaign_scope,
+            epistemic_kind="fact",
+            visibility="gm",
+            identity_resolution_outcome=(
+                "rejected" if endpoint_deferred else "created_new"
+            ),
         )
+        if endpoint_deferred:
+            rejected_edges.append(edge_assertion)
+        else:
+            accepted_edges.append(edge_assertion)
 
-    rejected: list[kernel.GraphContributionAssertion] = []
-    identity_mentions: list[kernel.ContributionIdentityMention] = []
+    rejected: list[kernel.GraphContributionAssertion] = [
+        *rejected_nodes,
+        *rejected_edges,
+    ]
     for mention in unresolved:
         mention_id = f"mention:{sha256_bytes(mention.get('mention_text', '').encode()).replace('sha256:', '')[:12]}"
         identity_mentions.append(
@@ -391,7 +455,12 @@ def bundle_sources_to_contributions(
     store: UnionSupergraphStore | None = None,
     world_id: str | None = None,
 ) -> list[kernel.GraphContribution]:
-    """Convert all accepted bundle sources to contributions with cross-source node stubs."""
+    """Convert all accepted bundle sources to contributions.
+
+    Identity outcomes against a live store are re-resolved at merge time via
+    ``resolve_contribution_identities``; this builder does not import private
+    Kernel merge helpers to simulate store state.
+    """
     scope = campaign_scope or bundle.get("campaign_scope") or CAMPAIGN_SCOPE
     wid = world_id or bundle.get("world_id") or WORLD_ID
     sources = [s for s in bundle.get("sources", []) if s.get("status") == "accepted"]
@@ -404,20 +473,15 @@ def bundle_sources_to_contributions(
 
     ordered = sorted(sources, key=_contribution_sort_key)
     contributions: list[kernel.GraphContribution] = []
-    working_store = store
     for entry in ordered:
         contrib = source_entry_to_contribution(
             entry,
             campaign_scope=scope,
             known_node_ids=all_node_ids,
-            store=working_store,
+            store=store,
             world_id=wid,
         )
         contributions.append(contrib)
-        if working_store is not None:
-            from graph_memory.kernel.contribution_merge import apply_accepted_assertions
-
-            working_store, _, _ = apply_accepted_assertions(working_store, contrib)
     return contributions
 
 
@@ -427,11 +491,16 @@ def resolve_contribution_identities(
     *,
     world_id: str,
 ) -> kernel.GraphContribution:
-    """Re-resolve node assertion outcomes against the current durable store."""
-    updated: list[kernel.GraphContributionAssertion] = []
+    """Re-resolve node outcomes against the durable store; fail closed on ambiguity."""
+    accepted: list[kernel.GraphContributionAssertion] = []
+    rejected: list[kernel.GraphContributionAssertion] = list(contribution.rejected_assertions)
+    unresolved: list[kernel.ContributionIdentityMention] = list(
+        contribution.unresolved_mentions
+    )
+    deferred_node_ids: set[str] = set()
+
     for assertion in contribution.accepted_assertions:
         if assertion.assertion_kind != "node":
-            updated.append(assertion)
             continue
         node = {
             "node_id": assertion.subject_node_id or "",
@@ -444,17 +513,56 @@ def resolve_contribution_identities(
             store=store,
             world_id=world_id,
             campaign_scope=assertion.campaign_scope or CAMPAIGN_SCOPE,
-            source_artifact_id=assertion.source_artifact_id or contribution.source_artifact_id or "",
+            source_artifact_id=assertion.source_artifact_id
+            or contribution.source_artifact_id
+            or "",
         )
         value = dict(assertion.value or {})
         value["node_id"] = subject_node_id
-        updated.append(
-            assertion.model_copy(
-                update={
-                    "subject_node_id": subject_node_id,
-                    "identity_resolution_outcome": outcome,
-                    "value": value,
-                }
-            )
+        updated = assertion.model_copy(
+            update={
+                "subject_node_id": subject_node_id,
+                "identity_resolution_outcome": outcome,
+                "value": value,
+            }
         )
-    return contribution.model_copy(update={"accepted_assertions": updated})
+        if outcome in FAIL_CLOSED_IDENTITY_OUTCOMES:
+            deferred_node_ids.add(subject_node_id)
+            rejected.append(
+                updated.model_copy(update={"acceptance_state": "rejected"})
+            )
+            unresolved.append(
+                _unresolved_mention_for_node(
+                    {**node, "node_id": subject_node_id},
+                    outcome=outcome,
+                    evidence_ref_ids=list(assertion.evidence_ref_ids or []),
+                )
+            )
+        else:
+            accepted.append(updated)
+
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind == "node":
+            continue
+        if assertion.assertion_kind == "edge":
+            src = assertion.subject_node_id
+            tgt = assertion.target_node_id
+            if (src and src in deferred_node_ids) or (tgt and tgt in deferred_node_ids):
+                rejected.append(
+                    assertion.model_copy(
+                        update={
+                            "acceptance_state": "rejected",
+                            "identity_resolution_outcome": "rejected",
+                        }
+                    )
+                )
+                continue
+        accepted.append(assertion)
+
+    return contribution.model_copy(
+        update={
+            "accepted_assertions": accepted,
+            "rejected_assertions": rejected,
+            "unresolved_mentions": unresolved,
+        }
+    )

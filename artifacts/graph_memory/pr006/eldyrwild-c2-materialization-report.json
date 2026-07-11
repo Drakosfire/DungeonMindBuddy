@@ -3,11 +3,11 @@
   "version": "1.0",
   "world_id": "eldyrwild",
   "campaign_scope": "longmont-c2",
-  "manifest_sha256": "sha256:8b730f312e2f107b83c08aeee609986450a731a5886155fb3accea77df24536c",
-  "bundle_sha256": "sha256:12e5f1115183a67a59d420f4c6a57b52ed82d083301fa518e28ba99993332b53",
-  "head_revision_id": "rev:92afbd56b2c8e6114e029f2b0d3be071",
-  "parent_revision_id": "rev:09e65958c1a61d139b8fa3604ae86c9b",
-  "baseline_revision_id": "rev:09e65958c1a61d139b8fa3604ae86c9b",
+  "manifest_sha256": "sha256:a9751758f7ddb63cecd75877d911b9702499c8591f835b461bff697265e4845b",
+  "bundle_sha256": "sha256:b8b62ca4378ecfbc345eefa8e9f5d3f6cd7eed82e92d3bd48e58fad03d23b8fe",
+  "head_revision_id": "rev:6fbddd0f9a05d44a8a36c27e4f00bd83",
+  "parent_revision_id": "rev:fa7ed075db24b3fa9e893424c28ae63d",
+  "baseline_revision_id": "rev:fa7ed075db24b3fa9e893424c28ae63d",
   "requested_source_count": 79,
   "bundle_accepted_count": 73,
   "bundle_skipped_count": 6,
@@ -46,67 +46,67 @@
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
     },
     {
@@ -118,199 +118,199 @@
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
     },
     {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
       "domain": "worldbuilding",
-      "required": true,
+      "required": false,
       "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
     },
     {
@@ -569,18 +569,18 @@
     "pc_hub": 6,
     "recap": 23
   },
-  "node_count": 52,
+  "node_count": 51,
   "edge_count": 174,
   "evidence_ref_count": 73,
-  "accepted_assertion_count": 481,
-  "assertions_with_source_artifact_count": 481,
-  "assertions_with_evidence_count": 481,
-  "unresolved_identity_count": 0,
+  "accepted_assertion_count": 480,
+  "assertions_with_source_artifact_count": 480,
+  "assertions_with_evidence_count": 480,
+  "unresolved_identity_count": 1,
   "provisional_identity_count": 0,
   "ambiguous_identity_count": 0,
-  "blocked_collision_count": 0,
-  "rejected_assertion_count": 0,
-  "resolved_existing_count": 307,
+  "blocked_collision_count": 1,
+  "rejected_assertion_count": 1,
+  "resolved_existing_count": 255,
   "contribution_count": 73,
   "active_contribution_count": 73,
   "superseded_contribution_count": 0,
@@ -592,12 +592,12 @@
   "requested_recap_count": 23,
   "accepted_recap_count": 23,
   "identity_diagnostics": {
-    "unresolved_mention_count": 0,
-    "rejected_assertion_count": 0,
+    "unresolved_mention_count": 1,
+    "rejected_assertion_count": 1,
     "provisional_identity_count": 0,
     "ambiguous_identity_count": 0,
-    "blocked_collision_count": 0,
-    "resolved_existing_count": 307
+    "blocked_collision_count": 1,
+    "resolved_existing_count": 255
   },
   "required_hubs_present": [
     "Mirathorn",
@@ -608,67 +608,67 @@
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
       },
       {
@@ -680,199 +680,199 @@
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
       },
       {
@@ -1107,67 +1107,67 @@
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:b3095716f6d44b93bbe4034ae2d71ac6837f650feb5ce83bc1640e6cd497fd65"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2fc008840212f532427e43734fcc0fd3103fcd8bb1bf0ad76eaafe5d770ffc26"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6a6b868cee1fdd2907cbe67081cabf8edc90977a19560908bae909b2e959b815"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e978b2f0c9eab07d710460eed13853f79ac8ff785101966aa2216922c1d008b1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:394c543a1cdc922f419b0230f791d28f906ae82de455427511065d9cdc9257e4"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:3660b8752cdf3115e81b2c41051d2d7c0818455a177a8cdeab691e04d9f040a8"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:4d88bca5125618c52db3ff1dfc1d80172946c5d3f3e74654f0f6038704b29967"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:98dc5a8503e2a790e0c56f6629ea05a1a01fdf8a71b0f73b1fb7a69c1cc2ee9f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:528136f7930da8bf0db3fe019def854902f7f5d161cb8912f3e9ec37b5a1ad0a"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:243e46f26bd1c21b64aa5e574b1117c0d0b2d5dd7abf15297b2f12ed68773603"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ad69386b4cc47e8aae846faa971987347183f9a6ed264bd23d3dd5101833d448"
       },
       {
@@ -1179,199 +1179,199 @@
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:eedae149f80a8b300379f81c19a3b152807e76c710c60ac01c8bc19f740d9992"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6a3d095e4216d12920d223a481c9c824c9ce611c2ea3ea4647b8ab2772c9fbf1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:53d90253e746cf0c7cac866219a37b0e5c5add54891b2e09122c2fb965457d1d"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:42a9fdc9688f78ffde33f6a6010370735a0a6a9746d666f522950b3fe19bb666"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ed81d75f6bb9f6e7b5803f2b0fa45c2209b6765177121b3d51f2ab9c0d7278f9"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:91ff838bab35afc015c138fa9e8340c585782ca9981e2f30b895c9cc382bd41c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ee60a3157684da30375589fc583593329a21888e3a6955505440c75d9ce9c97b"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:48a53e192feb85b0b24d8319a537337ec9433d374c924628d0e820bc9bca23dc"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:983ef75fffd4f7ef46c0a7a1952668b68820316a68517566c49e9a2f6e123bed"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:9ba6353366bfc225bd310e040c412163ca625f50082ee81f9fafe0b780661d79"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:ad4450f167c5df9be110ddfc239d233899aa9f389e1a4b3e69635acd6498ee99"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:eaee47ad6563dcee5a5c900831d180a4c2fcfc63b7a3d0f10b2af2f3463b2e6f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:12aa6e16c79cc9b97c3008defb0caaa69b3f914022a9aadb3ecabe4e9016eb79"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:61eb6c0b8d7a6fa988cacba9e699f797ea97cca0ca8a59a804a48c747db273e9"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:8059775f682310bdd23f4548ca5e120af51380103b3694c7b9b77f7d339f5f4d"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:29ac5da2d74e44b41e8d46e70fa3fd8e8bef9198996731b391de581ccf8cf4c1"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:387abbdf2d2f0c44c407e88fe93a73adeb5dfa809a1bcfbfb302bc632dd5329f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:b377da70b6bfe7c98a570f30b03d0f82fd6a532c86c7b90cfb311dfb1ea83210"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:2b42006b747a73142ddc9bde85f5e8c1ce5a854065cf26b9e4683c7defeef84f"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:0f8d19a9e2c319f256a38afb106e615b015224a55f3fecf6edff439a383d1066"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:1f36fa75c94c52ef4551936d33b062149f0c9e652943f8a8c257366c70586345"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:bb9108e6b965752289efa139dce93f59b945a1b4e5c2312c3e9754d1d45f501c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:c51619347e6ee751026f94f8c572f327b6fac7774d0be0641f2b0b1d4e0ea358"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:6f4e9d8b4a0e926eb13789a1abf89419fb5b24e860ab2a65d5c57f74e69bd644"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:7e06aae068b85d1f039aa8b98a499c8f3d05ace01d4473923b26872710bd9748"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:9a98f01a3e31224951da5b4e483ecf72442f38c941a9b7bab1004cb4405ca3d7"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e8283575bcc091d7f073adc124ec8f66c30bd16eeb45671dabea6e4420edcc90"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:684025f8ac236b7a14a642ae22a529a359178b76c6adc3a9b7acafb6dddf0d6c"
       },
       {
         "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md",
         "domain": "worldbuilding",
-        "required": true,
+        "required": false,
         "sha256": "sha256:e12443b97bf1e7495d7f23990a42be10397023c687df6665ec758c7b0812b67f"
       },
       {
@@ -1630,5 +1630,5 @@
     "apps/live-control-ui graph-preview route parameters",
     "union_supergraph_projection_adapter preview selectors"
   ],
-  "generated_at": "2026-07-11T18:01:20Z"
+  "generated_at": "2026-07-11T18:14:52Z"
 }

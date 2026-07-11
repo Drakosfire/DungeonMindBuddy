@@ -260,12 +260,20 @@ def build_inventory(
         expanded = _expand_world_root_md_files(root_path, repo_root, exclude)
         if not expanded:
             errors.append({"kind": "empty_world_root", "path": world_root})
+        hub_basename = str(
+            manifest.get("world_root_required_hub_basename") or "README.md"
+        )
+        hub_readme = f"{_normalize_relpath(root_path, repo_root).rstrip('/')}/{hub_basename}"
+        if hub_readme not in expanded:
+            errors.append({"kind": "missing_world_hub_readme", "path": hub_readme})
         for rel in expanded:
+            # Only the hub file under a required world root is required.
+            # Expanded leaves are optional inventory — may be skipped without failing.
             source_items.append(
                 SourceItem(
                     path=rel,
                     domain="worldbuilding",
-                    required=True,
+                    required=(rel == hub_readme),
                     sha256=sha256_file(repo_root / rel),
                 )
             )

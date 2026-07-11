@@ -534,16 +534,28 @@ def test_ts_selector_allowlist_is_selector_specific(tmp_path: Path) -> None:
 
 
 def test_materialization_package_does_not_import_storage_or_preview_internals() -> None:
-    """PR006 materialization may use Kernel + union model only — not storage/preview."""
+    """PR006 materialization may use Kernel package exports + union model only."""
     files = _iter_python_files("src/graph_memory/materialization")
     assert files, "expected materialization package files"
-    banned = WORLD_STORAGE_INTERNALS + UNION_PREVIEW_INTERNALS
+    banned = WORLD_STORAGE_INTERNALS + UNION_PREVIEW_INTERNALS + (
+        "graph_memory.kernel.contribution_merge",
+        "graph_memory.kernel.contribution_rebuild",
+        "graph_memory.kernel.identity",
+        "graph_memory.kernel.identity_models",
+        "graph_memory.kernel.identity_decisions",
+        "graph_memory.kernel.identity_policy",
+        "graph_memory.kernel.world_graph",
+        "graph_memory.kernel.contributions",
+        "graph_memory.kernel.contribution_models",
+        "graph_memory.kernel.contribution_diagnostics",
+    )
     violations = _scan_python_imports(
         files,
         banned_prefixes=banned,
         required_fix=(
             "import graph_memory.kernel for durable writes; "
-            "do not import world_supergraph storage or union preview loaders"
+            "do not import world_supergraph storage, union preview loaders, "
+            "or private kernel submodules"
         ),
     )
     assert not violations, _format_violations(violations)
