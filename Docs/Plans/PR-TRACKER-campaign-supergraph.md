@@ -156,7 +156,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR003 — Graph Kernel Public Boundary
 
-**Status:** `READY`  
+**Status:** `DOING` (GitHub #324; stacked on #323 / PR002)  
 **Phase:** 2  
 **Purpose:** Deliberately **thin** contract-boundary PR: establish Kernel public APIs and invariants without pretending identity/merge are done — with **enforceable** guards, not documentation-only ceremony.
 

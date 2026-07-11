@@ -406,7 +406,6 @@ export interface AgentInteractionTrace {
   warnings: string[];
 }
 
-
 export interface HermesSessionHandle {
   sessionId: string;
   title?: string | null;
@@ -512,7 +511,6 @@ export interface AgentInteractionTurnMeta {
   provider: string | null;
   stepCount: number | null;
 }
-
 
 export interface CitationSourceRequest {
   path: string;
@@ -824,7 +822,6 @@ export interface ReadStatblockDraftResponse {
   record: StoredStatblockDraftRecord;
 }
 
-
 export interface GeneratedStatblockListItem {
   artifact_id: string;
   draft_id: string;
@@ -914,7 +911,6 @@ export interface CombatEncounterState {
   provenance: Array<Record<string, unknown>>;
   updated_at: string;
 }
-
 
 export interface CombatEntityPatchRequest {
   name?: string | null;
@@ -1136,7 +1132,6 @@ export interface TiptapMarkdownWriteCommitResponse {
   backup_relpath?: string | null;
   diagnostics: string[];
 }
-
 
 export interface StatblockRetrievalActivationResponse {
   schema_version: "dmb_statblock_retrieval_activation_v1";
@@ -1948,7 +1943,6 @@ export interface GraphReviewExistingObjectResolverResponse {
   scopes_searched?: GraphObjectCandidateScope[];
   diagnostics?: GraphObjectCandidateDiagnostic[];
 }
-
 
 export interface PartyRegistryMemberRow {
   slug: string;

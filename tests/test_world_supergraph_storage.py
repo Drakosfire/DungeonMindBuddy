@@ -1,5 +1,8 @@
 """Tests for World SuperGraph storage + graph-head contract (PR002)."""
 
+# PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION:
+# Storage-layer unit test; may import world_supergraph.paths directly.
+
 from __future__ import annotations
 
 import copy

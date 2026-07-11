@@ -668,7 +668,6 @@ describe("IngestionModule", () => {
     expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
   });
 
-
   it("always sends graph extraction flags with Generate Recap Memory", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect(() =>
