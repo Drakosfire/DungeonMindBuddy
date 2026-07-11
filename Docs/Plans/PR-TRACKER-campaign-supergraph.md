@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006 DOING #330; PR005B DONE #329; PR007 remains blocked on PR006)  
+**Updated:** 2026-07-11 (PR006 DOING #330 — empty-baseline Kernel merges; PR005B DONE #329; PR007 blocked on PR006)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
