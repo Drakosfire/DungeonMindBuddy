@@ -8,7 +8,9 @@ Current product framing for the next `/plan` dogfood phase is in `Docs/Design/DE
 
 Post-PR314 transitional vs durable graph-memory path for Plan (selected-object card convergence, graph-aware resolver, plan-scoped prep-memory query, Union Supergraph as target read model) is in `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`.
 
-Since this architecture was written, `/ingest` has matured into the Graph Review / authored-memory cockpit. `/plan` should consume reviewed graph memory and reuse selected-object projections from that work; it should not absorb Graph Review diagnostics, Author Draft, identity merging, or authored-memory writes as its default session-prep UX. The current right-side Plan projection container remains transitional implementation state.
+Since this architecture was written, `/ingest` has matured into the **Graph Review / correction cockpit** for authored-memory commits. `/plan` is a **consumer surface**: it consumes reviewed graph memory and reuses selected-object projections from that work; it may draft prep and launch preview_write but does not absorb Graph Review diagnostics, Author Draft, identity merging, or durable commit semantics as its default session-prep UX. The current right-side Plan projection container remains transitional implementation state.
+
+**Dual authority:** corpus/source artifacts are prose and evidentiary authority; the World Supergraph head is durable materialized knowledge state. Plan reads both through adapters; it does not own Kernel merge or graph-head advancement.
 
 **Resolver note (2026-07 re-anchor):** corpus-index resolution remains the valid **fallback**. The durable ladder is graph-aware resolver → World Supergraph / projection node view → corpus-index fallback → unresolved `/ingest` escalation. Do not treat “resolve kind from corpus indexes” as the final architecture.
 
@@ -88,13 +90,15 @@ flowchart TB
   surfaceShell --> surfaceCanvas
 
   subgraph contextBoundary [Context boundary not a single store]
-    corpusTruth["Corpus markdown on disk source of truth"]
+    sourceAuthority["Source artifacts prose and evidentiary authority"]
+    graphHead["World Supergraph head durable materialized knowledge"]
     derivedViews["Live derived views indexes session memory via adapter"]
-    ontologyLadder["Ontology taxonomy ladder external gated dependency"]
+    projectionEngine["Projection Engine future read model"]
   end
 
-  corpusTruth --> derivedViews
-  corpusTruth -. "later shadow mode only" .-> ontologyLadder
+  sourceAuthority --> derivedViews
+  graphHead --> derivedViews
+  graphHead -. "projection node views" .-> projectionEngine
 
   derivedViews --> navBar
   derivedViews --> toolBar
@@ -108,7 +112,7 @@ flowchart TB
 
   surfaceShell -->|"publish campaign session selection context"| agentProvider
   toolBar -->|"request tool projection"| agentProvider
-  surfaceCanvas -->|"reference chip refId opaque locator"| referenceResolver["Shared resolver resolves kind from corpus indexes"]
+  surfaceCanvas -->|"reference chip refId opaque locator"| referenceResolver["Shared resolver graph-aware then corpus-index fallback"]
   referenceResolver -->|"request content projection"| agentProvider
 
   subgraph agentLayer [Agent Interaction Layer app scoped]
@@ -131,10 +135,10 @@ flowchart TB
   adaptiveContainer --> contentSurface["Content surface resolved kind npc location statblock roll-table"]
 
   adaptiveContainer -->|"toggle edit"| editCapability["One edit capability lock model plus two phase writer"]
-  editCapability --> corpusTruth
+  editCapability --> sourceAuthority
   editBar -->|"same edit capability"| editCapability
 
-  ingestWorkflow -->|"writes recap and session memory"| corpusTruth
+  ingestWorkflow -->|"writes recap and session memory source revision"| sourceAuthority
   ingestWorkflow -->|"status paths counts corpus_impact"| recentRuns
   recentRuns -->|"C2S23 ready view proof"| notifications
   ingestWorkflow --> recapIngestApi["Existing recap ingest API and terminal path"]
@@ -148,15 +152,21 @@ flowchart TB
 - **SurfaceCanvas** is the object of work. For `/plan`, it is the editable Tiptap/Markdown board.
 - **ToolBar** projects configured workflow components; it does not hardcode ingestion/statblock as page-specific branches.
 - **EditBar** edits the selected canvas/document/block; it does not launch prep workflows.
-- A single projection registry keyed by kind (`tool` | `content`) backs both the ToolBar and reference-chip navigation. A reference chip resolves against corpus indexes (already prototyped statically in `prep.js` / `prepReferencePopoverShell.test.ts`), shows a glance card, then expands into the content surface registered for the resolved kind.
-- The surface resolves kind from the corpus indexes and treats `refId` as an opaque locator; it does not declare its own category enum and does no alias/identity/merge logic (those belong to the ladder).
-- Content surfaces are projected the same way tools are, sized to the content. Editing everywhere is one capability — the spike lock model plus the two-phase corpus writer; the EditBar and the projected-surface edit toggle are two triggers of that one capability, not two stacks.
-- One reference resolver module is shared by the static and React surfaces (both hit `/api/live/*/index`); there is no parallel reimplementation.
+- A single projection registry keyed by kind (`tool` | `content`) backs both the ToolBar and reference-chip navigation. A reference chip resolves via graph-aware resolver → World Supergraph / projection node view → corpus-index fallback, shows a glance card, then expands into the content surface registered for the resolved kind.
+- The surface resolves kind through the shared resolver and treats `refId` as an opaque locator; it does not declare its own category enum and does no alias/identity/merge logic (those belong to Graph Review / Kernel path).
+- Content surfaces are projected the same way tools are, sized to the content. Editing everywhere is one capability — the spike lock model plus the two-phase source writer for **source revision**; graph/memory correction uses preview_write → confirm_commit through Graph Review. The EditBar and the projected-surface edit toggle are two triggers of the source-edit capability, not two stacks.
+- One reference resolver module is shared by the static and React surfaces (both hit `/api/live/*/index` and future graph projection APIs); there is no parallel reimplementation.
 - The "shared context" is **not a single store**. It decomposes into:
-  - corpus markdown on disk (the one source of truth),
-  - live-derived views over it (the corpus indexes the chip resolver already reads, recomputed from disk per request; plus session memory),
-  - the ontology/taxonomy graph as an external, gated dependency.
-  Reads/writes converge on corpus-on-disk, not on a unified mutable blob.
+  - **source artifacts** (prose and evidentiary authority on disk),
+  - **World Supergraph head** (durable materialized knowledge state),
+  - live-derived views over both (corpus indexes the chip resolver reads today; projection node views as the target read model; plus session memory),
+  - the Projection Engine and ontology/taxonomy workstream as producers/enrichers of derived semantics — not a shadow-only future dependency.
+- **Current write boundary:**
+  - source editing → source revision (two-phase writer),
+  - prep drafting → `draft_only`,
+  - proposed memory change → `preview_write`,
+  - correction/commit → Graph Review / governed Kernel path (`confirm_commit`),
+  - Plan does **not** own durable commit semantics.
 - The surface consumes derived views through an adapter (`source artifact` → `source anchor` → `source unit`), so a later Tiptap-backed or graph-backed source is a config/adapter change, not a surface rewrite.
 
 ## Agent Interaction layer (continuity host)
@@ -198,7 +208,7 @@ AppChrome
 
 The bar consumes this as ambient context, not ownership.
 
-**Pointers-only discipline** (binds to "the shared context is not a single store"): the provider stores locators and interaction history only — `refId`, artifact relpaths, session/campaign ids, run summaries, notification pointers — never corpus bodies, normalized recap text, or statblock content. Projected content is always resolved on demand from corpus-on-disk, the derived-views adapter, or read endpoints (`recap-ingest` `corpus_impact`, `/api/live/artifact`). This layer must never become the unified knowledge/lifecycle store the ladder forbids; it is interaction/UI state, not derived semantics.
+**Pointers-only discipline** (binds to "the shared context is not a single store"): the provider stores locators and interaction history only — `refId`, artifact relpaths, session/campaign ids, run summaries, notification pointers, graph revision pins — never corpus bodies, normalized recap text, statblock content, or accepted graph assertions. Projected content is always resolved on demand from source artifacts, World Supergraph / projection node views, the derived-views adapter, or read endpoints. This layer must never become the unified knowledge/lifecycle store; it is **pointer-only continuity**, not derived semantics or durable authority.
 
 For recap-ingestion proof and "what was ingested?" surfaces, the provider consumes an `IngestionSourceBundle` from the source-vocabulary adapter, not `corpus_impact` or `_normalized/` paths directly. `corpus_impact` remains diagnostic proof metadata inside that adapter contract; it is not narrative evidence and not the Agent Interaction semantic model.
 
@@ -208,24 +218,25 @@ For recap-ingestion proof and "what was ingested?" surfaces, the provider consum
 - **Phase B** (later) — user-level store outside any project repo: JSON/SQLite under a user app-state directory, explicitly not under `corpus/` and not under a campaign.
 - **Phase C** (later) — real identity for multi-device continuity.
 
-## Boundary with the Ontology / Taxonomy ladder
+## Boundary with the Ontology / Taxonomy ladder and Campaign Supergraph
 
-Derived semantics, controlled vocabulary, and the graph model are owned by the `experiment/ontology-taxonomy-ladder` workstream, not by this plan (see `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md`: *"The Tiptap / Markdown backend workstream owns canonical authoring... The Ontology / Taxonomy ladder owns derived semantics"*). This surface plan must:
+Derived semantics, controlled vocabulary, and the graph model are owned by the Campaign Supergraph architecture and the `experiment/ontology-taxonomy-ladder` workstream, not by this plan (see `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md` and `Docs/Design/ARCHITECTURE-campaign-supergraph.md`). This surface plan must:
 
-- Consume existing Markdown, session-memory JSONL, manifests, routes, and corpus indexes via an adapter; treat the graph as a future shadow-mode dependency only.
-- Use `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` as the minimal shared source vocabulary for ingestion consumers: current ingestion emits `IngestionSourceBundle`; graph-backed retrieval can later produce/enrich the same `SourceUnit` envelope.
-- **Not** build a unified knowledge store here, and **not** collapse GM prep, rumor, candidate facts, and played truth into "one state everything reads and writes" — that conflation is explicitly forbidden by the ladder's non-negotiables and is the part that needs provenance + lifecycle, not a shared blob.
-- **Resolve, don't declare:** the surface owns no category vocabulary. Entity kind is resolved from the corpus indexes; the ladder's taxonomy registry stays the canonical owner. When it lands, the adapter maps onto it — the surface enum that would have drifted never exists.
-- **Opaque locators, no identity work:** `refId` is a corpus locator only. The surface performs no alias resolution, identity merge, or relationship inference (all ladder non-negotiables).
-- **Adapter speaks the ladder vocabulary** (`source artifact` → `source anchor` → `source unit`) so the Rung 9 shadow-retrieval read path is a drop-in swap, not a translation layer.
+- Consume existing Markdown, session-memory JSONL, manifests, routes, corpus indexes, and World Supergraph / projection node views via an adapter.
+- Use `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` as the minimal shared source vocabulary for ingestion consumers: current ingestion emits `IngestionSourceBundle`; graph-backed retrieval produces/enriches the same `SourceUnit` envelope.
+- Use `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md` for agent tool categories and durable write boundaries.
+- **Not** build a unified knowledge store here, and **not** collapse GM prep, rumor, candidate facts, and played truth into "one state everything reads and writes" — that conflation is explicitly forbidden; provenance + lifecycle belong in separate state machines (source envelope, authored-prep lifecycle, GraphContribution status).
+- **Resolve, don't declare:** the surface owns no category vocabulary. Entity kind is resolved via graph-aware resolver → World Supergraph / projection node view → corpus-index fallback; the taxonomy registry stays the canonical owner.
+- **Opaque locators, no identity work on Plan:** `refId` is a locator only. The surface performs no alias resolution, identity merge, or relationship inference — those belong to Graph Review / Kernel path.
+- **Adapter speaks the source vocabulary** (`source artifact` → `source anchor` → `source unit`) so graph-backed retrieval is a drop-in swap, not a translation layer.
 
 ### Sequencing (decided)
 
 This Surface plan and the ontology/taxonomy ladder run in parallel at full scope; the adapter boundary above is what keeps them decoupled. Neither blocks the other:
 
-- The ladder's near-term consumable target is shadow-retrieval fixtures (Rung 9) — a real, source-grounded read path the surface can later consume through the derived-views adapter.
-- Until that shadow read path is promoted, the surface resolves references over corpus-on-disk and its live-derived views, and degrades gracefully: shallow resolution (glance + content surface) works today; reference-depth navigation lights up when the graph shadow path lands, via an adapter swap, not a surface rewrite.
-- **Risk to manage while parallel:** full-scope surface work must not invent a stand-in "shared state" to fake reference depth before the graph exists. Keep the adapter seam honest so the depth arrives from the ladder, not from a conflated blob.
+- World Supergraph / projection node views are the target read model for reference resolution and prep consumption.
+- Until graph-backed projection is fully promoted, the surface resolves references over source artifacts and live-derived views (corpus indexes), and degrades gracefully: shallow resolution (glance + content surface) works today; reference-depth navigation lights up when projection node views land, via an adapter swap, not a surface rewrite.
+- **Risk to manage while parallel:** full-scope surface work must not invent a stand-in "shared state" to fake reference depth before the graph exists. Keep the adapter seam honest so the depth arrives from the supergraph, not from a conflated blob.
 
 ## Visual Design and Theming
 
@@ -338,7 +349,7 @@ Parallel lanes after R0: the UI spine (R1 → R2 → {R6, R7}, plus R8) and the 
 - Do not hardcode ingestion/statblock as one-off ToolBar branches; register them in the one projection registry.
 - Do not build a separate projection path for reference chips. Tool launches and reference-chip expansions must resolve through the same projection registry and adaptive container.
 - Do not let edit-in-place bypass the lock model or the two-phase corpus writer. Projected content surfaces are read-only until unlocked, and unlocked edits commit through the existing writer.
-- Do not build a unified knowledge/schema store in this plan, and do not collapse prep/rumor/candidate/played truth into one shared state. Derived semantics belong to the ontology/taxonomy ladder; consume corpus-on-disk and its derived views through an adapter only.
+- Do not build a unified knowledge/schema store in this plan, and do not collapse prep/rumor/candidate/played truth into one shared state. Derived semantics and durable graph meaning belong to the Campaign Supergraph / Kernel path; consume source artifacts and World Supergraph projections through an adapter only.
 - Do not let Agent Interaction consume raw ingestion internals as its semantic model. Recap-ingestion proof and memory projections go through `IngestionSourceBundle` per `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`.
 - Do not declare a surface-owned category/type enum. Resolve kind from the corpus indexes; treat `refId` as an opaque locator; do no alias/identity/merge/relationship inference (ladder-owned).
 - Keep it singular: one projection registry, one edit capability, one reference resolver module, one `SurfaceConfig.theme`. If you find yourself adding a second of any of these, stop.

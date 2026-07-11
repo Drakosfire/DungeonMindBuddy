@@ -24,7 +24,9 @@ Agent Interaction is becoming DungeonBuddy's app-level GM companion. The local `
 
 The implementation remains **local to `/plan`**. The next likely code rung is **R10 / P4: lift Agent Interaction state ownership into an app-level `AgentInteractionProvider` while preserving the current `/plan` UX**. React `/play` follows R10/P4 as the second-surface proof.
 
-Hermes long-term memory remains **future and non-canon**. Operator tool parity and write-preview flows remain **future**. Runtime graph retrieval remains **out of scope** for this workstream; future graph-backed retrieval must be consumed through source-vocabulary adapters.
+Hermes long-term memory remains **future and pointer-only continuity** — not campaign authority. Operator tool parity and proposal-bound write-preview flows remain **future** (contract in `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`; runtime implementation is PR011, not landed). Runtime graph retrieval remains **out of scope** for this workstream; future graph-backed retrieval must be consumed through source-vocabulary adapters.
+
+**Dual authority:** corpus/source artifacts are **prose and evidentiary authority**; the World Supergraph head is **durable materialized knowledge state**; governed authored assertions and identity decisions survive reconstruction; Hermes/UI/thread memory is **non-canonical continuity** (pointer-only). Agents are not privileged writers.
 
 ---
 
@@ -40,8 +42,8 @@ Hermes long-term memory remains **future and non-canon**. Operator tool parity a
 | **P3.0 — retrieval freshness** | Landed locally | `retrieval_freshness` response object and `RetrievalFreshnessPanel`. |
 | **P3.1 — corpus change signal** | Landed locally | `/api/live/citation-freshness`, `CorpusChangeSignalPanel`, evidence snapshots, metadata-only source-currentness checks. |
 | **P4 / R10 — provider lift** | Future / next likely code rung | Move Agent Interaction state ownership above routes/surfaces while preserving current `/plan` UX. |
-| **P5 — operator tool parity** | Future | Same-thread tool use beyond retrieval; all writes remain preview -> GM confirm. |
-| **P6 — Hermes memory integration** | Future | Hermes long-term memory can help continuity/preferences only; corpus remains canon. |
+| **P5 — operator tool parity** | Future | Same-thread tool use beyond retrieval; typed capability categories (`read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic`); durable writes via preview_write → proposal-bound GM confirm → GraphContribution / Kernel / atomic graph-head (see PR005B contract). |
+| **P6 — Hermes memory integration** | Future | Hermes long-term memory can help continuity/preferences only (pointer-only); campaign facts come from source artifacts and World Supergraph reads, not chat memory. |
 
 There is no active Agent Interaction anchor where P0 is the next slice. P0-P3.1 are already landed locally in `/plan`.
 
@@ -61,7 +63,7 @@ AppChrome
   AgentInteractionPane
 ```
 
-Surfaces publish ambient context. The provider owns continuity. Provider persistence stores pointers, summaries, thread metadata, citation locators, evidence snapshots, retrieval decision metadata, and tool-run proof pointers — **not** corpus bodies, normalized recap text, graph internals, raw prompts, or unbounded source excerpts.
+Surfaces publish ambient context. The provider owns continuity. Provider persistence stores **pointer-only continuity**: locators, summaries, thread metadata, citation locators, evidence snapshots, retrieval decision metadata, and tool-run proof pointers — **not** corpus bodies, normalized recap text, graph internals, raw prompts, unbounded source excerpts, or accepted graph truth.
 
 ---
 
@@ -171,9 +173,10 @@ Full catalog: `Docs/Design/UX-STORIES-agent-interaction-hermes.md`.
 6. Ontology/taxonomy owns derived semantics, controlled vocabulary, graph IR, validation, reports, deterministic materialization, and later shadow retrieval.
 7. Graph outputs should eventually enrich or produce the same `SourceUnit` envelope.
 8. Graph summaries are navigational display material, not source evidence.
-9. Corpus markdown/on-disk canonical artifacts remain source of truth until explicit write APIs promote changes.
+9. **Dual authority:** corpus/source artifacts are prose and evidentiary authority; the World Supergraph head is durable materialized knowledge state; governed authored assertions and identity decisions survive reconstruction; Hermes/UI/thread memory is non-canonical continuity (pointer-only).
 10. No production retrieval behavior should depend on graph output until shadow-mode evidence and promotion gates exist.
-11. No autonomous writes: all writes remain preview -> GM confirm.
+11. **Agents are not privileged writers.** Durable writes use typed capability categories (`read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic` per `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`): preview_write proposal → explicit **proposal-bound / revision-bound** GM confirm → GraphContribution / Kernel / atomic graph-head. No autonomous writes. Graph Review/Ingest is the correction cockpit; Plan is a consumer surface that may draft and launch preview_write.
+12. Runtime PR011 tool registry is **not** implemented; this anchor describes product direction and local `/plan` dogfood only.
 
 ---
 

@@ -610,7 +610,7 @@ See also: surface vocabulary boundary (`SourceArtifact → SourceAnchor → Sour
 
 ## 17. Agent architecture
 
-Agents are graph consumers with tools (cross-surface), not a separate memory backend.
+Agents are graph consumers with tools (cross-surface), not a separate memory backend. **Agents are not privileged graph writers.**
 
 They:
 
@@ -618,8 +618,29 @@ They:
 - may propose candidates that enter the write path under human/policy control
 - must not silently mutate the World Supergraph
 - must not treat chat history as campaign memory
+- must not write graph/storage internals or advance graph head directly
 
-Agent Interaction’s durable backend is the World Supergraph + retrieval layer, not Hermes-shaped transitional drawers.
+### 17.1 Agent tool capability categories and authored prep
+
+Normative detail: [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](CONTRACT-agent-tool-authored-prep-contributions-v0.md).
+
+Capability categories (exact):
+
+```text
+read_only
+draft_only
+preview_write
+confirm_commit
+admin_diagnostic
+```
+
+Durable agent-proposed writes require **explicit revision-bound GM confirmation** bound to one proposal (`proposal_id` / version / digest + expected parent graph revision). Stale proposals fail closed.
+
+Authored prep uses a separate lifecycle (`draft` → `planned` → `placed` → `played` → `world_canon`, plus `retracted` / `superseded`) that must not be collapsed into assertion acceptance, epistemic kind, or contribution status. `played` requires actual-play evidence or an explicit played-event assertion; `world_canon` requires explicit promotion and must not automatically universalize campaign-scoped plans or play.
+
+**PR011** implements the runtime tool registry, context assembly, and confirmation plumbing against this contract. PR006 remains initial materialization only.
+
+Agent Interaction’s durable backend is the World Supergraph + retrieval layer, not Hermes-shaped transitional drawers. Hermes/UI/thread memory remains non-canonical continuity.
 
 ---
 

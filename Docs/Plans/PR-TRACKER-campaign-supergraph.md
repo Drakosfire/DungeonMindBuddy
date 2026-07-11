@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR328 review — PR006 blocked on PR005B; jumpstart authority vocabulary aligned)  
+**Updated:** 2026-07-11 (PR005B DOING #329; PR005A DONE #328; PR006 remains blocked on PR005B)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -46,7 +46,7 @@ Do not re-open in implementation PRs without an explicit architecture amendment:
 - Mandatory epistemic / temporal / visibility metadata
 - Identity resolution outcomes including split/unmerge
 - GitHub repo docs are canonical; Project Sources are context inputs only (PR005A)
-- Agents are not privileged graph writers (tool categories + preview → GM confirm; PR005B)
+- Agents are not privileged graph writers (tool categories + preview → GM confirm; PR005B); normative contract [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md)
 
 ### Project Sources boundary (normative)
 
@@ -305,7 +305,7 @@ Required deletion PR:
 
 ## PR005A — Context Audit + Source Reanchor
 
-**Status:** `DOING`  
+**Status:** `DONE` (GitHub #328 merged 2026-07-11 as `3c859d455cc3c63ddeae166370eb7e4cce3a9f3a`)  
 **Phase:** 2.5 / docs bridge  
 **Purpose:** Reconcile Project Sources, local handoffs, active references, historical docs, and repo authority before agent tool contract work — so fresh agents cannot treat stale Project Sources, preview-union docs, research notes, or proposal-only handoffs as active repo authority.
 
@@ -342,13 +342,13 @@ Required deletion PR:
 
 **Retain / rewrite / delete:** Docs only — tracker, roadmap, audit, jumpstart, superseded banners. No runtime paths.
 
-**Follow-up:** After this slice lands, author/run **PR005B** (Agent Tool Contract + Authored Prep Contributions).
+**Follow-up:** **PR005B** (Agent Tool Contract + Authored Prep Contributions) is the current docs bridge.
 
 ---
 
 ## PR005B — Agent Tool Contract + Authored Prep Contributions
 
-**Status:** `BLOCKED` on PR005A  
+**Status:** `DOING` (GitHub #329)  
 **Phase:** 2.5 / docs bridge  
 **Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
 
@@ -360,7 +360,9 @@ Required deletion PR:
 - Explicit rule that agents are not privileged graph writers
 - Explicit rule that Plan remains a consumer surface
 - Explicit rule that Graph Review / Ingest remains the correction cockpit
+- Normative contract: [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md)
 - Architecture / UX / anchor refinements so PR011 is clarified as Agent Context + Tool Runtime without moving runtime ahead of PR006/PR007
+- Successor handoff: [`HANDOFF-pr330-initial-world-supergraph-materialization.md`](HANDOFF-pr330-initial-world-supergraph-materialization.md)
 
 **Success criteria:**
 
@@ -381,7 +383,7 @@ Required deletion PR:
 - Autonomous writes
 - PR006 materialization
 
-**Depends on:** PR005A.
+**Depends on:** PR005A (DONE via #328).
 
 **Retain / rewrite / delete:** Docs only — architecture § agent/tool contract, roadmap notes, Agent Interaction UX/anchor refinements. No runtime paths.
 

@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR005A Context Audit + Source Reanchor; PR005B Agent Tool Contract bridge)  
+**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
@@ -22,7 +22,7 @@ This roadmap describes **implementation milestones**, not experiments. Phases ar
 - Mandatory epistemic / temporal / visibility metadata
 - Explicit identity outcomes including split/unmerge
 - GitHub repo docs are canonical; Project Sources are context inputs only (PR005A)
-- Agents are not privileged graph writers — tool categories + preview → GM confirm (PR005B)
+- Agents are not privileged graph writers — tool categories + preview → GM confirm (PR005B); see [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md)
 
 ---
 
@@ -137,7 +137,7 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 - Tracker and roadmap name the PR005A / PR005B split; PR006–PR012 numbering unchanged.
 - Project Sources boundary is explicit: GitHub wins; Project Sources are context inputs; prepared replacements are inactive until uploaded.
 - Stale/superseded docs have banners or audit classifications that prevent accidental authority.
-- Agent tool categories and authored-prep lifecycle are documented as contracts for later PR011 — not as runtime work in this phase.
+- Agent tool categories and authored-prep lifecycle are documented in [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) as contracts for later **PR011** — not as runtime work in this phase.
 - PR006 remains focused on named acceptance-corpus materialization.
 
 ---
@@ -274,7 +274,7 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 ## Phase 8 — Agent Context + Tool Runtime
 
-**Objective:** Agent Interaction uses the World Supergraph + retrieval as its memory backend, and exposes governed tools that read, draft, preview-write, or confirm-commit — never silent graph mutation (contract from PR005B).
+**Objective:** Agent Interaction uses the World Supergraph + retrieval as its memory backend, and exposes governed tools that read, draft, preview-write, or confirm-commit — never silent graph mutation. Normative contract: [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) (authored in PR005B; **implemented here**).
 
 **Dependencies:** Phase 7.
 
@@ -283,8 +283,8 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 **Exit criteria:**
 
 - Agent context assembly requests projected/admissible graph context with revision pins.
-- Typed tool capabilities match PR005B (`read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic`).
-- Agents cannot silently mutate the supergraph; durable writes require preview → explicit GM confirm through Kernel paths.
+- Typed tool capabilities match PR005B / the contract (`read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic`).
+- Agents cannot silently mutate the supergraph; durable writes require proposal-bound preview → explicit GM confirm through Kernel paths.
 - Hermes long-term/session memory and transitional drawers are not campaign canon and are not the architecture target.
 
 ---
