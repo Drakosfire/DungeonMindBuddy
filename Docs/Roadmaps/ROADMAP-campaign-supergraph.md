@@ -138,49 +138,62 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 - Project Sources boundary is explicit: GitHub wins; Project Sources are context inputs; prepared replacements are inactive until uploaded.
 - Stale/superseded docs have banners or audit classifications that prevent accidental authority.
 - Agent tool categories and authored-prep lifecycle are documented in [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) as contracts for later **PR011** — not as runtime work in this phase.
-- PR006 remains focused on named acceptance-corpus materialization.
+- PR006 remains focused on graph-native contribution repair, approval, and publication.
 
 ---
 
-## Phase 3 — Initial World Supergraph materialization
+## Phase 3 — Initial World Supergraph publication
 
-**Objective:** Produce the first **real**, **representative** persistent union from a **named acceptance corpus** — before Projection Engine and Plan migration.
+**Objective:** Publish the first **real**, **representative** persistent World
+Supergraph from an approved graph-native contribution bundle — after its
+multi-source assertion semantics are proven correct and before Projection
+Engine and Plan migration.
 
-**Motivation:** Storage + merge APIs without a useful graph leave Plan migration circular. A multi-source fixture is not a substitute. “Real” is not the same as “representative.”
+**Motivation:** Storage + merge APIs without a useful graph leave Plan migration
+circular. A multi-source fixture is not a substitute. PR006A showed that
+provenance-bearing assertion identity currently splits support for one semantic
+fact; publication must not knowingly proceed under that incorrect contract.
+“Real” is not the same as “representative.”
 
 **Dependencies:** Phase 2 and completion of PR005A / PR005B, unless explicitly waived by the operator. Phase 2.5 is docs/design only and must not dilute Phase 3 into tool runtime — but docs-only does **not** mean optional when the tracker sequences those bridges before materialization.
 
-**Expected PR slices:** Tracker **PR006**.
+**Expected PR slices:**
+
+- **PR006A** — Heterogeneous Provenance Diagnostic
+- **PR006B** — Separate Semantic Assertion Identity from Provenance
+- **PR006C** — Approved Initial Contribution Bundle
+- **PR006D** — Publish Initial Eldyrwild C2 World Supergraph
 
 **Demolition owned here:** Remove or isolate production dependence on preview union stores and named preview sources for **runtime graph availability**. Runtime must load the world graph head, not a preview fixture. Delete replaced paths in this PR unless a named consumer remains.
 
-**Named acceptance corpus (normative for PR006):**
+**Graph-native publication boundary (normative for PR006C/PR006D):**
 
-| Family | Requirement |
+| Concern | Requirement |
 |---|---|
-| World | Eldyrwild (`worldId` for `corpus/eldyrwild-markdown`) |
+| World | Eldyrwild |
 | Primary campaign scope | Longmont **Campaign 2** (Plan dogfood consumer) |
-| Recaps | All **canonical** Campaign 2 session recaps **Sessions 1–23** (planning cutoff for North Gate / Session 23–adjacent Plan dogfood) |
-| PC identity | All currently approved Campaign 2 PC hub packages |
-| Worldbuilding (required) | Mirathorn and Mireward world hubs under `Elderwyld/Cities and Towns/` (not optional) |
-| Campaign hubs | Campaign 2 NPC / faction / location hubs needed for Session 23–adjacent prep (inventory named in PR006 report) |
-| Mechanical | Statblock / encounter artifacts required by the initial Plan dogfood |
-| Authored corrections | All approved Graph Review authored assertions / identity decisions for this scope that exist at materialization time |
+| Publication input | An approved, reviewable bundle of already-formed `GraphContribution` objects and governed identity decisions |
+| Source work | Discovery, inventory, Markdown selection, extraction, and reprocessing are upstream inputs, not Phase 3 work |
+| Multi-source support | PR006B must prove one semantic assertion can retain independent heterogeneous provenance support before bundle approval or publication |
+| Authored corrections | Approved Graph Review authored assertions / identity decisions in scope are bundle inputs |
 
 **Exit criteria:**
 
-- Requested source inventory published before/with the run.
-- Successfully ingested vs skipped sources listed with reasons.
-- Entity/edge counts by source domain; unresolved identities; rejected contributions; evidence coverage.
+- PR006B repairs and proves semantic assertion identity independent of provenance,
+  while retaining independent support and source-artifact evidence.
+- Approved contribution bundle and governed identity decisions are recorded before
+  publication.
+- Entity/edge counts by source domain; unresolved identities; rejected
+  contributions; evidence coverage.
 - Unsupported projection requirements called out explicitly.
 - Specific statement of what Plan can and cannot trust.
 - Identities reconciled under world-global identity with campaign-scoped chronology.
-- Worldbuilding hubs above are included (required).
 - Graph head established and advanced; reconstruction/replay proven with contribution semantics.
 - Machine-readable health/coverage report exists.
 - Loads **without** preview source, eval fixture, explicit manifest, or latest-session selector as the selection mechanism.
 - Projection work (Phase 4) uses this graph as its acceptance fixture.
-- Plan migration (Phase 5) can be tested against genuinely ingested campaign memory.
+- Plan migration (Phase 5) can be tested against the PR006D published World
+  Supergraph.
 
 ---
 
@@ -318,7 +331,9 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 | Informal “continue dogfood” | Phase 5 after Phase 3 materialization |
 | Informal “Plan Q&A” | After useful cards; prefer Phase 7 retrieval-backed |
 
-Do not resume Q&A as the next architecture move. Materialize the named acceptance corpus, then project, then migrate Plan.
+Do not resume Q&A as the next architecture move. Repair semantic assertion
+identity, approve and publish the graph-native contribution bundle, then
+project, then migrate Plan.
 
 ---
 
