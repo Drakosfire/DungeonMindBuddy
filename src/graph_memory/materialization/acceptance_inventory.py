@@ -4,20 +4,43 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
-MANIFEST_SCHEMA = "dmb_world_acceptance_inventory_manifest_v1"
-MANIFEST_VERSION = "1.0"
-REPORT_SCHEMA = "dmb_world_acceptance_inventory_v1"
-REPORT_VERSION = "1.0"
+MANIFEST_SCHEMA = "dmb_world_acceptance_inventory_manifest_v2"
+MANIFEST_VERSION = "2.0"
+REPORT_SCHEMA = "dmb_world_acceptance_inventory_v2"
+REPORT_VERSION = "2.0"
 _MANIFEST_KEYS = frozenset(
-    {"schema", "version", "world_id", "campaign_id", "corpus_root", "families"}
+    {
+        "schema",
+        "version",
+        "world_id",
+        "campaign_id",
+        "corpus_root",
+        "source_kind",
+        "extraction_profile",
+        "expected",
+        "families",
+    }
 )
-_FAMILY_KEYS = frozenset({"family_id", "required", "reason", "selection"})
-_SELECTION_KEYS = frozenset(
-    {"files", "roots", "glob", "minimum_per_root", "exclude_files"}
+_FAMILY_KEYS = frozenset(
+    {
+        "family_id",
+        "required",
+        "reason",
+        "canon_layer",
+        "campaign_scope",
+        "source_authority",
+        "selection",
+    }
+)
+_SELECTION_KEYS = frozenset({"files"})
+_EXPECTED_KEYS = frozenset(
+    {"source_count", "path_set_sha256", "content_set_sha256"}
 )
 
 
@@ -28,10 +51,6 @@ class AcceptanceInventoryError(ValueError):
 @dataclass(frozen=True, slots=True)
 class FamilySelection:
     files: tuple[str, ...] = ()
-    roots: tuple[str, ...] = ()
-    glob: str = "**/*.md"
-    minimum_per_root: int = 0
-    exclude_files: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +58,9 @@ class ManifestFamily:
     family_id: str
     required: bool
     reason: str
+    canon_layer: str
+    campaign_scope: str | None
+    source_authority: str
     selection: FamilySelection
 
 
@@ -49,6 +71,11 @@ class AcceptanceInventoryManifest:
     world_id: str
     campaign_id: str
     corpus_root: str
+    source_kind: str
+    extraction_profile: str
+    expected_source_count: int
+    expected_path_set_sha256: str
+    expected_content_set_sha256: str
     families: tuple[ManifestFamily, ...]
     manifest_path: Path
     manifest_sha256: str
@@ -57,9 +84,16 @@ class AcceptanceInventoryManifest:
 @dataclass(frozen=True, slots=True)
 class InventorySource:
     path: str
+    source_artifact_id: str
+    source_revision_id: str
     family_id: str
     required: bool
     selection_reason: str
+    canon_layer: str
+    campaign_scope: str | None
+    source_authority: str
+    source_kind: str
+    extraction_profile: str
     sha256: str
     size_bytes: int
 
@@ -80,7 +114,12 @@ class AcceptanceInventoryReport:
     campaign_id: str
     corpus_root: str
     manifest_sha256: str
+    manifest_path: Path
+    corpus_root_path: Path
+    source_kind: str
+    extraction_profile: str
     summary: Mapping[str, int]
+    contract: Mapping[str, Any]
     families: Sequence[Mapping[str, Any]]
     sources: Sequence[InventorySource]
     diagnostics: Sequence[InventoryDiagnostic]
@@ -93,7 +132,10 @@ class AcceptanceInventoryReport:
             "campaign_id": self.campaign_id,
             "corpus_root": self.corpus_root,
             "manifest_sha256": self.manifest_sha256,
+            "source_kind": self.source_kind,
+            "extraction_profile": self.extraction_profile,
             "summary": dict(self.summary),
+            "contract": dict(self.contract),
             "families": [dict(x) for x in self.families],
             "sources": [asdict(x) for x in self.sources],
             "diagnostics": [asdict(x) for x in self.diagnostics],
@@ -148,42 +190,53 @@ def _posix_rel(path: str, label: str) -> str:
     return text
 
 
-def _validate_glob(glob: str, label: str) -> str:
-    if not isinstance(glob, str) or not glob.strip():
-        _fail(f"{label} must be a non-empty string")
-    text = glob.replace("\\", "/")
-    pure = PurePosixPath(text)
-    if text.startswith("/") or pure.is_absolute():
-        _fail(f"{label} must be relative: {glob!r}")
-    if ".." in pure.parts:
-        _fail(f"{label} must not contain '..': {glob!r}")
-    return glob
-
-
 def _parse_selection(raw: Mapping[str, Any], family_id: str) -> FamilySelection:
     _reject_unknown(raw, _SELECTION_KEYS, f"{family_id}.selection")
     files = _req_str_list(raw.get("files", []), f"{family_id}.selection.files")
-    roots = _req_str_list(raw.get("roots", []), f"{family_id}.selection.roots")
-    exclude = _req_str_list(
-        raw.get("exclude_files", []), f"{family_id}.selection.exclude_files"
-    )
-    glob = _validate_glob(raw.get("glob", "**/*.md"), f"{family_id}.selection.glob")
-    minimum = raw.get("minimum_per_root", 0)
-    if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 0:
-        _fail(f"{family_id}.selection.minimum_per_root must be a non-negative int")
-    if not files and not roots:
-        _fail(f"{family_id}.selection must include files and/or roots")
+    if not files:
+        _fail(f"{family_id}.selection.files must be a non-empty list")
     files_t = tuple(_posix_rel(i, f"{family_id}.selection.files") for i in files)
-    excl_t = tuple(_posix_rel(i, f"{family_id}.selection.exclude_files") for i in exclude)
-    overlap = sorted(set(files_t) & set(excl_t))
-    if overlap:
-        _fail(f"{family_id}.selection files/exclude_files overlap: {overlap}")
-    return FamilySelection(
-        files=files_t,
-        roots=tuple(_posix_rel(i, f"{family_id}.selection.roots") for i in roots),
-        glob=glob,
-        minimum_per_root=minimum,
-        exclude_files=excl_t,
+    if len(files_t) != len(set(files_t)):
+        _fail(f"{family_id}.selection.files contains duplicates")
+    return FamilySelection(files=files_t)
+
+
+def _digest_lines(lines: Sequence[str]) -> str:
+    return _sha256_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+
+
+def _req_sha256(value: Any, label: str) -> str:
+    text = _req_str(value, label)
+    if len(text) != 64 or any(char not in "0123456789abcdef" for char in text):
+        _fail(f"{label} must be a lowercase SHA-256 digest")
+    return text
+
+
+def _parse_family(raw: Mapping[str, Any], index: int, campaign_id: str) -> ManifestFamily:
+    _reject_unknown(raw, _FAMILY_KEYS, f"families[{index}]")
+    family_id = _req_str(raw.get("family_id"), f"families[{index}].family_id")
+    canon_layer = _req_str(raw.get("canon_layer"), f"{family_id}.canon_layer")
+    campaign_scope = raw.get("campaign_scope")
+    if canon_layer == "world":
+        if campaign_scope is not None:
+            _fail(f"{family_id}.campaign_scope must be null for world sources")
+    elif canon_layer == "campaign":
+        if campaign_scope != campaign_id:
+            _fail(f"{family_id}.campaign_scope must equal {campaign_id!r}")
+    else:
+        _fail(f"{family_id}.canon_layer must be 'world' or 'campaign'")
+    return ManifestFamily(
+        family_id=family_id,
+        required=_req_bool(raw.get("required"), f"{family_id}.required"),
+        reason=_req_str(raw.get("reason"), f"{family_id}.reason"),
+        canon_layer=canon_layer,
+        campaign_scope=campaign_scope,
+        source_authority=_req_str(
+            raw.get("source_authority"), f"{family_id}.source_authority"
+        ),
+        selection=_parse_selection(
+            _req_map(raw.get("selection"), f"{family_id}.selection"), family_id
+        ),
     )
 
 
@@ -203,34 +256,48 @@ def load_acceptance_manifest(path: Path) -> AcceptanceInventoryManifest:
     version = _req_str(data.get("version"), "version")
     if version != MANIFEST_VERSION:
         _fail(f"unsupported manifest version: {version!r}")
+    campaign_id = _req_str(data.get("campaign_id"), "campaign_id")
+    source_kind = _req_str(data.get("source_kind"), "source_kind")
+    if source_kind != "source_extraction":
+        _fail(f"unsupported source_kind: {source_kind!r}")
+    extraction_profile = _req_str(data.get("extraction_profile"), "extraction_profile")
+    expected = _req_map(data.get("expected"), "expected")
+    _reject_unknown(expected, _EXPECTED_KEYS, "expected")
+    expected_source_count = expected.get("source_count")
+    if (
+        not isinstance(expected_source_count, int)
+        or isinstance(expected_source_count, bool)
+        or expected_source_count < 1
+    ):
+        _fail("expected.source_count must be a positive int")
     families_raw = data.get("families")
     if not isinstance(families_raw, list) or not families_raw:
         _fail("families must be a non-empty list")
     families: list[ManifestFamily] = []
     seen: set[str] = set()
     for index, item in enumerate(families_raw):
-        fam = _req_map(item, f"families[{index}]")
-        _reject_unknown(fam, _FAMILY_KEYS, f"families[{index}]")
-        family_id = _req_str(fam.get("family_id"), f"families[{index}].family_id")
-        if family_id in seen:
-            _fail(f"duplicate family_id: {family_id}")
-        seen.add(family_id)
-        families.append(
-            ManifestFamily(
-                family_id=family_id,
-                required=_req_bool(fam.get("required"), f"{family_id}.required"),
-                reason=_req_str(fam.get("reason"), f"{family_id}.reason"),
-                selection=_parse_selection(
-                    _req_map(fam.get("selection"), f"{family_id}.selection"), family_id
-                ),
-            )
+        family = _parse_family(
+            _req_map(item, f"families[{index}]"), index, campaign_id
         )
+        if family.family_id in seen:
+            _fail(f"duplicate family_id: {family.family_id}")
+        seen.add(family.family_id)
+        families.append(family)
     return AcceptanceInventoryManifest(
         schema=schema,
         version=version,
         world_id=_req_str(data.get("world_id"), "world_id"),
-        campaign_id=_req_str(data.get("campaign_id"), "campaign_id"),
+        campaign_id=campaign_id,
         corpus_root=_posix_rel(_req_str(data.get("corpus_root"), "corpus_root"), "corpus_root"),
+        source_kind=source_kind,
+        extraction_profile=extraction_profile,
+        expected_source_count=expected_source_count,
+        expected_path_set_sha256=_req_sha256(
+            expected.get("path_set_sha256"), "expected.path_set_sha256"
+        ),
+        expected_content_set_sha256=_req_sha256(
+            expected.get("content_set_sha256"), "expected.content_set_sha256"
+        ),
         families=tuple(families),
         manifest_path=path.resolve(),
         manifest_sha256=_sha256_bytes(raw_text),
@@ -290,14 +357,12 @@ def _expand_family(
     claimed_rel: dict[str, str],
     claimed_phys: dict[str, str],
     diagnostics: list[InventoryDiagnostic],
+    source_kind: str,
+    extraction_profile: str,
 ) -> list[InventorySource]:
-    sel = family.selection
-    exclude = set(sel.exclude_files)
-    selected: list[str] = []
-    corpus_res = corpus_root.resolve()
     fid = family.family_id
-
-    for rel in sel.files:
+    sources: list[InventorySource] = []
+    for rel in family.selection.files:
         abs_path = _confined(corpus_root, rel)
         if not abs_path.is_file():
             code = "required_file_missing" if family.required else "optional_file_missing"
@@ -307,68 +372,21 @@ def _expand_family(
             if family.required:
                 _fail(f"required file missing for {fid}: {rel}")
             continue
-        selected.append(rel)
-
-    for root_rel in sel.roots:
-        root_abs = _confined(corpus_root, root_rel)
-        if not root_abs.exists():
-            code = "required_root_missing" if family.required else "optional_root_missing"
-            diagnostics.append(
-                InventoryDiagnostic(code, f"selected root missing: {root_rel}", fid, root_rel)
-            )
-            if family.required:
-                _fail(f"required root missing for {fid}: {root_rel}")
-            continue
-        if not root_abs.is_dir():
-            _fail(f"selection root is not a directory: {root_rel}")
-        root_res = root_abs.resolve()
-        root_rels: list[str] = []
-        for path in sorted(p for p in root_abs.glob(sel.glob) if p.is_file()):
-            under = path.relative_to(root_abs).as_posix()
-            _no_symlink_components(root_abs, under)
-            try:
-                resolved = path.resolve()
-                resolved.relative_to(root_res)
-                rel = resolved.relative_to(corpus_res).as_posix()
-            except ValueError as exc:
-                raise AcceptanceInventoryError(
-                    f"glob match escapes selection root or corpus under {root_rel}"
-                ) from exc
-            if rel not in exclude:
-                root_rels.append(rel)
-        if family.required and len(root_rels) < sel.minimum_per_root:
-            diagnostics.append(
-                InventoryDiagnostic(
-                    "required_root_below_minimum",
-                    f"root {root_rel} matched {len(root_rels)}; "
-                    f"minimum_per_root={sel.minimum_per_root}",
-                    fid,
-                    root_rel,
-                )
-            )
-            _fail(f"required root below minimum for {fid}: {root_rel}")
-        if not family.required and not root_rels:
-            diagnostics.append(
-                InventoryDiagnostic(
-                    "optional_root_empty",
-                    f"optional root empty or unmatched: {root_rel}",
-                    fid,
-                    root_rel,
-                )
-            )
-        selected.extend(root_rels)
-
-    sources: list[InventorySource] = []
-    for rel in selected:
-        abs_path = _confined(corpus_root, rel)
         data = abs_path.read_bytes()
         _claim(claimed_rel, claimed_phys, rel, _phys(abs_path), fid)
         sources.append(
             InventorySource(
                 path=abs_path.resolve().relative_to(repo_root.resolve()).as_posix(),
+                source_artifact_id=rel,
+                source_revision_id=f"sha256:{_sha256_bytes(data)}",
                 family_id=fid,
                 required=family.required,
                 selection_reason=family.reason,
+                canon_layer=family.canon_layer,
+                campaign_scope=family.campaign_scope,
+                source_authority=family.source_authority,
+                source_kind=source_kind,
+                extraction_profile=extraction_profile,
                 sha256=_sha256_bytes(data),
                 size_bytes=len(data),
             )
@@ -397,6 +415,8 @@ def build_acceptance_inventory(
             claimed_rel=claimed_rel,
             claimed_phys=claimed_phys,
             diagnostics=diagnostics,
+            source_kind=manifest.source_kind,
+            extraction_profile=manifest.extraction_profile,
         )
         all_sources.extend(fam_sources)
         family_summaries.append(
@@ -408,6 +428,24 @@ def build_acceptance_inventory(
             }
         )
     all_sources.sort(key=lambda s: s.path)
+    path_set_sha256 = _digest_lines(
+        [source.source_artifact_id for source in all_sources]
+    )
+    content_set_sha256 = _digest_lines(
+        [
+            f"{source.source_artifact_id}\t{source.sha256}"
+            for source in all_sources
+        ]
+    )
+    if len(all_sources) != manifest.expected_source_count:
+        _fail(
+            "acceptance source count drift: "
+            f"expected {manifest.expected_source_count}, got {len(all_sources)}"
+        )
+    if path_set_sha256 != manifest.expected_path_set_sha256:
+        _fail("acceptance path-set digest drift")
+    if content_set_sha256 != manifest.expected_content_set_sha256:
+        _fail("acceptance content-set digest drift")
     summary = {
         "source_count": len(all_sources),
         "required_source_count": sum(1 for s in all_sources if s.required),
@@ -424,7 +462,16 @@ def build_acceptance_inventory(
         campaign_id=manifest.campaign_id,
         corpus_root=manifest.corpus_root,
         manifest_sha256=manifest.manifest_sha256,
+        manifest_path=manifest.manifest_path,
+        corpus_root_path=corpus_root,
+        source_kind=manifest.source_kind,
+        extraction_profile=manifest.extraction_profile,
         summary=summary,
+        contract={
+            "source_count": len(all_sources),
+            "path_set_sha256": path_set_sha256,
+            "content_set_sha256": content_set_sha256,
+        },
         families=family_summaries,
         sources=tuple(all_sources),
         diagnostics=tuple(diagnostics),
@@ -434,9 +481,31 @@ def build_acceptance_inventory(
 def write_acceptance_inventory(
     report: AcceptanceInventoryReport, output_path: Path
 ) -> None:
+    output_path = output_path.resolve()
+    if output_path == report.manifest_path.resolve():
+        _fail("output path must not overwrite the manifest")
+    try:
+        output_path.relative_to(report.corpus_root_path.resolve())
+    except ValueError:
+        pass
+    else:
+        _fail("output path must not be inside the corpus root")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(report.to_dict(), indent=2, sort_keys=False, ensure_ascii=True)
-    output_path.write_text(payload + "\n", encoding="utf-8")
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            handle.write(payload + "\n")
+            temp_path = Path(handle.name)
+        os.replace(temp_path, output_path)
+    except OSError as exc:
+        raise AcceptanceInventoryError(f"cannot write inventory: {output_path}") from exc
 
 
 __all__ = [

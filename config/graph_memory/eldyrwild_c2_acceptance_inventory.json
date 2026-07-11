@@ -1,25 +1,27 @@
 {
-  "schema": "dmb_world_acceptance_inventory_manifest_v1",
-  "version": "1.0",
+  "schema": "dmb_world_acceptance_inventory_manifest_v2",
+  "version": "2.0",
   "world_id": "eldyrwild",
   "campaign_id": "longmont-c2",
   "corpus_root": "corpus/eldyrwild-markdown",
+  "source_kind": "source_extraction",
+  "extraction_profile": "eldyrwild-c2-acceptance-v1",
+  "expected": {
+    "source_count": 118,
+    "path_set_sha256": "499ea886b24c34110e44d5dc820e4a8b88440cc5417cba04d4c4399d47e4538c",
+    "content_set_sha256": "c88dd03b1f1bc925a5f7ffe6332240f6830d9f62037fb13b8909e9bf4de06ef7"
+  },
   "families": [
     {
       "family_id": "canonical_recaps",
       "required": true,
       "reason": "Canonical Longmont Campaign 2 recaps, Sessions 1-23",
+      "canon_layer": "campaign",
+      "campaign_scope": "longmont-c2",
+      "source_authority": "canonical_play",
       "selection": {
         "files": [
           "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
@@ -30,10 +32,18 @@
           "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md"
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
         ]
       }
     },
@@ -41,31 +51,59 @@
       "family_id": "party_registry",
       "required": true,
       "reason": "GM-declared party roster source",
+      "canon_layer": "campaign",
+      "campaign_scope": "longmont-c2",
+      "source_authority": "campaign_registry",
       "selection": {
-        "files": ["Longmont Campaign/Campaign 2/_party_registry.json"]
+        "files": [
+          "Longmont Campaign/Campaign 2/_party_registry.json"
+        ]
       }
     },
     {
       "family_id": "pc_hubs",
       "required": true,
       "reason": "Approved Questionable Company PC hub packages",
+      "canon_layer": "campaign",
+      "campaign_scope": "longmont-c2",
+      "source_authority": "campaign_reference",
       "selection": {
-        "roots": [
-          "Longmont Campaign/Campaign 2/PCs/baergrom",
-          "Longmont Campaign/Campaign 2/PCs/bonogo",
-          "Longmont Campaign/Campaign 2/PCs/caelynn",
-          "Longmont Campaign/Campaign 2/PCs/ephanna",
-          "Longmont Campaign/Campaign 2/PCs/karsemine",
-          "Longmont Campaign/Campaign 2/PCs/stafl"
-        ],
-        "glob": "**/*.md",
-        "minimum_per_root": 1
+        "files": [
+          "Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+          "Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/baergrom/timeline.md",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/timeline.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+          "Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+          "Longmont Campaign/Campaign 2/PCs/stafl/stafl_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/stafl/stafl_statblock_dnd_beyond_level5.md",
+          "Longmont Campaign/Campaign 2/PCs/stafl/timeline.md"
+        ]
       }
     },
     {
       "family_id": "required_world_hubs",
       "required": true,
       "reason": "Required worldbuilding hubs",
+      "canon_layer": "world",
+      "campaign_scope": null,
+      "source_authority": "world_reference",
       "selection": {
         "files": [
           "Elderwyld/Cities and Towns/Mirathorn/README.md",
@@ -74,21 +112,93 @@
       }
     },
     {
-      "family_id": "campaign_support_candidates",
-      "required": false,
-      "reason": "Candidate support sources for later materialization; inventory only",
+      "family_id": "campaign_support",
+      "required": true,
+      "reason": "Pinned Campaign 2 support sources for materialization",
+      "canon_layer": "campaign",
+      "campaign_scope": "longmont-c2",
+      "source_authority": "campaign_reference",
       "selection": {
-        "roots": [
-          "Longmont Campaign/Campaign 2/NPCs",
-          "Longmont Campaign/Campaign 2/Factions",
-          "Longmont Campaign/Campaign 2/Statblocks",
-          "Elderwyld/Cities and Towns/Mirathorn",
-          "Elderwyld/Cities and Towns/Mireward"
-        ],
-        "glob": "**/*.md",
-        "exclude_files": [
-          "Elderwyld/Cities and Towns/Mirathorn/README.md",
-          "Elderwyld/Cities and Towns/Mireward/README.md"
+        "files": [
+          "Longmont Campaign/Campaign 2/Factions/README.md",
+          "Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/thrin_branchborn_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md",
+          "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md",
+          "Longmont Campaign/Campaign 2/Statblocks/generated/gatekisser.md",
+          "Longmont Campaign/Campaign 2/Statblocks/generated/generated_obsidian_thornling.md",
+          "Longmont Campaign/Campaign 2/Statblocks/generated/palisade_gnawer.md",
+          "Longmont Campaign/Campaign 2/Statblocks/generated/under_hymn_brood.md"
+        ]
+      }
+    },
+    {
+      "family_id": "world_support",
+      "required": true,
+      "reason": "Pinned Elderwyld support sources for materialization",
+      "canon_layer": "world",
+      "campaign_scope": null,
+      "source_authority": "world_reference",
+      "selection": {
+        "files": [
+          "Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+          "Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+          "Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+          "Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+          "Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+          "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/orin_vell/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/character_seed.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md",
+          "Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/character_seed.md"
         ]
       }
     }

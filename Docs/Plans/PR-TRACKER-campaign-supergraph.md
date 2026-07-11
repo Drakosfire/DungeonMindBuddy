@@ -396,20 +396,24 @@ Required deletion PR:
 
 **Status:** `DOING` (GitHub #332)  
 **Phase:** 3 / inventory  
-**Purpose:** Deterministic, read-only selection + content hashes for the named Eldyrwild / Longmont Campaign 2 acceptance corpus. No graph writes.
+**Purpose:** Deterministic, read-only pinned selection + content hashes for the named Eldyrwild / Longmont Campaign 2 acceptance corpus. No graph writes.
 
 **Deliverables:**
 
 - Versioned manifest `config/graph_memory/eldyrwild_c2_acceptance_inventory.json`
-- Library + CLI that expand selections, confine paths, hash SHA-256, emit deterministic JSON
-- Tests for validation, missing required/optional, duplicates, confinement, determinism, CLI exits
+- Explicit 118-source manifest with path-set/content-set digests, source identity, and world/campaign scope metadata
+- Library + CLI that validate the pin, confine paths, hash SHA-256, and emit deterministic JSON
+- Tests for schema, drift, provenance/scope, confinement, atomic output, determinism, and CLI exits
 - Abandoned banner on monolithic `HANDOFF-pr330-*`
+- Canonical `HANDOFF-pr332-eldyrwild-c2-acceptance-inventory.md`
 
 **Success criteria:**
 
 - Canonical C2 Sessions 1–23 explicitly selected (Session 23 = Gate Battle only)
 - Party registry, six PC hubs, Mirathorn/Mireward READMEs present
 - Derived `_normalized` / `_breadcrumbed` / `_session_memory` / `_archive` paths excluded
+- No live root/glob discovery: additions, removals, renames, or byte changes fail until the manifest is intentionally updated
+- Every report source supplies `source_artifact_id`, `source_revision_id`, `canon_layer`, `campaign_scope`, `source_kind`, and `extraction_profile` for PR006B
 - Byte-identical repeated inventory output
 - No extraction, contribution, publication, validation, runtime, or projection changes
 
@@ -439,7 +443,7 @@ Required deletion PR:
 **Phase:** 3 / publication  
 **Purpose:** Publish the complete named acceptance corpus to a world graph head and prove reconstruction + coverage.
 
-**Named acceptance corpus:** Eldyrwild / Longmont Campaign 2 as selected by PR006A inventory (Sessions 1–23, PCs, required hubs, support candidates, authored corrections in scope).
+**Named acceptance corpus:** Eldyrwild / Longmont Campaign 2 as pinned by PR006A inventory (Sessions 1–23, PCs, required hubs, campaign/world support sources, authored corrections in scope).
 
 **Non-goals:** Projection Engine; Plan/Play migration; agent tooling.
 

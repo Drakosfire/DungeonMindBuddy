@@ -152,7 +152,7 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 **Expected PR slices:**
 
-- **PR006A** — Deterministic acceptance-corpus inventory (selection + hashes only)
+- **PR006A** — Pinned acceptance-corpus inventory (explicit paths, hashes, provenance IDs, and world/campaign authority metadata only)
 - **PR006B** — Canonical C2 recap sources → `GraphContribution`s via existing Kernel contracts
 - **PR006C** — Full named-corpus publication, rebuild, and coverage proof
 
@@ -169,7 +169,8 @@ Do **not** renumber PR007–PR012. GitHub #330/#331 were closed unmerged and are
 | Recaps | All **canonical** Campaign 2 session recaps **Sessions 1–23** (planning cutoff for North Gate / Session 23–adjacent Plan dogfood) |
 | PC identity | All currently approved Campaign 2 PC hub packages |
 | Worldbuilding (required) | Mirathorn and Mireward world hubs under `Elderwyld/Cities and Towns/` (not optional) |
-| Campaign hubs | Campaign 2 NPC / faction / location hubs needed for Session 23–adjacent prep (inventory named in PR006 report) |
+| Campaign support | Pinned Campaign 2 NPC / faction / statblock sources, explicitly scoped to `longmont-c2` |
+| World support | Pinned Mirathorn / Mireward support sources, explicitly world-scoped (`campaign_scope: null`) |
 | Mechanical | Statblock / encounter artifacts required by the initial Plan dogfood |
 | Authored corrections | All approved Graph Review authored assertions / identity decisions for this scope that exist at materialization time |
 
