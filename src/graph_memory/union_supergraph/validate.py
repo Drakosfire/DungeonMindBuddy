@@ -51,10 +51,10 @@ def validate_union_supergraph_fixture(
     """Validate a union supergraph payload.
 
     Structural / referential checks always run. Demo-density checks (multi-domain
-    nodes, focus-session evidence/adjacency coverage) run only when the store is
-    non-empty and ``require_density`` is True. World-graph publish uses
-    ``require_density=False`` so an empty baseline and incremental contribution
-    merges remain valid; fixture CLI / preview validation keep the default.
+    nodes, focus-session evidence/adjacency coverage) run when ``require_density``
+    is True — including for empty fixtures, so the default fixture/CLI path still
+    rejects empty graphs. World-graph publish calls with ``require_density=False``
+    so an empty baseline and incremental contribution merges remain valid.
     """
     errors: list[str] = []
     _require(bool(fixture.get("schema")), errors, "top-level schema is required")
@@ -257,8 +257,7 @@ def validate_union_supergraph_fixture(
                     f"adjacency {node_id}[{i}] is non-focus but edge {edge_id} includes focus_session_id {focus_session_id}",
                 )
 
-    is_empty = not nodes and not edges and not evidence and not artifacts
-    if require_density and not is_empty:
+    if require_density:
         _require(
             any(len(_as_list(node.get("source_domains"))) > 1 for node in nodes.values()),
             errors,

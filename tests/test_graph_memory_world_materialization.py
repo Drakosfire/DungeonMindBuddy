@@ -273,3 +273,109 @@ def test_world_root_leaves_are_optional_in_inventory() -> None:
     assert required[0]["path"].endswith("/Mirathorn/README.md")
     assert optional
     assert any(item["path"].endswith("Sewer Traps.md") for item in optional)
+
+
+def test_identity_remap_rebuilds_assertion_ids_and_edge_endpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.materialization import candidate_to_contribution as c2c
+    from graph_memory.union_supergraph.model import (
+        UnionSupergraphDiagnostics,
+        UnionSupergraphStore,
+    )
+
+    store = UnionSupergraphStore(
+        **{
+            "schema": "dmb_union_supergraph_store_v0",
+            "version": "0.1",
+            "campaign_id": "longmont-c2",
+            "graph_id": "longmont-c2:union-supergraph",
+            "graph_domains": ["campaign"],
+            "source_domains": ["recap"],
+            "focus_session_id": "session-1",
+            "nodes": {},
+            "edges": {},
+            "evidence": {},
+            "source_artifacts": {},
+            "aliases": {},
+            "adjacency": {},
+            "assertion_support": {},
+            "diagnostics": UnionSupergraphDiagnostics(
+                canon_promotion=False,
+                approved_memory_write=False,
+                corpus_mutation=False,
+                production_retrieval=False,
+            ),
+        }
+    )
+
+    def _remap(node, **_kwargs):
+        if node["node_id"] == "npc_candidate":
+            return "npc_canonical", "resolved_existing"
+        return node["node_id"], "created_new"
+
+    monkeypatch.setattr(c2c, "_resolve_node_outcome", _remap)
+
+    original_node = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_candidate",
+        label="Lysandra",
+        value={"kind": "npc", "aliases": ["Lysandra"], "node_id": "npc_candidate"},
+        identity_resolution_outcome="created_new",
+    )
+    original_edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id="npc_candidate",
+        target_node_id="loc_mireward",
+        predicate="located_in",
+        label="located in",
+        value={"source_domains": ["worldbuilding"]},
+        identity_resolution_outcome="created_new",
+    )
+    contrib = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="source_extraction",
+        source_artifact_id="artifact:test",
+        source_revision_id="rev:test",
+        extraction_profile="pr006-acceptance-v1",
+        accepted_assertions=[original_node, original_edge],
+    )
+    resolved = c2c.resolve_contribution_identities(
+        contrib, store, world_id="eldyrwild"
+    )
+    node = next(a for a in resolved.accepted_assertions if a.assertion_kind == "node")
+    edge = next(a for a in resolved.accepted_assertions if a.assertion_kind == "edge")
+    assert node.subject_node_id == "npc_canonical"
+    assert node.value["node_id"] == "npc_canonical"
+    assert node.assertion_id != original_node.assertion_id
+    expected_node_id = kernel.compute_assertion_id(
+        assertion_kind="node",
+        subject_node_id="npc_canonical",
+        target_node_id=None,
+        predicate=None,
+        label=node.label,
+        value=node.value,
+        campaign_scope=node.campaign_scope,
+        temporal_scope=node.temporal_scope,
+        epistemic_kind=node.epistemic_kind,
+        visibility=node.visibility,
+    )
+    assert node.assertion_id == expected_node_id
+    assert edge.subject_node_id == "npc_canonical"
+    assert edge.target_node_id == "loc_mireward"
+    assert edge.assertion_id != original_edge.assertion_id
+    expected_edge_id = kernel.compute_assertion_id(
+        assertion_kind="edge",
+        subject_node_id="npc_canonical",
+        target_node_id="loc_mireward",
+        predicate=edge.predicate,
+        label=edge.label,
+        value=edge.value,
+        campaign_scope=edge.campaign_scope,
+        temporal_scope=edge.temporal_scope,
+        epistemic_kind=edge.epistemic_kind,
+        visibility=edge.visibility,
+    )
+    assert edge.assertion_id == expected_edge_id

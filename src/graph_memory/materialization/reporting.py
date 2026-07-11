@@ -115,6 +115,9 @@ def build_materialization_report(
             "accepted": list(inventory.get("accepted") or []),
             "skipped": list(inventory.get("skipped") or []),
             "failed_required": failed_required_sources,
+            "authored_absent_reportable": list(
+                inventory.get("authored_absent_reportable") or []
+            ),
         },
         "unsupported_projection_requirements": [
             "revision-pinned Projection Engine (PR007)",
@@ -127,9 +130,9 @@ def build_materialization_report(
             "Session 1–23 recap sources inventoried with sha256 provenance",
             "Mirathorn and Mireward location nodes present in merged head",
             "Six C2 PC hub nodes present with worldbuilding domain mapping",
-            "Kernel merge + rebuild equivalence for contribution ledger",
+            "Empty Kernel baseline + rebuild equivalence for contribution ledger",
             "Every accepted assertion carries source_artifact_id + source_revision_id",
-            "Corpus-assembled head has no fixture:// provenance URIs",
+            "Merged head has no fixture:// provenance URIs",
         ],
         "plan_cannot_trust": [
             "Revision-pinned projection slices (PR007 not landed)",

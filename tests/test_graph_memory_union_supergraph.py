@@ -164,3 +164,54 @@ def test_build_report_returns_summary(fixture: dict) -> None:
     assert report["source_artifact_count"] == 3
     assert report["focus_session_edge_count"] == 1
     assert report["non_focus_edge_count"] == 1
+
+
+def _empty_structural_payload() -> dict:
+    return {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": "longmont-c2:union-supergraph",
+        "graph_domains": ["campaign"],
+        "source_domains": ["recap", "worldbuilding"],
+        "focus_session_id": "session-23",
+        "nodes": {},
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "adjacency": {},
+        "diagnostics": {
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+    }
+
+
+def test_default_fixture_validation_rejects_empty_fixture() -> None:
+    payload = _empty_structural_payload()
+    with pytest.raises(UnionSupergraphValidationError, match="multiple source domains"):
+        validate_union_supergraph_fixture(payload)
+
+
+def test_structural_validation_accepts_empty_baseline() -> None:
+    payload = _empty_structural_payload()
+    result = validate_union_supergraph_fixture(payload, require_density=False)
+    assert result["valid"] is True
+    assert result["node_count"] == 0
+    assert result["edge_count"] == 0
+
+
+def test_structural_validation_rejects_malformed_empty_schema() -> None:
+    payload = _empty_structural_payload()
+    del payload["schema"]
+    with pytest.raises(UnionSupergraphValidationError, match="schema is required"):
+        validate_union_supergraph_fixture(payload, require_density=False)
+
+
+def test_structural_validation_rejects_broken_referential_integrity(fixture: dict) -> None:
+    payload = copy.deepcopy(fixture)
+    payload["nodes"]["pc_caelynn"]["evidence_ref_ids"].append("missing:evidence")
+    with pytest.raises(UnionSupergraphValidationError, match="missing:evidence"):
+        validate_union_supergraph_fixture(payload, require_density=False)

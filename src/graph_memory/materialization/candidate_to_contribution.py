@@ -491,19 +491,28 @@ def resolve_contribution_identities(
     *,
     world_id: str,
 ) -> kernel.GraphContribution:
-    """Re-resolve node outcomes against the durable store; fail closed on ambiguity."""
+    """Re-resolve node outcomes against the durable store; fail closed on ambiguity.
+
+    When a candidate node ID remaps to a different canonical ID, rebuild node and
+    edge assertions via ``kernel.build_assertion`` so assertion IDs match the
+    resolved subject/target/value payload, and rewrite edge endpoints through an
+    ``original → canonical`` map.
+    """
     accepted: list[kernel.GraphContributionAssertion] = []
     rejected: list[kernel.GraphContributionAssertion] = list(contribution.rejected_assertions)
     unresolved: list[kernel.ContributionIdentityMention] = list(
         contribution.unresolved_mentions
     )
-    deferred_node_ids: set[str] = set()
+    id_map: dict[str, str] = {}
+    deferred_original_ids: set[str] = set()
+    contrib_id = contribution.contribution_id
 
     for assertion in contribution.accepted_assertions:
         if assertion.assertion_kind != "node":
             continue
+        original_id = assertion.subject_node_id or ""
         node = {
-            "node_id": assertion.subject_node_id or "",
+            "node_id": original_id,
             "label": assertion.label,
             "kind": (assertion.value or {}).get("kind", "unknown"),
             "aliases": (assertion.value or {}).get("aliases", []),
@@ -517,20 +526,33 @@ def resolve_contribution_identities(
             or contribution.source_artifact_id
             or "",
         )
+        if original_id:
+            id_map[original_id] = subject_node_id
         value = dict(assertion.value or {})
         value["node_id"] = subject_node_id
-        updated = assertion.model_copy(
-            update={
-                "subject_node_id": subject_node_id,
-                "identity_resolution_outcome": outcome,
-                "value": value,
-            }
+        rebuilt = kernel.build_assertion(
+            assertion_kind="node",
+            acceptance_state=(
+                "rejected" if outcome in FAIL_CLOSED_IDENTITY_OUTCOMES else "accepted"
+            ),
+            contribution_id=contrib_id,
+            subject_node_id=subject_node_id,
+            label=assertion.label,
+            value=value,
+            evidence_ref_ids=list(assertion.evidence_ref_ids or []),
+            source_artifact_id=assertion.source_artifact_id,
+            source_revision_id=assertion.source_revision_id,
+            campaign_scope=assertion.campaign_scope,
+            temporal_scope=assertion.temporal_scope,
+            visibility=assertion.visibility,
+            epistemic_kind=assertion.epistemic_kind,
+            identity_resolution_outcome=outcome,
         )
         if outcome in FAIL_CLOSED_IDENTITY_OUTCOMES:
-            deferred_node_ids.add(subject_node_id)
-            rejected.append(
-                updated.model_copy(update={"acceptance_state": "rejected"})
-            )
+            if original_id:
+                deferred_original_ids.add(original_id)
+            deferred_original_ids.add(subject_node_id)
+            rejected.append(rebuilt)
             unresolved.append(
                 _unresolved_mention_for_node(
                     {**node, "node_id": subject_node_id},
@@ -539,25 +561,90 @@ def resolve_contribution_identities(
                 )
             )
         else:
-            accepted.append(updated)
+            accepted.append(rebuilt)
 
     for assertion in contribution.accepted_assertions:
         if assertion.assertion_kind == "node":
             continue
-        if assertion.assertion_kind == "edge":
-            src = assertion.subject_node_id
-            tgt = assertion.target_node_id
-            if (src and src in deferred_node_ids) or (tgt and tgt in deferred_node_ids):
-                rejected.append(
-                    assertion.model_copy(
-                        update={
-                            "acceptance_state": "rejected",
-                            "identity_resolution_outcome": "rejected",
-                        }
-                    )
+        if assertion.assertion_kind != "edge":
+            accepted.append(assertion)
+            continue
+
+        orig_src = assertion.subject_node_id
+        orig_tgt = assertion.target_node_id
+        if (orig_src and orig_src in deferred_original_ids) or (
+            orig_tgt and orig_tgt in deferred_original_ids
+        ):
+            rejected.append(
+                kernel.build_assertion(
+                    assertion_kind="edge",
+                    acceptance_state="rejected",
+                    contribution_id=contrib_id,
+                    subject_node_id=orig_src,
+                    target_node_id=orig_tgt,
+                    predicate=assertion.predicate,
+                    label=assertion.label,
+                    value=dict(assertion.value or {}),
+                    evidence_ref_ids=list(assertion.evidence_ref_ids or []),
+                    source_artifact_id=assertion.source_artifact_id,
+                    source_revision_id=assertion.source_revision_id,
+                    campaign_scope=assertion.campaign_scope,
+                    temporal_scope=assertion.temporal_scope,
+                    visibility=assertion.visibility,
+                    epistemic_kind=assertion.epistemic_kind,
+                    identity_resolution_outcome="rejected",
                 )
-                continue
-        accepted.append(assertion)
+            )
+            continue
+
+        new_src = id_map.get(orig_src, orig_src) if orig_src else orig_src
+        new_tgt = id_map.get(orig_tgt, orig_tgt) if orig_tgt else orig_tgt
+        if (new_src and new_src in deferred_original_ids) or (
+            new_tgt and new_tgt in deferred_original_ids
+        ):
+            rejected.append(
+                kernel.build_assertion(
+                    assertion_kind="edge",
+                    acceptance_state="rejected",
+                    contribution_id=contrib_id,
+                    subject_node_id=new_src,
+                    target_node_id=new_tgt,
+                    predicate=assertion.predicate,
+                    label=assertion.label,
+                    value=dict(assertion.value or {}),
+                    evidence_ref_ids=list(assertion.evidence_ref_ids or []),
+                    source_artifact_id=assertion.source_artifact_id,
+                    source_revision_id=assertion.source_revision_id,
+                    campaign_scope=assertion.campaign_scope,
+                    temporal_scope=assertion.temporal_scope,
+                    visibility=assertion.visibility,
+                    epistemic_kind=assertion.epistemic_kind,
+                    identity_resolution_outcome="rejected",
+                )
+            )
+            continue
+
+        accepted.append(
+            kernel.build_assertion(
+                assertion_kind="edge",
+                acceptance_state="accepted",
+                contribution_id=contrib_id,
+                subject_node_id=new_src,
+                target_node_id=new_tgt,
+                predicate=assertion.predicate,
+                label=assertion.label,
+                value=dict(assertion.value or {}),
+                evidence_ref_ids=list(assertion.evidence_ref_ids or []),
+                source_artifact_id=assertion.source_artifact_id,
+                source_revision_id=assertion.source_revision_id,
+                campaign_scope=assertion.campaign_scope,
+                temporal_scope=assertion.temporal_scope,
+                visibility=assertion.visibility,
+                epistemic_kind=assertion.epistemic_kind,
+                identity_resolution_outcome=assertion.identity_resolution_outcome
+                or "created_new",
+            )
+        )
 
     return contribution.model_copy(
         update={
