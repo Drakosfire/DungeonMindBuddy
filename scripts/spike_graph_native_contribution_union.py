@@ -19,6 +19,7 @@ def _node_assertion(
     label: str,
     kind: str,
     role: str,
+    source_domain: str,
     source_artifact_id: str,
 ) -> kernel.GraphContributionAssertion:
     return kernel.build_assertion(
@@ -30,7 +31,7 @@ def _node_assertion(
             "kind": kind,
             "role": role,
             "aliases": [label],
-            "source_domains": ["manual_seed"],
+            "source_domains": [source_domain],
             "canon_state": "canonical",
         },
         source_artifact_id=source_artifact_id,
@@ -41,12 +42,18 @@ def _node_assertion(
     )
 
 
-def _contributions() -> tuple[kernel.GraphContribution, kernel.GraphContribution, kernel.GraphContributionAssertion]:
+def _contributions() -> tuple[
+    kernel.GraphContribution,
+    kernel.GraphContribution,
+    kernel.GraphContributionAssertion,
+    kernel.GraphContributionAssertion,
+]:
     mireward_a = _node_assertion(
         node_id=MIREWARD_ID,
         label="Mireward",
         kind="location",
         role="town",
+        source_domain="worldbuilding",
         source_artifact_id="graph-native:pr006a:support-a",
     )
     mireward_b = _node_assertion(
@@ -54,6 +61,7 @@ def _contributions() -> tuple[kernel.GraphContribution, kernel.GraphContribution
         label="Mireward",
         kind="location",
         role="town",
+        source_domain="recap",
         source_artifact_id="graph-native:pr006a:support-b",
     )
     event = _node_assertion(
@@ -61,6 +69,7 @@ def _contributions() -> tuple[kernel.GraphContribution, kernel.GraphContribution
         label="Mireward Gate Battle",
         kind="event",
         role="encounter",
+        source_domain="recap",
         source_artifact_id="graph-native:pr006a:support-b",
     )
     occurred_at = kernel.build_assertion(
@@ -71,7 +80,7 @@ def _contributions() -> tuple[kernel.GraphContribution, kernel.GraphContribution
         predicate="occurred_at",
         label="occurred at",
         value={
-            "source_domains": ["manual_seed"],
+            "source_domains": ["recap"],
             "session_ids": ["session-23"],
             "canon_state": "canonical",
         },
@@ -99,9 +108,9 @@ def _contributions() -> tuple[kernel.GraphContribution, kernel.GraphContribution
         campaign_scope=CAMPAIGN_SCOPE,
         accepted_assertions=[mireward_b, event, occurred_at],
     )
-    if mireward_a.assertion_id != mireward_b.assertion_id:
-        raise AssertionError("shared Mireward assertions must have one assertion ID")
-    return contribution_a, contribution_b, mireward_a
+    if mireward_a.assertion_id == mireward_b.assertion_id:
+        raise AssertionError("heterogeneous provenance unexpectedly coalesced")
+    return contribution_a, contribution_b, mireward_a, mireward_b
 def _invalid_edge_contribution() -> kernel.GraphContribution:
     assertion = kernel.build_assertion(
         assertion_kind="edge",
@@ -110,7 +119,7 @@ def _invalid_edge_contribution() -> kernel.GraphContribution:
         target_node_id="location:also-missing",
         predicate="occurred_at",
         label="occurred at",
-        value={"source_domains": ["manual_seed"]},
+        value={"source_domains": ["recap"]},
         source_artifact_id="graph-native:pr006a:invalid",
         campaign_scope=CAMPAIGN_SCOPE,
         epistemic_kind="fact",
@@ -126,8 +135,20 @@ def _invalid_edge_contribution() -> kernel.GraphContribution:
         campaign_scope=CAMPAIGN_SCOPE,
         accepted_assertions=[assertion],
     )
+
+
+def _matching_edges(graph) -> list[Any]:
+    return [
+        edge
+        for edge in graph.edges.values()
+        if edge.source_node_id == EVENT_ID
+        and edge.target_node_id == MIREWARD_ID
+        and edge.predicate == "occurred_at"
+    ]
+
+
 def run_spike(root: Path) -> dict[str, Any]:
-    """Run the isolated graph-only proof and return its inspected summary."""
+    """Diagnose heterogeneous graph-native provenance support behavior."""
     if root.exists():
         raise FileExistsError(f"output root already exists: {root}")
     baseline = kernel.publish_world_revision(
@@ -136,7 +157,7 @@ def run_spike(root: Path) -> dict[str, Any]:
         load_union_supergraph_store(DEFAULT_FIXTURE_PATH),
         operation_ids=["pr006a:baseline"],
     )
-    contribution_a, contribution_b, mireward = _contributions()
+    contribution_a, contribution_b, mireward_a, mireward_b = _contributions()
     merged_a = kernel.merge_contribution_to_revision(
         root,
         world_id=WORLD_ID,
@@ -150,14 +171,9 @@ def run_spike(root: Path) -> dict[str, Any]:
         expected_parent_revision_id=merged_a.revision_id,
     )
     head, revision, graph = kernel.open_current_world_graph(root, WORLD_ID)
-    support = graph.assertion_support[mireward.assertion_id]
-    matching_edges = [
-        edge
-        for edge in graph.edges.values()
-        if edge.source_node_id == EVENT_ID
-        and edge.target_node_id == MIREWARD_ID
-        and edge.predicate == "occurred_at"
-    ]
+    support_a = graph.assertion_support[mireward_a.assertion_id]
+    support_b = graph.assertion_support[mireward_b.assertion_id]
+    matching_edges = _matching_edges(graph)
     if (
         not merged_a.published
         or not merged_b.published
@@ -165,15 +181,10 @@ def run_spike(root: Path) -> dict[str, Any]:
         or EVENT_ID not in graph.nodes
         or len(matching_edges) != 1
         or matching_edges[0].session_ids != ["session-23"]
-        or set(support["active_contribution_ids"])
-        != {contribution_a.contribution_id, contribution_b.contribution_id}
-        or set(support["source_artifact_ids"])
-        != {
-            "graph-native:pr006a:support-a",
-            "graph-native:pr006a:support-b",
-        }
+        or support_a["active_contribution_ids"] != [contribution_a.contribution_id]
+        or support_b["active_contribution_ids"] != [contribution_b.contribution_id]
     ):
-        raise AssertionError("valid graph-native union guarantees failed")
+        raise AssertionError("heterogeneous provenance diagnostic failed")
 
     world_health = kernel.build_world_integrity_report(root, WORLD_ID)
     contribution_health = kernel.build_contribution_integrity_report(
@@ -193,12 +204,13 @@ def run_spike(root: Path) -> dict[str, Any]:
     )
     final_head, final_revision, final_graph = kernel.open_current_world_graph(root, WORLD_ID)
     failed_health = kernel.build_contribution_integrity_report(root, world_id=WORLD_ID)
+    final_edges = _matching_edges(final_graph)
     if (
         failed.published
         or final_head.head_revision_id != head.head_revision_id
         or final_revision.revision_id != revision.revision_id
         or MIREWARD_ID not in final_graph.nodes
-        or len(matching_edges) != 1
+        or len(final_edges) != 1
         or failed.contribution_ids[0] not in failed_health.failed_contribution_ids
     ):
         raise AssertionError("failed contribution changed the valid head")
@@ -212,10 +224,11 @@ def run_spike(root: Path) -> dict[str, Any]:
         "contribution_b_id": contribution_b.contribution_id,
         "final_head_revision_id": final_head.head_revision_id,
         "final_parent_revision_id": final_revision.parent_revision_id,
-        "shared_mireward_assertion_id": mireward.assertion_id,
+        "mireward_assertion_ids": [mireward_a.assertion_id, mireward_b.assertion_id],
         "node_count": len(final_graph.nodes),
         "edge_count": len(final_graph.edges),
-        "shared_support": support,
+        "heterogeneous_provenance_support_split": True,
+        "mireward_support_records": [support_a, support_b],
         "failed_contribution_id": failed.contribution_ids[0],
         "world_integrity": {
             "load_ok": world_health.load_ok,

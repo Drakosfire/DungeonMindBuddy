@@ -12,13 +12,17 @@ import graph_memory.kernel as kernel
 
 
 def test_graph_native_contributions_union_and_rebuild(tmp_path) -> None:
-    contribution_a, contribution_b, mireward = _contributions()
-    assert mireward.assertion_id == contribution_b.accepted_assertions[0].assertion_id
+    contribution_a, contribution_b, mireward_a, mireward_b = _contributions()
+    assert mireward_a.assertion_id != mireward_b.assertion_id
     assert contribution_a.contribution_id != contribution_b.contribution_id
 
     summary = run_spike(tmp_path / "spike")
     head, revision, graph = kernel.open_current_world_graph(tmp_path / "spike", WORLD_ID)
-    support = graph.assertion_support[mireward.assertion_id]
+    supports = [
+        support
+        for support in graph.assertion_support.values()
+        if support["graph_object_id"] == MIREWARD_ID
+    ]
     edges = [
         edge
         for edge in graph.edges.values()
@@ -31,13 +35,12 @@ def test_graph_native_contributions_union_and_rebuild(tmp_path) -> None:
     )
 
     assert list(graph.nodes).count(MIREWARD_ID) == 1
-    assert {contribution_a.contribution_id, contribution_b.contribution_id} == set(
-        support["active_contribution_ids"]
-    )
-    assert set(support["source_artifact_ids"]) == {
-        "graph-native:pr006a:support-a",
-        "graph-native:pr006a:support-b",
+    assert len(supports) == 2
+    assert {support["active_contribution_ids"][0] for support in supports} == {
+        contribution_a.contribution_id,
+        contribution_b.contribution_id,
     }
+    assert summary["heterogeneous_provenance_support_split"] is True
     assert len(edges) == 1
     assert edges[0].session_ids == ["session-23"]
     assert revision.revision_id == summary["final_head_revision_id"] == head.head_revision_id
