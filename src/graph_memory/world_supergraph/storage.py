@@ -204,9 +204,11 @@ def publish_world_graph_revision(
         raise ValueError("operation_ids must be non-empty")
 
     # Validate outside the lock (CPU-bound); parent CAS happens under the lock.
+    # Structural / referential only — demo density is fixture-acceptance, not
+    # incremental world-revision publish (empty baseline + contribution merges).
     payload = dump_union_supergraph_store(graph)
     try:
-        validate_union_supergraph_fixture(payload)
+        validate_union_supergraph_fixture(payload, require_density=False)
     except UnionSupergraphValidationError as exc:
         raise WorldGraphValidationError(str(exc)) from exc
 
@@ -303,7 +305,7 @@ def rollback_world_graph_head(
     # Re-validate target revision before taking the write lock.
     payload = _read_json(graph_path)
     try:
-        validate_union_supergraph_fixture(payload)
+        validate_union_supergraph_fixture(payload, require_density=False)
     except UnionSupergraphValidationError as exc:
         raise WorldGraphValidationError(str(exc)) from exc
 

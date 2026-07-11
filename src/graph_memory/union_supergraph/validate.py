@@ -43,7 +43,19 @@ def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
+def validate_union_supergraph_fixture(
+    fixture: dict[str, Any],
+    *,
+    require_density: bool = True,
+) -> dict[str, Any]:
+    """Validate a union supergraph payload.
+
+    Structural / referential checks always run. Demo-density checks (multi-domain
+    nodes, focus-session evidence/adjacency coverage) run when ``require_density``
+    is True — including for empty fixtures, so the default fixture/CLI path still
+    rejects empty graphs. World-graph publish calls with ``require_density=False``
+    so an empty baseline and incremental contribution merges remain valid.
+    """
     errors: list[str] = []
     _require(bool(fixture.get("schema")), errors, "top-level schema is required")
     _require(bool(fixture.get("version")), errors, "top-level version is required")
@@ -245,54 +257,55 @@ def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]
                     f"adjacency {node_id}[{i}] is non-focus but edge {edge_id} includes focus_session_id {focus_session_id}",
                 )
 
-    _require(
-        any(len(_as_list(node.get("source_domains"))) > 1 for node in nodes.values()),
-        errors,
-        "at least one node must have multiple source domains",
-    )
-    _require(
-        any(item.get("session_id") for item in evidence.values()),
-        errors,
-        "at least one evidence record must be session-focused",
-    )
-    _require(
-        any(item.get("session_id") == focus_session_id for item in evidence.values()),
-        errors,
-        f"at least one evidence record must match focus_session_id {focus_session_id}",
-    )
-    _require(
-        any(
-            focus_session_id in _as_list(edge.get("session_ids"))
-            for edge in edges.values()
-        ),
-        errors,
-        f"at least one edge must include focus_session_id {focus_session_id}",
-    )
-    _require(
-        any(
-            item.get("source_domain") != "recap"
-            or item.get("session_id") != focus_session_id
-            for item in evidence.values()
-        ),
-        errors,
-        "at least one evidence record must be non-recap or non-focus-session",
-    )
-    adjacency_items = [
-        item
-        for items in adjacency.values()
-        if isinstance(items, list)
-        for item in items
-    ]
-    _require(
-        any(item.get("anchored_to_focus_session") is True for item in adjacency_items),
-        errors,
-        "at least one adjacency item must be focus-session anchored",
-    )
-    _require(
-        any(item.get("anchored_to_focus_session") is False for item in adjacency_items),
-        errors,
-        "at least one adjacency item must not be focus-session anchored",
-    )
+    if require_density:
+        _require(
+            any(len(_as_list(node.get("source_domains"))) > 1 for node in nodes.values()),
+            errors,
+            "at least one node must have multiple source domains",
+        )
+        _require(
+            any(item.get("session_id") for item in evidence.values()),
+            errors,
+            "at least one evidence record must be session-focused",
+        )
+        _require(
+            any(item.get("session_id") == focus_session_id for item in evidence.values()),
+            errors,
+            f"at least one evidence record must match focus_session_id {focus_session_id}",
+        )
+        _require(
+            any(
+                focus_session_id in _as_list(edge.get("session_ids"))
+                for edge in edges.values()
+            ),
+            errors,
+            f"at least one edge must include focus_session_id {focus_session_id}",
+        )
+        _require(
+            any(
+                item.get("source_domain") != "recap"
+                or item.get("session_id") != focus_session_id
+                for item in evidence.values()
+            ),
+            errors,
+            "at least one evidence record must be non-recap or non-focus-session",
+        )
+        adjacency_items = [
+            item
+            for items in adjacency.values()
+            if isinstance(items, list)
+            for item in items
+        ]
+        _require(
+            any(item.get("anchored_to_focus_session") is True for item in adjacency_items),
+            errors,
+            "at least one adjacency item must be focus-session anchored",
+        )
+        _require(
+            any(item.get("anchored_to_focus_session") is False for item in adjacency_items),
+            errors,
+            "at least one adjacency item must not be focus-session anchored",
+        )
     diagnostics = fixture.get("diagnostics")
     _require(isinstance(diagnostics, dict), errors, "diagnostics must be a map")
     if isinstance(diagnostics, dict):

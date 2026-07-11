@@ -77,7 +77,9 @@ def build_world_graph_integrity_report(
             )
         load_ok = True
         try:
-            validate_union_supergraph_fixture(payload)
+            # Integrity uses the same structural bar as world publish; demo-density
+            # remains a fixture/acceptance concern, not a head health requirement.
+            validate_union_supergraph_fixture(payload, require_density=False)
             validation_ok = True
         except UnionSupergraphValidationError as exc:
             errors.append(str(exc))
