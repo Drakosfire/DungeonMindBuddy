@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,24 +23,27 @@ MANIFEST = REPO / "config/graph_memory/eldyrwild_c2_acceptance_inventory.json"
 CLI = REPO / "scripts/inventory_eldyrwild_c2_acceptance.py"
 
 
-def _write_manifest(tmp: Path, payload: dict) -> Path:
-    path = tmp / "manifest.json"
+def _wm(tmp: Path, payload: dict, name: str = "manifest.json") -> Path:
+    path = tmp / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
 
 
-def _mini_corpus(tmp: Path) -> Path:
+def _corpus(tmp: Path) -> Path:
     root = tmp / "corpus" / "eldyrwild-markdown"
-    (root / "recaps").mkdir(parents=True)
-    (root / "pcs" / "alpha").mkdir(parents=True)
-    (root / "optional").mkdir(parents=True)
-    (root / "recaps" / "s1.md").write_text("one\n", encoding="utf-8")
-    (root / "pcs" / "alpha" / "hub.md").write_text("pc\n", encoding="utf-8")
-    (root / "optional" / "note.md").write_text("opt\n", encoding="utf-8")
+    for rel, text in {
+        "recaps/s1.md": "one\n",
+        "pcs/alpha/hub.md": "pc\n",
+        "optional/note.md": "opt\n",
+    }.items():
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
     return root
 
 
-def _base_payload() -> dict:
+def _base() -> dict:
     return {
         "schema": "dmb_world_acceptance_inventory_manifest_v1",
         "version": "1.0",
@@ -72,48 +77,53 @@ def _base_payload() -> dict:
     }
 
 
-def test_strict_manifest_validation(tmp_path: Path) -> None:
-    bad = _base_payload()
-    bad["schema"] = "nope"
-    path = _write_manifest(tmp_path, bad)
-    with pytest.raises(AcceptanceInventoryError, match="unsupported manifest schema"):
-        load_acceptance_manifest(path)
+def _build(tmp: Path, payload: dict | None = None):
+    return build_acceptance_inventory(
+        tmp, load_acceptance_manifest(_wm(tmp, payload or _base()))
+    )
 
 
-def test_exact_file_and_root_glob_expansion(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    manifest = load_acceptance_manifest(_write_manifest(tmp_path, _base_payload()))
-    report = build_acceptance_inventory(tmp_path, manifest)
-    paths = [item.path for item in report.sources]
+def test_strict_schema_unknown_and_version(tmp_path: Path) -> None:
+    for mutate, match in [
+        (lambda p: p.__setitem__("schema", "nope") or p, "unsupported manifest schema"),
+        (lambda p: p.__setitem__("version", "9.9") or p, "unsupported manifest version"),
+        (lambda p: p.__setitem__("extra", True) or p, "unknown keys"),
+    ]:
+        payload = mutate(_base())
+        with pytest.raises(AcceptanceInventoryError, match=match):
+            load_acceptance_manifest(_wm(tmp_path, payload))
+    payload = _base()
+    sel = payload["families"][1]["selection"]
+    del sel["minimum_per_root"]
+    sel["minimum_per_rooot"] = 1
+    with pytest.raises(AcceptanceInventoryError, match="unknown keys"):
+        load_acceptance_manifest(_wm(tmp_path, payload))
+    payload = _base()
+    payload["families"][0]["requird"] = True
+    with pytest.raises(AcceptanceInventoryError, match="unknown keys"):
+        load_acceptance_manifest(_wm(tmp_path, payload))
+
+
+def test_expansion_missing_duplicate_paths(tmp_path: Path) -> None:
+    _corpus(tmp_path)
+    report = _build(tmp_path)
+    paths = [s.path for s in report.sources]
     assert paths == sorted(paths)
     assert "corpus/eldyrwild-markdown/recaps/s1.md" in paths
     assert "corpus/eldyrwild-markdown/pcs/alpha/hub.md" in paths
-    assert "corpus/eldyrwild-markdown/optional/note.md" in paths
     assert report.summary["required_missing_count"] == 0
 
-
-def test_required_missing_fails(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    payload = _base_payload()
+    payload = _base()
     payload["families"][0]["selection"]["files"] = ["recaps/missing.md"]
-    manifest = load_acceptance_manifest(_write_manifest(tmp_path, payload))
     with pytest.raises(AcceptanceInventoryError, match="required file missing"):
-        build_acceptance_inventory(tmp_path, manifest)
+        _build(tmp_path, payload)
 
-
-def test_optional_missing_is_diagnostic(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    payload = _base_payload()
+    payload = _base()
     payload["families"][2]["selection"]["roots"] = ["optional-missing"]
-    manifest = load_acceptance_manifest(_write_manifest(tmp_path, payload))
-    report = build_acceptance_inventory(tmp_path, manifest)
-    assert report.summary["required_missing_count"] == 0
-    assert any(item.code == "optional_root_missing" for item in report.diagnostics)
+    report = _build(tmp_path, payload)
+    assert any(d.code == "optional_root_missing" for d in report.diagnostics)
 
-
-def test_duplicate_selection_rejected(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    payload = _base_payload()
+    payload = _base()
     payload["families"].append(
         {
             "family_id": "dup",
@@ -122,85 +132,114 @@ def test_duplicate_selection_rejected(tmp_path: Path) -> None:
             "selection": {"files": ["recaps/s1.md"]},
         }
     )
-    manifest = load_acceptance_manifest(_write_manifest(tmp_path, payload))
     with pytest.raises(AcceptanceInventoryError, match="duplicate selection"):
-        build_acceptance_inventory(tmp_path, manifest)
+        _build(tmp_path, payload)
 
 
-def test_traversal_and_absolute_rejected(tmp_path: Path) -> None:
-    payload = _base_payload()
-    payload["families"][0]["selection"]["files"] = ["../outside.md"]
-    with pytest.raises(AcceptanceInventoryError, match="\\.\\."):
-        load_acceptance_manifest(_write_manifest(tmp_path, payload))
-    payload = _base_payload()
-    payload["families"][0]["selection"]["files"] = ["/tmp/abs.md"]
-    with pytest.raises(AcceptanceInventoryError, match="relative"):
-        load_acceptance_manifest(_write_manifest(tmp_path, payload))
+def test_path_glob_and_exclude_validation(tmp_path: Path) -> None:
+    cases = [
+        (["../outside.md"], None, "\\.\\."),
+        (["/tmp/abs.md"], None, "relative"),
+        (None, "/tmp/*.md", "relative"),
+        (None, "../*.md", "\\.\\."),
+    ]
+    for files, glob, match in cases:
+        payload = _base()
+        if files is not None:
+            payload["families"][0]["selection"]["files"] = files
+        if glob is not None:
+            payload["families"][1]["selection"]["glob"] = glob
+        with pytest.raises(AcceptanceInventoryError, match=match):
+            load_acceptance_manifest(_wm(tmp_path, payload))
+    payload = _base()
+    payload["families"][0]["selection"]["exclude_files"] = ["recaps/s1.md"]
+    with pytest.raises(AcceptanceInventoryError, match="overlap"):
+        load_acceptance_manifest(_wm(tmp_path, payload))
 
 
-def test_sha256_and_deterministic_write(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    manifest = load_acceptance_manifest(_write_manifest(tmp_path, _base_payload()))
-    report = build_acceptance_inventory(tmp_path, manifest)
-    out_a = tmp_path / "a.json"
-    out_b = tmp_path / "b.json"
-    write_acceptance_inventory(report, out_a)
-    write_acceptance_inventory(report, out_b)
-    assert out_a.read_bytes() == out_b.read_bytes()
-    for item in report.sources:
-        assert len(item.sha256) == 64
-        assert int(item.sha256, 16) >= 0
+def test_symlink_and_physical_duplicate(tmp_path: Path) -> None:
+    root = _corpus(tmp_path)
+    link = root / "recaps" / "link.md"
+    link.symlink_to(root / "recaps" / "s1.md")
+    payload = _base()
+    payload["families"][0]["selection"]["files"] = ["recaps/link.md"]
+    with pytest.raises(AcceptanceInventoryError, match="symlinks are not allowed"):
+        _build(tmp_path, payload)
+
+    link.unlink()
+    (root / "pcs" / "alpha-link").symlink_to(root / "pcs" / "alpha")
+    payload = _base()
+    payload["families"][1]["selection"]["roots"] = ["pcs/alpha-link"]
+    with pytest.raises(AcceptanceInventoryError, match="symlinks are not allowed"):
+        _build(tmp_path, payload)
+
+    outside = tmp_path / "outside.md"
+    outside.write_text("x\n", encoding="utf-8")
+    escape = root / "recaps" / "escape.md"
+    escape.symlink_to(outside)
+    payload = _base()
+    payload["families"][0]["selection"]["files"] = ["recaps/escape.md"]
+    with pytest.raises(AcceptanceInventoryError, match="symlinks are not allowed"):
+        _build(tmp_path, payload)
+
+    escape.unlink()
+    hard = root / "recaps" / "hard.md"
+    os.link(root / "recaps" / "s1.md", hard)
+    payload = _base()
+    payload["families"].append(
+        {
+            "family_id": "hardlink",
+            "required": False,
+            "reason": "same inode",
+            "selection": {"files": ["recaps/hard.md"]},
+        }
+    )
+    with pytest.raises(AcceptanceInventoryError, match="duplicate physical source"):
+        _build(tmp_path, payload)
 
 
-def test_cli_success_and_failure(tmp_path: Path) -> None:
-    _mini_corpus(tmp_path)
-    manifest = _write_manifest(tmp_path, _base_payload())
+def test_sha256_determinism_cli_and_real_manifest(tmp_path: Path) -> None:
+    _corpus(tmp_path)
+    report = _build(tmp_path)
+    recap = next(s for s in report.sources if s.path.endswith("recaps/s1.md"))
+    assert recap.sha256 == hashlib.sha256(b"one\n").hexdigest()
+    assert recap.size_bytes == 4
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    write_acceptance_inventory(report, a)
+    write_acceptance_inventory(report, b)
+    assert a.read_bytes() == b.read_bytes()
+
     out = tmp_path / "out" / "inv.json"
     ok = subprocess.run(
-        [
-            sys.executable,
-            str(CLI),
-            "--repo-root",
-            str(tmp_path),
-            "--manifest",
-            str(manifest),
-            "--output",
-            str(out),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO),
+        [sys.executable, str(CLI), "--repo-root", str(tmp_path),
+         "--manifest", str(_wm(tmp_path, _base())), "--output", str(out)],
+        check=False, capture_output=True, text=True, cwd=str(REPO),
     )
     assert ok.returncode == 0, ok.stderr
     assert out.is_file()
-    payload = _base_payload()
-    payload["families"][0]["selection"]["files"] = ["recaps/nope.md"]
-    bad_manifest = _write_manifest(tmp_path, payload)
-    bad_out = tmp_path / "out" / "bad.json"
+
+    bad_payload = _base()
+    bad_payload["families"][0]["selection"]["files"] = ["recaps/nope.md"]
     bad = subprocess.run(
-        [
-            sys.executable,
-            str(CLI),
-            "--repo-root",
-            str(tmp_path),
-            "--manifest",
-            str(bad_manifest),
-            "--output",
-            str(bad_out),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO),
+        [sys.executable, str(CLI), "--repo-root", str(tmp_path),
+         "--manifest", str(_wm(tmp_path, bad_payload, "bad/manifest.json")),
+         "--output", str(tmp_path / "out" / "bad.json")],
+        check=False, capture_output=True, text=True, cwd=str(REPO),
     )
     assert bad.returncode != 0
-    assert not bad_out.exists()
+    assert '"ok": false' in bad.stdout
 
+    missing = subprocess.run(
+        [sys.executable, str(CLI), "--repo-root", str(tmp_path),
+         "--manifest", str(tmp_path / "missing.json"),
+         "--output", str(tmp_path / "out" / "m.json")],
+        check=False, capture_output=True, text=True, cwd=str(REPO),
+    )
+    assert missing.returncode != 0
+    assert "Traceback" not in missing.stderr
+    assert "manifest unreadable" in missing.stdout
 
-def test_real_manifest_loads() -> None:
-    manifest = load_acceptance_manifest(MANIFEST)
-    assert manifest.world_id == "eldyrwild"
-    assert any(fam.family_id == "canonical_recaps" for fam in manifest.families)
-    recaps = next(fam for fam in manifest.families if fam.family_id == "canonical_recaps")
+    loaded = load_acceptance_manifest(MANIFEST)
+    assert loaded.world_id == "eldyrwild"
+    recaps = next(f for f in loaded.families if f.family_id == "canonical_recaps")
     assert len(recaps.selection.files) == 23

@@ -1,7 +1,4 @@
-"""Deterministic, read-only Eldyrwild C2 acceptance-corpus inventory.
-
-Selects and hashes source artifacts. Does not extract, contribute, or publish.
-"""
+"""Deterministic, read-only Eldyrwild C2 acceptance-corpus inventory."""
 
 from __future__ import annotations
 
@@ -12,8 +9,16 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
 MANIFEST_SCHEMA = "dmb_world_acceptance_inventory_manifest_v1"
+MANIFEST_VERSION = "1.0"
 REPORT_SCHEMA = "dmb_world_acceptance_inventory_v1"
 REPORT_VERSION = "1.0"
+_MANIFEST_KEYS = frozenset(
+    {"schema", "version", "world_id", "campaign_id", "corpus_root", "families"}
+)
+_FAMILY_KEYS = frozenset({"family_id", "required", "reason", "selection"})
+_SELECTION_KEYS = frozenset(
+    {"files", "roots", "glob", "minimum_per_root", "exclude_files"}
+)
 
 
 class AcceptanceInventoryError(ValueError):
@@ -89,9 +94,9 @@ class AcceptanceInventoryReport:
             "corpus_root": self.corpus_root,
             "manifest_sha256": self.manifest_sha256,
             "summary": dict(self.summary),
-            "families": [dict(item) for item in self.families],
-            "sources": [asdict(item) for item in self.sources],
-            "diagnostics": [asdict(item) for item in self.diagnostics],
+            "families": [dict(x) for x in self.families],
+            "sources": [asdict(x) for x in self.sources],
+            "diagnostics": [asdict(x) for x in self.diagnostics],
         }
 
 
@@ -99,136 +104,182 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _sha256_file(path: Path) -> tuple[str, int]:
-    data = path.read_bytes()
-    return _sha256_bytes(data), len(data)
+def _fail(msg: str) -> None:
+    raise AcceptanceInventoryError(msg)
 
 
-def _require_mapping(value: Any, label: str) -> Mapping[str, Any]:
+def _reject_unknown(data: Mapping[str, Any], allowed: frozenset[str], label: str) -> None:
+    unknown = sorted(set(data) - allowed)
+    if unknown:
+        _fail(f"{label} has unknown keys: {unknown}")
+
+
+def _req_map(value: Any, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
-        raise AcceptanceInventoryError(f"{label} must be an object")
+        _fail(f"{label} must be an object")
     return value
 
 
-def _require_str(value: Any, label: str) -> str:
+def _req_str(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise AcceptanceInventoryError(f"{label} must be a non-empty string")
+        _fail(f"{label} must be a non-empty string")
     return value
 
 
-def _require_bool(value: Any, label: str) -> bool:
+def _req_bool(value: Any, label: str) -> bool:
     if not isinstance(value, bool):
-        raise AcceptanceInventoryError(f"{label} must be a boolean")
+        _fail(f"{label} must be a boolean")
     return value
 
 
-def _require_str_list(value: Any, label: str) -> tuple[str, ...]:
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise AcceptanceInventoryError(f"{label} must be a list of strings")
+def _req_str_list(value: Any, label: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(i, str) for i in value):
+        _fail(f"{label} must be a list of strings")
     return tuple(value)
 
 
 def _posix_rel(path: str, label: str) -> str:
-    text = _require_str(path, label).replace("\\", "/")
-    if text.startswith("/") or PurePosixPath(text).is_absolute():
-        raise AcceptanceInventoryError(f"{label} must be relative: {path!r}")
-    if ".." in PurePosixPath(text).parts:
-        raise AcceptanceInventoryError(f"{label} must not contain '..': {path!r}")
+    text = _req_str(path, label).replace("\\", "/")
+    pure = PurePosixPath(text)
+    if text.startswith("/") or pure.is_absolute():
+        _fail(f"{label} must be relative: {path!r}")
+    if ".." in pure.parts:
+        _fail(f"{label} must not contain '..': {path!r}")
     return text
 
 
+def _validate_glob(glob: str, label: str) -> str:
+    if not isinstance(glob, str) or not glob.strip():
+        _fail(f"{label} must be a non-empty string")
+    text = glob.replace("\\", "/")
+    pure = PurePosixPath(text)
+    if text.startswith("/") or pure.is_absolute():
+        _fail(f"{label} must be relative: {glob!r}")
+    if ".." in pure.parts:
+        _fail(f"{label} must not contain '..': {glob!r}")
+    return glob
+
+
 def _parse_selection(raw: Mapping[str, Any], family_id: str) -> FamilySelection:
-    files = _require_str_list(raw.get("files", []), f"{family_id}.selection.files")
-    roots = _require_str_list(raw.get("roots", []), f"{family_id}.selection.roots")
-    exclude_files = _require_str_list(
+    _reject_unknown(raw, _SELECTION_KEYS, f"{family_id}.selection")
+    files = _req_str_list(raw.get("files", []), f"{family_id}.selection.files")
+    roots = _req_str_list(raw.get("roots", []), f"{family_id}.selection.roots")
+    exclude = _req_str_list(
         raw.get("exclude_files", []), f"{family_id}.selection.exclude_files"
     )
-    glob = raw.get("glob", "**/*.md")
-    if not isinstance(glob, str) or not glob:
-        raise AcceptanceInventoryError(f"{family_id}.selection.glob must be a string")
+    glob = _validate_glob(raw.get("glob", "**/*.md"), f"{family_id}.selection.glob")
     minimum = raw.get("minimum_per_root", 0)
     if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 0:
-        raise AcceptanceInventoryError(
-            f"{family_id}.selection.minimum_per_root must be a non-negative int"
-        )
+        _fail(f"{family_id}.selection.minimum_per_root must be a non-negative int")
     if not files and not roots:
-        raise AcceptanceInventoryError(
-            f"{family_id}.selection must include files and/or roots"
-        )
+        _fail(f"{family_id}.selection must include files and/or roots")
+    files_t = tuple(_posix_rel(i, f"{family_id}.selection.files") for i in files)
+    excl_t = tuple(_posix_rel(i, f"{family_id}.selection.exclude_files") for i in exclude)
+    overlap = sorted(set(files_t) & set(excl_t))
+    if overlap:
+        _fail(f"{family_id}.selection files/exclude_files overlap: {overlap}")
     return FamilySelection(
-        files=tuple(_posix_rel(item, f"{family_id}.selection.files") for item in files),
-        roots=tuple(_posix_rel(item, f"{family_id}.selection.roots") for item in roots),
+        files=files_t,
+        roots=tuple(_posix_rel(i, f"{family_id}.selection.roots") for i in roots),
         glob=glob,
         minimum_per_root=minimum,
-        exclude_files=tuple(
-            _posix_rel(item, f"{family_id}.selection.exclude_files")
-            for item in exclude_files
-        ),
+        exclude_files=excl_t,
     )
 
 
 def load_acceptance_manifest(path: Path) -> AcceptanceInventoryManifest:
-    raw_text = path.read_bytes()
     try:
+        raw_text = path.read_bytes()
         payload = json.loads(raw_text.decode("utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except OSError as exc:
+        raise AcceptanceInventoryError(f"manifest unreadable: {path}") from exc
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise AcceptanceInventoryError(f"invalid manifest JSON: {path}") from exc
-    data = _require_mapping(payload, "manifest")
-    schema = _require_str(data.get("schema"), "schema")
+    data = _req_map(payload, "manifest")
+    _reject_unknown(data, _MANIFEST_KEYS, "manifest")
+    schema = _req_str(data.get("schema"), "schema")
     if schema != MANIFEST_SCHEMA:
-        raise AcceptanceInventoryError(f"unsupported manifest schema: {schema!r}")
+        _fail(f"unsupported manifest schema: {schema!r}")
+    version = _req_str(data.get("version"), "version")
+    if version != MANIFEST_VERSION:
+        _fail(f"unsupported manifest version: {version!r}")
     families_raw = data.get("families")
     if not isinstance(families_raw, list) or not families_raw:
-        raise AcceptanceInventoryError("families must be a non-empty list")
+        _fail("families must be a non-empty list")
     families: list[ManifestFamily] = []
-    seen_ids: set[str] = set()
+    seen: set[str] = set()
     for index, item in enumerate(families_raw):
-        fam = _require_mapping(item, f"families[{index}]")
-        family_id = _require_str(fam.get("family_id"), f"families[{index}].family_id")
-        if family_id in seen_ids:
-            raise AcceptanceInventoryError(f"duplicate family_id: {family_id}")
-        seen_ids.add(family_id)
-        selection = _parse_selection(
-            _require_mapping(fam.get("selection"), f"{family_id}.selection"),
-            family_id,
-        )
+        fam = _req_map(item, f"families[{index}]")
+        _reject_unknown(fam, _FAMILY_KEYS, f"families[{index}]")
+        family_id = _req_str(fam.get("family_id"), f"families[{index}].family_id")
+        if family_id in seen:
+            _fail(f"duplicate family_id: {family_id}")
+        seen.add(family_id)
         families.append(
             ManifestFamily(
                 family_id=family_id,
-                required=_require_bool(fam.get("required"), f"{family_id}.required"),
-                reason=_require_str(fam.get("reason"), f"{family_id}.reason"),
-                selection=selection,
+                required=_req_bool(fam.get("required"), f"{family_id}.required"),
+                reason=_req_str(fam.get("reason"), f"{family_id}.reason"),
+                selection=_parse_selection(
+                    _req_map(fam.get("selection"), f"{family_id}.selection"), family_id
+                ),
             )
         )
     return AcceptanceInventoryManifest(
         schema=schema,
-        version=_require_str(data.get("version"), "version"),
-        world_id=_require_str(data.get("world_id"), "world_id"),
-        campaign_id=_require_str(data.get("campaign_id"), "campaign_id"),
-        corpus_root=_posix_rel(
-            _require_str(data.get("corpus_root"), "corpus_root"), "corpus_root"
-        ),
+        version=version,
+        world_id=_req_str(data.get("world_id"), "world_id"),
+        campaign_id=_req_str(data.get("campaign_id"), "campaign_id"),
+        corpus_root=_posix_rel(_req_str(data.get("corpus_root"), "corpus_root"), "corpus_root"),
         families=tuple(families),
         manifest_path=path.resolve(),
         manifest_sha256=_sha256_bytes(raw_text),
     )
 
 
-def _confined_path(corpus_root: Path, rel: str) -> Path:
-    candidate = (corpus_root / rel).resolve()
+def _no_symlink_components(base: Path, rel: str) -> Path:
+    cursor = base
+    for part in PurePosixPath(rel).parts:
+        cursor = cursor / part
+        try:
+            if cursor.is_symlink():
+                _fail(f"symlinks are not allowed: {rel!r}")
+        except OSError as exc:
+            raise AcceptanceInventoryError(f"path unreadable: {rel!r}") from exc
+    return cursor
+
+
+def _confined(corpus_root: Path, rel: str) -> Path:
+    unresolved = _no_symlink_components(corpus_root, rel)
     try:
+        candidate = unresolved.resolve(strict=False)
         candidate.relative_to(corpus_root.resolve())
     except ValueError as exc:
-        raise AcceptanceInventoryError(
-            f"path escapes corpus root: {rel!r}"
-        ) from exc
-    if candidate.is_symlink():
-        raise AcceptanceInventoryError(f"symlinks are not allowed: {rel!r}")
+        raise AcceptanceInventoryError(f"path escapes corpus root: {rel!r}") from exc
     return candidate
 
 
-def _repo_rel(repo_root: Path, path: Path) -> str:
-    return path.resolve().relative_to(repo_root.resolve()).as_posix()
+def _phys(path: Path) -> str:
+    st = path.stat()
+    return f"{st.st_dev}:{st.st_ino}"
+
+
+def _claim(
+    claimed_rel: dict[str, str],
+    claimed_phys: dict[str, str],
+    rel: str,
+    phys: str,
+    family_id: str,
+) -> None:
+    if rel in claimed_rel:
+        _fail(f"duplicate selection for {rel!r}: {claimed_rel[rel]} and {family_id}")
+    if phys in claimed_phys:
+        _fail(
+            f"duplicate physical source for {rel!r}: "
+            f"{claimed_phys[phys]} and {family_id}"
+        )
+    claimed_rel[rel] = family_id
+    claimed_phys[phys] = family_id
 
 
 def _expand_family(
@@ -236,167 +287,134 @@ def _expand_family(
     repo_root: Path,
     corpus_root: Path,
     family: ManifestFamily,
-    claimed: dict[str, str],
+    claimed_rel: dict[str, str],
+    claimed_phys: dict[str, str],
     diagnostics: list[InventoryDiagnostic],
 ) -> list[InventorySource]:
-    selection = family.selection
-    exclude = set(selection.exclude_files)
-    selected_rels: list[str] = []
+    sel = family.selection
+    exclude = set(sel.exclude_files)
+    selected: list[str] = []
+    corpus_res = corpus_root.resolve()
+    fid = family.family_id
 
-    for rel in selection.files:
-        if rel in exclude:
-            continue
-        abs_path = _confined_path(corpus_root, rel)
+    for rel in sel.files:
+        abs_path = _confined(corpus_root, rel)
         if not abs_path.is_file():
+            code = "required_file_missing" if family.required else "optional_file_missing"
             diagnostics.append(
-                InventoryDiagnostic(
-                    code="required_file_missing"
-                    if family.required
-                    else "optional_file_missing",
-                    message=f"selected file missing: {rel}",
-                    family_id=family.family_id,
-                    path=rel,
-                )
+                InventoryDiagnostic(code, f"selected file missing: {rel}", fid, rel)
             )
             if family.required:
-                raise AcceptanceInventoryError(
-                    f"required file missing for {family.family_id}: {rel}"
-                )
+                _fail(f"required file missing for {fid}: {rel}")
             continue
-        selected_rels.append(rel)
+        selected.append(rel)
 
-    for root_rel in selection.roots:
-        root_abs = _confined_path(corpus_root, root_rel)
+    for root_rel in sel.roots:
+        root_abs = _confined(corpus_root, root_rel)
         if not root_abs.exists():
+            code = "required_root_missing" if family.required else "optional_root_missing"
             diagnostics.append(
-                InventoryDiagnostic(
-                    code="required_root_missing"
-                    if family.required
-                    else "optional_root_missing",
-                    message=f"selected root missing: {root_rel}",
-                    family_id=family.family_id,
-                    path=root_rel,
-                )
+                InventoryDiagnostic(code, f"selected root missing: {root_rel}", fid, root_rel)
             )
             if family.required:
-                raise AcceptanceInventoryError(
-                    f"required root missing for {family.family_id}: {root_rel}"
-                )
+                _fail(f"required root missing for {fid}: {root_rel}")
             continue
         if not root_abs.is_dir():
-            raise AcceptanceInventoryError(
-                f"selection root is not a directory: {root_rel}"
-            )
-        matched = sorted(
-            path
-            for path in root_abs.glob(selection.glob)
-            if path.is_file() and not path.is_symlink()
-        )
+            _fail(f"selection root is not a directory: {root_rel}")
+        root_res = root_abs.resolve()
         root_rels: list[str] = []
-        for path in matched:
+        for path in sorted(p for p in root_abs.glob(sel.glob) if p.is_file()):
+            under = path.relative_to(root_abs).as_posix()
+            _no_symlink_components(root_abs, under)
             try:
-                rel = path.resolve().relative_to(corpus_root.resolve()).as_posix()
+                resolved = path.resolve()
+                resolved.relative_to(root_res)
+                rel = resolved.relative_to(corpus_res).as_posix()
             except ValueError as exc:
                 raise AcceptanceInventoryError(
-                    f"glob match escapes corpus root under {root_rel}"
+                    f"glob match escapes selection root or corpus under {root_rel}"
                 ) from exc
-            if rel in exclude:
-                continue
-            root_rels.append(rel)
-        if family.required and len(root_rels) < selection.minimum_per_root:
+            if rel not in exclude:
+                root_rels.append(rel)
+        if family.required and len(root_rels) < sel.minimum_per_root:
             diagnostics.append(
                 InventoryDiagnostic(
-                    code="required_root_below_minimum",
-                    message=(
-                        f"root {root_rel} matched {len(root_rels)} files; "
-                        f"minimum_per_root={selection.minimum_per_root}"
-                    ),
-                    family_id=family.family_id,
-                    path=root_rel,
+                    "required_root_below_minimum",
+                    f"root {root_rel} matched {len(root_rels)}; "
+                    f"minimum_per_root={sel.minimum_per_root}",
+                    fid,
+                    root_rel,
                 )
             )
-            raise AcceptanceInventoryError(
-                f"required root below minimum for {family.family_id}: {root_rel}"
-            )
+            _fail(f"required root below minimum for {fid}: {root_rel}")
         if not family.required and not root_rels:
             diagnostics.append(
                 InventoryDiagnostic(
-                    code="optional_root_empty",
-                    message=f"optional root empty or unmatched: {root_rel}",
-                    family_id=family.family_id,
-                    path=root_rel,
+                    "optional_root_empty",
+                    f"optional root empty or unmatched: {root_rel}",
+                    fid,
+                    root_rel,
                 )
             )
-        selected_rels.extend(root_rels)
+        selected.extend(root_rels)
 
     sources: list[InventorySource] = []
-    for rel in selected_rels:
-        if rel in claimed:
-            raise AcceptanceInventoryError(
-                f"duplicate selection for {rel!r}: "
-                f"{claimed[rel]} and {family.family_id}"
-            )
-        abs_path = _confined_path(corpus_root, rel)
-        digest, size = _sha256_file(abs_path)
-        repo_path = _repo_rel(repo_root, abs_path)
-        claimed[rel] = family.family_id
+    for rel in selected:
+        abs_path = _confined(corpus_root, rel)
+        data = abs_path.read_bytes()
+        _claim(claimed_rel, claimed_phys, rel, _phys(abs_path), fid)
         sources.append(
             InventorySource(
-                path=repo_path,
-                family_id=family.family_id,
+                path=abs_path.resolve().relative_to(repo_root.resolve()).as_posix(),
+                family_id=fid,
                 required=family.required,
                 selection_reason=family.reason,
-                sha256=digest,
-                size_bytes=size,
+                sha256=_sha256_bytes(data),
+                size_bytes=len(data),
             )
         )
-    sources.sort(key=lambda item: item.path)
+    sources.sort(key=lambda s: s.path)
     return sources
 
 
 def build_acceptance_inventory(
-    repo_root: Path,
-    manifest: AcceptanceInventoryManifest,
+    repo_root: Path, manifest: AcceptanceInventoryManifest
 ) -> AcceptanceInventoryReport:
     repo_root = repo_root.resolve()
-    corpus_root = _confined_path(repo_root, manifest.corpus_root)
+    corpus_root = _confined(repo_root, manifest.corpus_root)
     if not corpus_root.is_dir():
-        raise AcceptanceInventoryError(
-            f"corpus_root is not a directory: {manifest.corpus_root}"
-        )
-
+        _fail(f"corpus_root is not a directory: {manifest.corpus_root}")
     diagnostics: list[InventoryDiagnostic] = []
-    claimed: dict[str, str] = {}
+    claimed_rel: dict[str, str] = {}
+    claimed_phys: dict[str, str] = {}
     all_sources: list[InventorySource] = []
     family_summaries: list[dict[str, Any]] = []
-
     for family in manifest.families:
-        family_sources = _expand_family(
+        fam_sources = _expand_family(
             repo_root=repo_root,
             corpus_root=corpus_root,
             family=family,
-            claimed=claimed,
+            claimed_rel=claimed_rel,
+            claimed_phys=claimed_phys,
             diagnostics=diagnostics,
         )
-        all_sources.extend(family_sources)
+        all_sources.extend(fam_sources)
         family_summaries.append(
             {
                 "family_id": family.family_id,
                 "required": family.required,
                 "reason": family.reason,
-                "source_count": len(family_sources),
+                "source_count": len(fam_sources),
             }
         )
-
-    all_sources.sort(key=lambda item: item.path)
-    required_missing = sum(
-        1 for item in diagnostics if item.code.startswith("required_")
-    )
+    all_sources.sort(key=lambda s: s.path)
     summary = {
         "source_count": len(all_sources),
-        "required_source_count": sum(1 for item in all_sources if item.required),
-        "optional_source_count": sum(1 for item in all_sources if not item.required),
-        "required_missing_count": required_missing,
+        "required_source_count": sum(1 for s in all_sources if s.required),
+        "optional_source_count": sum(1 for s in all_sources if not s.required),
+        "required_missing_count": sum(
+            1 for d in diagnostics if d.code.startswith("required_")
+        ),
         "diagnostic_count": len(diagnostics),
     }
     return AcceptanceInventoryReport(
@@ -418,7 +436,6 @@ def write_acceptance_inventory(
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(report.to_dict(), indent=2, sort_keys=False, ensure_ascii=True)
-    # Stable trailing newline for byte-identical repeats.
     output_path.write_text(payload + "\n", encoding="utf-8")
 
 
