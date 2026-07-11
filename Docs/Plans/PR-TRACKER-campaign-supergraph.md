@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B DOING #329; PR005A DONE #328; PR006 remains blocked on PR005B)  
+**Updated:** 2026-07-11 (PR006 DOING #330; PR005B DONE #329; PR007 remains blocked on PR006)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -342,13 +342,13 @@ Required deletion PR:
 
 **Retain / rewrite / delete:** Docs only — tracker, roadmap, audit, jumpstart, superseded banners. No runtime paths.
 
-**Follow-up:** **PR005B** (Agent Tool Contract + Authored Prep Contributions) is the current docs bridge.
+**Follow-up:** **PR006** (Initial World Supergraph Materialization) is `DOING` on GitHub #330.
 
 ---
 
 ## PR005B — Agent Tool Contract + Authored Prep Contributions
 
-**Status:** `DOING` (GitHub #329)  
+**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)  
 **Phase:** 2.5 / docs bridge  
 **Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
 
@@ -391,11 +391,19 @@ Required deletion PR:
 
 ## PR006 — Initial World Supergraph Materialization
 
-**Status:** `BLOCKED` on PR005B  
+**Status:** `DOING` (GitHub #330)  
 **Phase:** 3  
 **Purpose:** Produce the first **real and representative** persistent union from the **named acceptance corpus**, and prove it before projection/Plan migration.
 
-PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Do not start PR006 before PR005B unless the operator explicitly chooses to parallelize.
+PR002–PR005 being complete means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Predecessor PR005B (#329) is merged. Implementation branch may set DOING only; post-merge doc-sync alone may mark this slice complete and unblock PR007.
+
+**Acceptance artifacts (in progress on #330):**
+
+- Manifest: `config/graph_memory/eldyrwild_c2_acceptance_manifest.json`
+- Bundle: `artifacts/graph_memory/pr006/eldyrwild-c2-source-candidate-bundle.json`
+- Machine report: `artifacts/graph_memory/pr006/eldyrwild-c2-materialization-report.json`
+- Human report: [`Docs/Reports/PR006-ELDYRWILD-C2-WORLD-MATERIALIZATION.md`](../Reports/PR006-ELDYRWILD-C2-WORLD-MATERIALIZATION.md)
+- Operator CLI: `scripts/materialize_eldyrwild_c2_world_graph.py`
 
 **Named acceptance corpus (required — not “if available”):**
 
@@ -441,7 +449,7 @@ PR002–PR005 being `DONE` means the storage / Kernel / identity / merge slices 
 
 **Non-goals:** Projection Engine; Plan UI migration; Hermes / Agent Tool Runtime; Plan encounter authoring; unbounded multi-source expansion (Phase 6); treating a synthetic multi-source fixture as this slice’s acceptance graph; optional worldbuilding.
 
-**Depends on:** PR005B (and thus PR005A). Docs-only does **not** mean optional when the tracker sequences those bridges before materialization. Operator may explicitly waive and parallelize; do not invent that waiver.
+**Depends on:** PR005B (DONE via #329) and PR005A.
 
 ---
 
