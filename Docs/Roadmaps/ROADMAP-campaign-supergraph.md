@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)  
+**Updated:** 2026-07-11 (PR006A–C split; Phase 3 inventory → contribution → publication)  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
@@ -146,15 +146,21 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 **Objective:** Produce the first **real**, **representative** persistent union from a **named acceptance corpus** — before Projection Engine and Plan migration.
 
-**Motivation:** Storage + merge APIs without a useful graph leave Plan migration circular. A multi-source fixture is not a substitute. “Real” is not the same as “representative.”
+**Motivation:** Storage + merge APIs without a useful graph leave Plan migration circular. A multi-source fixture is not a substitute. “Real” is not the same as “representative.” The closed #330/#331 monolith showed inventory, contribution conversion, and publication must ship as separate reviewable slices.
 
 **Dependencies:** Phase 2 and completion of PR005A / PR005B, unless explicitly waived by the operator. Phase 2.5 is docs/design only and must not dilute Phase 3 into tool runtime — but docs-only does **not** mean optional when the tracker sequences those bridges before materialization.
 
-**Expected PR slices:** Tracker **PR006**.
+**Expected PR slices:**
 
-**Demolition owned here:** Remove or isolate production dependence on preview union stores and named preview sources for **runtime graph availability**. Runtime must load the world graph head, not a preview fixture. Delete replaced paths in this PR unless a named consumer remains.
+- **PR006A** — Deterministic acceptance-corpus inventory (selection + hashes only)
+- **PR006B** — Canonical C2 recap sources → `GraphContribution`s via existing Kernel contracts
+- **PR006C** — Full named-corpus publication, rebuild, and coverage proof
 
-**Named acceptance corpus (normative for PR006):**
+Do **not** renumber PR007–PR012. GitHub #330/#331 were closed unmerged and are not prerequisites.
+
+**Demolition owned here:** Remove or isolate production dependence on preview union stores and named preview sources for **runtime graph availability**. Runtime must load the world graph head, not a preview fixture. Delete replaced paths in the publication slice (PR006C) unless a named consumer remains.
+
+**Named acceptance corpus (normative for PR006A–C):**
 
 | Family | Requirement |
 |---|---|
