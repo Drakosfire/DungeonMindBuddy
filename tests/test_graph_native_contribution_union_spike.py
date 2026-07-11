@@ -14,6 +14,8 @@ import graph_memory.kernel as kernel
 def test_graph_native_contributions_union_and_rebuild(tmp_path) -> None:
     contribution_a, contribution_b, mireward_a, mireward_b = _contributions()
     assert mireward_a.assertion_id != mireward_b.assertion_id
+    assert mireward_a.identity_resolution_outcome == "created_new"
+    assert mireward_b.identity_resolution_outcome == "resolved_existing"
     assert contribution_a.contribution_id != contribution_b.contribution_id
 
     summary = run_spike(tmp_path / "spike")
@@ -35,10 +37,18 @@ def test_graph_native_contributions_union_and_rebuild(tmp_path) -> None:
     )
 
     assert list(graph.nodes).count(MIREWARD_ID) == 1
+    assert set(graph.nodes[MIREWARD_ID].source_domains) == {"worldbuilding", "recap"}
     assert len(supports) == 2
     assert {support["active_contribution_ids"][0] for support in supports} == {
         contribution_a.contribution_id,
         contribution_b.contribution_id,
+    }
+    assert {
+        tuple(support["source_artifact_ids"])
+        for support in supports
+    } == {
+        ("graph-native:pr006a:support-a",),
+        ("graph-native:pr006a:support-b",),
     }
     assert summary["heterogeneous_provenance_support_split"] is True
     assert len(edges) == 1

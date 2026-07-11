@@ -21,6 +21,7 @@ def _node_assertion(
     role: str,
     source_domain: str,
     source_artifact_id: str,
+    identity_resolution_outcome: str,
 ) -> kernel.GraphContributionAssertion:
     return kernel.build_assertion(
         assertion_kind="node",
@@ -38,7 +39,7 @@ def _node_assertion(
         campaign_scope=CAMPAIGN_SCOPE,
         epistemic_kind="fact",
         visibility="gm",
-        identity_resolution_outcome="created_new",
+        identity_resolution_outcome=identity_resolution_outcome,
     )
 
 
@@ -55,6 +56,7 @@ def _contributions() -> tuple[
         role="town",
         source_domain="worldbuilding",
         source_artifact_id="graph-native:pr006a:support-a",
+        identity_resolution_outcome="created_new",
     )
     mireward_b = _node_assertion(
         node_id=MIREWARD_ID,
@@ -63,6 +65,7 @@ def _contributions() -> tuple[
         role="town",
         source_domain="recap",
         source_artifact_id="graph-native:pr006a:support-b",
+        identity_resolution_outcome="resolved_existing",
     )
     event = _node_assertion(
         node_id=EVENT_ID,
@@ -71,6 +74,7 @@ def _contributions() -> tuple[
         role="encounter",
         source_domain="recap",
         source_artifact_id="graph-native:pr006a:support-b",
+        identity_resolution_outcome="created_new",
     )
     occurred_at = kernel.build_assertion(
         assertion_kind="edge",
@@ -179,10 +183,13 @@ def run_spike(root: Path) -> dict[str, Any]:
         or not merged_b.published
         or MIREWARD_ID not in graph.nodes
         or EVENT_ID not in graph.nodes
+        or set(graph.nodes[MIREWARD_ID].source_domains) != {"worldbuilding", "recap"}
         or len(matching_edges) != 1
         or matching_edges[0].session_ids != ["session-23"]
         or support_a["active_contribution_ids"] != [contribution_a.contribution_id]
         or support_b["active_contribution_ids"] != [contribution_b.contribution_id]
+        or support_a["source_artifact_ids"] != ["graph-native:pr006a:support-a"]
+        or support_b["source_artifact_ids"] != ["graph-native:pr006a:support-b"]
     ):
         raise AssertionError("heterogeneous provenance diagnostic failed")
 

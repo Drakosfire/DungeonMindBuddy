@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006A #333 diagnoses heterogeneous-provenance support split; PR005B DONE #329)  
+**Updated:** 2026-07-11 (PR006A #333 diagnoses heterogeneous-provenance support split; PR006B schedules its Kernel repair before bundle/publication; PR005B DONE #329)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -85,8 +85,9 @@ PR005 Durable contribution merge (idempotent, retractable, rebuildable)
 PR005A Context Audit + Source Reanchor  ← docs-only bridge
 PR005B Agent Tool Contract + Authored Prep Contributions  ← docs-only bridge
 PR006A Graph-Native Contribution Union Diagnostic
-PR006B Approved Initial World Supergraph Contribution Bundle
-PR006C Publish Initial Eldyrwild C2 World Supergraph
+PR006B Separate Semantic Assertion Identity from Provenance
+PR006C Approved Initial World Supergraph Contribution Bundle
+PR006D Publish Initial Eldyrwild C2 World Supergraph
 PR007 Projection Engine (revision-pinned + admissibility)
 PR008 Plan surface migration
 PR009 Play surface migration (incl. combat lenses)
@@ -95,7 +96,7 @@ PR011 Agent Context + Tool Runtime
 PR012 Obsolete-path cleanup safety net
 ```
 
-Do **not** renumber PR007–PR012. PR006 is intentionally split into **PR006A–PR006C**. GitHub #330–#332 were closed unmerged experiments and are not active dependencies.
+Do **not** renumber PR007–PR012. PR006 is intentionally split into **PR006A–PR006D**. GitHub #330–#332 were closed unmerged experiments and are not active dependencies.
 
 ---
 
@@ -371,7 +372,7 @@ Required deletion PR:
 - Hermes memory, UI thread memory, summaries, and chat history are not campaign canon
 - Draft and planned prep are distinguishable from played and world-canon truth
 - Content packs and reusable prep artifacts have a review/confirmation path
-- Materialization remains a separate Phase 3 concern (now PR006A–C)
+- Materialization remains a separate Phase 3 concern (now PR006A–D)
 
 **Non-goals:**
 
@@ -416,28 +417,63 @@ of #330–#332.
 
 ---
 
-## PR006B — Approved Initial World Supergraph Contribution Bundle
+## PR006B — Separate Semantic Assertion Identity from Provenance
 
 **Status:** `BLOCKED` on PR006A  
-**Phase:** 3 / approved bundle  
-**Purpose:** Define the approved, reviewable graph-native contribution bundle
-for initial Eldyrwild C2 publication.
+**Phase:** 3 / Kernel semantic repair  
+**Purpose:** Repair the assertion-identity contract exposed by PR006A so
+heterogeneous provenance can independently support one durable semantic
+assertion without collapsing provenance evidence.
 
-**Inputs:** Already-formed `GraphContribution` objects and governed identity
-decision records. External-source discovery or extraction is upstream and not
-this roadmap's concern.
+**Deliverables:**
 
-**Non-goals:** Source discovery, Markdown selection, corpus inventory, recap or
-directory enumeration, extraction/reprocessing, publication, projection, or
-runtime migration.
+- Assertion identity separates semantic claim identity from provenance metadata
+- Heterogeneous graph-native provenance for one pre-resolved graph object
+  produces one assertion-support record with independent contribution support
+- Assertion support retains each contributing source artifact and evidence
+- Rebuild, supersession, retraction, integrity reporting, and idempotency tests
+  cover the repaired identity contract
+- Explicit migration/rebuild handling for any pre-repair contribution ledger
+
+**Success criteria:**
+
+- `worldbuilding` and `recap` versions of the same semantic Mireward fact share
+  an assertion ID and one support record while preserving two contribution and
+  artifact references
+- Distinct semantic facts remain distinct assertions
+- Existing immutable-head and rebuild equivalence guarantees remain true
+
+**Non-goals:** Source discovery, Markdown selection, corpus inventory,
+extraction/reprocessing, contribution-bundle selection, publication,
+projection, or runtime migration.
 
 **Depends on:** PR006A.
 
 ---
 
-## PR006C — Publish Initial Eldyrwild C2 World Supergraph
+## PR006C — Approved Initial World Supergraph Contribution Bundle
 
 **Status:** `BLOCKED` on PR006B  
+**Phase:** 3 / approved bundle  
+**Purpose:** Define the approved, reviewable graph-native contribution bundle
+for initial Eldyrwild C2 publication after PR006B establishes correct
+multi-source assertion support.
+
+**Inputs:** Already-formed `GraphContribution` objects and governed identity
+decision records. External-source discovery or extraction is upstream and not
+this roadmap's concern.
+
+**Non-goals:** Source discovery, Markdown selection, corpus inventory,
+recap or directory enumeration, extraction/reprocessing, publication,
+projection, or runtime migration.
+
+**Depends on:** PR006B.
+
+---
+
+## PR006D — Publish Initial Eldyrwild C2 World Supergraph
+
+**Status:** `BLOCKED` on PR006C  
 **Phase:** 3 / graph-native publication  
 **Purpose:** Publish the approved graph-native contribution bundle as the first
 persistent Eldyrwild C2 World Supergraph and prove Kernel-level health before
@@ -445,13 +481,13 @@ projection/Plan migration.
 
 **Deliverables:** Merge approved contributions, reconcile governed identity
 decisions, advance the immutable head, report contribution/assertion-support/
-entity/edge counts and provenance splits, and prove reconstruction.
+entity/edge counts and provenance support, and prove reconstruction.
 
 **Non-goals:** Source discovery, Markdown selection, corpus inventory,
-extraction/reprocessing, Projection Engine, Plan/Play migration, or agent
-tooling.
+extraction/reprocessing, contribution-bundle selection, Projection Engine,
+Plan/Play migration, or agent tooling.
 
-**Depends on:** PR006B.
+**Depends on:** PR006C.
 
 **Note:** #330/#331 closed unmerged; not prerequisites.
 
@@ -459,7 +495,7 @@ tooling.
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006C  
+**Status:** `BLOCKED` on PR006D  
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
@@ -475,7 +511,7 @@ tooling.
 
 **Success criteria:**
 
-- Plan (or a test harness) can request campaign=C2 + focus=Session 23 (or prep window) over the **PR006 real graph**
+- Plan (or a test harness) can request campaign=C2 + focus=Session 23 (or prep window) over the **PR006D published graph**
 - **Projection always reads the persistent World Supergraph** (pinned revision). Ingest-run IDs are never graph-selection modes
 - No production `preview-source`, `latest-ingest`, `recap-only` backend mode, or store/manifest path selectors in surface-facing APIs
 - Test/developer loaders remain outside the production context contract
@@ -486,7 +522,7 @@ tooling.
 
 **Non-goals:** Plan Q&A; graph visualization product; write-path changes; reintroducing latest-ingest as a transitional production mode.
 
-**Depends on:** PR006C.
+**Depends on:** PR006D.
 
 **Absorbs prior informal “plan graph-context contract” intent (without latest-ingest escape hatches).**
 
@@ -502,13 +538,13 @@ tooling.
 
 - Plan graph-context wiring to production projection contract (`worldId` + `campaignId` + focus)
 - Insert-refs / dogfood search against real projection
-- Continue object-card usefulness dogfood against PR006 acceptance corpus
+- Continue object-card usefulness dogfood against the PR006D published World Supergraph
 - Keep Q&A deferred until dogfood passes usefulness bar
 - **Delete** session-derived `useLatestGraphIngest` Plan path in this PR once real projection is wired
 
 **Success criteria:**
 
-- Real campaign dogfood can add/view/remove/judge cards against the PR006 graph via PR007 projection
+- Real campaign dogfood can add/view/remove/judge cards against the PR006D published World Supergraph via PR007 projection
 - Diagnostics show requested focus/context that matches GM intent
 - No Plan-local graph store; no graph/corpus deletes from dogfood remove
 - `useLatestGraphIngest` is gone from Plan production path (not deferred to PR012)
@@ -630,7 +666,7 @@ Required deletion PR: this PR (PR008)
 
 Reserve tracker IDs when scoped:
 
-- Multi-source expansion beyond the PR006 acceptance corpus (Phase 6), including Campaign 1 chronology as needed
+- Multi-source expansion beyond the PR006D published World Supergraph (Phase 6), including Campaign 1 chronology as needed
 - Category-pipeline (or successor) as default write extraction
 - Build surface migration
 - Living-memory hardening dogfoods (Phase 9)
