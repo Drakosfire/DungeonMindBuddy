@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006 DOING #330 — empty-baseline Kernel merges; PR005B DONE #329; PR007 blocked on PR006)  
+**Updated:** 2026-07-11 (PR006 DOING #330 depends on #331 structural validation; PR005B DONE #329; PR007 blocked on PR006)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -397,8 +397,9 @@ Required deletion PR:
 
 PR002–PR005 being complete means the storage / Kernel / identity / merge slices landed. **PR006 is still the first proof** that those contracts produce a representative, usable world graph (source inventory, coverage, reconstruction, and Plan trust boundaries). Predecessor PR005B (#329) is merged. Implementation branch may set DOING only; post-merge doc-sync alone may mark this slice complete and unblock PR007.
 
-**Acceptance artifacts (in progress on #330):**
+**Acceptance artifacts (in progress on #330; base depends on #331):**
 
+- Prerequisite Kernel/storage PR: GitHub #331 (`require_density` / empty structural baseline)
 - Manifest: `config/graph_memory/eldyrwild_c2_acceptance_manifest.json`
 - Bundle: `artifacts/graph_memory/pr006/eldyrwild-c2-source-candidate-bundle.json`
 - Machine report: `artifacts/graph_memory/pr006/eldyrwild-c2-materialization-report.json`
