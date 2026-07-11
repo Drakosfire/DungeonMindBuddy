@@ -1,11 +1,11 @@
 # HANDOFF — PR006A: Eldyrwild C2 Acceptance Corpus Inventory
 
-**Status:** ACTIVE — review and correction contract for GitHub PR #332  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Branch:** `campaign-supergraph/pr006a-acceptance-inventory`  
-**Predecessor:** PR #329 merged as `99437abb1804f599614126701e0e9a24258fbca6`  
-**Abandoned attempts:** PR #330 and #331 were closed unmerged; do not reuse them.  
-**Successor:** PR006B — C2 recap source → `GraphContribution` conversion  
+**Status:** ACTIVE — review and correction contract for GitHub PR #332
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Branch:** `campaign-supergraph/pr006a-acceptance-inventory`
+**Predecessor:** PR #329 merged as `99437abb1804f599614126701e0e9a24258fbca6`
+**Abandoned attempts:** PR #330 and #331 were closed unmerged; do not reuse them.
+**Successor:** PR006B — C2 recap source → `GraphContribution` conversion
 
 > This handoff is the canonical dispatch and review contract for PR #332. It
 > supersedes the broken pointer from the abandoned PR #330 handoff. It does not
