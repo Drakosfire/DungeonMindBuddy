@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from graph_memory.kernel.contribution_models import ContributionMergeResult
+from graph_memory.kernel.contributions import (
+    _canonicalize_graph_contribution_assertions,
+)
 from graph_memory.kernel.identity_decisions import (
     merge_identity,
     record_identity_decision,
@@ -182,11 +185,25 @@ def rebuild_from_contributions(
         replay_ids = list(contribution_ids)
 
     accepted_ids: list[str] = []
+    assertion_identity_rekeys: list[dict[str, str]] = []
     for cid in replay_ids:
         contrib = load_contribution_record(root, world_id, cid)
         if contrib.status == "failed":
             diagnostics.append(f"skip_failed:{cid}")
             continue
+        contrib, rekeys = _canonicalize_graph_contribution_assertions(contrib)
+        for old_assertion_id, new_assertion_id in rekeys:
+            assertion_identity_rekeys.append(
+                {
+                    "contribution_id": contrib.contribution_id,
+                    "old_assertion_id": old_assertion_id,
+                    "new_assertion_id": new_assertion_id,
+                }
+            )
+            diagnostics.append(
+                "assertion_identity_rekeyed:"
+                f"{contrib.contribution_id}:{old_assertion_id}->{new_assertion_id}"
+            )
         working, _support, applied = apply_accepted_assertions(working, contrib)
         accepted_ids.extend(applied)
         if contrib.status in {"superseded", "retracted"}:
@@ -240,6 +257,7 @@ def rebuild_from_contributions(
         "head_revision_id": head.head_revision_id,
         "contribution_ids": replay_ids,
         "identity_decision_ids": [d.decision_id for d in identity_decisions],
+        "assertion_identity_rekeys": assertion_identity_rekeys,
         "equivalent_to_head": equivalent,
         "diagnostics": diagnostics,
     }

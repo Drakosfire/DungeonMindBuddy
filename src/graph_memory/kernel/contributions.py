@@ -14,9 +14,26 @@ from graph_memory.kernel.contribution_models import (
     GraphContributionAssertion,
 )
 
+PROVENANCE_ONLY_ASSERTION_VALUE_KEYS = frozenset(
+    {
+        "source_domain",
+        "source_domains",
+        "source_artifact_id",
+        "source_artifacts",
+        "source_revision_id",
+        "evidence",
+        "evidence_ref_ids",
+    }
+)
+
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _canonical_json(payload: dict[str, Any]) -> str:
@@ -65,7 +82,7 @@ def compute_assertion_id(
         "target_node_id": target_node_id,
         "predicate": predicate,
         "label": label,
-        "value": value or {},
+        "value": semantic_assertion_value(value),
         "campaign_scope": campaign_scope,
         "temporal_scope": temporal_scope,
         "epistemic_kind": epistemic_kind,
@@ -73,6 +90,67 @@ def compute_assertion_id(
     }
     digest = hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()[:16]
     return f"assertion:{digest}"
+
+
+def semantic_assertion_value(value: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the shallow semantic portion of an assertion value."""
+    return {
+        key: item
+        for key, item in dict(value or {}).items()
+        if key not in PROVENANCE_ONLY_ASSERTION_VALUE_KEYS
+    }
+
+
+def _canonicalize_assertion_identity(
+    assertion: GraphContributionAssertion,
+) -> tuple[GraphContributionAssertion, tuple[str, str] | None]:
+    current_id = compute_assertion_id(
+        assertion_kind=assertion.assertion_kind,
+        subject_node_id=assertion.subject_node_id,
+        target_node_id=assertion.target_node_id,
+        predicate=assertion.predicate,
+        label=assertion.label,
+        value=assertion.value,
+        campaign_scope=assertion.campaign_scope,
+        temporal_scope=assertion.temporal_scope,
+        epistemic_kind=assertion.epistemic_kind,
+        visibility=assertion.visibility,
+    )
+    if assertion.assertion_id == current_id:
+        return assertion, None
+    return assertion.model_copy(update={"assertion_id": current_id}), (
+        assertion.assertion_id,
+        current_id,
+    )
+
+
+def _canonicalize_graph_contribution_assertions(
+    contribution: GraphContribution,
+) -> tuple[GraphContribution, list[tuple[str, str]]]:
+    """Return an immutable contribution copy using current assertion IDs."""
+    rekeys: list[tuple[str, str]] = []
+
+    def canonicalize(
+        assertions: list[GraphContributionAssertion],
+    ) -> list[GraphContributionAssertion]:
+        canonical: list[GraphContributionAssertion] = []
+        for assertion in assertions:
+            updated, rekey = _canonicalize_assertion_identity(assertion)
+            canonical.append(updated)
+            if rekey is not None:
+                rekeys.append(rekey)
+        return canonical
+
+    return (
+        contribution.model_copy(
+            update={
+                "candidate_assertions": canonicalize(contribution.candidate_assertions),
+                "accepted_assertions": canonicalize(contribution.accepted_assertions),
+                "rejected_assertions": canonicalize(contribution.rejected_assertions),
+            }
+        ),
+        rekeys,
+    )
 
 
 def _with_contribution_id(
@@ -133,11 +211,13 @@ def create_graph_contribution(
         supersedes_contribution_id=supersedes_contribution_id,
     )
 
-    candidates = _with_contribution_id(list(candidate_assertions or []), contribution_id)
+    candidates = _with_contribution_id(
+        list(candidate_assertions or []), contribution_id
+    )
     accepted = _with_contribution_id(list(accepted_assertions or []), contribution_id)
     rejected = _with_contribution_id(list(rejected_assertions or []), contribution_id)
 
-    return GraphContribution(
+    contribution = GraphContribution(
         contribution_id=contribution_id,
         world_id=world_id,
         source_kind=source_kind,
@@ -155,6 +235,20 @@ def create_graph_contribution(
         identity_decision_ids=list(identity_decision_ids or []),
         authored_by=authored_by,
         diagnostics=list(diagnostics or []),
+    )
+    canonical, rekeys = _canonicalize_graph_contribution_assertions(contribution)
+    if not rekeys:
+        return canonical
+    return canonical.model_copy(
+        update={
+            "diagnostics": [
+                *canonical.diagnostics,
+                *[
+                    f"assertion_identity_rekeyed:{old_id}->{new_id}"
+                    for old_id, new_id in rekeys
+                ],
+            ]
+        }
     )
 
 

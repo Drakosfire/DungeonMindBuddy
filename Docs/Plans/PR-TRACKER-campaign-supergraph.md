@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006A #333 diagnoses heterogeneous-provenance support split; PR006B schedules its Kernel repair before bundle/publication; PR005B DONE #329)  
+**Updated:** 2026-07-11 (PR006A #333 DONE; PR006B #334 DOING semantic assertion identity repair; PR005B DONE #329)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -395,7 +395,7 @@ Required deletion PR:
 
 ## PR006A — Graph-Native Contribution Union Diagnostic
 
-**Status:** `DOING` (GitHub #333)  
+**Status:** `DONE` (GitHub #333 merged 2026-07-11 as `0b49f159b94a24d5d9fcc7b60ef304e26aad51ab`)  
 **Phase:** 3 / graph semantic diagnostic  
 **Purpose:** Determine whether two already-formed graph-native contributions
 with distinct provenance domains can share a durable assertion-support record.
@@ -419,7 +419,7 @@ of #330–#332.
 
 ## PR006B — Separate Semantic Assertion Identity from Provenance
 
-**Status:** `BLOCKED` on PR006A  
+**Status:** `DOING` (GitHub #334)  
 **Phase:** 3 / Kernel semantic repair  
 **Purpose:** Repair the assertion-identity contract exposed by PR006A so
 heterogeneous provenance can independently support one durable semantic

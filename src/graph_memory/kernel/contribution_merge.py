@@ -11,7 +11,10 @@ from graph_memory.kernel.contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import create_graph_contribution
+from graph_memory.kernel.contributions import (
+    _canonicalize_graph_contribution_assertions,
+    create_graph_contribution,
+)
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
     WorldGraphValidationError,
@@ -60,7 +63,9 @@ def _with_support_map(
     )
 
 
-def rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
+def rebuild_adjacency(
+    store: UnionSupergraphStore,
+) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
     """Rebuild adjacency lists from the current edge map."""
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]] = {
         node_id: [] for node_id in store.nodes
@@ -91,7 +96,9 @@ def rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSuperg
     return adjacency
 
 
-def _rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
+def _rebuild_adjacency(
+    store: UnionSupergraphStore,
+) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
     return rebuild_adjacency(store)
 
 
@@ -162,11 +169,7 @@ def _add_support(
     graph_object_id: str | None,
 ) -> None:
     existing = support.get(assertion.assertion_id)
-    artifact_ids = [
-        aid
-        for aid in [assertion.source_artifact_id]
-        if aid
-    ]
+    artifact_ids = [aid for aid in [assertion.source_artifact_id] if aid]
     if existing is None:
         support[assertion.assertion_id] = DurableAssertionSupport(
             assertion_id=assertion.assertion_id,
@@ -213,7 +216,9 @@ def _remove_contribution_support(
     for assertion_id, record in list(support.items()):
         if contribution_id not in record.active_contribution_ids:
             continue
-        active = [cid for cid in record.active_contribution_ids if cid != contribution_id]
+        active = [
+            cid for cid in record.active_contribution_ids if cid != contribution_id
+        ]
         superseded = list(record.superseded_contribution_ids)
         retracted = list(record.retracted_contribution_ids)
         if as_superseded:
@@ -222,7 +227,9 @@ def _remove_contribution_support(
         else:
             if contribution_id not in retracted:
                 retracted.append(contribution_id)
-        state = "supported" if active else ("unsupported" if as_superseded else "retracted")
+        state = (
+            "supported" if active else ("unsupported" if as_superseded else "retracted")
+        )
         support[assertion_id] = record.model_copy(
             update={
                 "active_contribution_ids": active,
@@ -281,7 +288,9 @@ def _apply_node_assertion(
     value = dict(assertion.value)
     node_id = assertion.subject_node_id or str(value.get("node_id") or "")
     if not node_id:
-        raise ValueError(f"node assertion {assertion.assertion_id} missing subject_node_id")
+        raise ValueError(
+            f"node assertion {assertion.assertion_id} missing subject_node_id"
+        )
 
     nodes = dict(store.nodes)
     evidence = dict(store.evidence)
@@ -314,7 +323,9 @@ def _apply_node_assertion(
             evidence_ids.append(ref_id)
 
     for artifact_payload in value.get("source_artifacts") or []:
-        if isinstance(artifact_payload, dict) and artifact_payload.get("source_artifact_id"):
+        if isinstance(artifact_payload, dict) and artifact_payload.get(
+            "source_artifact_id"
+        ):
             artifacts[str(artifact_payload["source_artifact_id"])] = (
                 UnionSupergraphSourceArtifact.model_validate(artifact_payload)
             )
@@ -358,7 +369,8 @@ def _apply_node_assertion(
                 "memory_state": "contribution_accepted",
                 "canon_state": value.get("canon_state") or "canonical",
                 "approval_state": value.get("approval_state") or "accepted",
-                "identity_canon_state": value.get("identity_canon_state") or "canonical",
+                "identity_canon_state": value.get("identity_canon_state")
+                or "canonical",
                 "epistemic_kind": assertion.epistemic_kind,
                 "visibility": assertion.visibility,
                 "campaign_scope": assertion.campaign_scope,
@@ -422,10 +434,7 @@ def _apply_edge_assertion(
             f"edge assertion {assertion.assertion_id} endpoints must exist before merge"
         )
 
-    edge_id = str(
-        value.get("edge_id")
-        or f"edge:{source_id}:{predicate}:{target_id}"
-    )
+    edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
     evidence = dict(store.evidence)
     artifacts = dict(store.source_artifacts)
     edges = dict(store.edges)
@@ -507,7 +516,9 @@ def _apply_alias_assertion(
     if not node_id or not alias:
         raise ValueError(f"alias assertion {assertion.assertion_id} missing node/alias")
     if node_id not in store.nodes:
-        raise ValueError(f"alias assertion {assertion.assertion_id} node does not exist")
+        raise ValueError(
+            f"alias assertion {assertion.assertion_id} node does not exist"
+        )
 
     nodes = dict(store.nodes)
     node = nodes[node_id]
@@ -623,7 +634,14 @@ def merge_contribution_to_revision(
     expected_parent_revision_id: str | None = None,
 ) -> ContributionMergeResult:
     """Persist contribution, merge accepted assertions, publish immutable revision."""
+    contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
+        contribution
+    )
     diagnostics: list[str] = list(contribution.diagnostics)
+    diagnostics.extend(
+        f"assertion_identity_rekeyed:{old_id}->{new_id}"
+        for old_id, new_id in assertion_rekeys
+    )
     rejected_ids = [a.assertion_id for a in contribution.rejected_assertions]
 
     for mention in contribution.unresolved_mentions:
@@ -679,7 +697,9 @@ def merge_contribution_to_revision(
                 )
 
     # Persist contribution record before attempting graph mutation.
-    to_store = contribution.model_copy(update={"status": "active"})
+    to_store = contribution.model_copy(
+        update={"status": "active", "diagnostics": diagnostics}
+    )
     write_contribution_record(root, world_id, to_store)
 
     try:
@@ -687,7 +707,9 @@ def merge_contribution_to_revision(
             current_store, to_store
         )
         # Ensure adjacency covers all nodes even when only nodes were added.
-        proposed = proposed.model_copy(update={"adjacency": _rebuild_adjacency(proposed)})
+        proposed = proposed.model_copy(
+            update={"adjacency": _rebuild_adjacency(proposed)}
+        )
 
         publish_result = publish_world_graph_revision(
             root,
@@ -741,6 +763,21 @@ def supersede_graph_contribution(
     superseded_contribution_id: str,
     expected_parent_revision_id: str | None = None,
 ) -> ContributionMergeResult:
+    new_contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
+        new_contribution
+    )
+    if assertion_rekeys:
+        new_contribution = new_contribution.model_copy(
+            update={
+                "diagnostics": [
+                    *new_contribution.diagnostics,
+                    *[
+                        f"assertion_identity_rekeyed:{old_id}->{new_id}"
+                        for old_id, new_id in assertion_rekeys
+                    ],
+                ]
+            }
+        )
     parent_revision_id, current_store = _load_or_none(root, world_id)
     if current_store is None:
         raise WorldGraphNotFoundError(f"world {world_id!r} has no graph head")
@@ -792,7 +829,9 @@ def supersede_graph_contribution(
         proposed, _support2, accepted_ids = apply_accepted_assertions(
             working, new_contribution
         )
-        proposed = proposed.model_copy(update={"adjacency": _rebuild_adjacency(proposed)})
+        proposed = proposed.model_copy(
+            update={"adjacency": _rebuild_adjacency(proposed)}
+        )
         publish_result = publish_world_graph_revision(
             root,
             world_id,
@@ -840,7 +879,6 @@ def supersede_graph_contribution(
         diagnostics=[],
         published=True,
     )
-
 
 
 def retract_graph_contribution(

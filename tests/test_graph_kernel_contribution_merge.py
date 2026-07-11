@@ -60,6 +60,50 @@ def _node_assertion(
     )
 
 
+def _mireward_assertion(
+    *,
+    source_domain: str,
+    source_artifact_id: str,
+    source_revision_id: str,
+    evidence_ref_id: str,
+):
+    evidence = {
+        "evidence_ref_id": evidence_ref_id,
+        "source_artifact_id": source_artifact_id,
+        "source_domain": source_domain,
+    }
+    if source_domain == "recap":
+        evidence.update(
+            {
+                "session_id": "session-23",
+                "source_span_ref_id": f"span:{evidence_ref_id}",
+            }
+        )
+    return kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="location:mireward",
+        label="Mireward",
+        value={
+            "kind": "location",
+            "role": "town",
+            "aliases": ["Mireward"],
+            "source_domains": [source_domain],
+            "evidence": [evidence],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=[evidence_ref_id],
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome=(
+            "created_new" if source_domain == "worldbuilding" else "resolved_existing"
+        ),
+    )
+
+
 def test_merge_contribution_publishes_world_revision(seeded_root) -> None:
     root, parent = seeded_root
     assertion = _node_assertion(
@@ -130,6 +174,33 @@ def test_failed_contribution_merge_leaves_prior_head_readable(seeded_root) -> No
     assert "missing_a" not in store.nodes
 
 
+def test_direct_merge_rekeys_stale_assertion_before_persistence(seeded_root) -> None:
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_rekeyed",
+        label="Rekeyed",
+        source_artifact_id="artifact:rekeyed",
+    ).model_copy(update={"assertion_id": "assertion:stale"})
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:rekeyed",
+        source_revision_id="src-rev-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[],
+    ).model_copy(update={"accepted_assertions": [assertion]})
+
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution
+    )
+
+    assert result.published is True
+    assert any(d.startswith("assertion_identity_rekeyed:") for d in result.diagnostics)
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert assertion.assertion_id not in store.assertion_support
+    assert result.accepted_assertion_ids[0] in store.assertion_support
+
+
 def test_idempotent_reprocessing_does_not_duplicate_graph_state(seeded_root) -> None:
     root, _parent = seeded_root
     assertion = _node_assertion(
@@ -168,7 +239,9 @@ def test_idempotent_reprocessing_does_not_duplicate_graph_state(seeded_root) -> 
     assert support2["active_contribution_ids"] == [contribution.contribution_id]
 
 
-def test_superseded_contribution_retracts_only_unsupported_assertions(seeded_root) -> None:
+def test_superseded_contribution_retracts_only_unsupported_assertions(
+    seeded_root,
+) -> None:
     root, _ = seeded_root
     assertion_x = _node_assertion(
         node_id="npc_x",
@@ -233,7 +306,9 @@ def test_superseded_contribution_retracts_only_unsupported_assertions(seeded_roo
     }
 
 
-def test_multi_source_support_preserves_assertion_after_one_retraction(seeded_root) -> None:
+def test_multi_source_support_preserves_assertion_after_one_retraction(
+    seeded_root,
+) -> None:
     root, _ = seeded_root
     assertion = _node_assertion(
         node_id="npc_shared",
@@ -280,7 +355,96 @@ def test_multi_source_support_preserves_assertion_after_one_retraction(seeded_ro
     assert contrib_b.contribution_id in support["active_contribution_ids"]
     assert contrib_a.contribution_id not in support["active_contribution_ids"]
     assert "npc_shared" in store.nodes
-    assert store.nodes["npc_shared"].state.get("memory_state") != "unsupported_assertion"
+    assert (
+        store.nodes["npc_shared"].state.get("memory_state") != "unsupported_assertion"
+    )
+
+
+def test_heterogeneous_provenance_support_survives_retraction_and_supersession(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    worldbuilding = _mireward_assertion(
+        source_domain="worldbuilding",
+        source_artifact_id="artifact:mireward:worldbuilding",
+        source_revision_id="worldbuilding:1",
+        evidence_ref_id="evidence:mireward:worldbuilding",
+    )
+    recap = _mireward_assertion(
+        source_domain="recap",
+        source_artifact_id="artifact:mireward:recap",
+        source_revision_id="recap:1",
+        evidence_ref_id="evidence:mireward:recap:1",
+    )
+    assert worldbuilding.assertion_id == recap.assertion_id
+    contribution_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:worldbuilding",
+        source_revision_id="worldbuilding:1",
+        accepted_assertions=[worldbuilding],
+    )
+    contribution_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:recap",
+        source_revision_id="recap:1",
+        accepted_assertions=[recap],
+    )
+    kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution_a
+    )
+    kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution_b
+    )
+
+    retracted = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contribution_a.contribution_id,
+        reason="worldbuilding source withdrawn",
+    )
+    assert retracted.published is True
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    support = store.assertion_support[worldbuilding.assertion_id]
+    assert support["support_state"] == "supported"
+    assert support["active_contribution_ids"] == [contribution_b.contribution_id]
+    assert contribution_a.contribution_id in support["retracted_contribution_ids"]
+    assert "location:mireward" in store.nodes
+
+    recap_replacement = _mireward_assertion(
+        source_domain="recap",
+        source_artifact_id="artifact:mireward:recap",
+        source_revision_id="recap:2",
+        evidence_ref_id="evidence:mireward:recap:2",
+    )
+    contribution_b2 = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:recap",
+        source_revision_id="recap:2",
+        accepted_assertions=[recap_replacement],
+        supersedes_contribution_id=contribution_b.contribution_id,
+    )
+    superseded = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=contribution_b2,
+        superseded_contribution_id=contribution_b.contribution_id,
+    )
+    assert superseded.published is True
+
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    mireward_supports = [
+        support
+        for support in store.assertion_support.values()
+        if support["graph_object_id"] == "location:mireward"
+    ]
+    assert len(mireward_supports) == 1
+    support = mireward_supports[0]
+    assert support["active_contribution_ids"] == [contribution_b2.contribution_id]
+    assert contribution_b.contribution_id in support["superseded_contribution_ids"]
+    assert "location:mireward" in store.nodes
 
 
 def test_graph_review_authored_assertion_uses_same_merge_path(seeded_root) -> None:
@@ -306,12 +470,16 @@ def test_graph_review_authored_assertion_uses_same_merge_path(seeded_root) -> No
     assert result.published is True
     _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
     node = store.nodes["npc_authored"]
-    assert node.state.get("introduced_by_contribution_id") == contribution.contribution_id
+    assert (
+        node.state.get("introduced_by_contribution_id") == contribution.contribution_id
+    )
     support = store.assertion_support[assertion.assertion_id]
     assert support["introduced_by_contribution_id"] == contribution.contribution_id
 
 
-def test_ambiguous_identity_contribution_does_not_enter_canonical_graph(seeded_root) -> None:
+def test_ambiguous_identity_contribution_does_not_enter_canonical_graph(
+    seeded_root,
+) -> None:
     root, parent = seeded_root
     mention = kernel.ContributionIdentityMention(
         mention_id="mention:hester",
@@ -351,7 +519,11 @@ def test_blocked_collision_contribution_does_not_merge(seeded_root) -> None:
         acceptance_state="accepted",
         subject_node_id="loc_willow_collision",
         label="Willow",
-        value={"kind": "location", "role": "location", "source_domains": ["manual_seed"]},
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+        },
         identity_resolution_outcome="blocked_collision",
     )
     mention = kernel.ContributionIdentityMention(
@@ -387,7 +559,11 @@ def test_blocked_only_contribution_is_idempotent_on_remerge(seeded_root) -> None
         acceptance_state="accepted",
         subject_node_id="loc_blocked_idem",
         label="Blocked",
-        value={"kind": "location", "role": "location", "source_domains": ["manual_seed"]},
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+        },
         identity_resolution_outcome="blocked_collision",
     )
     contribution = kernel.create_graph_contribution(
