@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006A–C split; Phase 3 inventory → contribution → publication)  
+**Updated:** 2026-07-11 (PR006A–C split; Phase 3 inventory → contribution → publication)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)

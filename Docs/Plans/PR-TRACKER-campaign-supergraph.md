@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006A DOING #332; PR005B DONE #329; #330/#331 closed unmerged; PR006 split A/B/C)  
+**Updated:** 2026-07-11 (PR006A DOING #332; PR005B DONE #329; #330/#331 closed unmerged; PR006 split A/B/C)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -350,7 +350,7 @@ Required deletion PR:
 
 ## PR005B — Agent Tool Contract + Authored Prep Contributions
 
-**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)  
+**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)
 **Phase:** 2.5 / docs bridge  
 **Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
 
@@ -394,8 +394,8 @@ Required deletion PR:
 
 ## PR006A — Eldyrwild C2 Acceptance Corpus Inventory
 
-**Status:** `DOING` (GitHub #332)  
-**Phase:** 3 / inventory  
+**Status:** `DOING` (GitHub #332)
+**Phase:** 3 / inventory
 **Purpose:** Deterministic, read-only pinned selection + content hashes for the named Eldyrwild / Longmont Campaign 2 acceptance corpus. No graph writes.
 
 **Deliverables:**
@@ -427,8 +427,8 @@ Required deletion PR:
 
 ## PR006B — C2 Recap Sources → GraphContributions
 
-**Status:** `BLOCKED` on PR006A  
-**Phase:** 3 / contribution conversion  
+**Status:** `BLOCKED` on PR006A
+**Phase:** 3 / contribution conversion
 **Purpose:** Convert canonical C2 recap sources (from the PR006A inventory) into `GraphContribution` objects using existing Kernel contracts — one source family first.
 
 **Non-goals:** Full multi-family publication; projection; runtime migration; inventory redesign.
@@ -439,8 +439,8 @@ Required deletion PR:
 
 ## PR006C — Publish Eldyrwild C2 Acceptance World Graph
 
-**Status:** `BLOCKED` on PR006B  
-**Phase:** 3 / publication  
+**Status:** `BLOCKED` on PR006B
+**Phase:** 3 / publication
 **Purpose:** Publish the complete named acceptance corpus to a world graph head and prove reconstruction + coverage.
 
 **Named acceptance corpus:** Eldyrwild / Longmont Campaign 2 as pinned by PR006A inventory (Sessions 1–23, PCs, required hubs, campaign/world support sources, authored corrections in scope).
@@ -455,7 +455,7 @@ Required deletion PR:
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006C  
+**Status:** `BLOCKED` on PR006C
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
