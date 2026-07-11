@@ -34,6 +34,9 @@ UNION_PREVIEW_INTERNALS = (
     "graph_memory.union_supergraph.validate",
     "graph_memory.union_supergraph.preview_import",
     "graph_memory.union_supergraph.preview_run_materialize",
+    "graph_memory.union_supergraph.merge_reconciliation",
+    "graph_memory.union_supergraph.merge_reconciliation_apply",
+    "graph_memory.union_supergraph.redirects",
 )
 
 # Packages allowed to import world storage internals without an exemption marker.

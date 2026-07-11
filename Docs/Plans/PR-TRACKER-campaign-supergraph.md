@@ -156,7 +156,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR003 — Graph Kernel Public Boundary
 
-**Status:** `DOING` (GitHub #324; stacked on #323 / PR002)  
+**Status:** `DONE` (GitHub #324 merged into PR002 branch; #325 lands commits on `main`)  
 **Phase:** 2  
 **Purpose:** Deliberately **thin** contract-boundary PR: establish Kernel public APIs and invariants without pretending identity/merge are done — with **enforceable** guards, not documentation-only ceremony.
 
@@ -188,7 +188,7 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR004 — Identity and Reconciliation
 
-**Status:** `READY`  
+**Status:** `DOING`  
 **Phase:** 2  
 **Purpose:** Fill the Kernel boundary with world-global identity, aliases, explicit resolution outcomes, provisional identities, and reversible merge/split/unmerge.
 
@@ -213,7 +213,11 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 **Depends on:** PR003.
 
-**Retain / rewrite / delete:** State which `identity_resolution` / collision modules are retained, rewritten, or deleted.
+**Retain / rewrite / delete:**
+- Retained temporarily: `union_supergraph.redirects` / merge-reconciliation helpers (internal mechanics); Graph Review preview materialization.
+- Rewritten: identity outcome classification + merge/split/unmerge decisions live in `graph_memory.kernel`.
+- Deleted in this PR: PR003 fake completed identity stubs (promoted to real exports).
+- Required deletion PR: PR005 (durable contribution merge destination), PR006–PR007 (preview runtime replacement).
 
 ---
 

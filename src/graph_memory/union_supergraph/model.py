@@ -140,6 +140,9 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     aliases: dict[str, str] = Field(default_factory=dict)
     identity_redirects: list[UnionIdentityRedirect] = Field(default_factory=list)
     identity_merge_records: list[UnionSupergraphMergeRecord] = Field(default_factory=list)
+    # Kernel identity decision records (PR004). Stored as plain dicts so the
+    # union payload stays free of a hard dependency on graph_memory.kernel.
+    identity_decisions: list[dict[str, Any]] = Field(default_factory=list)
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]]
     diagnostics: UnionSupergraphDiagnostics
 
