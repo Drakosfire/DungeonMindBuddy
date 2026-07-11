@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR322 re-review — tenancy Model B, contribution lifecycle, head invariants, named PR006 corpus, integrity, deletion-at-replacement)  
+**Updated:** 2026-07-10 (PR005A Context Audit + Source Reanchor; PR005B Agent Tool Contract bridge)  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
@@ -21,6 +21,8 @@ This roadmap describes **implementation milestones**, not experiments. Phases ar
 - Immutable revisions + atomic graph head
 - Mandatory epistemic / temporal / visibility metadata
 - Explicit identity outcomes including split/unmerge
+- GitHub repo docs are canonical; Project Sources are context inputs only (PR005A)
+- Agents are not privileged graph writers — tool categories + preview → GM confirm (PR005B)
 
 ---
 
@@ -115,13 +117,38 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 ---
 
+## Phase 2.5 — Source Reanchor and Agent Tool Contract Bridge
+
+**Objective:** Prevent stale Project Sources, historical architecture docs, research notes, and proposal-only handoffs from directing implementation — then define the agent/tool and authored-prep contracts before materialization.
+
+**Motivation:** After PR005, jumpstarts and Project Sources can drift ahead of (or contradict) the tracker. Agents must re-anchor on GitHub authority before designing Hermes tool contracts. Separately, agent/tool design must not invent a second memory system or pull Hermes runtime ahead of PR006/PR007.
+
+**Dependencies:** Phase 2 (especially PR005).
+
+**Expected PR slices:**
+
+- **PR005A** — Context Audit + Source Reanchor (docs/process)
+- **PR005B** — Agent Tool Contract + Authored Prep Contributions (docs/design)
+
+**These are docs/design bridge slices.** They do **not** populate the graph, implement Projection Engine, or implement runtime Agent Interaction tooling. They preserve **PR006** as the first real materialization slice.
+
+**Exit criteria:**
+
+- Tracker and roadmap name the PR005A / PR005B split; PR006–PR012 numbering unchanged.
+- Project Sources boundary is explicit: GitHub wins; Project Sources are context inputs; prepared replacements are inactive until uploaded.
+- Stale/superseded docs have banners or audit classifications that prevent accidental authority.
+- Agent tool categories and authored-prep lifecycle are documented as contracts for later PR011 — not as runtime work in this phase.
+- PR006 remains focused on named acceptance-corpus materialization.
+
+---
+
 ## Phase 3 — Initial World Supergraph materialization
 
 **Objective:** Produce the first **real**, **representative** persistent union from a **named acceptance corpus** — before Projection Engine and Plan migration.
 
 **Motivation:** Storage + merge APIs without a useful graph leave Plan migration circular. A multi-source fixture is not a substitute. “Real” is not the same as “representative.”
 
-**Dependencies:** Phase 2 (especially PR005).
+**Dependencies:** Phase 2 (especially PR005). Phase 2.5 is docs-only and must not dilute Phase 3 into tool runtime.
 
 **Expected PR slices:** Tracker **PR006**.
 
@@ -245,19 +272,20 @@ Machine-readable integrity/health reporting is cross-cutting (architecture §18)
 
 ---
 
-## Phase 8 — Agent backend
+## Phase 8 — Agent Context + Tool Runtime
 
-**Objective:** Agent Interaction uses the World Supergraph + retrieval as its memory backend.
+**Objective:** Agent Interaction uses the World Supergraph + retrieval as its memory backend, and exposes governed tools that read, draft, preview-write, or confirm-commit — never silent graph mutation (contract from PR005B).
 
 **Dependencies:** Phase 7.
 
-**Expected PR slices:** Tracker **PR011**.
+**Expected PR slices:** Tracker **PR011** (Agent Context + Tool Runtime).
 
 **Exit criteria:**
 
-- Agent context assembly requests projected/admissible graph context.
-- Agents cannot silently mutate the supergraph.
-- Hermes-shaped transitional drawers are not the architecture target.
+- Agent context assembly requests projected/admissible graph context with revision pins.
+- Typed tool capabilities match PR005B (`read_only`, `draft_only`, `preview_write`, `confirm_commit`, `admin_diagnostic`).
+- Agents cannot silently mutate the supergraph; durable writes require preview → explicit GM confirm through Kernel paths.
+- Hermes long-term/session memory and transitional drawers are not campaign canon and are not the architecture target.
 
 ---
 

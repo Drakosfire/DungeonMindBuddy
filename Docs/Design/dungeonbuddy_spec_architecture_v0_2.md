@@ -1,6 +1,12 @@
+> Status: SUPERSEDED / HISTORICAL
+> Use for: Conceptual ancestor context only, especially early tiered-memory and compiled-view framing.
+> Do not use for: Campaign Supergraph architecture, roadmap sequencing, Kernel/write-path contracts, Project Source authority, or current implementation handoffs.
+> Current authority: Docs/Design/ARCHITECTURE-campaign-supergraph.md; Docs/Roadmaps/ROADMAP-campaign-supergraph.md; Docs/Plans/PR-TRACKER-campaign-supergraph.md
+> Last sync checked: 2026-07-10
+
 # DungeonBuddy Specification and Architectural Design
 **Version:** 0.2  
-**Status:** Proposed  
+**Status:** Proposed (historical — see banner above; not current architecture authority)  
 **Date:** 2026-04-09  
 **Audience:** Engineering agents, human implementers, architecture reviewers
 

@@ -53,12 +53,12 @@ The source-vocabulary boundary for projected ingestion material is defined by `D
 
 **Simplification thesis** (the design rule that also risk-proofs against the ladder): one vocabulary, one registry, one edit capability, one resolver, one theme — and the surface never names ontology categories, it resolves them. Concretely:
 
-- Content kind comes from the existing corpus-index resolver, not a surface-owned enum.
+- Content kind is resolved by a shared resolver. **Today** that often means corpus-index resolution as a valid **fallback**. The durable ladder is graph-aware resolver → World/Union Supergraph node view → corpus-index fallback → unresolved `/ingest` escalation. Do not treat corpus-index resolution as the final graph architecture.
 - Edit everywhere is the single lock-model + two-phase-writer capability.
 - One resolver module is shared by static and React.
 - One `SurfaceConfig.theme` (canvas inherits).
 
-This keeps the surface structurally incapable of forking the taxonomy registry the ladder owns.
+This keeps the surface structurally incapable of forking the taxonomy registry the ladder owns. This document remains **ACTIVE REFERENCE** for Plan surface composition — it is **not** Campaign Supergraph sequencing authority (see `PR-TRACKER-campaign-supergraph.md`).
 
 ```mermaid
 flowchart TB
