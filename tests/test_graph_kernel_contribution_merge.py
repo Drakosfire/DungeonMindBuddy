@@ -378,3 +378,173 @@ def test_blocked_collision_contribution_does_not_merge(seeded_root) -> None:
     _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
     assert "loc_willow_collision" not in store.nodes
     assert any("blocked_collision" in d for d in result.diagnostics)
+
+
+def test_blocked_only_contribution_is_idempotent_on_remerge(seeded_root) -> None:
+    root, parent = seeded_root
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="loc_blocked_idem",
+        label="Blocked",
+        value={"kind": "location", "role": "location", "source_domains": ["manual_seed"]},
+        identity_resolution_outcome="blocked_collision",
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:blocked-idem",
+        source_revision_id="src-rev-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+    )
+    first = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution
+    )
+    assert first.published is True
+    head_after_first, _, _ = kernel.open_current_world_graph(root, WORLD_ID)
+
+    second = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution
+    )
+    assert second.published is False
+    assert any("idempotent_noop" in d for d in second.diagnostics)
+    head_after_second, _, _ = kernel.open_current_world_graph(root, WORLD_ID)
+    assert head_after_second.head_revision_id == head_after_first.head_revision_id
+
+
+def test_failed_supersede_does_not_mark_old_contribution_superseded(
+    seeded_root, monkeypatch
+) -> None:
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_super_tx",
+        label="SuperTx",
+        source_artifact_id="artifact:super-tx",
+    )
+    old = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:super-tx",
+        source_revision_id="src-rev-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+    )
+    merge_old = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=old
+    )
+    assert merge_old.published is True
+
+    new = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:super-tx",
+        source_revision_id="src-rev-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        supersedes_contribution_id=old.contribution_id,
+    )
+
+    def _boom(*_args, **_kwargs):
+        raise kernel.WorldGraphValidationError("forced publish failure")
+
+    monkeypatch.setattr(
+        "graph_memory.kernel.contribution_merge.publish_world_graph_revision",
+        _boom,
+    )
+    result = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=new,
+        superseded_contribution_id=old.contribution_id,
+    )
+    assert result.published is False
+    assert result.superseded_contribution_ids == []
+
+    import json
+
+    old_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{old.contribution_id.replace(':', '__')}.json"
+    )
+    old_record = json.loads(old_path.read_text(encoding="utf-8"))
+    assert old_record["status"] == "active"
+    index = json.loads(
+        (
+            root / "graph_memory" / "worlds" / WORLD_ID / "contribution_index.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert old.contribution_id in index["active_contribution_ids"]
+    assert old.contribution_id not in index["superseded_contribution_ids"]
+    new_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{new.contribution_id.replace(':', '__')}.json"
+    )
+    new_record = json.loads(new_path.read_text(encoding="utf-8"))
+    assert new_record["status"] == "failed"
+
+
+def test_failed_retract_does_not_mark_contribution_retracted(
+    seeded_root, monkeypatch
+) -> None:
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_retract_tx",
+        label="RetractTx",
+        source_artifact_id="artifact:retract-tx",
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:retract-tx",
+        source_revision_id="src-rev-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merge.published is True
+
+    def _boom(*_args, **_kwargs):
+        raise kernel.WorldGraphValidationError("forced retract publish failure")
+
+    monkeypatch.setattr(
+        "graph_memory.kernel.contribution_merge.publish_world_graph_revision",
+        _boom,
+    )
+    result = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contribution.contribution_id,
+        reason="should not stick",
+    )
+    assert result.published is False
+
+    import json
+
+    record_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{contribution.contribution_id.replace(':', '__')}.json"
+    )
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert record["status"] == "active"
+    index = json.loads(
+        (
+            root / "graph_memory" / "worlds" / WORLD_ID / "contribution_index.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert contribution.contribution_id in index["active_contribution_ids"]
+    assert contribution.contribution_id not in index["retracted_contribution_ids"]

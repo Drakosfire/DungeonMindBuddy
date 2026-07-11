@@ -26,6 +26,10 @@ from graph_memory.world_supergraph.contribution_store import (
     load_contribution_record,
     write_rebuild_report,
 )
+from graph_memory.world_supergraph.identity_decision_store import (
+    list_identity_decision_records,
+    load_identity_decision_record,
+)
 
 
 def _canonical_graph_fingerprint(store: UnionSupergraphStore) -> str:
@@ -91,35 +95,39 @@ def _collect_identity_decisions(
     contribution_ids: list[str],
     explicit_decision_ids: list[str] | None,
 ) -> list[IdentityDecisionRecord]:
+    """Load identity decisions from the durable ledger (not the current head).
+
+    Rebuild must not depend on the head as an input while also comparing against
+    it. Decision payloads are synced to the ledger on every successful publish.
+    """
     decisions: list[IdentityDecisionRecord] = []
     seen: set[str] = set()
 
-    # Prefer decisions already present on the current head (authoritative replay order).
-    try:
-        _head, _rev, current = load_current_world_graph(root, world_id)
-        for raw in current.identity_decisions:
-            record = IdentityDecisionRecord.model_validate(raw)
-            if explicit_decision_ids is not None and record.decision_id not in explicit_decision_ids:
-                continue
-            if record.decision_id in seen:
-                continue
-            seen.add(record.decision_id)
-            decisions.append(record)
-    except WorldGraphNotFoundError:
-        pass
+    for record in list_identity_decision_records(root, world_id):
+        if explicit_decision_ids is not None and record.decision_id not in set(
+            explicit_decision_ids
+        ):
+            continue
+        if record.decision_id in seen:
+            continue
+        seen.add(record.decision_id)
+        decisions.append(record)
 
     if explicit_decision_ids is not None:
-        return [d for d in decisions if d.decision_id in set(explicit_decision_ids)]
+        return decisions
 
-    # Also gather ids referenced by contributions (may already be in head).
+    # Resolve contribution-referenced decision ids from the durable ledger.
     for cid in contribution_ids:
         contrib = load_contribution_record(root, world_id, cid)
         for decision_id in contrib.identity_decision_ids:
             if decision_id in seen:
                 continue
-            # If not on head, we cannot reconstruct opaque decision payloads from id alone.
-            # Rebuild relies on decisions persisted in the graph payload.
-            continue
+            try:
+                record = load_identity_decision_record(root, world_id, decision_id)
+            except FileNotFoundError:
+                continue
+            seen.add(decision_id)
+            decisions.append(record)
 
     return decisions
 
@@ -134,8 +142,9 @@ def rebuild_from_contributions(
 ) -> ContributionMergeResult:
     """Replay active contributions (+ identity decisions) onto the baseline revision.
 
-    Compares the rebuilt payload to the current head. Optionally publishes a rebuild
-    revision when ``publish=True`` and equivalence holds or when forced by caller.
+    Identity decisions are loaded from the durable identity-decision ledger, not
+    from the current head. The rebuilt payload is then compared to the head for
+    equivalence reporting.
     """
     index = load_contribution_index(root, world_id)
     diagnostics: list[str] = []
@@ -191,11 +200,20 @@ def rebuild_from_contributions(
             working = _mark_graph_objects_unsupported(working, support, unsupported)
             diagnostics.append(f"replayed_{contrib.status}_support_removal:{cid}")
 
+    baseline_decision_ids = {
+        item.get("decision_id")
+        for item in (working.identity_decisions or [])
+        if isinstance(item, dict) and item.get("decision_id")
+    }
     identity_decisions = _collect_identity_decisions(
         root, world_id, replay_ids, identity_decision_ids
     )
     for decision in identity_decisions:
         if decision.status != "active":
+            continue
+        # Decisions already present on the baseline revision are already reflected
+        # in baseline graph state — skip re-application to avoid duplicates.
+        if decision.decision_id in baseline_decision_ids:
             continue
         working = _apply_identity_decision(working, decision)
 

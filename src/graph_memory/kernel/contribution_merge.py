@@ -520,6 +520,26 @@ def _apply_alias_assertion(
     return store.model_copy(update={"nodes": nodes, "aliases": alias_map}), node_id
 
 
+# Identity outcomes that never create durable support / graph mutations on merge.
+_NON_MUTATING_IDENTITY_OUTCOMES = frozenset(
+    {
+        "ambiguous",
+        "blocked_collision",
+        "rejected",
+        "provisional_new",
+    }
+)
+
+
+def _is_graph_mutating_accepted_assertion(
+    assertion: GraphContributionAssertion,
+) -> bool:
+    """True when apply_accepted_assertions would create support for this assertion."""
+    if assertion.acceptance_state != "accepted":
+        return False
+    return assertion.identity_resolution_outcome not in _NON_MUTATING_IDENTITY_OUTCOMES
+
+
 def apply_accepted_assertions(
     store: UnionSupergraphStore,
     contribution: GraphContribution,
@@ -530,14 +550,7 @@ def apply_accepted_assertions(
     working = store
 
     for assertion in contribution.accepted_assertions:
-        if assertion.acceptance_state != "accepted":
-            continue
-        if assertion.identity_resolution_outcome in {
-            "ambiguous",
-            "blocked_collision",
-            "rejected",
-            "provisional_new",
-        }:
+        if not _is_graph_mutating_accepted_assertion(assertion):
             continue
 
         graph_object_id: str | None = None
@@ -573,14 +586,17 @@ def _contribution_already_applied(
     store: UnionSupergraphStore,
     contribution: GraphContribution,
 ) -> bool:
+    """Return True when re-merge would be a no-op (mirrors apply_accepted_assertions skips)."""
     support = _support_map(store)
-    if not contribution.accepted_assertions:
-        # Diagnostic-only contribution: treat as applied if recorded in ledger active set
-        # and no graph mutation is expected.
+    mutating = [
+        a
+        for a in contribution.accepted_assertions
+        if _is_graph_mutating_accepted_assertion(a)
+    ]
+    if not mutating:
+        # Diagnostic-only / blocked-only / provisional-only: no support records expected.
         return True
-    for assertion in contribution.accepted_assertions:
-        if assertion.acceptance_state != "accepted":
-            continue
+    for assertion in mutating:
         record = support.get(assertion.assertion_id)
         if record is None:
             return False
@@ -745,9 +761,6 @@ def supersede_graph_contribution(
     working = _with_support_map(current_store, support)
     working = _mark_graph_objects_unsupported(working, support, unsupported)
 
-    superseded = old.model_copy(update={"status": "superseded"})
-    write_contribution_record(root, world_id, superseded)
-
     # Ensure new contribution records supersession lineage.
     if new_contribution.supersedes_contribution_id != superseded_contribution_id:
         new_contribution = create_graph_contribution(
@@ -768,14 +781,12 @@ def supersede_graph_contribution(
             diagnostics=new_contribution.diagnostics,
         )
 
-    # Temporarily write working support state into a synthetic parent by publishing
-    # through apply of the new contribution on top of the support-adjusted store.
-    # We publish once with both operation ids.
+    # Persist the new contribution attempt, but do NOT mark the old contribution
+    # superseded (or update the index) until publish succeeds. Otherwise a failed
+    # publish leaves the ledger disagreeing with the still-active graph head.
     index = load_contribution_index(root, world_id)
-    index = upsert_contribution_in_index(index, superseded)
-    save_contribution_index(root, world_id, index)
-
-    write_contribution_record(root, world_id, new_contribution.model_copy(update={"status": "active"}))
+    pending_new = new_contribution.model_copy(update={"status": "active"})
+    write_contribution_record(root, world_id, pending_new)
 
     try:
         proposed, _support2, accepted_ids = apply_accepted_assertions(
@@ -804,13 +815,17 @@ def supersede_graph_contribution(
             parent_revision_id=parent_revision_id,
             revision_id=None,
             contribution_ids=[new_contribution.contribution_id],
-            superseded_contribution_ids=[superseded_contribution_id],
-            retracted_assertion_ids=unsupported,
+            superseded_contribution_ids=[],
+            retracted_assertion_ids=[],
             diagnostics=[f"supersede_failed:{exc}"],
             published=False,
         )
 
+    superseded = old.model_copy(update={"status": "superseded"})
+    write_contribution_record(root, world_id, superseded)
     active_new = new_contribution.model_copy(update={"status": "active"})
+    write_contribution_record(root, world_id, active_new)
+    index = upsert_contribution_in_index(index, superseded)
     index = upsert_contribution_in_index(index, active_new)
     save_contribution_index(root, world_id, index)
 
@@ -825,6 +840,7 @@ def supersede_graph_contribution(
         diagnostics=[],
         published=True,
     )
+
 
 
 def retract_graph_contribution(
@@ -859,14 +875,8 @@ def retract_graph_contribution(
     working = _mark_graph_objects_unsupported(working, support, unsupported)
     working = working.model_copy(update={"adjacency": _rebuild_adjacency(working)})
 
-    retracted = existing.model_copy(
-        update={
-            "status": "retracted",
-            "diagnostics": [*existing.diagnostics, f"retracted:{reason}"],
-        }
-    )
-    write_contribution_record(root, world_id, retracted)
-
+    # Do not mutate the contribution ledger until publish succeeds. A failed
+    # publish must leave the record active so ledger and graph head agree.
     try:
         publish_result = publish_world_graph_revision(
             root,
@@ -876,17 +886,23 @@ def retract_graph_contribution(
             expected_parent_revision_id=parent_revision_id,
         )
     except (WorldGraphValidationError, Exception) as exc:
-        # Leave contribution marked retracted in ledger but report failure to publish.
         return ContributionMergeResult(
             world_id=world_id,
             parent_revision_id=parent_revision_id,
             revision_id=None,
             contribution_ids=[contribution_id],
-            retracted_assertion_ids=unsupported,
+            retracted_assertion_ids=[],
             diagnostics=[f"retract_publish_failed:{exc}"],
             published=False,
         )
 
+    retracted = existing.model_copy(
+        update={
+            "status": "retracted",
+            "diagnostics": [*existing.diagnostics, f"retracted:{reason}"],
+        }
+    )
+    write_contribution_record(root, world_id, retracted)
     index = load_contribution_index(root, world_id)
     index = upsert_contribution_in_index(index, retracted)
     save_contribution_index(root, world_id, index)

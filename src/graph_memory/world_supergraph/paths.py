@@ -18,13 +18,16 @@ Layout::
             contribution_index.json
             contribution_rebuild/
               latest.json
+            identity_decisions/
+              <decision_id>.json
+            identity_decision_index.json
 
 ``root`` is caller-provided (repo runtime root or a test temp dir). Opening a
 world graph requires only ``root`` + ``world_id`` — never a preview source,
 ingest run id, session id, manifest path, or explicit store path selector.
 
-Contribution ledger paths (PR005) are internal to world_supergraph; apps must
-use ``graph_memory.kernel`` contribution APIs, not these path helpers.
+Contribution ledger and identity-decision ledger paths (PR005) are internal to
+world_supergraph; apps must use ``graph_memory.kernel`` APIs, not these helpers.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ from pathlib import Path
 
 _WORLD_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 _REVISION_ID_RE = re.compile(r"^rev:[a-f0-9]{16,64}$")
+_IDENTITY_DECISION_ID_RE = re.compile(r"^identity-decision:[a-f0-9]{8,64}$")
 
 
 def assert_safe_world_id(world_id: str) -> str:
@@ -124,3 +128,22 @@ def contribution_rebuild_dir(root: Path, world_id: str) -> Path:
 
 def contribution_rebuild_latest_path(root: Path, world_id: str) -> Path:
     return contribution_rebuild_dir(root, world_id) / "latest.json"
+
+
+def assert_safe_identity_decision_id(decision_id: str) -> str:
+    if not _IDENTITY_DECISION_ID_RE.fullmatch(decision_id):
+        raise ValueError(f"invalid identity decision_id: {decision_id!r}")
+    return decision_id
+
+
+def identity_decisions_dir(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "identity_decisions"
+
+
+def identity_decision_path(root: Path, world_id: str, decision_id: str) -> Path:
+    safe_id = assert_safe_identity_decision_id(decision_id)
+    return identity_decisions_dir(root, world_id) / f"{safe_id.replace(':', '__')}.json"
+
+
+def identity_decision_index_path(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "identity_decision_index.json"

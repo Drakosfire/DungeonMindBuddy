@@ -28,6 +28,7 @@ WORLD_STORAGE_INTERNALS = (
     "graph_memory.world_supergraph.integrity",
     "graph_memory.world_supergraph.model",
     "graph_memory.world_supergraph.contribution_store",
+    "graph_memory.world_supergraph.identity_decision_store",
 )
 
 UNION_PREVIEW_INTERNALS = (
