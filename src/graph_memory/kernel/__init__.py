@@ -27,6 +27,7 @@ from graph_memory.kernel.identity_models import (
     IdentityCanonState,
     IdentityDecisionKind,
     IdentityDecisionRecord,
+    IdentityMergeSideEffects,
     IdentityResolution,
     IdentityResolutionOutcome,
 )
@@ -82,6 +83,7 @@ __all__ = [
     "IdentityCanonState",
     "IdentityDecisionKind",
     "IdentityDecisionRecord",
+    "IdentityMergeSideEffects",
     "IdentityResolution",
     "IdentityResolutionOutcome",
     "IdentityResolutionPolicy",

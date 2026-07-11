@@ -67,19 +67,52 @@ def _node_surface_terms(node: UnionSupergraphNode) -> set[str]:
     return {term for term in terms if term}
 
 
+def _node_identity_canon_state(node: UnionSupergraphNode) -> str:
+    return str(node.state.get("identity_canon_state") or node.state.get("canon_state") or "")
+
+
+def _is_noncanonical_provisional(node: UnionSupergraphNode) -> bool:
+    return _node_identity_canon_state(node) == "noncanonical_provisional"
+
+
+def _is_rejected_identity(node: UnionSupergraphNode) -> bool:
+    return _node_identity_canon_state(node) == "rejected"
+
+
+def _is_merged_away_identity(node: UnionSupergraphNode) -> bool:
+    memory_state = str(node.state.get("memory_state") or "")
+    return memory_state == "merged_away" or _node_identity_canon_state(node) == "merged_away"
+
+
 def _active_canonical_nodes(store: UnionSupergraphStore) -> dict[str, UnionSupergraphNode]:
+    """Canonical durable identities only — never provisional, rejected, or merged-away."""
     redirects = active_identity_redirect_map(store.identity_redirects)
     result: dict[str, UnionSupergraphNode] = {}
     for node_id, node in store.nodes.items():
         if node_id in redirects:
             continue
-        memory_state = str(node.state.get("memory_state") or "")
-        if memory_state == "merged_away":
+        if _is_merged_away_identity(node):
             continue
-        canon = str(node.state.get("identity_canon_state") or node.state.get("canon_state") or "")
-        if canon == "rejected":
+        if _is_rejected_identity(node):
+            continue
+        if _is_noncanonical_provisional(node):
             continue
         # Resolve through redirects so survivors are keyed by canonical id.
+        canonical_id = resolve_union_node_id(node_id, redirects)
+        if canonical_id != node_id:
+            continue
+        result[node_id] = node
+    return result
+
+
+def _active_provisional_nodes(store: UnionSupergraphStore) -> dict[str, UnionSupergraphNode]:
+    redirects = active_identity_redirect_map(store.identity_redirects)
+    result: dict[str, UnionSupergraphNode] = {}
+    for node_id, node in store.nodes.items():
+        if node_id in redirects or _is_merged_away_identity(node) or _is_rejected_identity(node):
+            continue
+        if not _is_noncanonical_provisional(node):
+            continue
         canonical_id = resolve_union_node_id(node_id, redirects)
         if canonical_id != node_id:
             continue
@@ -166,28 +199,42 @@ def _find_plausible_matches(
     candidate: IdentityCandidate,
     *,
     policy: IdentityResolutionPolicy,
-) -> tuple[list[UnionSupergraphNode], list[UnionSupergraphNode]]:
-    """Return (same_kind_matches, cross_kind_collisions)."""
+) -> tuple[list[UnionSupergraphNode], list[UnionSupergraphNode], list[UnionSupergraphNode]]:
+    """Return (canonical_same_kind, cross_kind_collisions, provisional_same_kind)."""
     terms = _candidate_surface_terms(candidate)
     if not terms:
-        return [], []
+        return [], [], []
 
     candidate_kind = _norm_kind(candidate.object_kind)
     same_kind: dict[str, UnionSupergraphNode] = {}
     cross_kind: dict[str, UnionSupergraphNode] = {}
+    provisional_same_kind: dict[str, UnionSupergraphNode] = {}
 
     canonical_nodes = _active_canonical_nodes(store)
+    provisional_nodes = _active_provisional_nodes(store)
 
-    # Alias map hits.
+    # Alias map hits — only canonical nodes may become resolved_existing.
     if policy.alias_match_kinds:
         for node_id in _alias_map_matches(store, terms):
             resolved_id = resolve_union_node_id(node_id, store.identity_redirects)
-            node = canonical_nodes.get(resolved_id) or store.nodes.get(resolved_id)
-            if node is None:
+            if resolved_id in canonical_nodes:
+                node = canonical_nodes[resolved_id]
+                if _norm_kind(node.kind) == candidate_kind:
+                    same_kind[resolved_id] = node
+                elif policy.block_cross_kind_alias_collision:
+                    cross_kind[resolved_id] = node
                 continue
-            if _norm_kind(node.kind) == candidate_kind:
-                same_kind[resolved_id] = node
-            elif policy.block_cross_kind_alias_collision:
+            if resolved_id in provisional_nodes:
+                node = provisional_nodes[resolved_id]
+                if _norm_kind(node.kind) == candidate_kind:
+                    provisional_same_kind[resolved_id] = node
+                elif policy.block_cross_kind_alias_collision:
+                    cross_kind[resolved_id] = node
+                continue
+            node = store.nodes.get(resolved_id)
+            if node is None or _is_merged_away_identity(node) or _is_rejected_identity(node):
+                continue
+            if policy.block_cross_kind_alias_collision and _norm_kind(node.kind) != candidate_kind:
                 cross_kind[resolved_id] = node
 
     for node_id, node in canonical_nodes.items():
@@ -199,7 +246,20 @@ def _find_plausible_matches(
         elif policy.block_cross_kind_alias_collision and _norm_kind(node.kind) != candidate_kind:
             cross_kind[node_id] = node
 
-    return list(same_kind.values()), list(cross_kind.values())
+    for node_id, node in provisional_nodes.items():
+        node_terms = _node_surface_terms(node)
+        if not (terms & node_terms):
+            continue
+        if _norm_kind(node.kind) == candidate_kind:
+            provisional_same_kind[node_id] = node
+        elif policy.block_cross_kind_alias_collision:
+            cross_kind[node_id] = node
+
+    return (
+        list(same_kind.values()),
+        list(cross_kind.values()),
+        list(provisional_same_kind.values()),
+    )
 
 
 def classify_identity_outcome(
@@ -215,7 +275,9 @@ def classify_identity_outcome(
     if prior is not None:
         return _resolution_from_decision(candidate, prior)
 
-    same_kind, cross_kind = _find_plausible_matches(store, candidate, policy=active_policy)
+    same_kind, cross_kind, provisional_same_kind = _find_plausible_matches(
+        store, candidate, policy=active_policy
+    )
 
     # Confidence never overrides collision policy.
     if cross_kind and active_policy.block_cross_kind_alias_collision:
@@ -265,6 +327,36 @@ def classify_identity_outcome(
             diagnostics=[f"Exact same-kind match to existing node {target.node_id}"],
             requires_human_review=False,
             canon_state="canonical",
+        )
+
+    # Existing provisional matches must not silently promote to resolved_existing.
+    if len(provisional_same_kind) > 1:
+        match_ids = [node.node_id for node in provisional_same_kind]
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="ambiguous",
+            diagnostics=[
+                "Multiple provisional same-kind matches (not canonical): " + ", ".join(match_ids),
+                *[f"provisional_match:{node.node_id}:{node.label}" for node in provisional_same_kind],
+            ],
+            requires_human_review=True,
+            canon_state="noncanonical_provisional",
+        )
+
+    if len(provisional_same_kind) == 1:
+        provisional = provisional_same_kind[0]
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="provisional_new",
+            provisional_node_id=provisional.node_id,
+            diagnostics=[
+                f"Matched existing noncanonical provisional identity {provisional.node_id}; "
+                "not promoted to canonical resolved_existing",
+            ],
+            requires_human_review=True,
+            canon_state="noncanonical_provisional",
         )
 
     has_evidence = bool(candidate.evidence_ref_ids)

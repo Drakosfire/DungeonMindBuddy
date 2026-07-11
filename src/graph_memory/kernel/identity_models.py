@@ -67,6 +67,23 @@ class IdentityResolution(_IdentityModel):
     decision_id: str | None = None
 
 
+class IdentityAliasMapRewrite(_IdentityModel):
+    """One alias-map key rewrite performed during merge (for replayable unmerge)."""
+
+    alias_key: str
+    prior_owner_node_id: str | None
+    new_owner_node_id: str
+
+
+class IdentityMergeSideEffects(_IdentityModel):
+    """Merge delta required to reverse identity/alias state on unmerge."""
+
+    aliases_added_to_target: list[str] = Field(default_factory=list)
+    evidence_ref_ids_added_to_target: list[str] = Field(default_factory=list)
+    source_domains_added_to_target: list[str] = Field(default_factory=list)
+    alias_map_rewrites: list[IdentityAliasMapRewrite] = Field(default_factory=list)
+
+
 class IdentityDecisionRecord(_IdentityModel):
     decision_id: str
     world_id: str
@@ -82,3 +99,4 @@ class IdentityDecisionRecord(_IdentityModel):
     reversible: bool = True
     supersedes_decision_ids: list[str] = Field(default_factory=list)
     status: Literal["active", "superseded", "retracted"] = "active"
+    merge_side_effects: IdentityMergeSideEffects | None = None

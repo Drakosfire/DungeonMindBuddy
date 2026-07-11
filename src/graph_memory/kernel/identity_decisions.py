@@ -12,8 +12,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from graph_memory.kernel.identity_models import (
+    IdentityAliasMapRewrite,
     IdentityDecisionKind,
     IdentityDecisionRecord,
+    IdentityMergeSideEffects,
 )
 from graph_memory.union_supergraph.model import (
     UnionIdentityRedirect,
@@ -67,6 +69,7 @@ def build_identity_decision_record(
     reversible: bool = True,
     supersedes_decision_ids: list[str] | None = None,
     created_at: str | None = None,
+    merge_side_effects: IdentityMergeSideEffects | None = None,
 ) -> IdentityDecisionRecord:
     if not actor.strip():
         raise ValueError("actor must be non-empty")
@@ -96,6 +99,7 @@ def build_identity_decision_record(
         reversible=reversible,
         supersedes_decision_ids=list(supersedes_decision_ids or []),
         status="active",
+        merge_side_effects=merge_side_effects,
     )
 
 
@@ -134,6 +138,48 @@ def _dedupe_extend(existing: list[str], extra: list[str]) -> list[str]:
             seen[key] = item
             result.append(item)
     return result
+
+
+def _items_added(existing: list[str], candidates: list[str]) -> list[str]:
+    existing_keys = {item.casefold() for item in existing}
+    added: list[str] = []
+    seen: set[str] = set()
+    for item in candidates:
+        key = item.casefold()
+        if key in existing_keys or key in seen:
+            continue
+        seen.add(key)
+        added.append(item)
+    return added
+
+
+def _remove_items(existing: list[str], to_remove: list[str]) -> list[str]:
+    remove_keys = {item.casefold() for item in to_remove}
+    return [item for item in existing if item.casefold() not in remove_keys]
+
+
+def _node_identity_canon_state(node: UnionSupergraphNode) -> str:
+    return str(node.state.get("identity_canon_state") or node.state.get("canon_state") or "")
+
+
+def _assert_merge_target_eligible(target: UnionSupergraphNode) -> None:
+    memory_state = str(target.state.get("memory_state") or "")
+    canon = _node_identity_canon_state(target)
+    if memory_state == "merged_away" or canon == "merged_away":
+        raise ValueError(
+            f"cannot merge into merged_away target {target.node_id}; "
+            "use a deliberate human override path if that is intended"
+        )
+    if canon == "rejected":
+        raise ValueError(
+            f"cannot merge into rejected target {target.node_id}; "
+            "use a deliberate human override path if that is intended"
+        )
+    if canon == "noncanonical_provisional":
+        raise ValueError(
+            f"cannot merge into noncanonical_provisional target {target.node_id}; "
+            "promote or override explicitly before merge"
+        )
 
 
 def _mark_node_state(
@@ -178,6 +224,41 @@ def merge_identity(
     if target_node_id not in store.nodes:
         raise KeyError(f"unknown target_node_id: {target_node_id}")
 
+    source = store.nodes[source_node_id]
+    target = store.nodes[target_node_id]
+    _assert_merge_target_eligible(target)
+
+    source_surface = [source.label, *source.aliases]
+    aliases_added = _items_added(list(target.aliases), source_surface)
+    evidence_added = _items_added(list(target.evidence_ref_ids), list(source.evidence_ref_ids))
+    domains_added = _items_added(list(target.source_domains), list(source.source_domains))
+
+    aliases_to_union = _dedupe_extend(list(target.aliases), source_surface)
+    evidence_to_union = _dedupe_extend(list(target.evidence_ref_ids), list(source.evidence_ref_ids))
+    domains_to_union = _dedupe_extend(list(target.source_domains), list(source.source_domains))
+
+    alias_map = dict(store.aliases)
+    alias_map_rewrites: list[IdentityAliasMapRewrite] = []
+    keys_to_point_at_target = {term.casefold() for term in source_surface if term.strip()}
+    for key in sorted(keys_to_point_at_target):
+        prior_owner = alias_map.get(key)
+        if prior_owner != target_node_id:
+            alias_map_rewrites.append(
+                IdentityAliasMapRewrite(
+                    alias_key=key,
+                    prior_owner_node_id=prior_owner,
+                    new_owner_node_id=target_node_id,
+                )
+            )
+        alias_map[key] = target_node_id
+
+    side_effects = IdentityMergeSideEffects(
+        aliases_added_to_target=aliases_added,
+        evidence_ref_ids_added_to_target=evidence_added,
+        source_domains_added_to_target=domains_added,
+        alias_map_rewrites=alias_map_rewrites,
+    )
+
     decision = build_identity_decision_record(
         world_id=world_id,
         decision_kind="merge",
@@ -186,17 +267,8 @@ def merge_identity(
         subject_node_id=source_node_id,
         target_node_id=target_node_id,
         affected_node_ids=[source_node_id, target_node_id],
+        merge_side_effects=side_effects,
     )
-
-    source = store.nodes[source_node_id]
-    target = store.nodes[target_node_id]
-
-    aliases_to_union = _dedupe_extend(
-        list(target.aliases),
-        [source.label, *source.aliases],
-    )
-    evidence_to_union = _dedupe_extend(list(target.evidence_ref_ids), list(source.evidence_ref_ids))
-    domains_to_union = _dedupe_extend(list(target.source_domains), list(source.source_domains))
 
     updated_target = target.model_copy(
         update={
@@ -218,11 +290,6 @@ def merge_identity(
         merged_into=target_node_id,
         last_identity_decision_id=decision.decision_id,
     )
-
-    alias_map = dict(store.aliases)
-    for alias in aliases_to_union:
-        alias_map[alias.casefold()] = target_node_id
-    alias_map[source.label.casefold()] = target_node_id
 
     redirect = UnionIdentityRedirect(
         redirect_id=f"redirect:{decision.decision_id}",
@@ -334,14 +401,23 @@ def unmerge_identity(
         raise ValueError(f"decision {decision_id} is not a merge decision")
     if original.subject_node_id is None or original.target_node_id is None:
         raise ValueError(f"merge decision {decision_id} missing subject/target node ids")
+    if original.merge_side_effects is None:
+        raise ValueError(
+            f"merge decision {decision_id} is missing merge_side_effects; "
+            "cannot safely reverse alias/evidence/domain state"
+        )
+
+    side_effects = original.merge_side_effects
+    source_node_id = original.subject_node_id
+    target_node_id = original.target_node_id
 
     unmerge = build_identity_decision_record(
         world_id=world_id,
         decision_kind="unmerge",
         actor=actor,
         reason=reason,
-        subject_node_id=original.subject_node_id,
-        target_node_id=original.target_node_id,
+        subject_node_id=source_node_id,
+        target_node_id=target_node_id,
         affected_node_ids=list(original.affected_node_ids),
         supersedes_decision_ids=[original.decision_id],
     )
@@ -359,8 +435,8 @@ def unmerge_identity(
     redirects: list[UnionIdentityRedirect] = []
     for redirect in store.identity_redirects:
         if (
-            redirect.from_node_id == original.subject_node_id
-            and redirect.to_node_id == original.target_node_id
+            redirect.from_node_id == source_node_id
+            and redirect.to_node_id == target_node_id
             and redirect.status == "active"
         ):
             redirects.append(redirect.model_copy(update={"status": "retracted"}))
@@ -368,7 +444,7 @@ def unmerge_identity(
             redirects.append(redirect)
 
     nodes = dict(store.nodes)
-    source = nodes.get(original.subject_node_id)
+    source = nodes.get(source_node_id)
     if source is not None:
         restored_state = dict(source.state)
         restored_state["memory_state"] = "graph_read_model"
@@ -376,11 +452,48 @@ def unmerge_identity(
         restored_state.pop("merged_into", None)
         restored_state["last_identity_decision_id"] = unmerge.decision_id
         restored_state["unmerged_by_decision_id"] = unmerge.decision_id
-        nodes[original.subject_node_id] = source.model_copy(update={"state": restored_state})
+        nodes[source_node_id] = source.model_copy(update={"state": restored_state})
+
+    target = nodes.get(target_node_id)
+    if target is not None:
+        nodes[target_node_id] = target.model_copy(
+            update={
+                "aliases": _remove_items(
+                    list(target.aliases), side_effects.aliases_added_to_target
+                ),
+                "evidence_ref_ids": _remove_items(
+                    list(target.evidence_ref_ids),
+                    side_effects.evidence_ref_ids_added_to_target,
+                ),
+                "source_domains": _remove_items(
+                    list(target.source_domains),
+                    side_effects.source_domains_added_to_target,
+                ),
+                "state": {
+                    **dict(target.state),
+                    "last_identity_decision_id": unmerge.decision_id,
+                },
+            }
+        )
+
+    alias_map = dict(store.aliases)
+    for rewrite in side_effects.alias_map_rewrites:
+        if rewrite.prior_owner_node_id is None:
+            # Created by merge — restore to the unmerged source identity.
+            alias_map[rewrite.alias_key] = source_node_id
+        else:
+            alias_map[rewrite.alias_key] = rewrite.prior_owner_node_id
+
+    # Ensure restored source surface terms resolve to the source again.
+    if source is not None:
+        for term in [source.label, *source.aliases]:
+            if term.strip():
+                alias_map[term.casefold()] = source_node_id
 
     updated = store.model_copy(
         update={
             "nodes": nodes,
+            "aliases": alias_map,
             "identity_redirects": redirects,
         }
     )
@@ -388,9 +501,9 @@ def unmerge_identity(
 
     # Sanity: source should no longer be in the active redirect map.
     active = active_identity_redirect_map(updated.identity_redirects)
-    if original.subject_node_id in active:
+    if source_node_id in active:
         raise RuntimeError(
-            f"unmerge failed to clear active redirect for {original.subject_node_id}"
+            f"unmerge failed to clear active redirect for {source_node_id}"
         )
     return updated, unmerge
 

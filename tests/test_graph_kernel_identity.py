@@ -174,6 +174,43 @@ def test_resolution_confidence_is_not_authority() -> None:
     assert any("not authority" in d.lower() for d in resolution.diagnostics)
 
 
+def test_provisional_existing_match_does_not_promote_to_canonical() -> None:
+    store = _base_store()
+    provisional = UnionSupergraphNode(
+        node_id="npc_willow_prov",
+        label="Willow",
+        kind="npc",
+        role="npc",
+        aliases=["Willow"],
+        source_domains=["recap"],
+        evidence_ref_ids=[],
+        state={
+            "memory_state": "graph_read_model",
+            "identity_canon_state": "noncanonical_provisional",
+        },
+    )
+    store = _add_node(store, provisional)
+    candidate = IdentityCandidate(
+        world_id="eldyrwild",
+        candidate_id="cand:willow-later",
+        label="Willow",
+        object_kind="npc",
+        aliases=["Willow"],
+        evidence_ref_ids=["evidence:session-9:willow"],
+        confidence=0.98,
+    )
+    resolution = kernel.resolve_identity(store, candidate)
+
+    assert resolution.outcome != "resolved_existing"
+    assert resolution.outcome == "provisional_new"
+    assert resolution.provisional_node_id == "npc_willow_prov"
+    assert resolution.target_node_id is None
+    assert resolution.created_node_id is None
+    assert resolution.canon_state == "noncanonical_provisional"
+    assert resolution.requires_human_review is True
+    assert any("not promoted" in d.lower() for d in resolution.diagnostics)
+
+
 def test_rejected_candidate_records_inspectable_decision() -> None:
     store = _base_store()
     candidate = IdentityCandidate(
