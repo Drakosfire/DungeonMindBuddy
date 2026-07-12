@@ -1,0 +1,114 @@
+{
+  "bundle_digest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+  "bundle_id": "eldyrwild-longmont-c2-initial-v1",
+  "expected_shared_support": [
+    {
+      "contribution_paths": [
+        "contributions/002-mireward-world-hub.json",
+        "contributions/004-session-22-mireward-road.json",
+        "contributions/005-session-23-mireward-gate-battle.json"
+      ],
+      "node_id": "location:mireward",
+      "source_domains": [
+        "worldbuilding",
+        "recap"
+      ]
+    },
+    {
+      "contribution_paths": [
+        "contributions/003-questionable-company-roster.json",
+        "contributions/004-session-22-mireward-road.json",
+        "contributions/005-session-23-mireward-gate-battle.json"
+      ],
+      "node_id": "party:questionable-company",
+      "source_domains": [
+        "manual_seed",
+        "recap"
+      ]
+    }
+  ],
+  "expected_source_domains": [
+    "worldbuilding",
+    "manual_seed",
+    "recap",
+    "statblock"
+  ],
+  "focus_sessions": [
+    "session-22",
+    "session-23"
+  ],
+  "identity_decisions": [],
+  "non_claims": [
+    "Does not publish a production Eldyrwild world head.",
+    "Does not bypass /ingest review; merge of PR006C approves bootstrap input only.",
+    "Does not claim complete Campaign 2 coverage.",
+    "Does not invent numerical statblock values.",
+    "Does not prove projection usefulness or Plan retrieval.",
+    "Validation does not re-read corpus files; corpus digests are pinned statically.",
+    "Recap source_span_ref_id values are stable labels for /ingest inspection; this package does not prove highlightable span resolution."
+  ],
+  "ordered_contributions": [
+    {
+      "contribution_id": "contribution:82f23934d8eaca8a",
+      "path": "contributions/001-mirathorn-world-hub.json",
+      "sha256": "ace99855326cc72b8a00537a34066eafe4f9be1e4981f068de4fc44dcf01ecc9"
+    },
+    {
+      "contribution_id": "contribution:43782369bd717d32",
+      "path": "contributions/002-mireward-world-hub.json",
+      "sha256": "66d280c8267b8f61ff48489e6631d1e52f29cac754d6f4b0b4ef7e39fea01eb7"
+    },
+    {
+      "contribution_id": "contribution:33d7cdb0ff623f28",
+      "path": "contributions/003-questionable-company-roster.json",
+      "sha256": "4199a8ce32858eeb3f01f8336e99589c5636db3ebb67253374c5c2caffc385ee"
+    },
+    {
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "path": "contributions/004-session-22-mireward-road.json",
+      "sha256": "cd905826748649e8a294de0d7127c877c0c78c693a4564154bbc1680e7409964"
+    },
+    {
+      "contribution_id": "contribution:1227841724520c18",
+      "path": "contributions/005-session-23-mireward-gate-battle.json",
+      "sha256": "73f4a4da6a46d74a2922f1d53f79f052e74894ca1909aea820a6985097f6a792"
+    },
+    {
+      "contribution_id": "contribution:022187fdefdf4557",
+      "path": "contributions/006-tripod-null-calf-threat-prep.json",
+      "sha256": "668c3cddc28199fa24809e5a704828c017480c22a941fb9930f1be5ec235f51e"
+    }
+  ],
+  "planning_focus": "mireward-planning-window",
+  "primary_campaign_scope": "longmont-c2",
+  "required_edge_ids": [
+    "edge:pc:bonogo:member_of:party:questionable-company",
+    "edge:pc:baergrom:member_of:party:questionable-company",
+    "edge:pc:ephanna:member_of:party:questionable-company",
+    "edge:pc:caelynn:member_of:party:questionable-company",
+    "edge:pc:stafl:member_of:party:questionable-company",
+    "edge:pc:karsemine:member_of:party:questionable-company",
+    "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+    "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+    "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle",
+    "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+    "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+  ],
+  "required_node_ids": [
+    "location:mirathorn",
+    "location:mireward",
+    "party:questionable-company",
+    "pc:bonogo",
+    "pc:baergrom",
+    "pc:ephanna",
+    "pc:caelynn",
+    "pc:stafl",
+    "pc:karsemine",
+    "event:longmont-c2:session-22:mireward-road",
+    "event:longmont-c2:session-23:mireward-gate-battle",
+    "threat:tripod-null-calf"
+  ],
+  "schema": "dmb_graph_contribution_bundle_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild"
+}

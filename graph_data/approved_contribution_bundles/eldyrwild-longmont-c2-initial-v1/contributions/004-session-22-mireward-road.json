@@ -1,0 +1,281 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3e2a37249f847f60",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:recap:s22:mireward"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Mireward",
+      "predicate": null,
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "subject_node_id": "location:mireward",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mireward"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:recap:s22:mireward",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "source_span_ref_id": "span:session-22:mireward"
+          }
+        ],
+        "kind": "location",
+        "role": "town",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e43e22317e459bac",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:recap:s22:questionable-company"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Questionable Company",
+      "predicate": null,
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Questionable Company"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:recap:s22:questionable-company",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "source_span_ref_id": "span:session-22:questionable-company"
+          }
+        ],
+        "kind": "party",
+        "role": "adventuring-party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c940738e1fe6fc8a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:recap:s22:mireward-road"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mireward Road",
+      "predicate": null,
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "subject_node_id": "event:longmont-c2:session-22:mireward-road",
+      "target_node_id": null,
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "aliases": [
+          "Mireward Road"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:recap:s22:mireward-road",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "source_span_ref_id": "span:session-22:mireward-road"
+          }
+        ],
+        "kind": "event",
+        "role": "travel",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6b0056d1bb4c489e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:recap:s22:party-participated"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "participated in",
+      "predicate": "participated_in",
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "event:longmont-c2:session-22:mireward-road",
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:recap:s22:party-participated",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "source_span_ref_id": "span:session-22:party-participated"
+          }
+        ],
+        "session_ids": [
+          "session-22"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:276614e2151713f0",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:recap:s22:occurred-at"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "occurred at",
+      "predicate": "occurred_at",
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "subject_node_id": "event:longmont-c2:session-22:mireward-road",
+      "target_node_id": "location:mireward",
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:recap:s22:occurred-at",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "source_span_ref_id": "span:session-22:occurred-at"
+          }
+        ],
+        "session_ids": [
+          "session-22"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "session_id": "session-22",
+            "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+            "source_domain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": null,
+  "campaign_scope": "longmont-c2",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:c086a0b72324ff16",
+  "diagnostics": [],
+  "extraction_profile": "pr006c-approved-bundle-v1",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-11T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+  "source_kind": "manual_import",
+  "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

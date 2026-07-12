@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006A #333 DONE; PR006B #334 DOING semantic assertion identity repair; PR005B DONE #329)  
+**Updated:** 2026-07-11 (PR006B #334 DONE; PR006C #335 DOING initial contribution bundle; PR006A #333 DONE; PR005B DONE #329)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -419,7 +419,7 @@ of #330–#332.
 
 ## PR006B — Separate Semantic Assertion Identity from Provenance
 
-**Status:** `DOING` (GitHub #334)  
+**Status:** `DONE` (GitHub #334 merged 2026-07-12 as `b234988056abebb5b2a033cf236548a7c8c472f5`)  
 **Phase:** 3 / Kernel semantic repair  
 **Purpose:** Repair the assertion-identity contract exposed by PR006A so
 heterogeneous provenance can independently support one durable semantic
@@ -453,11 +453,21 @@ projection, or runtime migration.
 
 ## PR006C — Approved Initial World Supergraph Contribution Bundle
 
-**Status:** `BLOCKED` on PR006B  
+**Status:** `DOING` (GitHub #335)  
 **Phase:** 3 / approved bundle  
 **Purpose:** Define the approved, reviewable graph-native contribution bundle
-for initial Eldyrwild C2 publication after PR006B establishes correct
-multi-source assertion support.
+as `/ingest` bootstrap input for initial Eldyrwild C2 after PR006B establishes
+correct multi-source assertion support. Each `manual_import` contribution is
+one-source-lineage (one artifact + revision).
+
+**Deliverables:**
+
+- Checked-in `eldyrwild-longmont-c2-initial-v1` bundle under
+  `graph_data/approved_contribution_bundles/`
+- Strict manifest with SHA-256 locks and deterministic bundle digest
+- Loader + validator package (`graph_memory.contribution_bundles`)
+- Validation CLI and temporary Kernel dry-run proof (no production world head)
+- Human report with Plan trust / non-trust boundaries
 
 **Inputs:** Already-formed `GraphContribution` objects and governed identity
 decision records. External-source discovery or extraction is upstream and not
