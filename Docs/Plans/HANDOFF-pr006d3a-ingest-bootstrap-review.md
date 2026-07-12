@@ -1,201 +1,438 @@
-# HANDOFF — PR006D3A — Read-only `/ingest` bootstrap review
+# HANDOFF — PR006D3A — Bootstrap Activation Review gate on `/ingest`
 
-> Status: READY IMPLEMENTATION HANDOFF
+> Status: READY DESIGN, NOT YET DISPATCHABLE
 > Parent tracker slice: `PR006D3 — /ingest review and activation UI`
 > Predecessor: GitHub PR #337, merged as `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`
 > Base: `origin/main` at `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`
 > Successor: PR006D3B — explicit prepare/confirm activation interaction
+> Dispatch gate: do not dispatch implementation until the tracker on `main` records PR006D2 as `DONE` and PR006D3A as `READY` or `DOING`.
 
-## §0 Build in this repo
+## §0 One-sentence mission
 
-- **Frontend:** `cd apps/live-control-ui && npm test`, `npm run typecheck`, and `npm run build`.
-- **Repository checks:** `git diff --check` and the scope checks in §7.
-- **Backend tests are not the owning proof for this slice.** PR006D2 already owns the server contract. This PR must prove the actual `/ingest` rendering boundary with Vitest/Testing Library.
-- **Obey `AGENTS.md` and `.cursor/rules/`.** Do not add dependencies, regenerate the backend contract by hand, or introduce a second bootstrap response shape.
+A GM can inspect the certified initial World Supergraph package in a distinct Bootstrap Activation Review gate so that they understand what may be published without entering or duplicating the ongoing recap Graph Review workflow.
 
-## §1 Mission
+## §1 Product boundary
 
-An `/ingest` user can inspect the approved Eldyrwild bootstrap memory so that activation is understandable before any write is offered.
+D3A is a **Bootstrap Activation Review gate**. It is not a second Graph Review workbench.
 
-## §2 Context and boundaries
+The page must communicate:
 
-- **Parent epic / tracker:** `Docs/Plans/PR-TRACKER-campaign-supergraph.md` → PR006D3.
-- **Predecessor:** PR006D2, GitHub #337, merged at `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`.
-- **Input this PR consumes:**
-  - `GET /api/live/world-graph-bootstrap/status`;
-  - the strict Pydantic response models in `apps/live_control_server/models/world_graph_bootstrap.py`;
-  - the real generated contract fixture at `tests/fixtures/world_graph_bootstrap/api-contract-v1.json`.
-- **What remains false:** no user can prepare, confirm, or publish the bootstrap from the UI.
-- **Explicitly not included:**
-  - `POST /prepare` or `POST /confirm` clients or controls;
-  - confirmation tokens, actor entry, acknowledgement, or publication;
-  - Kernel, backend policy, route, fixture, or service changes;
-  - Projection Engine, Plan/Play migration, general graph editing, or Graph Review authoring changes;
-  - redesign of the existing preview-run Graph Review workbench.
+> **This is the certified initial world package that may be published.**
 
-### Why D3 is split here
+It must not imply:
 
-The tracker-level D3 journey contains two independently useful verbs:
+> This is another recap run, another preview-union lane, or another editable graph-review workspace.
+
+The two `/ingest` workflows are neighbors, not modes of one pipeline:
 
 ```text
-inspect
-publish
+Bootstrap Activation Review
+  one certified initial package
+  fixed D2 status contract
+  read-only lifecycle gate
+  no run selection
+  no editing
+  no publication in D3A
+
+Ongoing recap Graph Review
+  session-scoped ingest runs
+  preview-union / experimental review pipeline
+  existing selectors, lanes, diagnostics, and authoring behavior
+  remains mounted and independently usable
 ```
 
-Read-only rendering risks contract drift, omission, misleading trust copy, and unusable information hierarchy. Mutation risks stale proposals, actor/token binding, irreversible publication, idempotency, and truthful post-commit reporting. They require different review boundaries and must not be stabilized in one PR.
+Do not normalize these workflows into a shared data model. Do not route bootstrap data through the preview pipeline merely because both appear on `/ingest`.
 
-PR006D3A therefore establishes only the read side. PR006D3B may add prepare/confirm after this review surface is accepted.
+## §2 Re-anchor and lifecycle state
 
-## §3 Authoritative inputs
-
-Read these in order before changing code:
-
-1. `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — PR006D and PR006D3.
-2. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` — read/write separation, surface ownership, and World Supergraph authority.
-3. `apps/live_control_server/models/world_graph_bootstrap.py` — exact field names, states, classifications, trust boundary, receipt, and evidence-locator status.
-4. `tests/fixtures/world_graph_bootstrap/api-contract-v1.json` — canonical schemas and examples produced by real service operations.
-5. `apps/live_control_server/routes/world_graph_bootstrap.py` — status route and direct stable error-body behavior.
-6. `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx` — `/ingest` mounting seam.
-7. `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` — existing Graph Review consumer that must remain intact.
-8. `.cursor/rules/external-agent-pr-loop.mdc`.
-
-**Base:** `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`.
-
-If `origin/main` has moved, inspect every intervening change that touches:
+### Verified repository state
 
 ```text
-apps/live_control_server/models/world_graph_bootstrap.py
-apps/live_control_server/routes/world_graph_bootstrap.py
+PR006D1
+  DONE — GitHub #336
+  merge: fc6e811dd865559f662bf710566bdb9683acc370
+
+PR006D2
+  DONE — GitHub #337
+  merge: 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9
+
+PR006D3A
+  next implementation capability
+  design handoff: this document
+
+PR006D3B
+  BLOCKED on accepted and merged D3A implementation
+```
+
+### Tracker drift
+
+At the time this handoff was revised, `Docs/Plans/PR-TRACKER-campaign-supergraph.md` on `main` still described PR006D2 as `DOING` and PR006D3 as `BLOCKED`.
+
+That is stale repository authority, not an unresolved technical dependency. It remains pending only because this design re-anchor is still an unmerged draft documentation PR. **Implementation must not be dispatched while the sole-authority tracker on `main` remains stale.** Before dispatch, the tracker must record at minimum:
+
+```text
+PR006D
+  DOING — D1 and D2 complete; D3A next; D3B deferred
+
+PR006D2
+  DONE — GitHub #337; merge 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9
+
+PR006D3A
+  READY or DOING — Bootstrap Activation Review gate
+
+PR006D3B
+  BLOCKED on PR006D3A — prepare/confirm publication interaction
+
+PR007
+  remains BLOCKED on completion of PR006D3A and PR006D3B
+```
+
+If this handoff merges without that tracker correction, stop. Land a narrow tracker correction before implementation dispatch. The handoff does not overrule the tracker.
+
+## §3 Authoritative contract and forbidden inputs
+
+### Sole production input
+
+D3A consumes exactly one bootstrap operation:
+
+```http
+GET /api/live/world-graph-bootstrap/status
+```
+
+Requirements:
+
+- no query string;
+- no request body;
+- no campaign, session, run, source, manifest, or store selector;
+- no caller-supplied package identity;
+- no direct browser read of checked-in contribution-bundle files.
+
+The source of truth is the D2 `dmb_world_graph_bootstrap_status_v1` response and its returned `BootstrapReview`. Stable D2 domain errors use `dmb_world_graph_bootstrap_error_v1`.
+
+Production code must not load, import, fetch, or parse:
+
+```text
+graph_data/approved_contribution_bundles/**
 tests/fixtures/world_graph_bootstrap/api-contract-v1.json
-apps/live-control-ui/src/api/
-apps/live-control-ui/src/ingestSurface/
+recap manifests
+preview-union stores
+gold fixtures
+run directories
 ```
 
-Stop if the serialized status contract or `/ingest` composition boundary changed materially. Re-anchor the handoff rather than coding against the stale base.
+The committed API contract fixture is a **test oracle only**. It must never become a production fallback or client-side package database.
 
-## §4 Files in scope
+### Explicitly forbidden pipeline reuse
+
+D3A must not:
+
+- reuse preview-run selectors or `getGraphIngestRuns`;
+- pass manifest paths, run directories, preview-source IDs, artifact IDs, or preview-union store paths;
+- reuse gold/live comparison lanes;
+- read or mutate recap Graph Review selection state;
+- add a bootstrap mode, flag, or compatibility branch to any existing preview API;
+- adapt preview response types into a bootstrap-shaped object;
+- import the existing Graph Review workbench into the bootstrap panel;
+- make the bootstrap panel depend on Plan context, recap context, selected session, or selected run.
+
+The bootstrap panel receives no graph-run props. It owns its own isolated status request and renders the D2 contract directly.
+
+## §4 Mounting decision and failure isolation
+
+### Placement
+
+Mount `WorldGraphBootstrapReviewPanel` as a separate top-level section in `MemoryIngestPage.tsx`, before the existing `GraphReviewWorkbenchModule`.
+
+Conceptual composition:
+
+```tsx
+<main className="ingest-surface-root" aria-label="Memory Ingest">
+  <WorldGraphBootstrapReviewPanel />
+  <GraphReviewWorkbenchModule context={context} />
+</main>
+```
+
+This is not a toolbox mode. Do not modify `ingestSurfaceConfig.ts`.
+
+The section needs its own semantic heading, boundary copy, lifecycle badge, and visual container. A GM should be able to distinguish the certified initial-package gate from the recap workbench without reading technical IDs.
+
+Required framing copy or an equivalent faithful formulation:
+
+```text
+Bootstrap Activation Review
+This is the certified initial world package that may be published.
+This review is separate from ongoing recap Graph Review below.
+```
+
+### Independent loading
+
+The bootstrap request must be isolated from existing page and workbench loading:
+
+- do not add it to the `getPlanView()` request;
+- do not combine bootstrap and plan-view loading with `Promise.all`;
+- do not pass bootstrap state through `PlanContextDescriptor`;
+- do not block Graph Review rendering on bootstrap success;
+- do not let a bootstrap retry reset or replace Graph Review state;
+- do not let Graph Review run changes trigger a bootstrap request;
+- do not let bootstrap state select or alter a recap run.
+
+`WorldGraphBootstrapReviewPanel` owns its request lifecycle and error boundary. When status fails, the panel renders an honest unavailable/error state while `GraphReviewWorkbenchModule` remains present and usable.
+
+The existing `MemoryIngestPage` may continue to require plan-view context before mounting Graph Review. D3A does not redesign that page-level dependency. Its required isolation is specifically:
+
+```text
+bootstrap failure ≠ Graph Review failure
+bootstrap loading ≠ Graph Review loading
+bootstrap retry ≠ Graph Review reload
+```
+
+## §5 UX contract
+
+### Default hierarchy
+
+The top-level panel must answer, in order:
+
+1. **What is this gate?** Certified initial World Supergraph package, not a recap run.
+2. **What lifecycle state is it in?** Ready, published, advanced, blocked, invalid, inconsistent, or unavailable.
+3. **What package is being described?** World, campaign, focus, bundle/package identity, and certification summary from the response.
+4. **What will or did it contain?** Compact inventory summaries with expandable complete detail.
+5. **What may be trusted?** Returned trust claims, diagnostics, and receipt/lineage health.
+6. **What is technical detail?** IDs, digests, contribution hashes, evidence references, and revision IDs behind deliberate disclosure controls.
+
+### Lifecycle states must be materially distinct
+
+Do not render all non-error states as a generic success card.
+
+| State | Required user meaning |
+|---|---|
+| `ready` | The package is certified and reviewable but **not published**. D3A offers no publication control. |
+| `active` | The certified initialization was published and the active head matches the initialization lineage reported by D2. |
+| `active_head_advanced` | The initialization was published, but the current head has advanced beyond the initial revision. The initial package is lineage history, not the current complete world. |
+| `blocked_existing_world` | A different existing world prevents safe bootstrap publication. Do not imply retrying will overwrite it. |
+| `invalid_bundle` | D2 could not certify the locked package. Do not display stale fixture contents as if review remained valid. |
+| `inconsistent_lineage` | Stored world lineage does not truthfully match the approved initialization plan. Present this as an integrity problem, not ordinary advancement. |
+| `error` or transport/unparseable failure | Status is unavailable. Show the failure and a status-only retry; keep Graph Review usable. |
+
+The state must be evident from heading, state label, explanatory text, and accessible semantics—not color alone.
+
+### Complete but not a graph browser
+
+The full returned review must remain reachable:
+
+- nodes;
+- relationships;
+- attributes;
+- contributions;
+- sources/source artifacts;
+- evidence and locator status returned inside review records;
+- classifications;
+- `canTrust` and `cannotTrust` claims;
+- diagnostics;
+- receipt and lineage/integrity health when present.
+
+Counts and digests are not enough. Conversely, D3A is not an interactive graph explorer.
+
+Approved interaction pattern:
+
+```text
+state + package summary
+inventory count cards
+expandable inventory sections
+  nodes
+  relationships
+  attributes
+  contributions
+  sources and evidence
+trust and diagnostics
+receipt / lineage health
+technical identifiers
+```
+
+Allowed interactions are disclosure, expand/collapse, and retrying the same status GET. Do not add graph navigation, node selection state, edge hover systems, editing, merge/reconciliation actions, source repair, filtering by recap run, or a canvas.
+
+Resolve relationship endpoint labels from the returned node collection for readability, while preserving raw IDs in detail. Never query another data source to enrich the review.
+
+### Evidence handling
+
+Render locator status exactly as returned.
+
+An `unverified` evidence locator must:
+
+- be visibly labeled unverified;
+- remain non-navigable;
+- not be described as a verified source link;
+- not be resolved against the filesystem or served corpus paths in the browser.
+
+## §6 Reuse strategy
+
+Reuse **lower-level neutral presentation primitives** only when they have no preview-pipeline semantics. Examples may include existing buttons, badges, disclosure elements, typography, generic cards, or layout tokens.
+
+Do not reuse or adapt:
+
+- `GraphReviewWorkbenchModule` internals;
+- preview projection containers;
+- graph-run hooks;
+- gold/live lane components;
+- preview object-card state;
+- recap evidence comparison models;
+- authoring overlays or event logs;
+- ingest toolbox configuration.
+
+The bootstrap panel may import an existing generic primitive without modifying it. If a shared primitive must be changed, or if the only available primitive requires preview-run data, stop and report the proposed path rather than widening this PR.
+
+Bootstrap-native view models may perform presentation-only derivation from one `BootstrapReview`, such as endpoint-label lookup or grouped counts. They must not translate through a preview or union-supergraph API type.
+
+## §7 Files in scope
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `apps/live-control-ui/src/api/types.ts` | Add the exact status/error and nested review types consumed from PR006D2. Do not add prepare/confirm request or response types. |
-| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Add one status-only client for `GET /api/live/world-graph-bootstrap/status`; preserve stable bootstrap error bodies as renderable domain states. |
-| Modify | `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx` | Mount the read-only bootstrap review in the real `/ingest` route without replacing or coupling it to the existing Graph Review workbench. |
-| Create | `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.test.tsx` | Prove the route-level composition contains the bootstrap review and retains the existing Graph Review workbench. |
-| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.tsx` | Render the approved package, real memory contents, trust boundaries, health/read state, and diagnostics without mutation controls. |
-| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.test.tsx` | Exercise ready, active, head-advanced, blocked, invalid, and transport-failure rendering from the committed PR006D2 contract fixture. |
-| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/worldGraphBootstrapReview.css` | Provide component-scoped layout and responsive styles using existing application tokens. |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Add the exact status/error and nested `BootstrapReview` types consumed from D2. Do not add prepare/confirm types. |
+| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Add one isolated no-query, no-body status GET client and preserve stable D2 domain-error bodies. |
+| Modify | `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx` | Mount the distinct top-level Bootstrap Activation Review section alongside—not inside—the existing Graph Review workbench. |
+| Create | `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.test.tsx` | Prove sibling workflow composition and bootstrap-failure isolation. |
+| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.tsx` | Own status loading and render the bootstrap-native lifecycle gate and complete review inventory. |
+| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.test.tsx` | Prove transport, lifecycle, complete inventory, response-driven rendering, and non-navigation requirements. |
+| Create | `apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/worldGraphBootstrapReview.css` | Visually distinguish the gate using existing application tokens. |
 
-Every changed path must appear above. If another path is required, stop and report it; do not silently broaden the allowlist.
+Every changed runtime path must appear above. If another runtime path is required, stop and report it.
 
-## §5 Files explicitly out of scope
+### Explicitly out of scope
 
-| Path | Why this PR must not touch it |
-|---|---|
-| `src/graph_memory/**` | Kernel, storage, initialization, projection, and graph semantics are predecessor/successor ownership. |
-| `graph_data/approved_contribution_bundles/**` | The approved bundle is an immutable input to this UI. |
-| `apps/live_control_server/**` | PR006D2 owns the backend contract; a mismatch is a stop condition, not permission to patch server and UI together. |
-| `tests/fixtures/world_graph_bootstrap/api-contract-v1.json` | The fixture is canonical generated input. The UI adapts to it; this PR does not rewrite it. |
-| `apps/live-control-ui/src/planSurface/graphReviewWorkbench/**` | Existing recap/run Graph Review behavior remains a neighboring workflow, not the implementation home for bootstrap activation. |
-| `apps/live-control-ui/src/planSurface/config/ingestSurfaceConfig.ts` | Do not turn bootstrap review into a toolbox mutation workflow or absorb Diagnostics/Author Draft changes. |
-| `apps/live-control-ui/src/planSurface/projection/**` | No projection-container refactor is required to render one read-only top-level `/ingest` section. |
-| `apps/live-control-ui/package.json` and lockfiles | No new dependency is authorized. |
-| `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | The implementation worker does not mark its own slice complete. |
+```text
+src/graph_memory/**
+apps/live_control_server/**
+graph_data/approved_contribution_bundles/**
+tests/fixtures/world_graph_bootstrap/api-contract-v1.json
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/**
+apps/live-control-ui/src/planSurface/config/ingestSurfaceConfig.ts
+apps/live-control-ui/src/planSurface/projection/**
+apps/live-control-ui/package.json
+lockfiles
+```
 
 Also out of scope:
 
-- prepare/confirm mutation;
+- prepare, confirm, actor entry, acknowledgement, proposal IDs, tokens, and publication;
 - arbitrary contribution publishing;
 - ongoing recap ingestion into the persistent world head;
-- authored-memory migration from overlay/event log to Kernel;
-- source editing, evidence repair, identity merge, or graph correction;
-- Projection Engine or Plan/Play consumption.
+- graph correction, identity resolution, source editing, or evidence repair;
+- Projection Engine and Plan/Play migration;
+- backend/schema/fixture correction;
+- general Graph Review redesign.
 
-## §6 Implementation contract
+## §8 Implementation contract
 
 ```text
 Input:
-  A no-query GET to /api/live/world-graph-bootstrap/status.
-  Success body: dmb_world_graph_bootstrap_status_v1.
-  Stable domain error body: dmb_world_graph_bootstrap_error_v1.
-  Canonical examples/schemas: tests/fixtures/world_graph_bootstrap/api-contract-v1.json.
+  GET /api/live/world-graph-bootstrap/status
+  no query
+  no request body
+
+Success source of truth:
+  dmb_world_graph_bootstrap_status_v1
+  BootstrapReview returned by D2
+
+Stable domain error:
+  dmb_world_graph_bootstrap_error_v1
 
 Output:
-  A read-only section on /ingest that makes the bootstrap state and exact
-  reviewable campaign memory understandable without offering a write.
+  A distinct read-only Bootstrap Activation Review gate on /ingest.
 
 Invariant:
-  Every user-visible memory claim comes from the PR006D2 response currently
-  being rendered, and the mounted experience cannot prepare, confirm, or
-  publish anything.
+  Every package fact, label, count, claim, diagnostic, and health value shown in
+  production comes from the currently returned D2 response.
 
-Failure behavior:
-  ready / active / active_head_advanced
-    → render the state truthfully and render review content when present.
+Failure isolation:
+  Bootstrap failure degrades only the bootstrap gate. Ongoing Graph Review stays
+  mounted and independently usable.
 
-  invalid_bundle / blocked_existing_world / inconsistent_lineage / error
-    → render the stable code, message, and diagnostics; do not fabricate review
-      content or imply activation is safe.
-
-  malformed, HTML, transport, or non-contract response
-    → render an honest unavailable state with retry; do not fall back to a
-      preview run, fixture, or hard-coded package display.
-
-Replay or idempotency:
-  Repeated mount, retry, or refresh performs only the same GET.
-  The same response renders the same facts and never creates a graph revision.
-
-Trust boundary:
-  Verifies:
-    - response schema discriminant before rendering typed content;
-    - all review collections displayed are from the returned status payload;
-    - state-specific copy matches the returned state;
-    - unverified evidence locators remain visibly unverified.
-
-  Records or trusts:
-    - PR006D2 certification of the fixed bundle and review projection;
-    - Kernel receipt and integrity booleans when returned;
-    - source/evidence locator strings, which this UI does not independently
-      resolve or verify.
+Mutation boundary:
+  The implementation cannot prepare, confirm, or publish.
 ```
 
-### Required information hierarchy
+The generic API helper currently expects FastAPI `detail` error envelopes. The bootstrap route returns a stable domain error directly. Preserve that body through a narrow status result rather than generalizing the whole API layer.
 
-The default presentation must answer, in this order:
+## §9 Required tests
 
-1. **What is this?** World, campaign, focus session, package ID, and current state.
-2. **How much memory?** Contributions, nodes, relationships, attributes, accepted assertions, support, evidence, and sources.
-3. **What will DungeonBuddy remember?** Every returned node, relationship, and attribute—not merely digest and totals.
-4. **Where did it come from?** Contributions and source artifacts with source domain and classification.
-5. **What may I trust?** `canTrust`, `cannotTrust`, diagnostics, receipt/integrity state when present.
-6. **What is technical detail?** Raw IDs, digests, contribution IDs, evidence refs, and locators may sit behind explicit Details affordances, but must remain reachable.
+Tests must read `tests/fixtures/world_graph_bootstrap/api-contract-v1.json` as the D2 contract oracle. They may deep-clone and mutate fixture-derived values to prove response-driven rendering. They must not recreate an equivalent campaign fixture by hand.
 
-### Rendering rules
+### 1. Transport exclusivity
 
-- Resolve relationship endpoint labels from the returned node collection for readable relationship rows. Preserve raw IDs behind Details.
-- Show all classifications exactly as returned: `sourceDerived`, `gmAuthored`, or `mixed`.
-- Render evidence locator status. An `unverified` locator must not become a trusted hyperlink or be described as verified source navigation.
-- Do not turn source URIs into arbitrary filesystem navigation.
-- `active_head_advanced` means the current head descends from the initialization; it does not mean the initialization revision is still the current head.
-- Do not copy claims from constants, fixture text, or campaign knowledge into production rendering. Fixtures belong only in tests.
-- The review may use collapsed sections for density, but all returned nodes, relationships, attributes, contributions, and sources must be reachable from the normal component.
-- Existing Graph Review remains mounted and behaviorally independent below or beside this section. Bootstrap status failure must not prevent recap/run Graph Review from loading.
+Prove the only bootstrap network operation is:
 
-### Status client rules
+```text
+method: GET
+path: /api/live/world-graph-bootstrap/status
+query: none
+body: none
+```
 
-The generic `apiFetch` helper currently assumes a FastAPI `detail` envelope on errors, while the bootstrap route returns `dmb_world_graph_bootstrap_error_v1` directly. The status client must preserve that stable body instead of collapsing it to HTTP status text.
+Assert the actual fetch/request invocation. Mount, retry, and state transitions must not call any other bootstrap endpoint.
 
-Do not generalize the entire API client unless required by the status contract. A narrow discriminated status result is preferable to a broad error-handling rewrite.
+### 2. Mutation absence
 
-The D3A diff must contain no request to:
+Prove no implementation path contains or calls:
 
 ```text
 /api/live/world-graph-bootstrap/prepare
 /api/live/world-graph-bootstrap/confirm
 ```
 
-## §7 Verification commands
+No actor input, acknowledgement control, proposal ID, confirmation token, publish button, or mutation response type may exist.
 
-Run every command from the repository root unless the command changes directory.
+### 3. Workflow failure isolation
+
+At the `MemoryIngestPage` boundary:
+
+- allow plan-view context to load;
+- force bootstrap status to fail;
+- assert the Bootstrap Activation Review shows its unavailable state;
+- assert the existing `GraphReviewWorkbenchModule` remains mounted and usable;
+- assert bootstrap retry does not request plan view again or replace Graph Review.
+
+Do not prove this only by unit-testing the panel in isolation.
+
+### 4. Response-driven rendering
+
+Start from a canonical fixture response, deep-clone it, and replace representative package identity, node labels, relationship labels/text, attributes, source titles, trust claims, diagnostics, and revision IDs with unmistakable test values.
+
+Assert the replacement values render and no production constant supplies the original Eldyrwild/Mirathorn/Tripod text. This proves the UI renders the response rather than fixture constants, contribution files, or campaign-specific hardcoding.
+
+### 5. Lifecycle distinction
+
+Prove distinct visible and accessible meaning for:
+
+- certified-but-unpublished `ready`;
+- published `active`;
+- published but lineage-advanced `active_head_advanced`;
+- `blocked_existing_world`;
+- `invalid_bundle`;
+- `inconsistent_lineage` when represented by the contract;
+- direct D2 `error` and transport/unparseable failure.
+
+In particular, `ready` must not imply publication, and `active_head_advanced` must not imply that the initialization revision is the current complete head.
+
+### 6. Complete inventory without preview reuse
+
+For a fixture-derived `BootstrapReview`:
+
+- expand each inventory section;
+- verify every returned node is reachable;
+- verify every returned relationship is reachable;
+- verify every returned attribute is reachable;
+- verify every returned contribution is reachable;
+- verify every returned source and nested evidence item is reachable;
+- verify every returned classification is represented;
+- verify `canTrust`, `cannotTrust`, diagnostics, and receipt/lineage health are reachable;
+- verify unverified locators are labeled and not links.
+
+Prefer assertions driven by iterating the response collections, not a small list of famous campaign entities.
+
+Also assert the bootstrap implementation imports or calls none of the forbidden preview/run selectors listed in §3.
+
+## §10 Verification commands
+
+Run from the repository root unless noted:
 
 ```bash
 cd apps/live-control-ui
@@ -208,131 +445,158 @@ cd ../..
 
 git diff --check
 
-git diff --stat 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD -- \
-  apps/live-control-ui/src/api/types.ts \
-  apps/live-control-ui/src/api/liveApi.ts \
-  apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx \
-  apps/live-control-ui/src/ingestSurface/MemoryIngestPage.test.tsx \
-  apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.tsx \
-  apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.test.tsx \
-  apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/worldGraphBootstrapReview.css
-
 git diff --name-only 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD
+```
 
-if git diff 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD -- \
-  apps/live-control-ui/src/api/liveApi.ts \
-  apps/live-control-ui/src/ingestSurface/ \
-  | grep -E '/world-graph-bootstrap/(prepare|confirm)'; then
-  echo 'D3A introduced a forbidden mutation endpoint' >&2
+### Scope allowlist check
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import subprocess
+
+allowed = {
+    "apps/live-control-ui/src/api/types.ts",
+    "apps/live-control-ui/src/api/liveApi.ts",
+    "apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx",
+    "apps/live-control-ui/src/ingestSurface/MemoryIngestPage.test.tsx",
+    "apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.tsx",
+    "apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.test.tsx",
+    "apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/worldGraphBootstrapReview.css",
+}
+changed = set(
+    subprocess.check_output(
+        ["git", "diff", "--name-only", "815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD"],
+        text=True,
+    ).splitlines()
+)
+unexpected = sorted(path for path in changed if path and path not in allowed)
+if unexpected:
+    raise SystemExit("Unexpected paths:\n" + "\n".join(unexpected))
+PY
+```
+
+### Forbidden bootstrap operations
+
+```bash
+if git grep -nE 'world-graph-bootstrap/(prepare|confirm)' -- \
+  apps/live-control-ui/src/api \
+  apps/live-control-ui/src/ingestSurface; then
+  echo 'D3A introduced a forbidden bootstrap mutation operation' >&2
   exit 1
 fi
 ```
 
-### Fixture-backed test requirements
+### Forbidden preview-pipeline coupling
 
-Tests must read `tests/fixtures/world_graph_bootstrap/api-contract-v1.json` from the repository. Do not recreate equivalent status objects by hand.
+```bash
+if git grep -nE \
+  'getGraphIngestRuns|previewUnion|preview_union|manifestPath|manifest_path|goldReview|gold-review|runDir|run_dir' -- \
+  apps/live-control-ui/src/ingestSurface/worldGraphBootstrap; then
+  echo 'D3A coupled bootstrap review to the preview/run pipeline' >&2
+  exit 1
+fi
+```
 
-The owning tests must prove:
+Review the final diff and confirm `ingestSurfaceConfig.ts` and `graphReviewWorkbench/**` are unchanged.
 
-- the ready example exposes the real package counts and visible campaign contents;
-- Mirathorn, Mireward, Questionable Company/party material, Session 22/23 chronology, and Tripod Null-Calf content are reachable from the rendered review when present in the fixture;
-- all returned relationships and attributes are represented, not only nodes;
-- source-derived / GM-authored / mixed classifications render faithfully;
-- trust and non-trust claims remain separate;
-- unverified evidence locators remain marked unverified and are not trusted links;
-- active and active-head-advanced copy does not conflate initial and current head;
-- blocked and invalid stable errors render their real diagnostics;
-- transport failure leaves the existing Graph Review workbench usable;
-- the only bootstrap network operation is GET `/status` with no query, request body, prepare, or confirm call.
+## §11 Acceptance rubric
 
-## §8 Required PR handback
+Accept only when every item is true:
 
-- **Branch:** `agent/pr006d3a-ingest-bootstrap-review` from `main` at the base SHA above.
-- Open a **draft PR** against `main`.
+- [ ] The section is visibly and semantically a **Bootstrap Activation Review**, not a Graph Review mode or lane.
+- [ ] It states that this is the certified initial world package that may be published.
+- [ ] Production consumes only no-query, no-body `GET /api/live/world-graph-bootstrap/status`.
+- [ ] Production renders the D2 status response and `BootstrapReview` directly; it does not load contribution bundles or fixtures.
+- [ ] No preview-run selector, manifest path, preview-union store, gold/live lane, recap Graph Review state, or bootstrap preview mode is introduced.
+- [ ] The bootstrap panel is a top-level sibling of the existing Graph Review workbench.
+- [ ] Bootstrap transport/contract failure does not prevent Graph Review from loading or remaining usable.
+- [ ] Bootstrap loading and retry are isolated from plan-view and graph-run loading.
+- [ ] `ready`, `active`, `active_head_advanced`, `blocked_existing_world`, `invalid_bundle`, `inconsistent_lineage`, and unavailable/error states make materially distinct truthful claims.
+- [ ] Every returned node, relationship, attribute, contribution, source/evidence record, classification, trust claim, diagnostic, and receipt/lineage health field remains inspectable.
+- [ ] The UI uses compact summaries and expandable detail without introducing graph navigation or a second interactive browser.
+- [ ] Unverified evidence locators remain visibly unverified and non-navigable.
+- [ ] No prepare, confirm, actor, acknowledgement, proposal, token, or publication behavior exists.
+- [ ] Focused tests, typecheck, build, diff check, endpoint guard, and preview-coupling guard pass.
+- [ ] No runtime paths outside §7 changed.
+- [ ] The tracker on `main` truthfully records D2 completion and D3A readiness before implementation dispatch.
 
-The PR body must contain:
-
-1. One-sentence outcome copied from §1.
-2. Base SHA and head SHA.
-3. `git diff --stat` limited to §4 paths.
-4. Every §7 command and result.
-5. Explicit statement that no `live_llm` test ran or was required.
-6. Paths outside §4: `none`, or a stop report.
-7. Bootstrap operations observed in UI tests: list them; the accepted D3A answer is status GET only.
-8. Deviations, split triggers, and deferred D3B work: `none`, or explicit details.
-
-Do not mark PR006D3 or PR006D complete from the implementation branch. The design/review owner re-anchors and updates the tracker after review and merge.
-
-## §9 Acceptance rubric
-
-The reviewer accepts only when every item is true:
-
-- [ ] An `/ingest` user can inspect the exact approved bootstrap memory before any write is offered—verified by the focused panel and page tests in §7 using the committed PR006D2 fixture.
-- [ ] The page exposes every returned node, relationship, attribute, contribution, and source, with game-readable labels before raw IDs—verified by `WorldGraphBootstrapReviewPanel.test.tsx`.
-- [ ] Ready, active, active-head-advanced, blocked, invalid, and unavailable states make distinct truthful claims—verified by `WorldGraphBootstrapReviewPanel.test.tsx`.
-- [ ] Trust copy is response-driven; `canTrust` and `cannotTrust` are not collapsed—verified by fixture-backed assertions.
-- [ ] Unverified evidence locators remain unverified and non-navigable—verified by fixture-backed assertions.
-- [ ] Existing recap/run Graph Review remains mounted and independently usable—verified by `MemoryIngestPage.test.tsx`.
-- [ ] No prepare, confirm, publication, actor, proposal, or token behavior exists—verified by the focused tests and mutation-endpoint diff guard in §7.
-- [ ] Typecheck and production build pass.
-- [ ] No paths outside §4 changed—verified by `git diff --name-only`.
-- [ ] PR006D3B remains explicitly false and unclaimed.
-
-### Review boundary map
-
-Review the future implementation at these seams:
+## §12 Retain / rewrite / delete
 
 ```text
-Pydantic status/error models
-  ↔ canonical generated contract fixture
+Retained temporarily:
+- Existing recap/run Graph Review workbench and its preview-pipeline selectors.
 
-canonical fixture
-  ↔ TypeScript status/error types
+Reason:
+- It remains the independently usable ongoing recap-review workflow until later
+  projection and write-path replacement slices own its migration or deletion.
 
-HTTP status + direct stable error body
-  ↔ frontend status result
+Remaining consumer:
+- Ongoing session-scoped recap Graph Review on /ingest.
 
-status state
-  ↔ state-specific user-visible claim
+Rewritten:
+- None of the existing Graph Review pipeline.
 
-review collections
-  ↔ every visible node / relationship / attribute / source
+Deleted in D3A:
+- Nothing. D3A adds a separate status-driven gate and does not replace the recap
+  workflow.
 
-evidence locatorStatus
-  ↔ verified vs unverified UI treatment
-
-MemoryIngestPage
-  ↔ bootstrap review + retained Graph Review workbench
-
-read-only mission
-  ↔ actual network calls and absence of mutation controls
+Required deletion PR:
+- PR007 and later migration slices retain their existing demolition ownership.
+- D3A must not move preview-pipeline deletion into this read-only gate.
 ```
+
+## §13 Required implementation PR handback
+
+- Branch from the current `main` only after the tracker correction is merged.
+- Open a draft PR against `main`.
+
+The PR body must include:
+
+1. The one-sentence mission from §0.
+2. Base SHA and head SHA.
+3. Diff stat and exact changed paths.
+4. Every §10 command and result.
+5. Bootstrap network operations observed in tests; accepted answer: status GET only.
+6. Proof that bootstrap failure leaves Graph Review mounted.
+7. Proof that fixture-derived replacement values render.
+8. Inventory coverage counts for every returned review collection.
+9. Explicit statement that no prepare/confirm, preview selector, bundle read, or campaign hardcoding exists.
+10. Deviations and stop conditions: `none`, or an explicit split report.
+
+Do not mark PR006D3 or PR006D complete from the implementation branch. The design/review owner re-anchors after implementation merge before writing PR006D3B.
 
 ## Stop conditions
 
-Stop and report rather than expanding scope if implementation requires:
+Stop and report rather than broadening D3A if implementation requires:
 
-- changing the PR006D2 backend model, route, service, or fixture;
-- introducing prepare/confirm types or calls to make the read surface work;
-- a second public or durable contract;
-- changing the existing Graph Review workbench’s run-selection or authoring behavior;
-- adding a package or code-generation dependency;
+- modifying D2 backend models, routes, service, or fixture;
+- reading contribution-bundle files in the browser;
+- introducing prepare/confirm types or calls;
+- adding a bootstrap mode to preview APIs;
+- importing preview-run state into the bootstrap panel;
+- modifying `GraphReviewWorkbenchModule` internals or `ingestSurfaceConfig.ts`;
+- sharing a load gate that allows bootstrap failure to suppress Graph Review;
+- adding a graph browser, graph navigation, editing, filtering, or authoring;
+- changing generic shared primitives to carry preview semantics;
+- adding dependencies;
 - resolving or trusting evidence locators in the browser;
-- building Projection Engine, graph search, Plan migration, or active publication health beyond the returned status/receipt;
-- adding source editing, graph correction, identity merge, or general authoring.
+- beginning Projection Engine, Plan/Play migration, or publication interaction.
+
+Use this stop report:
 
 ```text
 Stop condition:
-Why §1 cannot absorb it:
+Why the D3A mission cannot absorb it:
 Affected contract or path:
-Proposed successor slice:
-Tracker change needed:
+Smallest successor slice:
+Tracker change required:
 ```
 
-The expected successor is:
+The expected successor remains:
 
 ```text
 PR006D3B
-  A GM can explicitly confirm a prepared bootstrap proposal in /ingest so that
-  the approved initial World Supergraph is published deliberately.
+  A GM can prepare and explicitly confirm the certified bootstrap proposal so
+  that the initial World Supergraph is published deliberately.
 ```
