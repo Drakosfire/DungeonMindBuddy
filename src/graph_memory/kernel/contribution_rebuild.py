@@ -237,13 +237,14 @@ def rebuild_from_contributions(
     working = working.model_copy(update={"adjacency": rebuild_adjacency(working)})
 
     head, head_revision, current = load_current_world_graph(root, world_id)
-    equivalent = _canonical_graph_fingerprint(working) == _canonical_graph_fingerprint(
-        current
+    compared_head_revision_id = head.head_revision_id
+    equivalent_to_pre_publish_head = (
+        _canonical_graph_fingerprint(working) == _canonical_graph_fingerprint(current)
     )
-    if equivalent:
-        diagnostics.append("rebuild_equivalent_to_head")
+    if equivalent_to_pre_publish_head:
+        diagnostics.append("rebuild_equivalent_to_pre_publish_head")
     else:
-        diagnostics.append("rebuild_differs_from_head")
+        diagnostics.append("rebuild_differs_from_pre_publish_head")
         diagnostics.append(
             f"node_count_rebuild={len(working.nodes)} head={len(current.nodes)}"
         )
@@ -251,36 +252,56 @@ def rebuild_from_contributions(
             f"edge_count_rebuild={len(working.edges)} head={len(current.edges)}"
         )
 
-    report: dict[str, Any] = {
-        "world_id": world_id,
-        "baseline_revision_id": index.baseline_revision_id,
-        "head_revision_id": head.head_revision_id,
-        "contribution_ids": replay_ids,
-        "identity_decision_ids": [d.decision_id for d in identity_decisions],
-        "assertion_identity_rekeys": assertion_identity_rekeys,
-        "equivalent_to_head": equivalent,
-        "diagnostics": diagnostics,
-    }
-    write_rebuild_report(root, world_id, report)
-
     revision_id: str | None = None
     published = False
+    published_revision_id: str | None = None
+    equivalent_to_published_head: bool | None = None
     if publish:
         result = publish_world_graph_revision(
             root,
             world_id,
             working,
             operation_ids=["rebuild:from_contributions", *replay_ids],
-            expected_parent_revision_id=head.head_revision_id,
+            expected_parent_revision_id=compared_head_revision_id,
         )
-        revision_id = result.revision.revision_id
+        published_revision_id = result.revision.revision_id
+        revision_id = published_revision_id
         published = True
+        equivalent_to_published_head = True
+        diagnostics.append("rebuild_published_new_head")
+        diagnostics.append("rebuild_equivalent_to_published_head")
+        diagnostics.append("rebuild_equivalent_to_head")
     else:
         revision_id = head_revision.revision_id
+        if equivalent_to_pre_publish_head:
+            diagnostics.append("rebuild_equivalent_to_head")
+        else:
+            diagnostics.append("rebuild_differs_from_head")
+
+    report: dict[str, Any] = {
+        "world_id": world_id,
+        "baseline_revision_id": index.baseline_revision_id,
+        "compared_head_revision_id": compared_head_revision_id,
+        "published_revision_id": published_revision_id,
+        "published": published,
+        "head_revision_id": published_revision_id or compared_head_revision_id,
+        "contribution_ids": replay_ids,
+        "identity_decision_ids": [d.decision_id for d in identity_decisions],
+        "assertion_identity_rekeys": assertion_identity_rekeys,
+        "equivalent_to_pre_publish_head": equivalent_to_pre_publish_head,
+        "equivalent_to_published_head": equivalent_to_published_head,
+        "equivalent_to_head": (
+            equivalent_to_published_head
+            if published
+            else equivalent_to_pre_publish_head
+        ),
+        "diagnostics": diagnostics,
+    }
+    write_rebuild_report(root, world_id, report)
 
     return ContributionMergeResult(
         world_id=world_id,
-        parent_revision_id=head.head_revision_id,
+        parent_revision_id=compared_head_revision_id,
         revision_id=revision_id,
         contribution_ids=replay_ids,
         accepted_assertion_ids=accepted_ids,

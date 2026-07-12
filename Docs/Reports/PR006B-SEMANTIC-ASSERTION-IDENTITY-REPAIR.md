@@ -67,10 +67,22 @@ Historical contribution files are not rewritten. During replay,
 machine-readable `assertion_identity_rekeys` entries in the rebuild report.
 
 With `publish=True`, the existing validated immutable-revision path writes the
-replacement head. The legacy-ledger regression preserves both original record
-bytes, produces one shared support record with both artifacts, evidence refs,
-and node domains, then proves a second non-publishing rebuild is equivalent to
-the new head.
+replacement head, then writes `latest.json` with:
+
+- `compared_head_revision_id`
+- `published_revision_id`
+- `published`
+- `equivalent_to_pre_publish_head`
+- `equivalent_to_published_head`
+
+A successful migration leaves one trustworthy report for the new head without a
+second command.
+
+Merge and supersession fail closed with
+`assertion_identity_migration_required` when the current head still carries
+active legacy assertion IDs. That prevents mixed old/new support state and
+preserves byte-identical historical contribution records until an explicit
+`rebuild_from_contributions(..., publish=True)` migration runs.
 
 No production World Supergraph publication existed before this repair. This PR
 does not require corpus reprocessing.

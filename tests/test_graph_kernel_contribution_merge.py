@@ -447,6 +447,342 @@ def test_heterogeneous_provenance_support_survives_retraction_and_supersession(
     assert "location:mireward" in store.nodes
 
 
+def _legacy_assertion_id(
+    *,
+    assertion_kind: str,
+    subject_node_id: str | None,
+    target_node_id: str | None,
+    predicate: str | None,
+    label: str | None,
+    value: dict,
+    campaign_scope: str | None,
+    temporal_scope: dict | None,
+    epistemic_kind: str | None,
+    visibility: str | None,
+) -> str:
+    import hashlib
+    import json
+
+    payload = {
+        "assertion_kind": assertion_kind,
+        "subject_node_id": subject_node_id,
+        "target_node_id": target_node_id,
+        "predicate": predicate,
+        "label": label,
+        "value": value,
+        "campaign_scope": campaign_scope,
+        "temporal_scope": temporal_scope,
+        "epistemic_kind": epistemic_kind,
+        "visibility": visibility,
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    return f"assertion:{digest}"
+
+
+def _with_legacy_assertion_id(assertion):
+    return assertion.model_copy(
+        update={
+            "assertion_id": _legacy_assertion_id(
+                assertion_kind=assertion.assertion_kind,
+                subject_node_id=assertion.subject_node_id,
+                target_node_id=assertion.target_node_id,
+                predicate=assertion.predicate,
+                label=assertion.label,
+                value=assertion.value,
+                campaign_scope=assertion.campaign_scope,
+                temporal_scope=assertion.temporal_scope,
+                epistemic_kind=assertion.epistemic_kind,
+                visibility=assertion.visibility,
+            )
+        }
+    )
+
+
+def _seed_active_legacy_contribution(root: Path, contribution):
+    """Persist a pre-repair contribution and publish its legacy support into head."""
+    from graph_memory.kernel.contribution_merge import apply_accepted_assertions
+    from graph_memory.world_supergraph.contribution_store import (
+        # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local legacy head fixture.
+        ContributionIndex,
+        load_contribution_index,
+        save_contribution_index,
+        upsert_contribution_in_index,
+        write_contribution_record,
+    )
+
+    path = write_contribution_record(root, WORLD_ID, contribution)
+    original_bytes = path.read_bytes()
+    _head, baseline, _store = kernel.open_current_world_graph(root, WORLD_ID)
+    index = load_contribution_index(root, WORLD_ID)
+    if index.baseline_revision_id is None:
+        index = ContributionIndex(
+            world_id=WORLD_ID, baseline_revision_id=baseline.revision_id
+        )
+    index = upsert_contribution_in_index(index, contribution)
+    save_contribution_index(root, WORLD_ID, index)
+
+    head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    proposed, _support, _accepted = apply_accepted_assertions(store, contribution)
+    kernel.publish_world_graph_revision(
+        root,
+        WORLD_ID,
+        proposed,
+        operation_ids=[contribution.contribution_id],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    return path, original_bytes
+
+
+def test_legacy_active_contribution_remerge_fails_closed(seeded_root) -> None:
+    root, _parent = seeded_root
+    assertion = _with_legacy_assertion_id(
+        _mireward_assertion(
+            source_domain="worldbuilding",
+            source_artifact_id="artifact:mireward:legacy",
+            source_revision_id="worldbuilding:legacy-1",
+            evidence_ref_id="evidence:mireward:legacy",
+        )
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:legacy",
+        source_revision_id="worldbuilding:legacy-1",
+        accepted_assertions=[assertion],
+    ).model_copy(update={"accepted_assertions": [assertion]})
+    path, original_bytes = _seed_active_legacy_contribution(root, contribution)
+
+    before_head, _before_rev, before_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+    assert assertion.assertion_id in before_store.assertion_support
+
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution
+    )
+
+    assert result.published is False
+    assert result.revision_id is None
+    assert "assertion_identity_migration_required" in result.diagnostics
+    assert path.read_bytes() == original_bytes
+
+    after_head, _after_rev, after_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+    assert after_head.head_revision_id == before_head.head_revision_id
+    assert set(after_store.assertion_support) == set(before_store.assertion_support)
+    assert assertion.assertion_id in after_store.assertion_support
+    current_id = kernel.compute_assertion_id(
+        assertion_kind=assertion.assertion_kind,
+        subject_node_id=assertion.subject_node_id,
+        target_node_id=assertion.target_node_id,
+        predicate=assertion.predicate,
+        label=assertion.label,
+        value=assertion.value,
+        campaign_scope=assertion.campaign_scope,
+        temporal_scope=assertion.temporal_scope,
+        epistemic_kind=assertion.epistemic_kind,
+        visibility=assertion.visibility,
+    )
+    assert current_id != assertion.assertion_id
+    assert current_id not in after_store.assertion_support
+
+
+def test_legacy_active_contribution_supersession_fails_closed(seeded_root) -> None:
+    root, _ = seeded_root
+    legacy_assertion = _with_legacy_assertion_id(
+        _mireward_assertion(
+            source_domain="worldbuilding",
+            source_artifact_id="artifact:mireward:legacy-super",
+            source_revision_id="worldbuilding:legacy-super-1",
+            evidence_ref_id="evidence:mireward:legacy-super",
+        )
+    )
+    legacy = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:legacy-super",
+        source_revision_id="worldbuilding:legacy-super-1",
+        accepted_assertions=[legacy_assertion],
+    ).model_copy(update={"accepted_assertions": [legacy_assertion]})
+    path, original_bytes = _seed_active_legacy_contribution(root, legacy)
+
+    replacement_assertion = _mireward_assertion(
+        source_domain="worldbuilding",
+        source_artifact_id="artifact:mireward:legacy-super",
+        source_revision_id="worldbuilding:legacy-super-2",
+        evidence_ref_id="evidence:mireward:legacy-super-2",
+    )
+    replacement = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:legacy-super",
+        source_revision_id="worldbuilding:legacy-super-2",
+        accepted_assertions=[replacement_assertion],
+        supersedes_contribution_id=legacy.contribution_id,
+    )
+    before_head, _before_rev, before_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+
+    result = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=replacement,
+        superseded_contribution_id=legacy.contribution_id,
+    )
+
+    assert result.published is False
+    assert result.revision_id is None
+    assert "assertion_identity_migration_required" in result.diagnostics
+    assert path.read_bytes() == original_bytes
+    from graph_memory.world_supergraph.paths import contribution_path
+
+    assert not contribution_path(
+        root, WORLD_ID, replacement.contribution_id
+    ).exists()
+
+    after_head, _after_rev, after_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+    assert after_head.head_revision_id == before_head.head_revision_id
+    assert legacy_assertion.assertion_id in after_store.assertion_support
+    assert set(after_store.assertion_support) == set(before_store.assertion_support)
+
+
+def _edge_assertion(
+    *,
+    source_domain: str,
+    source_artifact_id: str,
+    source_revision_id: str,
+    evidence_ref_id: str,
+):
+    evidence = {
+        "evidence_ref_id": evidence_ref_id,
+        "source_artifact_id": source_artifact_id,
+        "source_domain": source_domain,
+    }
+    if source_domain == "recap":
+        evidence.update(
+            {
+                "session_id": "session-23",
+                "source_span_ref_id": f"span:{evidence_ref_id}",
+            }
+        )
+    return kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id="pc_caelynn",
+        target_node_id="loc_mirathorn",
+        predicate="scouted",
+        label="scouted",
+        value={
+            "edge_id": "edge:pc_caelynn:scouted:loc_mirathorn",
+            "source_node_id": "pc_caelynn",
+            "target_node_id": "loc_mirathorn",
+            "predicate": "scouted",
+            "source_domains": [source_domain],
+            "evidence": [evidence],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=[evidence_ref_id],
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome=(
+            "created_new" if source_domain == "worldbuilding" else "resolved_existing"
+        ),
+    )
+
+
+def test_heterogeneous_provenance_edge_unions_domains_and_survives_retraction(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    worldbuilding = _edge_assertion(
+        source_domain="worldbuilding",
+        source_artifact_id="artifact:edge:worldbuilding",
+        source_revision_id="worldbuilding:edge-1",
+        evidence_ref_id="evidence:edge:worldbuilding",
+    )
+    recap = _edge_assertion(
+        source_domain="recap",
+        source_artifact_id="artifact:edge:recap",
+        source_revision_id="recap:edge-1",
+        evidence_ref_id="evidence:edge:recap",
+    )
+    assert worldbuilding.assertion_id == recap.assertion_id
+
+    contribution_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:edge:worldbuilding",
+        source_revision_id="worldbuilding:edge-1",
+        accepted_assertions=[worldbuilding],
+    )
+    contribution_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:edge:recap",
+        source_revision_id="recap:edge-1",
+        accepted_assertions=[recap],
+    )
+    kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution_a
+    )
+    kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contribution_b
+    )
+
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    edge_id = "edge:pc_caelynn:scouted:loc_mirathorn"
+    assert edge_id in store.edges
+    assert list(store.edges).count(edge_id) == 1
+    edge = store.edges[edge_id]
+    assert set(edge.source_domains) == {"worldbuilding", "recap"}
+
+    supports = [
+        support
+        for support in store.assertion_support.values()
+        if support["graph_object_id"] == edge_id
+    ]
+    assert len(supports) == 1
+    support = supports[0]
+    assert support["assertion_id"] == worldbuilding.assertion_id
+    assert set(support["active_contribution_ids"]) == {
+        contribution_a.contribution_id,
+        contribution_b.contribution_id,
+    }
+    assert set(support["source_artifact_ids"]) == {
+        "artifact:edge:worldbuilding",
+        "artifact:edge:recap",
+    }
+    assert set(support["evidence_ref_ids"]) == {
+        "evidence:edge:worldbuilding",
+        "evidence:edge:recap",
+    }
+
+    retracted = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contribution_a.contribution_id,
+        reason="worldbuilding edge withdrawn",
+    )
+    assert retracted.published is True
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert edge_id in store.edges
+    support = store.assertion_support[worldbuilding.assertion_id]
+    assert support["support_state"] == "supported"
+    assert support["active_contribution_ids"] == [contribution_b.contribution_id]
+    assert contribution_a.contribution_id in support["retracted_contribution_ids"]
+
+
 def test_graph_review_authored_assertion_uses_same_merge_path(seeded_root) -> None:
     root, _ = seeded_root
     assertion = _node_assertion(

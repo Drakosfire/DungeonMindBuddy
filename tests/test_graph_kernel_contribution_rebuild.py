@@ -389,6 +389,13 @@ def test_rebuild_migrates_legacy_provenance_split_without_rewriting_ledger(
             supports[0]["assertion_id"],
         ),
     }
+    assert report["compared_head_revision_id"] == baseline.revision_id
+    assert report["published"] is True
+    assert report["published_revision_id"] == revision.revision_id
+    assert report["head_revision_id"] == revision.revision_id
+    assert report["equivalent_to_pre_publish_head"] is False
+    assert report["equivalent_to_published_head"] is True
+    assert report["equivalent_to_head"] is True
 
     verification = kernel.rebuild_from_contributions(
         root, world_id=WORLD_ID, publish=False
