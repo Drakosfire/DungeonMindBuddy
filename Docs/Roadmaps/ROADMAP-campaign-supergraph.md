@@ -162,7 +162,7 @@ fact; publication must not knowingly proceed under that incorrect contract.
 - **PR006A** — Heterogeneous Provenance Diagnostic
 - **PR006B** — Separate Semantic Assertion Identity from Provenance
 - **PR006C** — Approved Initial Contribution Bundle
-- **PR006D** — Publish Initial Eldyrwild C2 World Supergraph
+- **PR006D** — Publish Initial Eldyrwild C2 World Supergraph (D1 Kernel init DONE; D2 operator activation DONE; D3 `/ingest` UI deferred)
 
 **Demolition owned here:** Remove or isolate production dependence on preview union stores and named preview sources for **runtime graph availability**. Runtime must load the world graph head, not a preview fixture. Delete replaced paths in this PR unless a named consumer remains.
 
@@ -193,7 +193,8 @@ fact; publication must not knowingly proceed under that incorrect contract.
 - Loads **without** preview source, eval fixture, explicit manifest, or latest-session selector as the selection mechanism.
 - Projection work (Phase 4) uses this graph as its acceptance fixture.
 - Plan migration (Phase 5) can be tested against the PR006D published World
-  Supergraph.
+  Supergraph once PR007A read snapshot lands. `/ingest` UI (PR006D3) is deferred
+  and is not a Plan dogfood dependency — operator activation via PR006D2 suffices.
 
 ---
 
@@ -205,7 +206,10 @@ fact; publication must not knowingly proceed under that incorrect contract.
 
 **Dependencies:** Phase 3 (real populated graph).
 
-**Expected PR slices:** Tracker **PR007**.
+**Expected PR slices:** Tracker **PR007** (PR007A read snapshot active).
+
+**Dogfood path:** PR006D2 operator activation → PR007A revision-pinned read
+snapshot → PR008 Plan surface migration. PR006D3 `/ingest` UI remains deferred.
 
 **Demolition owned here:** Replace graph-preview selection APIs with the persistent world graph read API. Delete replaced production selectors in this PR unless a named consumer remains.
 
@@ -228,7 +232,10 @@ fact; publication must not knowingly proceed under that incorrect contract.
 
 **Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. Q&A waits until cards are useful against real memory.
 
-**Dependencies:** Phase 4.
+**Dependencies:** Phase 4 (PR007A read snapshot; PR006D3 UI not required).
+
+**Dogfood path:** PR006D2 activation → PR007A projection read API → PR008 Plan wiring.
+PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
 
 **Expected PR slices:** Tracker **PR008** (Plan), **PR009** (Play), Build follow-ons as needed.
 

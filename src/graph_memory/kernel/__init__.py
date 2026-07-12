@@ -5,7 +5,7 @@ Runtime adapters and surfaces should import graph-memory operations from
 latest-ingest selectors are not the legal production graph API.
 
 Identity APIs (PR004) and contribution/merge APIs (PR005) are exported below.
-Projection (PR007) APIs remain reserved — see ``graph_memory.kernel.contracts``.
+Projection (PR007A) APIs are exported from ``graph_memory.kernel.world_projection``.
 """
 
 from __future__ import annotations
@@ -77,6 +77,13 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationPlan,
     WorldInitializationReceipt,
     WorldInitializationResult,
+)
+from graph_memory.kernel.world_projection import (
+    WorldGraphProjectionError,
+    build_projection_payload,
+    project_world_graph,
+    resolve_projection_admissibility,
+    search_world_graph_projection,
 )
 from graph_memory.kernel.world_graph import (
     WorldGraphError,
@@ -172,4 +179,10 @@ __all__ = [
     "rebuild_from_contributions",
     "retract_graph_contribution",
     "supersede_graph_contribution",
+    # Projection (PR007A)
+    "WorldGraphProjectionError",
+    "build_projection_payload",
+    "project_world_graph",
+    "resolve_projection_admissibility",
+    "search_world_graph_projection",
 ]

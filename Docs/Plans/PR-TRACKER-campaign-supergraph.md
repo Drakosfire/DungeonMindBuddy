@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-12 (PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)  
+**Updated:** 2026-07-12 (PR007A DOING; PR006D2 DONE #337; PR006D3A/D3B DEFERRED; PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -483,7 +483,7 @@ projection, or runtime migration.
 
 ## PR006D — Publish Initial Eldyrwild C2 World Supergraph
 
-**Status:** `DOING` (split into PR006D1–D3; D2 active)
+**Status:** `DOING` (D1 DONE; D2 DONE; D3 deferred)
 **Phase:** 3 / graph-native publication  
 
 PR006D is intentionally split after #336 review: one reviewable Kernel
@@ -511,7 +511,7 @@ plan without exposing a partial graph.
 
 ### PR006D2 — Approved Eldyrwild bootstrap activation service
 
-**Status:** `DOING`
+**Status:** `DONE` (GitHub #337; merge `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`)
 **Purpose:** Inspect and explicitly activate the approved Eldyrwild package
 through a stable backend contract.
 
@@ -525,7 +525,7 @@ contract; review projection for nodes/edges/attributes/sources.
 
 ### PR006D3 — `/ingest` review and activation UI
 
-**Status:** `BLOCKED` on PR006D2
+**Status:** `DEFERRED` (design #338; not a Plan dogfood blocker)
 **Purpose:** Let a GM see exactly what campaign memory will be created and
 explicitly publish it from `/ingest`.
 
@@ -535,13 +535,23 @@ real UI tests + dogfood.
 
 **Depends on:** PR006D2.
 
-**Note:** #330/#331 closed unmerged; not prerequisites.
+**Note:** #330/#331 closed unmerged; not prerequisites. D3A design (#338) and
+D3B UI implementation remain deferred — operator activation via PR006D2 CLI/API
+is sufficient for projection dogfood.
+
+### PR006D3A — `/ingest` design contract
+
+**Status:** `DEFERRED` (GitHub design #338)
+
+### PR006D3B — `/ingest` UI implementation
+
+**Status:** `DEFERRED`
 
 ---
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006D2 and PR006D3
+**Status:** `DOING` (PR007A active — revision-pinned read snapshot)
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
@@ -568,15 +578,30 @@ real UI tests + dogfood.
 
 **Non-goals:** Plan Q&A; graph visualization product; write-path changes; reintroducing latest-ingest as a transitional production mode.
 
-**Depends on:** PR006D.
+**Depends on:** PR006D2 (published world). PR006D3 UI deferred — not a blocker.
 
 **Absorbs prior informal “plan graph-context contract” intent (without latest-ingest escape hatches).**
+
+### PR007A — Revision-pinned World Graph read snapshot
+
+**Status:** `DOING`
+**Purpose:** Deliver the first production read API for revision-pinned World Graph
+projection over the PR006D published Eldyrwild graph.
+
+**Deliverables:** Pure projection models; Kernel `project_world_graph` +
+`search_world_graph_projection`; live-control POST
+`/api/live/world-graph/projection`; revision-bound attribute reconstruction;
+deterministic lexical search; trust boundary honesty.
+
+**Depends on:** PR006D2.
+
+**Non-goals:** Plan UI wiring; preview/latest-ingest selectors; `/ingest` UI.
 
 ---
 
 ## PR008 — Plan Surface Migration
 
-**Status:** `BLOCKED` on PR007  
+**Status:** `BLOCKED` on PR007A  
 **Phase:** 5  
 **Purpose:** `/plan` consumes Projection Engine only for graph-backed object navigation and search against the real world graph under Campaign 2 scope.
 
@@ -597,7 +622,7 @@ real UI tests + dogfood.
 
 **Non-goals:** Plan-scoped Q&A in the same slice unless dogfood already unblocked and explicitly scoped; Author Draft in Plan; identity merge in Plan.
 
-**Depends on:** PR007. Builds on existing GraphObjectCard path (GitHub PR316–PR321 era).
+**Depends on:** PR007A. Builds on existing GraphObjectCard path (GitHub PR316–PR321 era).
 
 ```text
 Retained temporarily: (none expected for useLatestGraphIngest)

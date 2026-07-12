@@ -6,15 +6,13 @@ PR004 identity APIs are implemented in ``graph_memory.kernel.identity`` /
 PR005 contribution/merge APIs are implemented in ``graph_memory.kernel``
 contribution modules and exported from ``graph_memory.kernel``.
 
-PR007 projection remains reserved. Callers must not treat reserved APIs as
-working.
+PR007 projection APIs are implemented in ``graph_memory.kernel.world_projection``
+and exported from ``graph_memory.kernel``.
 
 See also: ``Docs/Design/CONTRACT-graph-kernel-boundary.md``.
 """
 
 from __future__ import annotations
-
-from typing import Any, NoReturn
 
 # --- Implemented in PR004 — identity (exported from graph_memory.kernel) ---
 
@@ -44,30 +42,16 @@ IMPLEMENTED_IN_PR005_CONTRIBUTION: tuple[str, ...] = (
 # Kept for older references; empty — contribution APIs are no longer reserved.
 RESERVED_FOR_PR005_CONTRIBUTION: tuple[str, ...] = ()
 
-# --- Reserved for PR007 — projection ---
+# --- Implemented in PR007A — projection ---
 
-RESERVED_FOR_PR007_PROJECTION: tuple[str, ...] = (
+IMPLEMENTED_IN_PR007_PROJECTION: tuple[str, ...] = (
     "project_world_graph",
     "build_projection_payload",
     "resolve_projection_admissibility",
+    "search_world_graph_projection",
 )
 
-ALL_RESERVED_KERNEL_APIS: tuple[str, ...] = RESERVED_FOR_PR007_PROJECTION
+# Kept for older references; empty — projection APIs are no longer reserved.
+RESERVED_FOR_PR007_PROJECTION: tuple[str, ...] = ()
 
-
-def _reserved(name: str, pr_slice: str) -> NoReturn:
-    raise NotImplementedError(
-        f"{name} is reserved for {pr_slice} and is not implemented yet"
-    )
-
-
-def project_world_graph(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("project_world_graph", "PR007 — projection")
-
-
-def build_projection_payload(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("build_projection_payload", "PR007 — projection")
-
-
-def resolve_projection_admissibility(*_args: Any, **_kwargs: Any) -> NoReturn:
-    _reserved("resolve_projection_admissibility", "PR007 — projection")
+ALL_RESERVED_KERNEL_APIS: tuple[str, ...] = ()
