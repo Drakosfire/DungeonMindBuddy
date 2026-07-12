@@ -145,6 +145,14 @@ For each accepted `manual_import` assertion, validation requires:
 
 For authored records, validation requires `graph_review_authored_assertion`, a non-empty `authored_by`, and `graph-data://` self-citation.
 
+### Campaign / session coherence
+
+- Recap and GM-authored contributions must set `contribution.campaign_scope` to the manifest primary campaign; world-hub contributions may keep `null`.
+- Every embedded artifact `campaign_id` must equal the primary campaign.
+- Recap evidence/artifact `session_id` values must agree, belong to `manifest.focus_sessions`, and match any `temporal_scope.session_id`.
+- Recap edge `value.session_ids` must match the assertion temporal session.
+- The observed recap-session set must equal `manifest.focus_sessions`.
+
 ---
 
 ## Dry-run publication

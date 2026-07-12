@@ -133,6 +133,150 @@ def _uri_allowed(uri: str, domains: set[str], *, source_kind: str) -> bool:
     return True
 
 
+def _contribution_has_recap(contribution: GraphContribution) -> bool:
+    for assertion in contribution.accepted_assertions:
+        if "recap" in _domains_from_assertion(assertion):
+            return True
+    return False
+
+
+def _temporal_session_id(assertion: GraphContributionAssertion) -> str | None:
+    temporal = assertion.temporal_scope
+    if not isinstance(temporal, dict):
+        return None
+    session_id = temporal.get("session_id")
+    return str(session_id) if session_id else None
+
+
+def _validate_contribution_campaign_scope(
+    contribution: GraphContribution,
+    entry_path: str,
+    primary_campaign: str,
+    errors: list[str],
+) -> None:
+    """Recap/authored contributions must carry the primary campaign; hubs may be null."""
+    requires_campaign = (
+        contribution.source_kind in _AUTHORED_KINDS
+        or _contribution_has_recap(contribution)
+    )
+    scope = contribution.campaign_scope
+    if requires_campaign:
+        if scope != primary_campaign:
+            errors.append(
+                f"contribution campaign_scope must equal primary "
+                f"{primary_campaign!r} for {entry_path}, got {scope!r}"
+            )
+    elif scope is not None:
+        # World-global hubs keep null; any other value must still match primary.
+        if scope != primary_campaign:
+            errors.append(
+                f"contribution campaign_scope {scope!r} disagrees with primary "
+                f"{primary_campaign!r} for {entry_path}"
+            )
+
+
+def _validate_scope_chronology(
+    assertion: GraphContributionAssertion,
+    artifacts: dict[str, dict[str, Any]],
+    evidence_payloads: list[dict[str, Any]],
+    *,
+    primary_campaign: str,
+    focus_sessions: set[str],
+    observed_recap_sessions: set[str],
+    errors: list[str],
+) -> None:
+    """Fail closed when campaign/session provenance disagrees."""
+    assertion_id = assertion.assertion_id
+    provenance_domains = _assertion_provenance_domains(assertion)
+    is_recap = "recap" in provenance_domains or "recap" in _domains_from_assertion(
+        assertion
+    )
+    temporal_session = _temporal_session_id(assertion)
+
+    for artifact_id, artifact in artifacts.items():
+        campaign_id = artifact.get("campaign_id")
+        if campaign_id is None or str(campaign_id).strip() == "":
+            errors.append(
+                f"source artifact {artifact_id!r} missing campaign_id on "
+                f"{assertion_id}"
+            )
+        elif str(campaign_id) != primary_campaign:
+            errors.append(
+                f"source artifact {artifact_id!r} campaign_id {campaign_id!r} "
+                f"disagrees with primary {primary_campaign!r} on {assertion_id}"
+            )
+
+    recap_evidence_sessions: set[str] = set()
+    for evidence in evidence_payloads:
+        evidence_domain = str(evidence.get("source_domain") or "")
+        evidence_session = evidence.get("session_id")
+        artifact_id = str(evidence.get("source_artifact_id") or "")
+        artifact = artifacts.get(artifact_id, {})
+        artifact_session = artifact.get("session_id")
+
+        if evidence_domain == "recap" or evidence_session:
+            if not evidence_session:
+                continue  # missing session already reported elsewhere
+            session = str(evidence_session)
+            recap_evidence_sessions.add(session)
+            observed_recap_sessions.add(session)
+            if session not in focus_sessions:
+                errors.append(
+                    f"recap session_id {session!r} outside manifest.focus_sessions "
+                    f"on {assertion_id}"
+                )
+            if artifact_session is None or str(artifact_session).strip() == "":
+                errors.append(
+                    f"recap artifact {artifact_id!r} missing session_id on "
+                    f"{assertion_id}"
+                )
+            elif str(artifact_session) != session:
+                errors.append(
+                    f"evidence/artifact session mismatch on {assertion_id}: "
+                    f"evidence={session!r} artifact={artifact_session!r}"
+                )
+
+    if is_recap and temporal_session:
+        if not recap_evidence_sessions:
+            errors.append(
+                f"temporal_scope.session_id {temporal_session!r} without recap "
+                f"evidence session on {assertion_id}"
+            )
+        elif recap_evidence_sessions != {temporal_session}:
+            errors.append(
+                f"temporal/evidence session mismatch on {assertion_id}: "
+                f"temporal={temporal_session!r} "
+                f"evidence={sorted(recap_evidence_sessions)}"
+            )
+        if temporal_session not in focus_sessions:
+            errors.append(
+                f"temporal_scope.session_id {temporal_session!r} outside "
+                f"manifest.focus_sessions on {assertion_id}"
+            )
+
+    if assertion.assertion_kind == "edge":
+        value = dict(assertion.value or {})
+        edge_sessions = value.get("session_ids")
+        if edge_sessions is not None:
+            normalized = {str(item) for item in edge_sessions}
+            if temporal_session is None:
+                errors.append(
+                    f"edge session_ids present without temporal_scope.session_id "
+                    f"on {assertion_id}"
+                )
+            elif normalized != {temporal_session}:
+                errors.append(
+                    f"edge session_ids/temporal mismatch on {assertion_id}: "
+                    f"session_ids={sorted(normalized)} "
+                    f"temporal={temporal_session!r}"
+                )
+        elif is_recap and temporal_session:
+            errors.append(
+                f"recap edge missing session_ids for temporal "
+                f"{temporal_session!r} on {assertion_id}"
+            )
+
+
 def _validate_authority_model(
     contribution: GraphContribution,
     entry_path: str,
@@ -383,6 +527,9 @@ def validate_contribution_bundle(
     unresolved_total = 0
     observed_nodes: set[str] = set()
     observed_edges: set[str] = set()
+    observed_recap_sessions: set[str] = set()
+    focus_sessions = set(manifest.focus_sessions)
+    primary_campaign = manifest.primary_campaign_scope
 
     for index, contribution in enumerate(contributions):
         entry = manifest.ordered_contributions[index]
@@ -411,6 +558,12 @@ def validate_contribution_bundle(
                 f"{contribution.status!r}"
             )
         _validate_authority_model(contribution, entry.path, errors)
+        _validate_contribution_campaign_scope(
+            contribution,
+            entry.path,
+            manifest.primary_campaign_scope,
+            errors,
+        )
 
         rejected_total += len(contribution.rejected_assertions)
         unresolved_total += len(contribution.unresolved_mentions)
@@ -555,6 +708,15 @@ def validate_contribution_bundle(
                 evidence_payloads,
                 errors,
             )
+            _validate_scope_chronology(
+                assertion,
+                artifacts,
+                evidence_payloads,
+                primary_campaign=primary_campaign,
+                focus_sessions=focus_sessions,
+                observed_recap_sessions=observed_recap_sessions,
+                errors=errors,
+            )
 
             for evidence in evidence_payloads:
                 evidence_id = str(evidence.get("evidence_ref_id") or "")
@@ -596,6 +758,12 @@ def validate_contribution_bundle(
         errors.append(f"rejected_assertions must be 0, got {rejected_total}")
     if unresolved_total != 0:
         errors.append(f"unresolved_mentions must be 0, got {unresolved_total}")
+    if observed_recap_sessions != focus_sessions:
+        errors.append(
+            "recap session set must equal manifest.focus_sessions: "
+            f"observed={sorted(observed_recap_sessions)} "
+            f"expected={sorted(focus_sessions)}"
+        )
     if len(bundle.identity_decision_records) != 0 or len(manifest.identity_decisions) != 0:
         errors.append("identity_decisions must be empty for the initial bundle")
 

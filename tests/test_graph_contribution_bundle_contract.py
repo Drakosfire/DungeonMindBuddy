@@ -747,3 +747,162 @@ def test_nested_contribution_subdirectory_rejection(tmp_path: Path) -> None:
     (nested / "extra.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="contribution subdirectories are not allowed"):
         load_contribution_bundle(bundle_root)
+
+
+def test_wrong_contribution_campaign_scope_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/004-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["campaign_scope"] = "wrong-campaign"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "contribution campaign_scope must equal primary" in error
+        for error in report.validation_errors
+    )
+
+
+def test_wrong_artifact_campaign_id_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_artifacts"][0]["campaign_id"] = "wrong-campaign"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "campaign_id" in error and "disagrees with primary" in error
+        for error in report.validation_errors
+    )
+
+
+def test_evidence_artifact_session_mismatch_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/004-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["evidence"][0]["session_id"] = "session-99"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "evidence/artifact session mismatch" in error
+        for error in report.validation_errors
+    )
+
+
+def test_temporal_evidence_session_mismatch_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/004-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    # Event node carries temporal_scope.session_id.
+    assertion = next(
+        item
+        for item in payload["accepted_assertions"]
+        if (item.get("temporal_scope") or {}).get("session_id")
+        and item["assertion_kind"] == "node"
+    )
+    assertion["temporal_scope"] = {"session_id": "session-99"}
+    assertion["assertion_id"] = compute_assertion_id(
+        assertion_kind=assertion["assertion_kind"],
+        subject_node_id=assertion["subject_node_id"],
+        target_node_id=assertion["target_node_id"],
+        predicate=assertion["predicate"],
+        label=assertion["label"],
+        value=assertion["value"],
+        campaign_scope=assertion["campaign_scope"],
+        temporal_scope=assertion["temporal_scope"],
+        epistemic_kind=assertion["epistemic_kind"],
+        visibility=assertion["visibility"],
+    )
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "temporal/evidence session mismatch" in error
+        for error in report.validation_errors
+    )
+
+
+def test_edge_session_ids_temporal_mismatch_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/004-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = next(
+        item
+        for item in payload["accepted_assertions"]
+        if item["assertion_kind"] == "edge"
+    )
+    assertion["value"]["session_ids"] = ["session-99"]
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "edge session_ids/temporal mismatch" in error
+        for error in report.validation_errors
+    )
+
+
+def test_recap_session_outside_focus_sessions_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/004-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    for assertion in payload["accepted_assertions"]:
+        for evidence in assertion["value"].get("evidence") or []:
+            if evidence.get("session_id"):
+                evidence["session_id"] = "session-99"
+        for artifact in assertion["value"].get("source_artifacts") or []:
+            if artifact.get("session_id"):
+                artifact["session_id"] = "session-99"
+        temporal = assertion.get("temporal_scope") or {}
+        if temporal.get("session_id"):
+            assertion["temporal_scope"] = {"session_id": "session-99"}
+            assertion["assertion_id"] = compute_assertion_id(
+                assertion_kind=assertion["assertion_kind"],
+                subject_node_id=assertion["subject_node_id"],
+                target_node_id=assertion["target_node_id"],
+                predicate=assertion["predicate"],
+                label=assertion["label"],
+                value=assertion["value"],
+                campaign_scope=assertion["campaign_scope"],
+                temporal_scope=assertion["temporal_scope"],
+                epistemic_kind=assertion["epistemic_kind"],
+                visibility=assertion["visibility"],
+            )
+        if assertion["assertion_kind"] == "edge" and assertion["value"].get(
+            "session_ids"
+        ):
+            assertion["value"]["session_ids"] = ["session-99"]
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "outside manifest.focus_sessions" in error
+        for error in report.validation_errors
+    )
