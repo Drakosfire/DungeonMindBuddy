@@ -483,7 +483,7 @@ projection, or runtime migration.
 
 ## PR006D — Publish Initial Eldyrwild C2 World Supergraph
 
-**Status:** `DOING` (split into PR006D1–D3; GitHub #336 = D1 draft)  
+**Status:** `DOING` (split into PR006D1–D3; D2 active)
 **Phase:** 3 / graph-native publication  
 
 PR006D is intentionally split after #336 review: one reviewable Kernel
@@ -491,7 +491,7 @@ contract first, then Eldyrwild activation service, then `/ingest` UI.
 
 ### PR006D1 — Generic atomic world initialization
 
-**Status:** `DOING` (GitHub #336 draft)  
+**Status:** `DONE` (GitHub #336; merge `fc6e811dd865559f662bf710566bdb9683acc370`)
 **Purpose:** Atomically initialize a new world from a validated contribution
 plan without exposing a partial graph.
 
@@ -511,7 +511,7 @@ plan without exposing a partial graph.
 
 ### PR006D2 — Approved Eldyrwild bootstrap activation service
 
-**Status:** `BLOCKED` on PR006D1  
+**Status:** `DOING`
 **Purpose:** Inspect and explicitly activate the approved Eldyrwild package
 through a stable backend contract.
 
@@ -525,7 +525,7 @@ contract; review projection for nodes/edges/attributes/sources.
 
 ### PR006D3 — `/ingest` review and activation UI
 
-**Status:** `BLOCKED` on PR006D2  
+**Status:** `BLOCKED` on PR006D2
 **Purpose:** Let a GM see exactly what campaign memory will be created and
 explicitly publish it from `/ingest`.
 
@@ -541,7 +541,7 @@ real UI tests + dogfood.
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006D1–D3  
+**Status:** `BLOCKED` on PR006D2 and PR006D3
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 

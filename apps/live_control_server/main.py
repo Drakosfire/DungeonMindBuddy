@@ -7,6 +7,9 @@ from apps.live_control_server.routes.graph_preview import router as graph_previe
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
 from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
+from apps.live_control_server.routes.world_graph_bootstrap import (
+    router as world_graph_bootstrap_router,
+)
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
@@ -23,6 +26,7 @@ def create_app() -> FastAPI:
     application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)
     application.include_router(party_registry_router)
+    application.include_router(world_graph_bootstrap_router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
