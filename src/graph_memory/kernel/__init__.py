@@ -62,6 +62,19 @@ from graph_memory.kernel.identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )
+from graph_memory.kernel.world_initialization import (
+    build_empty_technical_baseline_store,
+    initialize_world_from_contributions,
+    inspect_world_initialization_state,
+    read_initialization_receipt,
+)
+from graph_memory.kernel.world_initialization_models import (
+    WorldInitializationApprovalAttestation,
+    WorldInitializationError,
+    WorldInitializationPlan,
+    WorldInitializationReceipt,
+    WorldInitializationResult,
+)
 from graph_memory.kernel.world_graph import (
     WorldGraphError,
     WorldGraphHead,
@@ -105,6 +118,16 @@ __all__ = [
     "publish_world_graph_revision",
     "publish_world_revision",
     "rollback_world_graph_head",
+    # World initialization (PR006D1)
+    "WorldInitializationApprovalAttestation",
+    "WorldInitializationError",
+    "WorldInitializationPlan",
+    "WorldInitializationReceipt",
+    "WorldInitializationResult",
+    "build_empty_technical_baseline_store",
+    "initialize_world_from_contributions",
+    "inspect_world_initialization_state",
+    "read_initialization_receipt",
     # Identity (PR004)
     "IdentityCandidate",
     "IdentityCanonState",

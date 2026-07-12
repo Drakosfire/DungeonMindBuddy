@@ -7,7 +7,7 @@ from pathlib import Path
 from graph_memory.union_supergraph.load import dump_union_supergraph_store
 from graph_memory.union_supergraph.validate import (
     UnionSupergraphValidationError,
-    validate_union_supergraph_fixture,
+    validate_union_supergraph_store_payload,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 from graph_memory.world_supergraph.model import WorldGraphIntegrityReport
@@ -77,7 +77,7 @@ def build_world_graph_integrity_report(
             )
         load_ok = True
         try:
-            validate_union_supergraph_fixture(payload)
+            validate_union_supergraph_store_payload(payload)
             validation_ok = True
         except UnionSupergraphValidationError as exc:
             errors.append(str(exc))

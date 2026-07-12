@@ -147,3 +147,35 @@ def identity_decision_path(root: Path, world_id: str, decision_id: str) -> Path:
 
 def identity_decision_index_path(root: Path, world_id: str) -> Path:
     return world_dir(root, world_id) / "identity_decision_index.json"
+
+
+def initializing_root(root: Path) -> Path:
+    """Parent directory for staged world-initialization runs."""
+    return root / "graph_memory" / ".initializing"
+
+
+def world_init_lock_path(root: Path) -> Path:
+    """Exclusive lock for atomic promotion of a staged world directory."""
+    return initializing_root(root) / ".world-init.lock"
+
+
+def staging_run_dir(root: Path, world_id: str, run_id: str) -> Path:
+    """One nested Kernel root for a staged initialization run."""
+    safe_world = assert_safe_world_id(world_id)
+    if not run_id or "/" in run_id or "\\" in run_id or ".." in run_id:
+        raise ValueError(f"invalid initialization run_id: {run_id!r}")
+    return initializing_root(root) / f"{safe_world}-{run_id}"
+
+
+def staged_world_dir(staging_root: Path, world_id: str) -> Path:
+    """World directory inside a nested staging Kernel root."""
+    return staging_root / "graph_memory" / "worlds" / assert_safe_world_id(world_id)
+
+
+def initialization_dir(root: Path, world_id: str) -> Path:
+    return world_dir(root, world_id) / "initialization"
+
+
+def initialization_receipt_path(root: Path, world_id: str) -> Path:
+    """Immutable initial-publication receipt for a world."""
+    return initialization_dir(root, world_id) / "initial.json"

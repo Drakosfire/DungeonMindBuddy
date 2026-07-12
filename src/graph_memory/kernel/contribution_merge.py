@@ -588,6 +588,72 @@ def _is_graph_mutating_accepted_assertion(
     return assertion.identity_resolution_outcome not in _NON_MUTATING_IDENTITY_OUTCOMES
 
 
+def _apply_attribute_assertion(
+    store: UnionSupergraphStore,
+    assertion: GraphContributionAssertion,
+    contribution: GraphContribution,
+) -> tuple[UnionSupergraphStore, str | None]:
+    """Materialize embedded attribute evidence/artifacts; return subject id."""
+    subject_id = assertion.subject_node_id
+    value = dict(assertion.value)
+    evidence = dict(store.evidence)
+    artifacts = dict(store.source_artifacts)
+
+    for ref_payload in value.get("evidence") or []:
+        if not isinstance(ref_payload, dict):
+            continue
+        ref_id = str(ref_payload.get("evidence_ref_id") or "")
+        if not ref_id:
+            continue
+        _ensure_evidence(
+            evidence,
+            artifacts,
+            evidence_ref_id=ref_id,
+            source_artifact_id=str(
+                ref_payload.get("source_artifact_id")
+                or assertion.source_artifact_id
+                or contribution.source_artifact_id
+                or f"artifact:{contribution.contribution_id}"
+            ),
+            source_domain=str(ref_payload.get("source_domain") or "manual_seed"),
+            campaign_id=store.campaign_id,
+            session_id=ref_payload.get("session_id"),
+            locator=ref_payload.get("locator"),
+            source_span_ref_id=ref_payload.get("source_span_ref_id"),
+        )
+
+    for artifact_payload in value.get("source_artifacts") or []:
+        if isinstance(artifact_payload, dict) and artifact_payload.get(
+            "source_artifact_id"
+        ):
+            artifacts[str(artifact_payload["source_artifact_id"])] = (
+                UnionSupergraphSourceArtifact.model_validate(artifact_payload)
+            )
+
+    for ref_id in assertion.evidence_ref_ids:
+        if ref_id in evidence:
+            continue
+        artifact_id = (
+            assertion.source_artifact_id
+            or contribution.source_artifact_id
+            or f"artifact:{contribution.contribution_id}"
+        )
+        _ensure_evidence(
+            evidence,
+            artifacts,
+            evidence_ref_id=ref_id,
+            source_artifact_id=artifact_id,
+            source_domain="manual_seed",
+            campaign_id=store.campaign_id,
+            locator=f"contribution/{contribution.contribution_id}/{ref_id}",
+        )
+
+    return (
+        store.model_copy(update={"evidence": evidence, "source_artifacts": artifacts}),
+        subject_id,
+    )
+
+
 def apply_accepted_assertions(
     store: UnionSupergraphStore,
     contribution: GraphContribution,
@@ -613,8 +679,9 @@ def apply_accepted_assertions(
         elif assertion.assertion_kind == "alias":
             working, graph_object_id = _apply_alias_assertion(working, assertion)
         elif assertion.assertion_kind in {"attribute", "evidence_ref"}:
-            # Attribute/evidence_ref attach to subject; treat as support-only metadata.
-            graph_object_id = assertion.subject_node_id
+            working, graph_object_id = _apply_attribute_assertion(
+                working, assertion, contribution
+            )
         else:
             raise ValueError(f"unsupported assertion_kind {assertion.assertion_kind}")
 
