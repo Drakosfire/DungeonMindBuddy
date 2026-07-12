@@ -1,0 +1,116 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1c2b36207a4e7f71",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:426a20487fd41cbd",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:worldbuilding:mirathorn"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mirathorn",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "location:mirathorn",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mirathorn"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:worldbuilding:mirathorn",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "source_domain": "worldbuilding"
+          }
+        ],
+        "kind": "location",
+        "role": "city",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "source_domain": "worldbuilding",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/001-world-hubs.json"
+          }
+        ],
+        "source_domains": [
+          "worldbuilding"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3e2a37249f847f60",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:426a20487fd41cbd",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:worldbuilding:mireward"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mireward",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "location:mireward",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mireward"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:worldbuilding:mireward",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "source_domain": "worldbuilding"
+          }
+        ],
+        "kind": "location",
+        "role": "town",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "source_domain": "worldbuilding",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/001-world-hubs.json"
+          }
+        ],
+        "source_domains": [
+          "worldbuilding"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": null,
+  "campaign_scope": null,
+  "candidate_assertions": [],
+  "contribution_id": "contribution:426a20487fd41cbd",
+  "diagnostics": [],
+  "extraction_profile": "pr006c-approved-bundle-v1",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-11T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

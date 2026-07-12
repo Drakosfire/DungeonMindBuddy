@@ -1,0 +1,250 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a9af3f77bf0f1101",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:statblock:tripod-null-calf"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Tripod Null-Calf",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "threat:tripod-null-calf",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Tripod Null-Calf"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-null-calf",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock"
+          }
+        ],
+        "kind": "threat",
+        "role": "encounter-threat",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/005-tripod-null-calf-threat-prep.json"
+          }
+        ],
+        "source_domains": [
+          "statblock"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:40b5ac605a2e8f74",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:statblock:tripod-appeared-in"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "appeared in",
+      "predicate": "appeared_in",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "threat:tripod-null-calf",
+      "target_node_id": "event:longmont-c2:session-23:mireward-gate-battle",
+      "temporal_scope": {
+        "session_id": "session-23"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/005-tripod-null-calf-threat-prep.json"
+          }
+        ],
+        "source_domains": [
+          "statblock"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f902e45c1371e9c6",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:statblock:tripod-battlefield-role"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "battlefield_role",
+      "predicate": "battlefield_role",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "threat:tripod-null-calf",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "attribute": "battlefield_role",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/005-tripod-null-calf-threat-prep.json"
+          }
+        ],
+        "source_domains": [
+          "statblock"
+        ],
+        "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:68bdeb27db521569",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:statblock:tripod-challenge"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "challenge_expectation",
+      "predicate": "challenge_expectation",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "threat:tripod-null-calf",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "attribute": "challenge_expectation",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/005-tripod-null-calf-threat-prep.json"
+          }
+        ],
+        "source_domains": [
+          "statblock"
+        ],
+        "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4d5d774d7cbf1e71",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:statblock:tripod-first-appearance"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "first_appearance",
+      "predicate": "first_appearance",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "threat:tripod-null-calf",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "attribute": "first_appearance",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+            "source_domain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/005-tripod-null-calf-threat-prep.json"
+          }
+        ],
+        "source_domains": [
+          "statblock"
+        ],
+        "text": "Mireward north-gate pressure sequence."
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "gm",
+  "campaign_scope": "longmont-c2",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:16ac92b4dd272323",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-11T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep",
+  "source_kind": "graph_review_authored_assertion",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

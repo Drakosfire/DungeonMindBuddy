@@ -1,0 +1,276 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3e2a37249f847f60",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:recap:s22:mireward"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Mireward",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "location:mireward",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mireward"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:recap:s22:mireward",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "source_span_ref_id": "jsonptr:/accepted_assertions/0"
+          }
+        ],
+        "kind": "location",
+        "role": "town",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-session-22-mireward-road.json"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e43e22317e459bac",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:recap:s22:questionable-company"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Questionable Company",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Questionable Company"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:recap:s22:questionable-company",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "source_span_ref_id": "jsonptr:/accepted_assertions/1"
+          }
+        ],
+        "kind": "party",
+        "role": "adventuring-party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-session-22-mireward-road.json"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c940738e1fe6fc8a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:recap:s22:mireward-road"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mireward Road",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "event:longmont-c2:session-22:mireward-road",
+      "target_node_id": null,
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "aliases": [
+          "Mireward Road"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:recap:s22:mireward-road",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "source_span_ref_id": "jsonptr:/accepted_assertions/2"
+          }
+        ],
+        "kind": "event",
+        "role": "travel",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-session-22-mireward-road.json"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6b0056d1bb4c489e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:recap:s22:party-participated"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "participated in",
+      "predicate": "participated_in",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "event:longmont-c2:session-22:mireward-road",
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:recap:s22:party-participated",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "source_span_ref_id": "jsonptr:/accepted_assertions/3"
+          }
+        ],
+        "session_ids": [
+          "session-22"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-session-22-mireward-road.json"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:276614e2151713f0",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:recap:s22:occurred-at"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "occurred at",
+      "predicate": "occurred_at",
+      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "subject_node_id": "event:longmont-c2:session-22:mireward-road",
+      "target_node_id": "location:mireward",
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:recap:s22:occurred-at",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "source_span_ref_id": "jsonptr:/accepted_assertions/4"
+          }
+        ],
+        "session_ids": [
+          "session-22"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "session_id": "session-22",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+            "source_domain": "recap",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-session-22-mireward-road.json"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": null,
+  "campaign_scope": "longmont-c2",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:a09aeeccf1080ade",
+  "diagnostics": [],
+  "extraction_profile": "pr006c-approved-bundle-v1",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-11T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

@@ -1,0 +1,106 @@
+{
+  "bundle_digest": "f4632636f5e4620b900e4df2d88eda41a46d14f36969b1f390b58d6044ca0620",
+  "bundle_id": "eldyrwild-longmont-c2-initial-v1",
+  "expected_shared_support": [
+    {
+      "contribution_paths": [
+        "contributions/001-world-hubs.json",
+        "contributions/003-session-22-mireward-road.json",
+        "contributions/004-session-23-mireward-gate-battle.json"
+      ],
+      "node_id": "location:mireward",
+      "source_domains": [
+        "worldbuilding",
+        "recap"
+      ]
+    },
+    {
+      "contribution_paths": [
+        "contributions/002-questionable-company-roster.json",
+        "contributions/003-session-22-mireward-road.json",
+        "contributions/004-session-23-mireward-gate-battle.json"
+      ],
+      "node_id": "party:questionable-company",
+      "source_domains": [
+        "manual_seed",
+        "recap"
+      ]
+    }
+  ],
+  "expected_source_domains": [
+    "worldbuilding",
+    "manual_seed",
+    "recap",
+    "statblock"
+  ],
+  "focus_sessions": [
+    "session-22",
+    "session-23"
+  ],
+  "identity_decisions": [],
+  "non_claims": [
+    "Does not publish a production Eldyrwild world head.",
+    "Does not claim complete Campaign 2 coverage.",
+    "Does not invent numerical statblock values.",
+    "Does not prove projection usefulness or Plan retrieval."
+  ],
+  "ordered_contributions": [
+    {
+      "contribution_id": "contribution:426a20487fd41cbd",
+      "path": "contributions/001-world-hubs.json",
+      "sha256": "cd74e21f39086a0d8ab5322ea7817c5b281749f02b2c8fc9e98b1956b699c260"
+    },
+    {
+      "contribution_id": "contribution:2308cd6375dde06c",
+      "path": "contributions/002-questionable-company-roster.json",
+      "sha256": "62899a7cde96d02e5864dcc2b2e41a1ae7057a0d5e38f27e5b2900886062cf76"
+    },
+    {
+      "contribution_id": "contribution:a09aeeccf1080ade",
+      "path": "contributions/003-session-22-mireward-road.json",
+      "sha256": "072676facc8cab8295117c36e4f8184d85bd5bbc48b052adb9a0e437ba467e8d"
+    },
+    {
+      "contribution_id": "contribution:12702a97be277a36",
+      "path": "contributions/004-session-23-mireward-gate-battle.json",
+      "sha256": "6befd2f0f15b977b5a90ef0414945b4a2dd53be6ba98ce9219756b8053460a49"
+    },
+    {
+      "contribution_id": "contribution:16ac92b4dd272323",
+      "path": "contributions/005-tripod-null-calf-threat-prep.json",
+      "sha256": "c17e65a702d7bbc836d34d1ec0fd939f75456aac5793a9700c4dd31690eb65e5"
+    }
+  ],
+  "planning_focus": "mireward-planning-window",
+  "primary_campaign_scope": "longmont-c2",
+  "required_edge_ids": [
+    "edge:pc:bonogo:member_of:party:questionable-company",
+    "edge:pc:baergrom:member_of:party:questionable-company",
+    "edge:pc:ephanna:member_of:party:questionable-company",
+    "edge:pc:caelynn:member_of:party:questionable-company",
+    "edge:pc:stafl:member_of:party:questionable-company",
+    "edge:pc:karsemine:member_of:party:questionable-company",
+    "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+    "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+    "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle",
+    "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+    "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+  ],
+  "required_node_ids": [
+    "location:mirathorn",
+    "location:mireward",
+    "party:questionable-company",
+    "pc:bonogo",
+    "pc:baergrom",
+    "pc:ephanna",
+    "pc:caelynn",
+    "pc:stafl",
+    "pc:karsemine",
+    "event:longmont-c2:session-22:mireward-road",
+    "event:longmont-c2:session-23:mireward-gate-battle",
+    "threat:tripod-null-calf"
+  ],
+  "schema": "dmb_graph_contribution_bundle_v1",
+  "version": "1.0",
+  "world_id": "eldyrwild"
+}
