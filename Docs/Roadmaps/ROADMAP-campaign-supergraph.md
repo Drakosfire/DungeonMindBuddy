@@ -338,9 +338,11 @@ PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
 | Informal “continue dogfood” | Phase 5 after Phase 3 materialization |
 | Informal “Plan Q&A” | PR008A dogfood first; prefer PR010 when retrieval-backed |
 
-Do not resume Q&A as the next architecture move. Repair semantic assertion
-identity, approve and publish the graph-native contribution bundle, then
-project, then migrate Plan.
+Do not treat broad Q&A retrieval as the immediate next architecture move. After
+PR007A projection lands, the next product slice is **PR008A** — read-only Plan
+plus Agent query dogfood on the projected graph — while **PR010** carries
+generalized retrieval-backed Q&A. Repair semantic assertion identity, approve
+and publish the graph-native contribution bundle, then project, then wire Plan.
 
 ---
 

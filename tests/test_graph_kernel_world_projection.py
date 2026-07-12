@@ -46,6 +46,7 @@ TRIPOD_CONTRIBUTION_ID = "contribution:022187fdefdf4557"
 DUP_ALIGNED_CONTRIBUTION_ID = "contribution:aabbccdd11223344"
 DUP_MISSING_CONTRIBUTION_ID = "contribution:bbccddeeff001122"
 DUP_DIVERGENT_CONTRIBUTION_ID = "contribution:ccddeeff00112233"
+RECAP_SOURCE_ARTIFACT_ID = "corpus:eldyrwild:session-23-recap"
 
 ORDERED_CONTRIBUTION_IDS = [
     "contribution:82f23934d8eaca8a",
@@ -186,9 +187,22 @@ def test_invalid_revision_pin_fails_closed(tmp_path: Path, loaded_bundle) -> Non
     with pytest.raises(WorldGraphProjectionError) as exc_info:
         kernel.project_world_graph(
             tmp_path,
-            _request(revision_pin="rev:missing-pin"),
+            _request(revision_pin="rev:00000000000000000000000000000000"),
         )
     assert exc_info.value.code == "revision_not_found"
+
+
+def test_invalid_format_revision_pin_fails_invalid_request(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin="rev:missing-pin"),
+        )
+    assert exc_info.value.code == "invalid_request"
 
 
 def test_tripod_attributes_reconstructed_from_revision_bound_contributions(
@@ -470,12 +484,40 @@ def test_multi_source_active_contributions_project_when_semantically_aligned(
     original = _load_tripod_contribution_json(tmp_path)
     duplicate = deepcopy(original)
     duplicate["contribution_id"] = DUP_ALIGNED_CONTRIBUTION_ID
+    duplicate["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
     duplicate["source_revision_id"] = "dup-revision"
-    duplicate["accepted_assertions"] = [
+    duplicate_assertion = next(
         item
         for item in original["accepted_assertions"]
         if item["assertion_id"] == assertion.assertion_id
-    ]
+    )
+    duplicate_aligned = deepcopy(duplicate_assertion)
+    duplicate_aligned["evidence_ref_ids"] = ["evidence:bundle:v1:statblock:tripod-challenge"]
+    duplicate_aligned["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
+    duplicate_aligned["value"] = {
+        **duplicate_assertion["value"],
+        "source_domains": ["recap"],
+        "source_domain": "recap",
+        "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+        "evidence_ref_ids": ["evidence:bundle:v1:statblock:tripod-challenge"],
+        "evidence": [
+            {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/0",
+                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+                "source_domain": "recap",
+            }
+        ],
+        "source_artifacts": [
+            {
+                "campaign_id": CAMPAIGN_ID,
+                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+                "source_domain": "recap",
+                "uri": "corpus://eldyrwild/session-23-recap",
+            }
+        ],
+    }
+    duplicate["accepted_assertions"] = [duplicate_aligned]
     duplicate_path.write_text(json.dumps(duplicate, indent=2), encoding="utf-8")
 
     _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
@@ -504,6 +546,8 @@ def test_multi_source_active_contributions_project_when_semantically_aligned(
         TRIPOD_CONTRIBUTION_ID,
         DUP_ALIGNED_CONTRIBUTION_ID,
     }
+    assert "evidence:bundle:v1:statblock:tripod-battlefield-role" in battlefield.evidence_ref_ids
+    assert "evidence:bundle:v1:statblock:tripod-challenge" in battlefield.evidence_ref_ids
 
 
 def test_multi_source_missing_assertion_fails_integrity(
@@ -609,6 +653,170 @@ def test_multi_source_semantic_divergence_fails_integrity(
     with pytest.raises(WorldGraphProjectionError) as exc_info:
         kernel.project_world_graph(tmp_path, _request())
     assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_unsupported_edge_omitted_from_relationships_and_node_adjacency(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    edge = store.edges[edge_id]
+    edge_state = dict(edge.state or {})
+    edge_state["memory_state"] = "unsupported_assertion"
+    store.edges[edge_id] = edge.model_copy(update={"state": edge_state})
+
+    for assertion_id, raw_support in store.assertion_support.items():
+        support = dict(raw_support)
+        if support.get("graph_object_id") != edge_id:
+            continue
+        support["support_state"] = "unsupported"
+        support["active_contribution_ids"] = []
+        store.assertion_support[assertion_id] = support
+        break
+
+    kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-edge-only-retraction"],
+    )
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    assert not any(relationship.edge_id == edge_id for relationship in projection.relationships)
+
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    event = next(node for node in projection.nodes if node.node_id == EVENT_ID)
+    assert not any(candidate.edge_id == edge_id for candidate in tripod.adjacency)
+    assert not any(
+        expansion.edge_id == edge_id for expansion in tripod.suggested_expansions
+    )
+    assert not any(candidate.edge_id == edge_id for candidate in event.adjacency)
+    assert not any(
+        expansion.edge_id == edge_id for expansion in event.suggested_expansions
+    )
+
+
+def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+
+    assertion = next(
+        attribute
+        for attribute in kernel.project_world_graph(tmp_path, _request()).attributes
+        if attribute.subject_node_id == TRIPOD_ID
+        and (attribute.label or attribute.predicate) == "battlefield_role"
+    )
+    original_evidence = "evidence:bundle:v1:statblock:tripod-battlefield-role"
+    duplicate_evidence = "evidence:bundle:v1:statblock:tripod-challenge"
+
+    duplicate_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{DUP_ALIGNED_CONTRIBUTION_ID.replace(':', '__')}.json"
+    )
+    original = _load_tripod_contribution_json(tmp_path)
+    duplicate = deepcopy(original)
+    duplicate["contribution_id"] = DUP_ALIGNED_CONTRIBUTION_ID
+    duplicate["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
+    duplicate["source_revision_id"] = "dup-revision"
+    duplicate_assertion = next(
+        item
+        for item in original["accepted_assertions"]
+        if item["assertion_id"] == assertion.assertion_id
+    )
+    duplicate_aligned = deepcopy(duplicate_assertion)
+    duplicate_aligned["evidence_ref_ids"] = [duplicate_evidence]
+    duplicate_aligned["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
+    duplicate_aligned["value"] = {
+        **duplicate_assertion["value"],
+        "source_domains": ["recap"],
+        "source_domain": "recap",
+        "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+        "evidence_ref_ids": [duplicate_evidence],
+        "evidence": [
+            {
+                "evidence_ref_id": duplicate_evidence,
+                "locator": "jsonptr:/accepted_assertions/0",
+                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+                "source_domain": "recap",
+            }
+        ],
+        "source_artifacts": [
+            {
+                "campaign_id": CAMPAIGN_ID,
+                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+                "source_domain": "recap",
+                "uri": "corpus://eldyrwild/session-23-recap",
+            }
+        ],
+    }
+    duplicate["accepted_assertions"] = [duplicate_aligned]
+    duplicate_path.write_text(json.dumps(duplicate, indent=2), encoding="utf-8")
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    support = dict(store.assertion_support[assertion.assertion_id])
+    support["active_contribution_ids"] = sorted(
+        {
+            *support["active_contribution_ids"],
+            DUP_ALIGNED_CONTRIBUTION_ID,
+        }
+    )
+    support["evidence_ref_ids"] = sorted(
+        {
+            *support.get("evidence_ref_ids", []),
+            original_evidence,
+            duplicate_evidence,
+        }
+    )
+    store.assertion_support[assertion.assertion_id] = support
+    multi_source = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-multi-source-before-retract"],
+    )
+    pinned_revision_id = multi_source.revision.revision_id
+
+    retracted = kernel.retract_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution_id=DUP_ALIGNED_CONTRIBUTION_ID,
+        reason="duplicate battlefield provenance withdrawn",
+    )
+    assert retracted.published is True
+
+    head_projection = kernel.project_world_graph(tmp_path, _request())
+    head_battlefield = next(
+        item
+        for item in head_projection.attributes
+        if item.assertion_id == assertion.assertion_id
+    )
+    assert original_evidence in head_battlefield.evidence_ref_ids
+    assert duplicate_evidence not in head_battlefield.evidence_ref_ids
+    assert DUP_ALIGNED_CONTRIBUTION_ID not in head_battlefield.active_contribution_ids
+
+    pinned_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_revision_id),
+    )
+    pinned_battlefield = next(
+        item
+        for item in pinned_projection.attributes
+        if item.assertion_id == assertion.assertion_id
+    )
+    assert original_evidence in pinned_battlefield.evidence_ref_ids
+    assert duplicate_evidence in pinned_battlefield.evidence_ref_ids
 
 
 def test_unsupported_admissibility_fails_closed(
