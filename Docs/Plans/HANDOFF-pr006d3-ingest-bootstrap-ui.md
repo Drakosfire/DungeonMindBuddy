@@ -1,33 +1,38 @@
 # HANDOFF — PR006D3 — `/ingest` review and activation UI
 
-**Blocked on:** PR006D2
+> Status: SUPERSEDED / DO NOT DISPATCH
+> Superseded: 2026-07-12 after PR006D2 merged
+> Replacement: [`HANDOFF-pr006d3a-ingest-bootstrap-review.md`](HANDOFF-pr006d3a-ingest-bootstrap-review.md)
 
-## Mission
+The original handoff combined two independently useful and independently risky capabilities:
 
-A GM can see exactly what campaign memory will be created and explicitly publish
-it from `/ingest`.
+```text
+inspect the exact certified bootstrap package
+publish the bootstrap through prepare + confirm
+```
 
-## Scope (allowlist)
+That boundary is too broad for one implementation PR. It also risks treating the certified initial package as another run in the existing recap Graph Review pipeline.
 
-- Consume the exact PR006D2 API contract (shared/generated fixture — no hand mocks)
-- Render review projection: hubs, party/PCs, session events, relationships,
-  Tripod attributes, source classification, trust boundaries / non-claims
-- Confirmation UX enabled only after review surface is shown
-- Active / advanced / blocked / invalid_bundle health display
-- Vitest coverage against contract fixture; dogfood on `/ingest`
+Dispatch **PR006D3A** first, but only after its tracker re-anchor is merged:
 
-## Explicitly out of scope
+> A GM can inspect the certified initial World Supergraph package in a distinct Bootstrap Activation Review gate so that they understand what may be published without entering or duplicating the ongoing recap Graph Review workflow.
 
-- Kernel initialization (PR006D1)
-- Backend acceptance policy / prepare-confirm service (PR006D2)
-- Projection Engine / Plan migration
+PR006D3A is a separate top-level `/ingest` workflow. It consumes only:
 
-## Blocking findings from #336 to absorb
+```text
+GET /api/live/world-graph-bootstrap/status
+```
 
-1. UI must not invent response shapes
-2. Confirmation must review real memory, not only digest + totals
+Its source of truth is `dmb_world_graph_bootstrap_status_v1` and the returned `BootstrapReview`.
 
-## Verification
+It must not:
 
-- Vitest panel tests using committed contract fixture
-- Manual dogfood: prepare → review → confirm on a disposable world root
+- load contribution bundles directly in the browser;
+- reuse recap-run selectors, manifest paths, preview-union stores, gold/live lanes, or Graph Review state;
+- add a bootstrap mode to preview APIs;
+- add prepare, confirm, actor, proposal, token, acknowledgement, or publication behavior;
+- suppress the existing Graph Review workbench when bootstrap status fails.
+
+The existing recap/run Graph Review remains mounted and independently usable as a neighboring workflow.
+
+A separate **PR006D3B** handoff may be written only after D3A implementation merges and the design/review owner re-anchors on the resulting `/ingest` surface. Do not infer or implement D3B from this superseded document.
