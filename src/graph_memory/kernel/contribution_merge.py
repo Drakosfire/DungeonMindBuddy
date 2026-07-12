@@ -11,7 +11,10 @@ from graph_memory.kernel.contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import create_graph_contribution
+from graph_memory.kernel.contributions import (
+    _canonicalize_graph_contribution_assertions,
+    create_graph_contribution,
+)
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
     WorldGraphValidationError,
@@ -60,7 +63,9 @@ def _with_support_map(
     )
 
 
-def rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
+def rebuild_adjacency(
+    store: UnionSupergraphStore,
+) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
     """Rebuild adjacency lists from the current edge map."""
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]] = {
         node_id: [] for node_id in store.nodes
@@ -91,7 +96,9 @@ def rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSuperg
     return adjacency
 
 
-def _rebuild_adjacency(store: UnionSupergraphStore) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
+def _rebuild_adjacency(
+    store: UnionSupergraphStore,
+) -> dict[str, list[UnionSupergraphAdjacencyItem]]:
     return rebuild_adjacency(store)
 
 
@@ -162,11 +169,7 @@ def _add_support(
     graph_object_id: str | None,
 ) -> None:
     existing = support.get(assertion.assertion_id)
-    artifact_ids = [
-        aid
-        for aid in [assertion.source_artifact_id]
-        if aid
-    ]
+    artifact_ids = [aid for aid in [assertion.source_artifact_id] if aid]
     if existing is None:
         support[assertion.assertion_id] = DurableAssertionSupport(
             assertion_id=assertion.assertion_id,
@@ -213,7 +216,9 @@ def _remove_contribution_support(
     for assertion_id, record in list(support.items()):
         if contribution_id not in record.active_contribution_ids:
             continue
-        active = [cid for cid in record.active_contribution_ids if cid != contribution_id]
+        active = [
+            cid for cid in record.active_contribution_ids if cid != contribution_id
+        ]
         superseded = list(record.superseded_contribution_ids)
         retracted = list(record.retracted_contribution_ids)
         if as_superseded:
@@ -222,7 +227,9 @@ def _remove_contribution_support(
         else:
             if contribution_id not in retracted:
                 retracted.append(contribution_id)
-        state = "supported" if active else ("unsupported" if as_superseded else "retracted")
+        state = (
+            "supported" if active else ("unsupported" if as_superseded else "retracted")
+        )
         support[assertion_id] = record.model_copy(
             update={
                 "active_contribution_ids": active,
@@ -281,7 +288,9 @@ def _apply_node_assertion(
     value = dict(assertion.value)
     node_id = assertion.subject_node_id or str(value.get("node_id") or "")
     if not node_id:
-        raise ValueError(f"node assertion {assertion.assertion_id} missing subject_node_id")
+        raise ValueError(
+            f"node assertion {assertion.assertion_id} missing subject_node_id"
+        )
 
     nodes = dict(store.nodes)
     evidence = dict(store.evidence)
@@ -314,7 +323,9 @@ def _apply_node_assertion(
             evidence_ids.append(ref_id)
 
     for artifact_payload in value.get("source_artifacts") or []:
-        if isinstance(artifact_payload, dict) and artifact_payload.get("source_artifact_id"):
+        if isinstance(artifact_payload, dict) and artifact_payload.get(
+            "source_artifact_id"
+        ):
             artifacts[str(artifact_payload["source_artifact_id"])] = (
                 UnionSupergraphSourceArtifact.model_validate(artifact_payload)
             )
@@ -358,7 +369,8 @@ def _apply_node_assertion(
                 "memory_state": "contribution_accepted",
                 "canon_state": value.get("canon_state") or "canonical",
                 "approval_state": value.get("approval_state") or "accepted",
-                "identity_canon_state": value.get("identity_canon_state") or "canonical",
+                "identity_canon_state": value.get("identity_canon_state")
+                or "canonical",
                 "epistemic_kind": assertion.epistemic_kind,
                 "visibility": assertion.visibility,
                 "campaign_scope": assertion.campaign_scope,
@@ -422,15 +434,44 @@ def _apply_edge_assertion(
             f"edge assertion {assertion.assertion_id} endpoints must exist before merge"
         )
 
-    edge_id = str(
-        value.get("edge_id")
-        or f"edge:{source_id}:{predicate}:{target_id}"
-    )
+    edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
     evidence = dict(store.evidence)
     artifacts = dict(store.source_artifacts)
     edges = dict(store.edges)
 
     evidence_ids = list(assertion.evidence_ref_ids)
+    for ref_payload in value.get("evidence") or []:
+        if not isinstance(ref_payload, dict):
+            continue
+        ref_id = str(ref_payload.get("evidence_ref_id") or "")
+        if not ref_id:
+            continue
+        _ensure_evidence(
+            evidence,
+            artifacts,
+            evidence_ref_id=ref_id,
+            source_artifact_id=str(
+                ref_payload.get("source_artifact_id")
+                or assertion.source_artifact_id
+                or f"artifact:{contribution.contribution_id}"
+            ),
+            source_domain=str(ref_payload.get("source_domain") or "manual_seed"),
+            campaign_id=store.campaign_id,
+            session_id=ref_payload.get("session_id"),
+            locator=ref_payload.get("locator"),
+            source_span_ref_id=ref_payload.get("source_span_ref_id"),
+        )
+        if ref_id not in evidence_ids:
+            evidence_ids.append(ref_id)
+
+    for artifact_payload in value.get("source_artifacts") or []:
+        if isinstance(artifact_payload, dict) and artifact_payload.get(
+            "source_artifact_id"
+        ):
+            artifacts[str(artifact_payload["source_artifact_id"])] = (
+                UnionSupergraphSourceArtifact.model_validate(artifact_payload)
+            )
+
     if not evidence_ids:
         ref_id = f"evidence:{contribution.contribution_id}:{edge_id}"
         artifact_id = (
@@ -480,9 +521,14 @@ def _apply_edge_assertion(
         for ref in evidence_ids:
             if ref not in merged_evidence:
                 merged_evidence.append(ref)
+        merged_domains = list(existing.source_domains)
+        for domain in source_domains:
+            if domain not in merged_domains:
+                merged_domains.append(domain)
         edges[edge_id] = existing.model_copy(
             update={
                 "evidence_ref_ids": merged_evidence,
+                "source_domains": merged_domains,
                 "state": {
                     **dict(existing.state),
                     "support_state": "supported",
@@ -507,7 +553,9 @@ def _apply_alias_assertion(
     if not node_id or not alias:
         raise ValueError(f"alias assertion {assertion.assertion_id} missing node/alias")
     if node_id not in store.nodes:
-        raise ValueError(f"alias assertion {assertion.assertion_id} node does not exist")
+        raise ValueError(
+            f"alias assertion {assertion.assertion_id} node does not exist"
+        )
 
     nodes = dict(store.nodes)
     node = nodes[node_id]
@@ -605,6 +653,96 @@ def _contribution_already_applied(
     return True
 
 
+def _canonical_mutating_assertion_ids(
+    contribution: GraphContribution,
+) -> set[str]:
+    canonical, _rekeys = _canonicalize_graph_contribution_assertions(contribution)
+    return {
+        assertion.assertion_id
+        for assertion in canonical.accepted_assertions
+        if _is_graph_mutating_accepted_assertion(assertion)
+    }
+
+
+def _contribution_referenced_under_legacy_assertion_ids(
+    store: UnionSupergraphStore,
+    *,
+    contribution_id: str,
+    canonical_assertion_ids: set[str],
+) -> bool:
+    """True when contribution appears on a non-canonical support record.
+
+    Membership in active, superseded, or retracted support history all count.
+    Retracted legacy support must still force migration; otherwise a later
+    equivalent merge can publish a second semantic assertion identity.
+    """
+    for assertion_id, record in _support_map(store).items():
+        if assertion_id in canonical_assertion_ids:
+            continue
+        membership = {
+            *record.active_contribution_ids,
+            *record.superseded_contribution_ids,
+            *record.retracted_contribution_ids,
+        }
+        if contribution_id in membership:
+            return True
+    return False
+
+
+def _head_requires_assertion_identity_migration(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+) -> bool:
+    """True when non-failed ledger contributions still reference legacy assertion IDs."""
+    index = load_contribution_index(root, world_id)
+    failed = set(index.failed_contribution_ids)
+    for contribution_id in index.all_contribution_ids:
+        if contribution_id in failed:
+            continue
+        try:
+            contrib = load_contribution_record(root, world_id, contribution_id)
+        except FileNotFoundError:
+            continue
+        if contrib.status == "failed":
+            continue
+        canonical_ids = _canonical_mutating_assertion_ids(contrib)
+        if _contribution_referenced_under_legacy_assertion_ids(
+            store,
+            contribution_id=contribution_id,
+            canonical_assertion_ids=canonical_ids,
+        ):
+            return True
+    return False
+
+
+def _migration_required_result(
+    *,
+    world_id: str,
+    parent_revision_id: str | None,
+    contribution_ids: list[str],
+    diagnostics: list[str],
+    superseded_contribution_ids: list[str] | None = None,
+) -> ContributionMergeResult:
+    migration_diagnostics = [
+        *diagnostics,
+        "assertion_identity_migration_required",
+        "rebuild_from_contributions(publish=True) required before merge or supersession",
+    ]
+    return ContributionMergeResult(
+        world_id=world_id,
+        parent_revision_id=parent_revision_id,
+        revision_id=None,
+        contribution_ids=contribution_ids,
+        accepted_assertion_ids=[],
+        rejected_assertion_ids=[],
+        retracted_assertion_ids=[],
+        superseded_contribution_ids=list(superseded_contribution_ids or []),
+        diagnostics=migration_diagnostics,
+        published=False,
+    )
+
+
 def _load_or_none(
     root: Path, world_id: str
 ) -> tuple[str | None, UnionSupergraphStore | None]:
@@ -623,7 +761,14 @@ def merge_contribution_to_revision(
     expected_parent_revision_id: str | None = None,
 ) -> ContributionMergeResult:
     """Persist contribution, merge accepted assertions, publish immutable revision."""
+    contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
+        contribution
+    )
     diagnostics: list[str] = list(contribution.diagnostics)
+    diagnostics.extend(
+        f"assertion_identity_rekeyed:{old_id}->{new_id}"
+        for old_id, new_id in assertion_rekeys
+    )
     rejected_ids = [a.assertion_id for a in contribution.rejected_assertions]
 
     for mention in contribution.unresolved_mentions:
@@ -678,8 +823,21 @@ def merge_contribution_to_revision(
                     published=False,
                 )
 
+    # Pre-repair heads keep legacy assertion IDs. Re-merge/supersede under the
+    # current semantic rule would overwrite ledger records and create mixed
+    # identity support. Require explicit rebuild migration first.
+    if _head_requires_assertion_identity_migration(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=diagnostics,
+        )
+
     # Persist contribution record before attempting graph mutation.
-    to_store = contribution.model_copy(update={"status": "active"})
+    to_store = contribution.model_copy(
+        update={"status": "active", "diagnostics": diagnostics}
+    )
     write_contribution_record(root, world_id, to_store)
 
     try:
@@ -687,7 +845,9 @@ def merge_contribution_to_revision(
             current_store, to_store
         )
         # Ensure adjacency covers all nodes even when only nodes were added.
-        proposed = proposed.model_copy(update={"adjacency": _rebuild_adjacency(proposed)})
+        proposed = proposed.model_copy(
+            update={"adjacency": _rebuild_adjacency(proposed)}
+        )
 
         publish_result = publish_world_graph_revision(
             root,
@@ -741,6 +901,21 @@ def supersede_graph_contribution(
     superseded_contribution_id: str,
     expected_parent_revision_id: str | None = None,
 ) -> ContributionMergeResult:
+    new_contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
+        new_contribution
+    )
+    if assertion_rekeys:
+        new_contribution = new_contribution.model_copy(
+            update={
+                "diagnostics": [
+                    *new_contribution.diagnostics,
+                    *[
+                        f"assertion_identity_rekeyed:{old_id}->{new_id}"
+                        for old_id, new_id in assertion_rekeys
+                    ],
+                ]
+            }
+        )
     parent_revision_id, current_store = _load_or_none(root, world_id)
     if current_store is None:
         raise WorldGraphNotFoundError(f"world {world_id!r} has no graph head")
@@ -754,6 +929,14 @@ def supersede_graph_contribution(
             )
 
     old = load_contribution_record(root, world_id, superseded_contribution_id)
+    if _head_requires_assertion_identity_migration(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[new_contribution.contribution_id],
+            diagnostics=list(new_contribution.diagnostics),
+            superseded_contribution_ids=[],
+        )
     support = _support_map(current_store)
     unsupported = _remove_contribution_support(
         support, superseded_contribution_id, as_superseded=True
@@ -792,7 +975,9 @@ def supersede_graph_contribution(
         proposed, _support2, accepted_ids = apply_accepted_assertions(
             working, new_contribution
         )
-        proposed = proposed.model_copy(update={"adjacency": _rebuild_adjacency(proposed)})
+        proposed = proposed.model_copy(
+            update={"adjacency": _rebuild_adjacency(proposed)}
+        )
         publish_result = publish_world_graph_revision(
             root,
             world_id,
@@ -840,7 +1025,6 @@ def supersede_graph_contribution(
         diagnostics=[],
         published=True,
     )
-
 
 
 def retract_graph_contribution(
