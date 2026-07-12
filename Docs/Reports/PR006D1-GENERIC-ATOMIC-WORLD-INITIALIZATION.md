@@ -13,7 +13,8 @@ plan without exposing a partial graph.
 - Structural-vs-fixture validator split
 - Empty technical baseline store
 - Generic staged build + `os.rename` promotion
-- `WorldInitializationPlan` binding (ordered contribution IDs + caller attestation)
+- `WorldInitializationPlan` binding (ordered contribution IDs + complete
+  canonical contribution payload digests + caller attestation)
 - Immutable receipt that records measured counts and **attested** approval metadata
 - Revision-lineage classification:
   - `active` — head equals initialized head
@@ -33,20 +34,30 @@ plan without exposing a partial graph.
 `initialize_world_from_contributions(plan=..., contributions=..., actor=...)`
 verifies:
 
-1. `contributions` IDs exactly match `plan.ordered_contribution_ids` in order
-2. every contribution `world_id` matches `plan.world_id`
-3. rebuild equivalence and integrity before promotion
+1. `contributions` IDs exactly match `plan.ordered_contributions` in order
+2. every contribution payload digest matches the complete canonical
+   `GraphContribution` payload in the plan
+3. every contribution `world_id` matches `plan.world_id`
+4. identity-decision references are rejected until their records are included
+5. rebuild equivalence and integrity before promotion
 
-It records `plan.approval_attestation` on the receipt with
-`plan_binding_verified=true`. It does **not** re-load an on-disk bundle or
-re-hash contribution bytes to prove `bundle_digest`.
+It records the complete initialization-plan digest, focus session, ordered
+contribution IDs, payload digests, and `plan.approval_attestation` on the
+receipt with `plan_binding_verified=true`. Idempotency compares that complete
+plan binding, not only the attestation. The Kernel does **not** re-load an
+on-disk bundle to independently certify the attested `bundle_digest`.
+
+After the staged world is renamed into production, that rename is the commit
+point. Cleanup and diagnostics are best-effort and cannot turn a published
+world into an error response.
 
 ## Structural validation
 
 Production storage/integrity uses `validate_union_supergraph_store_payload`,
 which now validates each `assertion_support` record against
-`DurableAssertionSupport`, requires key/`assertion_id` equality, and checks
-local evidence/artifact/graph-object references.
+the neutral `graph_memory.evidence.assertion_support.DurableAssertionSupport`
+model, requires key/`assertion_id` equality, and checks local
+evidence/artifact/graph-object references.
 
 `validate_union_supergraph_fixture` remains the richer representative-fixture
 gate.

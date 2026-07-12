@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import shutil
@@ -46,6 +47,28 @@ from graph_memory.world_supergraph.storage import (
 
 UNION_SUPERGRAPH_SCHEMA = "dmb_union_supergraph_store_v0"
 UNION_SUPERGRAPH_VERSION = "0.1"
+
+
+def _canonical_json_sha256(payload: object) -> str:
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
+    """Hash the complete canonical GraphContribution payload."""
+    return _canonical_json_sha256(
+        contribution.model_dump(mode="json", by_alias=True)
+    )
+
+
+def compute_initialization_plan_digest(plan: WorldInitializationPlan) -> str:
+    """Hash the complete canonical initialization plan payload."""
+    return _canonical_json_sha256(plan.model_dump(mode="json", by_alias=True))
 
 
 def _utc_now_iso() -> str:
@@ -117,6 +140,22 @@ def _attestation_matches(
     )
 
 
+def _receipt_matches_plan(
+    receipt: WorldInitializationReceipt,
+    *,
+    plan: WorldInitializationPlan,
+    plan_digest: str,
+) -> bool:
+    return (
+        receipt.world_id == plan.world_id
+        and receipt.campaign_id == plan.campaign_id
+        and receipt.focus_session_id == plan.focus_session_id
+        and receipt.plan_digest == plan_digest
+        and receipt.ordered_contributions == plan.ordered_contributions
+        and _attestation_matches(receipt, plan.approval_attestation)
+    )
+
+
 def _revision_is_ancestor(
     root: Path,
     world_id: str,
@@ -173,9 +212,12 @@ def inspect_world_initialization_state(
     root: Path,
     *,
     world_id: str,
-    approval_attestation: WorldInitializationApprovalAttestation,
+    plan: WorldInitializationPlan,
+    plan_digest: str | None = None,
 ) -> WorldInitializationState:
     """Classify whether initialization may proceed for the attested plan."""
+    if world_id != plan.world_id:
+        return "blocked_existing_world"
     world_dir = world_paths.world_dir(root, world_id)
     if not world_dir.exists():
         return "ready"
@@ -183,9 +225,8 @@ def inspect_world_initialization_state(
     receipt = read_initialization_receipt(root, world_id)
     if receipt is None:
         return "blocked_existing_world"
-    if receipt.world_id != world_id or not _attestation_matches(
-        receipt, approval_attestation
-    ):
+    plan_digest = plan_digest or compute_initialization_plan_digest(plan)
+    if not _receipt_matches_plan(receipt, plan=plan, plan_digest=plan_digest):
         return "blocked_existing_world"
 
     head = try_open_world_graph_head(root, world_id)
@@ -225,10 +266,10 @@ def _bind_contributions_to_plan(
     contributions: list[GraphContribution],
     *,
     diagnostics: list[str],
-) -> None:
-    if not plan.ordered_contribution_ids:
+ ) -> str:
+    if not plan.ordered_contributions:
         raise WorldInitializationError(
-            "initialization plan ordered_contribution_ids must be non-empty",
+            "initialization plan ordered_contributions must be non-empty",
             state="error",
             diagnostics=diagnostics,
         )
@@ -239,17 +280,24 @@ def _bind_contributions_to_plan(
             diagnostics=diagnostics,
         )
     actual_ids = [item.contribution_id for item in contributions]
-    if actual_ids != list(plan.ordered_contribution_ids):
+    expected_ids = plan.ordered_contribution_ids
+    if len(set(expected_ids)) != len(expected_ids):
         raise WorldInitializationError(
-            "contribution list is not bound to plan.ordered_contribution_ids",
+            "initialization plan contains duplicate contribution IDs",
+            state="error",
+            diagnostics=diagnostics,
+        )
+    if actual_ids != expected_ids:
+        raise WorldInitializationError(
+            "contribution list is not bound to plan.ordered_contributions",
             state="error",
             diagnostics=[
                 *diagnostics,
-                f"expected_ids={list(plan.ordered_contribution_ids)}",
+                f"expected_ids={expected_ids}",
                 f"actual_ids={actual_ids}",
             ],
         )
-    for contribution in contributions:
+    for expected, contribution in zip(plan.ordered_contributions, contributions):
         if contribution.world_id != plan.world_id:
             raise WorldInitializationError(
                 "contribution world_id does not match plan.world_id: "
@@ -257,6 +305,26 @@ def _bind_contributions_to_plan(
                 state="error",
                 diagnostics=diagnostics,
             )
+        if contribution.identity_decision_ids:
+            raise WorldInitializationError(
+                "identity decision references are unsupported by PR006D1: "
+                f"{contribution.contribution_id}",
+                state="error",
+                diagnostics=diagnostics,
+            )
+        actual_digest = compute_contribution_payload_sha256(contribution)
+        if actual_digest != expected.payload_sha256:
+            raise WorldInitializationError(
+                "contribution payload digest does not match initialization plan: "
+                f"{contribution.contribution_id}",
+                state="error",
+                diagnostics=[
+                    *diagnostics,
+                    f"expected_payload_sha256={expected.payload_sha256}",
+                    f"actual_payload_sha256={actual_digest}",
+                ],
+            )
+    return compute_initialization_plan_digest(plan)
 
 
 def _verify_initialized_world(
@@ -275,12 +343,26 @@ def _verify_initialized_world(
             state="error",
             diagnostics=diagnostics,
         )
-    if list(index.active_contribution_ids) != list(plan.ordered_contribution_ids):
+    if list(index.active_contribution_ids) != plan.ordered_contribution_ids:
         raise WorldInitializationError(
             "active contribution ids do not match initialization plan",
             state="error",
             diagnostics=diagnostics,
         )
+
+    ledger_records = [
+        load_contribution_record(root, plan.world_id, item.contribution_id)
+        for item in plan.ordered_contributions
+    ]
+    for expected, record in zip(plan.ordered_contributions, ledger_records):
+        actual_digest = compute_contribution_payload_sha256(record)
+        if actual_digest != expected.payload_sha256:
+            raise WorldInitializationError(
+                "persisted contribution payload digest does not match "
+                f"initialization plan: {record.contribution_id}",
+                state="error",
+                diagnostics=diagnostics,
+            )
 
     rebuild = rebuild_from_contributions(root, world_id=plan.world_id, publish=False)
     rebuild_equivalent = "rebuild_equivalent_to_head" in rebuild.diagnostics
@@ -326,16 +408,25 @@ def _verify_initialized_world(
             diagnostics=[*diagnostics, *world_health.errors],
         )
 
-    source_domains = sorted(
-        {
-            domain
-            for node in store.nodes.values()
-            for domain in (node.source_domains or [])
-        }
-    )
+    source_domains = {
+        *store.source_domains,
+        *(domain for node in store.nodes.values() for domain in node.source_domains),
+        *(domain for edge in store.edges.values() for domain in edge.source_domains),
+        *(evidence.source_domain for evidence in store.evidence.values()),
+        *(artifact.source_domain for artifact in store.source_artifacts.values()),
+    }
+    for record in ledger_records:
+        for assertion in record.accepted_assertions:
+            assertion_domains = assertion.value.get("source_domains", [])
+            if isinstance(assertion_domains, list):
+                source_domains.update(
+                    domain
+                    for domain in assertion_domains
+                    if isinstance(domain, str)
+                )
+    source_domains = sorted(source_domains)
     accepted_assertion_count = sum(
-        len(load_contribution_record(root, plan.world_id, cid).accepted_assertions)
-        for cid in index.active_contribution_ids
+        len(record.accepted_assertions) for record in ledger_records
     )
     _ = head
     return (
@@ -356,7 +447,6 @@ def _build_receipt(
     diagnostics: list[str],
 ) -> WorldInitializationReceipt:
     head, _revision, store = load_current_world_graph(root, plan.world_id)
-    index = load_contribution_index(root, plan.world_id)
     (
         accepted_assertion_count,
         source_domains,
@@ -373,10 +463,12 @@ def _build_receipt(
         schema=RECEIPT_SCHEMA,
         world_id=plan.world_id,
         campaign_id=plan.campaign_id,
+        focus_session_id=plan.focus_session_id,
         actor=actor,
         baseline_revision_id=baseline_revision_id,
         initial_head_revision_id=head.head_revision_id,
-        ordered_contribution_ids=list(index.active_contribution_ids),
+        plan_digest=compute_initialization_plan_digest(plan),
+        ordered_contributions=list(plan.ordered_contributions),
         identity_decision_ids=[],
         node_count=len(store.nodes),
         edge_count=len(store.edges),
@@ -407,6 +499,15 @@ def _write_initialization_receipt(
 def _cleanup_staging(staging_root: Path) -> None:
     if staging_root.exists():
         shutil.rmtree(staging_root)
+
+
+def _best_effort_diagnostic(diagnostics: list[str], message: str) -> None:
+    try:
+        diagnostics.append(message)
+    except Exception:
+        # The publication result must not become a failure after promotion
+        # merely because diagnostic bookkeeping is unavailable.
+        pass
 
 
 def _stage_and_build_world(
@@ -493,16 +594,21 @@ def _promote_staged_world(
             diagnostics=diagnostics,
         )
 
-    with _world_init_promotion_lock(root):
-        if target_world.exists():
-            raise WorldInitializationError(
-                f"production world appeared during promotion: {target_world}",
-                state="blocked_existing_world",
-                diagnostics=diagnostics,
-            )
-        target_world.parent.mkdir(parents=True, exist_ok=True)
-        os.rename(staged_world, target_world)
-        diagnostics.append(f"promoted_world:{target_world}")
+    committed = False
+    try:
+        with _world_init_promotion_lock(root):
+            if target_world.exists():
+                raise WorldInitializationError(
+                    f"production world appeared during promotion: {target_world}",
+                    state="blocked_existing_world",
+                    diagnostics=diagnostics,
+                )
+            target_world.parent.mkdir(parents=True, exist_ok=True)
+            os.rename(staged_world, target_world)
+            committed = True
+    except Exception:
+        if not committed:
+            raise
 
 
 def initialize_world_from_contributions(
@@ -522,12 +628,15 @@ def initialize_world_from_contributions(
     """
     diagnostics: list[str] = []
     world_paths.assert_safe_world_id(plan.world_id)
-    _bind_contributions_to_plan(plan, contributions, diagnostics=diagnostics)
+    plan_digest = _bind_contributions_to_plan(
+        plan, contributions, diagnostics=diagnostics
+    )
 
     existing_state = inspect_world_initialization_state(
         root,
         world_id=plan.world_id,
-        approval_attestation=plan.approval_attestation,
+        plan=plan,
+        plan_digest=plan_digest,
     )
     if existing_state == "active":
         receipt = read_initialization_receipt(root, plan.world_id)
@@ -598,20 +707,6 @@ def initialize_world_from_contributions(
             staged_world=staged_world,
             diagnostics=diagnostics,
         )
-        _cleanup_staging(staging_root)
-        staging_root = None
-
-        head = open_world_graph_head(root, plan.world_id)
-        diagnostics.append("initialization_complete")
-        return WorldInitializationResult(
-            published=True,
-            state="active",
-            baseline_revision_id=baseline_revision_id,
-            initial_head_revision_id=head.head_revision_id,
-            current_head_revision_id=head.head_revision_id,
-            receipt=receipt,
-            diagnostics=diagnostics,
-        )
     except WorldInitializationError:
         if staging_root is not None:
             _cleanup_staging(staging_root)
@@ -624,3 +719,29 @@ def initialize_world_from_contributions(
             state="error",
             diagnostics=diagnostics,
         ) from exc
+
+    # os.rename above is the irreversible commit point. Nothing below may
+    # turn a successfully published world into an error response.
+    try:
+        _cleanup_staging(staging_root)
+    except Exception as exc:
+        try:
+            _best_effort_diagnostic(
+                diagnostics,
+                f"post_promotion_cleanup_failed:{type(exc).__name__}:{exc}",
+            )
+        except Exception:
+            pass
+    try:
+        _best_effort_diagnostic(diagnostics, "initialization_complete")
+    except Exception:
+        pass
+    return WorldInitializationResult(
+        published=True,
+        state="active",
+        baseline_revision_id=baseline_revision_id,
+        initial_head_revision_id=receipt.initial_head_revision_id,
+        current_head_revision_id=receipt.initial_head_revision_id,
+        receipt=receipt,
+        diagnostics=diagnostics,
+    )

@@ -10,6 +10,7 @@ Projection (PR007) APIs remain reserved — see ``graph_memory.kernel.contracts`
 
 from __future__ import annotations
 
+from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contribution_diagnostics import (
     build_contribution_integrity_report,
 )
@@ -25,7 +26,6 @@ from graph_memory.kernel.contribution_models import (
     ContributionMergeResult,
     ContributionSourceKind,
     ContributionStatus,
-    DurableAssertionSupport,
     GraphContribution,
     GraphContributionAssertion,
 )
@@ -64,12 +64,15 @@ from graph_memory.kernel.identity_policy import (
 )
 from graph_memory.kernel.world_initialization import (
     build_empty_technical_baseline_store,
+    compute_contribution_payload_sha256,
+    compute_initialization_plan_digest,
     initialize_world_from_contributions,
     inspect_world_initialization_state,
     read_initialization_receipt,
 )
 from graph_memory.kernel.world_initialization_models import (
     WorldInitializationApprovalAttestation,
+    WorldInitializationContribution,
     WorldInitializationError,
     WorldInitializationPlan,
     WorldInitializationReceipt,
@@ -120,11 +123,14 @@ __all__ = [
     "rollback_world_graph_head",
     # World initialization (PR006D1)
     "WorldInitializationApprovalAttestation",
+    "WorldInitializationContribution",
     "WorldInitializationError",
     "WorldInitializationPlan",
     "WorldInitializationReceipt",
     "WorldInitializationResult",
     "build_empty_technical_baseline_store",
+    "compute_contribution_payload_sha256",
+    "compute_initialization_plan_digest",
     "initialize_world_from_contributions",
     "inspect_world_initialization_state",
     "read_initialization_receipt",

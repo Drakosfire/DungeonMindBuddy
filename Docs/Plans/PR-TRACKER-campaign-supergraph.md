@@ -511,7 +511,7 @@ plan without exposing a partial graph.
 
 ### PR006D2 — Approved Eldyrwild bootstrap activation service
 
-**Status:** `READY` (blocked on PR006D1)  
+**Status:** `BLOCKED` on PR006D1  
 **Purpose:** Inspect and explicitly activate the approved Eldyrwild package
 through a stable backend contract.
 
@@ -525,7 +525,7 @@ contract; review projection for nodes/edges/attributes/sources.
 
 ### PR006D3 — `/ingest` review and activation UI
 
-**Status:** `READY` (blocked on PR006D2)  
+**Status:** `BLOCKED` on PR006D2  
 **Purpose:** Let a GM see exactly what campaign memory will be created and
 explicitly publish it from `/ingest`.
 

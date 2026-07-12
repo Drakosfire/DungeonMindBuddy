@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 import graph_memory.kernel as kernel
 from graph_memory.contribution_bundles import load_contribution_bundle
@@ -14,11 +15,10 @@ from graph_memory.kernel.world_initialization import initialize_world_from_contr
 from graph_memory.kernel.world_initialization_models import (
     PLAN_SCHEMA,
     WorldInitializationApprovalAttestation,
+    WorldInitializationContribution,
     WorldInitializationError,
     WorldInitializationPlan,
 )
-from graph_memory.world_supergraph import paths as world_paths
-from graph_memory.world_supergraph.storage import list_revision_ids
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_PATH = (
@@ -45,6 +45,29 @@ ORDERED_CONTRIBUTION_IDS = [
 ]
 
 
+def _world_dir(root: Path) -> Path:
+    return root / "graph_memory" / "worlds" / WORLD_ID
+
+
+def _receipt_path(root: Path) -> Path:
+    return _world_dir(root) / "initialization" / "initial.json"
+
+
+def _initializing_root(root: Path) -> Path:
+    return root / "graph_memory" / ".initializing"
+
+
+def _revision_ids(root: Path) -> list[str]:
+    revisions_dir = _world_dir(root) / "revisions"
+    if not revisions_dir.is_dir():
+        return []
+    return sorted(
+        path.name
+        for path in revisions_dir.iterdir()
+        if path.is_dir() and path.name.startswith("rev:")
+    )
+
+
 @pytest.fixture
 def loaded_bundle():
     return load_contribution_bundle(BUNDLE_PATH)
@@ -59,16 +82,39 @@ def _attestation() -> WorldInitializationApprovalAttestation:
 
 
 def _plan(
+    bundle=None,
     *,
     contribution_ids: list[str] | None = None,
     world_id: str = WORLD_ID,
+    campaign_id: str = CAMPAIGN_ID,
+    focus_session_id: str = FOCUS_SESSION_ID,
 ) -> WorldInitializationPlan:
+    ids = list(contribution_ids or ORDERED_CONTRIBUTION_IDS)
+    if bundle is None:
+        ordered_contributions = [
+            WorldInitializationContribution(
+                contribution_id=contribution_id,
+                payload_sha256="0" * 64,
+            )
+            for contribution_id in ids
+        ]
+    else:
+        by_id = {item.contribution_id: item for item in bundle.contributions}
+        ordered_contributions = [
+            WorldInitializationContribution(
+                contribution_id=contribution_id,
+                payload_sha256=kernel.compute_contribution_payload_sha256(
+                    by_id[contribution_id]
+                ),
+            )
+            for contribution_id in ids
+        ]
     return WorldInitializationPlan(
         schema=PLAN_SCHEMA,
         world_id=world_id,
-        campaign_id=CAMPAIGN_ID,
-        focus_session_id=FOCUS_SESSION_ID,
-        ordered_contribution_ids=list(contribution_ids or ORDERED_CONTRIBUTION_IDS),
+        campaign_id=campaign_id,
+        focus_session_id=focus_session_id,
+        ordered_contributions=ordered_contributions,
         approval_attestation=_attestation(),
     )
 
@@ -76,7 +122,7 @@ def _plan(
 def _initialize(root: Path, bundle) -> kernel.WorldInitializationResult:
     return initialize_world_from_contributions(
         root,
-        plan=_plan(),
+        plan=_plan(bundle),
         contributions=list(bundle.contributions),
         actor=ACTOR,
     )
@@ -106,7 +152,7 @@ def test_initialize_publishes_rebuildable_world(tmp_path: Path, loaded_bundle) -
     assert len(store.assertion_support) > 0
     assert len(store.evidence) > 0
 
-    revision_ids = list_revision_ids(tmp_path, WORLD_ID)
+    revision_ids = _revision_ids(tmp_path)
     assert len(revision_ids) == 1 + len(ORDERED_CONTRIBUTION_IDS)
 
     index = __import__(
@@ -121,6 +167,11 @@ def test_initialize_publishes_rebuildable_world(tmp_path: Path, loaded_bundle) -
 
     receipt = kernel.read_initialization_receipt(tmp_path, WORLD_ID)
     assert receipt is not None
+    assert receipt.focus_session_id == FOCUS_SESSION_ID
+    assert receipt.plan_digest == kernel.compute_initialization_plan_digest(
+        _plan(loaded_bundle)
+    )
+    assert receipt.ordered_contributions == _plan(loaded_bundle).ordered_contributions
     assert receipt.rebuild_equivalent is True
     assert receipt.world_integrity_ok is True
     assert receipt.contribution_integrity_ok is True
@@ -134,7 +185,7 @@ def test_second_initialize_is_idempotent_no_op(tmp_path: Path, loaded_bundle) ->
     assert second.published is False
     assert second.state == "active"
     assert second.current_head_revision_id == first.current_head_revision_id
-    assert len(list_revision_ids(tmp_path, WORLD_ID)) == 7
+    assert len(_revision_ids(tmp_path)) == 7
 
 
 def test_empty_contribution_input_fails(tmp_path: Path) -> None:
@@ -153,7 +204,7 @@ def test_mismatched_contribution_world_ids_fail(tmp_path: Path, loaded_bundle) -
     with pytest.raises(WorldInitializationError, match="world_id"):
         initialize_world_from_contributions(
             tmp_path,
-            plan=_plan(),
+            plan=_plan(loaded_bundle),
             contributions=contributions,
             actor=ACTOR,
         )
@@ -162,13 +213,106 @@ def test_mismatched_contribution_world_ids_fail(tmp_path: Path, loaded_bundle) -
 def test_plan_contribution_binding_mismatch_fails(
     tmp_path: Path, loaded_bundle
 ) -> None:
-    plan = _plan(contribution_ids=ORDERED_CONTRIBUTION_IDS[::-1])
+    plan = _plan(loaded_bundle, contribution_ids=ORDERED_CONTRIBUTION_IDS[::-1])
     with pytest.raises(WorldInitializationError, match="not bound"):
         initialize_world_from_contributions(
             tmp_path,
             plan=plan,
             contributions=list(loaded_bundle.contributions),
             actor=ACTOR,
+        )
+
+
+def test_plan_rejects_tampered_accepted_assertion_with_same_id(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    original = loaded_bundle.contributions[0]
+    tampered_assertion = original.accepted_assertions[0].model_copy(
+        update={"label": "tampered without changing assertion id"}
+    )
+    tampered = original.model_copy(
+        update={
+            "accepted_assertions": [
+                tampered_assertion,
+                *original.accepted_assertions[1:],
+            ]
+        }
+    )
+
+    with pytest.raises(WorldInitializationError, match="payload digest"):
+        initialize_world_from_contributions(
+            tmp_path,
+            plan=_plan(loaded_bundle),
+            contributions=[tampered, *loaded_bundle.contributions[1:]],
+            actor=ACTOR,
+        )
+
+
+@pytest.mark.parametrize("field", ["rejected_assertions", "unresolved_mentions"])
+def test_plan_rejects_tampered_nonaccepted_content(
+    tmp_path: Path, loaded_bundle, field: str
+) -> None:
+    original = loaded_bundle.contributions[0]
+    if field == "rejected_assertions":
+        content = [
+            original.accepted_assertions[0].model_copy(
+                update={"acceptance_state": "rejected"}
+            )
+        ]
+    else:
+        content = [
+            kernel.ContributionIdentityMention(
+                mention_id="mention:tampered",
+                label="tampered",
+                object_kind="npc",
+                identity_resolution_outcome="ambiguous",
+            )
+        ]
+    tampered = original.model_copy(update={field: content})
+
+    with pytest.raises(WorldInitializationError, match="payload digest"):
+        initialize_world_from_contributions(
+            tmp_path,
+            plan=_plan(loaded_bundle),
+            contributions=[tampered, *loaded_bundle.contributions[1:]],
+            actor=ACTOR,
+        )
+
+
+def test_identity_decision_references_are_rejected_explicitly(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    original = loaded_bundle.contributions[0]
+    tampered = original.model_copy(
+        update={"identity_decision_ids": ["decision:unsupported"]}
+    )
+    entries = list(_plan(loaded_bundle).ordered_contributions)
+    entries[0] = entries[0].model_copy(
+        update={
+            "payload_sha256": kernel.compute_contribution_payload_sha256(tampered)
+        }
+    )
+
+    with pytest.raises(WorldInitializationError, match="identity decision"):
+        initialize_world_from_contributions(
+            tmp_path,
+            plan=_plan(loaded_bundle).model_copy(
+                update={"ordered_contributions": entries}
+            ),
+            contributions=[tampered, *loaded_bundle.contributions[1:]],
+            actor=ACTOR,
+        )
+
+
+def test_plan_schema_is_literal_validated() -> None:
+    with pytest.raises(ValidationError):
+        WorldInitializationPlan(
+            schema="wrong-schema",
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            focus_session_id=FOCUS_SESSION_ID,
+            ordered_contributions=[],
+            approval_attestation=_attestation(),
         )
 
 
@@ -186,14 +330,14 @@ def test_foreign_head_without_receipt_fails_closed(
     with pytest.raises(WorldInitializationError) as exc_info:
         _initialize(tmp_path, loaded_bundle)
     assert exc_info.value.state == "blocked_existing_world"
-    assert world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert _world_dir(tmp_path).exists()
     assert kernel.read_initialization_receipt(tmp_path, WORLD_ID) is None
-    assert len(list_revision_ids(tmp_path, WORLD_ID)) == 1
+    assert len(_revision_ids(tmp_path)) == 1
 
 
 def test_different_bundle_receipt_fails_closed(tmp_path: Path, loaded_bundle) -> None:
     _initialize(tmp_path, loaded_bundle)
-    receipt_path = world_paths.initialization_receipt_path(tmp_path, WORLD_ID)
+    receipt_path = _receipt_path(tmp_path)
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
     payload["approval_attestation"]["bundle_digest"] = "deadbeef" * 8
     receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -201,6 +345,38 @@ def test_different_bundle_receipt_fails_closed(tmp_path: Path, loaded_bundle) ->
     with pytest.raises(WorldInitializationError) as exc_info:
         _initialize(tmp_path, loaded_bundle)
     assert exc_info.value.state == "blocked_existing_world"
+
+
+def test_idempotency_requires_plan_order_campaign_and_focus_match(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+
+    reordered_plan = _plan(
+        loaded_bundle,
+        contribution_ids=ORDERED_CONTRIBUTION_IDS[::-1],
+    )
+    with pytest.raises(WorldInitializationError) as reordered:
+        initialize_world_from_contributions(
+            tmp_path,
+            plan=reordered_plan,
+            contributions=list(reversed(loaded_bundle.contributions)),
+            actor=ACTOR,
+        )
+    assert reordered.value.state == "blocked_existing_world"
+
+    for changed_plan in (
+        _plan(loaded_bundle, campaign_id="other-campaign"),
+        _plan(loaded_bundle, focus_session_id="session-other"),
+    ):
+        with pytest.raises(WorldInitializationError) as changed:
+            initialize_world_from_contributions(
+                tmp_path,
+                plan=changed_plan,
+                contributions=list(loaded_bundle.contributions),
+                actor=ACTOR,
+            )
+        assert changed.value.state == "blocked_existing_world"
 
 
 def test_descendant_head_is_active_head_advanced(
@@ -219,7 +395,7 @@ def test_descendant_head_is_active_head_advanced(
     state = kernel.inspect_world_initialization_state(
         tmp_path,
         world_id=WORLD_ID,
-        approval_attestation=_attestation(),
+        plan=_plan(loaded_bundle),
     )
     assert state == "active_head_advanced"
     second = _initialize(tmp_path, loaded_bundle)
@@ -241,7 +417,7 @@ def test_rollback_before_initialized_head_is_inconsistent(
     state = kernel.inspect_world_initialization_state(
         tmp_path,
         world_id=WORLD_ID,
-        approval_attestation=_attestation(),
+        plan=_plan(loaded_bundle),
     )
     assert state == "inconsistent_lineage"
     with pytest.raises(WorldInitializationError) as exc_info:
@@ -259,7 +435,7 @@ def test_merge_failure_at_first_contribution_leaves_production_absent(
     ):
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_merge_failure_at_third_contribution_leaves_production_absent(
@@ -287,8 +463,8 @@ def test_merge_failure_at_third_contribution_leaves_production_absent(
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
 
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
-    initializing_root = world_paths.initializing_root(tmp_path)
+    assert not _world_dir(tmp_path).exists()
+    initializing_root = _initializing_root(tmp_path)
     if initializing_root.exists():
         assert list(initializing_root.iterdir()) == []
 
@@ -317,7 +493,7 @@ def test_merge_failure_at_sixth_contribution_leaves_production_absent(
     ):
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_baseline_publish_failure_leaves_production_absent(
@@ -329,7 +505,7 @@ def test_baseline_publish_failure_leaves_production_absent(
     ):
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_rebuild_failure_leaves_production_absent(
@@ -341,7 +517,7 @@ def test_rebuild_failure_leaves_production_absent(
     ):
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_world_integrity_failure_leaves_production_absent(
@@ -358,7 +534,7 @@ def test_world_integrity_failure_leaves_production_absent(
     ):
         with pytest.raises(WorldInitializationError, match="world integrity"):
             _initialize(tmp_path, loaded_bundle)
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_rename_failure_before_promotion_leaves_production_absent(
@@ -372,7 +548,7 @@ def test_rename_failure_before_promotion_leaves_production_absent(
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
 
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
 
 
 def test_receipt_failure_before_promotion_leaves_production_absent(
@@ -386,4 +562,48 @@ def test_receipt_failure_before_promotion_leaves_production_absent(
         with pytest.raises(WorldInitializationError):
             _initialize(tmp_path, loaded_bundle)
 
-    assert not world_paths.world_dir(tmp_path, WORLD_ID).exists()
+    assert not _world_dir(tmp_path).exists()
+
+
+def test_cleanup_failure_after_promotion_still_returns_published(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    with patch(
+        "graph_memory.kernel.world_initialization._cleanup_staging",
+        side_effect=RuntimeError("injected post-promotion cleanup failure"),
+    ):
+        result = _initialize(tmp_path, loaded_bundle)
+
+    assert result.published is True
+    assert result.state == "active"
+    assert _world_dir(tmp_path).exists()
+    assert any("post_promotion_cleanup_failed" in item for item in result.diagnostics)
+
+
+def test_post_promotion_head_read_is_not_required(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    with patch(
+        "graph_memory.kernel.world_initialization.open_world_graph_head",
+        side_effect=RuntimeError("injected post-promotion read failure"),
+    ):
+        result = _initialize(tmp_path, loaded_bundle)
+
+    assert result.published is True
+    assert result.receipt is not None
+    assert result.current_head_revision_id == result.receipt.initial_head_revision_id
+    assert _world_dir(tmp_path).exists()
+
+
+def test_post_promotion_diagnostic_failure_still_returns_published(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    with patch(
+        "graph_memory.kernel.world_initialization._best_effort_diagnostic",
+        side_effect=RuntimeError("injected diagnostic failure"),
+    ):
+        result = _initialize(tmp_path, loaded_bundle)
+
+    assert result.published is True
+    assert result.state == "active"
+    assert _world_dir(tmp_path).exists()

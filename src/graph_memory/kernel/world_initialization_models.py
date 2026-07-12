@@ -27,8 +27,9 @@ class WorldInitializationApprovalAttestation(_WorldInitModel):
     """Caller-attested approval metadata.
 
     The Kernel records these fields on the receipt after verifying that the
-    contribution list is structurally bound to the plan. It does **not**
-    independently load or hash an on-disk bundle to re-prove the digest.
+    contribution list and complete payload digests are bound to the plan. It
+    does **not** independently load or hash an on-disk bundle to re-prove the
+    attested bundle digest.
     """
 
     bundle_id: str
@@ -36,27 +37,45 @@ class WorldInitializationApprovalAttestation(_WorldInitModel):
     approved_bundle_merge_sha: str
 
 
-class WorldInitializationPlan(_WorldInitModel):
-    """Validated initialization plan bound to an ordered contribution ID list."""
+class WorldInitializationContribution(_WorldInitModel):
+    """One ordered contribution plus its complete canonical payload digest."""
 
-    schema_: str = Field(alias="schema")
+    contribution_id: str
+    payload_sha256: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class WorldInitializationPlan(_WorldInitModel):
+    """Validated initialization plan bound to contribution contents."""
+
+    schema_: Literal["dmb_world_initialization_plan_v1"] = Field(alias="schema")
     world_id: str
     campaign_id: str
     focus_session_id: str
-    ordered_contribution_ids: list[str]
+    ordered_contributions: list[WorldInitializationContribution]
     approval_attestation: WorldInitializationApprovalAttestation
 
     model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
 
+    @property
+    def ordered_contribution_ids(self) -> list[str]:
+        """Compatibility view for callers that only need the ordered IDs."""
+        return [item.contribution_id for item in self.ordered_contributions]
+
 
 class WorldInitializationReceipt(_WorldInitModel):
-    schema_: str = Field(alias="schema")
+    schema_: Literal["dmb_world_initialization_receipt_v1"] = Field(alias="schema")
     world_id: str
     campaign_id: str
+    focus_session_id: str
     actor: str
     baseline_revision_id: str
     initial_head_revision_id: str
-    ordered_contribution_ids: list[str]
+    plan_digest: str
+    ordered_contributions: list[WorldInitializationContribution]
     identity_decision_ids: list[str] = Field(default_factory=list)
     node_count: int
     edge_count: int
@@ -73,6 +92,11 @@ class WorldInitializationReceipt(_WorldInitModel):
     created_at: str
 
     model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
+
+    @property
+    def ordered_contribution_ids(self) -> list[str]:
+        """Compatibility view for callers that only need the ordered IDs."""
+        return [item.contribution_id for item in self.ordered_contributions]
 
 
 class WorldInitializationResult(_WorldInitModel):

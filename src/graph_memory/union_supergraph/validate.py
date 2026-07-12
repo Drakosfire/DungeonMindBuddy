@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.evidence.source_domain import KNOWN_SOURCE_DOMAINS
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -321,11 +324,6 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
         )
         if not isinstance(support, dict):
             continue
-        # Lazy import avoids union_supergraph ↔ kernel package init cycle.
-        from pydantic import ValidationError
-
-        from graph_memory.kernel.contribution_models import DurableAssertionSupport
-
         try:
             typed = DurableAssertionSupport.model_validate(support)
         except ValidationError as exc:

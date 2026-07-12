@@ -104,6 +104,167 @@ def _mireward_assertion(
     )
 
 
+def _attribute_assertion(
+    *,
+    attribute: str = "battlefield_role",
+    evidence_ref_id: str = "evidence:attribute:1",
+    source_artifact_id: str = "artifact:attribute:1",
+    artifact_domain: str = "manual_seed",
+    evidence_domain: str | None = None,
+    include_evidence: bool = True,
+    include_artifact: bool = True,
+):
+    evidence_domain = evidence_domain or artifact_domain
+    evidence = {
+        "evidence_ref_id": evidence_ref_id,
+        "source_artifact_id": source_artifact_id,
+        "source_domain": evidence_domain,
+        "locator": "jsonptr:/accepted_assertions/0",
+    }
+    artifact = {
+        "source_artifact_id": source_artifact_id,
+        "source_domain": artifact_domain,
+        "campaign_id": "longmont-c2",
+        "uri": f"repo://test/{source_artifact_id}",
+    }
+    value = {
+        "attribute": attribute,
+        "text": f"value for {attribute}",
+        "source_domains": [artifact_domain],
+        "evidence": [evidence] if include_evidence else [],
+        "source_artifacts": [artifact] if include_artifact else [],
+    }
+    return kernel.build_assertion(
+        assertion_kind="attribute",
+        acceptance_state="accepted",
+        subject_node_id="loc_mirathorn",
+        value=value,
+        evidence_ref_ids=[evidence_ref_id],
+        source_artifact_id=source_artifact_id,
+        source_revision_id="attribute-revision-1",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+
+
+def _attribute_contribution(assertion):
+    return kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id=assertion.source_artifact_id,
+        source_revision_id=assertion.source_revision_id,
+        extraction_profile="attribute-test",
+        campaign_scope="longmont-c2",
+        accepted_assertions=[assertion],
+    )
+
+
+def test_attribute_materializes_embedded_evidence_and_artifact(seeded_root) -> None:
+    root, parent = seeded_root
+    contribution = _attribute_contribution(_attribute_assertion())
+
+    result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+
+    assert result.published is True
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert "evidence:attribute:1" in store.evidence
+    assert "artifact:attribute:1" in store.source_artifacts
+
+
+def test_attribute_dangling_evidence_fails_closed(seeded_root) -> None:
+    root, parent = seeded_root
+    assertion = _attribute_assertion(include_evidence=False)
+    contribution = _attribute_contribution(assertion)
+
+    result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+
+    assert result.published is False
+    assert any("unresolved evidence references" in item for item in result.diagnostics)
+
+
+def test_attribute_evidence_domain_mismatch_fails_closed(seeded_root) -> None:
+    root, parent = seeded_root
+    assertion = _attribute_assertion(
+        artifact_domain="worldbuilding",
+        evidence_domain="recap",
+    )
+    contribution = _attribute_contribution(assertion)
+
+    result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+
+    assert result.published is False
+    assert any("source domain disagrees" in item for item in result.diagnostics)
+
+
+def test_attribute_missing_source_artifact_fails_closed(seeded_root) -> None:
+    root, parent = seeded_root
+    assertion = _attribute_assertion(include_artifact=False)
+    contribution = _attribute_contribution(assertion)
+
+    result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+
+    assert result.published is False
+    assert any("missing source artifact" in item for item in result.diagnostics)
+
+
+def test_multiple_attributes_share_legitimate_evidence(seeded_root) -> None:
+    root, parent = seeded_root
+    first = _attribute_contribution(
+        _attribute_assertion(
+            attribute="battlefield_role",
+            evidence_ref_id="evidence:attribute:shared",
+            source_artifact_id="artifact:attribute:shared",
+        )
+    )
+    first_result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=first,
+        expected_parent_revision_id=parent,
+    )
+    assert first_result.published is True
+
+    second_assertion = _attribute_assertion(
+        attribute="challenge_expectation",
+        evidence_ref_id="evidence:attribute:shared",
+        source_artifact_id="artifact:attribute:shared",
+        include_artifact=False,
+    )
+    second = _attribute_contribution(second_assertion)
+    second_result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=second,
+        expected_parent_revision_id=first_result.revision_id,
+    )
+
+    assert second_result.published is True
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert list(store.evidence).count("evidence:attribute:shared") == 1
+
+
 def test_merge_contribution_publishes_world_revision(seeded_root) -> None:
     root, parent = seeded_root
     assertion = _node_assertion(
