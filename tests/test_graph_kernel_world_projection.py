@@ -12,6 +12,10 @@ import pytest
 import graph_memory.kernel as kernel
 from graph_memory.contribution_bundles import load_contribution_bundle
 from graph_memory.kernel.world_initialization import initialize_world_from_contributions
+from graph_memory.union_supergraph.model import (
+    UnionSupergraphEvidence,
+    UnionSupergraphSourceArtifact,
+)
 from graph_memory.kernel.world_initialization_models import (
     PLAN_SCHEMA,
     WorldInitializationApprovalAttestation,
@@ -47,6 +51,8 @@ DUP_ALIGNED_CONTRIBUTION_ID = "contribution:aabbccdd11223344"
 DUP_MISSING_CONTRIBUTION_ID = "contribution:bbccddeeff001122"
 DUP_DIVERGENT_CONTRIBUTION_ID = "contribution:ccddeeff00112233"
 RECAP_SOURCE_ARTIFACT_ID = "corpus:eldyrwild:session-23-recap"
+DUP_SOURCE_ARTIFACT_ID = "graph-native:test:dup-aligned-battlefield"
+FALLBACK_EDGE_CONTRIBUTION_ID = "contribution:ddccbbaa99887766"
 
 ORDERED_CONTRIBUTION_IDS = [
     "contribution:82f23934d8eaca8a",
@@ -61,6 +67,18 @@ ORDERED_CONTRIBUTION_IDS = [
 @pytest.fixture
 def loaded_bundle():
     return load_contribution_bundle(BUNDLE_PATH)
+
+
+def _revision_graph_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "graph.json"
+    )
 
 
 def _attestation() -> WorldInitializationApprovalAttestation:
@@ -462,6 +480,103 @@ def test_superseded_attribute_contribution_omits_attribute_on_head_keeps_pin(
     assert "positional controller" in (pinned_battlefield.text_value or "").casefold()
 
 
+def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    replacement_assertions = _assertions_from_contribution_json(original_payload)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    for assertion in replacement_assertions:
+        value = dict(assertion.value)
+        if str(value.get("edge_id") or "") != edge_id:
+            continue
+        assertion.label = "replacement appeared label"
+        assertion.value = {**value, "session_ids": ["session-99"]}
+
+    replacement_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="supersede-edge-1",
+        accepted_assertions=replacement_assertions,
+        supersedes_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    superseded = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=replacement_contribution,
+        superseded_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    assert superseded.published is True
+
+    head_projection = kernel.project_world_graph(tmp_path, _request())
+    head_relationship = next(
+        item for item in head_projection.relationships if item.edge_id == edge_id
+    )
+    assert head_relationship.label == "replacement appeared label"
+    assert head_relationship.session_ids == ["session-99"]
+
+    pinned_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_revision_id),
+    )
+    pinned_relationship = next(
+        item for item in pinned_projection.relationships if item.edge_id == edge_id
+    )
+    assert pinned_relationship.label == "appeared in"
+    assert pinned_relationship.session_ids != ["session-99"]
+
+
+def test_malformed_stored_json_at_pinned_revision_fails_integrity(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    graph_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request(revision_pin=pinned_revision_id))
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_manifest_hash_mismatch_at_pinned_revision_fails_integrity(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    payload["campaign_id"] = "tampered-campaign-id"
+    graph_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request(revision_pin=pinned_revision_id))
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_malformed_head_revision_fails_integrity_without_pin(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    head_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, head_revision_id)
+    graph_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request())
+    assert exc_info.value.code == "projection_integrity_error"
+
+
 def test_multi_source_active_contributions_project_when_semantically_aligned(
     tmp_path: Path,
     loaded_bundle,
@@ -715,7 +830,7 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
         and (attribute.label or attribute.predicate) == "battlefield_role"
     )
     original_evidence = "evidence:bundle:v1:statblock:tripod-battlefield-role"
-    duplicate_evidence = "evidence:bundle:v1:statblock:tripod-challenge"
+    duplicate_evidence = "evidence:bundle:v1:statblock:dup-aligned-battlefield-only"
 
     duplicate_path = (
         tmp_path
@@ -728,7 +843,7 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
     original = _load_tripod_contribution_json(tmp_path)
     duplicate = deepcopy(original)
     duplicate["contribution_id"] = DUP_ALIGNED_CONTRIBUTION_ID
-    duplicate["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
+    duplicate["source_artifact_id"] = DUP_SOURCE_ARTIFACT_ID
     duplicate["source_revision_id"] = "dup-revision"
     duplicate_assertion = next(
         item
@@ -737,27 +852,27 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
     )
     duplicate_aligned = deepcopy(duplicate_assertion)
     duplicate_aligned["evidence_ref_ids"] = [duplicate_evidence]
-    duplicate_aligned["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
+    duplicate_aligned["source_artifact_id"] = DUP_SOURCE_ARTIFACT_ID
     duplicate_aligned["value"] = {
         **duplicate_assertion["value"],
-        "source_domains": ["recap"],
-        "source_domain": "recap",
-        "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
+        "source_domains": ["statblock"],
+        "source_domain": "statblock",
+        "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
         "evidence_ref_ids": [duplicate_evidence],
         "evidence": [
             {
                 "evidence_ref_id": duplicate_evidence,
                 "locator": "jsonptr:/accepted_assertions/0",
-                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
-                "source_domain": "recap",
+                "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
+                "source_domain": "statblock",
             }
         ],
         "source_artifacts": [
             {
                 "campaign_id": CAMPAIGN_ID,
-                "source_artifact_id": RECAP_SOURCE_ARTIFACT_ID,
-                "source_domain": "recap",
-                "uri": "corpus://eldyrwild/session-23-recap",
+                "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
+                "source_domain": "statblock",
+                "uri": "graph-data://test/dup-aligned-battlefield",
             }
         ],
     }
@@ -780,6 +895,22 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
         }
     )
     store.assertion_support[assertion.assertion_id] = support
+    store.evidence[duplicate_evidence] = UnionSupergraphEvidence(
+        evidence_ref_id=duplicate_evidence,
+        source_artifact_id=DUP_SOURCE_ARTIFACT_ID,
+        source_domain="statblock",
+        evidence_role="contribution_support",
+        can_open_source=True,
+        can_highlight_span=False,
+        locator="jsonptr:/accepted_assertions/0",
+    )
+    if DUP_SOURCE_ARTIFACT_ID not in store.source_artifacts:
+        store.source_artifacts[DUP_SOURCE_ARTIFACT_ID] = UnionSupergraphSourceArtifact(
+            source_artifact_id=DUP_SOURCE_ARTIFACT_ID,
+            source_domain="statblock",
+            campaign_id=CAMPAIGN_ID,
+            uri="graph-data://test/dup-aligned-battlefield",
+        )
     multi_source = kernel.publish_world_revision(
         tmp_path,
         WORLD_ID,
@@ -817,6 +948,109 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
     )
     assert original_evidence in pinned_battlefield.evidence_ref_ids
     assert duplicate_evidence in pinned_battlefield.evidence_ref_ids
+
+    head_top_level_evidence_ids = {
+        item.evidence_ref_id for item in head_projection.evidence
+    }
+    head_top_level_artifact_ids = {
+        item.source_artifact_id for item in head_projection.source_artifacts
+    }
+    assert duplicate_evidence not in head_top_level_evidence_ids
+    assert DUP_SOURCE_ARTIFACT_ID not in head_top_level_artifact_ids
+    assert head_top_level_artifact_ids == {
+        item.source_artifact_id for item in head_projection.evidence
+    }
+
+    pinned_top_level_evidence_ids = {
+        item.evidence_ref_id for item in pinned_projection.evidence
+    }
+    pinned_top_level_artifact_ids = {
+        item.source_artifact_id for item in pinned_projection.source_artifacts
+    }
+    assert duplicate_evidence in pinned_top_level_evidence_ids
+    assert DUP_SOURCE_ARTIFACT_ID in pinned_top_level_artifact_ids
+    assert pinned_top_level_artifact_ids == {
+        item.source_artifact_id for item in pinned_projection.evidence
+    }
+
+
+def test_generated_fallback_evidence_surfaces_in_projection(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = "edge:threat:tripod-null-calf:related_to:location:mireward"
+    source_node_id = TRIPOD_ID
+    target_node_id = "location:mireward"
+    edge_assertion = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        contribution_id=FALLBACK_EDGE_CONTRIBUTION_ID,
+        subject_node_id=source_node_id,
+        target_node_id=target_node_id,
+        predicate="related_to",
+        label="guards approach",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id="graph-native:test:fallback-edge",
+        value={
+            "edge_id": edge_id,
+            "direction": "outbound",
+            "source_domains": ["manual_seed"],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:fallback-edge",
+        source_revision_id="fallback-edge-1",
+        accepted_assertions=[edge_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    merged_contribution_id = merged.contribution_ids[0]
+    fallback_evidence_id = f"evidence:{merged_contribution_id}:{edge_id}"
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(query_text="Tripod Null-Calf"),
+    )
+    relationship = next(
+        item for item in projection.relationships if item.edge_id == edge_id
+    )
+    assert fallback_evidence_id in relationship.evidence_ref_ids
+
+    source_node = next(node for node in projection.nodes if node.node_id == source_node_id)
+    target_node = next(node for node in projection.nodes if node.node_id == target_node_id)
+    assert fallback_evidence_id in source_node.evidence_ref_ids
+    assert fallback_evidence_id in target_node.evidence_ref_ids
+    assert any(
+        badge.evidence_ref_id == fallback_evidence_id for badge in source_node.evidence_badges
+    )
+
+    assert projection.query_context is not None
+    assert source_node_id in projection.query_context.matched_node_ids
+    query_evidence_ids = {
+        item.evidence_ref_id for item in projection.query_context.evidence
+    }
+    assert fallback_evidence_id in query_evidence_ids
+
+    top_level_evidence_ids = {item.evidence_ref_id for item in projection.evidence}
+    assert fallback_evidence_id in top_level_evidence_ids
+    fallback_artifact_id = next(
+        evidence.source_artifact_id
+        for evidence in projection.evidence
+        if evidence.evidence_ref_id == fallback_evidence_id
+    )
+    top_level_artifact_ids = {
+        artifact.source_artifact_id for artifact in projection.source_artifacts
+    }
+    assert fallback_artifact_id in top_level_artifact_ids
 
 
 def test_unsupported_admissibility_fails_closed(
