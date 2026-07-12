@@ -407,7 +407,9 @@ Do not prove this only by unit-testing the panel in isolation.
 
 ### 4. Response-driven rendering
 
-Start from a canonical fixture response, deep-clone it, and replace representative package identity, node labels, relationship labels/text, attributes, source titles, trust claims, diagnostics, and revision IDs with unmistakable test values.
+Start from a canonical fixture response, deep-clone it, and replace representative package identity, node labels, relationship labels/text, attributes, source artifact fields (`sourceArtifactId`, `sourceDomain`, `uri`, `sessionId`, `classification`), trust claims, diagnostics, and revision IDs with unmistakable test values.
+
+`BootstrapSourceArtifact` has no `title` field. Do not invent source titles or derive synthetic titles from campaign knowledge. Mutate and assert only fields present on the D2 contract.
 
 Assert the replacement values render and no production constant supplies the original Eldyrwild/Mirathorn/Tripod text. This proves the UI renders the response rather than fixture constants, contribution files, or campaign-specific hardcoding.
 
@@ -462,13 +464,17 @@ npm run typecheck
 npm run build
 cd ../..
 
-# Record the actual post-tracker main SHA when creating the implementation branch.
+# Record the actual post-tracker main SHA when creating the implementation branch
+# and export it so child processes (Python allowlist / preview-coupling checks) inherit it.
 # Do NOT use the D2 merge SHA 815f9d8d… as the implementation base for allowlist checks.
-IMPLEMENTATION_BASE="$(git merge-base HEAD origin/main)"
-# Prefer the SHA recorded in the PR body at branch creation if it differs from merge-base.
+# Prefer the explicit SHA recorded in the PR body at branch creation over a live merge-base.
+export IMPLEMENTATION_BASE="<post-tracker-main-sha>"
 test -n "${IMPLEMENTATION_BASE}"
+git merge-base --is-ancestor "${IMPLEMENTATION_BASE}" HEAD
 
-git diff --check
+# Use the same recorded base for whitespace, name-only, stat, and allowlist checks.
+# Bare `git diff --check` only sees the working tree and can miss committed whitespace errors.
+git diff --check "${IMPLEMENTATION_BASE}"...HEAD
 
 git diff --name-only "${IMPLEMENTATION_BASE}"...HEAD
 ```
@@ -619,7 +625,7 @@ Required deletion PR:
 ## §13 Required implementation PR handback
 
 - Branch from the current `main` only after the tracker correction is merged.
-- Record that post-tracker `main` SHA as `IMPLEMENTATION_BASE` in the PR body and use it for every §10 diff, stat, and allowlist check. Do not use the D2 design-anchor merge SHA `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9` as the implementation base.
+- Record that post-tracker `main` SHA as `IMPLEMENTATION_BASE` in the PR body, `export` it before §10 verification, and use it for every §10 whitespace (`git diff --check`), name-only, stat, allowlist, and preview-coupling check. Do not use the D2 design-anchor merge SHA `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9` as the implementation base.
 - Open a draft PR against `main`.
 
 The PR body must include:
