@@ -1,0 +1,2229 @@
+{
+  "examples": {
+    "blockedExistingWorld": {
+      "bootstrapState": "blocked_existing_world",
+      "code": "blocked_existing_world",
+      "diagnostics": [],
+      "message": "An existing world is not bound to the approved initialization plan.",
+      "schema": "dmb_world_graph_bootstrap_error_v1",
+      "statusCode": 409
+    },
+    "idempotentConfirmation": {
+      "actor": "gm",
+      "baselineRevisionId": "rev:baseline-example",
+      "confirmed": true,
+      "currentHeadRevisionId": "rev:initial-example",
+      "diagnostics": [],
+      "initialHeadRevisionId": "rev:initial-example",
+      "noMutationGuarantees": [
+        "The confirmed publication used the public PR006D1 Kernel operation.",
+        "The approved contribution bundle was not modified.",
+        "Corpus sources were not modified.",
+        "Preview or ingest-run artifacts were not modified."
+      ],
+      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "proposalId": "proposal:example",
+      "published": false,
+      "receipt": null,
+      "schema": "dmb_world_graph_bootstrap_confirm_v1",
+      "state": "active"
+    },
+    "invalidBundle": {
+      "bootstrapState": "invalid_bundle",
+      "code": "invalid_bundle",
+      "diagnostics": [
+        {
+          "code": "invalid_bundle",
+          "message": "Checksum or bundle validation failed.",
+          "severity": "error"
+        }
+      ],
+      "message": "The locked Eldyrwild contribution bundle failed acceptance policy.",
+      "schema": "dmb_world_graph_bootstrap_error_v1",
+      "statusCode": 409
+    },
+    "preparedProposal": {
+      "actor": "gm",
+      "confirmToken": "token:example",
+      "diagnostics": [],
+      "effects": {
+        "contributionCount": 0,
+        "orderedContributionIds": [],
+        "predictedBaselineRevisionId": "rev:baseline-example",
+        "predictedInitialHeadRevisionId": "rev:initial-example",
+        "predictedRevisionCount": 1
+      },
+      "noMutationGuarantees": [
+        "Production World Supergraph state was not written.",
+        "Production graph head was not created or advanced.",
+        "The approved contribution bundle was not modified.",
+        "Corpus sources were not modified.",
+        "Preview or ingest-run artifacts were not modified."
+      ],
+      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "predictedBaselineRevisionId": "rev:baseline-example",
+      "predictedInitialHeadRevisionId": "rev:initial-example",
+      "prepared": true,
+      "proposalId": "proposal:example",
+      "review": {
+        "attributes": [],
+        "contributions": [],
+        "evidence": [],
+        "nodes": [],
+        "relationships": [],
+        "sources": [],
+        "summary": {
+          "acceptedAssertionCount": 0,
+          "attributeCount": 0,
+          "contributionCount": 0,
+          "evidenceCount": 0,
+          "focusSessions": [],
+          "nodeCount": 0,
+          "relationshipCount": 0,
+          "sourceArtifactCount": 0,
+          "sourceDomains": [],
+          "supportCount": 0
+        },
+        "trustBoundary": []
+      },
+      "schema": "dmb_world_graph_bootstrap_prepare_v1"
+    },
+    "publishedConfirmation": {
+      "actor": "gm",
+      "baselineRevisionId": "rev:baseline-example",
+      "confirmed": true,
+      "currentHeadRevisionId": "rev:initial-example",
+      "diagnostics": [],
+      "initialHeadRevisionId": "rev:initial-example",
+      "noMutationGuarantees": [
+        "The confirmed publication used the public PR006D1 Kernel operation.",
+        "The approved contribution bundle was not modified.",
+        "Corpus sources were not modified.",
+        "Preview or ingest-run artifacts were not modified."
+      ],
+      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "proposalId": "proposal:example",
+      "published": true,
+      "receipt": null,
+      "schema": "dmb_world_graph_bootstrap_confirm_v1",
+      "state": "active"
+    },
+    "readyStatus": {
+      "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
+      "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+      "bundleId": "eldyrwild-longmont-c2-initial-v1",
+      "bundleValid": true,
+      "campaignId": "longmont-c2",
+      "currentHeadRevisionId": null,
+      "diagnostics": [],
+      "focusSessionId": "session-23",
+      "headAdvancedSinceInitialization": false,
+      "initialHeadRevisionId": null,
+      "receipt": null,
+      "review": {
+        "attributes": [],
+        "contributions": [],
+        "evidence": [],
+        "nodes": [],
+        "relationships": [],
+        "sources": [],
+        "summary": {
+          "acceptedAssertionCount": 0,
+          "attributeCount": 0,
+          "contributionCount": 0,
+          "evidenceCount": 0,
+          "focusSessions": [],
+          "nodeCount": 0,
+          "relationshipCount": 0,
+          "sourceArtifactCount": 0,
+          "sourceDomains": [],
+          "supportCount": 0
+        },
+        "trustBoundary": []
+      },
+      "schema": "dmb_world_graph_bootstrap_status_v1",
+      "state": "ready",
+      "trustBoundary": {
+        "canTrust": [],
+        "cannotTrust": []
+      },
+      "worldId": "eldyrwild"
+    }
+  },
+  "schema": "dmb_world_graph_bootstrap_api_contract_v1",
+  "schemas": {
+    "confirmRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Actor",
+          "type": "string"
+        },
+        "confirmToken": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Confirmtoken",
+          "type": "string"
+        },
+        "proposalId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Proposalid",
+          "type": "string"
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_confirm_request_v1",
+          "default": "dmb_world_graph_bootstrap_confirm_request_v1",
+          "title": "Schema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor",
+        "proposalId",
+        "confirmToken"
+      ],
+      "title": "WorldGraphBootstrapConfirmRequest",
+      "type": "object"
+    },
+    "confirmResponse": {
+      "$defs": {
+        "BootstrapApprovalAttestation": {
+          "additionalProperties": false,
+          "properties": {
+            "approvedBundleMergeSha": {
+              "title": "Approvedbundlemergesha",
+              "type": "string"
+            },
+            "bundleDigest": {
+              "title": "Bundledigest",
+              "type": "string"
+            },
+            "bundleId": {
+              "title": "Bundleid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "bundleDigest",
+            "approvedBundleMergeSha"
+          ],
+          "title": "BootstrapApprovalAttestation",
+          "type": "object"
+        },
+        "BootstrapDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "error",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "BootstrapDiagnostic",
+          "type": "object"
+        },
+        "BootstrapPlanContribution": {
+          "additionalProperties": false,
+          "properties": {
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "payloadSha256": {
+              "title": "Payloadsha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contributionId",
+            "payloadSha256"
+          ],
+          "title": "BootstrapPlanContribution",
+          "type": "object"
+        },
+        "BootstrapReceipt": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "actor": {
+              "title": "Actor",
+              "type": "string"
+            },
+            "approvalAttestation": {
+              "$ref": "#/$defs/BootstrapApprovalAttestation"
+            },
+            "assertionSupportCount": {
+              "title": "Assertionsupportcount",
+              "type": "integer"
+            },
+            "baselineRevisionId": {
+              "title": "Baselinerevisionid",
+              "type": "string"
+            },
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "contributionIntegrityOk": {
+              "title": "Contributionintegrityok",
+              "type": "boolean"
+            },
+            "createdAt": {
+              "title": "Createdat",
+              "type": "string"
+            },
+            "edgeCount": {
+              "title": "Edgecount",
+              "type": "integer"
+            },
+            "evidenceCount": {
+              "title": "Evidencecount",
+              "type": "integer"
+            },
+            "focusSessionId": {
+              "title": "Focussessionid",
+              "type": "string"
+            },
+            "identityDecisionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Identitydecisionids",
+              "type": "array"
+            },
+            "initialHeadRevisionId": {
+              "title": "Initialheadrevisionid",
+              "type": "string"
+            },
+            "nodeCount": {
+              "title": "Nodecount",
+              "type": "integer"
+            },
+            "orderedContributions": {
+              "items": {
+                "$ref": "#/$defs/BootstrapPlanContribution"
+              },
+              "title": "Orderedcontributions",
+              "type": "array"
+            },
+            "planBindingVerified": {
+              "title": "Planbindingverified",
+              "type": "boolean"
+            },
+            "planDigest": {
+              "title": "Plandigest",
+              "type": "string"
+            },
+            "rebuildEquivalent": {
+              "title": "Rebuildequivalent",
+              "type": "boolean"
+            },
+            "schema": {
+              "const": "dmb_world_initialization_receipt_v1",
+              "title": "Schema",
+              "type": "string"
+            },
+            "sourceArtifactCount": {
+              "title": "Sourceartifactcount",
+              "type": "integer"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "worldId": {
+              "title": "Worldid",
+              "type": "string"
+            },
+            "worldIntegrityOk": {
+              "title": "Worldintegrityok",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "schema",
+            "worldId",
+            "campaignId",
+            "focusSessionId",
+            "actor",
+            "baselineRevisionId",
+            "initialHeadRevisionId",
+            "planDigest",
+            "orderedContributions",
+            "identityDecisionIds",
+            "nodeCount",
+            "edgeCount",
+            "acceptedAssertionCount",
+            "assertionSupportCount",
+            "evidenceCount",
+            "sourceArtifactCount",
+            "sourceDomains",
+            "rebuildEquivalent",
+            "worldIntegrityOk",
+            "contributionIntegrityOk",
+            "planBindingVerified",
+            "approvalAttestation",
+            "createdAt"
+          ],
+          "title": "BootstrapReceipt",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "baselineRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baselinerevisionid"
+        },
+        "confirmed": {
+          "const": true,
+          "default": true,
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "currentHeadRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currentheadrevisionid"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/BootstrapDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "initialHeadRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Initialheadrevisionid"
+        },
+        "noMutationGuarantees": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nomutationguarantees",
+          "type": "array"
+        },
+        "planDigest": {
+          "title": "Plandigest",
+          "type": "string"
+        },
+        "proposalId": {
+          "title": "Proposalid",
+          "type": "string"
+        },
+        "published": {
+          "title": "Published",
+          "type": "boolean"
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BootstrapReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_confirm_v1",
+          "default": "dmb_world_graph_bootstrap_confirm_v1",
+          "title": "Schema",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "ready",
+            "invalid_bundle",
+            "active",
+            "active_head_advanced",
+            "blocked_existing_world",
+            "inconsistent_lineage",
+            "error"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor",
+        "proposalId",
+        "planDigest",
+        "published",
+        "state",
+        "noMutationGuarantees"
+      ],
+      "title": "WorldGraphBootstrapConfirmResponse",
+      "type": "object"
+    },
+    "errorResponse": {
+      "$defs": {
+        "BootstrapDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "error",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "BootstrapDiagnostic",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "bootstrapState": {
+          "enum": [
+            "ready",
+            "invalid_bundle",
+            "active",
+            "active_head_advanced",
+            "blocked_existing_world",
+            "inconsistent_lineage",
+            "error"
+          ],
+          "title": "Bootstrapstate",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/BootstrapDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_error_v1",
+          "default": "dmb_world_graph_bootstrap_error_v1",
+          "title": "Schema",
+          "type": "string"
+        },
+        "statusCode": {
+          "title": "Statuscode",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "statusCode",
+        "bootstrapState"
+      ],
+      "title": "WorldGraphBootstrapErrorResponse",
+      "type": "object"
+    },
+    "prepareRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Actor",
+          "type": "string"
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_prepare_request_v1",
+          "default": "dmb_world_graph_bootstrap_prepare_request_v1",
+          "title": "Schema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor"
+      ],
+      "title": "WorldGraphBootstrapPrepareRequest",
+      "type": "object"
+    },
+    "prepareResponse": {
+      "$defs": {
+        "BootstrapAttributeReview": {
+          "additionalProperties": false,
+          "properties": {
+            "assertionId": {
+              "title": "Assertionid",
+              "type": "string"
+            },
+            "attribute": {
+              "title": "Attribute",
+              "type": "string"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "subjectNodeId": {
+              "title": "Subjectnodeid",
+              "type": "string"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "assertionId",
+            "subjectNodeId",
+            "attribute",
+            "text",
+            "sourceDomains",
+            "contributionId",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapAttributeReview",
+          "type": "object"
+        },
+        "BootstrapContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "attributeAssertionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Attributeassertionids",
+              "type": "array"
+            },
+            "authoredBy": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Authoredby"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "edgeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Edgeids",
+              "type": "array"
+            },
+            "nodeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Nodeids",
+              "type": "array"
+            },
+            "sourceArtifactId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourceartifactid"
+            },
+            "sourceKind": {
+              "title": "Sourcekind",
+              "type": "string"
+            },
+            "sourceRevisionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourcerevisionid"
+            }
+          },
+          "required": [
+            "contributionId",
+            "sourceKind",
+            "classification",
+            "acceptedAssertionCount",
+            "nodeIds",
+            "edgeIds",
+            "attributeAssertionIds"
+          ],
+          "title": "BootstrapContributionReview",
+          "type": "object"
+        },
+        "BootstrapDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "error",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "BootstrapDiagnostic",
+          "type": "object"
+        },
+        "BootstrapEvidenceSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "evidenceRefId": {
+              "title": "Evidencerefid",
+              "type": "string"
+            },
+            "locator": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Locator"
+            },
+            "locatorStatus": {
+              "default": "unverified",
+              "enum": [
+                "verified",
+                "unverified"
+              ],
+              "title": "Locatorstatus",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            },
+            "sourceArtifactId": {
+              "title": "Sourceartifactid",
+              "type": "string"
+            },
+            "sourceDomain": {
+              "title": "Sourcedomain",
+              "type": "string"
+            },
+            "sourceSpanRefId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourcespanrefid"
+            }
+          },
+          "required": [
+            "evidenceRefId",
+            "sourceArtifactId",
+            "sourceDomain"
+          ],
+          "title": "BootstrapEvidenceSummary",
+          "type": "object"
+        },
+        "BootstrapNodeReview": {
+          "additionalProperties": false,
+          "properties": {
+            "aliases": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Aliases",
+              "type": "array"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Contributionids",
+              "type": "array"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "nodeId": {
+              "title": "Nodeid",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            }
+          },
+          "required": [
+            "nodeId",
+            "label",
+            "kind",
+            "role",
+            "aliases",
+            "sourceDomains",
+            "contributionIds",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapNodeReview",
+          "type": "object"
+        },
+        "BootstrapRelationshipReview": {
+          "additionalProperties": false,
+          "properties": {
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Contributionids",
+              "type": "array"
+            },
+            "edgeId": {
+              "title": "Edgeid",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "predicate": {
+              "title": "Predicate",
+              "type": "string"
+            },
+            "sessionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sessionids",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "sourceNodeId": {
+              "title": "Sourcenodeid",
+              "type": "string"
+            },
+            "targetNodeId": {
+              "title": "Targetnodeid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "edgeId",
+            "sourceNodeId",
+            "targetNodeId",
+            "predicate",
+            "label",
+            "sessionIds",
+            "sourceDomains",
+            "contributionIds",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapRelationshipReview",
+          "type": "object"
+        },
+        "BootstrapReview": {
+          "additionalProperties": false,
+          "properties": {
+            "attributes": {
+              "items": {
+                "$ref": "#/$defs/BootstrapAttributeReview"
+              },
+              "title": "Attributes",
+              "type": "array"
+            },
+            "contributions": {
+              "items": {
+                "$ref": "#/$defs/BootstrapContributionReview"
+              },
+              "title": "Contributions",
+              "type": "array"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "nodes": {
+              "items": {
+                "$ref": "#/$defs/BootstrapNodeReview"
+              },
+              "title": "Nodes",
+              "type": "array"
+            },
+            "relationships": {
+              "items": {
+                "$ref": "#/$defs/BootstrapRelationshipReview"
+              },
+              "title": "Relationships",
+              "type": "array"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/BootstrapSourceArtifact"
+              },
+              "title": "Sources",
+              "type": "array"
+            },
+            "summary": {
+              "$ref": "#/$defs/BootstrapReviewSummary"
+            },
+            "trustBoundary": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Trustboundary",
+              "type": "array"
+            }
+          },
+          "required": [
+            "summary",
+            "contributions",
+            "nodes",
+            "relationships",
+            "attributes",
+            "sources",
+            "evidence",
+            "trustBoundary"
+          ],
+          "title": "BootstrapReview",
+          "type": "object"
+        },
+        "BootstrapReviewSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "attributeCount": {
+              "title": "Attributecount",
+              "type": "integer"
+            },
+            "contributionCount": {
+              "title": "Contributioncount",
+              "type": "integer"
+            },
+            "evidenceCount": {
+              "title": "Evidencecount",
+              "type": "integer"
+            },
+            "focusSessions": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Focussessions",
+              "type": "array"
+            },
+            "nodeCount": {
+              "title": "Nodecount",
+              "type": "integer"
+            },
+            "relationshipCount": {
+              "title": "Relationshipcount",
+              "type": "integer"
+            },
+            "sourceArtifactCount": {
+              "title": "Sourceartifactcount",
+              "type": "integer"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "supportCount": {
+              "title": "Supportcount",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "contributionCount",
+            "nodeCount",
+            "relationshipCount",
+            "attributeCount",
+            "acceptedAssertionCount",
+            "supportCount",
+            "evidenceCount",
+            "sourceArtifactCount",
+            "sourceDomains",
+            "focusSessions"
+          ],
+          "title": "BootstrapReviewSummary",
+          "type": "object"
+        },
+        "BootstrapSourceArtifact": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            },
+            "sourceArtifactId": {
+              "title": "Sourceartifactid",
+              "type": "string"
+            },
+            "sourceDomain": {
+              "title": "Sourcedomain",
+              "type": "string"
+            },
+            "uri": {
+              "title": "Uri",
+              "type": "string"
+            }
+          },
+          "required": [
+            "sourceArtifactId",
+            "sourceDomain",
+            "uri",
+            "campaignId",
+            "classification"
+          ],
+          "title": "BootstrapSourceArtifact",
+          "type": "object"
+        },
+        "WorldGraphBootstrapEffects": {
+          "additionalProperties": false,
+          "properties": {
+            "contributionCount": {
+              "title": "Contributioncount",
+              "type": "integer"
+            },
+            "orderedContributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Orderedcontributionids",
+              "type": "array"
+            },
+            "predictedBaselineRevisionId": {
+              "title": "Predictedbaselinerevisionid",
+              "type": "string"
+            },
+            "predictedInitialHeadRevisionId": {
+              "title": "Predictedinitialheadrevisionid",
+              "type": "string"
+            },
+            "predictedRevisionCount": {
+              "title": "Predictedrevisioncount",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "contributionCount",
+            "predictedRevisionCount",
+            "orderedContributionIds",
+            "predictedBaselineRevisionId",
+            "predictedInitialHeadRevisionId"
+          ],
+          "title": "WorldGraphBootstrapEffects",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "confirmToken": {
+          "title": "Confirmtoken",
+          "type": "string"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/BootstrapDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "effects": {
+          "$ref": "#/$defs/WorldGraphBootstrapEffects"
+        },
+        "noMutationGuarantees": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nomutationguarantees",
+          "type": "array"
+        },
+        "planDigest": {
+          "title": "Plandigest",
+          "type": "string"
+        },
+        "predictedBaselineRevisionId": {
+          "title": "Predictedbaselinerevisionid",
+          "type": "string"
+        },
+        "predictedInitialHeadRevisionId": {
+          "title": "Predictedinitialheadrevisionid",
+          "type": "string"
+        },
+        "prepared": {
+          "const": true,
+          "default": true,
+          "title": "Prepared",
+          "type": "boolean"
+        },
+        "proposalId": {
+          "title": "Proposalid",
+          "type": "string"
+        },
+        "review": {
+          "$ref": "#/$defs/BootstrapReview"
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_prepare_v1",
+          "default": "dmb_world_graph_bootstrap_prepare_v1",
+          "title": "Schema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor",
+        "proposalId",
+        "confirmToken",
+        "planDigest",
+        "predictedBaselineRevisionId",
+        "predictedInitialHeadRevisionId",
+        "review",
+        "effects",
+        "noMutationGuarantees"
+      ],
+      "title": "WorldGraphBootstrapPrepareResponse",
+      "type": "object"
+    },
+    "statusResponse": {
+      "$defs": {
+        "BootstrapApprovalAttestation": {
+          "additionalProperties": false,
+          "properties": {
+            "approvedBundleMergeSha": {
+              "title": "Approvedbundlemergesha",
+              "type": "string"
+            },
+            "bundleDigest": {
+              "title": "Bundledigest",
+              "type": "string"
+            },
+            "bundleId": {
+              "title": "Bundleid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "bundleDigest",
+            "approvedBundleMergeSha"
+          ],
+          "title": "BootstrapApprovalAttestation",
+          "type": "object"
+        },
+        "BootstrapAttributeReview": {
+          "additionalProperties": false,
+          "properties": {
+            "assertionId": {
+              "title": "Assertionid",
+              "type": "string"
+            },
+            "attribute": {
+              "title": "Attribute",
+              "type": "string"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "subjectNodeId": {
+              "title": "Subjectnodeid",
+              "type": "string"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "assertionId",
+            "subjectNodeId",
+            "attribute",
+            "text",
+            "sourceDomains",
+            "contributionId",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapAttributeReview",
+          "type": "object"
+        },
+        "BootstrapContributionReview": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "attributeAssertionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Attributeassertionids",
+              "type": "array"
+            },
+            "authoredBy": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Authoredby"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "edgeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Edgeids",
+              "type": "array"
+            },
+            "nodeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Nodeids",
+              "type": "array"
+            },
+            "sourceArtifactId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourceartifactid"
+            },
+            "sourceKind": {
+              "title": "Sourcekind",
+              "type": "string"
+            },
+            "sourceRevisionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourcerevisionid"
+            }
+          },
+          "required": [
+            "contributionId",
+            "sourceKind",
+            "classification",
+            "acceptedAssertionCount",
+            "nodeIds",
+            "edgeIds",
+            "attributeAssertionIds"
+          ],
+          "title": "BootstrapContributionReview",
+          "type": "object"
+        },
+        "BootstrapDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "error",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "BootstrapDiagnostic",
+          "type": "object"
+        },
+        "BootstrapEvidenceSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "evidenceRefId": {
+              "title": "Evidencerefid",
+              "type": "string"
+            },
+            "locator": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Locator"
+            },
+            "locatorStatus": {
+              "default": "unverified",
+              "enum": [
+                "verified",
+                "unverified"
+              ],
+              "title": "Locatorstatus",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            },
+            "sourceArtifactId": {
+              "title": "Sourceartifactid",
+              "type": "string"
+            },
+            "sourceDomain": {
+              "title": "Sourcedomain",
+              "type": "string"
+            },
+            "sourceSpanRefId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sourcespanrefid"
+            }
+          },
+          "required": [
+            "evidenceRefId",
+            "sourceArtifactId",
+            "sourceDomain"
+          ],
+          "title": "BootstrapEvidenceSummary",
+          "type": "object"
+        },
+        "BootstrapNodeReview": {
+          "additionalProperties": false,
+          "properties": {
+            "aliases": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Aliases",
+              "type": "array"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Contributionids",
+              "type": "array"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "nodeId": {
+              "title": "Nodeid",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            }
+          },
+          "required": [
+            "nodeId",
+            "label",
+            "kind",
+            "role",
+            "aliases",
+            "sourceDomains",
+            "contributionIds",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapNodeReview",
+          "type": "object"
+        },
+        "BootstrapPlanContribution": {
+          "additionalProperties": false,
+          "properties": {
+            "contributionId": {
+              "title": "Contributionid",
+              "type": "string"
+            },
+            "payloadSha256": {
+              "title": "Payloadsha256",
+              "type": "string"
+            }
+          },
+          "required": [
+            "contributionId",
+            "payloadSha256"
+          ],
+          "title": "BootstrapPlanContribution",
+          "type": "object"
+        },
+        "BootstrapReceipt": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "actor": {
+              "title": "Actor",
+              "type": "string"
+            },
+            "approvalAttestation": {
+              "$ref": "#/$defs/BootstrapApprovalAttestation"
+            },
+            "assertionSupportCount": {
+              "title": "Assertionsupportcount",
+              "type": "integer"
+            },
+            "baselineRevisionId": {
+              "title": "Baselinerevisionid",
+              "type": "string"
+            },
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "contributionIntegrityOk": {
+              "title": "Contributionintegrityok",
+              "type": "boolean"
+            },
+            "createdAt": {
+              "title": "Createdat",
+              "type": "string"
+            },
+            "edgeCount": {
+              "title": "Edgecount",
+              "type": "integer"
+            },
+            "evidenceCount": {
+              "title": "Evidencecount",
+              "type": "integer"
+            },
+            "focusSessionId": {
+              "title": "Focussessionid",
+              "type": "string"
+            },
+            "identityDecisionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Identitydecisionids",
+              "type": "array"
+            },
+            "initialHeadRevisionId": {
+              "title": "Initialheadrevisionid",
+              "type": "string"
+            },
+            "nodeCount": {
+              "title": "Nodecount",
+              "type": "integer"
+            },
+            "orderedContributions": {
+              "items": {
+                "$ref": "#/$defs/BootstrapPlanContribution"
+              },
+              "title": "Orderedcontributions",
+              "type": "array"
+            },
+            "planBindingVerified": {
+              "title": "Planbindingverified",
+              "type": "boolean"
+            },
+            "planDigest": {
+              "title": "Plandigest",
+              "type": "string"
+            },
+            "rebuildEquivalent": {
+              "title": "Rebuildequivalent",
+              "type": "boolean"
+            },
+            "schema": {
+              "const": "dmb_world_initialization_receipt_v1",
+              "title": "Schema",
+              "type": "string"
+            },
+            "sourceArtifactCount": {
+              "title": "Sourceartifactcount",
+              "type": "integer"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "worldId": {
+              "title": "Worldid",
+              "type": "string"
+            },
+            "worldIntegrityOk": {
+              "title": "Worldintegrityok",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "schema",
+            "worldId",
+            "campaignId",
+            "focusSessionId",
+            "actor",
+            "baselineRevisionId",
+            "initialHeadRevisionId",
+            "planDigest",
+            "orderedContributions",
+            "identityDecisionIds",
+            "nodeCount",
+            "edgeCount",
+            "acceptedAssertionCount",
+            "assertionSupportCount",
+            "evidenceCount",
+            "sourceArtifactCount",
+            "sourceDomains",
+            "rebuildEquivalent",
+            "worldIntegrityOk",
+            "contributionIntegrityOk",
+            "planBindingVerified",
+            "approvalAttestation",
+            "createdAt"
+          ],
+          "title": "BootstrapReceipt",
+          "type": "object"
+        },
+        "BootstrapRelationshipReview": {
+          "additionalProperties": false,
+          "properties": {
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "contributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Contributionids",
+              "type": "array"
+            },
+            "edgeId": {
+              "title": "Edgeid",
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "predicate": {
+              "title": "Predicate",
+              "type": "string"
+            },
+            "sessionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sessionids",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "sourceNodeId": {
+              "title": "Sourcenodeid",
+              "type": "string"
+            },
+            "targetNodeId": {
+              "title": "Targetnodeid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "edgeId",
+            "sourceNodeId",
+            "targetNodeId",
+            "predicate",
+            "label",
+            "sessionIds",
+            "sourceDomains",
+            "contributionIds",
+            "evidence",
+            "classification"
+          ],
+          "title": "BootstrapRelationshipReview",
+          "type": "object"
+        },
+        "BootstrapReview": {
+          "additionalProperties": false,
+          "properties": {
+            "attributes": {
+              "items": {
+                "$ref": "#/$defs/BootstrapAttributeReview"
+              },
+              "title": "Attributes",
+              "type": "array"
+            },
+            "contributions": {
+              "items": {
+                "$ref": "#/$defs/BootstrapContributionReview"
+              },
+              "title": "Contributions",
+              "type": "array"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/BootstrapEvidenceSummary"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "nodes": {
+              "items": {
+                "$ref": "#/$defs/BootstrapNodeReview"
+              },
+              "title": "Nodes",
+              "type": "array"
+            },
+            "relationships": {
+              "items": {
+                "$ref": "#/$defs/BootstrapRelationshipReview"
+              },
+              "title": "Relationships",
+              "type": "array"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/$defs/BootstrapSourceArtifact"
+              },
+              "title": "Sources",
+              "type": "array"
+            },
+            "summary": {
+              "$ref": "#/$defs/BootstrapReviewSummary"
+            },
+            "trustBoundary": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Trustboundary",
+              "type": "array"
+            }
+          },
+          "required": [
+            "summary",
+            "contributions",
+            "nodes",
+            "relationships",
+            "attributes",
+            "sources",
+            "evidence",
+            "trustBoundary"
+          ],
+          "title": "BootstrapReview",
+          "type": "object"
+        },
+        "BootstrapReviewSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "acceptedAssertionCount": {
+              "title": "Acceptedassertioncount",
+              "type": "integer"
+            },
+            "attributeCount": {
+              "title": "Attributecount",
+              "type": "integer"
+            },
+            "contributionCount": {
+              "title": "Contributioncount",
+              "type": "integer"
+            },
+            "evidenceCount": {
+              "title": "Evidencecount",
+              "type": "integer"
+            },
+            "focusSessions": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Focussessions",
+              "type": "array"
+            },
+            "nodeCount": {
+              "title": "Nodecount",
+              "type": "integer"
+            },
+            "relationshipCount": {
+              "title": "Relationshipcount",
+              "type": "integer"
+            },
+            "sourceArtifactCount": {
+              "title": "Sourceartifactcount",
+              "type": "integer"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "supportCount": {
+              "title": "Supportcount",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "contributionCount",
+            "nodeCount",
+            "relationshipCount",
+            "attributeCount",
+            "acceptedAssertionCount",
+            "supportCount",
+            "evidenceCount",
+            "sourceArtifactCount",
+            "sourceDomains",
+            "focusSessions"
+          ],
+          "title": "BootstrapReviewSummary",
+          "type": "object"
+        },
+        "BootstrapSourceArtifact": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "classification": {
+              "enum": [
+                "sourceDerived",
+                "gmAuthored",
+                "mixed"
+              ],
+              "title": "Classification",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            },
+            "sourceArtifactId": {
+              "title": "Sourceartifactid",
+              "type": "string"
+            },
+            "sourceDomain": {
+              "title": "Sourcedomain",
+              "type": "string"
+            },
+            "uri": {
+              "title": "Uri",
+              "type": "string"
+            }
+          },
+          "required": [
+            "sourceArtifactId",
+            "sourceDomain",
+            "uri",
+            "campaignId",
+            "classification"
+          ],
+          "title": "BootstrapSourceArtifact",
+          "type": "object"
+        },
+        "BootstrapTrustBoundary": {
+          "additionalProperties": false,
+          "properties": {
+            "canTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cantrust",
+              "type": "array"
+            },
+            "cannotTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cannottrust",
+              "type": "array"
+            }
+          },
+          "required": [
+            "canTrust",
+            "cannotTrust"
+          ],
+          "title": "BootstrapTrustBoundary",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "approvedBundleMergeSha": {
+          "title": "Approvedbundlemergesha",
+          "type": "string"
+        },
+        "bundleDigest": {
+          "title": "Bundledigest",
+          "type": "string"
+        },
+        "bundleId": {
+          "title": "Bundleid",
+          "type": "string"
+        },
+        "bundleValid": {
+          "title": "Bundlevalid",
+          "type": "boolean"
+        },
+        "campaignId": {
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "currentHeadRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currentheadrevisionid"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/BootstrapDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "focusSessionId": {
+          "title": "Focussessionid",
+          "type": "string"
+        },
+        "headAdvancedSinceInitialization": {
+          "default": false,
+          "title": "Headadvancedsinceinitialization",
+          "type": "boolean"
+        },
+        "initialHeadRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Initialheadrevisionid"
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BootstrapReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BootstrapReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema": {
+          "const": "dmb_world_graph_bootstrap_status_v1",
+          "default": "dmb_world_graph_bootstrap_status_v1",
+          "title": "Schema",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "ready",
+            "invalid_bundle",
+            "active",
+            "active_head_advanced",
+            "blocked_existing_world",
+            "inconsistent_lineage",
+            "error"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "trustBoundary": {
+          "$ref": "#/$defs/BootstrapTrustBoundary"
+        },
+        "worldId": {
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "worldId",
+        "campaignId",
+        "focusSessionId",
+        "bundleId",
+        "bundleDigest",
+        "approvedBundleMergeSha",
+        "bundleValid",
+        "trustBoundary"
+      ],
+      "title": "WorldGraphBootstrapStatusResponse",
+      "type": "object"
+    }
+  },
+  "version": "1.0"
+}
