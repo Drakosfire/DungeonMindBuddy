@@ -2,8 +2,8 @@
 
 > Status: READY DESIGN, NOT YET DISPATCHABLE
 > Parent tracker slice: `PR006D3 — /ingest review and activation UI`
-> Predecessor: GitHub PR #337, merged as `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`
-> Base: `origin/main` at `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`
+> Predecessor / design contract anchor: GitHub PR #337, merged as `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`
+> Implementation base: current `origin/main` **after** the tracker correction merges — **not** the D2 merge SHA
 > Successor: PR006D3B — explicit prepare/confirm activation interaction
 > Dispatch gate: do not dispatch implementation until the tracker on `main` records PR006D2 as `DONE` and PR006D3A as `READY` or `DOING`.
 
@@ -68,7 +68,7 @@ PR006D3B
 
 At the time this handoff was revised, `Docs/Plans/PR-TRACKER-campaign-supergraph.md` on `main` still described PR006D2 as `DOING` and PR006D3 as `BLOCKED`.
 
-That is stale repository authority, not an unresolved technical dependency. It remains pending only because this design re-anchor is still an unmerged draft documentation PR. **Implementation must not be dispatched while the sole-authority tracker on `main` remains stale.** Before dispatch, the tracker must record at minimum:
+That is stale repository authority, not an unresolved technical dependency. It remains pending only because this design re-anchor / tracker correction has not yet merged to `main`. This documentation PR may be marked ready for review; that does **not** mean implementation is dispatchable. **Implementation must not be dispatched while the sole-authority tracker on `main` remains stale.** Before dispatch, the tracker must record at minimum:
 
 ```text
 PR006D
@@ -107,7 +107,9 @@ Requirements:
 - no caller-supplied package identity;
 - no direct browser read of checked-in contribution-bundle files.
 
-The source of truth is the D2 `dmb_world_graph_bootstrap_status_v1` response and its returned `BootstrapReview`. Stable D2 domain errors use `dmb_world_graph_bootstrap_error_v1`.
+The source of truth for ordinary GET `/status` lifecycle results is the D2 `dmb_world_graph_bootstrap_status_v1` response and its returned `BootstrapReview` (present or absent according to state). That includes expected lifecycle states such as `ready`, `active`, `active_head_advanced`, `invalid_bundle`, `blocked_existing_world`, and `inconsistent_lineage`.
+
+`dmb_world_graph_bootstrap_error_v1` is a stable HTTP/route failure body, not the ordinary representation of those lifecycle states. The committed fixture's `invalidBundle` and `blockedExistingWorld` examples are shaped as direct error responses for prepare/confirm or route-failure paths. Tests must not use prepare/confirm error fixtures as the GET `/status` payload. For GET `/status` lifecycle coverage, use or derive `dmb_world_graph_bootstrap_status_v1` objects. Reserve `dmb_world_graph_bootstrap_error_v1` for true domain/transport failure handling.
 
 Production code must not load, import, fetch, or parse:
 
@@ -217,18 +219,23 @@ The state must be evident from heading, state label, explanatory text, and acces
 
 ### Complete but not a graph browser
 
-The full returned review must remain reachable:
+The full returned `BootstrapReview` and status trust object must remain reachable. Treat these as independent surfaces:
 
 - nodes;
 - relationships;
 - attributes;
 - contributions;
 - sources/source artifacts;
-- evidence and locator status returned inside review records;
+- nested evidence and locator status returned inside review records;
+- the top-level `review.evidence` collection;
 - classifications;
-- `canTrust` and `cannotTrust` claims;
+- status-level `status.trustBoundary.canTrust`;
+- status-level `status.trustBoundary.cannotTrust`;
+- review-level `review.trustBoundary` non-claims (the review list, distinct from the status trust object);
 - diagnostics;
 - receipt and lineage/integrity health when present.
+
+Do not treat nested evidence-only coverage as satisfying `review.evidence`. Do not treat status `canTrust` / `cannotTrust` as satisfying `review.trustBoundary`.
 
 Counts and digests are not enough. Conversely, D3A is not an interactive graph explorer.
 
@@ -242,8 +249,12 @@ expandable inventory sections
   relationships
   attributes
   contributions
-  sources and evidence
-trust and diagnostics
+  sources
+  nested evidence
+  review.evidence
+status.trustBoundary.canTrust / cannotTrust
+review.trustBoundary
+diagnostics
 receipt / lineage health
 technical identifiers
 ```
@@ -328,12 +339,14 @@ Input:
   no query
   no request body
 
-Success source of truth:
+Success / ordinary lifecycle source of truth:
   dmb_world_graph_bootstrap_status_v1
-  BootstrapReview returned by D2
+  BootstrapReview returned by D2 when present
+  Includes invalid_bundle, blocked_existing_world, inconsistent_lineage as status shapes
 
-Stable domain error:
+Stable HTTP/route domain error:
   dmb_world_graph_bootstrap_error_v1
+  Not a substitute for ordinary GET /status lifecycle payloads
 
 Output:
   A distinct read-only Bootstrap Activation Review gate on /ingest.
@@ -414,7 +427,7 @@ In particular, `ready` must not imply publication, and `active_head_advanced` mu
 
 ### 6. Complete inventory without preview reuse
 
-For a fixture-derived `BootstrapReview`:
+For a fixture-derived status response and its `BootstrapReview`:
 
 - expand each inventory section;
 - verify every returned node is reachable;
@@ -422,11 +435,17 @@ For a fixture-derived `BootstrapReview`:
 - verify every returned attribute is reachable;
 - verify every returned contribution is reachable;
 - verify every returned source and nested evidence item is reachable;
+- verify every item in the top-level `review.evidence` collection is reachable independently of nested evidence;
 - verify every returned classification is represented;
-- verify `canTrust`, `cannotTrust`, diagnostics, and receipt/lineage health are reachable;
+- verify every item in `status.trustBoundary.canTrust` is reachable;
+- verify every item in `status.trustBoundary.cannotTrust` is reachable;
+- verify every item in `review.trustBoundary` is reachable as its own collection (do not equate it with the status trust object);
+- verify diagnostics and receipt/lineage health are reachable;
 - verify unverified locators are labeled and not links.
 
 Prefer assertions driven by iterating the response collections, not a small list of famous campaign entities.
+
+Lifecycle-state tests that exercise `invalid_bundle`, `blocked_existing_world`, or `inconsistent_lineage` must use `dmb_world_graph_bootstrap_status_v1` payloads. Do not feed prepare/confirm `dmb_world_graph_bootstrap_error_v1` fixture examples into the GET `/status` success path.
 
 Also assert the bootstrap implementation imports or calls none of the forbidden preview/run selectors listed in §3.
 
@@ -443,17 +462,31 @@ npm run typecheck
 npm run build
 cd ../..
 
+# Record the actual post-tracker main SHA when creating the implementation branch.
+# Do NOT use the D2 merge SHA 815f9d8d… as the implementation base for allowlist checks.
+IMPLEMENTATION_BASE="$(git merge-base HEAD origin/main)"
+# Prefer the SHA recorded in the PR body at branch creation if it differs from merge-base.
+test -n "${IMPLEMENTATION_BASE}"
+
 git diff --check
 
-git diff --name-only 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD
+git diff --name-only "${IMPLEMENTATION_BASE}"...HEAD
 ```
 
 ### Scope allowlist check
 
 ```bash
 python - <<'PY'
-from pathlib import Path
+import os
 import subprocess
+
+implementation_base = os.environ.get("IMPLEMENTATION_BASE")
+if not implementation_base:
+    raise SystemExit(
+        "IMPLEMENTATION_BASE is required. Record the post-tracker main SHA at branch "
+        "creation and use it for every diff/stat/allowlist check. Do not substitute "
+        "the D2 design-anchor merge SHA 815f9d8d0f0582d3b8b7d86038e5d598c0a653b9."
+    )
 
 allowed = {
     "apps/live-control-ui/src/api/types.ts",
@@ -466,13 +499,14 @@ allowed = {
 }
 changed = set(
     subprocess.check_output(
-        ["git", "diff", "--name-only", "815f9d8d0f0582d3b8b7d86038e5d598c0a653b9...HEAD"],
+        ["git", "diff", "--name-only", f"{implementation_base}...HEAD"],
         text=True,
     ).splitlines()
 )
 unexpected = sorted(path for path in changed if path and path not in allowed)
 if unexpected:
     raise SystemExit("Unexpected paths:\n" + "\n".join(unexpected))
+print(f"Allowlist check passed against IMPLEMENTATION_BASE={implementation_base}")
 PY
 ```
 
@@ -489,13 +523,49 @@ fi
 
 ### Forbidden preview-pipeline coupling
 
+Scan **added** diff lines across every allowed production file. Do not whole-file
+grep `liveApi.ts` / `types.ts` / `MemoryIngestPage.tsx`, which already contain
+legitimate preview-pipeline symbols outside this slice.
+
 ```bash
-if git grep -nE \
-  'getGraphIngestRuns|previewUnion|preview_union|manifestPath|manifest_path|goldReview|gold-review|runDir|run_dir' -- \
-  apps/live-control-ui/src/ingestSurface/worldGraphBootstrap; then
-  echo 'D3A coupled bootstrap review to the preview/run pipeline' >&2
-  exit 1
-fi
+python - <<'PY'
+import os
+import re
+import subprocess
+
+implementation_base = os.environ["IMPLEMENTATION_BASE"]
+production_paths = [
+    "apps/live-control-ui/src/api/types.ts",
+    "apps/live-control-ui/src/api/liveApi.ts",
+    "apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx",
+    "apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/WorldGraphBootstrapReviewPanel.tsx",
+    "apps/live-control-ui/src/ingestSurface/worldGraphBootstrap/worldGraphBootstrapReview.css",
+]
+pattern = re.compile(
+    r"getGraphIngestRuns|previewUnion|preview_union|manifestPath|manifest_path|"
+    r"goldReview|gold-review|runDir|run_dir"
+)
+diff = subprocess.check_output(
+    ["git", "diff", "-U0", f"{implementation_base}...HEAD", "--", *production_paths],
+    text=True,
+)
+hits = []
+current = None
+for line in diff.splitlines():
+    if line.startswith("+++ b/"):
+        current = line[6:]
+        continue
+    if current is None or not line.startswith("+") or line.startswith("+++"):
+        continue
+    if pattern.search(line):
+        hits.append(f"{current}: {line[1:].strip()}")
+if hits:
+    raise SystemExit(
+        "D3A coupled bootstrap review to the preview/run pipeline in added lines:\n"
+        + "\n".join(hits)
+    )
+print("Preview-coupling added-line guard passed")
+PY
 ```
 
 Review the final diff and confirm `ingestSurfaceConfig.ts` and `graphReviewWorkbench/**` are unchanged.
@@ -513,7 +583,7 @@ Accept only when every item is true:
 - [ ] Bootstrap transport/contract failure does not prevent Graph Review from loading or remaining usable.
 - [ ] Bootstrap loading and retry are isolated from plan-view and graph-run loading.
 - [ ] `ready`, `active`, `active_head_advanced`, `blocked_existing_world`, `invalid_bundle`, `inconsistent_lineage`, and unavailable/error states make materially distinct truthful claims.
-- [ ] Every returned node, relationship, attribute, contribution, source/evidence record, classification, trust claim, diagnostic, and receipt/lineage health field remains inspectable.
+- [ ] Every returned node, relationship, attribute, contribution, source, nested evidence, top-level `review.evidence`, classification, `status.trustBoundary.canTrust`, `status.trustBoundary.cannotTrust`, `review.trustBoundary`, diagnostic, and receipt/lineage health field remains inspectable.
 - [ ] The UI uses compact summaries and expandable detail without introducing graph navigation or a second interactive browser.
 - [ ] Unverified evidence locators remain visibly unverified and non-navigable.
 - [ ] No prepare, confirm, actor, acknowledgement, proposal, token, or publication behavior exists.
@@ -549,13 +619,14 @@ Required deletion PR:
 ## §13 Required implementation PR handback
 
 - Branch from the current `main` only after the tracker correction is merged.
+- Record that post-tracker `main` SHA as `IMPLEMENTATION_BASE` in the PR body and use it for every §10 diff, stat, and allowlist check. Do not use the D2 design-anchor merge SHA `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9` as the implementation base.
 - Open a draft PR against `main`.
 
 The PR body must include:
 
 1. The one-sentence mission from §0.
-2. Base SHA and head SHA.
-3. Diff stat and exact changed paths.
+2. `IMPLEMENTATION_BASE` SHA (post-tracker main), design-anchor SHA (D2 merge), and head SHA.
+3. Diff stat and exact changed paths against `IMPLEMENTATION_BASE`.
 4. Every §10 command and result.
 5. Bootstrap network operations observed in tests; accepted answer: status GET only.
 6. Proof that bootstrap failure leaves Graph Review mounted.
