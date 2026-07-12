@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from copy import deepcopy
@@ -53,6 +54,10 @@ DUP_DIVERGENT_CONTRIBUTION_ID = "contribution:ccddeeff00112233"
 RECAP_SOURCE_ARTIFACT_ID = "corpus:eldyrwild:session-23-recap"
 DUP_SOURCE_ARTIFACT_ID = "graph-native:test:dup-aligned-battlefield"
 FALLBACK_EDGE_CONTRIBUTION_ID = "contribution:ddccbbaa99887766"
+FALLBACK_SPLIT_NODE_ID = "threat:test-fallback-split"
+FALLBACK_SPLIT_CONTRIBUTION_ID = "contribution:aabbccddeeff1122"
+ATTR_ONLY_ARTIFACT_ID = "graph-native:test:attr-direct-artifact"
+ATTR_ONLY_CONTRIBUTION_ID = "contribution:eeff001122334455"
 
 ORDERED_CONTRIBUTION_IDS = [
     "contribution:82f23934d8eaca8a",
@@ -78,6 +83,18 @@ def _revision_graph_path(root: Path, revision_id: str) -> Path:
         / "revisions"
         / revision_id
         / "graph.json"
+    )
+
+
+def _revision_manifest_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "revision.json"
     )
 
 
@@ -557,6 +574,35 @@ def test_manifest_hash_mismatch_at_pinned_revision_fails_integrity(
     payload = json.loads(graph_path.read_text(encoding="utf-8"))
     payload["campaign_id"] = "tampered-campaign-id"
     graph_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request(revision_pin=pinned_revision_id))
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_tampered_graph_payload_with_matching_hash_fails_revision_identity(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    payload["campaign_id"] = "tampered-campaign-id"
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ) + "\n"
+    graph_path.write_text(canonical, encoding="utf-8")
+
+    manifest_path = _revision_manifest_path(tmp_path, pinned_revision_id)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["graph_payload_sha256"] = hashlib.sha256(
+        canonical.encode("utf-8")
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     with pytest.raises(WorldGraphProjectionError) as exc_info:
         kernel.project_world_graph(tmp_path, _request(revision_pin=pinned_revision_id))
@@ -1051,6 +1097,163 @@ def test_generated_fallback_evidence_surfaces_in_projection(
         artifact.source_artifact_id for artifact in projection.source_artifacts
     }
     assert fallback_artifact_id in top_level_artifact_ids
+    assert fallback_artifact_id in relationship.source_artifact_ids
+    assert fallback_artifact_id in source_node.source_artifact_ids
+    assert fallback_artifact_id in target_node.source_artifact_ids
+
+
+def test_node_fallback_evidence_not_attributed_to_sibling_attribute(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    source_artifact_id = "graph-native:test:fallback-split"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        contribution_id=FALLBACK_SPLIT_CONTRIBUTION_ID,
+        subject_node_id=FALLBACK_SPLIT_NODE_ID,
+        label="Fallback Split Test",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Fallback Split Test"],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=[],
+    )
+    attribute_assertion = kernel.build_assertion(
+        assertion_kind="attribute",
+        acceptance_state="accepted",
+        contribution_id=FALLBACK_SPLIT_CONTRIBUTION_ID,
+        subject_node_id=FALLBACK_SPLIT_NODE_ID,
+        predicate="test_marker",
+        label="test_marker",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "attribute": "test_marker",
+            "text": "marker without evidence",
+            "source_domains": ["manual_seed"],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id="fallback-split-1",
+        accepted_assertions=[node_assertion, attribute_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    merged_contribution_id = merged.contribution_ids[0]
+    fallback_evidence_id = f"evidence:{merged_contribution_id}:{FALLBACK_SPLIT_NODE_ID}"
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(query_text="Fallback Split Test"),
+    )
+    node = next(node for node in projection.nodes if node.node_id == FALLBACK_SPLIT_NODE_ID)
+    attribute = next(
+        item
+        for item in projection.attributes
+        if item.subject_node_id == FALLBACK_SPLIT_NODE_ID
+        and (item.label or item.predicate) == "test_marker"
+    )
+    assert fallback_evidence_id in node.evidence_ref_ids
+    assert fallback_evidence_id not in attribute.evidence_ref_ids
+    assert attribute.evidence_ref_ids == []
+
+    assert projection.query_context is not None
+    assert FALLBACK_SPLIT_NODE_ID in projection.query_context.matched_node_ids
+    query_attribute = next(
+        item
+        for item in projection.query_context.attributes
+        if item.subject_node_id == FALLBACK_SPLIT_NODE_ID
+        and (item.label or item.predicate) == "test_marker"
+    )
+    assert fallback_evidence_id not in query_attribute.evidence_ref_ids
+    query_node = next(
+        item for item in projection.query_context.nodes if item.node_id == FALLBACK_SPLIT_NODE_ID
+    )
+    assert fallback_evidence_id in query_node.evidence_ref_ids
+
+
+def test_attribute_direct_source_artifact_surfaces_in_projection_closure(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    attribute_assertion = kernel.build_assertion(
+        assertion_kind="attribute",
+        acceptance_state="accepted",
+        contribution_id=ATTR_ONLY_CONTRIBUTION_ID,
+        subject_node_id=TRIPOD_ID,
+        predicate="artifact_only_marker",
+        label="artifact_only_marker",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=ATTR_ONLY_ARTIFACT_ID,
+        value={
+            "attribute": "artifact_only_marker",
+            "text": "attribute with direct artifact only",
+            "source_domains": ["manual_seed"],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": ATTR_ONLY_ARTIFACT_ID,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": "graph-data://test/attr-direct-artifact",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=ATTR_ONLY_ARTIFACT_ID,
+        source_revision_id="attr-artifact-only-1",
+        accepted_assertions=[attribute_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(query_text="Attr Artifact Only"),
+    )
+    attribute = next(
+        item
+        for item in projection.attributes
+        if item.subject_node_id == TRIPOD_ID
+        and (item.label or item.predicate) == "artifact_only_marker"
+    )
+    assert attribute.evidence_ref_ids == []
+    assert ATTR_ONLY_ARTIFACT_ID in attribute.source_artifact_ids
+    top_level_artifact_ids = {
+        artifact.source_artifact_id for artifact in projection.source_artifacts
+    }
+    assert ATTR_ONLY_ARTIFACT_ID in top_level_artifact_ids
+
+    assert projection.query_context is not None
+    query_artifact_ids = {
+        artifact.source_artifact_id for artifact in projection.query_context.source_artifacts
+    }
+    assert ATTR_ONLY_ARTIFACT_ID in query_artifact_ids
 
 
 def test_unsupported_admissibility_fails_closed(

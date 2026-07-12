@@ -63,8 +63,10 @@ from graph_memory.union_supergraph.projection_identity import (
 )
 from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.contribution_store import load_contribution_record
+from graph_memory.world_supergraph.model import WorldGraphRevision
 from graph_memory.world_supergraph.storage import (
     canonicalize_graph_payload,
+    compute_revision_id,
     load_world_graph_revision_manifest,
     sha256_hex,
 )
@@ -181,6 +183,65 @@ def _verify_revision_payload_hash(
         )
 
 
+def _verify_revision_identity(
+    manifest: WorldGraphRevision,
+    store: UnionSupergraphStore,
+    *,
+    world_id: str,
+    revision_id: str,
+) -> None:
+    if manifest.world_id != world_id:
+        raise _integrity_error(
+            "Revision manifest world_id does not match requested world.",
+            detail=(
+                f"manifest world_id={manifest.world_id!r} "
+                f"requested world_id={world_id!r}"
+            ),
+        )
+    if manifest.revision_id != revision_id:
+        raise _integrity_error(
+            "Revision manifest revision_id does not match selected revision.",
+            detail=(
+                f"manifest revision_id={manifest.revision_id!r} "
+                f"selected revision_id={revision_id!r}"
+            ),
+        )
+    expected_payload_path = world_paths.relative_graph_payload_path(revision_id)
+    if manifest.graph_payload_path != expected_payload_path:
+        raise _integrity_error(
+            "Revision manifest graph_payload_path does not match expected layout.",
+            detail=(
+                f"manifest graph_payload_path={manifest.graph_payload_path!r} "
+                f"expected={expected_payload_path!r}"
+            ),
+        )
+    payload = dump_union_supergraph_store(store)
+    expected_schema = str(payload.get("schema") or store.schema)
+    if manifest.graph_schema != expected_schema:
+        raise _integrity_error(
+            "Revision manifest graph_schema does not match loaded graph payload.",
+            detail=(
+                f"manifest graph_schema={manifest.graph_schema!r} "
+                f"payload schema={expected_schema!r}"
+            ),
+        )
+    canonical = canonicalize_graph_payload(payload)
+    recomputed_revision_id = compute_revision_id(
+        world_id=manifest.world_id,
+        parent_revision_id=manifest.parent_revision_id,
+        operation_ids=manifest.operation_ids,
+        canonical_graph_json=canonical,
+    )
+    if recomputed_revision_id != revision_id:
+        raise _integrity_error(
+            "Revision identity does not match content-addressed revision id.",
+            detail=(
+                f"recomputed revision_id={recomputed_revision_id!r} "
+                f"selected revision_id={revision_id!r}"
+            ),
+        )
+
+
 def _load_revision_store_with_integrity(
     root: Path,
     world_id: str,
@@ -241,6 +302,12 @@ def _load_revision_store_with_integrity(
 
     try:
         _verify_revision_payload_hash(manifest.graph_payload_sha256, store)
+        _verify_revision_identity(
+            manifest,
+            store,
+            world_id=world_id,
+            revision_id=revision_id,
+        )
     except WorldGraphProjectionError:
         raise
     except Exception as exc:
@@ -384,12 +451,11 @@ def _collect_assertion_provenance_from_contributions(
                     )
                 ],
             ) from exc
-        contribution_has_explicit_evidence = False
+        matched_candidate: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
             if candidate.assertion_id != support.assertion_id:
                 continue
-            if _assertion_has_explicit_evidence(candidate):
-                contribution_has_explicit_evidence = True
+            matched_candidate = candidate
             evidence_ids.update(candidate.evidence_ref_ids)
             value = dict(candidate.value)
             nested_evidence_ref_ids = value.get("evidence_ref_ids")
@@ -402,8 +468,11 @@ def _collect_assertion_provenance_from_contributions(
                     artifact_id = source_artifact.get("source_artifact_id")
                     if artifact_id is not None:
                         artifact_ids.add(str(artifact_id))
+            break
         if (
-            not contribution_has_explicit_evidence
+            matched_candidate is not None
+            and not _assertion_has_explicit_evidence(matched_candidate)
+            and matched_candidate.assertion_kind in {"node", "edge"}
             and resolved_graph_object_id is not None
             and materialized_refs is not None
         ):
@@ -426,6 +495,7 @@ def _collect_assertion_provenance_from_contributions(
                     )
                 ],
             )
+        artifact_ids.add(store.evidence[evidence_ref_id].source_artifact_id)
     for source_artifact_id in sorted(artifact_ids):
         if source_artifact_id not in store.source_artifacts:
             raise WorldGraphProjectionError(
@@ -1008,6 +1078,43 @@ def _collect_projection_provenance_ids(
     return sorted(evidence_ids)
 
 
+def _collect_projection_source_artifact_ids(
+    store: UnionSupergraphStore,
+    nodes: list[WorldGraphProjectionNodeView],
+    attributes: list[WorldGraphProjectionAttributeView],
+    relationships: list[WorldGraphProjectionRelationshipView],
+    evidence_ids: list[str],
+) -> list[str]:
+    artifact_ids: set[str] = set()
+    for node in nodes:
+        artifact_ids.update(node.source_artifact_ids)
+    for attribute in attributes:
+        artifact_ids.update(attribute.source_artifact_ids)
+    for relationship in relationships:
+        artifact_ids.update(relationship.source_artifact_ids)
+    for evidence_id in evidence_ids:
+        evidence = store.evidence.get(evidence_id)
+        if evidence is not None:
+            artifact_ids.add(evidence.source_artifact_id)
+    for source_artifact_id in sorted(artifact_ids):
+        if source_artifact_id not in store.source_artifacts:
+            raise WorldGraphProjectionError(
+                f"Unresolved source artifact {source_artifact_id!r}",
+                code="projection_integrity_error",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic(
+                        "unresolved_source_artifact",
+                        (
+                            f"Source artifact {source_artifact_id!r} "
+                            "missing from revision store."
+                        ),
+                    )
+                ],
+            )
+    return sorted(artifact_ids)
+
+
 def _build_evidence_views(
     store: UnionSupergraphStore,
     evidence_ids: list[str],
@@ -1032,15 +1139,10 @@ def _build_evidence_views(
 
 def _build_source_artifact_views(
     store: UnionSupergraphStore,
-    evidence_ids: list[str],
+    artifact_ids: list[str],
 ) -> list[WorldGraphProjectionSourceArtifactView]:
-    collected_artifact_ids = {
-        evidence.source_artifact_id
-        for evidence_id in evidence_ids
-        if (evidence := store.evidence.get(evidence_id)) is not None
-    }
     artifacts: list[WorldGraphProjectionSourceArtifactView] = []
-    for artifact_id in sorted(collected_artifact_ids):
+    for artifact_id in artifact_ids:
         if artifact_id not in store.source_artifacts:
             continue
         artifact = store.source_artifacts[artifact_id]
@@ -1100,7 +1202,14 @@ def build_projection_payload(
             relationships,
         )
         evidence = _build_evidence_views(store, evidence_ids)
-        source_artifacts = _build_source_artifact_views(store, evidence_ids)
+        source_artifact_ids = _collect_projection_source_artifact_ids(
+            store,
+            nodes,
+            attributes,
+            relationships,
+            evidence_ids,
+        )
+        source_artifacts = _build_source_artifact_views(store, source_artifact_ids)
     except WorldGraphProjectionError:
         raise
     except Exception as exc:
@@ -1291,6 +1400,10 @@ def search_world_graph_projection(
     artifact_ids: set[str] = set()
     for node in selected_nodes:
         artifact_ids.update(node.source_artifact_ids)
+    for attribute in selected_attributes:
+        artifact_ids.update(attribute.source_artifact_ids)
+    for relationship in selected_relationships:
+        artifact_ids.update(relationship.source_artifact_ids)
     for evidence in selected_evidence:
         artifact_ids.add(evidence.source_artifact_id)
     selected_artifacts = [
