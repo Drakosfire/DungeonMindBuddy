@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,13 @@ from graph_memory.kernel.world_graph import (
     open_current_world_graph,
     open_world_graph_head,
 )
+from graph_memory.projection.node_view import (
+    GraphProjectionAdjacencyCandidate,
+    GraphProjectionEvidenceBadge,
+    GraphProjectionNodeView,
+    GraphProjectionSuggestedExpansion,
+    GraphProjectionTextHighlightSpan,
+)
 from graph_memory.projection.recap_projection import build_focus_overlay, build_node_view
 from graph_memory.projection.world_projection import (
     PROJECTION_RESPONSE_SCHEMA,
@@ -22,8 +30,10 @@ from graph_memory.projection.world_projection import (
     SEARCH_MAX_RELATIONSHIPS,
     SEARCH_MAX_SOURCE_ARTIFACTS,
     WorldGraphProjection,
+    WorldGraphProjectionAdjacencyCandidate,
     WorldGraphProjectionAttributeView,
     WorldGraphProjectionDiagnostic,
+    WorldGraphProjectionEvidenceBadge,
     WorldGraphProjectionEvidenceView,
     WorldGraphProjectionFocus,
     WorldGraphProjectionNodeView,
@@ -31,20 +41,25 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
     WorldGraphProjectionSnapshot,
     WorldGraphProjectionSourceArtifactView,
+    WorldGraphProjectionSuggestedExpansion,
     WorldGraphProjectionSummary,
+    WorldGraphProjectionTextHighlightSpan,
     WorldGraphProjectionTrustBoundary,
     WorldGraphQueryContext,
     derive_attribute_text_value,
     rank_search_node_matches,
 )
-from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode, UnionSupergraphStore
 from graph_memory.union_supergraph.projection_identity import (
     build_union_projection_identity_context,
     is_projectable_union_edge,
+    is_projectable_union_node,
     projectable_node_ids,
 )
 from graph_memory.world_supergraph.contribution_store import load_contribution_record
 from graph_memory.world_supergraph.storage import load_world_graph_revision_manifest
+
+_UNSUPPORTED_ASSERTION_MEMORY_STATE = "unsupported_assertion"
 
 _TRUST_CANNOT = [
     "Evidence locators and source spans are metadata only; this projection does not verify them.",
@@ -100,6 +115,34 @@ def _parse_support(raw: dict[str, Any]) -> DurableAssertionSupport:
     return DurableAssertionSupport.model_validate(raw)
 
 
+def _memory_state(graph_object: UnionSupergraphNode | UnionSupergraphEdge) -> str | None:
+    memory_state = graph_object.state.get("memory_state")
+    return memory_state if isinstance(memory_state, str) else None
+
+
+def _is_unsupported_graph_object(graph_object: UnionSupergraphNode | UnionSupergraphEdge) -> bool:
+    return _memory_state(graph_object) == _UNSUPPORTED_ASSERTION_MEMORY_STATE
+
+
+def _canonicalize_json_value(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _assertion_semantic_fingerprint(assertion: GraphContributionAssertion) -> tuple[Any, ...]:
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(assertion.value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        _canonicalize_json_value(assertion.temporal_scope),
+    )
+
+
 def _load_revision_context(
     root: Path,
     request: WorldGraphProjectionRequest,
@@ -119,7 +162,7 @@ def _load_revision_context(
         try:
             load_world_graph_revision_manifest(root, world_id, revision_id)
             store = load_world_graph_revision(root, world_id, revision_id)
-        except (WorldGraphNotFoundError, ValueError) as exc:
+        except (FileNotFoundError, OSError, ValueError) as exc:
             raise WorldGraphProjectionError(
                 f"Revision pin not found: {revision_id!r}",
                 code="revision_not_found",
@@ -164,20 +207,9 @@ def _resolve_assertion_from_support(
     store: UnionSupergraphStore,
     support: DurableAssertionSupport,
 ) -> GraphContributionAssertion:
-    if not support.active_contribution_ids:
-        raise WorldGraphProjectionError(
-            f"Assertion support {support.assertion_id!r} has no active contributions.",
-            code="projection_integrity_error",
-            status_code=409,
-            diagnostics=[
-                _diagnostic(
-                    "missing_active_contributions",
-                    f"No active contributions for assertion {support.assertion_id!r}.",
-                )
-            ],
-        )
+    assertions_by_contribution: dict[str, GraphContributionAssertion] = {}
+    fingerprints: dict[str, tuple[Any, ...]] = {}
 
-    assertion: GraphContributionAssertion | None = None
     for contribution_id in support.active_contribution_ids:
         try:
             contribution = load_contribution_record(root, world_id, contribution_id)
@@ -193,23 +225,49 @@ def _resolve_assertion_from_support(
                     )
                 ],
             ) from exc
+
+        matched: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
             if candidate.assertion_id == support.assertion_id:
-                assertion = candidate
+                matched = candidate
                 break
+        if matched is None:
+            raise WorldGraphProjectionError(
+                f"Assertion {support.assertion_id!r} not found in contribution {contribution_id!r}.",
+                code="projection_integrity_error",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic(
+                        "missing_assertion",
+                        (
+                            f"Assertion {support.assertion_id!r} missing from "
+                            f"contribution {contribution_id!r}."
+                        ),
+                    )
+                ],
+            )
+        assertions_by_contribution[contribution_id] = matched
+        fingerprints[contribution_id] = _assertion_semantic_fingerprint(matched)
 
-    if assertion is None:
+    unique_fingerprints = {fingerprint for fingerprint in fingerprints.values()}
+    if len(unique_fingerprints) > 1:
         raise WorldGraphProjectionError(
-            f"Assertion {support.assertion_id!r} not found in active contributions.",
+            f"Assertion {support.assertion_id!r} has semantically divergent active copies.",
             code="projection_integrity_error",
             status_code=409,
             diagnostics=[
                 _diagnostic(
-                    "missing_assertion",
-                    f"Assertion {support.assertion_id!r} missing from contribution payloads.",
+                    "semantic_assertion_divergence",
+                    (
+                        f"Active contributions disagree on semantic fields for "
+                        f"assertion {support.assertion_id!r}."
+                    ),
                 )
             ],
         )
+
+    representative_contribution_id = min(assertions_by_contribution)
+    assertion = assertions_by_contribution[representative_contribution_id]
 
     expected_graph_object_id = support.graph_object_id
     if expected_graph_object_id is not None:
@@ -281,6 +339,103 @@ def _support_for_edge(
     return None
 
 
+def _convert_highlight_span(
+    span: GraphProjectionTextHighlightSpan,
+) -> WorldGraphProjectionTextHighlightSpan:
+    return WorldGraphProjectionTextHighlightSpan(start=span.start, end=span.end)
+
+
+def _convert_evidence_badge(
+    badge: GraphProjectionEvidenceBadge,
+) -> WorldGraphProjectionEvidenceBadge:
+    return WorldGraphProjectionEvidenceBadge(
+        evidence_ref_id=badge.evidence_ref_id,
+        source_artifact_id=badge.source_artifact_id,
+        source_domain=badge.source_domain,
+        evidence_role=badge.evidence_role,
+        is_focus_session_evidence=badge.is_focus_session_evidence,
+        can_open_source=badge.can_open_source,
+        can_highlight_span=badge.can_highlight_span,
+        label=badge.label,
+        session_id=badge.session_id,
+        source_span_ref_id=badge.source_span_ref_id,
+    )
+
+
+def _convert_adjacency_candidate(
+    candidate: GraphProjectionAdjacencyCandidate,
+) -> WorldGraphProjectionAdjacencyCandidate:
+    return WorldGraphProjectionAdjacencyCandidate(
+        edge_id=candidate.edge_id,
+        node_id=candidate.node_id,
+        label=candidate.label,
+        kind=candidate.kind,
+        predicate=candidate.predicate,
+        direction=candidate.direction,
+        anchored_to_focus_session=candidate.anchored_to_focus_session,
+        source_domains=list(candidate.source_domains),
+        evidence_ref_ids=list(candidate.evidence_ref_ids),
+        edge_label=candidate.edge_label,
+        session_ids=list(candidate.session_ids),
+        related_summary=candidate.related_summary,
+        source_excerpt=candidate.source_excerpt,
+        source_excerpt_is_full_paragraph=candidate.source_excerpt_is_full_paragraph,
+        source_excerpt_highlight_spans=[
+            _convert_highlight_span(span)
+            for span in candidate.source_excerpt_highlight_spans
+        ],
+    )
+
+
+def _convert_suggested_expansion(
+    expansion: GraphProjectionSuggestedExpansion,
+) -> WorldGraphProjectionSuggestedExpansion:
+    base = _convert_adjacency_candidate(expansion)
+    return WorldGraphProjectionSuggestedExpansion(
+        **base.model_dump(),
+        rank=expansion.rank,
+        rank_reason=expansion.rank_reason,
+    )
+
+
+def _convert_node_view(
+    view: GraphProjectionNodeView,
+    *,
+    evidence_ref_ids: list[str],
+    source_artifact_ids: list[str],
+) -> WorldGraphProjectionNodeView:
+    return WorldGraphProjectionNodeView(
+        node_id=view.node_id,
+        label=view.label,
+        kind=view.kind,
+        role=view.role,
+        aliases=list(view.aliases),
+        source_domains=list(view.source_domains),
+        summary=view.summary,
+        anchored_to_focus_session=view.anchored_to_focus_session,
+        evidence_badges=[_convert_evidence_badge(badge) for badge in view.evidence_badges],
+        adjacency=[_convert_adjacency_candidate(candidate) for candidate in view.adjacency],
+        suggested_expansions=[
+            _convert_suggested_expansion(expansion)
+            for expansion in view.suggested_expansions
+        ],
+        evidence_ref_ids=list(evidence_ref_ids),
+        source_artifact_ids=list(source_artifact_ids),
+    )
+
+
+def _source_artifact_ids_for_evidence(
+    store: UnionSupergraphStore,
+    evidence_ref_ids: list[str],
+) -> list[str]:
+    artifact_ids = {
+        store.evidence[evidence_ref_id].source_artifact_id
+        for evidence_ref_id in evidence_ref_ids
+        if evidence_ref_id in store.evidence
+    }
+    return sorted(artifact_ids)
+
+
 def _build_attribute_views(
     root: Path,
     world_id: str,
@@ -290,6 +445,8 @@ def _build_attribute_views(
     for raw_support in store.assertion_support.values():
         support = _parse_support(raw_support)
         if support.assertion_kind != "attribute":
+            continue
+        if support.support_state != "supported" or not support.active_contribution_ids:
             continue
         assertion = _resolve_assertion_from_support(root, world_id, store, support)
         value = dict(assertion.value)
@@ -321,6 +478,8 @@ def _build_relationship_views(
     relationships: list[WorldGraphProjectionRelationshipView] = []
     for edge_id, edge in sorted(store.edges.items()):
         if not is_projectable_union_edge(edge, identity_context):
+            continue
+        if _is_unsupported_graph_object(edge):
             continue
         support = _support_for_edge(store, edge_id)
         active_contribution_ids: list[str] = []
@@ -360,25 +519,44 @@ def _build_node_views(
     focus_session_id = focus.session_id if focus.kind == "session" else None
     nodes: list[WorldGraphProjectionNodeView] = []
     for node_id in sorted(projectable_node_ids(store, identity_context)):
+        node = store.nodes[node_id]
+        if not is_projectable_union_node(node, identity_context):
+            continue
+        if _is_unsupported_graph_object(node):
+            continue
         view = build_node_view(
             store,
             node_id,
             focus_session_id=focus_session_id,
             identity_context=identity_context,
         )
+        evidence_ref_ids = list(node.evidence_ref_ids)
+        source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
         nodes.append(
-            WorldGraphProjectionNodeView(
-                node_id=view.node_id,
-                label=view.label,
-                kind=view.kind,
-                role=view.role,
-                aliases=list(view.aliases),
-                source_domains=list(view.source_domains),
-                summary=view.summary,
-                anchored_to_focus_session=view.anchored_to_focus_session,
+            _convert_node_view(
+                view,
+                evidence_ref_ids=evidence_ref_ids,
+                source_artifact_ids=source_artifact_ids,
             )
         )
     return nodes
+
+
+def _count_omitted_unsupported_objects(store: UnionSupergraphStore) -> tuple[int, int]:
+    identity_context = build_union_projection_identity_context(store)
+    omitted_nodes = sum(
+        1
+        for node in store.nodes.values()
+        if is_projectable_union_node(node, identity_context)
+        and _is_unsupported_graph_object(node)
+    )
+    omitted_edges = sum(
+        1
+        for edge in store.edges.values()
+        if is_projectable_union_edge(edge, identity_context)
+        and _is_unsupported_graph_object(edge)
+    )
+    return omitted_nodes, omitted_edges
 
 
 def _build_evidence_views(
@@ -476,6 +654,18 @@ def build_projection_payload(
             severity="info",
         )
     ]
+    omitted_nodes, omitted_edges = _count_omitted_unsupported_objects(store)
+    if omitted_nodes or omitted_edges:
+        diagnostics.append(
+            WorldGraphProjectionDiagnostic(
+                code="unsupported_objects_omitted",
+                message=(
+                    f"Omitted {omitted_nodes} unsupported node(s) and "
+                    f"{omitted_edges} unsupported relationship(s)."
+                ),
+                severity="info",
+            )
+        )
 
     projection = WorldGraphProjection(
         schema=PROJECTION_RESPONSE_SCHEMA,
@@ -565,6 +755,7 @@ def search_world_graph_projection(
     query = query_text.strip()
     if not query:
         return WorldGraphQueryContext(
+            snapshot=projection.snapshot,
             revision_id=projection.snapshot.revision_id,
             query_text=query_text,
             diagnostics=[
@@ -576,13 +767,16 @@ def search_world_graph_projection(
             ],
         )
 
-    ranked_nodes = rank_search_node_matches(projection.nodes, projection.attributes, query)
-    matched_node_ids = [node.node_id for node, _score in ranked_nodes]
+    ranked_nodes, match_reasons = rank_search_node_matches(
+        projection.nodes,
+        projection.attributes,
+        query,
+    )
 
     node_cap = SEARCH_MAX_NODES
     selected_nodes = [node for node, _score in ranked_nodes[:node_cap]]
-
     selected_node_ids = {node.node_id for node in selected_nodes}
+    capped_matched_node_ids = [node.node_id for node in selected_nodes]
 
     selected_relationships = [
         relationship
@@ -601,11 +795,14 @@ def search_world_graph_projection(
     attribute_truncated = len(selected_attributes) > SEARCH_MAX_ATTRIBUTES
     selected_attributes = selected_attributes[:SEARCH_MAX_ATTRIBUTES]
 
-    evidence_ids = {
+    evidence_ids: set[str] = set()
+    for node in selected_nodes:
+        evidence_ids.update(node.evidence_ref_ids)
+    evidence_ids.update(
         evidence_id
         for attribute in selected_attributes
         for evidence_id in attribute.evidence_ref_ids
-    }
+    )
     evidence_ids.update(
         evidence_id
         for relationship in selected_relationships
@@ -617,11 +814,11 @@ def search_world_graph_projection(
     evidence_truncated = len(selected_evidence) > SEARCH_MAX_EVIDENCE
     selected_evidence = selected_evidence[:SEARCH_MAX_EVIDENCE]
 
-    artifact_ids = {
-        artifact_id
-        for attribute in selected_attributes
-        for artifact_id in attribute.source_artifact_ids
-    }
+    artifact_ids: set[str] = set()
+    for node in selected_nodes:
+        artifact_ids.update(node.source_artifact_ids)
+    for evidence in selected_evidence:
+        artifact_ids.add(evidence.source_artifact_id)
     selected_artifacts = [
         item
         for item in projection.source_artifacts
@@ -674,10 +871,18 @@ def search_world_graph_projection(
             )
         )
 
+    selected_match_reasons = {
+        node_id: match_reasons[node_id]
+        for node_id in capped_matched_node_ids
+        if node_id in match_reasons
+    }
+
     return WorldGraphQueryContext(
+        snapshot=projection.snapshot,
         revision_id=projection.snapshot.revision_id,
         query_text=query_text,
-        matched_node_ids=matched_node_ids,
+        matched_node_ids=capped_matched_node_ids,
+        match_reasons=selected_match_reasons,
         nodes=selected_nodes,
         relationships=selected_relationships,
         attributes=selected_attributes,

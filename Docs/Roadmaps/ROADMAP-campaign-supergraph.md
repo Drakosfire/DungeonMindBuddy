@@ -230,22 +230,22 @@ snapshot → PR008 Plan surface migration. PR006D3 `/ingest` UI remains deferred
 
 **Objective:** Plan (then Play, including combat lenses) consume projections only; no surface-owned graph semantics.
 
-**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. Q&A waits until cards are useful against real memory.
+**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. First read-only Plan + Agent dogfood can begin once PR007A lands; full retrieval sophistication may follow in Phase 7 (PR010) but is not a blocker for PR008A vertical dogfood.
 
 **Dependencies:** Phase 4 (PR007A read snapshot; PR006D3 UI not required).
 
-**Dogfood path:** PR006D2 activation → PR007A projection read API → PR008 Plan wiring.
+**Dogfood path:** PR006D2 activation → PR007A projection read API → **PR008A** Plan + Agent wiring.
 PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
 
-**Expected PR slices:** Tracker **PR008** (Plan), **PR009** (Play), Build follow-ons as needed.
+**Expected PR slices:** Tracker **PR008A** (Plan + Agent vertical dogfood), **PR008** follow-ons, **PR009** (Play), Build follow-ons as needed.
 
 **Demolition owned here (Plan):** Delete the session-derived `useLatestGraphIngest` path in the same PR that wires real projection (no deferral to PR012 without a named consumer).
 
 **Suggested Plan sub-sequence:**
 
-1. Wire Plan to Projection Engine / production graph-context contract.
+1. Wire Plan + Agent Interaction to Projection Engine / production graph-context contract (PR008A).
 2. Rerun object-card usefulness dogfood against the Phase 3 graph.
-3. Only then: Plan-scoped graph-memory Q&A (later / retrieval-backed).
+3. Expand retrieval sophistication in PR010 when needed; Plan-scoped graph-memory Q&A can follow PR008A dogfood.
 
 **Exit criteria:**
 
@@ -336,7 +336,7 @@ PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
 | GitHub PR321 dogfood harness + blocker discovery | Evidence that real graph context is required |
 | Informal “plan graph-context” | Absorbed into Phase 4 **PR007** + Plan wiring **PR008** |
 | Informal “continue dogfood” | Phase 5 after Phase 3 materialization |
-| Informal “Plan Q&A” | After useful cards; prefer Phase 7 retrieval-backed |
+| Informal “Plan Q&A” | PR008A dogfood first; prefer PR010 when retrieval-backed |
 
 Do not resume Q&A as the next architecture move. Repair semantic assertion
 identity, approve and publish the graph-native contribution bundle, then

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -19,6 +20,20 @@ SEARCH_MAX_RELATIONSHIPS = 24
 SEARCH_MAX_ATTRIBUTES = 32
 SEARCH_MAX_EVIDENCE = 32
 SEARCH_MAX_SOURCE_ARTIFACTS = 24
+
+_SEARCH_STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "as", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "could", "should", "may", "might", "must", "shall", "can",
+    "what", "which", "who", "whom", "whose", "where", "when", "why", "how",
+    "i", "me", "my", "we", "our", "you", "your", "they", "their", "it",
+    "its", "this", "that", "these", "those", "am", "about", "into", "through",
+    "during", "before", "after", "above", "below", "between", "under", "again",
+    "further", "then", "once", "here", "there", "all", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "than", "too", "very", "just", "also", "now",
+})
 
 
 class _ProjectionModel(BaseModel):
@@ -78,6 +93,49 @@ class WorldGraphProjectionSummary(_ProjectionModel):
     projection_truncated: bool = False
 
 
+class WorldGraphProjectionTextHighlightSpan(_ProjectionModel):
+    start: int
+    end: int
+
+
+class WorldGraphProjectionEvidenceBadge(_ProjectionModel):
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_domain: str
+    evidence_role: str
+    is_focus_session_evidence: bool = False
+    can_open_source: bool = False
+    can_highlight_span: bool = False
+    label: str | None = None
+    session_id: str | None = None
+    source_span_ref_id: str | None = None
+
+
+class WorldGraphProjectionAdjacencyCandidate(_ProjectionModel):
+    edge_id: str
+    node_id: str
+    label: str
+    kind: str
+    predicate: str
+    direction: str
+    anchored_to_focus_session: bool = False
+    source_domains: list[str] = Field(default_factory=list)
+    evidence_ref_ids: list[str] = Field(default_factory=list)
+    edge_label: str | None = None
+    session_ids: list[str] = Field(default_factory=list)
+    related_summary: str | None = None
+    source_excerpt: str | None = None
+    source_excerpt_is_full_paragraph: bool = False
+    source_excerpt_highlight_spans: list[WorldGraphProjectionTextHighlightSpan] = Field(
+        default_factory=list
+    )
+
+
+class WorldGraphProjectionSuggestedExpansion(WorldGraphProjectionAdjacencyCandidate):
+    rank: int = 1
+    rank_reason: str = "connected thread"
+
+
 class WorldGraphProjectionNodeView(_ProjectionModel):
     node_id: str
     label: str
@@ -87,6 +145,13 @@ class WorldGraphProjectionNodeView(_ProjectionModel):
     source_domains: list[str] = Field(default_factory=list)
     summary: str | None = None
     anchored_to_focus_session: bool = False
+    evidence_badges: list[WorldGraphProjectionEvidenceBadge] = Field(default_factory=list)
+    adjacency: list[WorldGraphProjectionAdjacencyCandidate] = Field(default_factory=list)
+    suggested_expansions: list[WorldGraphProjectionSuggestedExpansion] = Field(
+        default_factory=list
+    )
+    evidence_ref_ids: list[str] = Field(default_factory=list)
+    source_artifact_ids: list[str] = Field(default_factory=list)
 
 
 class WorldGraphProjectionAttributeView(_ProjectionModel):
@@ -146,9 +211,11 @@ class WorldGraphProjectionTrustBoundary(_ProjectionModel):
 
 
 class WorldGraphQueryContext(_ProjectionModel):
+    snapshot: WorldGraphProjectionSnapshot
     revision_id: str
     query_text: str
     matched_node_ids: list[str] = Field(default_factory=list)
+    match_reasons: dict[str, list[str]] = Field(default_factory=dict)
     nodes: list[WorldGraphProjectionNodeView] = Field(default_factory=list)
     relationships: list[WorldGraphProjectionRelationshipView] = Field(default_factory=list)
     attributes: list[WorldGraphProjectionAttributeView] = Field(default_factory=list)
@@ -207,6 +274,29 @@ def _casefold(value: str | None) -> str:
     return (value or "").casefold()
 
 
+def _tokenize_query(query: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+", _casefold(query))
+    return [token for token in tokens if token not in _SEARCH_STOPWORDS and len(token) > 1]
+
+
+def _token_variants(token: str) -> list[str]:
+    variants = [token]
+    if token.endswith("s") and len(token) > 3:
+        variants.append(token[:-1])
+    elif not token.endswith("s"):
+        variants.append(f"{token}s")
+    return variants
+
+
+def _token_in_text(token: str, text: str) -> bool:
+    if not text:
+        return False
+    for variant in _token_variants(token):
+        if variant in text:
+            return True
+    return False
+
+
 def _node_search_blob(node: WorldGraphProjectionNodeView) -> str:
     parts = [
         node.node_id,
@@ -228,69 +318,131 @@ def _attribute_search_blob(attribute: WorldGraphProjectionAttributeView) -> str:
     return " ".join(parts).casefold()
 
 
-def _node_match_score(node: WorldGraphProjectionNodeView, query: str) -> int:
+def _score_node_match(
+    node: WorldGraphProjectionNodeView,
+    query: str,
+    tokens: list[str],
+) -> tuple[int, list[str]]:
     query_cf = _casefold(query)
-    if not query_cf:
-        return 0
-    if _casefold(node.node_id) == query_cf:
-        return 1000
-    if _casefold(node.label) == query_cf:
-        return 900
+    reasons: list[str] = []
+    score = 0
+
+    if not query_cf and not tokens:
+        return 0, reasons
+
+    if query_cf and _casefold(node.node_id) == query_cf:
+        return 1000, ["exact_node_id"]
+    if query_cf and _casefold(node.label) == query_cf:
+        return 900, ["exact_label"]
     for alias in node.aliases:
-        if _casefold(alias) == query_cf:
-            return 850
+        if query_cf and _casefold(alias) == query_cf:
+            return 850, ["exact_alias"]
+
     blob = _node_search_blob(node)
-    if query_cf in _casefold(node.label):
-        return 700
-    if any(query_cf in _casefold(alias) for alias in node.aliases):
-        return 650
-    if query_cf in _casefold(node.kind) or query_cf in _casefold(node.role):
-        return 500
-    if node.summary and query_cf in _casefold(node.summary):
-        return 300
-    if query_cf in blob:
-        return 200
-    return 0
+    if query_cf and query_cf in _casefold(node.label):
+        score = max(score, 700)
+        reasons.append("label_phrase")
+    if query_cf and any(query_cf in _casefold(alias) for alias in node.aliases):
+        score = max(score, 650)
+        reasons.append("alias_phrase")
+    if query_cf and (
+        query_cf in _casefold(node.kind) or query_cf in _casefold(node.role)
+    ):
+        score = max(score, 500)
+        reasons.append("kind_or_role_phrase")
+    if query_cf and node.summary and query_cf in _casefold(node.summary):
+        score = max(score, 300)
+        reasons.append("summary_phrase")
+    if query_cf and query_cf in blob:
+        score = max(score, 200)
+        reasons.append("node_blob_phrase")
+
+    for token in tokens:
+        if _token_in_text(token, _casefold(node.node_id)):
+            score += 120
+            reasons.append(f"token:{token}:node_id")
+        if _token_in_text(token, _casefold(node.label)):
+            score += 100
+            reasons.append(f"token:{token}:label")
+        if any(_token_in_text(token, _casefold(alias)) for alias in node.aliases):
+            score += 90
+            reasons.append(f"token:{token}:alias")
+        if _token_in_text(token, _casefold(node.kind)):
+            score += 80
+            reasons.append(f"token:{token}:kind")
+        if _token_in_text(token, _casefold(node.role)):
+            score += 70
+            reasons.append(f"token:{token}:role")
+        if node.summary and _token_in_text(token, _casefold(node.summary)):
+            score += 50
+            reasons.append(f"token:{token}:summary")
+
+    return score, sorted(set(reasons))
 
 
-def _attribute_match_score(
+def _score_attribute_match(
     attribute: WorldGraphProjectionAttributeView,
     query: str,
-) -> int:
+    tokens: list[str],
+) -> tuple[int, list[str]]:
     query_cf = _casefold(query)
-    if not query_cf:
-        return 0
-    if _casefold(attribute.predicate) == query_cf or _casefold(attribute.label) == query_cf:
-        return 250
+    reasons: list[str] = []
+    score = 0
+
+    if query_cf and (
+        _casefold(attribute.predicate) == query_cf or _casefold(attribute.label) == query_cf
+    ):
+        return 250, ["exact_attribute_field"]
+
     blob = _attribute_search_blob(attribute)
-    if query_cf in blob:
-        return 150
-    return 0
+    if query_cf and query_cf in blob:
+        score = max(score, 150)
+        reasons.append("attribute_phrase")
+
+    for token in tokens:
+        if _token_in_text(token, blob):
+            score += 60
+            reasons.append(f"token:{token}:attribute")
+
+    return score, sorted(set(reasons))
 
 
 def rank_search_node_matches(
     nodes: list[WorldGraphProjectionNodeView],
     attributes: list[WorldGraphProjectionAttributeView],
     query_text: str,
-) -> list[tuple[WorldGraphProjectionNodeView, int]]:
+) -> tuple[list[tuple[WorldGraphProjectionNodeView, int]], dict[str, list[str]]]:
+    query = query_text.strip()
+    tokens = _tokenize_query(query)
     scores: dict[str, int] = {}
+    match_reasons: dict[str, list[str]] = {}
     node_by_id = {node.node_id: node for node in nodes}
+
     for node in nodes:
-        score = _node_match_score(node, query_text)
+        score, reasons = _score_node_match(node, query, tokens)
         if score:
             scores[node.node_id] = max(scores.get(node.node_id, 0), score)
+            match_reasons.setdefault(node.node_id, []).extend(reasons)
+
     for attribute in attributes:
-        score = _attribute_match_score(attribute, query_text)
+        score, reasons = _score_attribute_match(attribute, query, tokens)
         if score:
-            scores[attribute.subject_node_id] = max(
-                scores.get(attribute.subject_node_id, 0),
-                score,
-            )
+            node_id = attribute.subject_node_id
+            scores[node_id] = max(scores.get(node_id, 0), score)
+            match_reasons.setdefault(node_id, []).extend(reasons)
+
+    for node_id, reasons in match_reasons.items():
+        match_reasons[node_id] = sorted(set(reasons))
+
     ranked = sorted(
-        ((node_by_id[node_id], score) for node_id, score in scores.items() if node_id in node_by_id),
+        (
+            (node_by_id[node_id], score)
+            for node_id, score in scores.items()
+            if node_id in node_by_id
+        ),
         key=lambda item: (-item[1], item[0].node_id),
     )
-    return ranked
+    return ranked, match_reasons
 
 
 __all__ = [
@@ -305,9 +457,11 @@ __all__ = [
     "AdmissibilityPolicy",
     "FocusKind",
     "WorldGraphProjection",
+    "WorldGraphProjectionAdjacencyCandidate",
     "WorldGraphProjectionAttributeView",
     "WorldGraphProjectionDiagnostic",
     "WorldGraphProjectionErrorResponse",
+    "WorldGraphProjectionEvidenceBadge",
     "WorldGraphProjectionEvidenceView",
     "WorldGraphProjectionFocus",
     "WorldGraphProjectionNodeView",
@@ -315,7 +469,9 @@ __all__ = [
     "WorldGraphProjectionRequest",
     "WorldGraphProjectionSnapshot",
     "WorldGraphProjectionSourceArtifactView",
+    "WorldGraphProjectionSuggestedExpansion",
     "WorldGraphProjectionSummary",
+    "WorldGraphProjectionTextHighlightSpan",
     "WorldGraphProjectionTrustBoundary",
     "WorldGraphQueryContext",
     "derive_attribute_text_value",

@@ -599,28 +599,32 @@ deterministic lexical search; trust boundary honesty.
 
 ---
 
-## PR008 — Plan Surface Migration
+## PR008A — /plan World Graph dogfood migration
 
 **Status:** `BLOCKED` on PR007A
 **Phase:** 5
-**Purpose:** `/plan` consumes Projection Engine only for graph-backed object navigation and search against the real world graph under Campaign 2 scope.
+**Purpose:** First read-only agent + Plan dogfood against PR007A projection — same revision ID and durable node IDs across UI object/reference navigation and Agent Interaction deterministic query context.
 
 **Deliverables:**
 
 - Plan graph-context wiring to production projection contract (`worldId` + `campaignId` + focus)
+- UI object/reference navigation uses PR007A projection (not latest-ingest)
+- Agent Interaction uses PR007A deterministic query context (`snapshot`, capped `matchedNodeIds`, `matchReasons`)
+- Both surfaces expose the same `revisionId` and durable node IDs
+- Existing source/citation reading remains the evidentiary layer
 - Insert-refs / dogfood search against real projection
 - Continue object-card usefulness dogfood against the PR006D published World Supergraph
-- Keep Q&A deferred until dogfood passes usefulness bar
 - **Delete** session-derived `useLatestGraphIngest` Plan path in this PR once real projection is wired
 
 **Success criteria:**
 
-- Real campaign dogfood can add/view/remove/judge cards against the PR006D published World Supergraph via PR007 projection
+- Real campaign dogfood can add/view/remove/judge cards against the PR006D published World Supergraph via PR007A projection
+- Agent Interaction can consume the same revision-pinned projection context as Plan navigation
 - Diagnostics show requested focus/context that matches GM intent
 - No Plan-local graph store; no graph/corpus deletes from dogfood remove
 - `useLatestGraphIngest` is gone from Plan production path (not deferred to PR012)
 
-**Non-goals:** Plan-scoped Q&A in the same slice unless dogfood already unblocked and explicitly scoped; Author Draft in Plan; identity merge in Plan.
+**Non-goals:** Generalized GraphRAG / tool registry / graph writes; full retrieval sophistication (PR010 may follow); Author Draft in Plan; identity merge in Plan.
 
 **Depends on:** PR007A. Builds on existing GraphObjectCard path (GitHub PR316–PR321 era).
 
@@ -628,8 +632,23 @@ deterministic lexical search; trust boundary honesty.
 Retained temporarily: (none expected for useLatestGraphIngest)
 Reason: n/a — delete in this PR
 Remaining consumer: none
-Required deletion PR: this PR (PR008)
+Required deletion PR: this PR (PR008A)
 ```
+
+### PR008 follow-ons (as needed)
+
+- Broader Plan surface polish after PR008A vertical dogfood lands
+- Play surface migration remains **PR009**
+
+---
+
+## PR008 — Plan Surface Migration (umbrella)
+
+**Status:** `BLOCKED` on PR007A
+**Phase:** 5
+**Purpose:** Umbrella for Plan surface migration; **PR008A** is the required first vertical dogfood slice. Broader Plan follow-ons may trail PR008A without blocking first read-only agent dogfood.
+
+**Depends on:** PR007A.
 
 ---
 
@@ -754,7 +773,7 @@ Reserve tracker IDs when scoped:
 | GitHub PR321 dogfood harness | Prerequisite evidence; keep harness |
 | Informal “graph-context” / old “PR322” | **PR007** (+ Plan wiring in **PR008**) |
 | Informal “continue dogfood” | **PR008** after **PR006** |
-| Informal “Plan Q&A” | Follow-on after PR008; uses PR010 when retrieval-backed |
+| Informal “Plan Q&A” | PR008A dogfood first; uses PR010 when retrieval-backed |
 | Context audit / Project Sources boundary | **PR005A** (docs) |
 | Agent tool / authored prep contract | **PR005B** (docs); runtime in **PR011** |
 | GitHub #322 (this docs PR) | **PR001** |

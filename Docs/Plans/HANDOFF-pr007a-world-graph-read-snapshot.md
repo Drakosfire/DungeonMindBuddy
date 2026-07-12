@@ -192,11 +192,30 @@ confirm tripod match and stable `revisionId`.
 - PR006D2 → DONE (#337, `815f9d8d0f0582d3b8b7d86038e5d598c0a653b9`)
 - PR006D3A/D3B → DEFERRED (not dogfood blocker)
 - PR007A → DONE after merge
-- PR008 blocked on PR007A only
+- PR008A blocked on PR007A only (first read-only Plan + Agent dogfood; does not wait for PR010)
 
 ---
 
-## 13 — Commit message
+## 13 — Successor slice
+
+**PR008A — /plan World Graph dogfood migration** is next:
+
+- UI object/reference navigation uses PR007A
+- Agent Interaction uses PR007A deterministic query context
+- Both expose same revision ID and durable node IDs
+- Existing source/citation reading remains evidentiary layer
+- No generalized GraphRAG / tool registry / graph writes
+- Full retrieval sophistication may remain PR010; first read-only agent dogfood must NOT wait for PR010
+
+---
+
+## 14 — Handback notes
+
+- `tests/test_graph_kernel_boundaries.py` was unchanged: existing `WORLD_STORAGE_ALLOW_PREFIXES` already permits Kernel `storage` / `contribution_store` imports used by projection reconstruction. The boundary suite was rerun during review verification.
+
+---
+
+## 15 — Commit message
 
 ```
 feat(graph-memory): add revision-pinned World Graph read snapshot
