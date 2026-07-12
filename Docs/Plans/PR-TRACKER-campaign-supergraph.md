@@ -1,9 +1,9 @@
 # PR Tracker — Campaign Supergraph
 
-**Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
-**Date:** 2026-07-10  
-**Updated:** 2026-07-12 (PR007A DOING; PR006D2 DONE #337; PR006D3A/D3B DEFERRED; PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)  
-**Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)
+**Date:** 2026-07-10
+**Updated:** 2026-07-12 (PR007A DOING; PR006D2 DONE #337; PR006D3A/D3B DEFERRED; PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)
+**Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
 Tracker IDs (`PR001`…) are **roadmap slice IDs**. They are not GitHub PR numbers. When a GitHub PR opens, record it under the slice.
@@ -102,8 +102,8 @@ Do **not** renumber PR007–PR012. PR006 is intentionally split into **PR006A–
 
 ## PR001 — Architecture Reset
 
-**Status:** `DONE` (GitHub #322 merged 2026-07-10)  
-**Phase:** 0  
+**Status:** `DONE` (GitHub #322 merged 2026-07-10)
+**Phase:** 0
 **Purpose:** Reset documentation around the Campaign / World Supergraph north star before more implementation.
 
 **Deliverables:**
@@ -129,8 +129,8 @@ Do **not** renumber PR007–PR012. PR006 is intentionally split into **PR006A–
 
 ## PR002 — World Supergraph Storage + Graph-Head Contract
 
-**Status:** `DONE` (GitHub #323 merged 2026-07-10)  
-**Phase:** 1  
+**Status:** `DONE` (GitHub #323 merged 2026-07-10)
+**Phase:** 1
 **Purpose:** Persistent per-`worldId` graph store with **immutable revisions** and an **atomic graph head**; not session-owned preview state; not mutable in-place JSON as the product model.
 
 **Deliverables:**
@@ -177,8 +177,8 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR003 — Graph Kernel Public Boundary
 
-**Status:** `DONE` (GitHub #324 merged into PR002 branch; #325 lands commits on `main`)  
-**Phase:** 2  
+**Status:** `DONE` (GitHub #324 merged into PR002 branch; #325 lands commits on `main`)
+**Phase:** 2
 **Purpose:** Deliberately **thin** contract-boundary PR: establish Kernel public APIs and invariants without pretending identity/merge are done — with **enforceable** guards, not documentation-only ceremony.
 
 **Deliverables:**
@@ -209,8 +209,8 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR004 — Identity and Reconciliation
 
-**Status:** `DONE` (GitHub #326 merged 2026-07-10)  
-**Phase:** 2  
+**Status:** `DONE` (GitHub #326 merged 2026-07-10)
+**Phase:** 2
 **Purpose:** Fill the Kernel boundary with world-global identity, aliases, explicit resolution outcomes, provisional identities, and reversible merge/split/unmerge.
 
 **Deliverables:**
@@ -244,8 +244,8 @@ Required deletion PR: PR006 (runtime availability) / PR007 (surface selection AP
 
 ## PR005 — Durable Contribution Merge
 
-**Status:** `DONE` (GitHub #327 merged 2026-07-10)  
-**Phase:** 2  
+**Status:** `DONE` (GitHub #327 merged 2026-07-10)
+**Phase:** 2
 **Purpose:** Extraction candidates and authored overlays merge into the World Supergraph as **GraphContributions**, with idempotency, supersession, retraction, rebuild, and atomic graph-head advancement.
 
 **Deliverables:**
@@ -308,8 +308,8 @@ Required deletion PR:
 
 ## PR005A — Context Audit + Source Reanchor
 
-**Status:** `DONE` (GitHub #328 merged 2026-07-11 as `3c859d455cc3c63ddeae166370eb7e4cce3a9f3a`)  
-**Phase:** 2.5 / docs bridge  
+**Status:** `DONE` (GitHub #328 merged 2026-07-11 as `3c859d455cc3c63ddeae166370eb7e4cce3a9f3a`)
+**Phase:** 2.5 / docs bridge
 **Purpose:** Reconcile Project Sources, local handoffs, active references, historical docs, and repo authority before agent tool contract work — so fresh agents cannot treat stale Project Sources, preview-union docs, research notes, or proposal-only handoffs as active repo authority.
 
 **Deliverables:**
@@ -351,8 +351,8 @@ Required deletion PR:
 
 ## PR005B — Agent Tool Contract + Authored Prep Contributions
 
-**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)  
-**Phase:** 2.5 / docs bridge  
+**Status:** `DONE` (GitHub #329 merged 2026-07-11 as `99437abb1804f599614126701e0e9a24258fbca6`)
+**Phase:** 2.5 / docs bridge
 **Purpose:** Define how Agent Interaction, Hermes-shaped tools, Plan-authored prep, reusable content packs, and preview-write flows interact with the World Supergraph without creating a second memory system.
 
 **Deliverables:**
@@ -395,8 +395,8 @@ Required deletion PR:
 
 ## PR006A — Graph-Native Contribution Union Diagnostic
 
-**Status:** `DONE` (GitHub #333 merged 2026-07-11 as `0b49f159b94a24d5d9fcc7b60ef304e26aad51ab`)  
-**Phase:** 3 / graph semantic diagnostic  
+**Status:** `DONE` (GitHub #333 merged 2026-07-11 as `0b49f159b94a24d5d9fcc7b60ef304e26aad51ab`)
+**Phase:** 3 / graph semantic diagnostic
 **Purpose:** Determine whether two already-formed graph-native contributions
 with distinct provenance domains can share a durable assertion-support record.
 
@@ -419,8 +419,8 @@ of #330–#332.
 
 ## PR006B — Separate Semantic Assertion Identity from Provenance
 
-**Status:** `DONE` (GitHub #334 merged 2026-07-12 as `b234988056abebb5b2a033cf236548a7c8c472f5`)  
-**Phase:** 3 / Kernel semantic repair  
+**Status:** `DONE` (GitHub #334 merged 2026-07-12 as `b234988056abebb5b2a033cf236548a7c8c472f5`)
+**Phase:** 3 / Kernel semantic repair
 **Purpose:** Repair the assertion-identity contract exposed by PR006A so
 heterogeneous provenance can independently support one durable semantic
 assertion without collapsing provenance evidence.
@@ -453,8 +453,8 @@ projection, or runtime migration.
 
 ## PR006C — Approved Initial World Supergraph Contribution Bundle
 
-**Status:** `DONE` (GitHub #335 merged 2026-07-12 UTC as `f69c69f271c427209860d902636347b70fea5920`)  
-**Phase:** 3 / approved bundle  
+**Status:** `DONE` (GitHub #335 merged 2026-07-12 UTC as `f69c69f271c427209860d902636347b70fea5920`)
+**Phase:** 3 / approved bundle
 **Purpose:** Define the approved, reviewable graph-native contribution bundle
 as `/ingest` bootstrap input for initial Eldyrwild C2 after PR006B establishes
 correct multi-source assertion support. Each `manual_import` contribution is
@@ -484,7 +484,7 @@ projection, or runtime migration.
 ## PR006D — Publish Initial Eldyrwild C2 World Supergraph
 
 **Status:** `DOING` (D1 DONE; D2 DONE; D3 deferred)
-**Phase:** 3 / graph-native publication  
+**Phase:** 3 / graph-native publication
 
 PR006D is intentionally split after #336 review: one reviewable Kernel
 contract first, then Eldyrwild activation service, then `/ingest` UI.
@@ -552,7 +552,7 @@ is sufficient for projection dogfood.
 ## PR007 — Projection Engine
 
 **Status:** `DOING` (PR007A active — revision-pinned read snapshot)
-**Phase:** 4  
+**Phase:** 4
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
 **Deliverables:**
@@ -601,8 +601,8 @@ deterministic lexical search; trust boundary honesty.
 
 ## PR008 — Plan Surface Migration
 
-**Status:** `BLOCKED` on PR007A  
-**Phase:** 5  
+**Status:** `BLOCKED` on PR007A
+**Phase:** 5
 **Purpose:** `/plan` consumes Projection Engine only for graph-backed object navigation and search against the real world graph under Campaign 2 scope.
 
 **Deliverables:**
@@ -635,8 +635,8 @@ Required deletion PR: this PR (PR008)
 
 ## PR009 — Play Surface Migration
 
-**Status:** `BLOCKED` on PR007 (may trail PR008)  
-**Phase:** 5  
+**Status:** `BLOCKED` on PR007 (may trail PR008)
+**Phase:** 5
 **Purpose:** Play consumes the same projection contracts for live-relevant objects, including combat/encounter as Play lenses.
 
 **Deliverables:**
@@ -660,8 +660,8 @@ Required deletion PR: this PR (PR008)
 
 ## PR010 — Graph-backed Retrieval
 
-**Status:** `BLOCKED` on PR007 + useful Plan consumption  
-**Phase:** 7  
+**Status:** `BLOCKED` on PR007 + useful Plan consumption
+**Phase:** 7
 **Purpose:** Retrieval admits evidence through graph identity and relationships with provenance and admissibility.
 
 **Deliverables:**
@@ -684,8 +684,8 @@ Required deletion PR: this PR (PR008)
 
 ## PR011 — Agent Context + Tool Runtime
 
-**Status:** `BLOCKED` on PR010  
-**Phase:** 8  
+**Status:** `BLOCKED` on PR010
+**Phase:** 8
 **Purpose:** Agent Interaction assembles context from projections, retrieval, source units, thread state, and surface context, then exposes typed `read_only` / `draft_only` / `preview_write` / `confirm_commit` / `admin_diagnostic` tools with no silent graph mutation (contract defined in PR005B; implemented here).
 
 **Deliverables:**
@@ -709,8 +709,8 @@ Required deletion PR: this PR (PR008)
 
 ## PR012 — Obsolete-Path Cleanup Safety Net
 
-**Status:** `BLOCKED` on PR008 (and preferably PR009)  
-**Phase:** 9  
+**Status:** `BLOCKED` on PR008 (and preferably PR009)
+**Phase:** 9
 **Purpose:** Delete **leftover** dual-architecture runtime after earlier PRs applied deletion-at-replacement. Not the primary demolition owner.
 
 **Deliverables:**

@@ -1,9 +1,9 @@
 # HANDOFF — PR007A World Graph read snapshot
 
-**Slice:** PR007A — revision-pinned World Graph read snapshot  
-**Branch:** `campaign-supergraph/pr007a-world-graph-read-snapshot`  
-**IMPLEMENTATION_BASE:** `96bc45ad7e09952b6de8b7ada9c4fd3c36e8246a`  
-**Tracker:** [`PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md)  
+**Slice:** PR007A — revision-pinned World Graph read snapshot
+**Branch:** `campaign-supergraph/pr007a-world-graph-read-snapshot`
+**IMPLEMENTATION_BASE:** `96bc45ad7e09952b6de8b7ada9c4fd3c36e8246a`
+**Tracker:** [`PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md)
 **Roadmap:** [`ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
 ---

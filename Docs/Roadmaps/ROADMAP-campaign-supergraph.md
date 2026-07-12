@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
-**Status:** Canonical implementation roadmap  
-**Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)  
-**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
-**PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
+**Status:** Canonical implementation roadmap
+**Date:** 2026-07-10
+**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)
+**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
+**PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
 
 This roadmap describes **implementation milestones**, not experiments. Phases are sequential where noted; PR slices inside a phase may parallelize only when dependencies allow.

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
-from graph_memory.kernel.world_projection import WorldGraphProjectionError
 from graph_memory.projection.world_projection import (
     PROJECTION_ERROR_SCHEMA,
     WorldGraphProjection,
@@ -46,7 +45,7 @@ def _resolved_root(root: Path | None) -> Path:
     return (root if root is not None else world_graph_root()).resolve()
 
 
-def _map_kernel_error(exc: WorldGraphProjectionError) -> WorldGraphProjectionServiceError:
+def _map_kernel_error(exc: kernel.WorldGraphProjectionError) -> WorldGraphProjectionServiceError:
     return WorldGraphProjectionServiceError(
         str(exc),
         code=exc.code,
@@ -63,9 +62,9 @@ def project_world_graph(
     graph_root = _resolved_root(root)
     try:
         return kernel.project_world_graph(graph_root, request)
-    except WorldGraphProjectionError as exc:
+    except kernel.WorldGraphProjectionError as exc:
         raise _map_kernel_error(exc) from None
-    except Exception as exc:
+    except Exception:
         raise WorldGraphProjectionServiceError(
             "World graph projection failed unexpectedly.",
             code="projection_internal_error",
@@ -73,7 +72,7 @@ def project_world_graph(
             diagnostics=[
                 WorldGraphProjectionDiagnostic(
                     code="projection_internal_error",
-                    message=str(exc),
+                    message="World graph projection failed unexpectedly.",
                     severity="error",
                 )
             ],
