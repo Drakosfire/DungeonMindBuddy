@@ -267,10 +267,20 @@ def rebuild_from_contributions(
         published_revision_id = result.revision.revision_id
         revision_id = published_revision_id
         published = True
-        equivalent_to_published_head = True
+        published_store = load_world_graph_revision(
+            root, world_id, published_revision_id
+        )
+        equivalent_to_published_head = (
+            _canonical_graph_fingerprint(working)
+            == _canonical_graph_fingerprint(published_store)
+        )
         diagnostics.append("rebuild_published_new_head")
-        diagnostics.append("rebuild_equivalent_to_published_head")
-        diagnostics.append("rebuild_equivalent_to_head")
+        if equivalent_to_published_head:
+            diagnostics.append("rebuild_equivalent_to_published_head")
+            diagnostics.append("rebuild_equivalent_to_head")
+        else:
+            diagnostics.append("rebuild_differs_from_published_head")
+            diagnostics.append("rebuild_differs_from_head")
     else:
         revision_id = head_revision.revision_id
         if equivalent_to_pre_publish_head:

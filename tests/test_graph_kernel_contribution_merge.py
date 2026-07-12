@@ -654,6 +654,94 @@ def test_legacy_active_contribution_supersession_fails_closed(seeded_root) -> No
     assert set(after_store.assertion_support) == set(before_store.assertion_support)
 
 
+def test_legacy_retract_then_equivalent_merge_requires_migration(seeded_root) -> None:
+    root, _ = seeded_root
+    legacy_assertion = _with_legacy_assertion_id(
+        _mireward_assertion(
+            source_domain="worldbuilding",
+            source_artifact_id="artifact:mireward:legacy-retract",
+            source_revision_id="worldbuilding:legacy-retract-1",
+            evidence_ref_id="evidence:mireward:legacy-retract",
+        )
+    )
+    legacy = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:legacy-retract",
+        source_revision_id="worldbuilding:legacy-retract-1",
+        accepted_assertions=[legacy_assertion],
+    ).model_copy(update={"accepted_assertions": [legacy_assertion]})
+    path, _original_bytes = _seed_active_legacy_contribution(root, legacy)
+
+    retracted = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=legacy.contribution_id,
+        reason="withdraw legacy source",
+    )
+    assert retracted.published is True
+    post_retract_bytes = path.read_bytes()
+    before_head, _before_rev, before_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+    assert legacy_assertion.assertion_id in before_store.assertion_support
+    assert (
+        legacy.contribution_id
+        in before_store.assertion_support[legacy_assertion.assertion_id][
+            "retracted_contribution_ids"
+        ]
+    )
+
+    replacement = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:mireward:legacy-retract",
+        source_revision_id="worldbuilding:legacy-retract-2",
+        accepted_assertions=[
+            _mireward_assertion(
+                source_domain="worldbuilding",
+                source_artifact_id="artifact:mireward:legacy-retract",
+                source_revision_id="worldbuilding:legacy-retract-2",
+                evidence_ref_id="evidence:mireward:legacy-retract-2",
+            )
+        ],
+    )
+    blocked = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=replacement
+    )
+    assert blocked.published is False
+    assert "assertion_identity_migration_required" in blocked.diagnostics
+    assert path.read_bytes() == post_retract_bytes
+    from graph_memory.world_supergraph.paths import contribution_path
+
+    assert not contribution_path(root, WORLD_ID, replacement.contribution_id).exists()
+    after_head, _after_rev, after_store = kernel.open_current_world_graph(
+        root, WORLD_ID
+    )
+    assert after_head.head_revision_id == before_head.head_revision_id
+    current_id = replacement.accepted_assertions[0].assertion_id
+    assert current_id not in after_store.assertion_support
+    assert legacy_assertion.assertion_id in after_store.assertion_support
+
+    migrated = kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=True)
+    assert migrated.published is True
+    allowed = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=replacement
+    )
+    assert allowed.published is True
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    mireward_supports = [
+        support
+        for support in store.assertion_support.values()
+        if support["graph_object_id"] == "location:mireward"
+        and support["support_state"] == "supported"
+        and support["active_contribution_ids"]
+    ]
+    assert len(mireward_supports) == 1
+    assert mireward_supports[0]["assertion_id"] == current_id
+    assert replacement.contribution_id in mireward_supports[0]["active_contribution_ids"]
+
+
 def _edge_assertion(
     *,
     source_domain: str,

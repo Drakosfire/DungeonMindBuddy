@@ -664,17 +664,27 @@ def _canonical_mutating_assertion_ids(
     }
 
 
-def _contribution_active_under_legacy_assertion_ids(
+def _contribution_referenced_under_legacy_assertion_ids(
     store: UnionSupergraphStore,
     *,
     contribution_id: str,
     canonical_assertion_ids: set[str],
 ) -> bool:
-    """True when contribution is active in head under non-canonical assertion IDs."""
+    """True when contribution appears on a non-canonical support record.
+
+    Membership in active, superseded, or retracted support history all count.
+    Retracted legacy support must still force migration; otherwise a later
+    equivalent merge can publish a second semantic assertion identity.
+    """
     for assertion_id, record in _support_map(store).items():
-        if contribution_id not in record.active_contribution_ids:
+        if assertion_id in canonical_assertion_ids:
             continue
-        if assertion_id not in canonical_assertion_ids:
+        membership = {
+            *record.active_contribution_ids,
+            *record.superseded_contribution_ids,
+            *record.retracted_contribution_ids,
+        }
+        if contribution_id in membership:
             return True
     return False
 
@@ -684,17 +694,20 @@ def _head_requires_assertion_identity_migration(
     world_id: str,
     store: UnionSupergraphStore,
 ) -> bool:
-    """True when any active contribution still supports the head via legacy assertion IDs."""
+    """True when non-failed ledger contributions still reference legacy assertion IDs."""
     index = load_contribution_index(root, world_id)
-    for contribution_id in index.active_contribution_ids:
+    failed = set(index.failed_contribution_ids)
+    for contribution_id in index.all_contribution_ids:
+        if contribution_id in failed:
+            continue
         try:
             contrib = load_contribution_record(root, world_id, contribution_id)
         except FileNotFoundError:
             continue
-        if contrib.status != "active":
+        if contrib.status == "failed":
             continue
         canonical_ids = _canonical_mutating_assertion_ids(contrib)
-        if _contribution_active_under_legacy_assertion_ids(
+        if _contribution_referenced_under_legacy_assertion_ids(
             store,
             contribution_id=contribution_id,
             canonical_assertion_ids=canonical_ids,

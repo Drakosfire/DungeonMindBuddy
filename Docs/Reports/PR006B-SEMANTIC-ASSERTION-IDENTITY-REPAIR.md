@@ -80,9 +80,14 @@ second command.
 
 Merge and supersession fail closed with
 `assertion_identity_migration_required` when the current head still carries
-active legacy assertion IDs. That prevents mixed old/new support state and
-preserves byte-identical historical contribution records until an explicit
+legacy assertion IDs in any support membership field (`active`, `superseded`,
+or `retracted`) for any non-failed ledger contribution. That covers active
+reprocessing and the retract-then-equivalent-merge path, and preserves
+historical contribution records until an explicit
 `rebuild_from_contributions(..., publish=True)` migration runs.
+
+After `publish=True`, the rebuild report compares the rebuilt fingerprint to the
+reopened published revision rather than assuming equivalence.
 
 No production World Supergraph publication existed before this repair. This PR
 does not require corpus reprocessing.
