@@ -15,10 +15,8 @@ from graph_memory.contribution_bundles import (
     validate_contribution_bundle,
 )
 from graph_memory.contribution_bundles.load import compute_bundle_digest
-from graph_memory.union_supergraph.load import (
-    DEFAULT_FIXTURE_PATH,
-    load_union_supergraph_store,
-)
+from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.union_supergraph.validate import validate_union_supergraph_fixture
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_PATH = (
@@ -26,7 +24,7 @@ BUNDLE_PATH = (
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
 BUNDLE_DIGEST = (
-    "f4632636f5e4620b900e4df2d88eda41a46d14f36969b1f390b58d6044ca0620"
+    "bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e"
 )
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
@@ -69,17 +67,32 @@ EXPECTED_SOURCE_DOMAINS = {
     "worldbuilding",
 }
 
+ORDERED_CONTRIBUTION_IDS = [
+    "contribution:82f23934d8eaca8a",  # 001 world hubs
+    "contribution:2308cd6375dde06c",  # 002 roster
+    "contribution:c086a0b72324ff16",  # 003 session 22
+    "contribution:1227841724520c18",  # 004 session 23
+    "contribution:16ac92b4dd272323",  # 005 tripod
+]
+
 MIREWARD_CONTRIBUTION_IDS = {
-    "contribution:426a20487fd41cbd",
-    "contribution:a09aeeccf1080ade",
-    "contribution:12702a97be277a36",
+    "contribution:82f23934d8eaca8a",
+    "contribution:c086a0b72324ff16",
+    "contribution:1227841724520c18",
 }
 
 QUESTIONABLE_COMPANY_CONTRIBUTION_IDS = {
     "contribution:2308cd6375dde06c",
-    "contribution:a09aeeccf1080ade",
-    "contribution:12702a97be277a36",
+    "contribution:c086a0b72324ff16",
+    "contribution:1227841724520c18",
 }
+
+SENTINEL_NODE_IDS = {
+    "sentinel:technical-alpha",
+    "sentinel:technical-beta",
+}
+FOCUS_SESSION_ID = "session-22"
+CAMPAIGN_ID = "longmont-c2"
 
 TRIPOD_ATTRIBUTE_PREDICATES = {
     "battlefield_role",
@@ -134,6 +147,177 @@ def _copy_bundle(tmp_path: Path) -> Path:
     return dest
 
 
+def _build_sentinel_union_store() -> UnionSupergraphStore:
+    """Minimal valid union store using unrelated sentinel IDs only."""
+    payload = {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": CAMPAIGN_ID,
+        "focus_session_id": FOCUS_SESSION_ID,
+        "nodes": {
+            "sentinel:technical-alpha": {
+                "node_id": "sentinel:technical-alpha",
+                "label": "Technical Alpha",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": ["Technical Alpha"],
+                "source_domains": ["recap", "worldbuilding"],
+                "evidence_ref_ids": [
+                    "evidence:sentinel:session-22:alpha:recap",
+                    "evidence:sentinel:worldbuilding:alpha:note",
+                ],
+                "state": {
+                    "memory_state": "graph_read_model",
+                    "canon_state": "not_canon_promotion",
+                    "approval_state": "not_approval_write",
+                },
+            },
+            "sentinel:technical-beta": {
+                "node_id": "sentinel:technical-beta",
+                "label": "Technical Beta",
+                "kind": "location",
+                "role": "location",
+                "aliases": ["Technical Beta"],
+                "source_domains": ["worldbuilding"],
+                "evidence_ref_ids": ["evidence:sentinel:worldbuilding:beta:note"],
+                "state": {
+                    "memory_state": "graph_read_model",
+                    "canon_state": "not_canon_promotion",
+                    "approval_state": "not_approval_write",
+                },
+            },
+        },
+        "edges": {
+            "edge:sentinel:technical-alpha:participated_in:sentinel:technical-beta": {
+                "edge_id": "edge:sentinel:technical-alpha:participated_in:sentinel:technical-beta",
+                "source_node_id": "sentinel:technical-alpha",
+                "target_node_id": "sentinel:technical-beta",
+                "predicate": "participated_in",
+                "label": "participated in",
+                "direction": "outbound",
+                "source_domains": ["recap"],
+                "session_ids": [FOCUS_SESSION_ID],
+                "evidence_ref_ids": ["evidence:sentinel:session-22:alpha:recap"],
+                "state": {
+                    "memory_state": "graph_read_model",
+                    "canon_state": "not_canon_promotion",
+                    "approval_state": "not_approval_write",
+                },
+            },
+            "edge:sentinel:technical-alpha:connected_to:sentinel:technical-beta": {
+                "edge_id": "edge:sentinel:technical-alpha:connected_to:sentinel:technical-beta",
+                "source_node_id": "sentinel:technical-alpha",
+                "target_node_id": "sentinel:technical-beta",
+                "predicate": "connected_to",
+                "label": "connected to",
+                "direction": "outbound",
+                "source_domains": ["worldbuilding"],
+                "session_ids": [],
+                "evidence_ref_ids": ["evidence:sentinel:worldbuilding:alpha:note"],
+                "state": {
+                    "memory_state": "graph_read_model",
+                    "canon_state": "not_canon_promotion",
+                    "approval_state": "not_approval_write",
+                },
+            },
+        },
+        "evidence": {
+            "evidence:sentinel:session-22:alpha:recap": {
+                "evidence_ref_id": "evidence:sentinel:session-22:alpha:recap",
+                "source_artifact_id": "artifact:sentinel:recap:session-22",
+                "source_domain": "recap",
+                "evidence_role": "focus_session_recap_mention",
+                "session_id": FOCUS_SESSION_ID,
+                "source_span_ref_id": "spref:sentinel:session-22:p001",
+                "can_open_source": True,
+                "can_highlight_span": True,
+            },
+            "evidence:sentinel:worldbuilding:alpha:note": {
+                "evidence_ref_id": "evidence:sentinel:worldbuilding:alpha:note",
+                "source_artifact_id": "artifact:sentinel:worldbuilding:alpha",
+                "source_domain": "worldbuilding",
+                "evidence_role": "character_context",
+                "locator": "sentinel/alpha.md#baseline",
+                "can_open_source": True,
+                "can_highlight_span": False,
+            },
+            "evidence:sentinel:worldbuilding:beta:note": {
+                "evidence_ref_id": "evidence:sentinel:worldbuilding:beta:note",
+                "source_artifact_id": "artifact:sentinel:worldbuilding:beta",
+                "source_domain": "worldbuilding",
+                "evidence_role": "location_context",
+                "locator": "sentinel/beta.md#baseline",
+                "can_open_source": True,
+                "can_highlight_span": False,
+            },
+        },
+        "source_artifacts": {
+            "artifact:sentinel:recap:session-22": {
+                "source_artifact_id": "artifact:sentinel:recap:session-22",
+                "source_domain": "recap",
+                "campaign_id": CAMPAIGN_ID,
+                "session_id": FOCUS_SESSION_ID,
+                "uri": "fixture://sentinel/recap/session-22.json",
+            },
+            "artifact:sentinel:worldbuilding:alpha": {
+                "source_artifact_id": "artifact:sentinel:worldbuilding:alpha",
+                "source_domain": "worldbuilding",
+                "campaign_id": CAMPAIGN_ID,
+                "uri": "fixture://sentinel/worldbuilding/alpha.md",
+            },
+            "artifact:sentinel:worldbuilding:beta": {
+                "source_artifact_id": "artifact:sentinel:worldbuilding:beta",
+                "source_domain": "worldbuilding",
+                "campaign_id": CAMPAIGN_ID,
+                "uri": "fixture://sentinel/worldbuilding/beta.md",
+            },
+        },
+        "adjacency": {
+            "sentinel:technical-alpha": [
+                {
+                    "edge_id": "edge:sentinel:technical-alpha:participated_in:sentinel:technical-beta",
+                    "node_id": "sentinel:technical-beta",
+                    "label": "participated in",
+                    "direction": "outbound",
+                    "anchored_to_focus_session": True,
+                },
+                {
+                    "edge_id": "edge:sentinel:technical-alpha:connected_to:sentinel:technical-beta",
+                    "node_id": "sentinel:technical-beta",
+                    "label": "connected to",
+                    "direction": "outbound",
+                    "anchored_to_focus_session": False,
+                },
+            ],
+            "sentinel:technical-beta": [
+                {
+                    "edge_id": "edge:sentinel:technical-alpha:participated_in:sentinel:technical-beta",
+                    "node_id": "sentinel:technical-alpha",
+                    "label": "participated in",
+                    "direction": "inbound",
+                    "anchored_to_focus_session": True,
+                },
+                {
+                    "edge_id": "edge:sentinel:technical-alpha:connected_to:sentinel:technical-beta",
+                    "node_id": "sentinel:technical-alpha",
+                    "label": "connected to",
+                    "direction": "inbound",
+                    "anchored_to_focus_session": False,
+                },
+            ],
+        },
+        "diagnostics": {
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+        "identity_redirects": [],
+    }
+    validate_union_supergraph_fixture(payload)
+    return UnionSupergraphStore.model_validate(payload)
+
+
 def _load_validate(bundle_root: Path):
     bundle = load_contribution_bundle(bundle_root)
     report = validate_contribution_bundle(bundle)
@@ -154,12 +338,12 @@ def validated_bundle(loaded_bundle):
 
 @pytest.fixture
 def seeded_root(tmp_path: Path):
-    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    store = _build_sentinel_union_store()
     kernel.publish_world_revision(
         tmp_path,
         WORLD_ID,
         store,
-        operation_ids=["op:baseline-seed"],
+        operation_ids=["op:sentinel-baseline-seed"],
     )
     return tmp_path
 
@@ -189,6 +373,7 @@ def test_exactly_five_contributions(validated_bundle) -> None:
     bundle, report = validated_bundle
     assert report.contribution_count == 5
     assert len(bundle.contributions) == 5
+    assert [item.contribution_id for item in bundle.contributions] == ORDERED_CONTRIBUTION_IDS
 
 
 def test_zero_identity_decisions_rejected_unresolved(validated_bundle) -> None:
@@ -259,7 +444,7 @@ def test_questionable_company_shared_semantic_support(loaded_bundle) -> None:
     assert assertion_ids == {QUESTIONABLE_COMPANY_ASSERTION_ID}
 
 
-def test_kernel_merge_distinguishes_fixture_and_bundle_nodes(
+def test_kernel_merge_identity_safe_baseline(
     seeded_root: Path,
     loaded_bundle,
 ) -> None:
@@ -267,11 +452,26 @@ def test_kernel_merge_distinguishes_fixture_and_bundle_nodes(
     _merge_bundle_contributions(root, loaded_bundle)
     _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
 
-    assert "loc_mirathorn" in store.nodes
-    assert "location:mirathorn" in store.nodes
-    assert "location:mireward" in store.nodes
-    assert store.nodes["loc_mirathorn"].node_id == "loc_mirathorn"
-    assert store.nodes["location:mirathorn"].node_id == "location:mirathorn"
+    assert "loc_mirathorn" not in store.nodes
+    assert "pc_caelynn" not in store.nodes
+    assert "event_session_23_mireward_gate" not in store.nodes
+
+    mirathorn_nodes = [
+        node_id for node_id in store.nodes if node_id == "location:mirathorn"
+    ]
+    caelynn_nodes = [node_id for node_id in store.nodes if node_id == "pc:caelynn"]
+    gate_nodes = [
+        node_id
+        for node_id in store.nodes
+        if node_id == "event:longmont-c2:session-23:mireward-gate-battle"
+    ]
+    assert len(mirathorn_nodes) == 1
+    assert len(caelynn_nodes) == 1
+    assert len(gate_nodes) == 1
+
+    assert SENTINEL_NODE_IDS.issubset(store.nodes)
+    bundle_owned_nodes = set(store.nodes) - SENTINEL_NODE_IDS
+    assert bundle_owned_nodes == REQUIRED_NODE_IDS
 
 
 def test_kernel_merge_mireward_support_record(seeded_root: Path, loaded_bundle) -> None:
@@ -406,6 +606,32 @@ def test_deterministic_reload_ids_and_digest() -> None:
         }
     )
     assert first_assertion_ids == second_assertion_ids
+
+
+def test_corpus_and_graph_data_provenance_uris(loaded_bundle) -> None:
+    authored_ids = {
+        "contribution:2308cd6375dde06c",
+        "contribution:16ac92b4dd272323",
+    }
+    corpus_uris: list[str] = []
+    graph_data_uris: list[str] = []
+    for contribution in loaded_bundle.contributions:
+        for assertion in contribution.accepted_assertions:
+            artifacts = (assertion.value or {}).get("source_artifacts") or []
+            for artifact in artifacts:
+                uri = str(artifact.get("uri") or "")
+                if not uri:
+                    continue
+                domains = set((assertion.value or {}).get("source_domains") or [])
+                if domains & {"worldbuilding", "recap"}:
+                    corpus_uris.append(uri)
+                if contribution.contribution_id in authored_ids:
+                    graph_data_uris.append(uri)
+
+    assert corpus_uris
+    assert graph_data_uris
+    assert all(uri.startswith("repo://corpus/") for uri in corpus_uris)
+    assert all(uri.startswith("graph-data://") for uri in graph_data_uris)
 
 
 def test_tamper_label_without_assertion_id_fails_validation(tmp_path: Path) -> None:

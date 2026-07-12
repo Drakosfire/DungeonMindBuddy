@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "f4632636f5e4620b900e4df2d88eda41a46d14f36969b1f390b58d6044ca0620",
+  "bundle_digest": "bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e",
   "bundle_id": "eldyrwild-longmont-c2-initial-v1",
   "expected_shared_support": [
     {
@@ -40,15 +40,17 @@
   "identity_decisions": [],
   "non_claims": [
     "Does not publish a production Eldyrwild world head.",
+    "Does not bypass /ingest review; merge of PR006C approves bootstrap input only.",
     "Does not claim complete Campaign 2 coverage.",
     "Does not invent numerical statblock values.",
-    "Does not prove projection usefulness or Plan retrieval."
+    "Does not prove projection usefulness or Plan retrieval.",
+    "Validation does not re-read corpus files; corpus digests are pinned statically."
   ],
   "ordered_contributions": [
     {
-      "contribution_id": "contribution:426a20487fd41cbd",
+      "contribution_id": "contribution:82f23934d8eaca8a",
       "path": "contributions/001-world-hubs.json",
-      "sha256": "cd74e21f39086a0d8ab5322ea7817c5b281749f02b2c8fc9e98b1956b699c260"
+      "sha256": "0f24a918a236322af3b3399e68d12e5a8264acd665048369d67dfd3a1b692941"
     },
     {
       "contribution_id": "contribution:2308cd6375dde06c",
@@ -56,14 +58,14 @@
       "sha256": "62899a7cde96d02e5864dcc2b2e41a1ae7057a0d5e38f27e5b2900886062cf76"
     },
     {
-      "contribution_id": "contribution:a09aeeccf1080ade",
+      "contribution_id": "contribution:c086a0b72324ff16",
       "path": "contributions/003-session-22-mireward-road.json",
-      "sha256": "072676facc8cab8295117c36e4f8184d85bd5bbc48b052adb9a0e437ba467e8d"
+      "sha256": "cd905826748649e8a294de0d7127c877c0c78c693a4564154bbc1680e7409964"
     },
     {
-      "contribution_id": "contribution:12702a97be277a36",
+      "contribution_id": "contribution:1227841724520c18",
       "path": "contributions/004-session-23-mireward-gate-battle.json",
-      "sha256": "6befd2f0f15b977b5a90ef0414945b4a2dd53be6ba98ce9219756b8053460a49"
+      "sha256": "73f4a4da6a46d74a2922f1d53f79f052e74894ca1909aea820a6985097f6a792"
     },
     {
       "contribution_id": "contribution:16ac92b4dd272323",

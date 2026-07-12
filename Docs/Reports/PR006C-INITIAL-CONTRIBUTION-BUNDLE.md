@@ -6,12 +6,48 @@
 
 ---
 
+## Product framing
+
+PR006C approves a **deterministic bootstrap package for `/ingest`**, not a bypass of `/ingest` review and not a production World Supergraph publication.
+
+```text
+Sources / GM knowledge
+  ↓
+PR006C checked-in bundle (this PR)
+  ↓
+/ingest
+  load → validate → inspect/edit → approve
+  ↓
+Kernel GraphContribution merge
+  ↓
+PR006D publishes the initial immutable Eldyrwild world head
+  ↓
+/plan queries the published graph; controlled writes re-enter the same path
+```
+
+Merging this PR records review approval of the bootstrap **input**. It does not create or expose a campaign graph head.
+
+---
+
+## Authority model (Option B)
+
+Two legitimate contribution kinds are present and kept distinct:
+
+| Records | Kind | Provenance |
+| --- | --- | --- |
+| `001`, `003`, `004` | `manual_import` curated from sources | Static `repo://corpus/...` URIs + pinned `sha256:` revisions. Evidence points at the canonical Mirathorn/Mireward hubs and Session 22/23 recaps. Validation does **not** re-read the corpus. |
+| `002`, `005` | `graph_review_authored_assertion` (`authored_by: gm`) | Self-contained authored records. Evidence may cite the contribution JSON via `graph-data://...`. |
+
+The hybrid of “claims recap/worldbuilding support while citing only the contribution JSON” is rejected.
+
+---
+
 ## Bundle identity
 
 | Field | Value |
 | --- | --- |
 | Bundle ID | `eldyrwild-longmont-c2-initial-v1` |
-| Bundle digest | `f4632636f5e4620b900e4df2d88eda41a46d14f36969b1f390b58d6044ca0620` |
+| Bundle digest | `bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e` |
 | World ID | `eldyrwild` |
 | Campaign scope | `longmont-c2` |
 | Planning focus | `mireward-planning-window` |
@@ -20,21 +56,25 @@
 
 ### Ordered contribution IDs
 
-1. `contribution:426a20487fd41cbd` — `001-world-hubs.json`
+1. `contribution:82f23934d8eaca8a` — `001-world-hubs.json`
 2. `contribution:2308cd6375dde06c` — `002-questionable-company-roster.json`
-3. `contribution:a09aeeccf1080ade` — `003-session-22-mireward-road.json`
-4. `contribution:12702a97be277a36` — `004-session-23-mireward-gate-battle.json`
+3. `contribution:c086a0b72324ff16` — `003-session-22-mireward-road.json`
+4. `contribution:1227841724520c18` — `004-session-23-mireward-gate-battle.json`
 5. `contribution:16ac92b4dd272323` — `005-tripod-null-calf-threat-prep.json`
 
 ### Source artifact IDs
 
-- `graph-native:eldyrwild-c2-initial-v1:001-world-hubs`
-- `graph-native:eldyrwild-c2-initial-v1:002-questionable-company-roster`
-- `graph-native:eldyrwild-c2-initial-v1:003-session-22-mireward-road`
-- `graph-native:eldyrwild-c2-initial-v1:004-session-23-mireward-gate-battle`
-- `graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep`
+Corpus-backed:
 
-Artifact URIs use stable `graph-data://approved-contribution-bundles/...` locators into the checked-in contribution records.
+- `corpus:eldyrwild:mirathorn-city`
+- `corpus:eldyrwild:mireward-readme`
+- `corpus:eldyrwild:session-22-recap`
+- `corpus:eldyrwild:session-23-recap`
+
+Authored:
+
+- `graph-native:eldyrwild-c2-initial-v1:002-questionable-company-roster`
+- `graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep`
 
 ---
 
@@ -58,8 +98,7 @@ Artifact URIs use stable `graph-data://approved-contribution-bundles/...` locato
 | `party:questionable-company` | `assertion:e43e22317e459bac` | roster + session 22 + session 23 | `manual_seed`, `recap` |
 
 Mireward existence assertions use `campaign_scope = null` and `temporal_scope = null`.  
-Questionable Company existence assertions use `campaign_scope = longmont-c2` and `temporal_scope = null`.  
-Session chronology lives on event/edge assertions only.
+Questionable Company existence assertions use `campaign_scope = longmont-c2` and `temporal_scope = null`.
 
 ---
 
@@ -69,15 +108,15 @@ Session chronology lives on event/edge assertions only.
 identity decisions: 0
 unresolved mentions: 0
 rejected assertions: 0
-approval basis: merge of PR006C
+approval basis: merge of PR006C (bootstrap package for /ingest)
 ```
 
-Do not treat this branch as approved. PR006D must pin:
+PR006D must pin:
 
 - the actual PR006C merge SHA; and
 - this bundle digest
 
-before publication.
+then exercise the same path the GM will use: load into `/ingest` → validate → inspect/approve → merge → publish.
 
 ---
 
@@ -85,10 +124,12 @@ before publication.
 
 | Measure | Result |
 | --- | --- |
-| Accepted assertions with ≥1 evidence ref | 100% (30/30) |
-| Accepted assertions with resolvable source artifact | 100% (30/30) |
-| Recap assertions with session locator | 100% (10/10) |
-| Non-recap assertions with source locator | 100% (20/20) |
+| Accepted assertions with matching top-level + embedded evidence refs | 100% (30/30) |
+| Accepted assertions with resolvable embedded source artifacts | 100% (30/30) |
+| Recap assertions with session locator | 100% |
+| Non-recap assertions with source locator | 100% |
+
+“Resolvable” means IDs match and embedded artifacts carry inspectable URIs — not merely that some field is non-empty.
 
 ---
 
@@ -97,6 +138,7 @@ before publication.
 ```text
 Dry-run publication:
   temporary test root only
+  identity-safe sentinel baseline (no Mirathorn/Caelynn/S23 overlap)
 
 Production Eldyrwild graph head:
   not created
@@ -105,32 +147,23 @@ Runtime availability:
   unchanged
 ```
 
-All five contributions merge successfully in manifest order against a synthetic baseline fixture used only to satisfy Kernel baseline requirements. Rebuild with `publish=False` is equivalent to the temporary head.
+The dry-run asserts exactly one `location:mirathorn`, one `pc:caelynn`, and one Session 23 gate-battle event under the bundle’s durable IDs. Rebuild with `publish=False` is equivalent to that temporary head.
 
 ---
 
 ## Plan trust statement
 
-Plan may trust this bundle for:
+Plan may trust this bundle **after** `/ingest` approval and PR006D publication for:
 
 - identities and basic roles of Mirathorn and Mireward;
 - the Questionable Company roster;
 - the existence and location of the Session 22 and Session 23 events;
 - party participation in those events;
 - the Tripod Null-Calf’s association with the Session 23 gate battle;
-- provenance and independent multi-source support.
+- provenance distinguishing corpus-backed imports from GM-authored records;
+- independent multi-source support for Mireward and the Questionable Company.
 
-Plan may not trust this bundle for:
-
-- complete Campaign 2 history;
-- complete NPC, faction, location, item, or encounter coverage;
-- exact ordering of events within a session;
-- rich statblock rendering;
-- complete combat mechanics;
-- player-safe visibility filtering;
-- projection ranking;
-- graph-backed retrieval;
-- facts outside the locked bundle scope.
+Plan may not trust this bundle alone (pre-`/ingest` / pre-PR006D) for live campaign memory, complete Campaign 2 history, rich statblocks, visibility filtering, projection ranking, or retrieval.
 
 ---
 
@@ -141,17 +174,16 @@ Plan may not trust this bundle for:
 3. Visibility/admissibility has not been exercised through Projection Engine.
 4. The initial bundle does not establish campaign completeness.
 
-These are findings for later slices, not reasons to expand PR006C.
-
 ---
 
 ## Non-claims
 
 PR006C does not prove:
 
-- source extraction quality;
-- identity resolution;
+- that `/ingest` UI is complete;
+- identity resolution against pre-existing world nodes;
 - production Eldyrwild world-head publication;
 - projection usefulness;
 - Plan or Play integration;
-- complete Campaign 2 coverage.
+- complete Campaign 2 coverage;
+- that corpus files were re-read at validation time (digests are pinned statically).

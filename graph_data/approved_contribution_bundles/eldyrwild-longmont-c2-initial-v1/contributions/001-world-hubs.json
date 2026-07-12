@@ -5,16 +5,16 @@
       "assertion_id": "assertion:1c2b36207a4e7f71",
       "assertion_kind": "node",
       "campaign_scope": null,
-      "contribution_id": "contribution:426a20487fd41cbd",
+      "contribution_id": "contribution:82f23934d8eaca8a",
       "epistemic_kind": "fact",
       "evidence_ref_ids": [
-        "evidence:bundle:v1:worldbuilding:mirathorn"
+        "evidence:corpus:worldbuilding:mirathorn"
       ],
       "identity_resolution_outcome": "created_new",
       "label": "Mirathorn",
       "predicate": null,
-      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
-      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
+      "source_revision_id": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
       "subject_node_id": "location:mirathorn",
       "target_node_id": null,
       "temporal_scope": null,
@@ -26,9 +26,9 @@
         "canon_state": "canonical",
         "evidence": [
           {
-            "evidence_ref_id": "evidence:bundle:v1:worldbuilding:mirathorn",
-            "locator": "jsonptr:/accepted_assertions/0",
-            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "evidence_ref_id": "evidence:corpus:worldbuilding:mirathorn",
+            "locator": "heading:The City of Mirathorn",
+            "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
             "source_domain": "worldbuilding"
           }
         ],
@@ -37,9 +37,10 @@
         "source_artifacts": [
           {
             "campaign_id": "longmont-c2",
-            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "content_sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+            "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
             "source_domain": "worldbuilding",
-            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/001-world-hubs.json"
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
           }
         ],
         "source_domains": [
@@ -53,16 +54,16 @@
       "assertion_id": "assertion:3e2a37249f847f60",
       "assertion_kind": "node",
       "campaign_scope": null,
-      "contribution_id": "contribution:426a20487fd41cbd",
+      "contribution_id": "contribution:82f23934d8eaca8a",
       "epistemic_kind": "fact",
       "evidence_ref_ids": [
-        "evidence:bundle:v1:worldbuilding:mireward"
+        "evidence:corpus:worldbuilding:mireward"
       ],
       "identity_resolution_outcome": "created_new",
       "label": "Mireward",
       "predicate": null,
-      "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
-      "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+      "source_artifact_id": "corpus:eldyrwild:mireward-readme",
+      "source_revision_id": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250",
       "subject_node_id": "location:mireward",
       "target_node_id": null,
       "temporal_scope": null,
@@ -74,9 +75,9 @@
         "canon_state": "canonical",
         "evidence": [
           {
-            "evidence_ref_id": "evidence:bundle:v1:worldbuilding:mireward",
-            "locator": "jsonptr:/accepted_assertions/1",
-            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "evidence_ref_id": "evidence:corpus:worldbuilding:mireward",
+            "locator": "heading:Mireward",
+            "source_artifact_id": "corpus:eldyrwild:mireward-readme",
             "source_domain": "worldbuilding"
           }
         ],
@@ -85,9 +86,10 @@
         "source_artifacts": [
           {
             "campaign_id": "longmont-c2",
-            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+            "content_sha256": "9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250",
+            "source_artifact_id": "corpus:eldyrwild:mireward-readme",
             "source_domain": "worldbuilding",
-            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/001-world-hubs.json"
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
           }
         ],
         "source_domains": [
@@ -100,15 +102,15 @@
   "authored_by": null,
   "campaign_scope": null,
   "candidate_assertions": [],
-  "contribution_id": "contribution:426a20487fd41cbd",
+  "contribution_id": "contribution:82f23934d8eaca8a",
   "diagnostics": [],
   "extraction_profile": "pr006c-approved-bundle-v1",
   "identity_decision_ids": [],
   "produced_at": "2026-07-11T00:00:00Z",
   "rejected_assertions": [],
-  "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:001-world-hubs",
+  "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
   "source_kind": "manual_import",
-  "source_revision_id": "bundle-revision:eldyrwild-longmont-c2-initial-v1",
+  "source_revision_id": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
   "status": "active",
   "supersedes_contribution_id": null,
   "unresolved_mentions": [],

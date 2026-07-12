@@ -3,21 +3,35 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
+from typing import Any, get_args
 
 from graph_memory.contribution_bundles.models import (
     ContributionBundleValidationReport,
     LoadedContributionBundle,
 )
 from graph_memory.evidence.source_domain import KNOWN_SOURCE_DOMAINS
-from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
+from graph_memory.kernel.contribution_models import (
+    GraphContribution,
+    GraphContributionAssertion,
+)
 from graph_memory.kernel.contributions import (
     compute_assertion_id,
     compute_contribution_id,
 )
+from graph_memory.kernel.identity_models import IdentityResolutionOutcome
 
 _GRAPH_MUTATING_BLOCKED = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
+)
+_KNOWN_IDENTITY_OUTCOMES = frozenset(get_args(IdentityResolutionOutcome))
+_EXTERNAL_SOURCE_DOMAINS = frozenset({"worldbuilding", "recap"})
+_ALLOWED_URI_PREFIXES = ("graph-data://", "repo://corpus/")
+_LOCATOR_FIELDS = (
+    "locator",
+    "source_span_ref_id",
+    "uri",
+    "source_locator",
+    "line_ref",
 )
 
 
@@ -69,6 +83,30 @@ def _domains_from_assertion(assertion: GraphContributionAssertion) -> set[str]:
     return domains
 
 
+def _artifact_map(assertion: GraphContributionAssertion) -> dict[str, dict[str, Any]]:
+    value = dict(assertion.value or {})
+    artifacts: dict[str, dict[str, Any]] = {}
+    for item in value.get("source_artifacts") or []:
+        if isinstance(item, dict) and item.get("source_artifact_id"):
+            artifacts[str(item["source_artifact_id"])] = item
+    return artifacts
+
+
+def _evidence_payloads(
+    assertion: GraphContributionAssertion,
+) -> list[dict[str, Any]]:
+    value = dict(assertion.value or {})
+    return [item for item in (value.get("evidence") or []) if isinstance(item, dict)]
+
+
+def _uri_allowed(uri: str, domains: set[str]) -> bool:
+    if not any(uri.startswith(prefix) for prefix in _ALLOWED_URI_PREFIXES):
+        return False
+    if domains & _EXTERNAL_SOURCE_DOMAINS:
+        return uri.startswith("repo://corpus/")
+    return True
+
+
 def _evidence_coverage(contributions: list[GraphContribution]) -> dict[str, Any]:
     accepted = [a for c in contributions for a in c.accepted_assertions]
     total = len(accepted)
@@ -81,17 +119,28 @@ def _evidence_coverage(contributions: list[GraphContribution]) -> dict[str, Any]
 
     for assertion in accepted:
         refs = list(assertion.evidence_ref_ids)
-        value = dict(assertion.value or {})
-        evidence_payloads = [
-            item for item in (value.get("evidence") or []) if isinstance(item, dict)
-        ]
-        if refs or evidence_payloads:
+        evidence_payloads = _evidence_payloads(assertion)
+        artifacts = _artifact_map(assertion)
+        embedded_ids = {
+            str(item.get("evidence_ref_id"))
+            for item in evidence_payloads
+            if item.get("evidence_ref_id")
+        }
+        if refs and set(refs) == embedded_ids and evidence_payloads:
             with_evidence += 1
-        artifact_ok = bool(assertion.source_artifact_id) or any(
-            isinstance(item, dict) and item.get("source_artifact_id")
-            for item in (value.get("source_artifacts") or [])
-        ) or any(item.get("source_artifact_id") for item in evidence_payloads)
-        if artifact_ok:
+
+        artifact_ids = set(artifacts)
+        evidence_artifacts = {
+            str(item.get("source_artifact_id"))
+            for item in evidence_payloads
+            if item.get("source_artifact_id")
+        }
+        if (
+            assertion.source_artifact_id
+            and assertion.source_artifact_id in artifact_ids
+            and evidence_artifacts
+            and evidence_artifacts.issubset(artifact_ids)
+        ):
             with_artifact += 1
 
         domains = _domains_from_assertion(assertion)
@@ -105,14 +154,7 @@ def _evidence_coverage(contributions: list[GraphContribution]) -> dict[str, Any]
                 recap_with_session += 1
         else:
             non_recap_total += 1
-            if any(
-                item.get("locator")
-                or item.get("source_span_ref_id")
-                or item.get("uri")
-                or item.get("source_locator")
-                or item.get("line_ref")
-                for item in evidence_payloads
-            ):
+            if any(any(item.get(field) for field in _LOCATOR_FIELDS) for item in evidence_payloads):
                 non_recap_with_locator += 1
 
     def _pct(numer: int, denom: int) -> float:
@@ -129,7 +171,9 @@ def _evidence_coverage(contributions: list[GraphContribution]) -> dict[str, Any]
         "pct_with_evidence_ref": _pct(with_evidence, total),
         "pct_with_resolvable_source_artifact": _pct(with_artifact, total),
         "pct_recap_with_session_locator": _pct(recap_with_session, recap_total),
-        "pct_non_recap_with_source_locator": _pct(non_recap_with_locator, non_recap_total),
+        "pct_non_recap_with_source_locator": _pct(
+            non_recap_with_locator, non_recap_total
+        ),
     }
 
 
@@ -146,13 +190,14 @@ def validate_contribution_bundle(
         errors.append(f"unsupported schema: {manifest.schema_!r}")
     if manifest.world_id != "eldyrwild":
         errors.append(f"world_id must be 'eldyrwild', got {manifest.world_id!r}")
+    if not manifest.bundle_digest.strip():
+        errors.append("bundle_digest must be non-empty")
 
     kind_counts: Counter[str] = Counter()
     domains: set[str] = set()
     accepted_total = 0
     rejected_total = 0
     unresolved_total = 0
-    seen_assertion_ids: set[str] = set()
     observed_nodes: set[str] = set()
     observed_edges: set[str] = set()
 
@@ -188,6 +233,7 @@ def validate_contribution_bundle(
         observed_nodes |= _node_ids(contribution)
         observed_edges |= _edge_ids(contribution)
 
+        seen_in_contribution: set[str] = set()
         for assertion in (
             *contribution.candidate_assertions,
             *contribution.accepted_assertions,
@@ -217,11 +263,12 @@ def validate_contribution_bundle(
                     f"stale assertion_id {assertion.assertion_id!r} in {entry.path}; "
                     f"expected {expected_assertion_id!r}"
                 )
-            if assertion.assertion_id in seen_assertion_ids:
-                # Shared semantic IDs across contributions are required for
-                # multi-source support; only duplicate *within* one contribution.
-                pass
-            seen_assertion_ids.add(assertion.assertion_id)
+            if assertion.assertion_id in seen_in_contribution:
+                errors.append(
+                    f"duplicate assertion_id {assertion.assertion_id!r} within "
+                    f"{entry.path}"
+                )
+            seen_in_contribution.add(assertion.assertion_id)
 
             for domain in _domains_from_assertion(assertion):
                 domains.add(domain)
@@ -233,6 +280,11 @@ def validate_contribution_bundle(
         for assertion in contribution.accepted_assertions:
             accepted_total += 1
             kind_counts[assertion.assertion_kind] += 1
+            if assertion.acceptance_state != "accepted":
+                errors.append(
+                    "accepted_assertions entry must have acceptance_state='accepted': "
+                    f"{assertion.assertion_id} has {assertion.acceptance_state!r}"
+                )
             if assertion.epistemic_kind is None:
                 errors.append(
                     f"missing epistemic_kind on accepted assertion {assertion.assertion_id}"
@@ -250,76 +302,17 @@ def validate_contribution_bundle(
                     f"on {assertion.assertion_id}"
                 )
 
-            value = dict(assertion.value or {})
-            evidence_payloads = [
-                item for item in (value.get("evidence") or []) if isinstance(item, dict)
-            ]
-            if not assertion.evidence_ref_ids and not evidence_payloads:
+            outcome = assertion.identity_resolution_outcome
+            if outcome is None:
                 errors.append(
-                    f"missing evidence on accepted assertion {assertion.assertion_id}"
+                    f"missing identity_resolution_outcome on {assertion.assertion_id}"
                 )
-            else:
-                for evidence in evidence_payloads:
-                    if not evidence.get("source_artifact_id"):
-                        errors.append(
-                            f"missing source_artifact_id on evidence for "
-                            f"{assertion.assertion_id}"
-                        )
-                    if not evidence.get("evidence_ref_id"):
-                        errors.append(
-                            f"missing evidence_ref_id on evidence for "
-                            f"{assertion.assertion_id}"
-                        )
-                    domain = str(evidence.get("source_domain") or "")
-                    if domain == "recap" or evidence.get("session_id"):
-                        if not evidence.get("session_id"):
-                            errors.append(
-                                f"recap evidence missing session_id on "
-                                f"{assertion.assertion_id}"
-                            )
-                        if not evidence.get("source_span_ref_id"):
-                            errors.append(
-                                f"recap evidence missing source_span_ref_id on "
-                                f"{assertion.assertion_id}"
-                            )
-                    elif not any(
-                        evidence.get(key)
-                        for key in (
-                            "locator",
-                            "source_span_ref_id",
-                            "uri",
-                            "source_locator",
-                            "line_ref",
-                        )
-                    ):
-                        errors.append(
-                            f"non-recap evidence missing source locator on "
-                            f"{assertion.assertion_id}"
-                        )
-
-            artifacts = [
-                item
-                for item in (value.get("source_artifacts") or [])
-                if isinstance(item, dict)
-            ]
-            if not assertion.source_artifact_id and not artifacts:
+            elif outcome not in _KNOWN_IDENTITY_OUTCOMES:
                 errors.append(
-                    f"missing source artifact on accepted assertion "
+                    f"unknown identity_resolution_outcome {outcome!r} on "
                     f"{assertion.assertion_id}"
                 )
-            for artifact in artifacts:
-                if not artifact.get("uri"):
-                    errors.append(
-                        f"source artifact missing uri on {assertion.assertion_id}"
-                    )
-                if not str(artifact.get("uri") or "").startswith("graph-data://"):
-                    errors.append(
-                        f"source artifact uri must be graph-data:// on "
-                        f"{assertion.assertion_id}"
-                    )
-
-            outcome = assertion.identity_resolution_outcome
-            if (
+            elif (
                 assertion.acceptance_state == "accepted"
                 and outcome in _GRAPH_MUTATING_BLOCKED
             ):
@@ -327,6 +320,100 @@ def validate_contribution_bundle(
                     "unsupported identity outcome entered as accepted canonical "
                     f"mutation: {assertion.assertion_id} outcome={outcome!r}"
                 )
+
+            artifacts = _artifact_map(assertion)
+            evidence_payloads = _evidence_payloads(assertion)
+            top_level_refs = list(assertion.evidence_ref_ids)
+            embedded_refs = [
+                str(item.get("evidence_ref_id"))
+                for item in evidence_payloads
+                if item.get("evidence_ref_id")
+            ]
+
+            if not top_level_refs:
+                errors.append(
+                    f"missing evidence_ref_ids on accepted assertion "
+                    f"{assertion.assertion_id}"
+                )
+            if not evidence_payloads:
+                errors.append(
+                    f"missing embedded evidence on accepted assertion "
+                    f"{assertion.assertion_id}"
+                )
+            if top_level_refs and set(top_level_refs) != set(embedded_refs):
+                errors.append(
+                    f"evidence_ref_ids do not match embedded evidence on "
+                    f"{assertion.assertion_id}: top={sorted(set(top_level_refs))} "
+                    f"embedded={sorted(set(embedded_refs))}"
+                )
+
+            if not assertion.source_artifact_id:
+                errors.append(
+                    f"missing source_artifact_id on accepted assertion "
+                    f"{assertion.assertion_id}"
+                )
+            elif assertion.source_artifact_id not in artifacts:
+                errors.append(
+                    f"assertion source_artifact_id "
+                    f"{assertion.source_artifact_id!r} not present in embedded "
+                    f"source_artifacts on {assertion.assertion_id}"
+                )
+            if not artifacts:
+                errors.append(
+                    f"missing embedded source_artifacts on accepted assertion "
+                    f"{assertion.assertion_id}"
+                )
+
+            assertion_domains = _domains_from_assertion(assertion)
+            for artifact_id, artifact in artifacts.items():
+                uri = str(artifact.get("uri") or "")
+                if not uri:
+                    errors.append(
+                        f"source artifact {artifact_id!r} missing uri on "
+                        f"{assertion.assertion_id}"
+                    )
+                elif not _uri_allowed(uri, assertion_domains):
+                    errors.append(
+                        f"source artifact {artifact_id!r} has disallowed uri "
+                        f"{uri!r} for domains {sorted(assertion_domains)} on "
+                        f"{assertion.assertion_id}"
+                    )
+
+            for evidence in evidence_payloads:
+                evidence_id = str(evidence.get("evidence_ref_id") or "")
+                artifact_id = str(evidence.get("source_artifact_id") or "")
+                if not evidence_id:
+                    errors.append(
+                        f"missing evidence_ref_id on evidence for "
+                        f"{assertion.assertion_id}"
+                    )
+                if not artifact_id:
+                    errors.append(
+                        f"missing source_artifact_id on evidence for "
+                        f"{assertion.assertion_id}"
+                    )
+                elif artifact_id not in artifacts:
+                    errors.append(
+                        f"evidence {evidence_id!r} points to nonexistent embedded "
+                        f"source artifact {artifact_id!r} on {assertion.assertion_id}"
+                    )
+                domain = str(evidence.get("source_domain") or "")
+                if domain == "recap" or evidence.get("session_id"):
+                    if not evidence.get("session_id"):
+                        errors.append(
+                            f"recap evidence missing session_id on "
+                            f"{assertion.assertion_id}"
+                        )
+                    if not evidence.get("source_span_ref_id"):
+                        errors.append(
+                            f"recap evidence missing source_span_ref_id on "
+                            f"{assertion.assertion_id}"
+                        )
+                elif not any(evidence.get(field) for field in _LOCATOR_FIELDS):
+                    errors.append(
+                        f"non-recap evidence missing source locator on "
+                        f"{assertion.assertion_id}"
+                    )
 
     if rejected_total != 0:
         errors.append(f"rejected_assertions must be 0, got {rejected_total}")
@@ -353,18 +440,16 @@ def validate_contribution_bundle(
             errors.append(f"extra edges outside locked scope: {extra}")
 
     expected_domains = set(manifest.expected_source_domains)
-    if not expected_domains.issubset(domains):
+    if domains != expected_domains:
         errors.append(
-            "missing expected source domains: "
-            f"{sorted(expected_domains - domains)}"
+            "source domains must exactly match expected_source_domains: "
+            f"observed={sorted(domains)} expected={sorted(expected_domains)}"
         )
     if not domains.issubset(KNOWN_SOURCE_DOMAINS):
         errors.append(
             f"unknown domains present: {sorted(domains - KNOWN_SOURCE_DOMAINS)}"
         )
 
-    # Dependency order: session-22/23 may resolve existing hubs/roster nodes;
-    # Tripod may reference the session-23 event.
     created_nodes: set[str] = set()
     for index, contribution in enumerate(contributions):
         entry = manifest.ordered_contributions[index]
@@ -386,53 +471,63 @@ def validate_contribution_bundle(
                     )
 
     shared_support_report: list[dict[str, Any]] = []
+    contrib_by_path = {
+        entry.path: contributions[index]
+        for index, entry in enumerate(manifest.ordered_contributions)
+    }
     for expectation in manifest.expected_shared_support:
-        contrib_ids = []
+        contrib_ids: list[str] = []
+        assertion_ids: set[str] = set()
+        observed_support_domains: set[str] = set()
         for path in expectation.contribution_paths:
-            matches = [
-                entry.contribution_id
-                for entry in manifest.ordered_contributions
-                if entry.path == path
+            contribution = contrib_by_path.get(path)
+            if contribution is None:
+                errors.append(f"shared-support path missing from manifest: {path}")
+                continue
+            contrib_ids.append(contribution.contribution_id)
+            matching = [
+                assertion
+                for assertion in contribution.accepted_assertions
+                if assertion.assertion_kind == "node"
+                and assertion.subject_node_id == expectation.node_id
             ]
-            if not matches:
+            if not matching:
                 errors.append(
-                    f"shared-support path missing from manifest: {path}"
+                    f"shared-support contributor {path} missing node assertion for "
+                    f"{expectation.node_id}"
                 )
                 continue
-            contrib_ids.append(matches[0])
-
-        assertion_ids: set[str] = set()
-        for contribution in contributions:
-            if contribution.contribution_id not in contrib_ids:
-                continue
-            for assertion in contribution.accepted_assertions:
-                if (
-                    assertion.assertion_kind == "node"
-                    and assertion.subject_node_id == expectation.node_id
-                ):
-                    assertion_ids.add(assertion.assertion_id)
+            for assertion in matching:
+                assertion_ids.add(assertion.assertion_id)
+                observed_support_domains |= _domains_from_assertion(assertion)
         if len(assertion_ids) != 1:
             errors.append(
                 f"shared-support for {expectation.node_id} expected one semantic "
                 f"assertion_id, found {sorted(assertion_ids)}"
+            )
+        expected_support_domains = set(expectation.source_domains)
+        if observed_support_domains != expected_support_domains:
+            errors.append(
+                f"shared-support domains mismatch for {expectation.node_id}: "
+                f"observed={sorted(observed_support_domains)} "
+                f"expected={sorted(expected_support_domains)}"
             )
         shared_support_report.append(
             {
                 "node_id": expectation.node_id,
                 "contribution_paths": list(expectation.contribution_paths),
                 "source_domains": list(expectation.source_domains),
+                "observed_source_domains": sorted(observed_support_domains),
                 "assertion_ids": sorted(assertion_ids),
                 "contribution_ids": contrib_ids,
             }
         )
 
-    # Order lock: filenames must match the declared ordered_contributions sequence.
     for index, entry in enumerate(manifest.ordered_contributions):
         if not entry.path.startswith(f"contributions/{index + 1:03d}-") or not entry.path.endswith(
             ".json"
         ):
             errors.append(f"contribution path shape invalid: {entry.path}")
-        # Soft check that lexical order of declared paths matches list order.
         if index > 0:
             prev = manifest.ordered_contributions[index - 1].path
             if entry.path < prev:
@@ -450,7 +545,7 @@ def validate_contribution_bundle(
         if coverage.get(key, 0) < 100.0:
             errors.append(f"evidence coverage below 100% for {key}: {coverage.get(key)}")
 
-    report = ContributionBundleValidationReport(
+    return ContributionBundleValidationReport(
         bundle_id=manifest.bundle_id,
         bundle_digest=manifest.bundle_digest,
         world_id=manifest.world_id,
@@ -470,4 +565,3 @@ def validate_contribution_bundle(
         validation_warnings=warnings,
         ok=not errors,
     )
-    return report

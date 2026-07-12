@@ -265,7 +265,8 @@ def test_missing_source_artifact_rejection(tmp_path: Path) -> None:
     _, report = _load_validate(bundle_root)
     assert report.ok is False
     assert any(
-        "missing source artifact" in error for error in report.validation_errors
+        "missing source_artifact_id" in error or "missing embedded source_artifacts" in error
+        for error in report.validation_errors
     )
 
 
@@ -369,5 +370,191 @@ def test_extra_node_outside_locked_scope_rejection(tmp_path: Path) -> None:
     assert report.ok is False
     assert any(
         "extra nodes outside locked scope" in error
+        for error in report.validation_errors
+    )
+
+
+def test_dangling_top_level_evidence_ref_ids_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-world-hubs.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["accepted_assertions"][0]["evidence_ref_ids"] = ["evidence:does-not-exist"]
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "evidence_ref_ids do not match embedded evidence" in error
+        for error in report.validation_errors
+    )
+
+
+def test_evidence_nonexistent_embedded_artifact_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-world-hubs.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["evidence"][0]["source_artifact_id"] = (
+        "artifact:does-not-exist"
+    )
+    assertion["assertion_id"] = compute_assertion_id(
+        assertion_kind=assertion["assertion_kind"],
+        subject_node_id=assertion["subject_node_id"],
+        target_node_id=assertion["target_node_id"],
+        predicate=assertion["predicate"],
+        label=assertion["label"],
+        value=assertion["value"],
+        campaign_scope=assertion["campaign_scope"],
+        temporal_scope=assertion["temporal_scope"],
+        epistemic_kind=assertion["epistemic_kind"],
+        visibility=assertion["visibility"],
+    )
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "points to nonexistent embedded source artifact" in error
+        for error in report.validation_errors
+    )
+
+
+def test_duplicate_assertion_id_within_contribution_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/002-questionable-company-roster.json"
+    payload = _read_json(bundle_root / rel_path)
+    duplicate = json.loads(json.dumps(payload["accepted_assertions"][0]))
+    payload["accepted_assertions"].append(duplicate)
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "duplicate assertion_id" in error for error in report.validation_errors
+    )
+
+
+def test_shared_support_missing_mireward_assertion_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/003-session-22-mireward-road.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["accepted_assertions"] = [
+        assertion
+        for assertion in payload["accepted_assertions"]
+        if assertion.get("subject_node_id") != "location:mireward"
+    ]
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "shared-support contributor" in error and "location:mireward" in error
+        for error in report.validation_errors
+    )
+
+
+def test_shared_support_manifest_domain_mismatch_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    manifest = _load_manifest(bundle_root)
+    manifest["expected_shared_support"][0]["source_domains"] = ["worldbuilding"]
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "shared-support domains mismatch for location:mireward" in error
+        for error in report.validation_errors
+    )
+
+
+def test_extra_known_source_domain_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-world-hubs.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_domains"] = [
+        "worldbuilding",
+        "npc_note",
+    ]
+    assertion["assertion_id"] = compute_assertion_id(
+        assertion_kind=assertion["assertion_kind"],
+        subject_node_id=assertion["subject_node_id"],
+        target_node_id=assertion["target_node_id"],
+        predicate=assertion["predicate"],
+        label=assertion["label"],
+        value=assertion["value"],
+        campaign_scope=assertion["campaign_scope"],
+        temporal_scope=assertion["temporal_scope"],
+        epistemic_kind=assertion["epistemic_kind"],
+        visibility=assertion["visibility"],
+    )
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "source domains must exactly match expected_source_domains" in error
+        for error in report.validation_errors
+    )
+
+
+def test_empty_bundle_digest_load_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    manifest = _load_manifest(bundle_root)
+    manifest["bundle_digest"] = ""
+    _write_manifest(bundle_root, manifest, update_digest=False)
+
+    with pytest.raises(ValueError, match="bundle_digest is required"):
+        load_contribution_bundle(bundle_root)
+
+
+def test_accepted_assertion_with_candidate_state_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-world-hubs.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["accepted_assertions"][0]["acceptance_state"] = "candidate"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "acceptance_state='accepted'" in error for error in report.validation_errors
+    )
+
+
+def test_unknown_identity_resolution_outcome_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-world-hubs.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["accepted_assertions"][0]["identity_resolution_outcome"] = (
+        "not_a_real_outcome"
+    )
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "unknown identity_resolution_outcome" in error
         for error in report.validation_errors
     )

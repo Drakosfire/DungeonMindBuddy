@@ -31,8 +31,12 @@ def _resolve_inside_bundle(bundle_path: Path, relative: str) -> Path:
 
 def compute_bundle_digest(manifest_payload: dict[str, Any]) -> str:
     """Digest of the manifest payload excluding ``bundle_digest`` itself."""
-    payload = {key: value for key, value in manifest_payload.items() if key != "bundle_digest"}
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    payload = {
+        key: value for key, value in manifest_payload.items() if key != "bundle_digest"
+    }
+    canonical = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
     return _sha256_bytes(canonical.encode("utf-8"))
 
 
@@ -50,9 +54,11 @@ def load_contribution_bundle(bundle_path: Path) -> LoadedContributionBundle:
     if not isinstance(raw_manifest, dict):
         raise ValueError("manifest.json must be a JSON object")
 
-    expected_digest = str(raw_manifest.get("bundle_digest") or "")
+    expected_digest = raw_manifest.get("bundle_digest")
+    if not isinstance(expected_digest, str) or not expected_digest.strip():
+        raise ValueError("bundle_digest is required and must be a non-empty string")
     computed_digest = compute_bundle_digest(raw_manifest)
-    if expected_digest and expected_digest != computed_digest:
+    if expected_digest != computed_digest:
         raise ValueError(
             "bundle_digest mismatch: "
             f"manifest={expected_digest!r} computed={computed_digest!r}"
@@ -101,8 +107,6 @@ def load_contribution_bundle(bundle_path: Path) -> LoadedContributionBundle:
 
     identity_records: list[IdentityDecisionRecord] = []
     for decision_id in manifest.identity_decisions:
-        # Identity decision payloads are not yet stored beside this bundle.
-        # An empty list is the only approved initial state.
         raise ValueError(
             "PR006C initial bundle does not embed identity decision payloads; "
             f"unexpected identity_decisions entry: {decision_id!r}"
