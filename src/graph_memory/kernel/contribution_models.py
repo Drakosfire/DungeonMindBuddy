@@ -6,6 +6,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from graph_memory.evidence.assertion_support import (
+    ContributionAssertionKind,
+)
+
 ContributionStatus = Literal[
     "active",
     "superseded",
@@ -29,22 +33,6 @@ ContributionSourceKind = Literal[
     "identity_decision",
     "manual_import",
 ]
-
-ContributionAssertionKind = Literal[
-    "node",
-    "edge",
-    "alias",
-    "attribute",
-    "evidence_ref",
-]
-
-AssertionSupportState = Literal[
-    "supported",
-    "unsupported",
-    "contradicted",
-    "retracted",
-]
-
 
 class _ContributionModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -101,19 +89,6 @@ class GraphContribution(_ContributionModel):
     identity_decision_ids: list[str] = Field(default_factory=list)
     authored_by: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
-
-
-class DurableAssertionSupport(_ContributionModel):
-    assertion_id: str
-    active_contribution_ids: list[str] = Field(default_factory=list)
-    superseded_contribution_ids: list[str] = Field(default_factory=list)
-    retracted_contribution_ids: list[str] = Field(default_factory=list)
-    evidence_ref_ids: list[str] = Field(default_factory=list)
-    source_artifact_ids: list[str] = Field(default_factory=list)
-    support_state: AssertionSupportState = "supported"
-    introduced_by_contribution_id: str | None = None
-    assertion_kind: ContributionAssertionKind | None = None
-    graph_object_id: str | None = None
 
 
 class ContributionMergeResult(_ContributionModel):

@@ -120,7 +120,7 @@ def test_missing_focus_session_id_fails(fixture: dict) -> None:
 def test_focus_session_id_mismatch_fails(fixture: dict) -> None:
     payload = copy.deepcopy(fixture)
     payload["focus_session_id"] = "session-99"
-    assert_invalid(payload, "must match focus_session_id session-99")
+    assert_invalid(payload, "does not include focus_session_id session-99")
 
 
 def test_focus_anchored_adjacency_on_non_focus_edge_fails(fixture: dict) -> None:

@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)  
 **Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR006B #334 DONE; PR006C #335 DOING initial contribution bundle; PR006A #333 DONE; PR005B DONE #329)  
+**Updated:** 2026-07-12 (PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -87,7 +87,7 @@ PR005B Agent Tool Contract + Authored Prep Contributions  ← docs-only bridge
 PR006A Graph-Native Contribution Union Diagnostic
 PR006B Separate Semantic Assertion Identity from Provenance
 PR006C Approved Initial World Supergraph Contribution Bundle
-PR006D Publish Initial Eldyrwild C2 World Supergraph
+PR006D Publish Initial Eldyrwild C2 World Supergraph (D1 Kernel / D2 service / D3 UI)
 PR007 Projection Engine (revision-pinned + admissibility)
 PR008 Plan surface migration
 PR009 Play surface migration (incl. combat lenses)
@@ -453,7 +453,7 @@ projection, or runtime migration.
 
 ## PR006C — Approved Initial World Supergraph Contribution Bundle
 
-**Status:** `DOING` (GitHub #335)  
+**Status:** `DONE` (GitHub #335 merged 2026-07-12 UTC as `f69c69f271c427209860d902636347b70fea5920`)  
 **Phase:** 3 / approved bundle  
 **Purpose:** Define the approved, reviewable graph-native contribution bundle
 as `/ingest` bootstrap input for initial Eldyrwild C2 after PR006B establishes
@@ -483,21 +483,57 @@ projection, or runtime migration.
 
 ## PR006D — Publish Initial Eldyrwild C2 World Supergraph
 
-**Status:** `BLOCKED` on PR006C  
+**Status:** `DOING` (split into PR006D1–D3; GitHub #336 = D1 draft)  
 **Phase:** 3 / graph-native publication  
-**Purpose:** Publish the approved graph-native contribution bundle as the first
-persistent Eldyrwild C2 World Supergraph and prove Kernel-level health before
-projection/Plan migration.
 
-**Deliverables:** Merge approved contributions, reconcile governed identity
-decisions, advance the immutable head, report contribution/assertion-support/
-entity/edge counts and provenance support, and prove reconstruction.
+PR006D is intentionally split after #336 review: one reviewable Kernel
+contract first, then Eldyrwild activation service, then `/ingest` UI.
 
-**Non-goals:** Source discovery, Markdown selection, corpus inventory,
-extraction/reprocessing, contribution-bundle selection, Projection Engine,
-Plan/Play migration, or agent tooling.
+### PR006D1 — Generic atomic world initialization
+
+**Status:** `DOING` (GitHub #336 draft)  
+**Purpose:** Atomically initialize a new world from a validated contribution
+plan without exposing a partial graph.
+
+**Deliverables:**
+- Structural-vs-fixture validator split (`validate_union_supergraph_store_payload`)
+- Empty technical baseline
+- Generic staging + atomic promotion
+- Plan-bound `initialize_world_from_contributions` + receipt
+- Revision-lineage classification (`active` / `active_head_advanced` /
+  `inconsistent_lineage`)
+- Rebuild + integrity proof
+
+**Non-goals:** Eldyrwild magic numbers / forbidden legacy IDs; server/API/CLI;
+`/ingest` UI; Projection Engine; Plan/Play migration.
 
 **Depends on:** PR006C.
+
+### PR006D2 — Approved Eldyrwild bootstrap activation service
+
+**Status:** `BLOCKED` on PR006D1  
+**Purpose:** Inspect and explicitly activate the approved Eldyrwild package
+through a stable backend contract.
+
+**Deliverables:** PR006C bundle pin + Eldyrwild acceptance policy; status /
+prepare / confirm service; truthful idempotency; CLI; exact serialized API
+contract; review projection for nodes/edges/attributes/sources.
+
+**Non-goals:** `/ingest` UI.
+
+**Depends on:** PR006D1.
+
+### PR006D3 — `/ingest` review and activation UI
+
+**Status:** `BLOCKED` on PR006D2  
+**Purpose:** Let a GM see exactly what campaign memory will be created and
+explicitly publish it from `/ingest`.
+
+**Deliverables:** Shared/generated API contract; node/relationship/attribute/
+source review; confirmation UX; active health + reconstruction display;
+real UI tests + dogfood.
+
+**Depends on:** PR006D2.
 
 **Note:** #330/#331 closed unmerged; not prerequisites.
 
@@ -505,7 +541,7 @@ Plan/Play migration, or agent tooling.
 
 ## PR007 — Projection Engine
 
-**Status:** `BLOCKED` on PR006D  
+**Status:** `BLOCKED` on PR006D1–D3  
 **Phase:** 4  
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 

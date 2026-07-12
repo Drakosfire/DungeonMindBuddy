@@ -24,7 +24,7 @@ from graph_memory.union_supergraph.load import (
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 from graph_memory.union_supergraph.validate import (
     UnionSupergraphValidationError,
-    validate_union_supergraph_fixture,
+    validate_union_supergraph_store_payload,
 )
 from graph_memory.world_supergraph.errors import (
     WorldGraphNotFoundError,
@@ -206,7 +206,7 @@ def publish_world_graph_revision(
     # Validate outside the lock (CPU-bound); parent CAS happens under the lock.
     payload = dump_union_supergraph_store(graph)
     try:
-        validate_union_supergraph_fixture(payload)
+        validate_union_supergraph_store_payload(payload)
     except UnionSupergraphValidationError as exc:
         raise WorldGraphValidationError(str(exc)) from exc
 
@@ -303,7 +303,7 @@ def rollback_world_graph_head(
     # Re-validate target revision before taking the write lock.
     payload = _read_json(graph_path)
     try:
-        validate_union_supergraph_fixture(payload)
+        validate_union_supergraph_store_payload(payload)
     except UnionSupergraphValidationError as exc:
         raise WorldGraphValidationError(str(exc)) from exc
 
