@@ -38,6 +38,16 @@ class DurableAssertionSupport(BaseModel):
     introduced_by_contribution_id: str | None = None
     assertion_kind: ContributionAssertionKind | None = None
     graph_object_id: str | None = None
+    per_contribution_evidence_ref_ids: dict[str, list[str]] = Field(default_factory=dict)
+    """Exact evidence lineage each active contribution asserted at merge time.
+
+    Recorded per-contribution (not just aggregated) so projection can detect a
+    contribution file mutated after publish even when the mutation only
+    removes provenance-only fields (which do not change ``assertion_id``) and
+    the resulting set is a trivial subset of the aggregate.
+    """
+    per_contribution_source_artifact_ids: dict[str, list[str]] = Field(default_factory=dict)
+    """Exact source-artifact lineage each active contribution asserted at merge time."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 

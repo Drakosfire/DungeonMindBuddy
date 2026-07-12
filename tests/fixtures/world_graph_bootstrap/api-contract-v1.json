@@ -18,7 +18,7 @@
       "actor": "gm",
       "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "currentHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
       "diagnostics": [
         {
           "code": "kernel_result",
@@ -26,7 +26,7 @@
           "severity": "info"
         }
       ],
-      "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "initialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
       "noMutationGuarantees": [
         "No new revision was published; the existing initialization matched the approved plan.",
         "The approved contribution bundle was not modified.",
@@ -34,7 +34,7 @@
         "Preview or ingest-run artifacts were not modified."
       ],
       "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
-      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
+      "proposalId": "487ac3e6525655619856e91eb9285fc4cf9d2184f2e30bac6269ed39aa912de9",
       "published": false,
       "receipt": {
         "acceptedAssertionCount": 30,
@@ -53,7 +53,7 @@
         "evidenceCount": 30,
         "focusSessionId": "session-23",
         "identityDecisionIds": [],
-        "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "initialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
         "nodeCount": 12,
         "orderedContributions": [
           {
@@ -114,7 +114,7 @@
     },
     "preparedProposal": {
       "actor": "gm",
-      "confirmToken": "701900e0567cc9d4de09bf6f10450e6c3cc6e9b01eebf2e8539a6edc2f5fa1a4.eyJhY3RvciI6ImdtIiwiYXBwcm92ZWRfYnVuZGxlX21lcmdlX3NoYSI6ImY2OWM2OWYyNzFjNDI3MjA5ODYwZDkwMjYzNjM0N2I3MGZlYTU5MjAiLCJidW5kbGVfZGlnZXN0IjoiYzhlYjdlNmNhN2U3MzVjNDA4MjJjYjFlNjgzNWY5OTQ5ZjJjZDkxNWI1N2Y1NzA0ZTdiNGRhZWI3MmNmMmZjYSIsImJ1bmRsZV9pZCI6ImVsZHlyd2lsZC1sb25nbW9udC1jMi1pbml0aWFsLXYxIiwiZXhwZWN0ZWRfY291bnRzIjp7ImFjY2VwdGVkX2Fzc2VydGlvbl9jb3VudCI6MzAsImFzc2VydGlvbl9zdXBwb3J0X2NvdW50IjoyNiwiZWRnZV9jb3VudCI6MTEsImV2aWRlbmNlX2NvdW50IjozMCwibm9kZV9jb3VudCI6MTIsInNvdXJjZV9hcnRpZmFjdF9jb3VudCI6Nn0sImV4cGVjdGVkX2luaXRpYWxfcHJvZHVjdGlvbl9zdGF0ZSI6InJlYWR5Iiwia2luZCI6ImRtYl93b3JsZF9ncmFwaF9ib290c3RyYXBfY29uZmlybV92MSIsIm9yZGVyZWRfY29udHJpYnV0aW9ucyI6W3siY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOjgyZjIzOTM0ZDhlYWNhOGEiLCJwYXlsb2FkX3NoYTI1NiI6ImI3OWI2NDI3ZmY1OWQ2MDIwNTQ4NTdmZDI5Y2Y0NjYxNzQzYzgzNTFiZWYwM2E0ZjFiYzBiNjg1MTEyOTNkZjgifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjo0Mzc4MjM2OWJkNzE3ZDMyIiwicGF5bG9hZF9zaGEyNTYiOiI1YTI0NzFhODg1YjkwZDNmYzU2YzNmYTAzYjE3NTc4YjMzOTRjZjEyZGZkNTg3MjZlZDliNTAwYmZlNGMzZjEyIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MzNkN2NkYjBmZjYyM2YyOCIsInBheWxvYWRfc2hhMjU2IjoiZjIwNzFmNWRjZTg5YmIwYWQyMWExZGMzNjBjY2RiNjNhNTFlNzAxNTNiMDFlYjU1MDc2OWMwNzIyZmQ4YTBmMCJ9LHsiY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOmMwODZhMGI3MjMyNGZmMTYiLCJwYXlsb2FkX3NoYTI1NiI6ImZiZDUwZWQ1ZWQ1MjRiZDNkNzRhMGM2ZjIxMDdkNjdhN2M3MTk0NGZkZTQzZGZkYTRmNGFlMDE0YTVkNmZmZDcifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjoxMjI3ODQxNzI0NTIwYzE4IiwicGF5bG9hZF9zaGEyNTYiOiIwZDY3YzQyNWEyNGRjNjQ0MWY1NzhlMjNjZjEyNWIzNzk5OGJiNmJlYWRmYjBhMzQ3N2I4ZmY4MTBhMzcwMDZlIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MDIyMTg3ZmRlZmRmNDU1NyIsInBheWxvYWRfc2hhMjU2IjoiYzMyNjU2Zjc5N2U5MDM3NDRkM2NiZmNhYWJmODg0YjIwZWQ5NzQ4Mjk2ZmFkMDE5NjgxM2Q0OWM5MmFlZWY3OCJ9XSwicGxhbl9kaWdlc3QiOiI5OGExMjBmNjliYzMwZWU5ZDIwYzFiYjY3MjYyY2Y3OGE1OTUxYWRjZDU0YzVhNWNjNWI5NDExZWJkZGY1MTYzIiwicHJlZGljdGVkX2Jhc2VsaW5lX3JldmlzaW9uX2lkIjoicmV2OmZkM2UwYTJiOTZhN2E1OTE5YTAyYTg5MDVlNzNmN2I5IiwicHJlZGljdGVkX2luaXRpYWxfaGVhZF9yZXZpc2lvbl9pZCI6InJldjo0MWJjYmIwMTA3MWRkMmI0ZGE1NGQ4ZTMzNWVjMzhmNyIsInByb3Bvc2FsX2lkIjoiYjIxY2U3OTAyMjZmMTliNjdlMjY1N2VhODA1MmI3MWM0ZTU1MGNmOWMyOTAzMDIyMTg5MWU1MzA3YzY0MzFhZSJ9",
+      "confirmToken": "83933926769879d9d15b48fe104f4ca7bc82dd56fbcb8317cbaa7495538776f2.eyJhY3RvciI6ImdtIiwiYXBwcm92ZWRfYnVuZGxlX21lcmdlX3NoYSI6ImY2OWM2OWYyNzFjNDI3MjA5ODYwZDkwMjYzNjM0N2I3MGZlYTU5MjAiLCJidW5kbGVfZGlnZXN0IjoiYzhlYjdlNmNhN2U3MzVjNDA4MjJjYjFlNjgzNWY5OTQ5ZjJjZDkxNWI1N2Y1NzA0ZTdiNGRhZWI3MmNmMmZjYSIsImJ1bmRsZV9pZCI6ImVsZHlyd2lsZC1sb25nbW9udC1jMi1pbml0aWFsLXYxIiwiZXhwZWN0ZWRfY291bnRzIjp7ImFjY2VwdGVkX2Fzc2VydGlvbl9jb3VudCI6MzAsImFzc2VydGlvbl9zdXBwb3J0X2NvdW50IjoyNiwiZWRnZV9jb3VudCI6MTEsImV2aWRlbmNlX2NvdW50IjozMCwibm9kZV9jb3VudCI6MTIsInNvdXJjZV9hcnRpZmFjdF9jb3VudCI6Nn0sImV4cGVjdGVkX2luaXRpYWxfcHJvZHVjdGlvbl9zdGF0ZSI6InJlYWR5Iiwia2luZCI6ImRtYl93b3JsZF9ncmFwaF9ib290c3RyYXBfY29uZmlybV92MSIsIm9yZGVyZWRfY29udHJpYnV0aW9ucyI6W3siY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOjgyZjIzOTM0ZDhlYWNhOGEiLCJwYXlsb2FkX3NoYTI1NiI6ImI3OWI2NDI3ZmY1OWQ2MDIwNTQ4NTdmZDI5Y2Y0NjYxNzQzYzgzNTFiZWYwM2E0ZjFiYzBiNjg1MTEyOTNkZjgifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjo0Mzc4MjM2OWJkNzE3ZDMyIiwicGF5bG9hZF9zaGEyNTYiOiI1YTI0NzFhODg1YjkwZDNmYzU2YzNmYTAzYjE3NTc4YjMzOTRjZjEyZGZkNTg3MjZlZDliNTAwYmZlNGMzZjEyIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MzNkN2NkYjBmZjYyM2YyOCIsInBheWxvYWRfc2hhMjU2IjoiZjIwNzFmNWRjZTg5YmIwYWQyMWExZGMzNjBjY2RiNjNhNTFlNzAxNTNiMDFlYjU1MDc2OWMwNzIyZmQ4YTBmMCJ9LHsiY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOmMwODZhMGI3MjMyNGZmMTYiLCJwYXlsb2FkX3NoYTI1NiI6ImZiZDUwZWQ1ZWQ1MjRiZDNkNzRhMGM2ZjIxMDdkNjdhN2M3MTk0NGZkZTQzZGZkYTRmNGFlMDE0YTVkNmZmZDcifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjoxMjI3ODQxNzI0NTIwYzE4IiwicGF5bG9hZF9zaGEyNTYiOiIwZDY3YzQyNWEyNGRjNjQ0MWY1NzhlMjNjZjEyNWIzNzk5OGJiNmJlYWRmYjBhMzQ3N2I4ZmY4MTBhMzcwMDZlIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MDIyMTg3ZmRlZmRmNDU1NyIsInBheWxvYWRfc2hhMjU2IjoiYzMyNjU2Zjc5N2U5MDM3NDRkM2NiZmNhYWJmODg0YjIwZWQ5NzQ4Mjk2ZmFkMDE5NjgxM2Q0OWM5MmFlZWY3OCJ9XSwicGxhbl9kaWdlc3QiOiI5OGExMjBmNjliYzMwZWU5ZDIwYzFiYjY3MjYyY2Y3OGE1OTUxYWRjZDU0YzVhNWNjNWI5NDExZWJkZGY1MTYzIiwicHJlZGljdGVkX2Jhc2VsaW5lX3JldmlzaW9uX2lkIjoicmV2OmZkM2UwYTJiOTZhN2E1OTE5YTAyYTg5MDVlNzNmN2I5IiwicHJlZGljdGVkX2luaXRpYWxfaGVhZF9yZXZpc2lvbl9pZCI6InJldjpjMGU5NjdkNDlmZWJkYjU4MjI5NzJjMGU5NTc3OGNlYyIsInByb3Bvc2FsX2lkIjoiNDg3YWMzZTY1MjU2NTU2MTk4NTZlOTFlYjkyODVmYzRjZjlkMjE4NGYyZTMwYmFjNjI2OWVkMzlhYTkxMmRlOSJ9",
       "diagnostics": [],
       "effects": {
         "contributionCount": 6,
@@ -127,7 +127,7 @@
           "contribution:022187fdefdf4557"
         ],
         "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
-        "predictedInitialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "predictedInitialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
         "predictedRevisionCount": 7
       },
       "noMutationGuarantees": [
@@ -139,9 +139,9 @@
       ],
       "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
       "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
-      "predictedInitialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "predictedInitialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
       "prepared": true,
-      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
+      "proposalId": "487ac3e6525655619856e91eb9285fc4cf9d2184f2e30bac6269ed39aa912de9",
       "review": {
         "attributes": [
           {
@@ -1352,7 +1352,7 @@
       "actor": "gm",
       "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "currentHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
       "diagnostics": [
         {
           "code": "kernel_result",
@@ -1360,7 +1360,7 @@
           "severity": "info"
         }
       ],
-      "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "initialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
       "noMutationGuarantees": [
         "Published the approved initialization through the PR006D1 Kernel operation.",
         "The approved contribution bundle was not modified.",
@@ -1368,7 +1368,7 @@
         "Preview or ingest-run artifacts were not modified."
       ],
       "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
-      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
+      "proposalId": "487ac3e6525655619856e91eb9285fc4cf9d2184f2e30bac6269ed39aa912de9",
       "published": true,
       "receipt": {
         "acceptedAssertionCount": 30,
@@ -1387,7 +1387,7 @@
         "evidenceCount": 30,
         "focusSessionId": "session-23",
         "identityDecisionIds": [],
-        "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "initialHeadRevisionId": "rev:c0e967d49febdb5822972c0e95778cec",
         "nodeCount": 12,
         "orderedContributions": [
           {

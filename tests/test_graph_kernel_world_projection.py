@@ -24,10 +24,14 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationPlan,
 )
 from graph_memory.kernel.world_projection import WorldGraphProjectionError
+from graph_memory.projection.recap_projection import build_node_view
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionFocus,
     WorldGraphProjectionRequest,
+)
+from graph_memory.union_supergraph.projection_identity import (
+    build_union_projection_identity_context,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -209,7 +213,10 @@ def test_revision_pin_projection_reads_historical_revision(
     result = _initialize(tmp_path, loaded_bundle)
     revisions_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "revisions"
     revision_ids = sorted(path.name for path in revisions_dir.iterdir() if path.is_dir())
-    pinned = revision_ids[3]
+    # Revision ids are content-addressed hashes with no chronological ordering;
+    # pick any revision that is provably historical rather than assuming a
+    # fixed index happens to land off head.
+    pinned = next(rev for rev in revision_ids if rev != result.current_head_revision_id)
 
     projection = kernel.project_world_graph(
         tmp_path,
@@ -809,6 +816,14 @@ def test_multi_source_active_contributions_project_when_semantically_aligned(
             "evidence:bundle:v1:statblock:tripod-challenge",
         }
     )
+    support["per_contribution_evidence_ref_ids"] = {
+        **support.get("per_contribution_evidence_ref_ids", {}),
+        DUP_ALIGNED_CONTRIBUTION_ID: ["evidence:bundle:v1:statblock:tripod-challenge"],
+    }
+    support["per_contribution_source_artifact_ids"] = {
+        **support.get("per_contribution_source_artifact_ids", {}),
+        DUP_ALIGNED_CONTRIBUTION_ID: [RECAP_SOURCE_ARTIFACT_ID],
+    }
     store.assertion_support[assertion.assertion_id] = support
     kernel.publish_world_revision(
         tmp_path,
@@ -1162,6 +1177,14 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
             DUP_SOURCE_ARTIFACT_ID,
         }
     )
+    support["per_contribution_evidence_ref_ids"] = {
+        **support.get("per_contribution_evidence_ref_ids", {}),
+        DUP_ALIGNED_CONTRIBUTION_ID: [duplicate_evidence],
+    }
+    support["per_contribution_source_artifact_ids"] = {
+        **support.get("per_contribution_source_artifact_ids", {}),
+        DUP_ALIGNED_CONTRIBUTION_ID: [DUP_SOURCE_ARTIFACT_ID],
+    }
     store.assertion_support[assertion.assertion_id] = support
     store.evidence[duplicate_evidence] = UnionSupergraphEvidence(
         evidence_ref_id=duplicate_evidence,
@@ -1535,3 +1558,356 @@ def test_projection_apis_exported_from_kernel_public_api() -> None:
     ):
         assert name in kernel.__all__
         assert hasattr(kernel, name)
+
+
+def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Removing evidence that lives only in ``value["evidence"]`` is a
+    provenance-only mutation (excluded from ``assertion_id`` identity), so it
+    must be caught by the per-contribution evidence-lineage check rather than
+    silently dropping evidence from the projection.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    node_id = "location:test-provenance-lineage"
+    evidence_ref_id = "evidence:test:provenance-lineage-embedded"
+    artifact_id = "graph-native:test:provenance-lineage"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Provenance Lineage Test",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Provenance Lineage Test"],
+            "canon_state": "canonical",
+            # Evidence lives only embedded in value.evidence, never in the
+            # top-level assertion.evidence_ref_ids field.
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": "test://provenance-lineage",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=artifact_id,
+        source_revision_id="provenance-lineage-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    pinned_revision_id = merged.revision_id
+    merged_contribution_id = merged.contribution_ids[0]
+
+    # Sanity: evidence declared only inside value.evidence is collected and
+    # projected before any mutation happens.
+    projection = kernel.project_world_graph(tmp_path, _request())
+    node = next(item for item in projection.nodes if item.node_id == node_id)
+    assert evidence_ref_id in node.evidence_ref_ids
+
+    contribution_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{merged_contribution_id.replace(':', '__')}.json"
+    )
+    payload = json.loads(contribution_path.read_text(encoding="utf-8"))
+    mutated_assertion = payload["accepted_assertions"][0]
+    original_assertion_id = mutated_assertion["assertion_id"]
+    mutated_assertion["value"]["evidence"] = []
+    contribution_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    # The mutation only touched a provenance-only value key, so identity is
+    # unaffected -- this is exactly the kind of mutation the old subset check
+    # missed.
+    assert mutated_assertion["assertion_id"] == original_assertion_id
+
+    for request in (_request(), _request(revision_pin=pinned_revision_id)):
+        with pytest.raises(WorldGraphProjectionError) as exc_info:
+            kernel.project_world_graph(tmp_path, request)
+        assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_active_alias_assertion_appears_matches_search_and_pins_correctly(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    alias_text = "Null-Calf the Tripod"
+    alias_assertion = kernel.build_assertion(
+        assertion_kind="alias",
+        acceptance_state="accepted",
+        subject_node_id=TRIPOD_ID,
+        label=alias_text,
+        campaign_scope=CAMPAIGN_ID,
+        value={"alias": alias_text},
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:alias-assertion",
+        source_revision_id="alias-assertion-1",
+        accepted_assertions=[alias_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    pinned_with_alias_revision_id = merged.revision_id
+    merged_contribution_id = merged.contribution_ids[0]
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    assert alias_text in tripod.aliases
+
+    search_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(query_text=alias_text),
+    )
+    assert search_projection.query_context is not None
+    assert TRIPOD_ID in search_projection.query_context.matched_node_ids
+
+    retracted = kernel.retract_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution_id=merged_contribution_id,
+        reason="alias withdrawn for test",
+    )
+    assert retracted.published is True
+
+    head_projection = kernel.project_world_graph(tmp_path, _request())
+    head_tripod = next(
+        node for node in head_projection.nodes if node.node_id == TRIPOD_ID
+    )
+    assert alias_text not in head_tripod.aliases
+
+    pinned_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_with_alias_revision_id),
+    )
+    pinned_tripod = next(
+        node for node in pinned_projection.nodes if node.node_id == TRIPOD_ID
+    )
+    assert alias_text in pinned_tripod.aliases
+
+
+def test_node_card_direction_is_endpoint_relative_and_expansion_rank_is_preserved(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    identity_context = build_union_projection_identity_context(store)
+    raw_tripod_view = build_node_view(
+        store,
+        TRIPOD_ID,
+        focus_session_id=FOCUS_SESSION_ID,
+        identity_context=identity_context,
+    )
+    original_expansion = next(
+        item for item in raw_tripod_view.suggested_expansions if item.edge_id == edge_id
+    )
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    relationship = next(
+        item for item in projection.relationships if item.edge_id == edge_id
+    )
+    # The bundle's tripod->event edge is directed source (tripod) -> target
+    # (event); see test_relationship_to_mireward_gate_battle_present.
+    assert relationship.source_node_id == TRIPOD_ID
+    assert relationship.target_node_id == EVENT_ID
+
+    source_node = next(
+        node for node in projection.nodes if node.node_id == relationship.source_node_id
+    )
+    target_node = next(
+        node for node in projection.nodes if node.node_id == relationship.target_node_id
+    )
+    source_candidate = next(
+        item for item in source_node.adjacency if item.edge_id == edge_id
+    )
+    target_candidate = next(
+        item for item in target_node.adjacency if item.edge_id == edge_id
+    )
+    assert source_candidate.direction == "outbound"
+    assert target_candidate.direction == "inbound"
+    assert source_candidate.direction != target_candidate.direction
+
+    projected_expansion = next(
+        item for item in source_node.suggested_expansions if item.edge_id == edge_id
+    )
+    assert projected_expansion.rank == original_expansion.rank
+    assert projected_expansion.rank_reason == original_expansion.rank_reason
+    # Normalization must not have flattened every expansion to a single
+    # synthesized reason/order -- the underlying node view's own ordering
+    # (focus-first) must survive untouched for pre-existing relationships.
+    assert [item.edge_id for item in source_node.suggested_expansions] == [
+        item.edge_id for item in raw_tripod_view.suggested_expansions
+    ]
+
+
+def test_superseded_edge_value_only_label_and_empty_session_ids_are_presence_sensitive(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """The write contract allows label/session_ids replacements to live only
+    inside ``value``, with the top-level ``assertion.label`` left falsy. The
+    read side must reconstruct those fields by presence, not truthiness --
+    otherwise a value-only label replacement is silently ignored, and an
+    explicit ``session_ids: []`` can never clear a previously non-empty list.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    original_payload = _load_tripod_contribution_json(tmp_path)
+
+    # Stage A: establish a non-empty session_ids baseline to pin against, so
+    # that stage B's "clear with []" is a meaningful, observable change.
+    stage_a_assertions = _assertions_from_contribution_json(original_payload)
+    for assertion in stage_a_assertions:
+        value = dict(assertion.value)
+        if str(value.get("edge_id") or "") != edge_id:
+            continue
+        assertion.value = {**value, "session_ids": ["session-99"]}
+
+    stage_a_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="supersede-edge-value-only-stage-a",
+        accepted_assertions=stage_a_assertions,
+        supersedes_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    stage_a_result = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=stage_a_contribution,
+        superseded_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    assert stage_a_result.published is True
+    pinned_revision_id = stage_a_result.revision_id
+    stage_a_contribution_id = stage_a_result.contribution_ids[0]
+
+    pinned_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_revision_id),
+    )
+    pinned_relationship = next(
+        item for item in pinned_projection.relationships if item.edge_id == edge_id
+    )
+    assert pinned_relationship.session_ids == ["session-99"]
+    assert pinned_relationship.label == "appeared in"
+
+    # Stage B: replace with a value-only label and an explicit empty
+    # session_ids, with the top-level assertion.label left falsy (None).
+    stage_a_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{stage_a_contribution_id.replace(':', '__')}.json"
+    )
+    stage_a_payload = json.loads(stage_a_path.read_text(encoding="utf-8"))
+    stage_b_assertions = _assertions_from_contribution_json(stage_a_payload)
+    for assertion in stage_b_assertions:
+        value = dict(assertion.value)
+        if str(value.get("edge_id") or "") != edge_id:
+            continue
+        assertion.label = None
+        assertion.value = {
+            **value,
+            "label": "value-only replacement label",
+            "session_ids": [],
+        }
+
+    stage_b_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=stage_a_payload["source_artifact_id"],
+        source_revision_id="supersede-edge-value-only-stage-b",
+        accepted_assertions=stage_b_assertions,
+        supersedes_contribution_id=stage_a_contribution_id,
+    )
+    stage_b_result = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=stage_b_contribution,
+        superseded_contribution_id=stage_a_contribution_id,
+    )
+    assert stage_b_result.published is True
+
+    head_projection = kernel.project_world_graph(tmp_path, _request())
+    head_relationship = next(
+        item for item in head_projection.relationships if item.edge_id == edge_id
+    )
+    assert head_relationship.label == "value-only replacement label"
+    assert head_relationship.session_ids == []
+
+    # The stage-A pin must still show the pre-clear baseline.
+    replayed_pinned_projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_revision_id),
+    )
+    replayed_pinned_relationship = next(
+        item
+        for item in replayed_pinned_projection.relationships
+        if item.edge_id == edge_id
+    )
+    assert replayed_pinned_relationship.label == "appeared in"
+    assert replayed_pinned_relationship.session_ids == ["session-99"]
+
+
+def test_head_pointing_to_nonexistent_revision_fails_integrity_pinned_and_unpinned(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    bogus_revision_id = "rev:00000000000000000000000000000000"
+    assert bogus_revision_id != pinned_revision_id
+
+    head_path = _head_path(tmp_path)
+    head_payload = json.loads(head_path.read_text(encoding="utf-8"))
+    head_payload["head_revision_id"] = bogus_revision_id
+    head_path.write_text(json.dumps(head_payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request())
+    assert exc_info.value.code == "projection_integrity_error"
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin=pinned_revision_id),
+        )
+    assert exc_info.value.code == "projection_integrity_error"

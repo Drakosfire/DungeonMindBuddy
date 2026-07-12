@@ -14,6 +14,8 @@ from graph_memory.kernel.contribution_models import (
 from graph_memory.kernel.contributions import (
     _canonicalize_graph_contribution_assertions,
     create_graph_contribution,
+    explicit_assertion_evidence_ref_ids,
+    explicit_assertion_source_artifact_ids,
 )
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
@@ -170,6 +172,8 @@ def _add_support(
 ) -> None:
     existing = support.get(assertion.assertion_id)
     artifact_ids = [aid for aid in [assertion.source_artifact_id] if aid]
+    contribution_evidence_ref_ids = explicit_assertion_evidence_ref_ids(assertion)
+    contribution_source_artifact_ids = explicit_assertion_source_artifact_ids(assertion)
     if existing is None:
         support[assertion.assertion_id] = DurableAssertionSupport(
             assertion_id=assertion.assertion_id,
@@ -180,6 +184,8 @@ def _add_support(
             introduced_by_contribution_id=contribution_id,
             assertion_kind=assertion.assertion_kind,
             graph_object_id=graph_object_id,
+            per_contribution_evidence_ref_ids={contribution_id: contribution_evidence_ref_ids},
+            per_contribution_source_artifact_ids={contribution_id: contribution_source_artifact_ids},
         )
         return
 
@@ -194,6 +200,10 @@ def _add_support(
     for aid in artifact_ids:
         if aid not in sources:
             sources.append(aid)
+    per_contribution_evidence = dict(existing.per_contribution_evidence_ref_ids)
+    per_contribution_evidence[contribution_id] = contribution_evidence_ref_ids
+    per_contribution_sources = dict(existing.per_contribution_source_artifact_ids)
+    per_contribution_sources[contribution_id] = contribution_source_artifact_ids
     support[assertion.assertion_id] = existing.model_copy(
         update={
             "active_contribution_ids": active,
@@ -201,6 +211,8 @@ def _add_support(
             "source_artifact_ids": sources,
             "support_state": "supported",
             "graph_object_id": existing.graph_object_id or graph_object_id,
+            "per_contribution_evidence_ref_ids": per_contribution_evidence,
+            "per_contribution_source_artifact_ids": per_contribution_sources,
         }
     )
 
@@ -248,6 +260,14 @@ def _mark_graph_objects_unsupported(
     support: dict[str, DurableAssertionSupport],
     unsupported_assertion_ids: list[str],
 ) -> UnionSupergraphStore:
+    """Flip a node/edge's own memory_state when it loses its defining support.
+
+    Attribute and alias assertions share ``graph_object_id`` with the node or
+    edge they describe, but they are not what makes that node/edge exist --
+    losing an alias must not evict the whole node from the graph. Only a
+    ``node``/``edge`` kind assertion losing support means the graph object
+    itself is unsupported.
+    """
     nodes = dict(store.nodes)
     edges = dict(store.edges)
     for assertion_id in unsupported_assertion_ids:
@@ -255,7 +275,7 @@ def _mark_graph_objects_unsupported(
         if record is None or not record.graph_object_id:
             continue
         object_id = record.graph_object_id
-        if object_id in nodes:
+        if object_id in nodes and record.assertion_kind == "node":
             node = nodes[object_id]
             nodes[object_id] = node.model_copy(
                 update={
@@ -266,7 +286,7 @@ def _mark_graph_objects_unsupported(
                     }
                 }
             )
-        if object_id in edges:
+        if object_id in edges and record.assertion_kind == "edge":
             edge = edges[object_id]
             edges[object_id] = edge.model_copy(
                 update={

@@ -101,6 +101,53 @@ def semantic_assertion_value(value: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def explicit_assertion_evidence_ref_ids(assertion: GraphContributionAssertion) -> list[str]:
+    """Full explicit evidence lineage declared by one assertion.
+
+    Includes ``evidence_ref_ids`` (top level and nested under ``value``) and
+    ``evidence_ref_id`` entries embedded in ``value["evidence"]`` objects.
+    Provenance-only fields are excluded from assertion identity, so this must
+    be the single place both the merge (write) path and the projection (read)
+    path derive "what evidence did this contribution actually assert" from —
+    otherwise a mutation to provenance-only fields can silently change what
+    the projection returns without changing ``assertion_id``.
+    """
+    value = dict(assertion.value or {})
+    ids: set[str] = set(assertion.evidence_ref_ids)
+    nested_ids = value.get("evidence_ref_ids")
+    if isinstance(nested_ids, list):
+        ids.update(str(item) for item in nested_ids)
+    for entry in value.get("evidence") or []:
+        if isinstance(entry, dict):
+            ref_id = entry.get("evidence_ref_id")
+            if ref_id:
+                ids.add(str(ref_id))
+    return sorted(ids)
+
+
+def explicit_assertion_source_artifact_ids(assertion: GraphContributionAssertion) -> list[str]:
+    """Full explicit source-artifact lineage declared by one assertion.
+
+    Includes ``source_artifact_id`` (top level and nested under ``value``)
+    and ``source_artifact_id`` entries embedded in ``value["source_artifacts"]``
+    objects. See ``explicit_assertion_evidence_ref_ids`` for why this must be
+    shared between the merge and projection paths.
+    """
+    value = dict(assertion.value or {})
+    ids: set[str] = set()
+    if assertion.source_artifact_id:
+        ids.add(assertion.source_artifact_id)
+    nested_id = value.get("source_artifact_id")
+    if nested_id:
+        ids.add(str(nested_id))
+    for entry in value.get("source_artifacts") or []:
+        if isinstance(entry, dict):
+            artifact_id = entry.get("source_artifact_id")
+            if artifact_id:
+                ids.add(str(artifact_id))
+    return sorted(ids)
+
+
 def _canonicalize_assertion_identity(
     assertion: GraphContributionAssertion,
 ) -> tuple[GraphContributionAssertion, tuple[str, str] | None]:

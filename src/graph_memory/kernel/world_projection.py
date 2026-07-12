@@ -13,7 +13,12 @@ from graph_memory.kernel.contribution_models import (
     GraphContribution,
     GraphContributionAssertion,
 )
-from graph_memory.kernel.contributions import compute_assertion_id, semantic_assertion_value
+from graph_memory.kernel.contributions import (
+    compute_assertion_id,
+    explicit_assertion_evidence_ref_ids,
+    explicit_assertion_source_artifact_ids,
+    semantic_assertion_value,
+)
 from graph_memory.kernel.world_graph import (
     WorldGraphIntegrityError,
     WorldGraphNotFoundError,
@@ -59,6 +64,7 @@ from graph_memory.projection.world_projection import (
 from graph_memory.union_supergraph.load import dump_union_supergraph_store
 from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode, UnionSupergraphStore
 from graph_memory.union_supergraph.projection_identity import (
+    UnionProjectionIdentityContext,
     build_union_projection_identity_context,
     is_projectable_union_edge,
     is_projectable_union_node,
@@ -150,14 +156,7 @@ def _materialized_evidence_ref_ids(
 def _assertion_has_explicit_evidence(
     assertion: GraphContributionAssertion,
 ) -> bool:
-    if assertion.evidence_ref_ids:
-        return True
-    value = dict(assertion.value)
-    nested_evidence_ref_ids = value.get("evidence_ref_ids")
-    if isinstance(nested_evidence_ref_ids, list) and nested_evidence_ref_ids:
-        return True
-    evidence_payload = value.get("evidence")
-    return isinstance(evidence_payload, list) and bool(evidence_payload)
+    return bool(explicit_assertion_evidence_ref_ids(assertion))
 
 
 def _integrity_error(message: str, *, detail: str) -> WorldGraphProjectionError:
@@ -252,16 +251,25 @@ def _load_revision_store_with_integrity(
     *,
     not_found_code: str,
     not_found_message: str,
+    not_found_as_integrity_error: bool = False,
 ) -> tuple[str, UnionSupergraphStore]:
-    try:
-        manifest = load_world_graph_revision_manifest(root, world_id, revision_id)
-    except WorldGraphNotFoundError as exc:
-        raise WorldGraphProjectionError(
+    def _not_found(exc: WorldGraphNotFoundError) -> WorldGraphProjectionError:
+        if not_found_as_integrity_error:
+            return _integrity_error(
+                not_found_message,
+                detail=f"revision not found: {exc}",
+            )
+        return WorldGraphProjectionError(
             not_found_message,
             code=not_found_code,
             status_code=404,
             diagnostics=[_diagnostic(not_found_code, str(exc))],
-        ) from exc
+        )
+
+    try:
+        manifest = load_world_graph_revision_manifest(root, world_id, revision_id)
+    except WorldGraphNotFoundError as exc:
+        raise _not_found(exc) from exc
     except (ValidationError, json.JSONDecodeError, TypeError) as exc:
         raise _integrity_error(
             f"Revision {revision_id!r} manifest is malformed.",
@@ -281,12 +289,7 @@ def _load_revision_store_with_integrity(
     try:
         store = load_world_graph_revision(root, world_id, revision_id)
     except WorldGraphNotFoundError as exc:
-        raise WorldGraphProjectionError(
-            not_found_message,
-            code=not_found_code,
-            status_code=404,
-            diagnostics=[_diagnostic(not_found_code, str(exc))],
-        ) from exc
+        raise _not_found(exc) from exc
     except (ValidationError, json.JSONDecodeError, TypeError) as exc:
         raise _integrity_error(
             f"Revision {revision_id!r} graph payload is malformed.",
@@ -428,7 +431,18 @@ def _load_validated_contribution(
     return contribution
 
 
-def _load_head_with_integrity(root: Path, world_id: str) -> WorldGraphHead:
+def _load_head_with_integrity(
+    root: Path,
+    world_id: str,
+) -> tuple[WorldGraphHead, UnionSupergraphStore]:
+    """Load the world graph head and verify its target revision actually exists.
+
+    A well-formed ``head.json`` that points at a revision id which is missing
+    or fails integrity is head *corruption*, not "world not bootstrapped yet"
+    — every caller (pinned and unpinned requests alike) trusts
+    ``head.head_revision_id`` in response metadata (``headRevisionId``,
+    ``isHead``), so it must be verified here rather than left unchecked.
+    """
     try:
         head = open_world_graph_head(root, world_id)
     except WorldGraphNotFoundError as exc:
@@ -455,7 +469,18 @@ def _load_head_with_integrity(root: Path, world_id: str) -> WorldGraphHead:
             "World graph head references an unsafe revision id.",
             detail=f"head revision id validation failed: {exc}",
         ) from exc
-    return head
+    _, store = _load_revision_store_with_integrity(
+        root,
+        world_id,
+        head.head_revision_id,
+        not_found_code="projection_integrity_error",
+        not_found_message=(
+            f"World graph head references a revision that does not exist: "
+            f"{head.head_revision_id!r}"
+        ),
+        not_found_as_integrity_error=True,
+    )
+    return head, store
 
 
 def _load_revision_context(
@@ -463,6 +488,8 @@ def _load_revision_context(
     request: WorldGraphProjectionRequest,
 ) -> tuple[str, str, UnionSupergraphStore]:
     world_id = request.world_id
+    head, head_store = _load_head_with_integrity(root, world_id)
+
     if request.revision_pin:
         try:
             world_paths.assert_safe_revision_id(request.revision_pin)
@@ -473,7 +500,6 @@ def _load_revision_context(
                 status_code=422,
                 diagnostics=[_diagnostic("invalid_revision_pin", str(exc))],
             ) from exc
-        head = _load_head_with_integrity(root, world_id)
         revision_id, store = _load_revision_store_with_integrity(
             root,
             world_id,
@@ -483,17 +509,7 @@ def _load_revision_context(
         )
         return revision_id, head.head_revision_id, store
 
-    head = _load_head_with_integrity(root, world_id)
-    revision_id, store = _load_revision_store_with_integrity(
-        root,
-        world_id,
-        head.head_revision_id,
-        not_found_code="world_graph_unavailable",
-        not_found_message=(
-            f"World graph head revision unavailable for world_id={world_id!r}"
-        ),
-    )
-    return revision_id, head.head_revision_id, store
+    return head.head_revision_id, head.head_revision_id, head_store
 
 
 def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSupergraphStore) -> None:
@@ -538,18 +554,6 @@ def _collect_assertion_provenance_from_contributions(
             if candidate.assertion_id != support.assertion_id:
                 continue
             matched_candidate = candidate
-            evidence_ids.update(candidate.evidence_ref_ids)
-            value = dict(candidate.value)
-            nested_evidence_ref_ids = value.get("evidence_ref_ids")
-            if isinstance(nested_evidence_ref_ids, list):
-                evidence_ids.update(str(item) for item in nested_evidence_ref_ids)
-            if candidate.source_artifact_id:
-                artifact_ids.add(candidate.source_artifact_id)
-            for source_artifact in value.get("source_artifacts") or []:
-                if isinstance(source_artifact, dict):
-                    artifact_id = source_artifact.get("source_artifact_id")
-                    if artifact_id is not None:
-                        artifact_ids.add(str(artifact_id))
             break
         if matched_candidate is None:
             raise _integrity_error(
@@ -559,38 +563,34 @@ def _collect_assertion_provenance_from_contributions(
                     f"contribution_id={contribution_id!r}"
                 ),
             )
-        explicit_evidence_ids = set(matched_candidate.evidence_ref_ids)
-        nested_evidence_ref_ids = dict(matched_candidate.value).get("evidence_ref_ids")
-        if isinstance(nested_evidence_ref_ids, list):
-            explicit_evidence_ids.update(str(item) for item in nested_evidence_ref_ids)
-        if not explicit_evidence_ids.issubset(set(support.evidence_ref_ids)):
+        explicit_evidence_ids = set(explicit_assertion_evidence_ref_ids(matched_candidate))
+        recorded_evidence_ids = set(
+            support.per_contribution_evidence_ref_ids.get(contribution_id, [])
+        )
+        if explicit_evidence_ids != recorded_evidence_ids:
             raise _integrity_error(
-                "Contribution evidence was not admitted by selected revision support.",
+                "Contribution evidence lineage does not match revision support record.",
                 detail=(
-                    f"assertion_id={support.assertion_id!r} "
-                    f"unadmitted evidence={sorted(explicit_evidence_ids - set(support.evidence_ref_ids))!r}"
+                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                    f"loaded_evidence={sorted(explicit_evidence_ids)!r} "
+                    f"recorded_evidence={sorted(recorded_evidence_ids)!r}"
                 ),
             )
-        explicit_artifact_ids = {
-            artifact_id
-            for artifact_id in [matched_candidate.source_artifact_id]
-            if artifact_id
-        }
-        value = dict(matched_candidate.value)
-        nested_source_artifact_id = value.get("source_artifact_id")
-        if nested_source_artifact_id:
-            explicit_artifact_ids.add(str(nested_source_artifact_id))
-        for source_artifact in value.get("source_artifacts") or []:
-            if isinstance(source_artifact, dict) and source_artifact.get("source_artifact_id"):
-                explicit_artifact_ids.add(str(source_artifact["source_artifact_id"]))
-        if not explicit_artifact_ids.issubset(set(support.source_artifact_ids)):
+        explicit_artifact_ids = set(explicit_assertion_source_artifact_ids(matched_candidate))
+        recorded_artifact_ids = set(
+            support.per_contribution_source_artifact_ids.get(contribution_id, [])
+        )
+        if explicit_artifact_ids != recorded_artifact_ids:
             raise _integrity_error(
-                "Contribution source artifact was not admitted by selected revision support.",
+                "Contribution source artifact lineage does not match revision support record.",
                 detail=(
-                    f"assertion_id={support.assertion_id!r} "
-                    f"unadmitted artifacts={sorted(explicit_artifact_ids - set(support.source_artifact_ids))!r}"
+                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                    f"loaded_artifacts={sorted(explicit_artifact_ids)!r} "
+                    f"recorded_artifacts={sorted(recorded_artifact_ids)!r}"
                 ),
             )
+        evidence_ids.update(explicit_evidence_ids)
+        artifact_ids.update(explicit_artifact_ids)
         if (
             matched_candidate is not None
             and not _assertion_has_explicit_evidence(matched_candidate)
@@ -1080,11 +1080,19 @@ def _build_relationship_views(
                     representative_assertion,
                     fallback=edge,
                 )
-                if representative_assertion.label:
-                    relationship_label = representative_assertion.label
-                nested_session_ids = assertion_value.get("session_ids")
-                if isinstance(nested_session_ids, list) and nested_session_ids:
-                    relationship_session_ids = [str(item) for item in nested_session_ids]
+                label_override = representative_assertion.label
+                if label_override is None:
+                    nested_label = assertion_value.get("label")
+                    if isinstance(nested_label, str) and nested_label:
+                        label_override = nested_label
+                if label_override is not None:
+                    relationship_label = label_override
+                if "session_ids" in assertion_value:
+                    nested_session_ids = assertion_value.get("session_ids")
+                    if isinstance(nested_session_ids, list):
+                        relationship_session_ids = [
+                            str(item) for item in nested_session_ids
+                        ]
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
@@ -1162,12 +1170,61 @@ def _node_evidence_from_projection_context(
     return sorted(evidence_ids), sorted(artifact_ids)
 
 
+def _active_node_aliases(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    node_id: str,
+    identity_context: UnionProjectionIdentityContext,
+    base_aliases: list[str],
+) -> list[str]:
+    """Reconstruct a node's aliases from every authority that can contribute one.
+
+    Aliases are additive by design (an alias, once valid, does not stop being
+    valid the way a corrected label/kind/role does), but they must still
+    disappear if the assertion that introduced them is retracted. So this
+    unions three distinct sources rather than trusting the materialized
+    ``UnionSupergraphNode.aliases`` field, which accumulates forever and never
+    removes an alias on retraction:
+      * the active node assertion's own declared aliases (``base_aliases``);
+      * active dedicated ``alias``-kind assertions, which do disappear when
+        retracted since they are looked up via active assertion support;
+      * identity-survivor aliases inherited from nodes merged away during
+        identity reconciliation, which is a durable one-time structural fact
+        (not something with its own retractable assertion support record).
+    """
+    aliases = list(dict.fromkeys(base_aliases))
+    alias_supports = [
+        support
+        for support in _active_supports_for_graph_object(store, node_id)
+        if support.assertion_kind == "alias"
+    ]
+    for support in alias_supports:
+        assertion = _resolve_assertion_from_support(root, world_id, store, support)
+        value = dict(assertion.value)
+        alias = assertion.label or str(value.get("alias") or "")
+        if alias and alias not in aliases:
+            aliases.append(alias)
+    for record in identity_context.merge_records_by_survivor.get(node_id, ()):
+        for merged_away_id in record.merged_away_node_ids:
+            merged_node = store.nodes.get(merged_away_id)
+            if merged_node is None:
+                continue
+            if merged_node.label and merged_node.label not in aliases:
+                aliases.append(merged_node.label)
+            for alias in merged_node.aliases:
+                if alias not in aliases:
+                    aliases.append(alias)
+    return aliases
+
+
 def _active_node_semantics(
     root: Path,
     world_id: str,
     store: UnionSupergraphStore,
     node_id: str,
     fallback: UnionSupergraphNode,
+    identity_context: UnionProjectionIdentityContext,
 ) -> tuple[str, str, str, list[str]]:
     node_supports = [
         support
@@ -1175,7 +1232,10 @@ def _active_node_semantics(
         if support.assertion_kind == "node"
     ]
     if not node_supports:
-        return fallback.label, fallback.kind, fallback.role, list(fallback.aliases)
+        aliases = _active_node_aliases(
+            root, world_id, store, node_id, identity_context, list(fallback.aliases)
+        )
+        return fallback.label, fallback.kind, fallback.role, aliases
     assertions = [
         _resolve_assertion_from_support(root, world_id, store, support)
         for support in node_supports
@@ -1190,8 +1250,32 @@ def _active_node_semantics(
     label = representative.label or str(value.get("label") or fallback.label)
     kind = str(value.get("kind") or fallback.kind)
     role = str(value.get("role") or kind)
-    aliases = list(value.get("aliases") or [label])
+    base_aliases = list(value.get("aliases") or [label])
+    aliases = _active_node_aliases(
+        root, world_id, store, node_id, identity_context, base_aliases
+    )
     return label, kind, role, aliases
+
+
+def _endpoint_relative_direction(
+    relationship: WorldGraphProjectionRelationshipView,
+    source_node_id: str,
+) -> str:
+    """Direction of ``relationship`` as seen from ``source_node_id``'s own node card.
+
+    Node-card direction is endpoint-relative, not a copy of the edge's single
+    global ``direction`` value: the same edge must read "outbound" on its
+    source node's card and "inbound" on its target node's card (matching the
+    convention ``rebuild_adjacency`` already establishes for
+    ``store.adjacency``). A correction that swaps an edge's source/target
+    changes which endpoint gets which label, so this is derived from the
+    (possibly corrected) relationship endpoints rather than cached.
+    """
+    if relationship.source_node_id == source_node_id:
+        return "outbound"
+    if relationship.target_node_id == source_node_id:
+        return "inbound"
+    return relationship.direction or ""
 
 
 def _normalized_adjacency_candidate(
@@ -1218,7 +1302,7 @@ def _normalized_adjacency_candidate(
         label=related_label,
         kind=related_kind,
         predicate=relationship.predicate,
-        direction=relationship.direction or "",
+        direction=_endpoint_relative_direction(relationship, source_node_id),
         anchored_to_focus_session=any(
             store.evidence[evidence_ref_id].session_id == focus_session_id
             for evidence_ref_id in relationship.evidence_ref_ids
@@ -1251,7 +1335,9 @@ def _build_node_views(
         if evidence.session_id == focus_session_id
     }
     node_metadata = {
-        node_id: _active_node_semantics(root, world_id, store, node_id, node)
+        node_id: _active_node_semantics(
+            root, world_id, store, node_id, node, identity_context
+        )
         for node_id, node in store.nodes.items()
         if not _is_unsupported_graph_object(node)
     }
@@ -1268,54 +1354,90 @@ def _build_node_views(
             focus_session_id=focus_session_id,
             identity_context=identity_context,
         )
-        raw_adjacency_by_edge_id = {
-            candidate.edge_id: candidate for candidate in view.adjacency
+        relationships_by_edge_id = {
+            relationship.edge_id: relationship
+            for relationship in relationships
+            if node_id in {relationship.source_node_id, relationship.target_node_id}
         }
-        filtered_adjacency: list[GraphProjectionAdjacencyCandidate] = []
-        for relationship in relationships:
-            if node_id not in {
-                relationship.source_node_id,
-                relationship.target_node_id,
-            }:
-                continue
+
+        def _normalize(
+            candidate: GraphProjectionAdjacencyCandidate,
+        ) -> GraphProjectionAdjacencyCandidate:
+            return _normalized_adjacency_candidate(
+                candidate,
+                relationships_by_edge_id[candidate.edge_id],
+                store=store,
+                source_node_id=node_id,
+                node_metadata=node_metadata,
+                focus_session_id=focus_session_id,
+            )
+
+        def _synthesize(edge_id: str) -> GraphProjectionAdjacencyCandidate:
+            relationship = relationships_by_edge_id[edge_id]
             related_node_id = (
                 relationship.target_node_id
                 if relationship.source_node_id == node_id
                 else relationship.source_node_id
             )
-            candidate = raw_adjacency_by_edge_id.get(relationship.edge_id)
-            if candidate is None:
-                candidate = GraphProjectionAdjacencyCandidate(
-                    edge_id=relationship.edge_id,
-                    node_id=related_node_id,
-                    label=node_metadata.get(
-                        related_node_id, (related_node_id, "unknown", "", [])
-                    )[0],
-                    kind=node_metadata.get(
-                        related_node_id, ("", "unknown", "", [])
-                    )[1],
-                    predicate=relationship.predicate,
-                    direction=relationship.direction or "",
-                )
-            filtered_adjacency.append(
-                _normalized_adjacency_candidate(
-                    candidate,
-                    relationship,
-                    store=store,
-                    source_node_id=node_id,
-                    node_metadata=node_metadata,
-                    focus_session_id=focus_session_id,
+            placeholder = GraphProjectionAdjacencyCandidate(
+                edge_id=edge_id,
+                node_id=related_node_id,
+                label=node_metadata.get(
+                    related_node_id, (related_node_id, "unknown", "", [])
+                )[0],
+                kind=node_metadata.get(related_node_id, ("", "unknown", "", []))[1],
+                predicate=relationship.predicate,
+                direction="",
+            )
+            return _normalize(placeholder)
+
+        # Preserve the original view's ordering (and, for suggested_expansions,
+        # its established focus-first rank/rank_reason) rather than
+        # regenerating from scratch — only normalize the correction-sensitive
+        # fields (direction, evidence, labels) on each still-active entry, and
+        # append genuinely new relationships absent from the source node view.
+        filtered_adjacency: list[GraphProjectionAdjacencyCandidate] = []
+        seen_adjacency_edge_ids: set[str] = set()
+        for candidate in view.adjacency:
+            if candidate.edge_id not in relationships_by_edge_id:
+                continue
+            filtered_adjacency.append(_normalize(candidate))
+            seen_adjacency_edge_ids.add(candidate.edge_id)
+        for edge_id in relationships_by_edge_id:
+            if edge_id in seen_adjacency_edge_ids:
+                continue
+            filtered_adjacency.append(_synthesize(edge_id))
+            seen_adjacency_edge_ids.add(edge_id)
+
+        filtered_expansions: list[GraphProjectionSuggestedExpansion] = []
+        seen_expansion_edge_ids: set[str] = set()
+        for expansion in view.suggested_expansions:
+            if expansion.edge_id not in relationships_by_edge_id:
+                continue
+            normalized = _normalize(expansion)
+            filtered_expansions.append(
+                GraphProjectionSuggestedExpansion(
+                    **normalized.model_dump(),
+                    rank=expansion.rank,
+                    rank_reason=expansion.rank_reason,
                 )
             )
-        filtered_adjacency.sort(key=lambda candidate: (candidate.label.casefold(), candidate.edge_id))
-        filtered_expansions = [
-            GraphProjectionSuggestedExpansion(
-                **candidate.model_dump(),
-                rank=rank,
-                rank_reason="active relationship",
+            seen_expansion_edge_ids.add(expansion.edge_id)
+        next_rank = max((expansion.rank for expansion in filtered_expansions), default=0) + 1
+        adjacency_by_edge_id = {
+            candidate.edge_id: candidate for candidate in filtered_adjacency
+        }
+        for edge_id in relationships_by_edge_id:
+            if edge_id in seen_expansion_edge_ids:
+                continue
+            filtered_expansions.append(
+                GraphProjectionSuggestedExpansion(
+                    **adjacency_by_edge_id[edge_id].model_dump(),
+                    rank=next_rank,
+                    rank_reason="active relationship",
+                )
             )
-            for rank, candidate in enumerate(filtered_adjacency, start=1)
-        ]
+            next_rank += 1
         evidence_ref_ids, source_artifact_ids = _node_evidence_from_projection_context(
             root,
             world_id,
