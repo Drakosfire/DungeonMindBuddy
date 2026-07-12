@@ -98,6 +98,10 @@ def _revision_manifest_path(root: Path, revision_id: str) -> Path:
     )
 
 
+def _head_path(root: Path) -> Path:
+    return root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
+
+
 def _attestation() -> WorldInitializationApprovalAttestation:
     return WorldInitializationApprovalAttestation(
         bundle_id=BUNDLE_ID,
@@ -514,7 +518,12 @@ def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
         if str(value.get("edge_id") or "") != edge_id:
             continue
         assertion.label = "replacement appeared label"
-        assertion.value = {**value, "session_ids": ["session-99"]}
+        assertion.visibility = "gm_only"
+        assertion.value = {
+            **value,
+            "direction": "inbound",
+            "session_ids": ["session-99"],
+        }
 
     replacement_contribution = kernel.create_graph_contribution(
         world_id=WORLD_ID,
@@ -538,6 +547,8 @@ def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
     )
     assert head_relationship.label == "replacement appeared label"
     assert head_relationship.session_ids == ["session-99"]
+    assert head_relationship.direction == "inbound"
+    assert head_relationship.visibility == "gm_only"
 
     pinned_projection = kernel.project_world_graph(
         tmp_path,
@@ -548,6 +559,62 @@ def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
     )
     assert pinned_relationship.label == "appeared in"
     assert pinned_relationship.session_ids != ["session-99"]
+    assert pinned_relationship.direction != "inbound"
+    assert pinned_relationship.visibility != "gm_only"
+
+
+def test_superseded_node_contribution_shows_replacement_semantics_on_head(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    replacement_assertions = _assertions_from_contribution_json(original_payload)
+    for assertion in replacement_assertions:
+        if assertion.assertion_kind != "node" or assertion.subject_node_id != TRIPOD_ID:
+            continue
+        value = dict(assertion.value)
+        assertion.label = "Replacement Tripod"
+        assertion.value = {
+            **value,
+            "label": "Replacement Tripod",
+            "role": "replacement controller",
+        }
+
+    replacement_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="supersede-node-1",
+        accepted_assertions=replacement_assertions,
+        supersedes_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    superseded = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=replacement_contribution,
+        superseded_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    assert superseded.published is True
+
+    head_node = next(
+        node
+        for node in kernel.project_world_graph(tmp_path, _request()).nodes
+        if node.node_id == TRIPOD_ID
+    )
+    assert head_node.label == "Replacement Tripod"
+    assert head_node.role == "replacement controller"
+
+    pinned_node = next(
+        node
+        for node in kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin=result.current_head_revision_id),
+        ).nodes
+        if node.node_id == TRIPOD_ID
+    )
+    assert pinned_node.label != "Replacement Tripod"
+    assert pinned_node.role != "replacement controller"
 
 
 def test_malformed_stored_json_at_pinned_revision_fails_integrity(
@@ -623,6 +690,46 @@ def test_malformed_head_revision_fails_integrity_without_pin(
     assert exc_info.value.code == "projection_integrity_error"
 
 
+def test_malformed_head_file_fails_integrity_without_pin(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    _head_path(tmp_path).write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request())
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_mutated_active_contribution_fails_head_and_historical_projection(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    contribution_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / "contribution__022187fdefdf4557.json"
+    )
+    contribution = json.loads(contribution_path.read_text(encoding="utf-8"))
+    battlefield = next(
+        item
+        for item in contribution["accepted_assertions"]
+        if item["predicate"] == "battlefield_role"
+    )
+    battlefield["value"]["text"] = "tampered mutable contribution text"
+    contribution_path.write_text(json.dumps(contribution, indent=2), encoding="utf-8")
+
+    for request in (_request(), _request(revision_pin=result.current_head_revision_id)):
+        with pytest.raises(WorldGraphProjectionError) as exc_info:
+            kernel.project_world_graph(tmp_path, request)
+        assert exc_info.value.code == "projection_integrity_error"
+
+
 def test_multi_source_active_contributions_project_when_semantically_aligned(
     tmp_path: Path,
     loaded_bundle,
@@ -653,6 +760,7 @@ def test_multi_source_active_contributions_project_when_semantically_aligned(
         if item["assertion_id"] == assertion.assertion_id
     )
     duplicate_aligned = deepcopy(duplicate_assertion)
+    duplicate_aligned["contribution_id"] = DUP_ALIGNED_CONTRIBUTION_ID
     duplicate_aligned["evidence_ref_ids"] = ["evidence:bundle:v1:statblock:tripod-challenge"]
     duplicate_aligned["source_artifact_id"] = RECAP_SOURCE_ARTIFACT_ID
     duplicate_aligned["value"] = {
@@ -687,6 +795,18 @@ def test_multi_source_active_contributions_project_when_semantically_aligned(
         {
             *support["active_contribution_ids"],
             DUP_ALIGNED_CONTRIBUTION_ID,
+        }
+    )
+    support["source_artifact_ids"] = sorted(
+        {
+            *support.get("source_artifact_ids", []),
+            RECAP_SOURCE_ARTIFACT_ID,
+        }
+    )
+    support["evidence_ref_ids"] = sorted(
+        {
+            *support.get("evidence_ref_ids", []),
+            "evidence:bundle:v1:statblock:tripod-challenge",
         }
     )
     store.assertion_support[assertion.assertion_id] = support
@@ -816,6 +936,101 @@ def test_multi_source_semantic_divergence_fails_integrity(
     assert exc_info.value.code == "projection_integrity_error"
 
 
+def test_retracted_edge_supporter_keeps_node_cards_aligned_with_relationship(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    original_assertion = next(
+        assertion
+        for assertion in _assertions_from_contribution_json(original_payload)
+        if assertion.assertion_kind == "edge"
+        and str(assertion.value.get("edge_id") or "") == edge_id
+    )
+    duplicate_evidence = "evidence:test:duplicate-edge-support"
+    duplicate_artifact = "graph-native:test:duplicate-edge-support"
+    duplicate_assertion = original_assertion.model_copy(
+        update={
+            "contribution_id": DUP_ALIGNED_CONTRIBUTION_ID,
+            "evidence_ref_ids": [duplicate_evidence],
+            "source_artifact_id": duplicate_artifact,
+            "value": {
+                **dict(original_assertion.value),
+                "source_domain": "manual_seed",
+                "source_domains": ["manual_seed"],
+                "source_artifact_id": duplicate_artifact,
+                "source_artifacts": [
+                    {
+                        "source_artifact_id": duplicate_artifact,
+                        "source_domain": "manual_seed",
+                        "campaign_id": CAMPAIGN_ID,
+                        "uri": "graph-data://test/duplicate-edge-support",
+                    }
+                ],
+                "evidence_ref_ids": [duplicate_evidence],
+                "evidence": [
+                    {
+                        "evidence_ref_id": duplicate_evidence,
+                        "source_artifact_id": duplicate_artifact,
+                        "source_domain": "manual_seed",
+                        "locator": "test://duplicate-edge-support",
+                    }
+                ],
+            },
+        }
+    )
+    duplicate_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=duplicate_artifact,
+        source_revision_id="duplicate-edge-support-1",
+        accepted_assertions=[duplicate_assertion],
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=duplicate_contribution,
+    )
+    assert merged.published is True
+    pinned_revision_id = merged.revision_id
+
+    retracted = kernel.retract_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution_id=duplicate_contribution.contribution_id,
+        reason="duplicate edge provenance withdrawn",
+    )
+    assert retracted.published is True
+    head_projection = kernel.project_world_graph(tmp_path, _request())
+    relationship = next(item for item in head_projection.relationships if item.edge_id == edge_id)
+    assert duplicate_evidence not in relationship.evidence_ref_ids
+
+    for node_id in (relationship.source_node_id, relationship.target_node_id):
+        node = next(item for item in head_projection.nodes if item.node_id == node_id)
+        adjacency = next(item for item in node.adjacency if item.edge_id == edge_id)
+        assert adjacency.evidence_ref_ids == relationship.evidence_ref_ids
+        assert adjacency.source_domains == relationship.source_domains
+        assert adjacency.edge_label == relationship.label
+        assert adjacency.session_ids == relationship.session_ids
+        assert adjacency.source_excerpt is None
+        assert adjacency.source_excerpt_highlight_spans == []
+
+    pinned_relationship = next(
+        item
+        for item in kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin=pinned_revision_id),
+        ).relationships
+        if item.edge_id == edge_id
+    )
+    assert duplicate_evidence in pinned_relationship.evidence_ref_ids
+
+
 def test_unsupported_edge_omitted_from_relationships_and_node_adjacency(
     tmp_path: Path,
     loaded_bundle,
@@ -897,6 +1112,7 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
         if item["assertion_id"] == assertion.assertion_id
     )
     duplicate_aligned = deepcopy(duplicate_assertion)
+    duplicate_aligned["contribution_id"] = DUP_ALIGNED_CONTRIBUTION_ID
     duplicate_aligned["evidence_ref_ids"] = [duplicate_evidence]
     duplicate_aligned["source_artifact_id"] = DUP_SOURCE_ARTIFACT_ID
     duplicate_aligned["value"] = {
@@ -938,6 +1154,12 @@ def test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head(
             *support.get("evidence_ref_ids", []),
             original_evidence,
             duplicate_evidence,
+        }
+    )
+    support["source_artifact_ids"] = sorted(
+        {
+            *support.get("source_artifact_ids", []),
+            DUP_SOURCE_ARTIFACT_ID,
         }
     )
     store.assertion_support[assertion.assertion_id] = support

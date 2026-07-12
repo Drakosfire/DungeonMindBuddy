@@ -9,8 +9,11 @@ from typing import Any
 from pydantic import ValidationError
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
-from graph_memory.kernel.contribution_models import GraphContributionAssertion
-from graph_memory.kernel.contributions import semantic_assertion_value
+from graph_memory.kernel.contribution_models import (
+    GraphContribution,
+    GraphContributionAssertion,
+)
+from graph_memory.kernel.contributions import compute_assertion_id, semantic_assertion_value
 from graph_memory.kernel.world_graph import (
     WorldGraphIntegrityError,
     WorldGraphNotFoundError,
@@ -63,7 +66,7 @@ from graph_memory.union_supergraph.projection_identity import (
 )
 from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.contribution_store import load_contribution_record
-from graph_memory.world_supergraph.model import WorldGraphRevision
+from graph_memory.world_supergraph.model import WorldGraphHead, WorldGraphRevision
 from graph_memory.world_supergraph.storage import (
     canonicalize_graph_payload,
     compute_revision_id,
@@ -347,6 +350,114 @@ def _assertion_semantic_fingerprint(assertion: GraphContributionAssertion) -> tu
     )
 
 
+def _validate_assertion_identity(
+    assertion: GraphContributionAssertion,
+    *,
+    contribution_id: str,
+    context: str,
+) -> None:
+    if assertion.contribution_id != contribution_id:
+        raise _integrity_error(
+            "Contribution assertion does not belong to its containing contribution.",
+            detail=(
+                f"{context} assertion contribution_id={assertion.contribution_id!r} "
+                f"expected={contribution_id!r}"
+            ),
+        )
+    computed_assertion_id = compute_assertion_id(
+        assertion_kind=assertion.assertion_kind,
+        subject_node_id=assertion.subject_node_id,
+        target_node_id=assertion.target_node_id,
+        predicate=assertion.predicate,
+        label=assertion.label,
+        value=assertion.value,
+        campaign_scope=assertion.campaign_scope,
+        temporal_scope=assertion.temporal_scope,
+        epistemic_kind=assertion.epistemic_kind,
+        visibility=assertion.visibility,
+    )
+    if assertion.assertion_id != computed_assertion_id:
+        raise _integrity_error(
+            "Contribution assertion id does not match its semantic content.",
+            detail=(
+                f"{context} assertion_id={assertion.assertion_id!r} "
+                f"computed={computed_assertion_id!r}"
+            ),
+        )
+
+
+def _load_validated_contribution(
+    root: Path,
+    world_id: str,
+    contribution_id: str,
+) -> GraphContribution:
+    try:
+        contribution = load_contribution_record(root, world_id, contribution_id)
+    except (FileNotFoundError, OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
+        raise _integrity_error(
+            f"Contribution record {contribution_id!r} could not be loaded.",
+            detail=f"contribution load failed for {contribution_id!r}: {exc}",
+        ) from exc
+    if contribution.contribution_id != contribution_id:
+        raise _integrity_error(
+            "Contribution record id does not match the revision support reference.",
+            detail=(
+                f"loaded contribution_id={contribution.contribution_id!r} "
+                f"expected={contribution_id!r}"
+            ),
+        )
+    if contribution.world_id != world_id:
+        raise _integrity_error(
+            "Contribution record world_id does not match the selected world.",
+            detail=(
+                f"loaded world_id={contribution.world_id!r} "
+                f"expected={world_id!r}"
+            ),
+        )
+    for collection_name in (
+        "candidate_assertions",
+        "accepted_assertions",
+        "rejected_assertions",
+    ):
+        for assertion in getattr(contribution, collection_name):
+            _validate_assertion_identity(
+                assertion,
+                contribution_id=contribution_id,
+                context=collection_name,
+            )
+    return contribution
+
+
+def _load_head_with_integrity(root: Path, world_id: str) -> WorldGraphHead:
+    try:
+        head = open_world_graph_head(root, world_id)
+    except WorldGraphNotFoundError as exc:
+        raise WorldGraphProjectionError(
+            f"World graph unavailable for world_id={world_id!r}",
+            code="world_graph_unavailable",
+            status_code=404,
+            diagnostics=[_diagnostic("world_graph_unavailable", str(exc))],
+        ) from exc
+    except (ValidationError, json.JSONDecodeError, TypeError, ValueError, OSError) as exc:
+        raise _integrity_error(
+            "World graph head is malformed.",
+            detail=f"head validation failed: {exc}",
+        ) from exc
+    if head.world_id != world_id:
+        raise _integrity_error(
+            "World graph head world_id does not match requested world.",
+            detail=f"head world_id={head.world_id!r} requested={world_id!r}",
+        )
+    try:
+        world_paths.assert_safe_revision_id(head.head_revision_id)
+    except ValueError as exc:
+        raise _integrity_error(
+            "World graph head references an unsafe revision id.",
+            detail=f"head revision id validation failed: {exc}",
+        ) from exc
+    return head
+
+
 def _load_revision_context(
     root: Path,
     request: WorldGraphProjectionRequest,
@@ -362,15 +473,7 @@ def _load_revision_context(
                 status_code=422,
                 diagnostics=[_diagnostic("invalid_revision_pin", str(exc))],
             ) from exc
-        try:
-            head = open_world_graph_head(root, world_id)
-        except WorldGraphNotFoundError as exc:
-            raise WorldGraphProjectionError(
-                f"World graph unavailable for world_id={world_id!r}",
-                code="world_graph_unavailable",
-                status_code=404,
-                diagnostics=[_diagnostic("world_graph_unavailable", str(exc))],
-            ) from exc
+        head = _load_head_with_integrity(root, world_id)
         revision_id, store = _load_revision_store_with_integrity(
             root,
             world_id,
@@ -380,15 +483,7 @@ def _load_revision_context(
         )
         return revision_id, head.head_revision_id, store
 
-    try:
-        head = open_world_graph_head(root, world_id)
-    except WorldGraphNotFoundError as exc:
-        raise WorldGraphProjectionError(
-            f"World graph unavailable for world_id={world_id!r}",
-            code="world_graph_unavailable",
-            status_code=404,
-            diagnostics=[_diagnostic("world_graph_unavailable", str(exc))],
-        ) from exc
+    head = _load_head_with_integrity(root, world_id)
     revision_id, store = _load_revision_store_with_integrity(
         root,
         world_id,
@@ -437,20 +532,7 @@ def _collect_assertion_provenance_from_contributions(
         else _materialized_evidence_ref_ids(store, resolved_graph_object_id)
     )
     for contribution_id in support.active_contribution_ids:
-        try:
-            contribution = load_contribution_record(root, world_id, contribution_id)
-        except (FileNotFoundError, OSError, ValueError) as exc:
-            raise WorldGraphProjectionError(
-                f"Missing contribution record {contribution_id!r}",
-                code="projection_integrity_error",
-                status_code=409,
-                diagnostics=[
-                    _diagnostic(
-                        "missing_contribution",
-                        f"Contribution {contribution_id!r} could not be loaded: {exc}",
-                    )
-                ],
-            ) from exc
+        contribution = _load_validated_contribution(root, world_id, contribution_id)
         matched_candidate: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
             if candidate.assertion_id != support.assertion_id:
@@ -469,6 +551,46 @@ def _collect_assertion_provenance_from_contributions(
                     if artifact_id is not None:
                         artifact_ids.add(str(artifact_id))
             break
+        if matched_candidate is None:
+            raise _integrity_error(
+                "Active contribution does not contain the supported assertion.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"contribution_id={contribution_id!r}"
+                ),
+            )
+        explicit_evidence_ids = set(matched_candidate.evidence_ref_ids)
+        nested_evidence_ref_ids = dict(matched_candidate.value).get("evidence_ref_ids")
+        if isinstance(nested_evidence_ref_ids, list):
+            explicit_evidence_ids.update(str(item) for item in nested_evidence_ref_ids)
+        if not explicit_evidence_ids.issubset(set(support.evidence_ref_ids)):
+            raise _integrity_error(
+                "Contribution evidence was not admitted by selected revision support.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"unadmitted evidence={sorted(explicit_evidence_ids - set(support.evidence_ref_ids))!r}"
+                ),
+            )
+        explicit_artifact_ids = {
+            artifact_id
+            for artifact_id in [matched_candidate.source_artifact_id]
+            if artifact_id
+        }
+        value = dict(matched_candidate.value)
+        nested_source_artifact_id = value.get("source_artifact_id")
+        if nested_source_artifact_id:
+            explicit_artifact_ids.add(str(nested_source_artifact_id))
+        for source_artifact in value.get("source_artifacts") or []:
+            if isinstance(source_artifact, dict) and source_artifact.get("source_artifact_id"):
+                explicit_artifact_ids.add(str(source_artifact["source_artifact_id"]))
+        if not explicit_artifact_ids.issubset(set(support.source_artifact_ids)):
+            raise _integrity_error(
+                "Contribution source artifact was not admitted by selected revision support.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"unadmitted artifacts={sorted(explicit_artifact_ids - set(support.source_artifact_ids))!r}"
+                ),
+            )
         if (
             matched_candidate is not None
             and not _assertion_has_explicit_evidence(matched_candidate)
@@ -525,20 +647,7 @@ def _resolve_assertion_from_support(
     fingerprints: dict[str, tuple[Any, ...]] = {}
 
     for contribution_id in support.active_contribution_ids:
-        try:
-            contribution = load_contribution_record(root, world_id, contribution_id)
-        except (FileNotFoundError, OSError, ValueError) as exc:
-            raise WorldGraphProjectionError(
-                f"Missing contribution record {contribution_id!r}",
-                code="projection_integrity_error",
-                status_code=409,
-                diagnostics=[
-                    _diagnostic(
-                        "missing_contribution",
-                        f"Contribution {contribution_id!r} could not be loaded: {exc}",
-                    )
-                ],
-            ) from exc
+        contribution = _load_validated_contribution(root, world_id, contribution_id)
 
         matched: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
@@ -546,20 +655,18 @@ def _resolve_assertion_from_support(
                 matched = candidate
                 break
         if matched is None:
-            raise WorldGraphProjectionError(
-                f"Assertion {support.assertion_id!r} not found in contribution {contribution_id!r}.",
-                code="projection_integrity_error",
-                status_code=409,
-                diagnostics=[
-                    _diagnostic(
-                        "missing_assertion",
-                        (
-                            f"Assertion {support.assertion_id!r} missing from "
-                            f"contribution {contribution_id!r}."
-                        ),
-                    )
-                ],
+            raise _integrity_error(
+                f"Assertion {support.assertion_id!r} not found in active contribution.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"contribution_id={contribution_id!r}"
+                ),
             )
+        _validate_assertion_identity(
+            matched,
+            contribution_id=contribution_id,
+            context="matched accepted assertion",
+        )
         assertions_by_contribution[contribution_id] = matched
         fingerprints[contribution_id] = _assertion_semantic_fingerprint(matched)
 
@@ -671,8 +778,10 @@ def _aggregate_active_edge_support(
     active_contribution_ids: set[str] = set()
     materialized_refs = list(edge.evidence_ref_ids)
     representative_assertion: GraphContributionAssertion | None = None
+    active_assertions: list[GraphContributionAssertion] = []
     for support in active_supports:
         assertion = _resolve_assertion_from_support(root, world_id, store, support)
+        active_assertions.append(assertion)
         if representative_assertion is None:
             representative_assertion = assertion
         active_contribution_ids.update(support.active_contribution_ids)
@@ -686,6 +795,11 @@ def _aggregate_active_edge_support(
         )
         evidence_ids.update(support_evidence)
         artifact_ids.update(support_artifacts)
+    _assert_active_object_assertions_agree(
+        active_assertions,
+        object_kind="edge",
+        graph_object_id=edge_id,
+    )
     return (
         sorted(active_contribution_ids),
         sorted(evidence_ids),
@@ -756,6 +870,11 @@ def _convert_suggested_expansion(
 def _convert_node_view(
     view: GraphProjectionNodeView,
     *,
+    label: str | None = None,
+    kind: str | None = None,
+    role: str | None = None,
+    aliases: list[str] | None = None,
+    source_domains: list[str] | None = None,
     evidence_ref_ids: list[str],
     source_artifact_ids: list[str],
     adjacency: list[GraphProjectionAdjacencyCandidate] | None = None,
@@ -765,11 +884,13 @@ def _convert_node_view(
 ) -> WorldGraphProjectionNodeView:
     return WorldGraphProjectionNodeView(
         node_id=view.node_id,
-        label=view.label,
-        kind=view.kind,
-        role=view.role,
-        aliases=list(view.aliases),
-        source_domains=list(view.source_domains),
+        label=label if label is not None else view.label,
+        kind=kind if kind is not None else view.kind,
+        role=role if role is not None else view.role,
+        aliases=list(aliases if aliases is not None else view.aliases),
+        source_domains=list(
+            source_domains if source_domains is not None else view.source_domains
+        ),
         summary=view.summary,
         anchored_to_focus_session=(
             view.anchored_to_focus_session
@@ -807,6 +928,58 @@ def _source_artifact_ids_for_evidence(
         if evidence_ref_id in store.evidence
     }
     return sorted(artifact_ids)
+
+
+def _source_domains_from_active_provenance(
+    store: UnionSupergraphStore,
+    evidence_ref_ids: list[str],
+    source_artifact_ids: list[str],
+) -> list[str]:
+    domains = {
+        str(store.evidence[evidence_ref_id].source_domain)
+        for evidence_ref_id in evidence_ref_ids
+        if evidence_ref_id in store.evidence
+    }
+    domains.update(
+        str(store.source_artifacts[source_artifact_id].source_domain)
+        for source_artifact_id in source_artifact_ids
+        if source_artifact_id in store.source_artifacts
+    )
+    return sorted(domains)
+
+
+def _edge_semantics_from_assertion(
+    assertion: GraphContributionAssertion,
+    *,
+    fallback: UnionSupergraphEdge,
+) -> tuple[str, str, str, str, str | None, str | None, str | None]:
+    value = dict(assertion.value)
+    return (
+        assertion.subject_node_id or str(value.get("source_node_id") or fallback.source_node_id),
+        assertion.target_node_id or str(value.get("target_node_id") or fallback.target_node_id),
+        assertion.predicate or str(value.get("predicate") or fallback.predicate),
+        str(value.get("direction") or fallback.direction or "outbound"),
+        assertion.visibility,
+        assertion.campaign_scope,
+        assertion.epistemic_kind,
+    )
+
+
+def _assert_active_object_assertions_agree(
+    assertions: list[GraphContributionAssertion],
+    *,
+    object_kind: str,
+    graph_object_id: str,
+) -> None:
+    fingerprints = {_assertion_semantic_fingerprint(assertion) for assertion in assertions}
+    if len(fingerprints) > 1:
+        raise _integrity_error(
+            f"Active {object_kind} assertions disagree on semantic fields.",
+            detail=(
+                f"graph_object_id={graph_object_id!r} "
+                f"active_assertion_ids={sorted(assertion.assertion_id for assertion in assertions)!r}"
+            ),
+        )
 
 
 def _build_attribute_views(
@@ -872,6 +1045,13 @@ def _build_relationship_views(
         source_artifact_ids: list[str] = []
         relationship_label = edge.label
         relationship_session_ids = list(edge.session_ids)
+        source_node_id = edge.source_node_id
+        target_node_id = edge.target_node_id
+        predicate = edge.predicate
+        direction = edge.direction
+        visibility = _edge_state_field(edge.state or {}, "visibility")
+        campaign_scope = _edge_state_field(edge.state or {}, "campaign_scope")
+        epistemic_kind = _edge_state_field(edge.state or {}, "epistemic_kind")
         if active_supports:
             (
                 active_contribution_ids,
@@ -888,6 +1068,18 @@ def _build_relationship_views(
             )
             if representative_assertion is not None:
                 assertion_value = dict(representative_assertion.value)
+                (
+                    source_node_id,
+                    target_node_id,
+                    predicate,
+                    direction,
+                    visibility,
+                    campaign_scope,
+                    epistemic_kind,
+                ) = _edge_semantics_from_assertion(
+                    representative_assertion,
+                    fallback=edge,
+                )
                 if representative_assertion.label:
                     relationship_label = representative_assertion.label
                 nested_session_ids = assertion_value.get("session_ids")
@@ -896,19 +1088,24 @@ def _build_relationship_views(
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
-        edge_state = edge.state or {}
+        source_domains = _source_domains_from_active_provenance(
+            store,
+            evidence_ref_ids,
+            source_artifact_ids,
+        )
         relationships.append(
             WorldGraphProjectionRelationshipView(
                 edge_id=edge.edge_id,
-                source_node_id=edge.source_node_id,
-                target_node_id=edge.target_node_id,
-                predicate=edge.predicate,
+                source_node_id=source_node_id,
+                target_node_id=target_node_id,
+                predicate=predicate,
                 label=relationship_label,
-                direction=edge.direction,
+                direction=direction,
                 session_ids=relationship_session_ids,
-                visibility=_edge_state_field(edge_state, "visibility"),
-                campaign_scope=_edge_state_field(edge_state, "campaign_scope"),
-                epistemic_kind=_edge_state_field(edge_state, "epistemic_kind"),
+                source_domains=source_domains,
+                visibility=visibility,
+                campaign_scope=campaign_scope,
+                epistemic_kind=epistemic_kind,
                 evidence_ref_ids=evidence_ref_ids,
                 source_artifact_ids=source_artifact_ids,
                 active_contribution_ids=active_contribution_ids,
@@ -965,12 +1162,84 @@ def _node_evidence_from_projection_context(
     return sorted(evidence_ids), sorted(artifact_ids)
 
 
+def _active_node_semantics(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    node_id: str,
+    fallback: UnionSupergraphNode,
+) -> tuple[str, str, str, list[str]]:
+    node_supports = [
+        support
+        for support in _active_supports_for_graph_object(store, node_id)
+        if support.assertion_kind == "node"
+    ]
+    if not node_supports:
+        return fallback.label, fallback.kind, fallback.role, list(fallback.aliases)
+    assertions = [
+        _resolve_assertion_from_support(root, world_id, store, support)
+        for support in node_supports
+    ]
+    _assert_active_object_assertions_agree(
+        assertions,
+        object_kind="node",
+        graph_object_id=node_id,
+    )
+    representative = min(assertions, key=lambda assertion: assertion.assertion_id)
+    value = dict(representative.value)
+    label = representative.label or str(value.get("label") or fallback.label)
+    kind = str(value.get("kind") or fallback.kind)
+    role = str(value.get("role") or kind)
+    aliases = list(value.get("aliases") or [label])
+    return label, kind, role, aliases
+
+
+def _normalized_adjacency_candidate(
+    candidate: GraphProjectionAdjacencyCandidate,
+    relationship: WorldGraphProjectionRelationshipView,
+    *,
+    store: UnionSupergraphStore,
+    source_node_id: str,
+    node_metadata: dict[str, tuple[str, str, str, list[str]]],
+    focus_session_id: str | None,
+) -> GraphProjectionAdjacencyCandidate:
+    related_node_id = (
+        relationship.target_node_id
+        if relationship.source_node_id == source_node_id
+        else relationship.source_node_id
+    )
+    related_label, related_kind, _related_role, _related_aliases = node_metadata.get(
+        related_node_id,
+        (candidate.label, candidate.kind, "", []),
+    )
+    return GraphProjectionAdjacencyCandidate(
+        edge_id=relationship.edge_id,
+        node_id=related_node_id,
+        label=related_label,
+        kind=related_kind,
+        predicate=relationship.predicate,
+        direction=relationship.direction or "",
+        anchored_to_focus_session=any(
+            store.evidence[evidence_ref_id].session_id == focus_session_id
+            for evidence_ref_id in relationship.evidence_ref_ids
+            if evidence_ref_id in store.evidence
+        ),
+        source_domains=list(relationship.source_domains),
+        evidence_ref_ids=list(relationship.evidence_ref_ids),
+        edge_label=relationship.label,
+        session_ids=list(relationship.session_ids),
+        related_summary=candidate.related_summary,
+        source_excerpt=None,
+        source_excerpt_is_full_paragraph=False,
+        source_excerpt_highlight_spans=[],
+    )
+
+
 def _build_node_views(
     root: Path,
     world_id: str,
     store: UnionSupergraphStore,
     focus: WorldGraphProjectionFocus,
-    projected_edge_ids: set[str],
     attributes: list[WorldGraphProjectionAttributeView],
     relationships: list[WorldGraphProjectionRelationshipView],
 ) -> list[WorldGraphProjectionNodeView]:
@@ -980,6 +1249,11 @@ def _build_node_views(
         evidence_ref_id
         for evidence_ref_id, evidence in store.evidence.items()
         if evidence.session_id == focus_session_id
+    }
+    node_metadata = {
+        node_id: _active_node_semantics(root, world_id, store, node_id, node)
+        for node_id, node in store.nodes.items()
+        if not _is_unsupported_graph_object(node)
     }
     nodes: list[WorldGraphProjectionNodeView] = []
     for node_id in sorted(projectable_node_ids(store, identity_context)):
@@ -994,13 +1268,53 @@ def _build_node_views(
             focus_session_id=focus_session_id,
             identity_context=identity_context,
         )
-        filtered_adjacency = [
-            candidate for candidate in view.adjacency if candidate.edge_id in projected_edge_ids
-        ]
+        raw_adjacency_by_edge_id = {
+            candidate.edge_id: candidate for candidate in view.adjacency
+        }
+        filtered_adjacency: list[GraphProjectionAdjacencyCandidate] = []
+        for relationship in relationships:
+            if node_id not in {
+                relationship.source_node_id,
+                relationship.target_node_id,
+            }:
+                continue
+            related_node_id = (
+                relationship.target_node_id
+                if relationship.source_node_id == node_id
+                else relationship.source_node_id
+            )
+            candidate = raw_adjacency_by_edge_id.get(relationship.edge_id)
+            if candidate is None:
+                candidate = GraphProjectionAdjacencyCandidate(
+                    edge_id=relationship.edge_id,
+                    node_id=related_node_id,
+                    label=node_metadata.get(
+                        related_node_id, (related_node_id, "unknown", "", [])
+                    )[0],
+                    kind=node_metadata.get(
+                        related_node_id, ("", "unknown", "", [])
+                    )[1],
+                    predicate=relationship.predicate,
+                    direction=relationship.direction or "",
+                )
+            filtered_adjacency.append(
+                _normalized_adjacency_candidate(
+                    candidate,
+                    relationship,
+                    store=store,
+                    source_node_id=node_id,
+                    node_metadata=node_metadata,
+                    focus_session_id=focus_session_id,
+                )
+            )
+        filtered_adjacency.sort(key=lambda candidate: (candidate.label.casefold(), candidate.edge_id))
         filtered_expansions = [
-            expansion
-            for expansion in view.suggested_expansions
-            if expansion.edge_id in projected_edge_ids
+            GraphProjectionSuggestedExpansion(
+                **candidate.model_dump(),
+                rank=rank,
+                rank_reason="active relationship",
+            )
+            for rank, candidate in enumerate(filtered_adjacency, start=1)
         ]
         evidence_ref_ids, source_artifact_ids = _node_evidence_from_projection_context(
             root,
@@ -1035,6 +1349,15 @@ def _build_node_views(
         nodes.append(
             _convert_node_view(
                 view,
+                label=node_metadata[node_id][0],
+                kind=node_metadata[node_id][1],
+                role=node_metadata[node_id][2],
+                aliases=node_metadata[node_id][3],
+                source_domains=_source_domains_from_active_provenance(
+                    store,
+                    evidence_ref_ids,
+                    source_artifact_ids,
+                ),
                 evidence_ref_ids=evidence_ref_ids,
                 source_artifact_ids=source_artifact_ids,
                 adjacency=filtered_adjacency,
@@ -1186,13 +1509,11 @@ def build_projection_payload(
     try:
         attributes = _build_attribute_views(root, resolved_world_id, store)
         relationships = _build_relationship_views(root, resolved_world_id, store)
-        projected_edge_ids = {relationship.edge_id for relationship in relationships}
         nodes = _build_node_views(
             root,
             resolved_world_id,
             store,
             request.focus,
-            projected_edge_ids,
             attributes,
             relationships,
         )

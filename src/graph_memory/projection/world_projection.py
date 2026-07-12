@@ -179,6 +179,7 @@ class WorldGraphProjectionRelationshipView(_ProjectionModel):
     label: str
     direction: str | None = None
     session_ids: list[str] = Field(default_factory=list)
+    source_domains: list[str] = Field(default_factory=list)
     visibility: str | None = None
     campaign_scope: str | None = None
     epistemic_kind: str | None = None
