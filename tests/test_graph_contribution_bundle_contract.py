@@ -87,7 +87,7 @@ def test_path_traversal_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
     manifest = _load_manifest(bundle_root)
     manifest["ordered_contributions"][0]["path"] = "../manifest.json"
-    (bundle_root / "contributions/001-world-hubs.json").unlink()
+    (bundle_root / "contributions/001-mirathorn-world-hub.json").unlink()
     _write_manifest(bundle_root, manifest)
     with pytest.raises(ValueError, match="path escapes bundle root"):
         load_contribution_bundle(bundle_root)
@@ -95,7 +95,7 @@ def test_path_traversal_rejection(tmp_path: Path) -> None:
 
 def test_missing_file_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    missing = bundle_root / "contributions/001-world-hubs.json"
+    missing = bundle_root / "contributions/001-mirathorn-world-hub.json"
     missing.unlink()
     with pytest.raises(FileNotFoundError, match="contribution file missing"):
         load_contribution_bundle(bundle_root)
@@ -121,10 +121,11 @@ def test_checksum_mismatch_rejection(tmp_path: Path) -> None:
 def test_duplicate_path_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
     manifest = _load_manifest(bundle_root)
+    displaced = manifest["ordered_contributions"][1]["path"]
     manifest["ordered_contributions"][1]["path"] = manifest["ordered_contributions"][0][
         "path"
     ]
-    (bundle_root / "contributions/002-questionable-company-roster.json").unlink()
+    (bundle_root / displaced).unlink()
     _write_manifest(bundle_root, manifest)
     with pytest.raises(ValueError, match="duplicate contribution path"):
         load_contribution_bundle(bundle_root)
@@ -143,7 +144,7 @@ def test_duplicate_contribution_id_rejection(tmp_path: Path) -> None:
 
 def test_wrong_world_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["world_id"] = "otherworld"
     _write_json(bundle_root / rel_path, payload)
@@ -158,9 +159,9 @@ def test_wrong_world_rejection(tmp_path: Path) -> None:
 
 def test_stale_assertion_id_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/002-mireward-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
-    payload["accepted_assertions"][1]["label"] = "Mireward Tampered"
+    payload["accepted_assertions"][0]["label"] = "Mireward Tampered"
     _write_json(bundle_root / rel_path, payload)
     manifest = _load_manifest(bundle_root)
     _sync_entry_sha(manifest, bundle_root, rel_path)
@@ -173,7 +174,7 @@ def test_stale_assertion_id_rejection(tmp_path: Path) -> None:
 
 def test_stale_contribution_id_manifest_vs_file_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/002-questionable-company-roster.json"
+    rel_path = "contributions/003-questionable-company-roster.json"
     payload = _read_json(bundle_root / rel_path)
     payload["contribution_id"] = "contribution:deadbeefdeadbeef"
     _write_json(bundle_root / rel_path, payload)
@@ -187,7 +188,7 @@ def test_stale_contribution_id_manifest_vs_file_rejection(tmp_path: Path) -> Non
 
 def test_stale_contribution_id_compute_mismatch(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/002-questionable-company-roster.json"
+    rel_path = "contributions/003-questionable-company-roster.json"
     payload = _read_json(bundle_root / rel_path)
     payload["source_revision_id"] = "tampered-revision"
     _write_json(bundle_root / rel_path, payload)
@@ -202,7 +203,7 @@ def test_stale_contribution_id_compute_mismatch(tmp_path: Path) -> None:
 
 def test_assertion_contribution_ownership_mismatch(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/003-session-22-mireward-road.json"
+    rel_path = "contributions/004-session-22-mireward-road.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["contribution_id"] = "contribution:ffffffffffffffff"
     _write_json(bundle_root / rel_path, payload)
@@ -220,7 +221,7 @@ def test_assertion_contribution_ownership_mismatch(tmp_path: Path) -> None:
 
 def test_unknown_source_domain_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["value"]["source_domains"] = ["bogus_domain"]
     _write_json(bundle_root / rel_path, payload)
@@ -235,7 +236,7 @@ def test_unknown_source_domain_rejection(tmp_path: Path) -> None:
 
 def test_missing_evidence_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     assertion = payload["accepted_assertions"][0]
     assertion["evidence_ref_ids"] = []
@@ -252,7 +253,7 @@ def test_missing_evidence_rejection(tmp_path: Path) -> None:
 
 def test_missing_source_artifact_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     assertion = payload["accepted_assertions"][0]
     assertion["source_artifact_id"] = None
@@ -272,7 +273,7 @@ def test_missing_source_artifact_rejection(tmp_path: Path) -> None:
 
 def test_absent_epistemic_metadata_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["epistemic_kind"] = None
     _write_json(bundle_root / rel_path, payload)
@@ -289,7 +290,7 @@ def test_absent_epistemic_metadata_rejection(tmp_path: Path) -> None:
 
 def test_absent_visibility_metadata_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["visibility"] = None
     _write_json(bundle_root / rel_path, payload)
@@ -304,7 +305,7 @@ def test_absent_visibility_metadata_rejection(tmp_path: Path) -> None:
 
 def test_invalid_campaign_scope_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/005-tripod-null-calf-threat-prep.json"
+    rel_path = "contributions/006-tripod-null-calf-threat-prep.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["campaign_scope"] = "wrong-campaign"
     _write_json(bundle_root / rel_path, payload)
@@ -342,7 +343,7 @@ def test_bundle_digest_mismatch_rejection(tmp_path: Path) -> None:
 
 def test_extra_node_outside_locked_scope_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     template = payload["accepted_assertions"][0]
     extra = json.loads(json.dumps(template))
@@ -376,7 +377,7 @@ def test_extra_node_outside_locked_scope_rejection(tmp_path: Path) -> None:
 
 def test_dangling_top_level_evidence_ref_ids_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["evidence_ref_ids"] = ["evidence:does-not-exist"]
     _write_json(bundle_root / rel_path, payload)
@@ -394,7 +395,7 @@ def test_dangling_top_level_evidence_ref_ids_rejection(tmp_path: Path) -> None:
 
 def test_evidence_nonexistent_embedded_artifact_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     assertion = payload["accepted_assertions"][0]
     assertion["value"]["evidence"][0]["source_artifact_id"] = (
@@ -427,7 +428,7 @@ def test_evidence_nonexistent_embedded_artifact_rejection(tmp_path: Path) -> Non
 
 def test_duplicate_assertion_id_within_contribution_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/002-questionable-company-roster.json"
+    rel_path = "contributions/003-questionable-company-roster.json"
     payload = _read_json(bundle_root / rel_path)
     duplicate = json.loads(json.dumps(payload["accepted_assertions"][0]))
     payload["accepted_assertions"].append(duplicate)
@@ -445,7 +446,7 @@ def test_duplicate_assertion_id_within_contribution_rejection(tmp_path: Path) ->
 
 def test_shared_support_missing_mireward_assertion_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/003-session-22-mireward-road.json"
+    rel_path = "contributions/004-session-22-mireward-road.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"] = [
         assertion
@@ -481,7 +482,7 @@ def test_shared_support_manifest_domain_mismatch_rejection(tmp_path: Path) -> No
 
 def test_extra_known_source_domain_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     assertion = payload["accepted_assertions"][0]
     assertion["value"]["source_domains"] = [
@@ -525,7 +526,7 @@ def test_empty_bundle_digest_load_rejection(tmp_path: Path) -> None:
 
 def test_accepted_assertion_with_candidate_state_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["acceptance_state"] = "candidate"
     _write_json(bundle_root / rel_path, payload)
@@ -542,7 +543,7 @@ def test_accepted_assertion_with_candidate_state_rejection(tmp_path: Path) -> No
 
 def test_unknown_identity_resolution_outcome_rejection(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/001-mirathorn-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["identity_resolution_outcome"] = (
         "not_a_real_outcome"
@@ -558,3 +559,191 @@ def test_unknown_identity_resolution_outcome_rejection(tmp_path: Path) -> None:
         "unknown identity_resolution_outcome" in error
         for error in report.validation_errors
     )
+
+
+def test_assertion_source_artifact_differs_from_contribution_rejection(
+    tmp_path: Path,
+) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["source_artifact_id"] = "corpus:eldyrwild:mireward-readme"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "assertion source_artifact_id" in error
+        and "differs from contribution source_artifact_id" in error
+        for error in report.validation_errors
+    )
+
+
+def test_assertion_source_revision_differs_from_contribution_rejection(
+    tmp_path: Path,
+) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["source_revision_id"] = "sha256:" + ("ab" * 32)
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "assertion source_revision_id" in error
+        and "differs from contribution source_revision_id" in error
+        for error in report.validation_errors
+    )
+
+
+def test_missing_content_sha256_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_artifacts"][0].pop("content_sha256", None)
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "missing content_sha256" in error for error in report.validation_errors
+    )
+
+
+def test_malformed_content_sha256_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_artifacts"][0]["content_sha256"] = "not-a-digest"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "malformed content_sha256" in error for error in report.validation_errors
+    )
+
+
+def test_source_revision_mismatch_content_sha256_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_artifacts"][0]["content_sha256"] = "ff" * 32
+    # Keep contribution/assertion revision pointing at the original Mirathorn digest.
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "does not match content_sha256" in error for error in report.validation_errors
+    )
+
+
+def test_evidence_artifact_source_domain_mismatch_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["evidence"][0]["source_domain"] = "recap"
+    assertion["value"]["evidence"][0]["session_id"] = "session-22"
+    assertion["value"]["evidence"][0]["source_span_ref_id"] = "span:fake"
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "evidence/artifact source_domain mismatch" in error
+        for error in report.validation_errors
+    )
+
+
+def test_manual_import_with_authored_by_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/001-mirathorn-world-hub.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["authored_by"] = "gm"
+    # authored_by participates in contribution_id; keep stored id stale so load
+    # still succeeds via manifest entry, then validator reports authority + id issues.
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "manual_import must not set authored_by" in error
+        for error in report.validation_errors
+    )
+
+
+def test_authored_contribution_missing_author_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/003-questionable-company-roster.json"
+    payload = _read_json(bundle_root / rel_path)
+    payload["authored_by"] = None
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "authored contribution missing authored_by" in error
+        for error in report.validation_errors
+    )
+
+
+def test_authored_artifact_requires_graph_data_uri_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    rel_path = "contributions/003-questionable-company-roster.json"
+    payload = _read_json(bundle_root / rel_path)
+    assertion = payload["accepted_assertions"][0]
+    assertion["value"]["source_artifacts"][0]["uri"] = (
+        "repo://corpus/eldyrwild-markdown/Elderwyld/fake.md"
+    )
+    _write_json(bundle_root / rel_path, payload)
+    manifest = _load_manifest(bundle_root)
+    _sync_entry_sha(manifest, bundle_root, rel_path)
+    _write_manifest(bundle_root, manifest)
+
+    _, report = _load_validate(bundle_root)
+    assert report.ok is False
+    assert any(
+        "must use graph-data:// uri" in error or "disallowed uri" in error
+        for error in report.validation_errors
+    )
+
+
+def test_nested_contribution_subdirectory_rejection(tmp_path: Path) -> None:
+    bundle_root = _copy_bundle(tmp_path)
+    nested = bundle_root / "contributions" / "nested"
+    nested.mkdir()
+    (nested / "extra.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="contribution subdirectories are not allowed"):
+        load_contribution_bundle(bundle_root)

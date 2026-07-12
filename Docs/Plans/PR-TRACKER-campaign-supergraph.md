@@ -456,8 +456,9 @@ projection, or runtime migration.
 **Status:** `DOING` (GitHub #335)  
 **Phase:** 3 / approved bundle  
 **Purpose:** Define the approved, reviewable graph-native contribution bundle
-for initial Eldyrwild C2 publication after PR006B establishes correct
-multi-source assertion support.
+as `/ingest` bootstrap input for initial Eldyrwild C2 after PR006B establishes
+correct multi-source assertion support. Each `manual_import` contribution is
+one-source-lineage (one artifact + revision).
 
 **Deliverables:**
 

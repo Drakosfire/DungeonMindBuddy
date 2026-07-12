@@ -35,8 +35,8 @@ Two legitimate contribution kinds are present and kept distinct:
 
 | Records | Kind | Provenance |
 | --- | --- | --- |
-| `001`, `003`, `004` | `manual_import` curated from sources | Static `repo://corpus/...` URIs + pinned `sha256:` revisions. Evidence points at the canonical Mirathorn/Mireward hubs and Session 22/23 recaps. Validation does **not** re-read the corpus. |
-| `002`, `005` | `graph_review_authored_assertion` (`authored_by: gm`) | Self-contained authored records. Evidence may cite the contribution JSON via `graph-data://...`. |
+| `001`, `002`, `004`, `005` | `manual_import` curated from sources | Each contribution is anchored to **exactly one** corpus artifact + revision (`repo://corpus/...` + `sha256:` pin). Mirathorn and Mireward are separate contributions so a Mireward-only corpus change supersedes only the Mireward contribution. Validation does **not** re-read the corpus; it requires internal agreement between contribution revision, assertion revision, and embedded `content_sha256`. |
+| `003`, `006` | `graph_review_authored_assertion` (`authored_by: gm`) | Self-contained authored records. Evidence may cite the contribution JSON via `graph-data://...`. |
 
 The hybrid of “claims recap/worldbuilding support while citing only the contribution JSON” is rejected.
 
@@ -47,7 +47,7 @@ The hybrid of “claims recap/worldbuilding support while citing only the contri
 | Field | Value |
 | --- | --- |
 | Bundle ID | `eldyrwild-longmont-c2-initial-v1` |
-| Bundle digest | `bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e` |
+| Bundle digest | `c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca` |
 | World ID | `eldyrwild` |
 | Campaign scope | `longmont-c2` |
 | Planning focus | `mireward-planning-window` |
@@ -56,11 +56,12 @@ The hybrid of “claims recap/worldbuilding support while citing only the contri
 
 ### Ordered contribution IDs
 
-1. `contribution:82f23934d8eaca8a` — `001-world-hubs.json`
-2. `contribution:2308cd6375dde06c` — `002-questionable-company-roster.json`
-3. `contribution:c086a0b72324ff16` — `003-session-22-mireward-road.json`
-4. `contribution:1227841724520c18` — `004-session-23-mireward-gate-battle.json`
-5. `contribution:16ac92b4dd272323` — `005-tripod-null-calf-threat-prep.json`
+1. `contribution:82f23934d8eaca8a` — `001-mirathorn-world-hub.json`
+2. `contribution:43782369bd717d32` — `002-mireward-world-hub.json`
+3. `contribution:33d7cdb0ff623f28` — `003-questionable-company-roster.json`
+4. `contribution:c086a0b72324ff16` — `004-session-22-mireward-road.json`
+5. `contribution:1227841724520c18` — `005-session-23-mireward-gate-battle.json`
+6. `contribution:022187fdefdf4557` — `006-tripod-null-calf-threat-prep.json`
 
 ### Source artifact IDs
 
@@ -73,8 +74,8 @@ Corpus-backed:
 
 Authored:
 
-- `graph-native:eldyrwild-c2-initial-v1:002-questionable-company-roster`
-- `graph-native:eldyrwild-c2-initial-v1:005-tripod-null-calf-threat-prep`
+- `graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster`
+- `graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep`
 
 ---
 
@@ -94,7 +95,7 @@ Authored:
 
 | Node | Semantic assertion ID | Active contributions | Domains |
 | --- | --- | --- | --- |
-| `location:mireward` | `assertion:3e2a37249f847f60` | world hubs + session 22 + session 23 | `worldbuilding`, `recap` |
+| `location:mireward` | `assertion:3e2a37249f847f60` | mireward world hub + session 22 + session 23 | `worldbuilding`, `recap` |
 | `party:questionable-company` | `assertion:e43e22317e459bac` | roster + session 22 + session 23 | `manual_seed`, `recap` |
 
 Mireward existence assertions use `campaign_scope = null` and `temporal_scope = null`.  
@@ -129,7 +130,20 @@ then exercise the same path the GM will use: load into `/ingest` → validate �
 | Recap assertions with session locator | 100% |
 | Non-recap assertions with source locator | 100% |
 
-“Resolvable” means IDs match and embedded artifacts carry inspectable URIs — not merely that some field is non-empty.
+“Resolvable” means IDs match and embedded artifacts carry inspectable URIs — not merely that some field is non-empty. Recap `source_span_ref_id` values are stable labels suitable for `/ingest` inspection; this package does **not** prove that those labels resolve to highlightable spans until the `/ingest` source resolver exercises them.
+
+---
+
+## Provenance coherence
+
+For each accepted `manual_import` assertion, validation requires:
+
+- contribution / assertion / embedded artifact share one `source_artifact_id`;
+- contribution / assertion revision equal `sha256:` + embedded `content_sha256`;
+- evidence domain equals artifact domain equals the assertion provenance domain;
+- corpus URIs use `repo://corpus/`.
+
+For authored records, validation requires `graph_review_authored_assertion`, a non-empty `authored_by`, and `graph-data://` self-citation.
 
 ---
 
@@ -186,4 +200,5 @@ PR006C does not prove:
 - projection usefulness;
 - Plan or Play integration;
 - complete Campaign 2 coverage;
-- that corpus files were re-read at validation time (digests are pinned statically).
+- that corpus files were re-read at validation time (digests are pinned statically);
+- that recap `source_span_ref_id` labels resolve to highlightable source spans.

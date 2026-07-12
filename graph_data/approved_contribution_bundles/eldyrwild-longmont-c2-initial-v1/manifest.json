@@ -1,12 +1,12 @@
 {
-  "bundle_digest": "bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e",
+  "bundle_digest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
   "bundle_id": "eldyrwild-longmont-c2-initial-v1",
   "expected_shared_support": [
     {
       "contribution_paths": [
-        "contributions/001-world-hubs.json",
-        "contributions/003-session-22-mireward-road.json",
-        "contributions/004-session-23-mireward-gate-battle.json"
+        "contributions/002-mireward-world-hub.json",
+        "contributions/004-session-22-mireward-road.json",
+        "contributions/005-session-23-mireward-gate-battle.json"
       ],
       "node_id": "location:mireward",
       "source_domains": [
@@ -16,9 +16,9 @@
     },
     {
       "contribution_paths": [
-        "contributions/002-questionable-company-roster.json",
-        "contributions/003-session-22-mireward-road.json",
-        "contributions/004-session-23-mireward-gate-battle.json"
+        "contributions/003-questionable-company-roster.json",
+        "contributions/004-session-22-mireward-road.json",
+        "contributions/005-session-23-mireward-gate-battle.json"
       ],
       "node_id": "party:questionable-company",
       "source_domains": [
@@ -44,33 +44,39 @@
     "Does not claim complete Campaign 2 coverage.",
     "Does not invent numerical statblock values.",
     "Does not prove projection usefulness or Plan retrieval.",
-    "Validation does not re-read corpus files; corpus digests are pinned statically."
+    "Validation does not re-read corpus files; corpus digests are pinned statically.",
+    "Recap source_span_ref_id values are stable labels for /ingest inspection; this package does not prove highlightable span resolution."
   ],
   "ordered_contributions": [
     {
       "contribution_id": "contribution:82f23934d8eaca8a",
-      "path": "contributions/001-world-hubs.json",
-      "sha256": "0f24a918a236322af3b3399e68d12e5a8264acd665048369d67dfd3a1b692941"
+      "path": "contributions/001-mirathorn-world-hub.json",
+      "sha256": "ace99855326cc72b8a00537a34066eafe4f9be1e4981f068de4fc44dcf01ecc9"
     },
     {
-      "contribution_id": "contribution:2308cd6375dde06c",
-      "path": "contributions/002-questionable-company-roster.json",
-      "sha256": "62899a7cde96d02e5864dcc2b2e41a1ae7057a0d5e38f27e5b2900886062cf76"
+      "contribution_id": "contribution:43782369bd717d32",
+      "path": "contributions/002-mireward-world-hub.json",
+      "sha256": "66d280c8267b8f61ff48489e6631d1e52f29cac754d6f4b0b4ef7e39fea01eb7"
+    },
+    {
+      "contribution_id": "contribution:33d7cdb0ff623f28",
+      "path": "contributions/003-questionable-company-roster.json",
+      "sha256": "4199a8ce32858eeb3f01f8336e99589c5636db3ebb67253374c5c2caffc385ee"
     },
     {
       "contribution_id": "contribution:c086a0b72324ff16",
-      "path": "contributions/003-session-22-mireward-road.json",
+      "path": "contributions/004-session-22-mireward-road.json",
       "sha256": "cd905826748649e8a294de0d7127c877c0c78c693a4564154bbc1680e7409964"
     },
     {
       "contribution_id": "contribution:1227841724520c18",
-      "path": "contributions/004-session-23-mireward-gate-battle.json",
+      "path": "contributions/005-session-23-mireward-gate-battle.json",
       "sha256": "73f4a4da6a46d74a2922f1d53f79f052e74894ca1909aea820a6985097f6a792"
     },
     {
-      "contribution_id": "contribution:16ac92b4dd272323",
-      "path": "contributions/005-tripod-null-calf-threat-prep.json",
-      "sha256": "c17e65a702d7bbc836d34d1ec0fd939f75456aac5793a9700c4dd31690eb65e5"
+      "contribution_id": "contribution:022187fdefdf4557",
+      "path": "contributions/006-tripod-null-calf-threat-prep.json",
+      "sha256": "668c3cddc28199fa24809e5a704828c017480c22a941fb9930f1be5ec235f51e"
     }
   ],
   "planning_focus": "mireward-planning-window",

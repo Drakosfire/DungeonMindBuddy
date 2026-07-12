@@ -25,7 +25,10 @@ _GRAPH_MUTATING_BLOCKED = frozenset(
 )
 _KNOWN_IDENTITY_OUTCOMES = frozenset(get_args(IdentityResolutionOutcome))
 _EXTERNAL_SOURCE_DOMAINS = frozenset({"worldbuilding", "recap"})
+_CORPUS_IMPORT_KINDS = frozenset({"manual_import"})
+_AUTHORED_KINDS = frozenset({"graph_review_authored_assertion"})
 _ALLOWED_URI_PREFIXES = ("graph-data://", "repo://corpus/")
+_SHA256_HEX_LEN = 64
 _LOCATOR_FIELDS = (
     "locator",
     "source_span_ref_id",
@@ -33,6 +36,27 @@ _LOCATOR_FIELDS = (
     "source_locator",
     "line_ref",
 )
+
+
+def _is_sha256_hex(value: str) -> bool:
+    if len(value) != _SHA256_HEX_LEN:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _assertion_provenance_domains(assertion: GraphContributionAssertion) -> set[str]:
+    """Domains declared on the assertion value (not evidence/artifact spill)."""
+    value = dict(assertion.value or {})
+    domains: set[str] = set()
+    for domain in value.get("source_domains") or []:
+        domains.add(str(domain))
+    if value.get("source_domain"):
+        domains.add(str(value["source_domain"]))
+    return domains
 
 
 def _edge_id(assertion: GraphContributionAssertion) -> str | None:
@@ -99,12 +123,171 @@ def _evidence_payloads(
     return [item for item in (value.get("evidence") or []) if isinstance(item, dict)]
 
 
-def _uri_allowed(uri: str, domains: set[str]) -> bool:
+def _uri_allowed(uri: str, domains: set[str], *, source_kind: str) -> bool:
     if not any(uri.startswith(prefix) for prefix in _ALLOWED_URI_PREFIXES):
         return False
-    if domains & _EXTERNAL_SOURCE_DOMAINS:
+    if source_kind in _AUTHORED_KINDS:
+        return uri.startswith("graph-data://")
+    if source_kind in _CORPUS_IMPORT_KINDS or domains & _EXTERNAL_SOURCE_DOMAINS:
         return uri.startswith("repo://corpus/")
     return True
+
+
+def _validate_authority_model(
+    contribution: GraphContribution,
+    entry_path: str,
+    errors: list[str],
+) -> None:
+    kind = contribution.source_kind
+    author = (contribution.authored_by or "").strip()
+    if kind in _CORPUS_IMPORT_KINDS:
+        if author:
+            errors.append(
+                f"manual_import must not set authored_by for {entry_path}: {author!r}"
+            )
+    elif kind in _AUTHORED_KINDS:
+        if not author:
+            errors.append(
+                f"authored contribution missing authored_by for {entry_path}"
+            )
+    else:
+        errors.append(
+            f"unsupported source_kind {kind!r} for {entry_path}; "
+            f"expected manual_import or authored kinds"
+        )
+
+
+def _validate_provenance_coherence(
+    contribution: GraphContribution,
+    assertion: GraphContributionAssertion,
+    artifacts: dict[str, dict[str, Any]],
+    evidence_payloads: list[dict[str, Any]],
+    errors: list[str],
+) -> None:
+    assertion_id = assertion.assertion_id
+    kind = contribution.source_kind
+    provenance_domains = _assertion_provenance_domains(assertion)
+    if not provenance_domains:
+        errors.append(f"missing assertion provenance domain on {assertion_id}")
+
+    if assertion.source_artifact_id != contribution.source_artifact_id:
+        errors.append(
+            f"assertion source_artifact_id {assertion.source_artifact_id!r} "
+            f"differs from contribution source_artifact_id "
+            f"{contribution.source_artifact_id!r} on {assertion_id}"
+        )
+    if assertion.source_revision_id != contribution.source_revision_id:
+        errors.append(
+            f"assertion source_revision_id {assertion.source_revision_id!r} "
+            f"differs from contribution source_revision_id "
+            f"{contribution.source_revision_id!r} on {assertion_id}"
+        )
+
+    if kind in _CORPUS_IMPORT_KINDS:
+        if len(artifacts) != 1:
+            errors.append(
+                f"manual_import assertion must embed exactly one source artifact "
+                f"on {assertion_id}, found {sorted(artifacts)}"
+            )
+        primary = artifacts.get(str(contribution.source_artifact_id or ""))
+        if primary is None:
+            errors.append(
+                f"contribution source_artifact_id "
+                f"{contribution.source_artifact_id!r} missing from embedded "
+                f"source_artifacts on {assertion_id}"
+            )
+        else:
+            content_sha = str(primary.get("content_sha256") or "")
+            if not content_sha:
+                errors.append(
+                    f"missing content_sha256 on embedded source artifact "
+                    f"{contribution.source_artifact_id!r} for {assertion_id}"
+                )
+            elif not _is_sha256_hex(content_sha):
+                errors.append(
+                    f"malformed content_sha256 on embedded source artifact "
+                    f"{contribution.source_artifact_id!r} for {assertion_id}"
+                )
+            expected_revision = f"sha256:{content_sha}" if content_sha else ""
+            if content_sha and contribution.source_revision_id != expected_revision:
+                errors.append(
+                    f"source_revision_id {contribution.source_revision_id!r} "
+                    f"does not match content_sha256 on {assertion_id}"
+                )
+            if assertion.source_revision_id and content_sha:
+                if assertion.source_revision_id != expected_revision:
+                    errors.append(
+                        f"assertion source_revision_id "
+                        f"{assertion.source_revision_id!r} does not match "
+                        f"content_sha256 on {assertion_id}"
+                    )
+
+    for artifact_id, artifact in artifacts.items():
+        uri = str(artifact.get("uri") or "")
+        artifact_domain = str(artifact.get("source_domain") or "")
+        if not artifact_domain:
+            errors.append(
+                f"source artifact {artifact_id!r} missing source_domain on "
+                f"{assertion_id}"
+            )
+        elif provenance_domains and artifact_domain not in provenance_domains:
+            errors.append(
+                f"source artifact {artifact_id!r} source_domain "
+                f"{artifact_domain!r} disagrees with assertion domains "
+                f"{sorted(provenance_domains)} on {assertion_id}"
+            )
+        if not uri:
+            errors.append(
+                f"source artifact {artifact_id!r} missing uri on {assertion_id}"
+            )
+        elif not _uri_allowed(uri, provenance_domains or {artifact_domain}, source_kind=kind):
+            errors.append(
+                f"source artifact {artifact_id!r} has disallowed uri {uri!r} "
+                f"for source_kind={kind!r} domains={sorted(provenance_domains)} "
+                f"on {assertion_id}"
+            )
+        if kind in _AUTHORED_KINDS and not uri.startswith("graph-data://"):
+            errors.append(
+                f"authored artifact {artifact_id!r} must use graph-data:// uri "
+                f"on {assertion_id}"
+            )
+        if kind in _CORPUS_IMPORT_KINDS and not uri.startswith("repo://corpus/"):
+            errors.append(
+                f"manual_import artifact {artifact_id!r} must use repo://corpus/ "
+                f"uri on {assertion_id}"
+            )
+
+    for evidence in evidence_payloads:
+        evidence_id = str(evidence.get("evidence_ref_id") or "")
+        artifact_id = str(evidence.get("source_artifact_id") or "")
+        evidence_domain = str(evidence.get("source_domain") or "")
+        if artifact_id and artifact_id not in artifacts:
+            continue  # dangling artifact already reported elsewhere
+        artifact = artifacts.get(artifact_id, {})
+        artifact_domain = str(artifact.get("source_domain") or "")
+        if not evidence_domain:
+            errors.append(
+                f"missing evidence source_domain on {assertion_id} "
+                f"(evidence={evidence_id!r})"
+            )
+            continue
+        if artifact_domain and evidence_domain != artifact_domain:
+            errors.append(
+                f"evidence/artifact source_domain mismatch on {assertion_id}: "
+                f"evidence={evidence_domain!r} artifact={artifact_domain!r}"
+            )
+        if provenance_domains and evidence_domain not in provenance_domains:
+            errors.append(
+                f"evidence source_domain {evidence_domain!r} disagrees with "
+                f"assertion domains {sorted(provenance_domains)} on {assertion_id}"
+            )
+        if kind in _CORPUS_IMPORT_KINDS:
+            if artifact_id != contribution.source_artifact_id:
+                errors.append(
+                    f"evidence source_artifact_id {artifact_id!r} differs from "
+                    f"contribution source_artifact_id "
+                    f"{contribution.source_artifact_id!r} on {assertion_id}"
+                )
 
 
 def _evidence_coverage(contributions: list[GraphContribution]) -> dict[str, Any]:
@@ -227,6 +410,7 @@ def validate_contribution_bundle(
                 f"contribution status must be active for {entry.path}: "
                 f"{contribution.status!r}"
             )
+        _validate_authority_model(contribution, entry.path, errors)
 
         rejected_total += len(contribution.rejected_assertions)
         unresolved_total += len(contribution.unresolved_mentions)
@@ -364,20 +548,13 @@ def validate_contribution_bundle(
                     f"{assertion.assertion_id}"
                 )
 
-            assertion_domains = _domains_from_assertion(assertion)
-            for artifact_id, artifact in artifacts.items():
-                uri = str(artifact.get("uri") or "")
-                if not uri:
-                    errors.append(
-                        f"source artifact {artifact_id!r} missing uri on "
-                        f"{assertion.assertion_id}"
-                    )
-                elif not _uri_allowed(uri, assertion_domains):
-                    errors.append(
-                        f"source artifact {artifact_id!r} has disallowed uri "
-                        f"{uri!r} for domains {sorted(assertion_domains)} on "
-                        f"{assertion.assertion_id}"
-                    )
+            _validate_provenance_coherence(
+                contribution,
+                assertion,
+                artifacts,
+                evidence_payloads,
+                errors,
+            )
 
             for evidence in evidence_payloads:
                 evidence_id = str(evidence.get("evidence_ref_id") or "")

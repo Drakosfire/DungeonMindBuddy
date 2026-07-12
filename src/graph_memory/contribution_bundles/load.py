@@ -69,8 +69,15 @@ def load_contribution_bundle(bundle_path: Path) -> LoadedContributionBundle:
     contributions_dir = root / "contributions"
     if contributions_dir.is_dir():
         listed = {entry.path for entry in manifest.ordered_contributions}
-        for child in sorted(contributions_dir.glob("*.json")):
-            relative = f"contributions/{child.name}"
+        for child in sorted(contributions_dir.rglob("*")):
+            if child.is_dir():
+                raise ValueError(
+                    "contribution subdirectories are not allowed: "
+                    f"{child.relative_to(root).as_posix()}"
+                )
+            if child.suffix != ".json" or not child.is_file():
+                continue
+            relative = child.relative_to(root).as_posix()
             if relative not in listed:
                 raise ValueError(f"unlisted contribution file: {relative}")
 

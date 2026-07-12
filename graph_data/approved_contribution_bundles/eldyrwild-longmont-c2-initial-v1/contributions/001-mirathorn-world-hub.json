@@ -48,55 +48,6 @@
         ]
       },
       "visibility": "gm"
-    },
-    {
-      "acceptance_state": "accepted",
-      "assertion_id": "assertion:3e2a37249f847f60",
-      "assertion_kind": "node",
-      "campaign_scope": null,
-      "contribution_id": "contribution:82f23934d8eaca8a",
-      "epistemic_kind": "fact",
-      "evidence_ref_ids": [
-        "evidence:corpus:worldbuilding:mireward"
-      ],
-      "identity_resolution_outcome": "created_new",
-      "label": "Mireward",
-      "predicate": null,
-      "source_artifact_id": "corpus:eldyrwild:mireward-readme",
-      "source_revision_id": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250",
-      "subject_node_id": "location:mireward",
-      "target_node_id": null,
-      "temporal_scope": null,
-      "value": {
-        "aliases": [
-          "Mireward"
-        ],
-        "approval_state": "accepted",
-        "canon_state": "canonical",
-        "evidence": [
-          {
-            "evidence_ref_id": "evidence:corpus:worldbuilding:mireward",
-            "locator": "heading:Mireward",
-            "source_artifact_id": "corpus:eldyrwild:mireward-readme",
-            "source_domain": "worldbuilding"
-          }
-        ],
-        "kind": "location",
-        "role": "town",
-        "source_artifacts": [
-          {
-            "campaign_id": "longmont-c2",
-            "content_sha256": "9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250",
-            "source_artifact_id": "corpus:eldyrwild:mireward-readme",
-            "source_domain": "worldbuilding",
-            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
-          }
-        ],
-        "source_domains": [
-          "worldbuilding"
-        ]
-      },
-      "visibility": "gm"
     }
   ],
   "authored_by": null,

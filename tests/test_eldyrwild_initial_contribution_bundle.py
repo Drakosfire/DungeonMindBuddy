@@ -24,7 +24,7 @@ BUNDLE_PATH = (
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
 BUNDLE_DIGEST = (
-    "bc8bc3dc96ab339a8c1edea28fe2f4f765f51e2d2e1366589b65e60c16deef1e"
+    "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
 )
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
@@ -68,21 +68,22 @@ EXPECTED_SOURCE_DOMAINS = {
 }
 
 ORDERED_CONTRIBUTION_IDS = [
-    "contribution:82f23934d8eaca8a",  # 001 world hubs
-    "contribution:2308cd6375dde06c",  # 002 roster
-    "contribution:c086a0b72324ff16",  # 003 session 22
-    "contribution:1227841724520c18",  # 004 session 23
-    "contribution:16ac92b4dd272323",  # 005 tripod
+    "contribution:82f23934d8eaca8a",  # 001 mirathorn world hub
+    "contribution:43782369bd717d32",  # 002 mireward world hub
+    "contribution:33d7cdb0ff623f28",  # 003 roster
+    "contribution:c086a0b72324ff16",  # 004 session 22
+    "contribution:1227841724520c18",  # 005 session 23
+    "contribution:022187fdefdf4557",  # 006 tripod
 ]
 
 MIREWARD_CONTRIBUTION_IDS = {
-    "contribution:82f23934d8eaca8a",
+    "contribution:43782369bd717d32",
     "contribution:c086a0b72324ff16",
     "contribution:1227841724520c18",
 }
 
 QUESTIONABLE_COMPANY_CONTRIBUTION_IDS = {
-    "contribution:2308cd6375dde06c",
+    "contribution:33d7cdb0ff623f28",
     "contribution:c086a0b72324ff16",
     "contribution:1227841724520c18",
 }
@@ -369,11 +370,27 @@ def test_exact_bundle_digest(validated_bundle) -> None:
     assert report.bundle_id == BUNDLE_ID
 
 
-def test_exactly_five_contributions(validated_bundle) -> None:
+def test_exactly_six_contributions(validated_bundle) -> None:
     bundle, report = validated_bundle
-    assert report.contribution_count == 5
-    assert len(bundle.contributions) == 5
+    assert report.contribution_count == 6
+    assert len(bundle.contributions) == 6
     assert [item.contribution_id for item in bundle.contributions] == ORDERED_CONTRIBUTION_IDS
+
+
+def test_each_manual_import_has_single_source_lineage(loaded_bundle) -> None:
+    for contribution in loaded_bundle.contributions:
+        if contribution.source_kind != "manual_import":
+            continue
+        artifact_ids = {
+            assertion.source_artifact_id
+            for assertion in contribution.accepted_assertions
+        }
+        revision_ids = {
+            assertion.source_revision_id
+            for assertion in contribution.accepted_assertions
+        }
+        assert artifact_ids == {contribution.source_artifact_id}
+        assert revision_ids == {contribution.source_revision_id}
 
 
 def test_zero_identity_decisions_rejected_unresolved(validated_bundle) -> None:
@@ -610,8 +627,8 @@ def test_deterministic_reload_ids_and_digest() -> None:
 
 def test_corpus_and_graph_data_provenance_uris(loaded_bundle) -> None:
     authored_ids = {
-        "contribution:2308cd6375dde06c",
-        "contribution:16ac92b4dd272323",
+        "contribution:33d7cdb0ff623f28",
+        "contribution:022187fdefdf4557",
     }
     corpus_uris: list[str] = []
     graph_data_uris: list[str] = []
@@ -636,9 +653,9 @@ def test_corpus_and_graph_data_provenance_uris(loaded_bundle) -> None:
 
 def test_tamper_label_without_assertion_id_fails_validation(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/001-world-hubs.json"
+    rel_path = "contributions/002-mireward-world-hub.json"
     payload = _read_json(bundle_root / rel_path)
-    payload["accepted_assertions"][1]["label"] = "Mireward Renamed"
+    payload["accepted_assertions"][0]["label"] = "Mireward Renamed"
     _write_json(bundle_root / rel_path, payload)
     manifest = _load_manifest(bundle_root)
     _sync_entry_sha(manifest, bundle_root, rel_path)
@@ -651,7 +668,7 @@ def test_tamper_label_without_assertion_id_fails_validation(tmp_path: Path) -> N
 
 def test_tamper_evidence_ref_removed_fails_validation(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/003-session-22-mireward-road.json"
+    rel_path = "contributions/004-session-22-mireward-road.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["evidence_ref_ids"] = []
     payload["accepted_assertions"][0]["value"]["evidence"] = []
@@ -667,7 +684,7 @@ def test_tamper_evidence_ref_removed_fails_validation(tmp_path: Path) -> None:
 
 def test_tamper_checksum_stale_fails_load(tmp_path: Path) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/004-session-23-mireward-gate-battle.json"
+    rel_path = "contributions/005-session-23-mireward-gate-battle.json"
     payload = _read_json(bundle_root / rel_path)
     payload["accepted_assertions"][0]["label"] = "Mireward Tampered"
     _write_json(bundle_root / rel_path, payload)
@@ -692,7 +709,7 @@ def test_tamper_mireward_campaign_scope_in_one_contribution_fails(
     tmp_path: Path,
 ) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/003-session-22-mireward-road.json"
+    rel_path = "contributions/004-session-22-mireward-road.json"
     payload = _read_json(bundle_root / rel_path)
     for assertion in payload["accepted_assertions"]:
         if assertion.get("subject_node_id") == "location:mireward":
@@ -714,7 +731,7 @@ def test_tamper_mireward_temporal_scope_in_one_contribution_fails(
     tmp_path: Path,
 ) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/004-session-23-mireward-gate-battle.json"
+    rel_path = "contributions/005-session-23-mireward-gate-battle.json"
     payload = _read_json(bundle_root / rel_path)
     for assertion in payload["accepted_assertions"]:
         if assertion.get("subject_node_id") == "location:mireward":
@@ -733,7 +750,7 @@ def test_tamper_extra_node_outside_locked_scope_fails_validation(
     tmp_path: Path,
 ) -> None:
     bundle_root = _copy_bundle(tmp_path)
-    rel_path = "contributions/002-questionable-company-roster.json"
+    rel_path = "contributions/003-questionable-company-roster.json"
     payload = _read_json(bundle_root / rel_path)
     template = payload["accepted_assertions"][0]
     extra = json.loads(json.dumps(template))
