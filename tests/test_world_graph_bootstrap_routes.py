@@ -45,6 +45,12 @@ def test_prepare_rejects_server_owned_selectors_and_writes_nothing(
         json={"actor": "gm", "bundleId": "not-client-selectable"},
     )
     assert response.status_code == 422
+    payload = response.json()
+    assert payload["schema"] == "dmb_world_graph_bootstrap_error_v1"
+    assert payload["code"] == "invalid_request"
+    assert payload["bootstrapState"] == "error"
+    assert payload["statusCode"] == 422
+    assert payload["diagnostics"][0]["code"] == "invalid_request"
 
     query_response = client.post(
         f"{PREPARE_URL}?root=/tmp/foreign&worldId=foreign",
@@ -119,3 +125,71 @@ def test_status_rejects_root_query_selector(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_request"
+
+
+@pytest.mark.parametrize(
+    ("url", "payload", "expected_code"),
+    [
+        (PREPARE_URL, {}, "invalid_actor"),
+        (PREPARE_URL, {"actor": "  "}, "invalid_actor"),
+        (PREPARE_URL, {"actor": 7}, "invalid_actor"),
+        (PREPARE_URL, {"actor": "gm", "extra": True}, "invalid_request"),
+        (CONFIRM_URL, {"actor": "gm"}, "invalid_request"),
+        (
+            CONFIRM_URL,
+            {
+                "actor": "gm",
+                "proposalId": "proposal",
+                "confirmToken": "token",
+                "extra": True,
+            },
+            "invalid_request",
+        ),
+    ],
+)
+def test_request_validation_uses_stable_error_contract(
+    client: TestClient,
+    url: str,
+    payload: dict[str, object],
+    expected_code: str,
+) -> None:
+    response = client.post(url, json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["schema"] == "dmb_world_graph_bootstrap_error_v1"
+    assert body["code"] == expected_code
+    assert body["bootstrapState"] == "error"
+    assert body["statusCode"] == 422
+    assert body["diagnostics"][0]["code"] == expected_code
+    assert "detail" not in body
+
+
+@pytest.mark.parametrize(
+    ("method", "url", "payload"),
+    [
+        ("get", STATUS_URL, None),
+        ("post", PREPARE_URL, {"actor": "gm"}),
+        (
+            "post",
+            CONFIRM_URL,
+            {"actor": "gm", "proposalId": "proposal", "confirmToken": "token"},
+        ),
+    ],
+)
+def test_all_query_parameters_are_rejected(
+    client: TestClient,
+    method: str,
+    url: str,
+    payload: dict[str, str] | None,
+) -> None:
+    request = getattr(client, method)
+    kwargs = {"json": payload} if payload is not None else {}
+    response = request(f"{url}?unexpected=value", **kwargs)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["schema"] == "dmb_world_graph_bootstrap_error_v1"
+    assert body["code"] == "invalid_request"
+    assert body["bootstrapState"] == "error"
+    assert body["diagnostics"][0]["code"] == "invalid_request"

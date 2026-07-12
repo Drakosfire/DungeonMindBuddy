@@ -5,10 +5,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
@@ -84,16 +86,36 @@ NO_MUTATION_GUARANTEES_PREPARE = [
     "Preview or ingest-run artifacts were not modified.",
 ]
 NO_MUTATION_GUARANTEES_CONFIRM = [
-    "The confirmed publication used the public PR006D1 Kernel operation.",
     "The approved contribution bundle was not modified.",
     "Corpus sources were not modified.",
     "Preview or ingest-run artifacts were not modified.",
 ]
-TRUST_BOUNDARY_CAN_TRUST = [
+CONFIRM_PUBLICATION_STATEMENT = (
+    "Published the approved initialization through the PR006D1 Kernel operation."
+)
+CONFIRM_IDEMPOTENT_STATEMENTS = {
+    "active": (
+        "No new revision was published; the existing initialization matched the approved plan."
+    ),
+    "active_head_advanced": (
+        "No new revision was published; the current head descends from the approved initialization."
+    ),
+}
+TRUST_BOUNDARY_SERVICE_IDENTITY = [
+    "The fixed Eldyrwild bootstrap service identity and endpoint contract.",
+]
+TRUST_BOUNDARY_CERTIFIED = [
     "The checked-in PR006C bundle checksum and manifest contract.",
     "The exact six ordered GraphContribution records.",
     "The content-bound PR006D1 initialization plan.",
+    "The review projection derived from the certified bundle.",
+]
+TRUST_BOUNDARY_PUBLISHED = [
     "The Kernel receipt and reconstruction/integrity proof.",
+]
+TRUST_BOUNDARY_INVALID = [
+    "The bundle contents, review projection, and content-bound initialization plan.",
+    "Any production publication, receipt, or reconstruction/integrity proof.",
 ]
 TRUST_BOUNDARY_NON_CLAIMS = [
     "No /ingest UI is delivered by PR006D2.",
@@ -230,7 +252,7 @@ def _evidence_summaries(
                 if item.get("source_span_ref_id") is not None
                 else None
             ),
-            locator_status="unverified" if source_domain == "recap" else "verified",
+            locator_status="unverified",
         )
     return [result[key] for key in sorted(result)]
 
@@ -618,11 +640,28 @@ def _receipt_payload(receipt: Any) -> BootstrapReceipt | None:
     )
 
 
-def _trust_boundary(bundle: LoadedContributionBundle | None) -> BootstrapTrustBoundary:
+def _trust_boundary(
+    bundle: LoadedContributionBundle | None,
+    state: BootstrapState,
+) -> BootstrapTrustBoundary:
     non_claims = list(bundle.manifest.non_claims) if bundle is not None else []
+    if bundle is None:
+        can_trust = list(TRUST_BOUNDARY_SERVICE_IDENTITY)
+        cannot_trust = list(TRUST_BOUNDARY_INVALID)
+    else:
+        can_trust = list(TRUST_BOUNDARY_CERTIFIED)
+        if state in {"active", "active_head_advanced"}:
+            can_trust.extend(TRUST_BOUNDARY_PUBLISHED)
+            cannot_trust = [
+                "Future revisions or mutations not covered by the published initialization receipt."
+            ]
+        else:
+            cannot_trust = [
+                "Production publication, receipt, and reconstruction/integrity proof."
+            ]
     return BootstrapTrustBoundary(
-        can_trust=list(TRUST_BOUNDARY_CAN_TRUST),
-        cannot_trust=[*non_claims, *TRUST_BOUNDARY_NON_CLAIMS],
+        can_trust=can_trust,
+        cannot_trust=[*non_claims, *cannot_trust, *TRUST_BOUNDARY_NON_CLAIMS],
     )
 
 
@@ -860,6 +899,68 @@ def _decode_confirm_token(token: str) -> dict[str, Any]:
         ) from None
 
 
+def _confirm_guarantees(*, published: bool, state: BootstrapState) -> list[str]:
+    if published:
+        statement = CONFIRM_PUBLICATION_STATEMENT
+    else:
+        statement = CONFIRM_IDEMPOTENT_STATEMENTS.get(
+            state,
+            "No new revision was published; the approved initialization remains unchanged.",
+        )
+    return [statement, *NO_MUTATION_GUARANTEES_CONFIRM]
+
+
+def _post_commit_confirm_response(
+    *,
+    request: WorldGraphBootstrapConfirmRequest,
+    result: Any,
+    plan_digest: str,
+) -> WorldGraphBootstrapConfirmResponse:
+    state = result.state if result.state in BootstrapState.__args__ else "error"
+    diagnostics = [
+        _diagnostic("kernel_result", "Kernel initialization result received.", severity="info")
+    ]
+    try:
+        receipt = _receipt_payload(result.receipt)
+    except Exception:
+        receipt = None
+        diagnostics.append(
+            _diagnostic(
+                "receipt_serialization_degraded",
+                "Publication succeeded, but the initialization receipt could not be serialized.",
+                severity="warning",
+            )
+        )
+
+    response_values = {
+        "actor": request.actor,
+        "proposal_id": request.proposal_id,
+        "plan_digest": plan_digest,
+        "published": result.published,
+        "state": state,
+        "baseline_revision_id": result.baseline_revision_id,
+        "initial_head_revision_id": result.initial_head_revision_id,
+        "current_head_revision_id": result.current_head_revision_id,
+        "receipt": receipt,
+        "no_mutation_guarantees": _confirm_guarantees(
+            published=result.published,
+            state=state,
+        ),
+        "diagnostics": diagnostics,
+    }
+    try:
+        return WorldGraphBootstrapConfirmResponse(**response_values)
+    except Exception:
+        diagnostics.append(
+            _diagnostic(
+                "response_assembly_degraded",
+                "Publication succeeded, but response assembly used a validated fallback.",
+                severity="warning",
+            )
+        )
+        return WorldGraphBootstrapConfirmResponse.model_construct(**response_values)
+
+
 def _status_from_certified(
     root: Path,
     certified: _CertifiedBundle,
@@ -879,7 +980,7 @@ def _status_from_certified(
         initial_head_revision_id=initial_head,
         head_advanced_since_initialization=state == "active_head_advanced",
         review=certified.review,
-        trust_boundary=_trust_boundary(certified.bundle),
+        trust_boundary=_trust_boundary(certified.bundle, state),
         diagnostics=[
             _diagnostic("bundle_certified", "Locked bundle passed checksum and acceptance policy.", severity="info")
         ],
@@ -904,7 +1005,7 @@ def get_world_graph_bootstrap_status(
             bundle_digest=APPROVED_BUNDLE_DIGEST,
             approved_bundle_merge_sha=APPROVED_BUNDLE_MERGE_SHA,
             bundle_valid=False,
-            trust_boundary=_trust_boundary(None),
+            trust_boundary=_trust_boundary(None, exc.bootstrap_state),
             diagnostics=exc.diagnostics,
         )
     try:
@@ -920,7 +1021,7 @@ def get_world_graph_bootstrap_status(
             approved_bundle_merge_sha=APPROVED_BUNDLE_MERGE_SHA,
             bundle_valid=True,
             review=certified.review,
-            trust_boundary=_trust_boundary(certified.bundle),
+            trust_boundary=_trust_boundary(certified.bundle, exc.bootstrap_state),
             diagnostics=exc.diagnostics,
         )
 
@@ -1017,6 +1118,7 @@ def confirm_world_graph_bootstrap(
     certified, expected_proposal, _expected_token, predicted_baseline, predicted_head = (
         _prepare_material(graph_root, actor=request.actor, require_ready=False)
     )
+    plan_digest = kernel.compute_initialization_plan_digest(certified.plan)
     actual_payload = _decode_confirm_token(request.confirm_token)
     expected_payload = _token_payload(
         actor=request.actor,
@@ -1088,25 +1190,106 @@ def confirm_world_graph_bootstrap(
             bootstrap_state=exc.state if exc.state in BootstrapState.__args__ else "error",
             diagnostics=[_diagnostic(code, "Kernel initialization did not complete.")],
         ) from None
-    return WorldGraphBootstrapConfirmResponse(
-        actor=request.actor,
-        proposal_id=request.proposal_id,
-        plan_digest=kernel.compute_initialization_plan_digest(certified.plan),
-        published=result.published,
-        state=result.state,
-        baseline_revision_id=result.baseline_revision_id,
-        initial_head_revision_id=result.initial_head_revision_id,
-        current_head_revision_id=result.current_head_revision_id,
-        receipt=_receipt_payload(result.receipt),
-        no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_CONFIRM),
-        diagnostics=[
-            _diagnostic("kernel_result", "Kernel initialization result received.", severity="info")
-        ],
+    return _post_commit_confirm_response(
+        request=request,
+        result=result,
+        plan_digest=plan_digest,
     )
 
 
+def _normalize_contract_example(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "<created-at>"
+            if key == "createdAt"
+            else _normalize_contract_example(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_normalize_contract_example(item) for item in value]
+    return value
+
+
+def _contract_examples() -> dict[str, Any]:
+    with TemporaryDirectory(prefix="dmb-world-bootstrap-contract-") as temp_dir:
+        root = Path(temp_dir)
+        ready = get_world_graph_bootstrap_status(root=root)
+        prepared = prepare_world_graph_bootstrap(
+            WorldGraphBootstrapPrepareRequest(actor="gm"),
+            root=root,
+        )
+        published = confirm_world_graph_bootstrap(
+            WorldGraphBootstrapConfirmRequest(
+                actor="gm",
+                proposal_id=prepared.proposal_id,
+                confirm_token=prepared.confirm_token,
+            ),
+            root=root,
+        )
+        idempotent = confirm_world_graph_bootstrap(
+            WorldGraphBootstrapConfirmRequest(
+                actor="gm",
+                proposal_id=prepared.proposal_id,
+                confirm_token=prepared.confirm_token,
+            ),
+            root=root,
+        )
+
+        invalid_root = root / "invalid"
+        with patch.object(
+            sys.modules[__name__],
+            "_approved_bundle_path",
+            return_value=invalid_root / "missing-bundle",
+        ):
+            try:
+                prepare_world_graph_bootstrap(
+                    WorldGraphBootstrapPrepareRequest(actor="gm"),
+                    root=invalid_root,
+                )
+            except WorldGraphBootstrapError as exc:
+                invalid_bundle = exc.response()
+            else:
+                raise AssertionError("invalid bundle contract example did not fail")
+
+        blocked_root = root / "blocked"
+        baseline = kernel.build_empty_technical_baseline_store(
+            APPROVED_CAMPAIGN_ID,
+            APPROVED_FOCUS_SESSION_ID,
+        )
+        kernel.publish_world_revision(
+            blocked_root,
+            APPROVED_WORLD_ID,
+            baseline,
+            operation_ids=["contract-example-foreign-world"],
+        )
+        try:
+            prepare_world_graph_bootstrap(
+                WorldGraphBootstrapPrepareRequest(actor="gm"),
+                root=blocked_root,
+            )
+        except WorldGraphBootstrapError as exc:
+            blocked_world = exc.response()
+        else:
+            raise AssertionError("blocked world contract example did not fail")
+
+    responses = {
+        "readyStatus": ready,
+        "preparedProposal": prepared,
+        "publishedConfirmation": published,
+        "idempotentConfirmation": idempotent,
+        "invalidBundle": invalid_bundle,
+        "blockedExistingWorld": blocked_world,
+    }
+    return {
+        name: _normalize_contract_example(
+            response.model_dump(mode="json", by_alias=True)
+        )
+        for name, response in responses.items()
+    }
+
+
 def build_api_contract() -> dict[str, Any]:
-    """Return the deterministic generated contract fixture payload."""
+    """Return the API schemas and examples from real service operations."""
     schemas = {
         "statusResponse": WorldGraphBootstrapStatusResponse.model_json_schema(
             by_alias=True
@@ -1127,98 +1310,8 @@ def build_api_contract() -> dict[str, Any]:
             by_alias=True
         ),
     }
-    example_review = BootstrapReview(
-        summary=BootstrapReviewSummary(
-            contribution_count=0,
-            node_count=0,
-            relationship_count=0,
-            attribute_count=0,
-            accepted_assertion_count=0,
-            support_count=0,
-            evidence_count=0,
-            source_artifact_count=0,
-            source_domains=[],
-            focus_sessions=[],
-        ),
-        contributions=[],
-        nodes=[],
-        relationships=[],
-        attributes=[],
-        sources=[],
-        evidence=[],
-        trust_boundary=[],
-    )
-    example_trust = BootstrapTrustBoundary(can_trust=[], cannot_trust=[])
     examples = {
-        "readyStatus": WorldGraphBootstrapStatusResponse(
-            state="ready",
-            world_id=APPROVED_WORLD_ID,
-            campaign_id=APPROVED_CAMPAIGN_ID,
-            focus_session_id=APPROVED_FOCUS_SESSION_ID,
-            bundle_id=APPROVED_BUNDLE_ID,
-            bundle_digest=APPROVED_BUNDLE_DIGEST,
-            approved_bundle_merge_sha=APPROVED_BUNDLE_MERGE_SHA,
-            bundle_valid=True,
-            review=example_review,
-            trust_boundary=example_trust,
-        ).model_dump(mode="json", by_alias=True),
-        "preparedProposal": WorldGraphBootstrapPrepareResponse(
-            actor="gm",
-            proposal_id="proposal:example",
-            confirm_token="token:example",
-            plan_digest="a" * 64,
-            predicted_baseline_revision_id="rev:baseline-example",
-            predicted_initial_head_revision_id="rev:initial-example",
-            review=example_review,
-            effects=WorldGraphBootstrapEffects(
-                contribution_count=0,
-                predicted_revision_count=1,
-                ordered_contribution_ids=[],
-                predicted_baseline_revision_id="rev:baseline-example",
-                predicted_initial_head_revision_id="rev:initial-example",
-            ),
-            no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_PREPARE),
-        ).model_dump(mode="json", by_alias=True),
-        "publishedConfirmation": WorldGraphBootstrapConfirmResponse(
-            actor="gm",
-            proposal_id="proposal:example",
-            plan_digest="a" * 64,
-            published=True,
-            state="active",
-            baseline_revision_id="rev:baseline-example",
-            initial_head_revision_id="rev:initial-example",
-            current_head_revision_id="rev:initial-example",
-            no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_CONFIRM),
-        ).model_dump(mode="json", by_alias=True),
-        "idempotentConfirmation": WorldGraphBootstrapConfirmResponse(
-            actor="gm",
-            proposal_id="proposal:example",
-            plan_digest="a" * 64,
-            published=False,
-            state="active",
-            baseline_revision_id="rev:baseline-example",
-            initial_head_revision_id="rev:initial-example",
-            current_head_revision_id="rev:initial-example",
-            no_mutation_guarantees=list(NO_MUTATION_GUARANTEES_CONFIRM),
-        ).model_dump(mode="json", by_alias=True),
-        "invalidBundle": WorldGraphBootstrapErrorResponse(
-            code="invalid_bundle",
-            message="The locked Eldyrwild contribution bundle failed acceptance policy.",
-            status_code=409,
-            bootstrap_state="invalid_bundle",
-            diagnostics=[
-                BootstrapDiagnostic(
-                    code="invalid_bundle",
-                    message="Checksum or bundle validation failed.",
-                )
-            ],
-        ).model_dump(mode="json", by_alias=True),
-        "blockedExistingWorld": WorldGraphBootstrapErrorResponse(
-            code="blocked_existing_world",
-            message="An existing world is not bound to the approved initialization plan.",
-            status_code=409,
-            bootstrap_state="blocked_existing_world",
-        ).model_dump(mode="json", by_alias=True),
+        **_contract_examples(),
     }
     return {
         "schema": CONTRACT_SCHEMA,

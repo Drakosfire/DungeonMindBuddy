@@ -74,6 +74,22 @@ def test_cli_errors_are_structured_and_nonzero(tmp_path: Path) -> None:
     assert payload["statusCode"] == 422
 
 
+def test_cli_missing_required_arguments_are_structured(tmp_path: Path) -> None:
+    prepare_result = _run(tmp_path, "prepare")
+    assert prepare_result.returncode != 0
+    prepare_payload = json.loads(prepare_result.stdout)
+    assert prepare_payload["schema"] == "dmb_world_graph_bootstrap_error_v1"
+    assert prepare_payload["code"] == "invalid_actor"
+    assert prepare_payload["statusCode"] == 422
+
+    confirm_result = _run(tmp_path, "confirm", "--actor", "gm")
+    assert confirm_result.returncode != 0
+    confirm_payload = json.loads(confirm_result.stdout)
+    assert confirm_payload["schema"] == "dmb_world_graph_bootstrap_error_v1"
+    assert confirm_payload["code"] == "invalid_request"
+    assert confirm_payload["statusCode"] == 422
+
+
 def test_cli_exposes_no_arbitrary_bundle_or_force_controls() -> None:
     env = {
         **os.environ,

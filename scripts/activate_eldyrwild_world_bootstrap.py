@@ -29,8 +29,17 @@ from apps.live_control_server.services.world_graph_bootstrap import (  # noqa: E
 )
 
 
+class _ArgumentParseError(ValueError):
+    pass
+
+
+class _JsonArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise _ArgumentParseError(message)
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _JsonArgumentParser(
         description="Activate the fixed approved Eldyrwild world bootstrap."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -73,8 +82,28 @@ def _error_model(
     )
 
 
+def _validation_code(error: ValidationError) -> str:
+    if any(
+        "actor" in {str(item) for item in entry.get("loc", ())}
+        for entry in error.errors()
+    ):
+        return "invalid_actor"
+    return "invalid_request"
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    try:
+        args = _parser().parse_args(argv)
+    except _ArgumentParseError as exc:
+        code = "invalid_actor" if "--actor" in str(exc) else "invalid_request"
+        _print_json(
+            _error_model(
+                code=code,
+                message="Bootstrap command arguments do not match the required contract.",
+                status_code=422,
+            )
+        )
+        return 1
     root = args.root
     try:
         if args.command == "status":
@@ -94,11 +123,12 @@ def main(argv: list[str] | None = None) -> int:
     except WorldGraphBootstrapError as exc:
         _print_json(exc.response())
         return 1
-    except ValidationError:
+    except ValidationError as exc:
+        code = _validation_code(exc)
         _print_json(
             _error_model(
-                code="invalid_actor",
-                message="Actor or confirmation arguments are malformed.",
+                code=code,
+                message="Bootstrap command arguments do not match the required contract.",
                 status_code=422,
             )
         )

@@ -27,6 +27,19 @@ from apps.live_control_server.services.world_graph_bootstrap import (
 FIXTURE_PATH = Path("tests/fixtures/world_graph_bootstrap/api-contract-v1.json")
 
 
+def _normalize_contract_value(value):
+    if isinstance(value, dict):
+        return {
+            key: "<created-at>"
+            if key == "createdAt"
+            else _normalize_contract_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_normalize_contract_value(item) for item in value]
+    return value
+
+
 def _prepare(root: Path, actor: str = "gm"):
     return prepare_world_graph_bootstrap(
         WorldGraphBootstrapPrepareRequest(actor=actor),
@@ -97,8 +110,17 @@ def test_status_ready_exposes_review_projection_and_trust_boundary(tmp_path: Pat
         for evidence in response.review.evidence
         if evidence.source_domain == "recap"
     )
+    assert all(
+        evidence.locator_status == "unverified" for evidence in response.review.evidence
+    )
     assert "No /ingest UI is delivered by PR006D2." in response.review.trust_boundary
-    assert response.trust_boundary.can_trust
+    assert "The review projection derived from the certified bundle." in (
+        response.trust_boundary.can_trust
+    )
+    assert (
+        "Production publication, receipt, and reconstruction/integrity proof."
+        in response.trust_boundary.cannot_trust
+    )
     assert response.receipt is None
 
 
@@ -151,9 +173,15 @@ def test_first_and_repeated_confirmation_are_truthful(tmp_path: Path) -> None:
         "statblock",
         "worldbuilding",
     ]
+    assert first.no_mutation_guarantees[0] == (
+        "Published the approved initialization through the PR006D1 Kernel operation."
+    )
     assert second.published is False
     assert second.state == "active"
     assert second.current_head_revision_id == first.current_head_revision_id
+    assert second.no_mutation_guarantees[0] == (
+        "No new revision was published; the existing initialization matched the approved plan."
+    )
 
 
 def test_confirm_reports_active_descendant_head_without_republishing(tmp_path: Path) -> None:
@@ -174,6 +202,9 @@ def test_confirm_reports_active_descendant_head_without_republishing(tmp_path: P
 
     assert response.published is False
     assert response.state == "active_head_advanced"
+    assert response.no_mutation_guarantees[0] == (
+        "No new revision was published; the current head descends from the approved initialization."
+    )
 
 
 def test_foreign_world_is_blocked_before_prepare_or_confirm(tmp_path: Path) -> None:
@@ -261,6 +292,33 @@ def test_invalid_bundle_takes_precedence_over_existing_world(
     assert status.state == "invalid_bundle"
     assert status.bundle_valid is False
     assert status.diagnostics[0].code == "bundle_unavailable"
+    assert status.trust_boundary.can_trust == [
+        "The fixed Eldyrwild bootstrap service identity and endpoint contract."
+    ]
+    assert (
+        "The bundle contents, review projection, and content-bound initialization plan."
+        in status.trust_boundary.cannot_trust
+    )
+
+
+def test_receipt_serialization_failure_preserves_successful_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepared = _prepare(tmp_path)
+
+    def fail_receipt(_receipt):
+        raise RuntimeError("injected receipt conversion failure")
+
+    monkeypatch.setattr(bootstrap, "_receipt_payload", fail_receipt)
+
+    response = _confirm(prepared, tmp_path)
+
+    assert response.published is True
+    assert response.state == "active"
+    assert response.receipt is None
+    assert response.diagnostics[-1].code == "receipt_serialization_degraded"
+    assert response.diagnostics[-1].severity == "warning"
 
 
 def test_serialized_responses_have_no_absolute_paths(tmp_path: Path) -> None:
@@ -276,3 +334,45 @@ def test_contract_fixture_is_generated_from_models() -> None:
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
     assert fixture == build_api_contract()
+
+
+def test_contract_examples_match_real_service_responses(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "happy"
+    ready = get_world_graph_bootstrap_status(root=root)
+    prepared = _prepare(root)
+    published = _confirm(prepared, root)
+    idempotent = _confirm(prepared, root)
+
+    invalid_root = tmp_path / "invalid"
+    with monkeypatch.context() as context:
+        context.setattr(
+            bootstrap,
+            "_approved_bundle_path",
+            lambda: invalid_root / "missing-bundle",
+        )
+        with pytest.raises(WorldGraphBootstrapError) as invalid_error:
+            _prepare(invalid_root)
+
+    blocked_root = tmp_path / "blocked"
+    _publish_foreign_world(blocked_root)
+    with pytest.raises(WorldGraphBootstrapError) as blocked_error:
+        _prepare(blocked_root)
+
+    actual = {
+        "readyStatus": ready,
+        "preparedProposal": prepared,
+        "publishedConfirmation": published,
+        "idempotentConfirmation": idempotent,
+        "invalidBundle": invalid_error.value.response(),
+        "blockedExistingWorld": blocked_error.value.response(),
+    }
+    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert fixture["examples"] == {
+        name: _normalize_contract_value(
+            response.model_dump(mode="json", by_alias=True)
+        )
+        for name, response in actual.items()
+    }

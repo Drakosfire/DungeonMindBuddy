@@ -3,28 +3,98 @@
     "blockedExistingWorld": {
       "bootstrapState": "blocked_existing_world",
       "code": "blocked_existing_world",
-      "diagnostics": [],
-      "message": "An existing world is not bound to the approved initialization plan.",
+      "diagnostics": [
+        {
+          "code": "blocked_existing_world",
+          "message": "Existing production world is not bound to the approved plan.",
+          "severity": "error"
+        }
+      ],
+      "message": "An existing production world is not the approved bootstrap.",
       "schema": "dmb_world_graph_bootstrap_error_v1",
       "statusCode": 409
     },
     "idempotentConfirmation": {
       "actor": "gm",
-      "baselineRevisionId": "rev:baseline-example",
+      "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:initial-example",
-      "diagnostics": [],
-      "initialHeadRevisionId": "rev:initial-example",
+      "currentHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "diagnostics": [
+        {
+          "code": "kernel_result",
+          "message": "Kernel initialization result received.",
+          "severity": "info"
+        }
+      ],
+      "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
       "noMutationGuarantees": [
-        "The confirmed publication used the public PR006D1 Kernel operation.",
+        "No new revision was published; the existing initialization matched the approved plan.",
         "The approved contribution bundle was not modified.",
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "proposalId": "proposal:example",
+      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
       "published": false,
-      "receipt": null,
+      "receipt": {
+        "acceptedAssertionCount": 30,
+        "actor": "gm",
+        "approvalAttestation": {
+          "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
+          "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+          "bundleId": "eldyrwild-longmont-c2-initial-v1"
+        },
+        "assertionSupportCount": 26,
+        "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+        "campaignId": "longmont-c2",
+        "contributionIntegrityOk": true,
+        "createdAt": "<created-at>",
+        "edgeCount": 11,
+        "evidenceCount": 30,
+        "focusSessionId": "session-23",
+        "identityDecisionIds": [],
+        "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "nodeCount": 12,
+        "orderedContributions": [
+          {
+            "contributionId": "contribution:82f23934d8eaca8a",
+            "payloadSha256": "b79b6427ff59d602054857fd29cf4661743c8351bef03a4f1bc0b68511293df8"
+          },
+          {
+            "contributionId": "contribution:43782369bd717d32",
+            "payloadSha256": "5a2471a885b90d3fc56c3fa03b17578b3394cf12dfd58726ed9b500bfe4c3f12"
+          },
+          {
+            "contributionId": "contribution:33d7cdb0ff623f28",
+            "payloadSha256": "f2071f5dce89bb0ad21a1dc360ccdb63a51e70153b01eb550769c0722fd8a0f0"
+          },
+          {
+            "contributionId": "contribution:c086a0b72324ff16",
+            "payloadSha256": "fbd50ed5ed524bd3d74a0c6f2107d67a7c71944fde43dfda4f4ae014a5d6ffd7"
+          },
+          {
+            "contributionId": "contribution:1227841724520c18",
+            "payloadSha256": "0d67c425a24dc6441f578e23cf125b37998bb6beadfb0a3477b8ff810a37006e"
+          },
+          {
+            "contributionId": "contribution:022187fdefdf4557",
+            "payloadSha256": "c32656f797e903744d3cbfcaabf884b20ed9748296fad0196813d49c92aeef78"
+          }
+        ],
+        "planBindingVerified": true,
+        "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+        "rebuildEquivalent": true,
+        "schema": "dmb_world_initialization_receipt_v1",
+        "sourceArtifactCount": 6,
+        "sourceDomains": [
+          "manual_seed",
+          "recap",
+          "statblock",
+          "worldbuilding"
+        ],
+        "worldId": "eldyrwild",
+        "worldIntegrityOk": true
+      },
       "schema": "dmb_world_graph_bootstrap_confirm_v1",
       "state": "active"
     },
@@ -33,25 +103,32 @@
       "code": "invalid_bundle",
       "diagnostics": [
         {
-          "code": "invalid_bundle",
-          "message": "Checksum or bundle validation failed.",
+          "code": "bundle_unavailable",
+          "message": "Locked bundle could not be loaded.",
           "severity": "error"
         }
       ],
-      "message": "The locked Eldyrwild contribution bundle failed acceptance policy.",
+      "message": "The locked Eldyrwild contribution bundle is unavailable.",
       "schema": "dmb_world_graph_bootstrap_error_v1",
       "statusCode": 409
     },
     "preparedProposal": {
       "actor": "gm",
-      "confirmToken": "token:example",
+      "confirmToken": "701900e0567cc9d4de09bf6f10450e6c3cc6e9b01eebf2e8539a6edc2f5fa1a4.eyJhY3RvciI6ImdtIiwiYXBwcm92ZWRfYnVuZGxlX21lcmdlX3NoYSI6ImY2OWM2OWYyNzFjNDI3MjA5ODYwZDkwMjYzNjM0N2I3MGZlYTU5MjAiLCJidW5kbGVfZGlnZXN0IjoiYzhlYjdlNmNhN2U3MzVjNDA4MjJjYjFlNjgzNWY5OTQ5ZjJjZDkxNWI1N2Y1NzA0ZTdiNGRhZWI3MmNmMmZjYSIsImJ1bmRsZV9pZCI6ImVsZHlyd2lsZC1sb25nbW9udC1jMi1pbml0aWFsLXYxIiwiZXhwZWN0ZWRfY291bnRzIjp7ImFjY2VwdGVkX2Fzc2VydGlvbl9jb3VudCI6MzAsImFzc2VydGlvbl9zdXBwb3J0X2NvdW50IjoyNiwiZWRnZV9jb3VudCI6MTEsImV2aWRlbmNlX2NvdW50IjozMCwibm9kZV9jb3VudCI6MTIsInNvdXJjZV9hcnRpZmFjdF9jb3VudCI6Nn0sImV4cGVjdGVkX2luaXRpYWxfcHJvZHVjdGlvbl9zdGF0ZSI6InJlYWR5Iiwia2luZCI6ImRtYl93b3JsZF9ncmFwaF9ib290c3RyYXBfY29uZmlybV92MSIsIm9yZGVyZWRfY29udHJpYnV0aW9ucyI6W3siY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOjgyZjIzOTM0ZDhlYWNhOGEiLCJwYXlsb2FkX3NoYTI1NiI6ImI3OWI2NDI3ZmY1OWQ2MDIwNTQ4NTdmZDI5Y2Y0NjYxNzQzYzgzNTFiZWYwM2E0ZjFiYzBiNjg1MTEyOTNkZjgifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjo0Mzc4MjM2OWJkNzE3ZDMyIiwicGF5bG9hZF9zaGEyNTYiOiI1YTI0NzFhODg1YjkwZDNmYzU2YzNmYTAzYjE3NTc4YjMzOTRjZjEyZGZkNTg3MjZlZDliNTAwYmZlNGMzZjEyIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MzNkN2NkYjBmZjYyM2YyOCIsInBheWxvYWRfc2hhMjU2IjoiZjIwNzFmNWRjZTg5YmIwYWQyMWExZGMzNjBjY2RiNjNhNTFlNzAxNTNiMDFlYjU1MDc2OWMwNzIyZmQ4YTBmMCJ9LHsiY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOmMwODZhMGI3MjMyNGZmMTYiLCJwYXlsb2FkX3NoYTI1NiI6ImZiZDUwZWQ1ZWQ1MjRiZDNkNzRhMGM2ZjIxMDdkNjdhN2M3MTk0NGZkZTQzZGZkYTRmNGFlMDE0YTVkNmZmZDcifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjoxMjI3ODQxNzI0NTIwYzE4IiwicGF5bG9hZF9zaGEyNTYiOiIwZDY3YzQyNWEyNGRjNjQ0MWY1NzhlMjNjZjEyNWIzNzk5OGJiNmJlYWRmYjBhMzQ3N2I4ZmY4MTBhMzcwMDZlIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MDIyMTg3ZmRlZmRmNDU1NyIsInBheWxvYWRfc2hhMjU2IjoiYzMyNjU2Zjc5N2U5MDM3NDRkM2NiZmNhYWJmODg0YjIwZWQ5NzQ4Mjk2ZmFkMDE5NjgxM2Q0OWM5MmFlZWY3OCJ9XSwicGxhbl9kaWdlc3QiOiI5OGExMjBmNjliYzMwZWU5ZDIwYzFiYjY3MjYyY2Y3OGE1OTUxYWRjZDU0YzVhNWNjNWI5NDExZWJkZGY1MTYzIiwicHJlZGljdGVkX2Jhc2VsaW5lX3JldmlzaW9uX2lkIjoicmV2OmZkM2UwYTJiOTZhN2E1OTE5YTAyYTg5MDVlNzNmN2I5IiwicHJlZGljdGVkX2luaXRpYWxfaGVhZF9yZXZpc2lvbl9pZCI6InJldjo0MWJjYmIwMTA3MWRkMmI0ZGE1NGQ4ZTMzNWVjMzhmNyIsInByb3Bvc2FsX2lkIjoiYjIxY2U3OTAyMjZmMTliNjdlMjY1N2VhODA1MmI3MWM0ZTU1MGNmOWMyOTAzMDIyMTg5MWU1MzA3YzY0MzFhZSJ9",
       "diagnostics": [],
       "effects": {
-        "contributionCount": 0,
-        "orderedContributionIds": [],
-        "predictedBaselineRevisionId": "rev:baseline-example",
-        "predictedInitialHeadRevisionId": "rev:initial-example",
-        "predictedRevisionCount": 1
+        "contributionCount": 6,
+        "orderedContributionIds": [
+          "contribution:82f23934d8eaca8a",
+          "contribution:43782369bd717d32",
+          "contribution:33d7cdb0ff623f28",
+          "contribution:c086a0b72324ff16",
+          "contribution:1227841724520c18",
+          "contribution:022187fdefdf4557"
+        ],
+        "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+        "predictedInitialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "predictedRevisionCount": 7
       },
       "noMutationGuarantees": [
         "Production World Supergraph state was not written.",
@@ -60,51 +137,1298 @@
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "predictedBaselineRevisionId": "rev:baseline-example",
-      "predictedInitialHeadRevisionId": "rev:initial-example",
+      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+      "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+      "predictedInitialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
       "prepared": true,
-      "proposalId": "proposal:example",
+      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
       "review": {
-        "attributes": [],
-        "contributions": [],
-        "evidence": [],
-        "nodes": [],
-        "relationships": [],
-        "sources": [],
+        "attributes": [
+          {
+            "assertionId": "assertion:4d5d774d7cbf1e71",
+            "attribute": "first_appearance",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Mireward north-gate pressure sequence."
+          },
+          {
+            "assertionId": "assertion:68bdeb27db521569",
+            "attribute": "challenge_expectation",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          {
+            "assertionId": "assertion:f902e45c1371e9c6",
+            "attribute": "battlefield_role",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          }
+        ],
+        "contributions": [
+          {
+            "acceptedAssertionCount": 1,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:82f23934d8eaca8a",
+            "edgeIds": [],
+            "nodeIds": [
+              "location:mirathorn"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
+          },
+          {
+            "acceptedAssertionCount": 1,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:43782369bd717d32",
+            "edgeIds": [],
+            "nodeIds": [
+              "location:mireward"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250"
+          },
+          {
+            "acceptedAssertionCount": 13,
+            "attributeAssertionIds": [],
+            "authoredBy": "gm",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:33d7cdb0ff623f28",
+            "edgeIds": [
+              "edge:pc:baergrom:member_of:party:questionable-company",
+              "edge:pc:bonogo:member_of:party:questionable-company",
+              "edge:pc:caelynn:member_of:party:questionable-company",
+              "edge:pc:ephanna:member_of:party:questionable-company",
+              "edge:pc:karsemine:member_of:party:questionable-company",
+              "edge:pc:stafl:member_of:party:questionable-company"
+            ],
+            "nodeIds": [
+              "party:questionable-company",
+              "pc:baergrom",
+              "pc:bonogo",
+              "pc:caelynn",
+              "pc:ephanna",
+              "pc:karsemine",
+              "pc:stafl"
+            ],
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceKind": "graph_review_authored_assertion",
+            "sourceRevisionId": "bundle-revision:eldyrwild-longmont-c2-initial-v1"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:c086a0b72324ff16",
+            "edgeIds": [
+              "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+              "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road"
+            ],
+            "nodeIds": [
+              "event:longmont-c2:session-22:mireward-road",
+              "location:mireward",
+              "party:questionable-company"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:1227841724520c18",
+            "edgeIds": [
+              "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+              "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle"
+            ],
+            "nodeIds": [
+              "event:longmont-c2:session-23:mireward-gate-battle",
+              "location:mireward",
+              "party:questionable-company"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [
+              "assertion:4d5d774d7cbf1e71",
+              "assertion:68bdeb27db521569",
+              "assertion:f902e45c1371e9c6"
+            ],
+            "authoredBy": "gm",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "edgeIds": [
+              "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+            ],
+            "nodeIds": [
+              "threat:tripod-null-calf"
+            ],
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceKind": "graph_review_authored_assertion",
+            "sourceRevisionId": "bundle-revision:eldyrwild-longmont-c2-initial-v1"
+          }
+        ],
+        "evidence": [
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom:member_of",
+            "locator": "jsonptr:/accepted_assertions/8",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo:member_of",
+            "locator": "jsonptr:/accepted_assertions/7",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn:member_of",
+            "locator": "jsonptr:/accepted_assertions/10",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna:member_of",
+            "locator": "jsonptr:/accepted_assertions/9",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine",
+            "locator": "jsonptr:/accepted_assertions/6",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine:member_of",
+            "locator": "jsonptr:/accepted_assertions/12",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl",
+            "locator": "jsonptr:/accepted_assertions/5",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl:member_of",
+            "locator": "jsonptr:/accepted_assertions/11",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:questionable-company",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:mireward",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:mireward"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:mireward-road",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:mireward-road"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:occurred-at",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:occurred-at"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:party-participated",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:party-participated"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:questionable-company",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:questionable-company"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:mireward",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:mireward"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:mireward-gate-battle"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:occurred-at",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:occurred-at"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:party-participated",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:party-participated"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:questionable-company",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:questionable-company"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
+            "locator": "heading:The City of Mirathorn",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceDomain": "worldbuilding",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:corpus:worldbuilding:mireward",
+            "locator": "heading:Mireward",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceDomain": "worldbuilding",
+            "sourceSpanRefId": null
+          }
+        ],
+        "nodes": [
+          {
+            "aliases": [
+              "Mireward Road"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:mireward-road",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:mireward-road"
+              }
+            ],
+            "kind": "event",
+            "label": "Mireward Road",
+            "nodeId": "event:longmont-c2:session-22:mireward-road",
+            "role": "travel",
+            "sourceDomains": [
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Mireward Gate Battle"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:mireward-gate-battle"
+              }
+            ],
+            "kind": "event",
+            "label": "Mireward Gate Battle",
+            "nodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+            "role": "encounter",
+            "sourceDomains": [
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Mirathorn"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:82f23934d8eaca8a"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
+                "locator": "heading:The City of Mirathorn",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+                "sourceDomain": "worldbuilding",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "location",
+            "label": "Mirathorn",
+            "nodeId": "location:mirathorn",
+            "role": "city",
+            "sourceDomains": [
+              "worldbuilding"
+            ]
+          },
+          {
+            "aliases": [
+              "Mireward"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18",
+              "contribution:43782369bd717d32",
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:mireward",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:mireward"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:mireward",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:mireward"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:worldbuilding:mireward",
+                "locator": "heading:Mireward",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+                "sourceDomain": "worldbuilding",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "location",
+            "label": "Mireward",
+            "nodeId": "location:mireward",
+            "role": "town",
+            "sourceDomains": [
+              "recap",
+              "worldbuilding"
+            ]
+          },
+          {
+            "aliases": [
+              "Questionable Company"
+            ],
+            "classification": "mixed",
+            "contributionIds": [
+              "contribution:1227841724520c18",
+              "contribution:33d7cdb0ff623f28",
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:questionable-company",
+                "locator": "jsonptr:/accepted_assertions/0",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:questionable-company",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:questionable-company"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:questionable-company",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:questionable-company"
+              }
+            ],
+            "kind": "party",
+            "label": "Questionable Company",
+            "nodeId": "party:questionable-company",
+            "role": "adventuring-party",
+            "sourceDomains": [
+              "manual_seed",
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Baergrom"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Baergrom",
+            "nodeId": "pc:baergrom",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Bonogo"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo",
+                "locator": "jsonptr:/accepted_assertions/1",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Bonogo",
+            "nodeId": "pc:bonogo",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Caelynn"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Caelynn",
+            "nodeId": "pc:caelynn",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Ephanna"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Ephanna",
+            "nodeId": "pc:ephanna",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Karsemine"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine",
+                "locator": "jsonptr:/accepted_assertions/6",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Karsemine",
+            "nodeId": "pc:karsemine",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Stafl"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl",
+                "locator": "jsonptr:/accepted_assertions/5",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Stafl",
+            "nodeId": "pc:stafl",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Tripod Null-Calf"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:022187fdefdf4557"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+                "locator": "jsonptr:/accepted_assertions/0",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "threat",
+            "label": "Tripod Null-Calf",
+            "nodeId": "threat:tripod-null-calf",
+            "role": "encounter-threat",
+            "sourceDomains": [
+              "statblock"
+            ]
+          }
+        ],
+        "relationships": [
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "edgeId": "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:occurred-at",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:occurred-at"
+              }
+            ],
+            "label": "occurred at",
+            "predicate": "occurred_at",
+            "sessionIds": [
+              "session-22"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "event:longmont-c2:session-22:mireward-road",
+            "targetNodeId": "location:mireward"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "edgeId": "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:occurred-at",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:occurred-at"
+              }
+            ],
+            "label": "occurred at",
+            "predicate": "occurred_at",
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+            "targetNodeId": "location:mireward"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "edgeId": "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:party-participated",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:party-participated"
+              }
+            ],
+            "label": "participated in",
+            "predicate": "participated_in",
+            "sessionIds": [
+              "session-22"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "party:questionable-company",
+            "targetNodeId": "event:longmont-c2:session-22:mireward-road"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "edgeId": "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:party-participated",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:party-participated"
+              }
+            ],
+            "label": "participated in",
+            "predicate": "participated_in",
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "party:questionable-company",
+            "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:baergrom:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom:member_of",
+                "locator": "jsonptr:/accepted_assertions/8",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:baergrom",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:bonogo:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo:member_of",
+                "locator": "jsonptr:/accepted_assertions/7",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:bonogo",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:caelynn:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn:member_of",
+                "locator": "jsonptr:/accepted_assertions/10",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:caelynn",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:ephanna:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna:member_of",
+                "locator": "jsonptr:/accepted_assertions/9",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:ephanna",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:karsemine:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine:member_of",
+                "locator": "jsonptr:/accepted_assertions/12",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:karsemine",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:stafl:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl:member_of",
+                "locator": "jsonptr:/accepted_assertions/11",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:stafl",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:022187fdefdf4557"
+            ],
+            "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+                "locator": "jsonptr:/accepted_assertions/1",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "appeared in",
+            "predicate": "appeared_in",
+            "sessionIds": [],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "sourceNodeId": "threat:tripod-null-calf",
+            "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle"
+          }
+        ],
+        "sources": [
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceDomain": "worldbuilding",
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceDomain": "worldbuilding",
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "gmAuthored",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "gmAuthored",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+          }
+        ],
         "summary": {
-          "acceptedAssertionCount": 0,
-          "attributeCount": 0,
-          "contributionCount": 0,
-          "evidenceCount": 0,
-          "focusSessions": [],
-          "nodeCount": 0,
-          "relationshipCount": 0,
-          "sourceArtifactCount": 0,
-          "sourceDomains": [],
-          "supportCount": 0
+          "acceptedAssertionCount": 30,
+          "attributeCount": 3,
+          "contributionCount": 6,
+          "evidenceCount": 30,
+          "focusSessions": [
+            "session-22",
+            "session-23"
+          ],
+          "nodeCount": 12,
+          "relationshipCount": 11,
+          "sourceArtifactCount": 6,
+          "sourceDomains": [
+            "manual_seed",
+            "recap",
+            "statblock",
+            "worldbuilding"
+          ],
+          "supportCount": 26
         },
-        "trustBoundary": []
+        "trustBoundary": [
+          "Does not publish a production Eldyrwild world head.",
+          "Does not bypass /ingest review; merge of PR006C approves bootstrap input only.",
+          "Does not claim complete Campaign 2 coverage.",
+          "Does not invent numerical statblock values.",
+          "Does not prove projection usefulness or Plan retrieval.",
+          "Validation does not re-read corpus files; corpus digests are pinned statically.",
+          "Recap source_span_ref_id values are stable labels for /ingest inspection; this package does not prove highlightable span resolution.",
+          "No /ingest UI is delivered by PR006D2.",
+          "No Projection Engine is delivered by PR006D2.",
+          "No Plan or Play graph consumption is delivered by PR006D2.",
+          "No arbitrary graph editing is delivered by PR006D2."
+        ]
       },
       "schema": "dmb_world_graph_bootstrap_prepare_v1"
     },
     "publishedConfirmation": {
       "actor": "gm",
-      "baselineRevisionId": "rev:baseline-example",
+      "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:initial-example",
-      "diagnostics": [],
-      "initialHeadRevisionId": "rev:initial-example",
+      "currentHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+      "diagnostics": [
+        {
+          "code": "kernel_result",
+          "message": "Kernel initialization result received.",
+          "severity": "info"
+        }
+      ],
+      "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
       "noMutationGuarantees": [
-        "The confirmed publication used the public PR006D1 Kernel operation.",
+        "Published the approved initialization through the PR006D1 Kernel operation.",
         "The approved contribution bundle was not modified.",
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "proposalId": "proposal:example",
+      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+      "proposalId": "b21ce790226f19b67e2657ea8052b71c4e550cf9c29030221891e5307c6431ae",
       "published": true,
-      "receipt": null,
+      "receipt": {
+        "acceptedAssertionCount": 30,
+        "actor": "gm",
+        "approvalAttestation": {
+          "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
+          "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+          "bundleId": "eldyrwild-longmont-c2-initial-v1"
+        },
+        "assertionSupportCount": 26,
+        "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+        "campaignId": "longmont-c2",
+        "contributionIntegrityOk": true,
+        "createdAt": "<created-at>",
+        "edgeCount": 11,
+        "evidenceCount": 30,
+        "focusSessionId": "session-23",
+        "identityDecisionIds": [],
+        "initialHeadRevisionId": "rev:41bcbb01071dd2b4da54d8e335ec38f7",
+        "nodeCount": 12,
+        "orderedContributions": [
+          {
+            "contributionId": "contribution:82f23934d8eaca8a",
+            "payloadSha256": "b79b6427ff59d602054857fd29cf4661743c8351bef03a4f1bc0b68511293df8"
+          },
+          {
+            "contributionId": "contribution:43782369bd717d32",
+            "payloadSha256": "5a2471a885b90d3fc56c3fa03b17578b3394cf12dfd58726ed9b500bfe4c3f12"
+          },
+          {
+            "contributionId": "contribution:33d7cdb0ff623f28",
+            "payloadSha256": "f2071f5dce89bb0ad21a1dc360ccdb63a51e70153b01eb550769c0722fd8a0f0"
+          },
+          {
+            "contributionId": "contribution:c086a0b72324ff16",
+            "payloadSha256": "fbd50ed5ed524bd3d74a0c6f2107d67a7c71944fde43dfda4f4ae014a5d6ffd7"
+          },
+          {
+            "contributionId": "contribution:1227841724520c18",
+            "payloadSha256": "0d67c425a24dc6441f578e23cf125b37998bb6beadfb0a3477b8ff810a37006e"
+          },
+          {
+            "contributionId": "contribution:022187fdefdf4557",
+            "payloadSha256": "c32656f797e903744d3cbfcaabf884b20ed9748296fad0196813d49c92aeef78"
+          }
+        ],
+        "planBindingVerified": true,
+        "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+        "rebuildEquivalent": true,
+        "schema": "dmb_world_initialization_receipt_v1",
+        "sourceArtifactCount": 6,
+        "sourceDomains": [
+          "manual_seed",
+          "recap",
+          "statblock",
+          "worldbuilding"
+        ],
+        "worldId": "eldyrwild",
+        "worldIntegrityOk": true
+      },
       "schema": "dmb_world_graph_bootstrap_confirm_v1",
       "state": "active"
     },
@@ -115,37 +1439,1244 @@
       "bundleValid": true,
       "campaignId": "longmont-c2",
       "currentHeadRevisionId": null,
-      "diagnostics": [],
+      "diagnostics": [
+        {
+          "code": "bundle_certified",
+          "message": "Locked bundle passed checksum and acceptance policy.",
+          "severity": "info"
+        }
+      ],
       "focusSessionId": "session-23",
       "headAdvancedSinceInitialization": false,
       "initialHeadRevisionId": null,
       "receipt": null,
       "review": {
-        "attributes": [],
-        "contributions": [],
-        "evidence": [],
-        "nodes": [],
-        "relationships": [],
-        "sources": [],
+        "attributes": [
+          {
+            "assertionId": "assertion:4d5d774d7cbf1e71",
+            "attribute": "first_appearance",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Mireward north-gate pressure sequence."
+          },
+          {
+            "assertionId": "assertion:68bdeb27db521569",
+            "attribute": "challenge_expectation",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          {
+            "assertionId": "assertion:f902e45c1371e9c6",
+            "attribute": "battlefield_role",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "subjectNodeId": "threat:tripod-null-calf",
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          }
+        ],
+        "contributions": [
+          {
+            "acceptedAssertionCount": 1,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:82f23934d8eaca8a",
+            "edgeIds": [],
+            "nodeIds": [
+              "location:mirathorn"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
+          },
+          {
+            "acceptedAssertionCount": 1,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:43782369bd717d32",
+            "edgeIds": [],
+            "nodeIds": [
+              "location:mireward"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:9a971a9bcc293dcd9f919d7ec578ccb5378c5325a8f67408fdea7ca59aab7250"
+          },
+          {
+            "acceptedAssertionCount": 13,
+            "attributeAssertionIds": [],
+            "authoredBy": "gm",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:33d7cdb0ff623f28",
+            "edgeIds": [
+              "edge:pc:baergrom:member_of:party:questionable-company",
+              "edge:pc:bonogo:member_of:party:questionable-company",
+              "edge:pc:caelynn:member_of:party:questionable-company",
+              "edge:pc:ephanna:member_of:party:questionable-company",
+              "edge:pc:karsemine:member_of:party:questionable-company",
+              "edge:pc:stafl:member_of:party:questionable-company"
+            ],
+            "nodeIds": [
+              "party:questionable-company",
+              "pc:baergrom",
+              "pc:bonogo",
+              "pc:caelynn",
+              "pc:ephanna",
+              "pc:karsemine",
+              "pc:stafl"
+            ],
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceKind": "graph_review_authored_assertion",
+            "sourceRevisionId": "bundle-revision:eldyrwild-longmont-c2-initial-v1"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:c086a0b72324ff16",
+            "edgeIds": [
+              "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+              "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road"
+            ],
+            "nodeIds": [
+              "event:longmont-c2:session-22:mireward-road",
+              "location:mireward",
+              "party:questionable-company"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [],
+            "authoredBy": null,
+            "classification": "sourceDerived",
+            "contributionId": "contribution:1227841724520c18",
+            "edgeIds": [
+              "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+              "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle"
+            ],
+            "nodeIds": [
+              "event:longmont-c2:session-23:mireward-gate-battle",
+              "location:mireward",
+              "party:questionable-company"
+            ],
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceKind": "manual_import",
+            "sourceRevisionId": "sha256:77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782"
+          },
+          {
+            "acceptedAssertionCount": 5,
+            "attributeAssertionIds": [
+              "assertion:4d5d774d7cbf1e71",
+              "assertion:68bdeb27db521569",
+              "assertion:f902e45c1371e9c6"
+            ],
+            "authoredBy": "gm",
+            "classification": "gmAuthored",
+            "contributionId": "contribution:022187fdefdf4557",
+            "edgeIds": [
+              "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+            ],
+            "nodeIds": [
+              "threat:tripod-null-calf"
+            ],
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceKind": "graph_review_authored_assertion",
+            "sourceRevisionId": "bundle-revision:eldyrwild-longmont-c2-initial-v1"
+          }
+        ],
+        "evidence": [
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom:member_of",
+            "locator": "jsonptr:/accepted_assertions/8",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo:member_of",
+            "locator": "jsonptr:/accepted_assertions/7",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn:member_of",
+            "locator": "jsonptr:/accepted_assertions/10",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna:member_of",
+            "locator": "jsonptr:/accepted_assertions/9",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine",
+            "locator": "jsonptr:/accepted_assertions/6",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine:member_of",
+            "locator": "jsonptr:/accepted_assertions/12",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl",
+            "locator": "jsonptr:/accepted_assertions/5",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl:member_of",
+            "locator": "jsonptr:/accepted_assertions/11",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:manual_seed:questionable-company",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:mireward",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:mireward"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:mireward-road",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:mireward-road"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:occurred-at",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:occurred-at"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:party-participated",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:party-participated"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s22:questionable-company",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-22:questionable-company"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:mireward",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:mireward"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:mireward-gate-battle"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:occurred-at",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:occurred-at"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:party-participated",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:party-participated"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:recap:s23:questionable-company",
+            "locator": null,
+            "locatorStatus": "unverified",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:session-23:questionable-company"
+          },
+          {
+            "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
+            "locator": "heading:The City of Mirathorn",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceDomain": "worldbuilding",
+            "sourceSpanRefId": null
+          },
+          {
+            "evidenceRefId": "evidence:corpus:worldbuilding:mireward",
+            "locator": "heading:Mireward",
+            "locatorStatus": "unverified",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceDomain": "worldbuilding",
+            "sourceSpanRefId": null
+          }
+        ],
+        "nodes": [
+          {
+            "aliases": [
+              "Mireward Road"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:mireward-road",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:mireward-road"
+              }
+            ],
+            "kind": "event",
+            "label": "Mireward Road",
+            "nodeId": "event:longmont-c2:session-22:mireward-road",
+            "role": "travel",
+            "sourceDomains": [
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Mireward Gate Battle"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:mireward-gate-battle"
+              }
+            ],
+            "kind": "event",
+            "label": "Mireward Gate Battle",
+            "nodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+            "role": "encounter",
+            "sourceDomains": [
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Mirathorn"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:82f23934d8eaca8a"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
+                "locator": "heading:The City of Mirathorn",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+                "sourceDomain": "worldbuilding",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "location",
+            "label": "Mirathorn",
+            "nodeId": "location:mirathorn",
+            "role": "city",
+            "sourceDomains": [
+              "worldbuilding"
+            ]
+          },
+          {
+            "aliases": [
+              "Mireward"
+            ],
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18",
+              "contribution:43782369bd717d32",
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:mireward",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:mireward"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:mireward",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:mireward"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:worldbuilding:mireward",
+                "locator": "heading:Mireward",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+                "sourceDomain": "worldbuilding",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "location",
+            "label": "Mireward",
+            "nodeId": "location:mireward",
+            "role": "town",
+            "sourceDomains": [
+              "recap",
+              "worldbuilding"
+            ]
+          },
+          {
+            "aliases": [
+              "Questionable Company"
+            ],
+            "classification": "mixed",
+            "contributionIds": [
+              "contribution:1227841724520c18",
+              "contribution:33d7cdb0ff623f28",
+              "contribution:c086a0b72324ff16"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:questionable-company",
+                "locator": "jsonptr:/accepted_assertions/0",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:questionable-company",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:questionable-company"
+              },
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:questionable-company",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:questionable-company"
+              }
+            ],
+            "kind": "party",
+            "label": "Questionable Company",
+            "nodeId": "party:questionable-company",
+            "role": "adventuring-party",
+            "sourceDomains": [
+              "manual_seed",
+              "recap"
+            ]
+          },
+          {
+            "aliases": [
+              "Baergrom"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Baergrom",
+            "nodeId": "pc:baergrom",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Bonogo"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo",
+                "locator": "jsonptr:/accepted_assertions/1",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Bonogo",
+            "nodeId": "pc:bonogo",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Caelynn"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Caelynn",
+            "nodeId": "pc:caelynn",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Ephanna"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Ephanna",
+            "nodeId": "pc:ephanna",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Karsemine"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine",
+                "locator": "jsonptr:/accepted_assertions/6",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Karsemine",
+            "nodeId": "pc:karsemine",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Stafl"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl",
+                "locator": "jsonptr:/accepted_assertions/5",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "pc",
+            "label": "Stafl",
+            "nodeId": "pc:stafl",
+            "role": "player-character",
+            "sourceDomains": [
+              "manual_seed"
+            ]
+          },
+          {
+            "aliases": [
+              "Tripod Null-Calf"
+            ],
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:022187fdefdf4557"
+            ],
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+                "locator": "jsonptr:/accepted_assertions/0",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "kind": "threat",
+            "label": "Tripod Null-Calf",
+            "nodeId": "threat:tripod-null-calf",
+            "role": "encounter-threat",
+            "sourceDomains": [
+              "statblock"
+            ]
+          }
+        ],
+        "relationships": [
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "edgeId": "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:occurred-at",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:occurred-at"
+              }
+            ],
+            "label": "occurred at",
+            "predicate": "occurred_at",
+            "sessionIds": [
+              "session-22"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "event:longmont-c2:session-22:mireward-road",
+            "targetNodeId": "location:mireward"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "edgeId": "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:occurred-at",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:occurred-at"
+              }
+            ],
+            "label": "occurred at",
+            "predicate": "occurred_at",
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+            "targetNodeId": "location:mireward"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:c086a0b72324ff16"
+            ],
+            "edgeId": "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s22:party-participated",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-22",
+                "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-22:party-participated"
+              }
+            ],
+            "label": "participated in",
+            "predicate": "participated_in",
+            "sessionIds": [
+              "session-22"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "party:questionable-company",
+            "targetNodeId": "event:longmont-c2:session-22:mireward-road"
+          },
+          {
+            "classification": "sourceDerived",
+            "contributionIds": [
+              "contribution:1227841724520c18"
+            ],
+            "edgeId": "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:corpus:recap:s23:party-participated",
+                "locator": null,
+                "locatorStatus": "unverified",
+                "sessionId": "session-23",
+                "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+                "sourceDomain": "recap",
+                "sourceSpanRefId": "span:session-23:party-participated"
+              }
+            ],
+            "label": "participated in",
+            "predicate": "participated_in",
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceNodeId": "party:questionable-company",
+            "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:baergrom:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:baergrom:member_of",
+                "locator": "jsonptr:/accepted_assertions/8",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:baergrom",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:bonogo:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:bonogo:member_of",
+                "locator": "jsonptr:/accepted_assertions/7",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:bonogo",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:caelynn:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:caelynn:member_of",
+                "locator": "jsonptr:/accepted_assertions/10",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:caelynn",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:ephanna:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:ephanna:member_of",
+                "locator": "jsonptr:/accepted_assertions/9",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:ephanna",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:karsemine:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:karsemine:member_of",
+                "locator": "jsonptr:/accepted_assertions/12",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:karsemine",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:33d7cdb0ff623f28"
+            ],
+            "edgeId": "edge:pc:stafl:member_of:party:questionable-company",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:manual_seed:pc:stafl:member_of",
+                "locator": "jsonptr:/accepted_assertions/11",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+                "sourceDomain": "manual_seed",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "member of",
+            "predicate": "member_of",
+            "sessionIds": [],
+            "sourceDomains": [
+              "manual_seed"
+            ],
+            "sourceNodeId": "pc:stafl",
+            "targetNodeId": "party:questionable-company"
+          },
+          {
+            "classification": "gmAuthored",
+            "contributionIds": [
+              "contribution:022187fdefdf4557"
+            ],
+            "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+            "evidence": [
+              {
+                "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+                "locator": "jsonptr:/accepted_assertions/1",
+                "locatorStatus": "unverified",
+                "sessionId": null,
+                "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "sourceDomain": "statblock",
+                "sourceSpanRefId": null
+              }
+            ],
+            "label": "appeared in",
+            "predicate": "appeared_in",
+            "sessionIds": [],
+            "sourceDomains": [
+              "statblock"
+            ],
+            "sourceNodeId": "threat:tripod-null-calf",
+            "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle"
+          }
+        ],
+        "sources": [
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+            "sourceDomain": "worldbuilding",
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": null,
+            "sourceArtifactId": "corpus:eldyrwild:mireward-readme",
+            "sourceDomain": "worldbuilding",
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": "session-22",
+            "sourceArtifactId": "corpus:eldyrwild:session-22-recap",
+            "sourceDomain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "sourceDerived",
+            "sessionId": "session-23",
+            "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+            "sourceDomain": "recap",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "gmAuthored",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "sourceDomain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          },
+          {
+            "campaignId": "longmont-c2",
+            "classification": "gmAuthored",
+            "sessionId": null,
+            "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+            "sourceDomain": "statblock",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+          }
+        ],
         "summary": {
-          "acceptedAssertionCount": 0,
-          "attributeCount": 0,
-          "contributionCount": 0,
-          "evidenceCount": 0,
-          "focusSessions": [],
-          "nodeCount": 0,
-          "relationshipCount": 0,
-          "sourceArtifactCount": 0,
-          "sourceDomains": [],
-          "supportCount": 0
+          "acceptedAssertionCount": 30,
+          "attributeCount": 3,
+          "contributionCount": 6,
+          "evidenceCount": 30,
+          "focusSessions": [
+            "session-22",
+            "session-23"
+          ],
+          "nodeCount": 12,
+          "relationshipCount": 11,
+          "sourceArtifactCount": 6,
+          "sourceDomains": [
+            "manual_seed",
+            "recap",
+            "statblock",
+            "worldbuilding"
+          ],
+          "supportCount": 26
         },
-        "trustBoundary": []
+        "trustBoundary": [
+          "Does not publish a production Eldyrwild world head.",
+          "Does not bypass /ingest review; merge of PR006C approves bootstrap input only.",
+          "Does not claim complete Campaign 2 coverage.",
+          "Does not invent numerical statblock values.",
+          "Does not prove projection usefulness or Plan retrieval.",
+          "Validation does not re-read corpus files; corpus digests are pinned statically.",
+          "Recap source_span_ref_id values are stable labels for /ingest inspection; this package does not prove highlightable span resolution.",
+          "No /ingest UI is delivered by PR006D2.",
+          "No Projection Engine is delivered by PR006D2.",
+          "No Plan or Play graph consumption is delivered by PR006D2.",
+          "No arbitrary graph editing is delivered by PR006D2."
+        ]
       },
       "schema": "dmb_world_graph_bootstrap_status_v1",
       "state": "ready",
       "trustBoundary": {
-        "canTrust": [],
-        "cannotTrust": []
+        "canTrust": [
+          "The checked-in PR006C bundle checksum and manifest contract.",
+          "The exact six ordered GraphContribution records.",
+          "The content-bound PR006D1 initialization plan.",
+          "The review projection derived from the certified bundle."
+        ],
+        "cannotTrust": [
+          "Does not publish a production Eldyrwild world head.",
+          "Does not bypass /ingest review; merge of PR006C approves bootstrap input only.",
+          "Does not claim complete Campaign 2 coverage.",
+          "Does not invent numerical statblock values.",
+          "Does not prove projection usefulness or Plan retrieval.",
+          "Validation does not re-read corpus files; corpus digests are pinned statically.",
+          "Recap source_span_ref_id values are stable labels for /ingest inspection; this package does not prove highlightable span resolution.",
+          "Production publication, receipt, and reconstruction/integrity proof.",
+          "No /ingest UI is delivered by PR006D2.",
+          "No Projection Engine is delivered by PR006D2.",
+          "No Plan or Play graph consumption is delivered by PR006D2.",
+          "No arbitrary graph editing is delivered by PR006D2."
+        ]
       },
       "worldId": "eldyrwild"
     }

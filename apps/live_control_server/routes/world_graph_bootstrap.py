@@ -5,9 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.models.world_graph_bootstrap import (
+    BootstrapDiagnostic,
     WorldGraphBootstrapConfirmRequest,
     WorldGraphBootstrapConfirmResponse,
     WorldGraphBootstrapPrepareRequest,
@@ -21,22 +24,46 @@ from apps.live_control_server.services.world_graph_bootstrap import (
     prepare_world_graph_bootstrap,
 )
 
+
+def _request_validation_error_response(exc: RequestValidationError) -> JSONResponse:
+    errors = exc.errors()
+    if any(error.get("type") == "extra_forbidden" for error in errors):
+        code = "invalid_request"
+        message = "Bootstrap request contains unsupported fields."
+    elif any("actor" in {str(item) for item in error.get("loc", ())} for error in errors):
+        code = "invalid_actor"
+        message = "Bootstrap actor is required and must be a bounded non-blank string."
+    else:
+        code = "invalid_request"
+        message = "Bootstrap request does not match the required contract."
+    return _error_response(
+        WorldGraphBootstrapError(
+            message,
+            code=code,
+            status_code=422,
+            bootstrap_state="error",
+            diagnostics=[BootstrapDiagnostic(code=code, message=message)],
+        )
+    )
+
+
+class _BootstrapAPIRoute(APIRoute):
+    def get_route_handler(self):
+        route_handler = super().get_route_handler()
+
+        async def wrapped_route_handler(request: Request):
+            try:
+                return await route_handler(request)
+            except RequestValidationError as exc:
+                return _request_validation_error_response(exc)
+
+        return wrapped_route_handler
+
+
 router = APIRouter(
     prefix="/api/live/world-graph-bootstrap",
     tags=["world-graph-bootstrap"],
-)
-_FORBIDDEN_SELECTOR_FIELDS = frozenset(
-    {
-        "root",
-        "bundlePath",
-        "bundleId",
-        "bundleDigest",
-        "worldId",
-        "campaignId",
-        "focusSessionId",
-        "force",
-        "skipValidation",
-    }
+    route_class=_BootstrapAPIRoute,
 )
 
 
@@ -48,13 +75,18 @@ def _error_response(exc: WorldGraphBootstrapError) -> JSONResponse:
 
 
 def _reject_selector_query(request: Request) -> None:
-    blocked = sorted(_FORBIDDEN_SELECTOR_FIELDS & set(request.query_params))
-    if blocked:
+    if request.query_params:
         raise WorldGraphBootstrapError(
-            "Bootstrap selectors are server-owned and cannot be submitted.",
+            "Bootstrap routes do not accept query parameters.",
             code="invalid_request",
             status_code=422,
             bootstrap_state="error",
+            diagnostics=[
+                BootstrapDiagnostic(
+                    code="invalid_request",
+                    message="Bootstrap routes do not accept query parameters.",
+                )
+            ],
         )
 
 
