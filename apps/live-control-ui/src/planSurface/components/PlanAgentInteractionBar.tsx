@@ -203,7 +203,9 @@ export function PlanAgentInteractionBar({
   const [freshnessChecking, setFreshnessChecking] = useState(false);
 
   const memorySessionLabel = prepMemoryLabel(sessionDescriptor);
-  const querySession = sessionDescriptor.memorySession;
+  // Outer /api/live/query must match the loaded live packet session (liveSession),
+  // not memorySession (packet-1). World-graph focus still uses memorySession via planWorldGraphContext.
+  const querySession = sessionDescriptor.liveSession;
 
   useEffect(() => {
     agentInteraction.rehydrateScope({
@@ -761,22 +763,25 @@ export function PlanAgentInteractionBar({
                       />
                     ) : null}
                     {citationCards.length ? (
-                      <section className="plan-agent-citation-cards" aria-label="Supporting sources">
-                        <h4>Supporting sources</h4>
-                        <ul>
-                          {citationCards.map((card) => (
-                            <li key={`${card.path}-${card.evidenceId}`} data-selected={selectedCitationKey === citationKey(card.path, card.evidenceId)}>
-                              <strong>{card.sourceRole} · {card.authority} · {card.lineLabel}</strong>
-                              <span className="plan-agent-muted">{card.evidenceId}</span>
-                              <code>{card.path}</code>
-                              {card.textExcerpt ? <p>{card.textExcerpt}</p> : null}
-                              <button type="button" onClick={() => void openCitationSource(card)}>
-                                Open source
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
+                      <details className="plan-agent-metadata-drawer">
+                        <summary>Supporting sources ({citationCards.length})</summary>
+                        <section className="plan-agent-citation-cards" aria-label="Supporting sources">
+                          <h4>Supporting sources</h4>
+                          <ul>
+                            {citationCards.map((card) => (
+                              <li key={`${card.path}-${card.evidenceId}`} data-selected={selectedCitationKey === citationKey(card.path, card.evidenceId)}>
+                                <strong>{card.sourceRole} · {card.authority} · {card.lineLabel}</strong>
+                                <span className="plan-agent-muted">{card.evidenceId}</span>
+                                <code>{card.path}</code>
+                                {card.textExcerpt ? <p>{card.textExcerpt}</p> : null}
+                                <button type="button" onClick={() => void openCitationSource(card)}>
+                                  Open source
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      </details>
                     ) : null}
                     {sourceStatus !== "idle" ? (
                       <section className="plan-agent-source-reader" aria-label="Source preview">

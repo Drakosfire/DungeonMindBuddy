@@ -63,17 +63,21 @@ export function WorldGraphQueryContextPanel({
       data-status={status}
       aria-label="World graph query context"
     >
-      <div>
-        <p className="plan-surface-kicker">World graph</p>
-        <h4>Graph context · {status}</h4>
-        {persistedOnly ? (
-          <p className="plan-agent-muted">
-            Detailed graph projection was not retained for this turn. Summary only.
-          </p>
-        ) : null}
-      </div>
+      <details className="plan-agent-metadata-drawer">
+        <summary>
+          World graph · {status} · {matchedNodeIds.length} matched
+        </summary>
+        <div>
+          <p className="plan-surface-kicker">World graph</p>
+          <h4>Graph context · {status}</h4>
+          {persistedOnly ? (
+            <p className="plan-agent-muted">
+              Detailed graph projection was not retained for this turn. Summary only.
+            </p>
+          ) : null}
+        </div>
 
-      <dl className="plan-agent-world-graph-context-grid">
+        <dl className="plan-agent-world-graph-context-grid">
         <div>
           <dt>Revision</dt>
           <dd>{revisionId ?? "n/a"}</dd>
@@ -168,6 +172,7 @@ export function WorldGraphQueryContextPanel({
           </ul>
         </div>
       ) : null}
+      </details>
     </section>
   );
 }

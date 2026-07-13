@@ -568,6 +568,23 @@
   font-weight: 600;
 }
 
+.plan-agent-metadata-drawer {
+  margin: 0;
+}
+
+.plan-agent-metadata-drawer > summary {
+  cursor: pointer;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.85rem;
+  font-weight: 600;
+  list-style-position: outside;
+}
+
+.plan-agent-metadata-drawer[open] > summary {
+  color: var(--fg, #e8eaef);
+  margin-bottom: 0.55rem;
+}
+
 .plan-agent-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

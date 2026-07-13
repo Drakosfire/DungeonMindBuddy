@@ -205,7 +205,7 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("asks prep memory through live query using the memory session", async () => {
+  it("asks prep memory through live query using the live packet session", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
@@ -303,7 +303,7 @@ describe("PlanSurfaceShell", () => {
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
       campaign_id: "longmont-c2",
-      session: 21,
+      session: 22,
       query_backend: "live",
       world_graph_context: expectedWorldGraphContextRequest,
     });
@@ -378,7 +378,7 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Unknown");
     await user.click(screen.getByRole("button", { name: "Check current source state" }));
 
-    expect(await screen.findByText("Corpus signal: Current")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Current");
     const freshnessCall = vi.mocked(globalThis.fetch).mock.calls[2];
     expect(String(freshnessCall[0])).toContain("/api/live/citation-freshness");
     expect(JSON.parse(String(freshnessCall[1]?.body))).toMatchObject({
