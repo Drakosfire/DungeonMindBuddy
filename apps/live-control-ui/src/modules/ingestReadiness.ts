@@ -85,13 +85,28 @@ function memoryDetail(result: RecapIngestStatus | null | undefined, ready: boole
   return "Recap memory pipeline has not completed yet.";
 }
 
+function formatGraphCounts(preview: RecapGraphPreviewReport): string | null {
+  const nodes = preview.node_count;
+  const edges = preview.edge_count;
+  if (typeof nodes !== "number" && typeof edges !== "number") return null;
+  const nodePart = typeof nodes === "number" ? `${nodes} node${nodes === 1 ? "" : "s"}` : null;
+  const edgePart = typeof edges === "number" ? `${edges} edge${edges === 1 ? "" : "s"}` : null;
+  return [nodePart, edgePart].filter(Boolean).join(", ");
+}
+
 function graphDetail(preview: RecapGraphPreviewReport | null, ready: boolean, blocked: boolean): string {
-  if (ready) return "Preview union store is materialized.";
+  if (ready) {
+    const counts = preview ? formatGraphCounts(preview) : null;
+    return counts
+      ? `Preview union on disk (${counts}). Open Graph Review to judge coverage.`
+      : "Preview union store is on disk. Open Graph Review to judge coverage.";
+  }
   if (blocked) return preview?.blocked_reason?.trim() || "Graph extraction blocked.";
   if (!preview || preview.status === "missing" || preview.status === "graph_preview_missing") {
     return "No preview graph for this session yet.";
   }
-  return `Graph status: ${preview.status}.`;
+  const counts = formatGraphCounts(preview);
+  return counts ? `Graph status: ${preview.status} (${counts}).` : `Graph status: ${preview.status}.`;
 }
 
 function buildNextAction(options: {
@@ -126,7 +141,9 @@ function buildNextAction(options: {
   if (!graphIsReady) {
     return "Next: run category graph extraction to materialize the preview union store.";
   }
-  return "Complete: recap memory and preview graph are ready. Review chips in Recap View.";
+  const counts = preview ? formatGraphCounts(preview) : null;
+  const countHint = counts ? ` (${counts})` : "";
+  return `Recap memory ready; preview union on disk${countHint}. Review Graph Review for coverage — re-extract if the graph looks thin.`;
 }
 
 export function buildIngestReadiness(result: RecapIngestStatus | null | undefined): IngestReadiness {

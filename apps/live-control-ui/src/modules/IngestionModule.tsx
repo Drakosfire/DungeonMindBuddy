@@ -22,6 +22,7 @@ import {
 } from "../planSurface/sessionCampaignContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { buildIngestReadiness } from "./ingestReadiness";
+import { mergeInspectResult } from "./ingestResultMerge";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -354,48 +355,6 @@ function derivePaneStateFromResult(result: RecapIngestStatus): IngestionPaneStat
     return { status: "preview_ready", result };
   }
   return { status: "idle" };
-}
-
-function mergeInspectResult(
-  draftResult: RecapIngestStatus | null,
-  inspected: RecapIngestStatus,
-): RecapIngestStatus {
-  if (!draftResult) {
-    return inspected;
-  }
-  const mergedStates = [...new Set([...draftResult.states, ...inspected.states])];
-  const progressRank = (status: string): number => {
-    switch (status) {
-      case "ready_for_planning_activation":
-        return 5;
-      case "breadcrumb_required":
-        return 4;
-      case "recap_applied":
-        return 3;
-      case "recap_preview_created":
-        return 2;
-      default:
-        return 1;
-    }
-  };
-  const status =
-    progressRank(draftResult.status) >= progressRank(inspected.status)
-      ? draftResult.status
-      : inspected.status;
-  return sanitizeLatestResult({
-    ...inspected,
-    status,
-    states: mergedStates,
-    paths: { ...inspected.paths, ...draftResult.paths },
-    warnings: [...new Set([...draftResult.warnings, ...inspected.warnings])],
-    next_actions:
-      draftResult.next_actions.length > 0 ? draftResult.next_actions : inspected.next_actions,
-    ingest_report: { ...inspected.ingest_report, ...draftResult.ingest_report },
-    entity_spelling_audit:
-      draftResult.entity_spelling_audit.length > 0
-        ? draftResult.entity_spelling_audit
-        : inspected.entity_spelling_audit,
-  }) ?? inspected;
 }
 
 function readDraft(storageKey: string): IngestionModuleDraft | null {
@@ -876,9 +835,8 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const hasPreviewUnionStore =
-    graphPreview?.status === "preview_union_store_ready" ||
-    hasState(latestResult, "preview_union_store_ready");
+  // Trust live graph_preview.status only — draft states must not claim materialized.
+  const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
@@ -934,8 +892,14 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
   const graphDisabledReason = !hasNormalizedRecap
     ? "Build Graph Preview waits for a normalized recap (Apply + Normalize)."
     : null;
+  const previewUnionSizeHint =
+    typeof graphPreview?.node_count === "number"
+      ? ` (${graphPreview.node_count} nodes${
+          typeof graphPreview.edge_count === "number" ? `, ${graphPreview.edge_count} edges` : ""
+        })`
+      : "";
   const previewSupergraphDisabledReason = hasPreviewUnionStore && !forceGraphRun
-    ? "Preview union store already materialized. Check \"Replace existing preview graph\" to start a new extraction run."
+    ? `Preview union on disk${previewUnionSizeHint}. Check "Replace existing preview graph" to start a new extraction run.`
     : !hasNormalizedRecap
       ? "Materialize Preview Supergraph waits for a normalized recap."
       : !canMaterializePreviewSupergraph
@@ -956,7 +920,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     (!hasPreviewUnionStore || forceGraphRun);
   const graphExtractionDisabledReason =
     hasPreviewUnionStore && !forceGraphRun
-      ? "Graph projection is already materialized. Check \"Replace existing preview graph\" to re-extract with updated party context."
+      ? `Preview union on disk${previewUnionSizeHint}. Check "Replace existing preview graph" to re-extract with updated party context.`
       : !hasNormalizedRecap
         ? "Load a processed recap with a normalized file on disk first."
         : !validRecapSession
@@ -968,7 +932,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
               : null;
   const fullIngestDisabledReason =
     hasPreviewUnionStore && !forceGraphRun
-      ? "Session memory and graph projection are already materialized. Check \"Replace existing preview graph\" to re-run extraction."
+      ? `Session memory ready; preview union on disk${previewUnionSizeHint}. Check "Replace existing preview graph" to re-run extraction.`
       : !sourceInputSatisfied && !hasMaterialized
         ? "Paste raw recap text or load a prior processed ingestion."
         : !validRecapSession
@@ -2445,6 +2409,34 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
               <span className="pill pill-neutral">nodes: {graphPreview?.node_count ?? 0}</span>
               <span className="pill pill-neutral">edges: {graphPreview?.edge_count ?? 0}</span>
             </div>
+            {Array.isArray(graphPreview?.extracted_nodes) && graphPreview.extracted_nodes.length > 0 ? (
+              <div className="ingestion-extracted-nodes" aria-label="Extracted preview nodes">
+                <p className="module-muted">
+                  Nodes in this preview union ({graphPreview.extracted_nodes.length}):
+                </p>
+                <ul className="ingestion-extracted-node-list">
+                  {Object.entries(
+                    graphPreview.extracted_nodes.reduce<Record<string, string[]>>((acc, node) => {
+                      const kind = node.kind?.trim() || "unknown";
+                      (acc[kind] ??= []).push(node.label);
+                      return acc;
+                    }, {}),
+                  )
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([kind, labels]) => (
+                      <li key={kind}>
+                        <strong>{kind}</strong>
+                        <span>{labels.join(", ")}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ) : hasPreviewUnionStore ? (
+              <p className="module-muted">
+                Preview union is on disk, but inspect did not return node labels. Open Graph Preview or
+                re-inspect status.
+              </p>
+            ) : null}
             {graphPreview?.blocked_reason ? <p className="module-muted">{graphPreview.blocked_reason}</p> : null}
             {graphPreview?.manifest_path ? <p><code>{graphPreview.manifest_path}</code></p> : null}
             {graphPreview?.preview_union_store_path ? <p><code>{graphPreview.preview_union_store_path}</code></p> : null}

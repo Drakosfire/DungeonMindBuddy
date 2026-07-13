@@ -1160,6 +1160,32 @@ code {
   margin: 0.5rem 0;
 }
 
+.ingestion-extracted-nodes {
+  margin: 0.65rem 0 0.25rem;
+}
+
+.ingestion-extracted-node-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ingestion-extracted-node-list li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ingestion-extracted-node-list strong {
+  text-transform: lowercase;
+  color: var(--muted, #6b7280);
+}
+
 .ingestion-proof-paths {
   list-style: none;
   margin: 0.65rem 0 0;

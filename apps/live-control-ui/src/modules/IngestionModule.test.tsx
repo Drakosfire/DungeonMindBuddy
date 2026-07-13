@@ -414,8 +414,9 @@ describe("IngestionModule", () => {
     );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
     expect(
-      screen.getAllByText("Complete: recap memory and preview graph are ready. Review chips in Recap View.")
-        .length,
+      screen.getAllByText(
+        /Recap memory ready; preview union on disk.*Review Graph Review for coverage/,
+      ).length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
   });
@@ -859,6 +860,10 @@ describe("IngestionModule", () => {
               can_open_union_graph: true,
               node_count: 2,
               edge_count: 1,
+              extracted_nodes: [
+                { node_id: "character_stafl", kind: "character", label: "Stafl" },
+                { node_id: "location_mireward_gate", kind: "location", label: "Mireward Gate" },
+              ],
             },
           },
         });
@@ -885,6 +890,9 @@ describe("IngestionModule", () => {
       ),
     );
     expect(screen.getByText("status: preview_union_store_ready")).toBeInTheDocument();
+    expect(screen.getByText(/Nodes in this preview union \(2\)/)).toBeInTheDocument();
+    expect(screen.getByText("Stafl")).toBeInTheDocument();
+    expect(screen.getByText("Mireward Gate")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Graph Preview" })).toBeEnabled();
   });
 
@@ -1052,7 +1060,7 @@ describe("IngestionModule", () => {
     await waitFor(() => {
       expect(
         screen.getAllByText(
-          /Complete: recap memory and preview graph are ready|Complete: graph projection is ready|Ingestion ready_for_planning_activation/,
+          /Recap memory ready; preview union on disk|Ingestion ready_for_planning_activation/,
         ).length,
       ).toBeGreaterThan(0);
     });

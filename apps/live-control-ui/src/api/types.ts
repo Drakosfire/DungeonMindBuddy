@@ -724,6 +724,12 @@ export interface RecapIngestRequest {
   include_legacy_breadcrumb?: boolean;
 }
 
+export interface RecapGraphExtractedNode {
+  node_id: string;
+  kind: string;
+  label: string;
+}
+
 export interface RecapGraphPreviewReport {
   status: string;
   run_dir?: string | null;
@@ -734,6 +740,8 @@ export interface RecapGraphPreviewReport {
   node_count?: number;
   edge_count?: number;
   evidence_ref_count?: number;
+  /** Compact roster from the preview union store (kind + label). */
+  extracted_nodes?: RecapGraphExtractedNode[];
   extraction_mode?: string | null;
   model_id?: string | null;
   candidate_node_count?: number;

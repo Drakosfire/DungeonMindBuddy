@@ -53,7 +53,7 @@ describe("buildIngestReadiness", () => {
     expect(readiness.nextAction).not.toMatch(/^Complete:/);
   });
 
-  it("reports complete only when memory and preview graph are both ready", () => {
+  it("reports ready with counts but does not oversell Complete", () => {
     const readiness = buildIngestReadiness(
       makeStatus({
         states: [
@@ -70,7 +70,12 @@ describe("buildIngestReadiness", () => {
     expect(readiness.memory.state).toBe("ready");
     expect(readiness.graph.state).toBe("ready");
     expect(readiness.isComplete).toBe(true);
-    expect(readiness.nextAction).toMatch(/^Complete:/);
+    expect(readiness.graph.detail).toMatch(/12 nodes/);
+    expect(readiness.graph.detail).toMatch(/8 edges/);
+    expect(readiness.graph.detail).toMatch(/judge coverage/i);
+    expect(readiness.nextAction).toMatch(/12 nodes/);
+    expect(readiness.nextAction).toMatch(/thin/i);
+    expect(readiness.nextAction).not.toMatch(/^Complete:/);
   });
 
   it("surfaces blocked graph extraction in Attention and next action", () => {
