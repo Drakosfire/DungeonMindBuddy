@@ -555,6 +555,55 @@ def test_evidence_for_relationship_returns_opaque_anchors(
     assert edge_id in result.source_anchors[0].supporting_graph_object_ids
 
 
+def test_evidence_for_anchorless_node_returns_partial_with_missing_source_anchors(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    node_id = "location:anchorless-evidence-target"
+    source_artifact_id = "graph-native:test:anchorless-evidence-target"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Anchorless Evidence Target",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Anchorless Evidence Target"],
+            "canon_state": "canonical",
+            "evidence": [],
+            "source_artifacts": [],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id="anchorless-evidence-target-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    result = kernel.get_object_evidence(
+        tmp_path,
+        _evidence_request(WorldGraphEvidenceTarget(kind="node", id=node_id)),
+    )
+    assert result.outcome == "partial"
+    assert result.nodes
+    assert result.nodes[0].node_id == node_id
+    assert result.source_anchors == []
+    diagnostic_codes = {d.code for d in result.diagnostics}
+    assert "missing_source_anchors" in diagnostic_codes or "missing_evidence_ref_ids" in diagnostic_codes
+
+
 def test_evidence_for_attribute_returns_opaque_anchors(
     tmp_path: Path, loaded_bundle
 ) -> None:
@@ -604,9 +653,16 @@ def test_read_source_anchor_graph_data_json_pointer(tmp_path: Path, loaded_bundl
     assert read_result.content_sha256
 
 
-def test_read_source_anchor_repo_heading_with_digest(
+def test_read_source_anchor_mirathorn_stop_condition_heading_not_found(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
+    """STOP CONDITION proof for approved handoff scenario 6 (Mirathorn heading read).
+
+    The admitted Mirathorn locator ``heading:The City of Mirathorn`` does not match
+    any Markdown heading in the real corpus file — the title exists only in YAML
+    frontmatter. Positive scenario 6 therefore cannot complete without a prerequisite
+    data-correction slice or an operator waiver.
+    """
     _initialize(tmp_path, loaded_bundle)
     anchor = _first_anchor_for_node(
         tmp_path, MIRATHORN_ID, evidence_ref_id=MIRATHORN_EVIDENCE_REF_ID
@@ -632,6 +688,11 @@ def test_read_source_anchor_repo_heading_with_digest(
 def test_read_source_anchor_repo_heading_exact_match_with_digest(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
+    """Proves the repo heading reader contract only (synthetic exact-match fixture).
+
+    This is NOT the Mirathorn acceptance scenario — see
+    ``test_read_source_anchor_mirathorn_stop_condition_heading_not_found``.
+    """
     _initialize(tmp_path, loaded_bundle)
     heading_text = "PR010A Synthetic Section"
     relative_path = "corpus/test/pr010a-synthetic-heading.md"
@@ -715,6 +776,40 @@ def test_read_source_anchor_repo_heading_exact_match_with_digest(
     assert read_result.content_sha256 == content_sha256
     assert read_result.line_start == 6
     assert read_result.line_end == 8
+
+
+def test_read_source_anchor_fails_closed_after_contribution_payload_mutation(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    assert anchor.locator_kind == "json_pointer"
+
+    first_read = kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert first_read.outcome in ("enough", "truncated")
+    assert first_read.content
+
+    ledger_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / "contribution__022187fdefdf4557.json"
+    )
+    ledger_payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger_payload["source_revision_id"] = "tampered-pr010a"
+    ledger_path.write_text(
+        json.dumps(ledger_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
 
 
 def test_read_source_anchor_fails_closed_after_source_mutation(

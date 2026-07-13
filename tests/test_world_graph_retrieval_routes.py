@@ -60,6 +60,8 @@ ORDERED_CONTRIBUTION_IDS = [
     "contribution:022187fdefdf4557",
 ]
 TRIPOD_ID = "threat:tripod-null-calf"
+TRIPOD_CONTRIBUTION_ID = "contribution:022187fdefdf4557"
+TRIPOD_NODE_EVIDENCE_REF_ID = "evidence:bundle:v1:statblock:tripod-null-calf"
 MIRATHORN_ID = "location:mirathorn"
 MIRATHORN_EVIDENCE_REF_ID = "evidence:corpus:worldbuilding:mirathorn"
 
@@ -323,6 +325,87 @@ def test_source_anchor_read_route_returns_200_unavailable_for_uninitialized_worl
     assert response.status_code == 200
     payload = response.json()
     assert payload["outcome"] == "unavailable"
+
+
+def test_source_anchor_read_route_contribution_drift_returns_409_envelope(
+    client: TestClient, tmp_path: Path
+) -> None:
+    _initialize(tmp_path)
+    evidence_response = client.post(
+        f"{RETRIEVAL_URL}/evidence",
+        json={
+            "schema": "dmb_world_graph_evidence_request_v1",
+            **_base_request(target={"kind": "node", "id": TRIPOD_ID}),
+        },
+    )
+    assert evidence_response.status_code == 200
+    anchors = evidence_response.json()["sourceAnchors"]
+    anchor_id = next(
+        anchor["anchorId"]
+        for anchor in anchors
+        if anchor["evidenceRefId"] == TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+
+    ledger_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / "contribution__022187fdefdf4557.json"
+    )
+    ledger_payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger_payload["source_revision_id"] = "tampered-pr010a"
+    ledger_path.write_text(
+        json.dumps(ledger_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    read_response = client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": "dmb_world_graph_source_anchor_read_request_v1",
+            **_base_request(anchorId=anchor_id),
+        },
+    )
+    assert read_response.status_code == 409
+    payload = read_response.json()
+    assert payload["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert payload["code"] == "source_integrity_error"
+    assert "content" not in payload
+
+
+def test_source_anchor_read_route_mirathorn_heading_mismatch_returns_409_envelope(
+    client: TestClient, tmp_path: Path
+) -> None:
+    _initialize(tmp_path)
+    evidence_response = client.post(
+        f"{RETRIEVAL_URL}/evidence",
+        json={
+            "schema": "dmb_world_graph_evidence_request_v1",
+            **_base_request(target={"kind": "node", "id": MIRATHORN_ID}),
+        },
+    )
+    assert evidence_response.status_code == 200
+    anchors = evidence_response.json()["sourceAnchors"]
+    anchor_id = next(
+        anchor["anchorId"]
+        for anchor in anchors
+        if anchor["evidenceRefId"] == MIRATHORN_EVIDENCE_REF_ID
+    )
+
+    read_response = client.post(
+        f"{RETRIEVAL_URL}/source-anchor/read",
+        json={
+            "schema": "dmb_world_graph_source_anchor_read_request_v1",
+            **_base_request(anchorId=anchor_id),
+        },
+    )
+    assert read_response.status_code == 409
+    payload = read_response.json()
+    assert payload["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert payload["code"] == "heading_not_found"
+    assert "content" not in payload
 
 
 # --- API contract fixture: generated from real temporary-root operations ----

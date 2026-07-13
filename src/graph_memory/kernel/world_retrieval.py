@@ -20,6 +20,10 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
+from graph_memory.kernel.world_initialization import (
+    compute_contribution_payload_sha256,
+    read_initialization_receipt,
+)
 from graph_memory.kernel.world_projection import (
     WorldGraphProjectionError,
     _active_supports_for_graph_object,
@@ -29,6 +33,10 @@ from graph_memory.kernel.world_projection import (
     _parse_support,
     build_projection_payload,
     resolve_projection_admissibility,
+)
+from graph_memory.union_supergraph.model import (
+    UnionSupergraphSourceArtifact,
+    UnionSupergraphStore,
 )
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
@@ -72,7 +80,6 @@ from graph_memory.retrieval.source_reader import (
     read_graph_data_json_pointer_anchor,
     read_repo_heading_anchor,
 )
-from graph_memory.union_supergraph.model import UnionSupergraphStore
 from graph_memory.union_supergraph.projection_identity import (
     build_union_projection_identity_context,
 )
@@ -476,6 +483,17 @@ def _outcome_diagnostics(coverage: WorldGraphRetrievalCoverage) -> list[WorldGra
                 severity="warning",
             )
         )
+    if coverage.missing_evidence_ref_ids:
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="missing_evidence_ref_ids",
+                message=(
+                    "Selected graph data is missing admitted evidence refs: "
+                    f"{', '.join(coverage.missing_evidence_ref_ids)}."
+                ),
+                severity="warning",
+            )
+        )
     if coverage.unreadable_anchor_ids:
         diagnostics.append(
             WorldGraphRetrievalDiagnostic(
@@ -485,6 +503,136 @@ def _outcome_diagnostics(coverage: WorldGraphRetrievalCoverage) -> list[WorldGra
             )
         )
     return diagnostics
+
+
+def _selection_anchor_gaps(
+    *,
+    source_anchors: list[WorldGraphSourceAnchor],
+    selected_graph_object_ids: set[str],
+    selected_assertion_ids: set[str],
+    nodes: list[WorldGraphProjectionNodeView] | list[WorldGraphRetrievalNode] | None = None,
+    relationships: (
+        list[WorldGraphProjectionRelationshipView] | list[WorldGraphRetrievalRelationship] | None
+    ) = None,
+    attributes: (
+        list[WorldGraphProjectionAttributeView] | list[WorldGraphRetrievalAttribute] | None
+    ) = None,
+) -> tuple[list[str], list[str], list[WorldGraphRetrievalDiagnostic]]:
+    """Identify selected objects/assertions that have no admitted source anchors.
+
+    Returns ``(missing_evidence_ref_ids, gap_ids, extra_diagnostics)``. A gap
+    with no evidence refs still counts as partial via ``gap_ids``.
+    """
+    covered: set[str] = set()
+    for anchor in source_anchors:
+        covered.update(anchor.supporting_graph_object_ids)
+        covered.update(anchor.supporting_assertion_ids)
+
+    selected = set(selected_graph_object_ids) | set(selected_assertion_ids)
+    gap_ids = sorted(selected - covered)
+
+    missing_refs: list[str] = []
+    node_by_id = {item.node_id: item for item in nodes or []}
+    relationship_by_id = {item.edge_id: item for item in relationships or []}
+    attribute_by_id = {item.assertion_id: item for item in attributes or []}
+    for gap_id in gap_ids:
+        if gap_id in node_by_id:
+            missing_refs.extend(list(node_by_id[gap_id].evidence_ref_ids or []))
+        elif gap_id in relationship_by_id:
+            missing_refs.extend(list(relationship_by_id[gap_id].evidence_ref_ids or []))
+        elif gap_id in attribute_by_id:
+            missing_refs.extend(list(attribute_by_id[gap_id].evidence_ref_ids or []))
+
+    extra: list[WorldGraphRetrievalDiagnostic] = []
+    if gap_ids and not missing_refs:
+        extra.append(
+            WorldGraphRetrievalDiagnostic(
+                code="missing_source_anchors",
+                message=(
+                    "Selected graph object(s) lack admitted source anchors: "
+                    f"{', '.join(gap_ids)}."
+                ),
+                severity="warning",
+            )
+        )
+    return sorted(set(missing_refs)), gap_ids, extra
+
+
+def _expected_graph_data_payload_sha256(
+    *,
+    root: Path,
+    world_id: str,
+    contribution_id: str,
+    source_artifact: UnionSupergraphSourceArtifact,
+) -> str | None:
+    """Resolve a revision-bound contribution payload digest when available.
+
+    Preference order:
+    1. ``content_sha256`` stamped on the revision-bound source artifact
+    2. initialization receipt digest for the same contribution id
+    """
+    extra = source_artifact.model_extra or {}
+    raw_sha = extra.get("content_sha256")
+    if isinstance(raw_sha, str) and len(raw_sha) == 64 and raw_sha.isalnum():
+        return raw_sha.lower()
+
+    receipt = read_initialization_receipt(root, world_id)
+    if receipt is None:
+        return None
+    for item in receipt.ordered_contributions:
+        if item.contribution_id == contribution_id:
+            return item.payload_sha256
+    return None
+
+
+def _verify_graph_data_contribution_digest(
+    *,
+    root: Path,
+    world_id: str,
+    contribution_id: str,
+    source_artifact: UnionSupergraphSourceArtifact,
+    contribution: Any,
+) -> None:
+    expected = _expected_graph_data_payload_sha256(
+        root=root,
+        world_id=world_id,
+        contribution_id=contribution_id,
+        source_artifact=source_artifact,
+    )
+    if expected is None:
+        raise WorldGraphRetrievalError(
+            "No revision-bound contribution payload digest is available for this "
+            "graph-data:// source.",
+            code="source_integrity_error",
+            status_code=409,
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="source_integrity_error",
+                    message=(
+                        "graph-data:// reads require a revision-bound contribution "
+                        "payload digest."
+                    ),
+                    severity="error",
+                )
+            ],
+        )
+    actual = compute_contribution_payload_sha256(contribution)
+    if actual != expected:
+        raise WorldGraphRetrievalError(
+            "graph-data:// contribution content does not match the admitted digest.",
+            code="source_integrity_error",
+            status_code=409,
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="source_integrity_error",
+                    message=(
+                        "graph-data:// contribution content does not match the "
+                        "admitted digest."
+                    ),
+                    severity="error",
+                )
+            ],
+        )
 
 
 def _classify_locator(uri: str, locator: str | None) -> tuple[str, bool]:
@@ -706,17 +854,28 @@ def search_campaign_graph(
     attribute_truncated = len(candidate_attributes) > attr_cap
     selected_attributes = candidate_attributes[:attr_cap]
 
+    selected_edge_ids = {r.edge_id for r in selected_relationships}
+    selected_assertion_ids = {a.assertion_id for a in selected_attributes}
     source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
         store=store,
         projection=projection,
-        graph_object_ids=selected_node_ids | {r.edge_id for r in selected_relationships},
-        assertion_ids={a.assertion_id for a in selected_attributes},
+        graph_object_ids=selected_node_ids | selected_edge_ids,
+        assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+    )
+    missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
+        source_anchors=source_anchors,
+        selected_graph_object_ids=selected_node_ids | selected_edge_ids,
+        selected_assertion_ids=selected_assertion_ids,
+        nodes=selected_nodes,
+        relationships=selected_relationships,
+        attributes=selected_attributes,
     )
 
     coverage = WorldGraphRetrievalCoverage(
         requested_seed_node_ids=list(request.seed_node_ids),
         missing_seed_node_ids=missing_seed_ids,
+        missing_evidence_ref_ids=missing_evidence_ref_ids,
         unreadable_anchor_ids=unreadable_ids,
         truncated_fields=_truncated_fields(
             nodes=node_truncated,
@@ -727,7 +886,11 @@ def search_campaign_graph(
     )
     outcome = _determine_outcome(
         truncated=bool(coverage.truncated_fields),
-        partial=bool(missing_seed_ids) or bool(unreadable_ids),
+        partial=(
+            bool(missing_seed_ids)
+            or bool(unreadable_ids)
+            or bool(gap_ids)
+        ),
         has_content=bool(selected_nodes),
     )
 
@@ -748,7 +911,7 @@ def search_campaign_graph(
         source_anchors=source_anchors,
         coverage=coverage,
         trust_boundary=_trust_boundary(),
-        diagnostics=_outcome_diagnostics(coverage),
+        diagnostics=_outcome_diagnostics(coverage) + gap_diagnostics,
     )
 
 
@@ -818,15 +981,26 @@ def get_campaign_object(
     attribute_truncated = len(candidate_attributes) > attr_cap
     selected_attributes = candidate_attributes[:attr_cap]
 
+    selected_edge_ids = {r.edge_id for r in selected_relationships}
+    selected_assertion_ids = {a.assertion_id for a in selected_attributes}
     source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
         store=store,
         projection=projection,
-        graph_object_ids={resolved_node_id} | {r.edge_id for r in selected_relationships},
-        assertion_ids={a.assertion_id for a in selected_attributes},
+        graph_object_ids={resolved_node_id} | selected_edge_ids,
+        assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+    )
+    missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
+        source_anchors=source_anchors,
+        selected_graph_object_ids={resolved_node_id} | selected_edge_ids,
+        selected_assertion_ids=selected_assertion_ids,
+        nodes=[node_view],
+        relationships=selected_relationships,
+        attributes=selected_attributes,
     )
 
     coverage = WorldGraphRetrievalCoverage(
+        missing_evidence_ref_ids=missing_evidence_ref_ids,
         unreadable_anchor_ids=unreadable_ids,
         truncated_fields=_truncated_fields(
             relationships=relationship_truncated,
@@ -834,10 +1008,10 @@ def get_campaign_object(
             source_anchors=anchor_truncated,
         ),
     )
-    diagnostics = diagnostics + _outcome_diagnostics(coverage)
+    diagnostics = diagnostics + _outcome_diagnostics(coverage) + gap_diagnostics
     outcome = _determine_outcome(
         truncated=bool(coverage.truncated_fields),
-        partial=bool(unreadable_ids),
+        partial=bool(unreadable_ids) or bool(gap_ids),
         has_content=True,
     )
 
@@ -952,18 +1126,29 @@ def get_object_neighborhood(
     attribute_truncated = len(candidate_attributes) > attr_cap
     selected_attributes = candidate_attributes[:attr_cap]
 
+    selected_edge_ids = {r.edge_id for r in selected_relationships}
+    selected_assertion_ids = {a.assertion_id for a in selected_attributes}
     source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
         store=store,
         projection=projection,
-        graph_object_ids=selected_node_id_set | {r.edge_id for r in selected_relationships},
-        assertion_ids={a.assertion_id for a in selected_attributes},
+        graph_object_ids=selected_node_id_set | selected_edge_ids,
+        assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
     )
 
     nodes_out = [_convert_node(node_by_id[node_id]) for node_id in selected_ids]
+    missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
+        source_anchors=source_anchors,
+        selected_graph_object_ids=selected_node_id_set | selected_edge_ids,
+        selected_assertion_ids=selected_assertion_ids,
+        nodes=[node_by_id[node_id] for node_id in selected_ids],
+        relationships=selected_relationships,
+        attributes=selected_attributes,
+    )
     coverage = WorldGraphRetrievalCoverage(
         requested_seed_node_ids=list(request.seed_node_ids),
         missing_seed_node_ids=missing_seed_ids,
+        missing_evidence_ref_ids=missing_evidence_ref_ids,
         unreadable_anchor_ids=unreadable_ids,
         truncated_fields=_truncated_fields(
             nodes=node_truncated,
@@ -974,7 +1159,7 @@ def get_object_neighborhood(
     )
     outcome = _determine_outcome(
         truncated=bool(coverage.truncated_fields),
-        partial=bool(missing_seed_ids) or bool(unreadable_ids),
+        partial=bool(missing_seed_ids) or bool(unreadable_ids) or bool(gap_ids),
         has_content=bool(nodes_out),
     )
 
@@ -996,7 +1181,7 @@ def get_object_neighborhood(
         source_anchors=source_anchors,
         coverage=coverage,
         trust_boundary=_trust_boundary(),
-        diagnostics=_outcome_diagnostics(coverage),
+        diagnostics=_outcome_diagnostics(coverage) + gap_diagnostics,
     )
 
 
@@ -1065,14 +1250,23 @@ def get_object_evidence(
         assertion_ids=assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
     )
+    missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
+        source_anchors=source_anchors,
+        selected_graph_object_ids=graph_object_ids,
+        selected_assertion_ids=assertion_ids,
+        nodes=nodes_out,
+        relationships=relationships_out,
+        attributes=attributes_out,
+    )
     coverage = WorldGraphRetrievalCoverage(
+        missing_evidence_ref_ids=missing_evidence_ref_ids,
         unreadable_anchor_ids=unreadable_ids,
         truncated_fields=_truncated_fields(source_anchors=anchor_truncated),
     )
     outcome = _determine_outcome(
         truncated=bool(coverage.truncated_fields),
-        partial=bool(unreadable_ids),
-        has_content=bool(source_anchors),
+        partial=bool(unreadable_ids) or bool(gap_ids) or not source_anchors,
+        has_content=True,
     )
 
     return WorldGraphRetrievalResult(
@@ -1086,7 +1280,7 @@ def get_object_evidence(
         source_anchors=source_anchors,
         coverage=coverage,
         trust_boundary=_trust_boundary(),
-        diagnostics=_outcome_diagnostics(coverage),
+        diagnostics=_outcome_diagnostics(coverage) + gap_diagnostics,
     )
 
 
@@ -1231,6 +1425,13 @@ def read_source_anchor(
             )
         except WorldGraphProjectionError as exc:
             raise _map_projection_error(exc) from exc
+        _verify_graph_data_contribution_digest(
+            root=root,
+            world_id=request.world_id,
+            contribution_id=match.contribution_id,
+            source_artifact=source_artifact,
+            contribution=contribution,
+        )
         read_outcome = _handle_source_read(
             lambda: read_graph_data_json_pointer_anchor(
                 contribution_payload=contribution.model_dump(mode="json"),
