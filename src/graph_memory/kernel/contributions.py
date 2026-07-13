@@ -41,6 +41,20 @@ def _canonical_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
+def canonical_payload_sha256(payload: object) -> str:
+    """Hash any JSON-serializable payload with the repo's canonical JSON rules."""
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+
+
+def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
+    """Hash the complete canonical GraphContribution payload."""
+    return canonical_payload_sha256(contribution.model_dump(mode="json", by_alias=True))
+
+
 def compute_contribution_id(
     *,
     world_id: str,

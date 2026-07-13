@@ -5,8 +5,8 @@ revision through the existing PR007A projection integrity path
 (``_load_revision_context`` + ``build_projection_payload``), then performs
 deterministic, graph-only search/lookup/traversal/evidence/anchor logic on
 top of that already-integrity-verified projection and store. There is no
-manifest, corpus-index, repository search, arbitrary-path, vector, or LLM
-dependency anywhere in this module.
+manifest discovery, corpus-index, repository search, arbitrary-path, vector,
+or LLM fallback dependency anywhere in this module.
 """
 
 from __future__ import annotations
@@ -20,8 +20,10 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
+from graph_memory.kernel.contributions import compute_contribution_payload_sha256
+from graph_memory.kernel.world_graph import load_world_graph_revision
 from graph_memory.kernel.world_initialization import (
-    compute_contribution_payload_sha256,
+    compute_initialization_attestation_digest,
     read_initialization_receipt,
 )
 from graph_memory.kernel.world_projection import (
@@ -35,9 +37,9 @@ from graph_memory.kernel.world_projection import (
     resolve_projection_admissibility,
 )
 from graph_memory.union_supergraph.model import (
-    UnionSupergraphSourceArtifact,
     UnionSupergraphStore,
 )
+from graph_memory.world_supergraph.storage import load_world_graph_revision_manifest
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjection,
@@ -307,6 +309,7 @@ def _convert_relationship(
         predicate=relationship.predicate,
         label=relationship.label,
         direction=direction,
+        direction_from_node_id=direction_from_node_id,
         session_ids=list(relationship.session_ids),
         source_domains=list(relationship.source_domains),
         visibility=relationship.visibility,
@@ -558,89 +561,215 @@ def _selection_anchor_gaps(
     return sorted(set(missing_refs)), gap_ids, extra
 
 
-def _expected_graph_data_payload_sha256(
+def _raise_source_integrity_error(message: str) -> None:
+    raise WorldGraphRetrievalError(
+        message,
+        code="source_integrity_error",
+        status_code=409,
+        diagnostics=[
+            WorldGraphRetrievalDiagnostic(
+                code="source_integrity_error",
+                message=message,
+                severity="error",
+            )
+        ],
+    )
+
+
+def _revision_is_ancestor(
+    root: Path,
+    world_id: str,
+    *,
+    ancestor_revision_id: str,
+    descendant_revision_id: str,
+) -> bool:
+    if ancestor_revision_id == descendant_revision_id:
+        return True
+    seen: set[str] = set()
+    current: str | None = descendant_revision_id
+    while current is not None:
+        if current in seen:
+            return False
+        seen.add(current)
+        if current == ancestor_revision_id:
+            return True
+        try:
+            revision = load_world_graph_revision_manifest(root, world_id, current)
+        except Exception:
+            return False
+        current = revision.parent_revision_id
+    return False
+
+
+def _validate_initialization_receipt_for_graph_data(
     *,
     root: Path,
     world_id: str,
-    contribution_id: str,
-    source_artifact: UnionSupergraphSourceArtifact,
-) -> str | None:
-    """Resolve a revision-bound contribution payload digest when available.
-
-    Preference order:
-    1. ``content_sha256`` stamped on the revision-bound source artifact
-    2. initialization receipt digest for the same contribution id
-    """
-    extra = source_artifact.model_extra or {}
-    raw_sha = extra.get("content_sha256")
-    if isinstance(raw_sha, str) and len(raw_sha) == 64 and raw_sha.isalnum():
-        return raw_sha.lower()
-
-    receipt = read_initialization_receipt(root, world_id)
+    campaign_id: str,
+    store: UnionSupergraphStore,
+    revision_id: str,
+) -> None:
+    """Defensively cross-check a receipt against immutable revision-bound digests."""
+    try:
+        receipt = read_initialization_receipt(root, world_id)
+    except Exception:
+        _raise_source_integrity_error(
+            "Initialization receipt is unreadable or corrupt."
+        )
     if receipt is None:
+        return
+
+    if receipt.world_id != world_id or receipt.campaign_id != campaign_id:
+        _raise_source_integrity_error(
+            "Initialization receipt world or campaign binding mismatch."
+        )
+    if not receipt.plan_binding_verified:
+        _raise_source_integrity_error(
+            "Initialization receipt plan binding is not verified."
+        )
+    if not receipt.world_integrity_ok:
+        _raise_source_integrity_error(
+            "Initialization receipt world integrity is not confirmed."
+        )
+    if not receipt.contribution_integrity_ok:
+        _raise_source_integrity_error(
+            "Initialization receipt contribution integrity is not confirmed."
+        )
+
+    if store.initialization_plan_digest is None:
+        _raise_source_integrity_error(
+            "Revision-bound initialization plan digest is missing."
+        )
+    if receipt.plan_digest != store.initialization_plan_digest:
+        _raise_source_integrity_error(
+            "Initialization receipt plan digest disagrees with revision state."
+        )
+
+    if store.initialization_attestation_digest is None:
+        _raise_source_integrity_error(
+            "Revision-bound initialization attestation digest is missing."
+        )
+    attestation_digest = compute_initialization_attestation_digest(
+        receipt.approval_attestation
+    )
+    if attestation_digest != store.initialization_attestation_digest:
+        _raise_source_integrity_error(
+            "Initialization receipt attestation digest disagrees with revision state."
+        )
+
+    expected_contributions = [
+        (
+            contribution_id,
+            store.contribution_payload_sha256.get(contribution_id),
+        )
+        for contribution_id in store.initialization_contribution_ids
+    ]
+    actual_contributions = [
+        (item.contribution_id, item.payload_sha256)
+        for item in receipt.ordered_contributions
+    ]
+    if not expected_contributions or actual_contributions != expected_contributions:
+        _raise_source_integrity_error(
+            "Initialization receipt contribution list disagrees with revision state."
+        )
+
+    try:
+        initial_head_store = load_world_graph_revision(
+            root, world_id, receipt.initial_head_revision_id
+        )
+    except Exception:
+        _raise_source_integrity_error(
+            "Initialization receipt initial head cannot be loaded."
+        )
+    if len(initial_head_store.nodes) != receipt.node_count:
+        _raise_source_integrity_error(
+            "Initialization receipt node count disagrees with initial head."
+        )
+    if len(initial_head_store.edges) != receipt.edge_count:
+        _raise_source_integrity_error(
+            "Initialization receipt edge count disagrees with initial head."
+        )
+    if len(initial_head_store.evidence) != receipt.evidence_count:
+        _raise_source_integrity_error(
+            "Initialization receipt evidence count disagrees with initial head."
+        )
+    if len(initial_head_store.source_artifacts) != receipt.source_artifact_count:
+        _raise_source_integrity_error(
+            "Initialization receipt source-artifact count disagrees with initial head."
+        )
+    if len(initial_head_store.assertion_support) != receipt.assertion_support_count:
+        _raise_source_integrity_error(
+            "Initialization receipt assertion-support count disagrees with "
+            "initial head."
+        )
+
+    if not _revision_is_ancestor(
+        root,
+        world_id,
+        ancestor_revision_id=receipt.baseline_revision_id,
+        descendant_revision_id=revision_id,
+    ):
+        _raise_source_integrity_error(
+            "Selected revision is not a descendant of the initialization baseline."
+        )
+    if not _revision_is_ancestor(
+        root,
+        world_id,
+        ancestor_revision_id=receipt.initial_head_revision_id,
+        descendant_revision_id=revision_id,
+    ):
+        _raise_source_integrity_error(
+            "Selected revision is not a descendant of the initialization initial head."
+        )
+
+
+def _graph_data_contribution_digest_authority(
+    store: UnionSupergraphStore,
+    contribution_id: str | None,
+) -> str | None:
+    if not contribution_id:
         return None
-    for item in receipt.ordered_contributions:
-        if item.contribution_id == contribution_id:
-            return item.payload_sha256
+    digest = store.contribution_payload_sha256.get(contribution_id)
+    if isinstance(digest, str) and re.fullmatch(r"[0-9a-fA-F]{64}", digest):
+        return digest.lower()
     return None
 
 
 def _verify_graph_data_contribution_digest(
     *,
-    root: Path,
-    world_id: str,
+    store: UnionSupergraphStore,
     contribution_id: str,
-    source_artifact: UnionSupergraphSourceArtifact,
     contribution: Any,
 ) -> None:
-    expected = _expected_graph_data_payload_sha256(
-        root=root,
-        world_id=world_id,
-        contribution_id=contribution_id,
-        source_artifact=source_artifact,
-    )
+    expected = _graph_data_contribution_digest_authority(store, contribution_id)
     if expected is None:
-        raise WorldGraphRetrievalError(
+        _raise_source_integrity_error(
             "No revision-bound contribution payload digest is available for this "
-            "graph-data:// source.",
-            code="source_integrity_error",
-            status_code=409,
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code="source_integrity_error",
-                    message=(
-                        "graph-data:// reads require a revision-bound contribution "
-                        "payload digest."
-                    ),
-                    severity="error",
-                )
-            ],
+            "graph-data:// source."
         )
     actual = compute_contribution_payload_sha256(contribution)
     if actual != expected:
-        raise WorldGraphRetrievalError(
-            "graph-data:// contribution content does not match the admitted digest.",
-            code="source_integrity_error",
-            status_code=409,
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code="source_integrity_error",
-                    message=(
-                        "graph-data:// contribution content does not match the "
-                        "admitted digest."
-                    ),
-                    severity="error",
-                )
-            ],
+        _raise_source_integrity_error(
+            "graph-data:// contribution content does not match the admitted digest."
         )
 
 
-def _classify_locator(uri: str, locator: str | None) -> tuple[str, bool]:
+def _classify_locator(
+    uri: str,
+    locator: str | None,
+    *,
+    store: UnionSupergraphStore | None = None,
+    contribution_id: str | None = None,
+) -> tuple[str, bool]:
     if locator is None:
         return "unsupported", False
     if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
         return "heading", True
     if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
+        if store is None or _graph_data_contribution_digest_authority(
+            store, contribution_id
+        ) is None:
+            return "json_pointer", False
         return "json_pointer", True
     return "unsupported", False
 
@@ -723,7 +852,12 @@ def _anchor_derivations_for_supports(
                     source_artifact_id=evidence.source_artifact_id,
                     locator_identity=locator or "",
                 )
-                locator_kind, readable = _classify_locator(source_artifact.uri, locator)
+                locator_kind, readable = _classify_locator(
+                    source_artifact.uri,
+                    locator,
+                    store=store,
+                    contribution_id=contribution_id,
+                )
                 existing = derivations.get(anchor_id)
                 if existing is not None:
                     merged_object_ids = set(existing.anchor.supporting_graph_object_ids)
@@ -774,7 +908,7 @@ def _source_anchors_for_targets(
     graph_object_ids: set[str],
     assertion_ids: set[str],
     max_source_anchors: int,
-) -> tuple[list[WorldGraphSourceAnchor], bool, list[str]]:
+) -> tuple[list[WorldGraphSourceAnchor], bool, list[str], list[WorldGraphSourceAnchor]]:
     supports: list[DurableAssertionSupport] = []
     seen_assertion_ids: set[str] = set()
     for graph_object_id in sorted(graph_object_ids):
@@ -802,7 +936,7 @@ def _source_anchors_for_targets(
     truncated = len(anchors) > max_source_anchors
     bounded = anchors[:max_source_anchors]
     unreadable_ids = [anchor.anchor_id for anchor in bounded if not anchor.readable]
-    return bounded, truncated, unreadable_ids
+    return bounded, truncated, unreadable_ids, anchors
 
 
 def search_campaign_graph(
@@ -856,15 +990,17 @@ def search_campaign_graph(
 
     selected_edge_ids = {r.edge_id for r in selected_relationships}
     selected_assertion_ids = {a.assertion_id for a in selected_attributes}
-    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+    source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
+        _source_anchors_for_targets(
         store=store,
         projection=projection,
         graph_object_ids=selected_node_ids | selected_edge_ids,
         assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+        )
     )
     missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
-        source_anchors=source_anchors,
+        source_anchors=admitted_source_anchors,
         selected_graph_object_ids=selected_node_ids | selected_edge_ids,
         selected_assertion_ids=selected_assertion_ids,
         nodes=selected_nodes,
@@ -983,15 +1119,17 @@ def get_campaign_object(
 
     selected_edge_ids = {r.edge_id for r in selected_relationships}
     selected_assertion_ids = {a.assertion_id for a in selected_attributes}
-    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+    source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
+        _source_anchors_for_targets(
         store=store,
         projection=projection,
         graph_object_ids={resolved_node_id} | selected_edge_ids,
         assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+        )
     )
     missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
-        source_anchors=source_anchors,
+        source_anchors=admitted_source_anchors,
         selected_graph_object_ids={resolved_node_id} | selected_edge_ids,
         selected_assertion_ids=selected_assertion_ids,
         nodes=[node_view],
@@ -1128,17 +1266,19 @@ def get_object_neighborhood(
 
     selected_edge_ids = {r.edge_id for r in selected_relationships}
     selected_assertion_ids = {a.assertion_id for a in selected_attributes}
-    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+    source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
+        _source_anchors_for_targets(
         store=store,
         projection=projection,
         graph_object_ids=selected_node_id_set | selected_edge_ids,
         assertion_ids=selected_assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+        )
     )
 
     nodes_out = [_convert_node(node_by_id[node_id]) for node_id in selected_ids]
     missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
-        source_anchors=source_anchors,
+        source_anchors=admitted_source_anchors,
         selected_graph_object_ids=selected_node_id_set | selected_edge_ids,
         selected_assertion_ids=selected_assertion_ids,
         nodes=[node_by_id[node_id] for node_id in selected_ids],
@@ -1243,15 +1383,17 @@ def get_object_evidence(
             trust_boundary=_trust_boundary(),
         )
 
-    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+    source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
+        _source_anchors_for_targets(
         store=store,
         projection=projection,
         graph_object_ids=graph_object_ids,
         assertion_ids=assertion_ids,
         max_source_anchors=request.bounds.max_source_anchors,
+        )
     )
     missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
-        source_anchors=source_anchors,
+        source_anchors=admitted_source_anchors,
         selected_graph_object_ids=graph_object_ids,
         selected_assertion_ids=assertion_ids,
         nodes=nodes_out,
@@ -1425,11 +1567,16 @@ def read_source_anchor(
             )
         except WorldGraphProjectionError as exc:
             raise _map_projection_error(exc) from exc
-        _verify_graph_data_contribution_digest(
+        _validate_initialization_receipt_for_graph_data(
             root=root,
             world_id=request.world_id,
+            campaign_id=request.campaign_id,
+            store=store,
+            revision_id=snapshot.revision_id,
+        )
+        _verify_graph_data_contribution_digest(
+            store=store,
             contribution_id=match.contribution_id,
-            source_artifact=source_artifact,
             contribution=contribution,
         )
         read_outcome = _handle_source_read(

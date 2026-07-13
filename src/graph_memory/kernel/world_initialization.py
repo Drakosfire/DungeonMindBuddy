@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import fcntl
-import hashlib
 import json
 import os
 import shutil
@@ -17,6 +16,10 @@ from graph_memory.kernel.contribution_diagnostics import build_contribution_inte
 from graph_memory.kernel.contribution_models import GraphContribution
 from graph_memory.kernel.contribution_merge import merge_contribution_to_revision
 from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
+from graph_memory.kernel.contributions import (
+    canonical_payload_sha256,
+    compute_contribution_payload_sha256,
+)
 from graph_memory.kernel.world_graph import (
     load_current_world_graph,
     open_world_graph_head,
@@ -49,26 +52,16 @@ UNION_SUPERGRAPH_SCHEMA = "dmb_union_supergraph_store_v0"
 UNION_SUPERGRAPH_VERSION = "0.1"
 
 
-def _canonical_json_sha256(payload: object) -> str:
-    canonical = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    return hashlib.sha256(canonical).hexdigest()
-
-
-def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
-    """Hash the complete canonical GraphContribution payload."""
-    return _canonical_json_sha256(
-        contribution.model_dump(mode="json", by_alias=True)
-    )
-
-
 def compute_initialization_plan_digest(plan: WorldInitializationPlan) -> str:
     """Hash the complete canonical initialization plan payload."""
-    return _canonical_json_sha256(plan.model_dump(mode="json", by_alias=True))
+    return canonical_payload_sha256(plan.model_dump(mode="json", by_alias=True))
+
+
+def compute_initialization_attestation_digest(
+    attestation: WorldInitializationApprovalAttestation,
+) -> str:
+    """Hash the complete canonical approval-attestation payload."""
+    return canonical_payload_sha256(attestation.model_dump(mode="json", by_alias=True))
 
 
 def _utc_now_iso() -> str:
@@ -549,12 +542,19 @@ def _stage_and_build_world(
         diagnostics.append(f"published_empty_baseline:{baseline_revision_id}")
 
         parent_revision_id = baseline_revision_id
+        plan_digest = compute_initialization_plan_digest(plan)
+        attestation_digest = compute_initialization_attestation_digest(
+            plan.approval_attestation
+        )
         for contribution in contributions:
             merge_result = merge_contribution_to_revision(
                 staging_root,
                 world_id=plan.world_id,
                 contribution=contribution,
                 expected_parent_revision_id=parent_revision_id,
+                initialization_contribution_ids=plan.ordered_contribution_ids,
+                initialization_plan_digest=plan_digest,
+                initialization_attestation_digest=attestation_digest,
             )
             if not merge_result.published or merge_result.revision_id is None:
                 raise WorldInitializationError(

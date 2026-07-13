@@ -74,53 +74,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
           "displayLabel": "/accepted_assertions/4",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -132,12 +98,46 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -325,7 +325,7 @@
         "resolvedRedirects": {},
         "truncatedFields": [],
         "unreadableAnchorIds": [
-          "source-anchor:v1:d7e1879f0589e15a6d6083067135f2944910ce0318d71b1bdaf4367ddc8a3032"
+          "source-anchor:v1:106e97befe1edb6f4460c1aad1db3dfdbd9c7cbc16244d9b353dd24109e5731b"
         ]
       },
       "diagnostics": [
@@ -400,6 +400,7 @@
           ],
           "campaignScope": "longmont-c2",
           "direction": "outbound",
+          "directionFromNodeId": "threat:tripod-null-calf",
           "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
           "epistemicKind": "fact",
           "evidenceRefIds": [
@@ -441,87 +442,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:48a61816dd2dc64386bda93113a19c76b32bead738e2ce7173c09bea6615db09",
-          "displayLabel": "/accepted_assertions/1",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:40b5ac605a2e8f74"
-          ],
-          "supportingGraphObjectIds": [
-            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
-          "displayLabel": "/accepted_assertions/4",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:4d5d774d7cbf1e71"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:d7e1879f0589e15a6d6083067135f2944910ce0318d71b1bdaf4367ddc8a3032",
+          "anchorId": "source-anchor:v1:106e97befe1edb6f4460c1aad1db3dfdbd9c7cbc16244d9b353dd24109e5731b",
           "displayLabel": null,
           "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
           "locatorKind": "unsupported",
           "readable": false,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": "session-23",
           "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
           "sourceDomain": "recap",
@@ -533,12 +466,80 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:dffee67a119a3e7ca81eb74fa40a0c2e0bd4c9bb8a6fd60374d2b9fdd0408ddf",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -716,7 +717,7 @@
         "resolvedRedirects": {},
         "truncatedFields": [],
         "unreadableAnchorIds": [
-          "source-anchor:v1:d7e1879f0589e15a6d6083067135f2944910ce0318d71b1bdaf4367ddc8a3032"
+          "source-anchor:v1:106e97befe1edb6f4460c1aad1db3dfdbd9c7cbc16244d9b353dd24109e5731b"
         ]
       },
       "diagnostics": [
@@ -796,6 +797,7 @@
           ],
           "campaignScope": "longmont-c2",
           "direction": "outbound",
+          "directionFromNodeId": "threat:tripod-null-calf",
           "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
           "epistemicKind": "fact",
           "evidenceRefIds": [
@@ -838,87 +840,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:48a61816dd2dc64386bda93113a19c76b32bead738e2ce7173c09bea6615db09",
-          "displayLabel": "/accepted_assertions/1",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:40b5ac605a2e8f74"
-          ],
-          "supportingGraphObjectIds": [
-            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
-          "displayLabel": "/accepted_assertions/4",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:4d5d774d7cbf1e71"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:d7e1879f0589e15a6d6083067135f2944910ce0318d71b1bdaf4367ddc8a3032",
+          "anchorId": "source-anchor:v1:106e97befe1edb6f4460c1aad1db3dfdbd9c7cbc16244d9b353dd24109e5731b",
           "displayLabel": null,
           "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
           "locatorKind": "unsupported",
           "readable": false,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": "session-23",
           "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
           "sourceDomain": "recap",
@@ -930,12 +864,80 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:dffee67a119a3e7ca81eb74fa40a0c2e0bd4c9bb8a6fd60374d2b9fdd0408ddf",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -1175,53 +1177,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
           "displayLabel": "/accepted_assertions/4",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -1233,12 +1201,46 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -1299,9 +1301,9 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [],
@@ -1507,6 +1509,7 @@
           ],
           "campaignScope": "longmont-c2",
           "direction": "outbound",
+          "directionFromNodeId": null,
           "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
           "epistemicKind": "fact",
           "evidenceRefIds": [
@@ -1545,70 +1548,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:48a61816dd2dc64386bda93113a19c76b32bead738e2ce7173c09bea6615db09",
-          "displayLabel": "/accepted_assertions/1",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:40b5ac605a2e8f74"
-          ],
-          "supportingGraphObjectIds": [
-            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
           "displayLabel": "/accepted_assertions/4",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -1620,12 +1572,63 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:dffee67a119a3e7ca81eb74fa40a0c2e0bd4c9bb8a6fd60374d2b9fdd0408ddf",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -1687,9 +1690,9 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [],
@@ -1901,6 +1904,7 @@
           ],
           "campaignScope": "longmont-c2",
           "direction": "outbound",
+          "directionFromNodeId": null,
           "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
           "epistemicKind": "fact",
           "evidenceRefIds": [
@@ -1940,70 +1944,19 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceAnchors": [
         {
-          "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-          "displayLabel": "/accepted_assertions/0",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:a9af3f77bf0f1101"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:0f615050692df4515343631724a1b37602d5d4041b1bb7a8e934e092b003c145",
-          "displayLabel": "/accepted_assertions/2",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:f902e45c1371e9c6"
-          ],
-          "supportingGraphObjectIds": [
-            "threat:tripod-null-calf"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:48a61816dd2dc64386bda93113a19c76b32bead738e2ce7173c09bea6615db09",
-          "displayLabel": "/accepted_assertions/1",
-          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
-          "locatorKind": "json_pointer",
-          "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
-          "sessionId": null,
-          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
-          "sourceDomain": "statblock",
-          "supportingAssertionIds": [
-            "assertion:40b5ac605a2e8f74"
-          ],
-          "supportingGraphObjectIds": [
-            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
-          ]
-        },
-        {
-          "anchorId": "source-anchor:v1:93f7387eccfa18ca65a1eb77e41999ae9c0d435dbf30809de0fc855208d034c2",
+          "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
           "displayLabel": "/accepted_assertions/4",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -2015,12 +1968,63 @@
           ]
         },
         {
-          "anchorId": "source-anchor:v1:d95ed7b3c54b4091052325eadc62620e27a84a77481860ea884bcebb8d701df4",
+          "anchorId": "source-anchor:v1:a1d1ec3d292595501fd282c089095b457279cab3330b5d010e94a75468dbd0d6",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:a83fbd029eadde51d1656d1f23f988bca8d40084da492c524edcd689d468046f",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:dffee67a119a3e7ca81eb74fa40a0c2e0bd4c9bb8a6fd60374d2b9fdd0408ddf",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:f4c412782d5c7cf7791e1b383c085d442e40abeb94b259c45aae073360b07c95",
           "displayLabel": "/accepted_assertions/3",
           "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
           "locatorKind": "json_pointer",
           "readable": true,
-          "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+          "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
           "sessionId": null,
           "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
           "sourceDomain": "statblock",
@@ -2097,11 +2101,11 @@
       }
     },
     "sourceAnchorRead": {
-      "anchorId": "source-anchor:v1:07fda254fa79cf87a713f5998f6092713105c3a43dae670cf924312bd403f827",
-      "content": "{\n  \"acceptance_state\": \"accepted\",\n  \"assertion_id\": \"assertion:a9af3f77bf0f1101\",\n  \"assertion_kind\": \"node\",\n  \"campaign_scope\": \"longmont-c2\",\n  \"contribution_id\": \"contribution:022187fdefdf4557\",\n  \"epistemic_kind\": \"fact\",\n  \"evidence_ref_ids\": [\n    \"evidence:bundle:v1:statblock:tripod-null-calf\"\n  ],\n  \"identity_resolution_outcome\": \"created_new\",\n  \"label\": \"Tripod Null-Calf\",\n  \"predicate\": null,\n  \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n  \"source_revision_id\": \"bundle-revision:eldyrwild-longmont-c2-initial-v1\",\n  \"subject_node_id\": \"threat:tripod-null-calf\",\n  \"target_node_id\": null,\n  \"temporal_scope\": null,\n  \"value\": {\n    \"aliases\": [\n      \"Tripod Null-Calf\"\n    ],\n    \"approval_state\": \"accepted\",\n    \"canon_state\": \"canonical\",\n    \"evidence\": [\n      {\n        \"evidence_ref_id\": \"evidence:bundle:v1:statblock:tripod-null-calf\",\n        \"locator\": \"jsonptr:/accepted_assertions/0\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\"\n      }\n    ],\n    \"kind\": \"threat\",\n    \"role\": \"encounter-threat\",\n    \"source_artifacts\": [\n      {\n        \"campaign_id\": \"longmont-c2\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\",\n        \"uri\": \"graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json\"\n      }\n    ],\n    \"source_domains\": [\n      \"statblock\"\n    ]\n  },\n  \"visibility\": \"gm\"\n}",
-      "contentSha256": "7e11f5d119ff995431a10b5f4a851068b3753dfaf00c8edf5b8df293707b49b7",
+      "anchorId": "source-anchor:v1:46cfd3990c4159d152de96283994eaf961de159b7bf02ea7d904c7f790a58c8f",
+      "content": "{\n  \"acceptance_state\": \"accepted\",\n  \"assertion_id\": \"assertion:4d5d774d7cbf1e71\",\n  \"assertion_kind\": \"attribute\",\n  \"campaign_scope\": \"longmont-c2\",\n  \"contribution_id\": \"contribution:022187fdefdf4557\",\n  \"epistemic_kind\": \"fact\",\n  \"evidence_ref_ids\": [\n    \"evidence:bundle:v1:statblock:tripod-first-appearance\"\n  ],\n  \"identity_resolution_outcome\": \"created_new\",\n  \"label\": \"first_appearance\",\n  \"predicate\": \"first_appearance\",\n  \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n  \"source_revision_id\": \"bundle-revision:eldyrwild-longmont-c2-initial-v1\",\n  \"subject_node_id\": \"threat:tripod-null-calf\",\n  \"target_node_id\": null,\n  \"temporal_scope\": null,\n  \"value\": {\n    \"approval_state\": \"accepted\",\n    \"attribute\": \"first_appearance\",\n    \"canon_state\": \"canonical\",\n    \"evidence\": [\n      {\n        \"evidence_ref_id\": \"evidence:bundle:v1:statblock:tripod-first-appearance\",\n        \"locator\": \"jsonptr:/accepted_assertions/4\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\"\n      }\n    ],\n    \"source_artifacts\": [\n      {\n        \"campaign_id\": \"longmont-c2\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\",\n        \"uri\": \"graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json\"\n      }\n    ],\n    \"source_domains\": [\n      \"statblock\"\n    ],\n    \"text\": \"Mireward north-gate pressure sequence.\"\n  },\n  \"visibility\": \"gm\"\n}",
+      "contentSha256": "009099bfebfb165ae36c886bebb9cb9f5a5b9a75882fbf2bf6bdfad789b4768d",
       "diagnostics": [],
-      "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+      "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
       "lineEnd": null,
       "lineStart": null,
       "locatorKind": "json_pointer",
@@ -2115,9 +2119,9 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
@@ -2174,9 +2178,9 @@
           "kind": "none",
           "sessionId": null
         },
-        "headRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "headRevisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "isHead": true,
-        "revisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "revisionId": "rev:67cf1128bec694952955d8ff2bc9864e",
         "worldId": "eldyrwild"
       },
       "sourceArtifactId": null,
@@ -3000,6 +3004,18 @@
               ],
               "default": null,
               "title": "Direction"
+            },
+            "directionFromNodeId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Directionfromnodeid"
             },
             "edgeId": {
               "title": "Edgeid",

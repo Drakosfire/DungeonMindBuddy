@@ -107,6 +107,10 @@ def _plan(bundle) -> WorldInitializationPlan:
     )
 
 
+def _initialization_receipt_path(root: Path) -> Path:
+    return root / "graph_memory" / "worlds" / WORLD_ID / "initialization" / "initial.json"
+
+
 def _initialize(root: Path, bundle) -> kernel.WorldInitializationResult:
     return initialize_world_from_contributions(
         root,
@@ -1287,6 +1291,179 @@ def test_neighborhood_partial_when_unreadable_source_anchors_present(
     )
     assert result.outcome == "partial"
     assert result.coverage.unreadable_anchor_ids
+
+
+def test_neighborhood_multi_seed_exposes_direction_from_node_id(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    result = kernel.get_object_neighborhood(
+        tmp_path, _neighborhood_request([TRIPOD_ID, EVENT_ID], max_depth=1)
+    )
+    edge = next(rel for rel in result.relationships if rel.edge_id == edge_id)
+    assert edge.direction_from_node_id in {TRIPOD_ID, EVENT_ID}
+    assert edge.direction in {"outbound", "inbound"}
+    if edge.direction_from_node_id == TRIPOD_ID:
+        assert edge.direction == "outbound"
+    else:
+        assert edge.direction == "inbound"
+
+
+def test_read_source_anchor_fails_closed_when_receipt_plan_digest_mutated(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    receipt_path = _initialization_receipt_path(tmp_path)
+    receipt_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt_payload["plan_digest"] = "deadbeef" * 8
+    receipt_path.write_text(
+        json.dumps(receipt_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
+
+
+def test_read_source_anchor_fails_closed_when_receipt_attestation_mutated(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    receipt_path = _initialization_receipt_path(tmp_path)
+    receipt_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt_payload["approval_attestation"]["bundle_digest"] = "deadbeef" * 8
+    receipt_path.write_text(
+        json.dumps(receipt_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
+
+
+def test_read_source_anchor_fails_closed_when_receipt_contributions_mutated(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    receipt_path = _initialization_receipt_path(tmp_path)
+    receipt_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt_payload["ordered_contributions"] = receipt_payload["ordered_contributions"][:-1]
+    receipt_path.write_text(
+        json.dumps(receipt_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
+
+
+def test_read_source_anchor_malformed_receipt_returns_409(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    receipt_path = _initialization_receipt_path(tmp_path)
+    receipt_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
+
+
+def test_read_source_anchor_missing_receipt_initial_head_returns_409(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    receipt_path = _initialization_receipt_path(tmp_path)
+    receipt_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt_payload["initial_head_revision_id"] = "rev:" + "0" * 32
+    receipt_path.write_text(
+        json.dumps(receipt_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor.anchor_id))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "source_integrity_error"
+
+
+def test_graph_data_anchor_without_immutable_digest_is_unreadable(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    anchor = _first_anchor_for_node(
+        tmp_path, TRIPOD_ID, evidence_ref_id=TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    assert anchor.locator_kind == "json_pointer"
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    stripped_digests = dict(store.contribution_payload_sha256)
+    stripped_digests.pop(TRIPOD_CONTRIBUTION_ID, None)
+    mutated = store.model_copy(update={"contribution_payload_sha256": stripped_digests})
+    kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        mutated,
+        operation_ids=["op:test-pr010a-strip-contribution-digest"],
+    )
+
+    evidence = kernel.get_object_evidence(
+        tmp_path,
+        _evidence_request(WorldGraphEvidenceTarget(kind="node", id=TRIPOD_ID)),
+    )
+    graph_data_anchor = next(
+        anchor_item
+        for anchor_item in evidence.source_anchors
+        if anchor_item.evidence_ref_id == TRIPOD_NODE_EVIDENCE_REF_ID
+    )
+    assert graph_data_anchor.readable is False
+    assert graph_data_anchor.locator_kind == "json_pointer"
+    assert evidence.outcome == "partial"
+
+
+def test_max_source_anchors_cap_does_not_create_anchor_gaps(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    result = kernel.get_campaign_object(
+        tmp_path,
+        _object_request(
+            TRIPOD_ID,
+            bounds=WorldGraphRetrievalBounds(max_source_anchors=1),
+        ),
+    )
+    assert result.outcome == "truncated"
+    assert "source_anchors" in result.coverage.truncated_fields
+    assert result.coverage.missing_evidence_ref_ids == []
+    assert not any(
+        diagnostic.code == "missing_source_anchors" for diagnostic in result.diagnostics
+    )
 
 
 def test_source_reader_rejects_repo_path_escape(tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ from graph_memory.kernel.contribution_models import (
 )
 from graph_memory.kernel.contributions import (
     _canonicalize_graph_contribution_assertions,
+    compute_contribution_payload_sha256,
     create_graph_contribution,
     explicit_assertion_evidence_ref_ids,
     explicit_assertion_source_artifact_ids,
@@ -64,6 +65,29 @@ def _with_support_map(
             }
         }
     )
+
+
+def _bind_contribution_digest_authority(
+    store: UnionSupergraphStore,
+    contribution: GraphContribution,
+    *,
+    initialization_contribution_ids: list[str] | None = None,
+    initialization_plan_digest: str | None = None,
+    initialization_attestation_digest: str | None = None,
+) -> UnionSupergraphStore:
+    """Stamp revision-bound contribution and initialization digests onto the store."""
+    payloads = dict(store.contribution_payload_sha256)
+    payloads[contribution.contribution_id] = compute_contribution_payload_sha256(
+        contribution
+    )
+    update: dict[str, Any] = {"contribution_payload_sha256": payloads}
+    if initialization_contribution_ids is not None:
+        update["initialization_contribution_ids"] = list(initialization_contribution_ids)
+    if initialization_plan_digest is not None:
+        update["initialization_plan_digest"] = initialization_plan_digest
+    if initialization_attestation_digest is not None:
+        update["initialization_attestation_digest"] = initialization_attestation_digest
+    return store.model_copy(update=update)
 
 
 def rebuild_adjacency(
@@ -911,6 +935,9 @@ def merge_contribution_to_revision(
     world_id: str,
     contribution: GraphContribution,
     expected_parent_revision_id: str | None = None,
+    initialization_contribution_ids: list[str] | None = None,
+    initialization_plan_digest: str | None = None,
+    initialization_attestation_digest: str | None = None,
 ) -> ContributionMergeResult:
     """Persist contribution, merge accepted assertions, publish immutable revision."""
     contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
@@ -1000,6 +1027,13 @@ def merge_contribution_to_revision(
         proposed = proposed.model_copy(
             update={"adjacency": _rebuild_adjacency(proposed)}
         )
+        proposed = _bind_contribution_digest_authority(
+            proposed,
+            to_store,
+            initialization_contribution_ids=initialization_contribution_ids,
+            initialization_plan_digest=initialization_plan_digest,
+            initialization_attestation_digest=initialization_attestation_digest,
+        )
 
         publish_result = publish_world_graph_revision(
             root,
@@ -1052,6 +1086,9 @@ def supersede_graph_contribution(
     new_contribution: GraphContribution,
     superseded_contribution_id: str,
     expected_parent_revision_id: str | None = None,
+    initialization_contribution_ids: list[str] | None = None,
+    initialization_plan_digest: str | None = None,
+    initialization_attestation_digest: str | None = None,
 ) -> ContributionMergeResult:
     new_contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
         new_contribution
@@ -1129,6 +1166,13 @@ def supersede_graph_contribution(
         )
         proposed = proposed.model_copy(
             update={"adjacency": _rebuild_adjacency(proposed)}
+        )
+        proposed = _bind_contribution_digest_authority(
+            proposed,
+            new_contribution,
+            initialization_contribution_ids=initialization_contribution_ids,
+            initialization_plan_digest=initialization_plan_digest,
+            initialization_attestation_digest=initialization_attestation_digest,
         )
         publish_result = publish_world_graph_revision(
             root,

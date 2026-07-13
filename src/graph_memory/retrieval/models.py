@@ -196,6 +196,7 @@ class WorldGraphRetrievalRelationship(_RetrievalModel):
     predicate: str
     label: str
     direction: str | None = None
+    direction_from_node_id: str | None = None
     session_ids: list[str] = Field(default_factory=list)
     source_domains: list[str] = Field(default_factory=list)
     visibility: str | None = None
