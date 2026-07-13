@@ -1,280 +1,204 @@
-# Jumpstart Handoff — Docs Relevance First
+# Jumpstart Template — Select, Dispatch, Review, and Re-anchor One Slice
 
-> Status: ACTIVE REFERENCE / PROCESS TEMPLATE
-> Use for: Starting fresh agents on DungeonBuddy documentation, roadmap, or architecture work.
+> Status: ACTIVE PROCESS TEMPLATE
+> Use for: Fresh design/review stewards preparing one implementation slice without prior chat context.
 > Canonical repo path: `Docs/Plans/JUMPSTART-docs-relevance-first.md`
-> Canonical sync rule: GitHub is canonical; local/project-attached docs are draft or source context until reconciled.
-> Sequence authority: If this jumpstart and `Docs/Plans/PR-TRACKER-campaign-supergraph.md` disagree, the tracker wins.
-> Last updated: 2026-07-10
+> Project adaptation: Fill the project-specific authority, tracker, and command fields before dispatch.
 
-## 0. Mandatory first step: reconcile source docs
+## 0. Pickup prompt
 
-Before implementing, editing roadmap language, or writing a new PR handoff, inspect the documents available in the agent/project source context and compare them to GitHub.
-
-GitHub is canonical because it is the repository. Project-attached/local files are drafts, cached references, or agent-source inputs until verified against GitHub.
-
-Do not assume a local/project-attached doc is current merely because it is directly available.
-
-### Required actions
-
-1. List the local/project-attached docs available to the agent.
-2. Map each local doc to its intended GitHub repo path.
-3. Fetch the current GitHub version of each mapped file.
-4. Classify each file’s sync state vs GitHub:
+Use this prompt when transferring stewardship:
 
 ```text
-MATCH
-LOCAL_AHEAD
-GITHUB_AHEAD
-CONFLICT
-LOCAL_ONLY
-GITHUB_ONLY
+Reconcile current repository authority and current change state. Identify candidate capabilities, decompose them before dispatch, and select one independently useful implementation outcome. Write one complete PR handoff whose constraints survive without chat context. Review the resulting change skeptically at the owning boundaries, then re-anchor repository state after merge before selecting another slice.
 ```
 
-5. Record whether the local document can direct work (authority state — must match audit vocabulary):
+The steward owns the full cycle:
 
 ```text
-ACTIVE_AUTHORITY
-ACTIVE_REFERENCE
-KEEP_CONTRACT
-SOURCE_ANCHOR
-RESEARCH_ONLY
-HISTORICAL
-SUPERSEDED
-PROPOSAL
-DELETE_CANDIDATE
+authority reconciliation → capability decomposition → one-slice dispatch
+→ invariant-based review → finding-led re-review → post-merge re-anchor
 ```
 
-6. If a doc is stale but useful, preserve its useful content by extracting it into the current authority doc or a clearly labeled appendix.
-7. If a doc is stale and dangerous, add or update a banner pointing to current authority.
-8. Only after this reconciliation should the agent edit roadmap, architecture, or PR handoff content.
+## 1. Shared vocabulary
 
-## 1. Canonical sync rule
+Use these definitions in this template and the PR handoff template.
 
-GitHub is the source of truth.
+| Term | Definition |
+|---|---|
+| **Capability** | A coherent behavior or contract that creates one outcome someone can use, depend on, test, or revert. |
+| **Independently useful outcome** | An outcome that provides value or establishes a reusable contract even if neighboring work never ships. |
+| **Public/durable contract** | A persisted format, identifier, API, event, schema, file representation, caller-facing type, or externally consumed interface that must remain interpretable beyond one call stack. |
+| **Observable path** | A user-visible or externally observable route through the behavior, including success, miss, error, retry, persistence, and operator paths. |
+| **Owning boundary** | The layer where a guarantee becomes true and therefore must be proved: serializer, store, service, route, component, workflow, CLI, or equivalent. |
+| **Invariant** | The single property every changed layer establishes or proves. |
+| **Stop condition** | A discovered fact that invalidates the current slice boundaries and requires a report before implementation continues. |
 
-The local/project-attached copy is the editing workspace.
+Several files, packages, or architectural layers do not automatically imply several capabilities. One architectural consumer, endpoint, or feature area does not automatically imply one capability.
 
-The workflow is:
+## 2. Project adaptation and authority reconciliation
 
-```text
-local/project docs
-→ compare with GitHub
-→ classify
-→ edit locally
-→ preview diff
-→ explicit approval
-→ post/update GitHub
-→ fetch GitHub again
-→ verify match
-```
+Complete this block at pickup:
 
-No GitHub write should happen without explicit approval.
+| Project field | Current authority |
+|---|---|
+| Repository and default branch | `<repository>` · `<branch>` |
+| Architecture / decision authority | `<paths>` |
+| Active tracker / roadmap | `<paths or Not applicable: reason>` |
+| Dispatch and review rules | `<paths>` |
+| Current handoff or predecessor | `<paths or none>` |
+| Required build / test commands | `<commands>` |
+| Current base revision | `<SHA or immutable revision>` |
 
-## 2. Authority banner rule
+Then reconcile evidence in this order:
 
-Every edited doc must begin with a clear status banner.
+1. **Repository authority:** current checked-in architecture, contracts, policies, and source code.
+2. **Trackers and roadmaps:** current sequencing and active-slice state; they may sequence work but must not silently override architecture.
+3. **Current change state:** open PRs, branch heads, merged predecessors, CI, and intervening commits.
+4. **Attached or project-source context:** useful input only after mapping it to repository authority.
+5. **Prior handoffs and summaries:** historical evidence unless still explicitly active.
+6. **Chat-only constraints:** nonexistent for a fresh worker until written into the canonical handoff.
 
-Examples:
+Classify conflicts as `MATCH`, `SOURCE_AHEAD`, `REPOSITORY_AHEAD`, `CONFLICT`, `SOURCE_ONLY`, or `REPOSITORY_ONLY`. Record which authority wins and why. Do not dispatch from a stale summary or an unverified attachment.
 
-```markdown
-> Status: ACTIVE AUTHORITY
-> Use for: Campaign Supergraph architecture decisions.
-> Canonical repo path: Docs/Design/ARCHITECTURE-campaign-supergraph.md
-> Last sync checked: YYYY-MM-DD
-```
+## 3. Capability decomposition worksheet
 
-```markdown
-> Status: SUPERSEDED / HISTORICAL
-> This document is retained for context only.
-> Do not use it to direct new implementation.
-> Current authority: Docs/Design/ARCHITECTURE-campaign-supergraph.md
-```
+Before selecting a PR, list every candidate outcome—including “supporting” workflows that may actually be separate product behavior.
 
-```markdown
-> Status: ACTIVE REFERENCE
-> Use for: product or implementation context only.
-> Do not override: ARCHITECTURE-campaign-supergraph.md, ROADMAP-campaign-supergraph.md, PR-TRACKER-campaign-supergraph.md
-```
+| Candidate outcome | Independently useful? | Public/durable contract changed? | User surface changed? | Failure model changed? | Ownership layer | Independently testable/revertible? | Decision |
+|---|---:|---:|---:|---:|---|---:|---|
+| `<outcome>` | Yes / No | Yes / No | Yes / No | Yes / No | `<boundary>` | Yes / No | Keep / Split / Reconnaissance |
 
-## 3. Jumpstart purpose
+Also enumerate affected observable paths before grouping outcomes. Consider, when relevant:
 
-This jumpstart exists to re-anchor documentation authority and then produce the next safe PR.
+- existing-object resolution and linked-object traversal;
+- creation, insertion, search, and selection;
+- save/reload, migration, replay, and retry;
+- diagnostics and operator or dogfood judgment;
+- unavailable, stale, integrity-failure, and ordinary-miss behavior.
 
-**Work selection:** read `Docs/Plans/PR-TRACKER-campaign-supergraph.md` for the current slice, sequencing, and blockers. This document is a **timeless process template** — it does not duplicate the tracker sequence.
+Group outcomes only when every changed layer establishes or proves the same invariant. Split when an outcome is independently useful, independently reviewable, independently revertible, or creates a second public/durable contract.
 
-**PR005B-specific starts (when active):**
+## 4. Dispatch-readiness gate
 
-- Active handoff: `Docs/Plans/HANDOFF-pr329-agent-tool-authored-prep-contract.md` (while open)
-- Normative contract after merge: `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`
+Do not dispatch until every answer is concrete.
 
-**If this jumpstart and the tracker disagree, the tracker wins.**
+- **Single outcome:** What one independently useful outcome will exist afterward?
+- **Remaining falsehood:** What named successor capability remains false?
+- **Observable paths:** Which success, miss, failure, retry, and persistence paths change?
+- **Second contract check:** Does the slice introduce another durable format, public type, API, event, identifier, or operator workflow?
+- **Identity semantics:** Where relevant, are exact ID, alias, normalization, rename, deletion, and fallback rules explicit?
+- **State semantics:** Where relevant, are initialization, ready, miss, unavailable, integrity failure, stale context, and retry decisions explicit?
+- **Persistence semantics:** Where relevant, are save/reload, migration, replay, compatibility, and idempotency explicit?
+- **Predecessor realism:** Is integration grounded by a captured fixture, canonical schema/type, or field-level mapping?
+- **Path allowlist:** Can every expected changed path be named, with any bounded discovery exception precisely constrained?
+- **Owning proofs:** Does every acceptance claim map to a test, inspection, or manual scenario at the boundary that owns it?
+- **Stop conditions:** Does the worker know when to stop instead of expanding?
+- **Full authority:** Is the complete mission, boundary, matrix, proof map, rubric, and stop logic checked in—not merely summarized in a PR body or chat?
 
-## 4. Initial local docs to reconcile
+Any unresolved answer means: split, perform reconnaissance/design work, or resolve architecture first.
 
-Start with the currently available project-source docs when present:
+## 5. Slice-selection algorithm
 
-```text
-PROJECT-SOURCES-OPERATING-TEMPLATE.md
-PROPOSAL-context-audit-source-reanchor.md
-LLM-graph-construction.md
-dungeonbuddy_spec_architecture_v0_2.md
-ARCHITECTURE-plan-surface-toolbox.md
-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md
-GRAPH-MEMORY-PROJECT-LAYOUT.md
-CORPUS-ANCHOR.md
-```
+1. List candidate outcomes and observable paths.
+2. Group only outcomes governed by one invariant.
+3. Separate independently useful, independently revertible, or independently consumable contracts.
+4. Treat unresolved architecture as reconnaissance or design work, not implementation guesswork.
+5. Select one implementation capability and state what remains false.
+6. Name successors without implementing or claiming them.
+7. Write the complete PR handoff from the canonical template.
 
-Expected preliminary classification:
+Size, changed-file count, and layer count are warning signals—not decision rules. Cross-layer work may remain unified when each layer implements or proves one invariant.
 
-```text
-PROJECT-SOURCES-OPERATING-TEMPLATE.md
-  ACTIVE_REFERENCE / process template.
-  Process only; cannot override the PR tracker.
+## 6. Contract resolution before dispatch
 
-PROPOSAL-context-audit-source-reanchor.md
-  PROPOSAL.
-  Useful intent; not authority until absorbed into tracker/audit.
+Use compact matrices in the PR handoff when applicable. `Not applicable` requires a one-sentence reason.
 
-LLM-graph-construction.md
-  RESEARCH_ONLY.
-  Useful for extraction/eval patterns, not roadmap authority.
+### Identity
 
-dungeonbuddy_spec_architecture_v0_2.md
-  SUPERSEDED / HISTORICAL.
-  Useful conceptually, but replaced by current Campaign Supergraph architecture.
+State whether resolution is exact ID only, exact ID then alias, unique alias/label, normalized key, or another explicit rule. First-win matching should normally be prohibited. Display labels must not silently replace durable identity. Define rename, deletion, rebinding, ambiguity, and fallback behavior.
 
-ARCHITECTURE-plan-surface-toolbox.md
-  ACTIVE_REFERENCE.
-  Surface composition remains useful; not Campaign Supergraph sequencing authority.
-  Corpus-index resolution is a valid fallback, not the final graph architecture.
+### State and fallback
 
-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md
-  SUPERSEDED / HISTORICAL.
-  Useful old roadmap evidence, not current authority.
+For each observable path, resolve loading/initialization, exact success, ordinary miss, unavailable dependency, integrity failure, stale/superseded context, and retry/replay. Name the primary source and any fallback. Distinguish unresolved, deferred, fail-closed, and retryable outcomes.
 
-GRAPH-MEMORY-PROJECT-LAYOUT.md
-  ACTIVE_REFERENCE.
-  Layout note; sequencing lives in the tracker.
+Audit every sibling path sharing the same trust boundary; a rule for initial load may also govern selection, traversal, refresh, and reopen.
 
-CORPUS-ANCHOR.md
-  SOURCE_ANCHOR / KEEP_CONTRACT.
-  Still useful for corpus path grounding unless GitHub has a newer generated index.
-```
+### Persistence and replay
 
-## 5. Roadmap re-anchor after reconciliation
+Treat new persisted syntax, references, schemas, or representations as contracts—not adapter details. Define round trips, compatibility, migration, replay, idempotency, and independent rollback. A second independently useful durable contract is a split trigger.
 
-After doc reconciliation, update the roadmap position from the **tracker** (`Docs/Plans/PR-TRACKER-campaign-supergraph.md`) — not from this jumpstart alone. Copy the current slice table from the tracker at reconciliation time; do not maintain a parallel sequence here.
+### Predecessor mapping
 
-## 6. Context audit mission (example: PR005A)
+Require one of: an exact captured response fixture, a canonical schema/type definition, or a field-level predecessor-to-consumer mapping. Invented “close enough” names, identifier shapes, optionality, or error payloads are not integration proof.
 
-When the tracker assigns a docs/process slice (e.g. PR005A Context Audit + Source Reanchor), reconcile Project Sources, local handoffs, active references, historical docs, and repo authority so agents cannot treat stale context as GitHub truth.
+## 7. Review protocol
 
-Core rule:
+Review the invariant across paths before reviewing files one by one.
 
-```text
-GitHub repo docs are canonical.
-Project Sources are context inputs.
-Prepared replacement files are not active Project Sources until the human operator uploads them.
-Historical / research / proposal docs cannot direct implementation.
-```
+1. Restate the mission, invariant, named successor, and expected changed paths.
+2. Enumerate every entry path governed by the invariant.
+3. Compare actual diff to the mission and allowlist; unexpected paths are scope findings.
+4. Look for hidden second contracts: persistence, identifiers, caller types, management surfaces, reports, or diagnostics.
+5. Verify identity, state/fallback, and persistence matrices against every sibling path.
+6. Confirm predecessor fixtures and mappings use real vocabulary, shapes, optionality, and error semantics.
+7. Trace each acceptance claim to its owning proof. Lower-level helper tests cannot prove higher-level guarantees.
+8. Exercise exact round trips, failure injection, and replay where applicable.
+9. Distinguish the smallest live proof from new product behavior. Search, notes, classifications, controls, reports, or a dedicated panel are product capabilities, not “just dogfood.”
+10. Compare required gates on base and head when base is already failing. Do not call a failing gate green.
 
-## 7. Agent tool contract preview (example: PR005B)
+Typical owning proofs:
 
-When the tracker assigns PR005B or successor docs bridges, document Hermes/agent tool contracts without runtime implementation.
+| Guarantee | Owning proof |
+|---|---|
+| Serialization / durable format | Exact serialization or save/reload round-trip test |
+| UI behavior | Component/integration test or explicit browser smoke |
+| Service contract | Route, endpoint, or consumer contract test |
+| Atomicity | Failure-injection test at the commit boundary |
+| Predecessor compatibility | Captured-contract fixture or canonical mapping test |
+| Live usability | Recorded minimal manual scenario on an existing surface |
 
-Core rule:
+## 8. Re-review protocol
 
-```text
-Agents are not privileged graph writers.
-```
+Begin from a finding ledger, not from the latest patch alone.
 
-Tool categories:
+| Prior finding | Claimed fix | Owning files/tests | Verified? | New consequence? |
+|---|---|---|---:|---|
+| `<finding>` | `<claim>` | `<paths / commands>` | Yes / No | `<result>` |
 
-```text
-read_only
-draft_only
-preview_write
-confirm_commit
-admin_diagnostic
-```
+For each finding, retest the full invariant across all governed paths. Do not verify only the literal line changed in response to review. Add newly exposed consequences to the ledger before issuing another verdict.
 
-Authored prep lifecycle:
+## 9. Baseline failures and verification truth
 
-```text
-draft
-planned
-placed
-played
-world_canon
-retracted
-superseded
-```
+When a required command fails on base:
 
-Durable writes must flow through:
+1. Run or cite the same command on base and head.
+2. Record whether head adds failures, removes failures, or leaves the baseline unchanged.
+3. Do not report the gate as passing.
+4. Require an explicit operator waiver if the failing command remains an acceptance gate.
+5. Separate author-reported local results, independently rerun local results, and visible CI results.
 
-```text
-GraphContribution
-source artifact revision
-identity decision record
-Kernel merge / publish
-```
+## 10. Post-merge re-anchor
 
-Normative contract: `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`
+Before selecting or dispatching another slice, refresh:
 
-## 8. Files likely to update in GitHub (per tracker slice)
+- merged head SHA or immutable revision;
+- active tracker and roadmap state;
+- predecessor contract and actual delivered behavior;
+- deferred successors and stop findings;
+- current open PR and collision state;
+- whether the next named slice still passes capability decomposition.
 
-After reconciliation, expected GitHub updates depend on the **current tracker slice** — do not update blindly. Typical docs-bridge slices touch:
+Do not chain-dispatch from pre-merge assumptions or stale handoff prose.
 
-```text
-Docs/Plans/PR-TRACKER-campaign-supergraph.md
-Docs/Roadmaps/ROADMAP-campaign-supergraph.md
-Docs/Reports/graph-document-audit.md
-Docs/Plans/JUMPSTART-docs-relevance-first.md
-Docs/Design/* (active references and contracts as named in the tracker handoff)
-```
+## 11. Anti-patterns
 
-Update only after local-vs-GitHub reconciliation and only the files named in the active handoff.
-
-## 9. Required output of this jumpstart
-
-The agent should produce:
-
-1. A doc relevance report.
-2. A local-vs-GitHub sync matrix.
-3. A proposed set of doc edits.
-4. A handoff or branch plan aligned to the **current tracker slice**.
-5. A GitHub sync preview.
-6. Only after approval, GitHub updates.
-7. A post-sync verification report proving GitHub matches intended local content.
-8. A follow-up pointer to the next tracker slice (and its handoff/contract if applicable).
-
-## 10. Non-goals
-
-Do not implement:
-
-```text
-Hermes runtime
-Agent tool registry code
-Plan encounter builder
-Projection Engine
-Graph-backed retrieval
-content-pack storage
-autonomous writes
-PR006 materialization
-```
-
-Do not let the docs cleanup become an implementation PR.
-
-## 11. Exit criteria
-
-The jumpstart succeeds when:
-
-```text
-The agent can say which docs are current, stale, superseded, research-only, or proposal-only.
-The roadmap/tracker points clearly to the current slice and its blockers.
-Stale local/project docs no longer look like active authority.
-Project Sources are treated as context inputs, not repo authority.
-GitHub is synced and verified after explicit approval.
-Tracker sequence is not duplicated in this jumpstart.
-```
+| Bad | Better |
+|---|---|
+| “One dashboard consumes it, so migration, favorites persistence, search, and review notes are one slice.” | Decompose by independently useful outcomes and contracts. |
+| “Add a notes panel so we can dogfood the migration.” | Prove migration through the smallest existing surface; dispatch notes management separately. |
+| “Store the new reference string inside the adapter.” | Treat the persisted reference format as a public/durable contract with round-trip and rollback semantics. |
+| “Fall back normally on errors.” | Fill the state/fallback matrix for each governed path and source. |
+| “The PR summary contains the important constraints.” | Check the complete authority into the handoff; summaries may link but not replace it. |
+| “The mock returns approximately the predecessor fields.” | Use a captured fixture, canonical schema/type, or exact field mapping. |
+| “Frontend plus backend is too large.” | Keep them together when both establish and prove one invariant; split only on capability boundaries. |
