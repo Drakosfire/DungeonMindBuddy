@@ -1026,6 +1026,90 @@ def test_live_and_hermes_receive_equivalent_graph_context(
     assert live_body["world_graph_context"]["revision_id"] == "rev:parity"
 
 
+def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In-process Hermes must not pretend dungeon_context_lookup received the graph."""
+    from apps.live_control_server.services import live_agent_loop
+    import integrations.hermes.plugins.dungeonbuddy as dungeonbuddy
+
+    envelope = {
+        "schema": "dmb_agent_world_graph_query_context_v1",
+        "status": "ready",
+        "world_id": "eldyrwild",
+        "campaign_id": "longmont-c2",
+        "revision_id": "rev:honest",
+        "head_revision_id": "rev:honest",
+        "is_head": True,
+        "focus": {"kind": "session", "session_id": "session-21"},
+        "admissibility": "gm",
+        "query_text": "Tripod Null-Calf",
+        "matched_node_ids": ["threat:tripod-null-calf"],
+        "nodes": [
+            {
+                "node_id": "threat:tripod-null-calf",
+                "label": "Tripod Null-Calf",
+                "kind": "threat",
+                "role": "antagonist",
+                "summary": "gate pressure",
+                "anchored_to_focus_session": False,
+            }
+        ],
+        "relationships": [],
+        "attributes": [],
+        "projection_truncated": False,
+        "diagnostics": [],
+        "warning_codes": [],
+        "trust_boundary": {
+            "graph_role": "structured_campaign_memory_and_navigation",
+            "citation_authority": "corpus_source_evidence",
+            "graph_citations_permitted": False,
+        },
+    }
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: dict(envelope),
+    )
+
+    captured_params: dict[str, object] = {}
+    real_lookup = dungeonbuddy.handle_dungeon_context_lookup
+
+    def spy_lookup(params: dict, **kwargs: object) -> str:
+        captured_params.clear()
+        captured_params.update(params)
+        return real_lookup(params, **kwargs)
+
+    # Late import inside _process_hermes_context_query picks this up at call time.
+    monkeypatch.setattr(dungeonbuddy, "handle_dungeon_context_lookup", spy_lookup)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "Tripod Null-Calf",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["world_graph_context"]["revision_id"] == "rev:honest"
+    assert "world_graph_prompt_supplied" not in body.get("diagnostics", {})
+    assert captured_params, "expected dungeon_context_lookup to be called"
+    assert set(captured_params.keys()) <= {"question", "question_id", "manifest_path"}
+    assert "WORLD GRAPH CONTEXT" not in json.dumps(captured_params)
+    steps = body["agent_trace"]["steps"]
+    assert steps[0]["name"] == "world_graph_context_attached_to_response"
+    assert "not passed to dungeon_context_lookup" in steps[0]["summary"]
+    assert body["agent_trace"]["prompt_char_count"] == len("Tripod Null-Calf")
+    assert all(step["name"] != "world_graph_query_context" for step in steps)
+
+
 def test_world_graph_unavailable_allows_corpus_path(
     client: TestClient,
     isolated_session: Path,

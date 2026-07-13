@@ -607,11 +607,9 @@ def _process_hermes_context_query(
     trace_id = _new_trace_id("hermes-trace")
     started_at = _utc_now_z()
     started_mono = time.monotonic()
-    graph_prompt = (
-        render_world_graph_prompt_block(world_graph_context)
-        if world_graph_context is not None
-        else None
-    )
+    # In-process Hermes currently calls dungeon_context_lookup with question +
+    # manifest only. The graph envelope is attached to the HTTP response for UI
+    # inspection; do not render/count a prompt block or claim it was supplied.
 
     params: dict[str, Any] = {
         "question": text,
@@ -625,11 +623,13 @@ def _process_hermes_context_query(
     completed_at = _utc_now_z()
     elapsed_ms = int((time.monotonic() - started_mono) * 1000)
 
-    def _graph_step() -> dict[str, str]:
+    def _graph_attached_step() -> dict[str, str]:
+        assert world_graph_context is not None
         return {
-            "name": "world_graph_query_context",
+            "name": "world_graph_context_attached_to_response",
             "summary": (
-                f"Graph context supplied status={world_graph_context.get('status')} "
+                f"Graph envelope attached to response (not passed to "
+                f"dungeon_context_lookup) status={world_graph_context.get('status')} "
                 f"revision={world_graph_context.get('revision_id')} "
                 f"matched={len(list(world_graph_context.get('matched_node_ids') or []))}"
             ),
@@ -638,7 +638,7 @@ def _process_hermes_context_query(
     if not data.get("success"):
         steps = [{"name": "dungeon_context_lookup", "summary": "Lookup failed"}]
         if world_graph_context is not None:
-            steps.insert(0, _graph_step())
+            steps.insert(0, _graph_attached_step())
         agent_trace = _build_agent_trace(
             trace_id=trace_id,
             runtime="in_process",
@@ -649,8 +649,8 @@ def _process_hermes_context_query(
             completed_at=completed_at,
             elapsed_ms=elapsed_ms,
             toolset="dungeonbuddy",
-            prompt_char_count=len(text) + (len(graph_prompt) if graph_prompt else 0),
-            prompt_token_estimate=_estimate_token_count(text + (graph_prompt or "")),
+            prompt_char_count=len(text),
+            prompt_token_estimate=_estimate_token_count(text),
             steps=steps,
             context_summary=_context_summary_from_packet(
                 None,
@@ -693,7 +693,7 @@ def _process_hermes_context_query(
     manifest_path = str(data.get("manifest_path") or request_manifest_path or "") or None
     steps = _hermes_in_process_steps(summary)
     if world_graph_context is not None:
-        steps.insert(0, _graph_step())
+        steps.insert(0, _graph_attached_step())
     agent_trace = _build_agent_trace(
         trace_id=trace_id,
         runtime="in_process",
@@ -704,8 +704,8 @@ def _process_hermes_context_query(
         completed_at=completed_at,
         elapsed_ms=elapsed_ms,
         toolset="dungeonbuddy",
-        prompt_char_count=len(text) + (len(graph_prompt) if graph_prompt else 0),
-        prompt_token_estimate=_estimate_token_count(text + (graph_prompt or "")),
+        prompt_char_count=len(text),
+        prompt_token_estimate=_estimate_token_count(text),
         steps=steps,
         context_summary=_context_summary_from_packet(
             context_packet,
@@ -725,8 +725,6 @@ def _process_hermes_context_query(
         "hermes_tool": "dungeon_context_lookup",
         "sufficiency_summary": summary,
     }
-    if world_graph_context is not None:
-        diagnostics["world_graph_prompt_supplied"] = True
 
     return _with_evidence_snapshots({
         "schema": "dmb_live_query_response_v1",
