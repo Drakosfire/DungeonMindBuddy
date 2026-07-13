@@ -15,6 +15,7 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
 import {
+  isCorpusFallbackAllowed,
   resolvePlanReferenceFromGraphProjection,
   type PlanGraphProjectionState,
   type PlanReferenceResolution,
@@ -53,10 +54,7 @@ function formatProjectionLoadError(error: unknown): string {
   return error instanceof Error ? error.message : "Projection unavailable.";
 }
 
-/** Corpus fallback is allowed only when World Graph is unavailable, not loading or in error. */
-export function isCorpusFallbackAllowed(projectionState: PlanGraphProjectionState | null): boolean {
-  return projectionState === "unavailable" || projectionState === "ready";
-}
+export { isCorpusFallbackAllowed };
 
 function unresolvedResolution(
   ref: RunbookReferenceAttrs,

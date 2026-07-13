@@ -29,7 +29,7 @@ function projectionStateNote(
     return "World Graph projection is unavailable. Showing corpus fallback or unresolved state.";
   }
   if (projectionState === "error") {
-    return "World Graph projection failed to load. Showing corpus fallback or unresolved state.";
+    return "World Graph projection failed to load. Corpus fallback is disabled until the graph recovers.";
   }
   if (projectionState === "ready") {
     return "Graph memory did not resolve this reference.";
@@ -124,7 +124,7 @@ export function PlanReferenceObjectCard({
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
       if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
-      if (resolverProjectionState === "loading") return;
+      if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
       setNavigatingRelationshipId(relationship.id);
       try {
@@ -147,7 +147,9 @@ export function PlanReferenceObjectCard({
   );
 
   const relationshipsDisabled =
-    Boolean(navigatingRelationshipId) || resolverProjectionState === "loading";
+    Boolean(navigatingRelationshipId)
+    || resolverProjectionState === "loading"
+    || resolverProjectionState === "error";
 
   if (resolution.kind === "graph-node" && resolution.graphObject) {
     const model = {

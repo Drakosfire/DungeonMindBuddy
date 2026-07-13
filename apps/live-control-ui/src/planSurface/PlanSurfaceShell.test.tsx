@@ -80,12 +80,16 @@ describe("PlanSurfaceShell", () => {
     );
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit", hidden: true })).toBeInTheDocument();
+    // Docked Edit starts open; the side tab is hidden until the drawer closes.
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
+    expect(screen.getByText("World Graph objects")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-graph-ref-search")).toBeInTheDocument();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -1001,7 +1005,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Search")).toBeInTheDocument();
+      expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
     });
 
     const canvas = screen.getByTestId("plan-surface-canvas-editor");

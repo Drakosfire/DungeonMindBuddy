@@ -134,6 +134,7 @@ function EditToolbox({
         aria-expanded={isOpen}
         aria-controls="app-edit-toolbox-drawer"
         title="Edit"
+        hidden={isOpen}
       >
         Edit
       </button>

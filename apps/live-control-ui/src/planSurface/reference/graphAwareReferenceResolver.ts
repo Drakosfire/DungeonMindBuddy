@@ -18,6 +18,13 @@ export type PlanGraphProjectionState =
   | "unavailable"
   | "error";
 
+/** Corpus fallback is allowed only when World Graph is unavailable, or ready with an ordinary miss. */
+export function isCorpusFallbackAllowed(
+  projectionState: PlanGraphProjectionState | null,
+): boolean {
+  return projectionState === "unavailable" || projectionState === "ready";
+}
+
 export interface PlanReferenceResolution {
   kind: PlanReferenceResolutionKind;
   locator: string;

@@ -13,7 +13,8 @@ export interface PlanGraphRefSearchProps {
   nodes: GraphProjectionNodeView[];
   projectionState: PlanGraphProjectionState;
   projectionError?: string | null;
-  disabled?: boolean;
+  /** Disables chip insert only. Search and view stay available while editing is locked. */
+  insertDisabled?: boolean;
   onInsert: (attrs: RunbookReferenceAttrs) => void;
   onView?: (node: GraphProjectionNodeView) => void;
 }
@@ -22,7 +23,7 @@ export function PlanGraphRefSearch({
   nodes,
   projectionState,
   projectionError = null,
-  disabled = false,
+  insertDisabled = false,
   onInsert,
   onView,
 }: PlanGraphRefSearchProps) {
@@ -36,51 +37,49 @@ export function PlanGraphRefSearch({
   return (
     <section
       className="plan-graph-ref-search"
-      aria-label="Search graph objects"
+      aria-label="World Graph objects"
       data-testid="plan-graph-ref-search"
     >
-      <header className="plan-graph-ref-search__header">
-        <h3 className="plan-graph-ref-search__title">Search graph objects</h3>
-        <p className="plan-graph-ref-search__subtitle">
-          Find World Graph nodes by label, alias, kind, or id — not the old sample ref list.
-        </p>
-      </header>
-
       {projectionState === "loading" ? (
         <p className="plan-graph-ref-search__status" role="status">
-          Loading graph projection…
+          Loading World Graph projection…
         </p>
       ) : null}
       {projectionState === "error" ? (
         <p className="plan-graph-ref-search__status plan-graph-ref-search__status--error" role="alert">
-          Could not load graph projection{projectionError ? `: ${projectionError}` : "."}
+          Could not load World Graph{projectionError ? `: ${projectionError}` : "."}
         </p>
       ) : null}
       {projectionState === "unavailable" ? (
         <p className="plan-graph-ref-search__status" role="status">
-          Graph projection unavailable for this session.
+          World Graph unavailable for this session.
         </p>
       ) : null}
 
       {projectionState === "ready" ? (
         <>
           <label className="plan-graph-ref-search__label" htmlFor="plan-graph-ref-search-input">
-            Search
+            Find objects
           </label>
           <input
             id="plan-graph-ref-search-input"
             className="plan-graph-ref-search__input"
             type="search"
             value={query}
-            placeholder="e.g. Glowkindle, inn, quest…"
-            disabled={disabled}
+            placeholder="Tripod, Mireward, npc…"
+            autoComplete="off"
             onChange={(event) => setQuery(event.target.value)}
           />
+          {insertDisabled ? (
+            <p className="plan-graph-ref-search__status" role="status">
+              Unlock editing to insert chips into the board. View still works.
+            </p>
+          ) : null}
 
           {nodes.length === 0 ? (
             <p className="plan-graph-ref-search__empty">No nodes in the current projection.</p>
           ) : results.length === 0 ? (
-            <p className="plan-graph-ref-search__empty">No graph objects match “{query.trim()}”.</p>
+            <p className="plan-graph-ref-search__empty">No objects match “{query.trim()}”.</p>
           ) : (
             <ul className="plan-graph-ref-search__results" data-testid="plan-graph-ref-search-results">
               {results.map((node) => (
@@ -97,7 +96,6 @@ export function PlanGraphRefSearch({
                       <button
                         type="button"
                         className="plan-graph-ref-search__button"
-                        disabled={disabled}
                         onClick={() => onView(node)}
                       >
                         View
@@ -106,7 +104,7 @@ export function PlanGraphRefSearch({
                     <button
                       type="button"
                       className="plan-graph-ref-search__button plan-graph-ref-search__button--primary"
-                      disabled={disabled}
+                      disabled={insertDisabled}
                       onClick={() => onInsert(runbookReferenceFromGraphNode(node))}
                     >
                       Insert chip

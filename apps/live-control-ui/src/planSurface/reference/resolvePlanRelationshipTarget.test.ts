@@ -171,4 +171,52 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.graphObject).toBeNull();
     expect(resolution.locator).toBe("dmb-node:location-missing");
   });
+
+  it("fails closed during projection error without querying corpus", async () => {
+    let fetchCount = 0;
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-integrity",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection: null,
+      projectionState: "error",
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return {
+          ok: true,
+          json: async () => ({ locations: [{ slug: "location-inn", title: "Inn" }] }),
+        } as Response;
+      },
+    });
+
+    expect(resolution.kind).toBe("error");
+    expect(resolution.source).toBe("error");
+    expect(resolution.message).toMatch(/corpus fallback disabled/i);
+    expect(fetchCount).toBe(0);
+  });
+
+  it("defers relationship resolution while projection is loading", async () => {
+    let fetchCount = 0;
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-loading",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection,
+      projectionState: "loading",
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return { ok: true, json: async () => ({ locations: [] }) } as Response;
+      },
+    });
+
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.message).toMatch(/loading/i);
+    expect(fetchCount).toBe(0);
+  });
 });

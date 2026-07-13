@@ -197,6 +197,19 @@ const surfaceConfig: SurfaceConfig = {
   theme: {},
 };
 
+function seedDogfoodList(nodeIds: string[]) {
+  localStorage.setItem(
+    graphObjectDogfoodStorageKey(sessionDescriptor),
+    JSON.stringify({
+      schema: "dmb_graph_object_dogfood_v1",
+      addedNodeIds: nodeIds,
+      viewedNodeIds: [],
+      usefulnessByNodeId: {},
+      notesByNodeId: {},
+    }),
+  );
+}
+
 function ActiveTitleProbe() {
   const { active, activePlanReference } = useProjection();
   return (
@@ -226,40 +239,56 @@ describe("GraphObjectDogfoodPanel", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(projection);
   });
 
-  it("renders available projection nodes", async () => {
+  it("points dogfood toward Edit toolbar search instead of a second browser", async () => {
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    expect(within(available).getByText("Glowkindle")).toBeInTheDocument();
-    expect(within(available).getByText("Thin NPC")).toBeInTheDocument();
-    expect(within(available).getByText("Inn")).toBeInTheDocument();
+    expect(await screen.findByText(/Edit → World Graph objects/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-object-dogfood-available")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search graph")).not.toBeInTheDocument();
+    expect(screen.getByText(/No cards on the dogfood list yet/i)).toBeInTheDocument();
   });
 
-  it("filters available nodes by graph search", async () => {
+  it("adds the currently viewed related card without a duplicate search UI", async () => {
     const user = userEvent.setup();
-    renderPanel();
 
-    await screen.findByTestId("graph-object-dogfood-available");
-    await user.type(screen.getByLabelText("Search graph"), "glow");
+    function SeedRelatedView() {
+      const { openPlanReferenceResolution } = useProjection();
+      useEffect(() => {
+        openPlanReferenceResolution({
+          kind: "graph-node",
+          locator: "dmb-node:npc-glowkindle",
+          refType: "npc",
+          refId: "npc-glowkindle",
+          graphObject: {
+            id: "npc-glowkindle",
+            label: "Glowkindle",
+            typeBadgeLabel: "Npc",
+            actions: [],
+          },
+          graphNodeId: "npc-glowkindle",
+          fallback: null,
+          source: "world-graph",
+        });
+      }, [openPlanReferenceResolution]);
+      return null;
+    }
 
-    const available = screen.getByTestId("graph-object-dogfood-available");
-    expect(within(available).getByText("Glowkindle")).toBeInTheDocument();
-    expect(within(available).queryByText("Thin NPC")).not.toBeInTheDocument();
-    expect(within(available).queryByText("Inn")).not.toBeInTheDocument();
-  });
+    render(
+      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+        <ProjectionProvider config={surfaceConfig}>
+          <SeedRelatedView />
+          <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
+        </ProjectionProvider>
+      </PlanGraphReferenceResolverProvider>,
+    );
 
-  it("adds a card to the local dogfood list without duplicating", async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const glowRow = within(available).getByText("Glowkindle").closest("li");
-    expect(glowRow).toBeTruthy();
-    await user.click(within(glowRow as HTMLElement).getByRole("button", { name: "Add card" }));
+    expect(
+      await screen.findByText(/Viewing a related card that is not on the dogfood list/i),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add this card to dogfood list" }));
 
     const collection = screen.getByTestId("graph-object-dogfood-collection");
     expect(within(collection).getByText("Glowkindle")).toBeInTheDocument();
-    expect(within(glowRow as HTMLElement).getByRole("button", { name: "Added" })).toBeDisabled();
 
     const stored = JSON.parse(
       localStorage.getItem(graphObjectDogfoodStorageKey(sessionDescriptor)) ?? "{}",
@@ -269,12 +298,10 @@ describe("GraphObjectDogfoodPanel", () => {
 
   it("views a card through the real Plan reference projection path", async () => {
     const user = userEvent.setup();
+    seedDogfoodList(["npc-glowkindle"]);
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const glowRow = within(available).getByText("Glowkindle").closest("li") as HTMLElement;
-    await user.click(within(glowRow).getByRole("button", { name: "Add card" }));
-    const collection = screen.getByTestId("graph-object-dogfood-collection");
+    const collection = await screen.findByTestId("graph-object-dogfood-collection");
     await user.click(within(collection).getByRole("button", { name: "View card" }));
 
     await waitFor(() => {
@@ -290,25 +317,20 @@ describe("GraphObjectDogfoodPanel", () => {
   });
 
   it("surfaces thin-card coverage when summary/relationships/evidence are missing", async () => {
-    const user = userEvent.setup();
+    seedDogfoodList(["npc-thin"]);
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const thinRow = within(available).getByText("Thin NPC").closest("li") as HTMLElement;
-    await user.click(within(thinRow).getByRole("button", { name: "Add card" }));
-
-    expect(screen.getByText(/Thin card/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Thin card/i)).toBeInTheDocument();
     expect(screen.getByText(/Missing: summary/i)).toBeInTheDocument();
   });
 
   it("removes from dogfood list with local-only copy and no write endpoints", async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
+    seedDogfoodList(["npc-glowkindle"]);
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const glowRow = within(available).getByText("Glowkindle").closest("li") as HTMLElement;
-    await user.click(within(glowRow).getByRole("button", { name: "Add card" }));
+    await screen.findByTestId("graph-object-dogfood-collection");
     await user.click(screen.getByRole("button", { name: "Remove from dogfood list" }));
 
     expect(screen.queryByTestId("graph-object-dogfood-collection")).not.toBeInTheDocument();
@@ -326,12 +348,10 @@ describe("GraphObjectDogfoodPanel", () => {
 
   it("persists usefulness and notes locally", async () => {
     const user = userEvent.setup();
+    seedDogfoodList(["npc-glowkindle"]);
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const glowRow = within(available).getByText("Glowkindle").closest("li") as HTMLElement;
-    await user.click(within(glowRow).getByRole("button", { name: "Add card" }));
-
+    await screen.findByTestId("graph-object-dogfood-collection");
     await user.selectOptions(screen.getByLabelText("Usefulness for Glowkindle"), "useful");
     await user.type(screen.getByLabelText("Notes for Glowkindle"), "Would use at the table.");
 
@@ -346,11 +366,10 @@ describe("GraphObjectDogfoodPanel", () => {
 
   it("clears local dogfood graph state", async () => {
     const user = userEvent.setup();
+    seedDogfoodList(["npc-glowkindle"]);
     renderPanel();
 
-    const available = await screen.findByTestId("graph-object-dogfood-available");
-    const glowRow = within(available).getByText("Glowkindle").closest("li") as HTMLElement;
-    await user.click(within(glowRow).getByRole("button", { name: "Add card" }));
+    await screen.findByTestId("graph-object-dogfood-collection");
     await user.click(screen.getByRole("button", { name: "Clear graph object dogfood list" }));
 
     expect(localStorage.getItem(graphObjectDogfoodStorageKey(sessionDescriptor))).toBeNull();

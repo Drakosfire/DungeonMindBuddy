@@ -8,10 +8,6 @@ import {
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
-import {
-  searchGraphProjectionNodes,
-  sortGraphProjectionNodes,
-} from "../reference/searchGraphProjectionNodes";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import type { PlanSessionDescriptor } from "../types";
@@ -118,7 +114,6 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
   const [state, setState] = useState<GraphObjectDogfoodState>(() =>
     loadGraphObjectDogfoodState(window.localStorage, sessionDescriptor),
   );
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setState(loadGraphObjectDogfoodState(window.localStorage, sessionDescriptor));
@@ -130,16 +125,6 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
       saveGraphObjectDogfoodState(window.localStorage, sessionDescriptor, next);
     },
     [sessionDescriptor],
-  );
-
-  const availableNodes = useMemo(() => {
-    const all = projection?.nodes.map(adaptWorldGraphNodeForPlanCard) ?? [];
-    return sortGraphProjectionNodes(searchGraphProjectionNodes(all, searchQuery));
-  }, [projection, searchQuery]);
-
-  const totalNodeCount = useMemo(
-    () => projection?.nodes.length ?? 0,
-    [projection],
   );
 
   const addedNodes = useMemo(() => {
@@ -163,10 +148,6 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
     projectionApi?.activePlanReference?.kind === "graph-node"
       ? projectionApi.activePlanReference.graphNodeId
       : null;
-
-  const handleAdd = (nodeId: string) => {
-    persist(addNodeToDogfoodList(state, nodeId));
-  };
 
   const handleRemove = (nodeId: string) => {
     persist(removeNodeFromDogfoodList(state, nodeId));
@@ -209,9 +190,8 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
       <header className="graph-object-dogfood-header">
         <h3 className="graph-object-dogfood-title">Graph objects</h3>
         <p className="graph-object-dogfood-subtitle">
-          Search the World Graph projection, add cards to a local dogfood list, view them through
-          the real Plan card path, and record whether they are useful. Remove never deletes graph
-          or corpus memory.
+          Use Edit → World Graph objects to find and open cards. This panel keeps the local dogfood
+          list, coverage, usefulness, and notes. Remove never deletes graph or corpus memory.
         </p>
       </header>
 
@@ -232,181 +212,115 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
       ) : null}
 
       {projectionState === "ready" ? (
-        <>
-          <div className="graph-object-dogfood-section">
-            <h4 className="graph-object-dogfood-section-title">Search projection nodes</h4>
-            <label className="graph-object-dogfood-field-label" htmlFor="graph-object-dogfood-search">
-              Search graph
-              <input
-                id="graph-object-dogfood-search"
-                type="search"
-                value={searchQuery}
-                placeholder="e.g. Glowkindle, inn, merchant…"
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </label>
-            {totalNodeCount === 0 ? (
-              <p className="graph-object-dogfood-empty">No nodes in the current projection.</p>
-            ) : availableNodes.length === 0 ? (
-              <p className="graph-object-dogfood-empty">
-                No graph objects match “{searchQuery.trim()}”.
-              </p>
-            ) : (
-              <>
-                <p className="graph-object-dogfood-result-count" role="status">
-                  Showing {availableNodes.length} of {totalNodeCount} nodes
-                  {searchQuery.trim() ? " matching search" : ""}.
-                </p>
-                <ul
-                  className="graph-object-dogfood-node-list"
-                  data-testid="graph-object-dogfood-available"
-                >
-                  {availableNodes.map((node) => {
-                    const alreadyAdded = state.addedNodeIds.includes(node.node_id);
-                    return (
-                      <li key={node.node_id} className="graph-object-dogfood-node-row">
-                        <div className="graph-object-dogfood-node-copy">
-                          <strong>{node.label}</strong>
-                          <span className="graph-object-dogfood-node-meta">
-                            {node.kind}
-                            {node.role ? ` · ${node.role}` : ""}
-                          </span>
-                        </div>
-                        <div className="graph-object-dogfood-card-actions">
-                          <button
-                            type="button"
-                            className="graph-object-dogfood-button graph-object-dogfood-button--primary"
-                            onClick={() => handleView(node)}
-                          >
-                            View card
-                          </button>
-                          <button
-                            type="button"
-                            className="graph-object-dogfood-button"
-                            disabled={alreadyAdded}
-                            onClick={() => handleAdd(node.node_id)}
-                          >
-                            {alreadyAdded ? "Added" : "Add card"}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-
-          <div className="graph-object-dogfood-section">
-            <h4 className="graph-object-dogfood-section-title">Dogfood list</h4>
-            {activeViewedNodeId && !state.addedNodeIds.includes(activeViewedNodeId) ? (
-              <div className="graph-object-dogfood-active-add">
-                <p>Viewing a related card that is not on the dogfood list.</p>
-                <button
-                  type="button"
-                  className="graph-object-dogfood-button"
-                  onClick={handleAddActive}
-                >
-                  Add this card to dogfood list
-                </button>
-              </div>
-            ) : null}
-
-            {addedNodes.length === 0 && missingAddedIds.length === 0 ? (
-              <p className="graph-object-dogfood-empty">No cards on the dogfood list yet.</p>
-            ) : (
-              <ul
-                className="graph-object-dogfood-collection"
-                data-testid="graph-object-dogfood-collection"
+        <div className="graph-object-dogfood-section">
+          <h4 className="graph-object-dogfood-section-title">Dogfood list</h4>
+          {activeViewedNodeId && !state.addedNodeIds.includes(activeViewedNodeId) ? (
+            <div className="graph-object-dogfood-active-add">
+              <p>Viewing a related card that is not on the dogfood list.</p>
+              <button
+                type="button"
+                className="graph-object-dogfood-button"
+                onClick={handleAddActive}
               >
-                {addedNodes.map((node) => {
-                  const model = buildViewModelForNode(node, sessionDescriptor);
-                  const usefulness = state.usefulnessByNodeId[node.node_id] ?? "unknown";
-                  const notes = state.notesByNodeId[node.node_id] ?? "";
-                  return (
-                    <li key={node.node_id} className="graph-object-dogfood-card-item">
-                      <div className="graph-object-dogfood-card-header">
-                        <div>
-                          <strong>{node.label}</strong>
-                          <span className="graph-object-dogfood-node-meta">
-                            {node.kind}
-                            {node.role ? ` · ${node.role}` : ""}
-                          </span>
-                        </div>
-                        <div className="graph-object-dogfood-card-actions">
-                          <button
-                            type="button"
-                            className="graph-object-dogfood-button graph-object-dogfood-button--primary"
-                            onClick={() => handleView(node)}
-                          >
-                            View card
-                          </button>
-                          <button
-                            type="button"
-                            className="graph-object-dogfood-button"
-                            onClick={() => handleRemove(node.node_id)}
-                          >
-                            Remove from dogfood list
-                          </button>
-                        </div>
+                Add this card to dogfood list
+              </button>
+            </div>
+          ) : null}
+
+          {addedNodes.length === 0 && missingAddedIds.length === 0 ? (
+            <p className="graph-object-dogfood-empty">No cards on the dogfood list yet.</p>
+          ) : (
+            <ul
+              className="graph-object-dogfood-collection"
+              data-testid="graph-object-dogfood-collection"
+            >
+              {addedNodes.map((node) => {
+                const model = buildViewModelForNode(node, sessionDescriptor);
+                const usefulness = state.usefulnessByNodeId[node.node_id] ?? "unknown";
+                const notes = state.notesByNodeId[node.node_id] ?? "";
+                return (
+                  <li key={node.node_id} className="graph-object-dogfood-card-item">
+                    <div className="graph-object-dogfood-card-header">
+                      <div>
+                        <strong>{node.label}</strong>
+                        <span className="graph-object-dogfood-node-meta">
+                          {node.kind}
+                          {node.role ? ` · ${node.role}` : ""}
+                        </span>
                       </div>
-
-                      <CardCoverageBadges model={model} />
-
-                      <label className="graph-object-dogfood-field-label">
-                        Usefulness
-                        <select
-                          value={usefulness}
-                          aria-label={`Usefulness for ${node.label}`}
-                          onChange={(event) =>
-                            handleUsefulness(
-                              node.node_id,
-                              event.target.value as GraphObjectDogfoodUsefulness,
-                            )
-                          }
+                      <div className="graph-object-dogfood-card-actions">
+                        <button
+                          type="button"
+                          className="graph-object-dogfood-button graph-object-dogfood-button--primary"
+                          onClick={() => handleView(node)}
                         >
-                          {GRAPH_OBJECT_DOGFOOD_USEFULNESS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          View card
+                        </button>
+                        <button
+                          type="button"
+                          className="graph-object-dogfood-button"
+                          onClick={() => handleRemove(node.node_id)}
+                        >
+                          Remove from dogfood list
+                        </button>
+                      </div>
+                    </div>
 
-                      <label className="graph-object-dogfood-field-label">
-                        Notes
-                        <textarea
-                          rows={2}
-                          value={notes}
-                          aria-label={`Notes for ${node.label}`}
-                          placeholder="Does this card tell you what it is? Why it matters? Anything wrong or missing?"
-                          onChange={(event) => handleNotes(node.node_id, event.target.value)}
-                        />
-                      </label>
-                    </li>
-                  );
-                })}
-                {missingAddedIds.map((nodeId) => (
-                  <li
-                    key={nodeId}
-                    className="graph-object-dogfood-card-item graph-object-dogfood-card-item--missing"
-                  >
-                    <p>
-                      Previously added node <code>{nodeId}</code> is not in the current projection.
-                    </p>
-                    <button
-                      type="button"
-                      className="graph-object-dogfood-button"
-                      onClick={() => handleRemove(nodeId)}
-                    >
-                      Remove from dogfood list
-                    </button>
+                    <CardCoverageBadges model={model} />
+
+                    <label className="graph-object-dogfood-field-label">
+                      Usefulness
+                      <select
+                        value={usefulness}
+                        aria-label={`Usefulness for ${node.label}`}
+                        onChange={(event) =>
+                          handleUsefulness(
+                            node.node_id,
+                            event.target.value as GraphObjectDogfoodUsefulness,
+                          )
+                        }
+                      >
+                        {GRAPH_OBJECT_DOGFOOD_USEFULNESS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="graph-object-dogfood-field-label">
+                      Notes
+                      <textarea
+                        rows={2}
+                        value={notes}
+                        aria-label={`Notes for ${node.label}`}
+                        placeholder="Does this card tell you what it is? Why it matters? Anything wrong or missing?"
+                        onChange={(event) => handleNotes(node.node_id, event.target.value)}
+                      />
+                    </label>
                   </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
+                );
+              })}
+              {missingAddedIds.map((nodeId) => (
+                <li
+                  key={nodeId}
+                  className="graph-object-dogfood-card-item graph-object-dogfood-card-item--missing"
+                >
+                  <p>
+                    Previously added node <code>{nodeId}</code> is not in the current projection.
+                  </p>
+                  <button
+                    type="button"
+                    className="graph-object-dogfood-button"
+                    onClick={() => handleRemove(nodeId)}
+                  >
+                    Remove from dogfood list
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       ) : null}
 
       <div className="graph-object-dogfood-footer">

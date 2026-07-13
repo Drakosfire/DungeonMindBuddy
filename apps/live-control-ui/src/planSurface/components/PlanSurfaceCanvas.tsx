@@ -153,7 +153,7 @@ export function PlanSurfaceCanvas({
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
-        disabled={!editor || isLocked}
+        insertDisabled={!editor || isLocked}
         onInsert={insertRunbookReference}
         onView={handleViewGraphNode}
       />
@@ -205,6 +205,13 @@ export function PlanSurfaceCanvas({
       ],
       sections: [
         {
+          id: "plan-world-graph-objects",
+          title: "World Graph objects",
+          defaultOpen: true,
+          actions: [],
+          panel: graphRefSearchPanel,
+        },
+        {
           id: "plan-insert-blocks",
           title: "Insert blocks",
           defaultOpen: true,
@@ -215,13 +222,6 @@ export function PlanSurfaceCanvas({
             onClick: () => insertCallout(kind),
             disabled: !editor || isLocked,
           })),
-        },
-        {
-          id: "plan-insert-refs",
-          title: "Insert refs",
-          defaultOpen: true,
-          actions: [],
-          panel: graphRefSearchPanel,
         },
         {
           id: "plan-edit-blocks",
