@@ -1930,62 +1930,39 @@ def test_head_pointing_to_nonexistent_revision_fails_integrity_pinned_and_unpinn
     assert exc_info.value.code == "projection_integrity_error"
 
 
-def test_legacy_support_without_lineage_maps_projects_as_head_and_historical_pin(
+def test_incomplete_support_lineage_fails_closed(
     tmp_path: Path,
     loaded_bundle,
 ) -> None:
-    """Pre-lineage revisions remain readable without pretending they asserted
-    empty provenance; only revisions carrying lineage maps are held to the new
-    exact-per-contribution check.
-    """
+    """The current writer rejects support records missing active lineage."""
     _initialize(tmp_path, loaded_bundle)
     _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
-    for assertion_id, raw_support in store.assertion_support.items():
-        support = dict(raw_support)
-        support.pop("provenance_lineage_version", None)
-        support.pop("per_contribution_evidence_ref_ids", None)
-        support.pop("per_contribution_source_artifact_ids", None)
-        store.assertion_support[assertion_id] = support
-    legacy = kernel.publish_world_revision(
-        tmp_path,
-        WORLD_ID,
-        store,
-        operation_ids=["op:test-legacy-provenance-support"],
-    )
-    legacy_revision_id = legacy.revision.revision_id
+    assertion_id, raw_support = next(iter(store.assertion_support.items()))
+    support = dict(raw_support)
+    contribution_id = support["active_contribution_ids"][0]
+    support["per_contribution_evidence_ref_ids"] = {
+        key: value
+        for key, value in support["per_contribution_evidence_ref_ids"].items()
+        if key != contribution_id
+    }
+    store.assertion_support[assertion_id] = support
 
-    assert kernel.project_world_graph(tmp_path, _request()).snapshot.revision_id == (
-        legacy_revision_id
-    )
+    with pytest.raises(
+        kernel.WorldGraphValidationError,
+        match="evidence lineage keys must exactly match active_contribution_ids",
+    ):
+        kernel.publish_world_revision(
+            tmp_path,
+            WORLD_ID,
+            store,
+            operation_ids=["op:test-incomplete-provenance-support"],
+        )
 
-    alias_assertion = kernel.build_assertion(
-        assertion_kind="alias",
-        acceptance_state="accepted",
-        subject_node_id=TRIPOD_ID,
-        label="Legacy Compatibility Alias",
-        campaign_scope=CAMPAIGN_ID,
-        value={"alias": "Legacy Compatibility Alias"},
-    )
-    contribution = kernel.create_graph_contribution(
-        world_id=WORLD_ID,
-        source_kind="manual_import",
-        source_artifact_id="graph-native:test:legacy-provenance",
-        source_revision_id="legacy-provenance-1",
-        accepted_assertions=[alias_assertion],
-        campaign_scope=CAMPAIGN_ID,
-    )
-    merged = kernel.merge_contribution_to_revision(
+    projection = kernel.project_world_graph(
         tmp_path,
-        world_id=WORLD_ID,
-        contribution=contribution,
+        _request(),
     )
-    assert merged.published is True
-
-    pinned = kernel.project_world_graph(
-        tmp_path,
-        _request(revision_pin=legacy_revision_id),
-    )
-    assert pinned.snapshot.revision_id == legacy_revision_id
+    assert projection.snapshot.revision_id == _revision.revision_id
 
 
 def test_alias_embedded_provenance_materializes_before_projection(

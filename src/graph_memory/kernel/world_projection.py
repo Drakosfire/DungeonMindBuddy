@@ -594,6 +594,27 @@ def _collect_assertion_provenance_from_contributions(
         if materialized_evidence_ref_ids is not None
         else _materialized_evidence_ref_ids(store, resolved_graph_object_id)
     )
+    active_contribution_ids = set(support.active_contribution_ids)
+    if set(support.per_contribution_evidence_ref_ids) != active_contribution_ids:
+        raise _integrity_error(
+            "Contribution evidence lineage keys do not match active support.",
+            detail=(
+                f"assertion_id={support.assertion_id!r} "
+                f"active_contributions={sorted(active_contribution_ids)!r} "
+                "per_contribution_evidence_ref_ids="
+                f"{sorted(support.per_contribution_evidence_ref_ids)!r}"
+            ),
+        )
+    if set(support.per_contribution_source_artifact_ids) != active_contribution_ids:
+        raise _integrity_error(
+            "Contribution source-artifact lineage keys do not match active support.",
+            detail=(
+                f"assertion_id={support.assertion_id!r} "
+                f"active_contributions={sorted(active_contribution_ids)!r} "
+                "per_contribution_source_artifact_ids="
+                f"{sorted(support.per_contribution_source_artifact_ids)!r}"
+            ),
+        )
     for contribution_id in support.active_contribution_ids:
         contribution = _load_validated_contribution(root, world_id, contribution_id)
         matched_candidate: GraphContributionAssertion | None = None
@@ -612,36 +633,30 @@ def _collect_assertion_provenance_from_contributions(
             )
         explicit_evidence_ids = set(explicit_assertion_evidence_ref_ids(matched_candidate))
         explicit_artifact_ids = set(explicit_assertion_source_artifact_ids(matched_candidate))
-        lineage_is_bound = (
-            support.provenance_lineage_version >= 1
-            or bool(support.per_contribution_evidence_ref_ids)
-            or bool(support.per_contribution_source_artifact_ids)
+        recorded_evidence_ids = set(
+            support.per_contribution_evidence_ref_ids[contribution_id]
         )
-        if lineage_is_bound:
-            recorded_evidence_ids = set(
-                support.per_contribution_evidence_ref_ids.get(contribution_id, [])
+        if explicit_evidence_ids != recorded_evidence_ids:
+            raise _integrity_error(
+                "Contribution evidence lineage does not match revision support record.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                    f"loaded_evidence={sorted(explicit_evidence_ids)!r} "
+                    f"recorded_evidence={sorted(recorded_evidence_ids)!r}"
+                ),
             )
-            if explicit_evidence_ids != recorded_evidence_ids:
-                raise _integrity_error(
-                    "Contribution evidence lineage does not match revision support record.",
-                    detail=(
-                        f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
-                        f"loaded_evidence={sorted(explicit_evidence_ids)!r} "
-                        f"recorded_evidence={sorted(recorded_evidence_ids)!r}"
-                    ),
-                )
-            recorded_artifact_ids = set(
-                support.per_contribution_source_artifact_ids.get(contribution_id, [])
+        recorded_artifact_ids = set(
+            support.per_contribution_source_artifact_ids[contribution_id]
+        )
+        if explicit_artifact_ids != recorded_artifact_ids:
+            raise _integrity_error(
+                "Contribution source artifact lineage does not match revision support record.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                    f"loaded_artifacts={sorted(explicit_artifact_ids)!r} "
+                    f"recorded_artifacts={sorted(recorded_artifact_ids)!r}"
+                ),
             )
-            if explicit_artifact_ids != recorded_artifact_ids:
-                raise _integrity_error(
-                    "Contribution source artifact lineage does not match revision support record.",
-                    detail=(
-                        f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
-                        f"loaded_artifacts={sorted(explicit_artifact_ids)!r} "
-                        f"recorded_artifacts={sorted(recorded_artifact_ids)!r}"
-                    ),
-                )
         evidence_ids.update(explicit_evidence_ids)
         artifact_ids.update(explicit_artifact_ids)
         if (

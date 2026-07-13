@@ -35,6 +35,13 @@ Required deletion PR:
 
 Cross-cutting (architecture §18). PR002, PR005, PR006, and PR007 each extend the machine-readable health/coverage surface.
 
+### Forward-only storage and projection contracts
+
+Until an explicit stability milestone is declared, Campaign Supergraph storage and
+projection contracts are forward-only. Development revisions, fixtures, and local
+graph state may be invalidated and rebuilt when contracts change. Backward
+compatibility must not be introduced without an explicit architectural decision.
+
 ### Locked architecture decisions
 
 Do not re-open in implementation PRs without an explicit architecture amendment:

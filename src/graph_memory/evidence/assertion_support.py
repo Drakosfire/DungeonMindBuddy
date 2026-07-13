@@ -38,13 +38,8 @@ class DurableAssertionSupport(BaseModel):
     introduced_by_contribution_id: str | None = None
     assertion_kind: ContributionAssertionKind | None = None
     graph_object_id: str | None = None
-    provenance_lineage_version: int = 0
-    """0 is a legacy record with no revision-bound per-contribution lineage.
-
-    New writers use version 1. Projection permits a compatibility read only
-    for legacy records whose maps are wholly absent; any record that carries
-    map data is always validated strictly.
-    """
+    provenance_lineage_version: Literal[1] = 1
+    """Current revision-bound per-contribution provenance schema."""
     per_contribution_evidence_ref_ids: dict[str, list[str]] = Field(default_factory=dict)
     """Exact evidence lineage each active contribution asserted at merge time.
 
