@@ -30,7 +30,7 @@ const node: WorldGraphProjectionNodeView = {
     label: "Inn",
     kind: "location",
     predicate: "met at",
-    direction: "outgoing",
+    direction: "outbound",
     anchoredToFocusSession: true,
     sourceDomains: ["recap"],
     evidenceRefIds: ["ev-1"],
@@ -52,5 +52,21 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
       adjacency: [{ edge_id: "edge-1", node_id: "location-inn", source_domains: ["recap"] }],
       anchored_to_focus_session: true,
     });
+  });
+
+  it("maps PR007A outbound/inbound direction vocabulary to Plan card directions", () => {
+    const adapted = adaptWorldGraphNodeForPlanCard(node);
+    expect(adapted.adjacency[0]?.direction).toBe("outgoing");
+  });
+
+  it("maps inbound direction vocabulary to incoming", () => {
+    const inboundNode: WorldGraphProjectionNodeView = {
+      ...node,
+      adjacency: [{
+        ...node.adjacency[0],
+        direction: "inbound",
+      }],
+    };
+    expect(adaptWorldGraphNodeForPlanCard(inboundNode).adjacency[0]?.direction).toBe("incoming");
   });
 });

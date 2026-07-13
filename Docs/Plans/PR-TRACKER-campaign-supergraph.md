@@ -658,11 +658,11 @@ context after the Plan migration proves the projection contract useful.
 
 ## PR008 — Plan Surface Migration (umbrella)
 
-**Status:** `BLOCKED` on PR007A
+**Status:** `DOING` (via PR008A)
 **Phase:** 5
 **Purpose:** Umbrella for Plan surface migration; **PR008A** is the required first vertical dogfood slice. Broader Plan follow-ons may trail PR008A without blocking first read-only agent dogfood.
 
-**Depends on:** PR007A.
+**Depends on:** PR007A (`DONE`).
 
 ---
 

@@ -21,6 +21,22 @@ function adaptEvidenceBadge(badge: WorldGraphProjectionNodeView["evidenceBadges"
   };
 }
 
+function adaptRelationshipDirection(direction: string | null | undefined): string | null {
+  if (direction == null || direction === "") {
+    return null;
+  }
+  if (direction === "outbound") {
+    return "outgoing";
+  }
+  if (direction === "inbound") {
+    return "incoming";
+  }
+  if (direction === "outgoing" || direction === "incoming" || direction === "related") {
+    return direction;
+  }
+  return direction;
+}
+
 function adaptAdjacency(
   candidate: WorldGraphProjectionNodeView["adjacency"][number],
 ): GraphProjectionAdjacencyCandidate {
@@ -30,7 +46,7 @@ function adaptAdjacency(
     label: candidate.label,
     kind: candidate.kind,
     predicate: candidate.predicate,
-    direction: candidate.direction,
+    direction: adaptRelationshipDirection(candidate.direction),
     anchored_to_focus_session: candidate.anchoredToFocusSession,
     source_domains: candidate.sourceDomains,
     evidence_ref_ids: candidate.evidenceRefIds,

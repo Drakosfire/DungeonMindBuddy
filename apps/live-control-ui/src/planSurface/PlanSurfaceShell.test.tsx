@@ -1000,6 +1000,10 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
 
+    await waitFor(() => {
+      expect(screen.getByLabelText("Search")).toBeInTheDocument();
+    });
+
     const canvas = screen.getByTestId("plan-surface-canvas-editor");
     const chip = canvas.querySelector(".md-ref-chip") as HTMLElement;
     fireEvent.click(chip);

@@ -39,8 +39,57 @@ export interface UsePlanGraphReferenceResolverResult {
 const PlanGraphReferenceResolverContext =
   createContext<UsePlanGraphReferenceResolverResult | null>(null);
 
-function isExpectedProjectionMiss(error: unknown): boolean {
-  return error instanceof LiveApiError && error.status === 404;
+function isWorldGraphUnavailable(error: unknown): boolean {
+  return (
+    error instanceof LiveApiError
+    && (error.status === 404 || error.code === "world_graph_unavailable")
+  );
+}
+
+function formatProjectionLoadError(error: unknown): string {
+  if (error instanceof LiveApiError) {
+    return error.code ? `${error.message} (${error.code})` : error.message;
+  }
+  return error instanceof Error ? error.message : "Projection unavailable.";
+}
+
+/** Corpus fallback is allowed only when World Graph is unavailable, not loading or in error. */
+export function isCorpusFallbackAllowed(projectionState: PlanGraphProjectionState | null): boolean {
+  return projectionState === "unavailable" || projectionState === "ready";
+}
+
+function unresolvedResolution(
+  ref: RunbookReferenceAttrs,
+  projectionState: PlanGraphProjectionState | null,
+  message: string,
+): PlanReferenceResolution {
+  return {
+    kind: "unresolved",
+    locator: ref.refId ?? ref.label ?? "unknown",
+    refType: ref.refType ?? null,
+    refId: ref.refId ?? null,
+    fallback: null,
+    source: "unresolved",
+    message,
+    graphProjectionState: projectionState,
+  };
+}
+
+function worldGraphErrorResolution(
+  ref: RunbookReferenceAttrs,
+  projectionState: PlanGraphProjectionState | null,
+  message: string,
+): PlanReferenceResolution {
+  return {
+    kind: "error",
+    locator: ref.refId ?? ref.label ?? "unknown",
+    refType: ref.refType ?? null,
+    refId: ref.refId ?? null,
+    fallback: null,
+    source: "error",
+    message,
+    graphProjectionState: projectionState,
+  };
 }
 
 export async function resolvePlanReferenceWithFallback(
@@ -52,6 +101,22 @@ export async function resolvePlanReferenceWithFallback(
   } = {},
 ): Promise<PlanReferenceResolution> {
   const projectionState = options.projectionState ?? null;
+
+  if (projectionState === "loading") {
+    return unresolvedResolution(
+      ref,
+      projectionState,
+      "World Graph projection is loading; resolution deferred.",
+    );
+  }
+
+  if (projectionState === "error") {
+    return worldGraphErrorResolution(
+      ref,
+      projectionState,
+      "World Graph projection failed; corpus fallback disabled.",
+    );
+  }
 
   if (options.projection) {
     const graphResolution = resolvePlanReferenceFromGraphProjection({
@@ -122,6 +187,7 @@ function usePlanGraphReferenceResolverLoad(
         return;
       }
 
+      setProjection(null);
       setProjectionState("loading");
       setProjectionError(null);
 
@@ -135,13 +201,13 @@ function usePlanGraphReferenceResolverLoad(
       } catch (error) {
         if (cancelled) return;
         setProjection(null);
-        if (isExpectedProjectionMiss(error)) {
+        if (isWorldGraphUnavailable(error)) {
           setProjectionState("unavailable");
           setProjectionError(null);
           return;
         }
         setProjectionState("error");
-        setProjectionError(error instanceof Error ? error.message : "Projection unavailable.");
+        setProjectionError(formatProjectionLoadError(error));
       }
     }
 

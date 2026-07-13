@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PlanSessionDescriptor } from "../types";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { buildPlanDogfoodReport } from "./planDogfoodReport";
+import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
 import {
   clearPlanDogfoodState,
   loadPlanDogfoodState,
@@ -145,6 +146,8 @@ export function PlanDogfoodPanel({
               </p>
             )}
           </section>
+
+          <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
 
           <label className="plan-dogfood-notes-label" htmlFor="plan-dogfood-notes">
             Dogfood notes
