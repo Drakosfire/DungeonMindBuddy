@@ -968,41 +968,114 @@ def test_source_anchor_read_max_chars_hard_max_enforced() -> None:
 def test_read_source_anchor_denies_anchor_for_projection_omitted_object(
     tmp_path: Path, loaded_bundle
 ) -> None:
+    """An active support for a projection-omitted object must not be readable.
+
+    Keeps store-level support/evidence active while marking the object
+    ``unsupported_assertion`` so projection omits it. Forge the deterministic
+    anchor id for the *current* revision from raw store evidence; admission must
+    still refuse content. Clearing support or reusing a pre-publish anchor id
+    would only prove support retraction / revision mismatch, not admission.
+    """
+    from graph_memory.retrieval.models import compute_source_anchor_id
+
     _initialize(tmp_path, loaded_bundle)
-    edge_id = (
-        "edge:threat:tripod-null-calf:appeared_in:"
-        "event:longmont-c2:session-23:mireward-gate-battle"
+    node_id = "threat:projection-omitted-anchor"
+    evidence_ref_id = "evidence:test:projection-omitted-anchor"
+    source_artifact_id = "graph-native:test:projection-omitted-anchor"
+    locator = "unsupported-scheme:projection-omitted"
+
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Projection Omitted Anchor",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "threat",
+            "role": "threat",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Projection Omitted Anchor"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": locator,
+                }
+            ],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": "https://example.invalid/projection-omitted",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
     )
-    evidence_result = kernel.get_object_evidence(
-        tmp_path,
-        _evidence_request(WorldGraphEvidenceTarget(kind="relationship", id=edge_id)),
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id="projection-omitted-anchor-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
     )
-    anchor = evidence_result.source_anchors[0]
-    anchor_id = anchor.anchor_id
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    before = kernel.get_campaign_object(tmp_path, _object_request(node_id))
+    assert before.outcome in ("enough", "partial", "truncated")
+    assert before.matched_node_ids == [node_id]
 
     _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
-    edge = store.edges[edge_id]
-    edge_state = dict(edge.state or {})
-    edge_state["memory_state"] = "unsupported_assertion"
-    store.edges[edge_id] = edge.model_copy(update={"state": edge_state})
-    for assertion_id, raw_support in store.assertion_support.items():
+    node = store.nodes[node_id]
+    node_state = dict(node.state or {})
+    node_state["memory_state"] = "unsupported_assertion"
+    store.nodes[node_id] = node.model_copy(update={"state": node_state})
+
+    retained_active_support = False
+    for raw_support in store.assertion_support.values():
         support = dict(raw_support)
-        if support.get("graph_object_id") != edge_id:
+        if support.get("graph_object_id") != node_id:
             continue
-        support["support_state"] = "unsupported"
-        support["active_contribution_ids"] = []
-        support["per_contribution_evidence_ref_ids"] = {}
-        support["per_contribution_source_artifact_ids"] = {}
-        store.assertion_support[assertion_id] = support
+        assert support.get("support_state") == "supported"
+        assert support.get("active_contribution_ids")
+        retained_active_support = True
         break
+    assert retained_active_support, "omission test requires active support to remain"
+
     kernel.publish_world_revision(
         tmp_path,
         WORLD_ID,
         store,
-        operation_ids=["op:test-pr010a-omitted-edge-anchor"],
+        operation_ids=["op:test-pr010a-omitted-node-anchor"],
     )
 
-    read_result = kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor_id))
+    after = kernel.get_campaign_object(tmp_path, _object_request(node_id))
+    assert after.outcome == "empty"
+
+    _head2, revision_after, store_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    evidence = store_after.evidence[evidence_ref_id]
+    forged_anchor_id = compute_source_anchor_id(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        focus=WorldGraphProjectionFocus(),
+        admissibility="gm",
+        revision_id=revision_after.revision_id,
+        evidence_ref_id=evidence_ref_id,
+        source_artifact_id=source_artifact_id,
+        locator_identity=evidence.locator or locator,
+    )
+
+    read_result = kernel.read_source_anchor(
+        tmp_path, _anchor_read_request(forged_anchor_id)
+    )
     assert read_result.outcome == "empty"
     assert read_result.content is None
 
