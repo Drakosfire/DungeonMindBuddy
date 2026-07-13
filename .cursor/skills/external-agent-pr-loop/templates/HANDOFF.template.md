@@ -1,127 +1,280 @@
 ---
-# Optional workflow contract: literal markdown the worker pastes into the
-# GitHub PR description. Dispatcher fills once; reviewers and parallel
-# agents see one stable shape without inferring sections from free-form §2 prose.
-# Delete this whole frontmatter block if you prefer prose-only handoffs.
+# Optional workflow contract: literal Markdown the worker may use for the PR body.
+# Keep this summary subordinate to the complete handoff below.
 pr_body_template: |
-  ## Summary
-  {{TODO: one sentence — same as §1 Mission}}
+  ## Outcome
+  {{TODO: copy §1 Mission exactly}}
 
-  ## Verification (verbatim §7)
-  {{TODO: paste command outputs after the worker runs §7}}
-
-  ## `git diff --stat` (§4 paths only)
-  ```text
-  {{TODO}}
-  ```
+  ## Scope and verification
+  {{TODO: base/head, actual changed paths, §7 results, provenance, waivers, and deferred successors}}
 ---
 
-# HANDOFF — {{TODO: one-line title — phase + slice, e.g. "Phase C entry: route-equivalence shadow consumer in `breadcrumb_query_run`"}}
+# HANDOFF — {{TODO: one implementation capability}}
 
-**Created:** {{TODO: YYYY-MM-DD}} (UTC).
-**Status:** ACTIVE — dispatch this to one external/Codex subagent. One PR. Do not split into multiple PRs.
-**Parent agent:** Cursor agent; dispatcher is responsible for the post-merge doc-sync of `Docs/Plans/CHECKLIST-<rollout>.md` and `Docs/Plans/PLAN-<plan>.md` per `.cursor/rules/external-agent-pr-loop.mdc`.
-**Plan anchor:** `Docs/Plans/PLAN-<plan>.md` (`active_phase: <X>`, milestone progress {{TODO: e.g. M2 in_progress → M3 not_started}}). This handoff opens the {{TODO: M*}} lane.
+**Created:** {{TODO: YYYY-MM-DD}}.
+**Status:** ACTIVE — dispatch exactly one implementation capability.
+**Canonical handoff path:** `{{TODO: repository path}}`
 
----
+> **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
+>
+> This checked-in handoff is the complete authority. The worker must not “helpfully” compress, omit, replace, or rewrite it before implementation. A PR-body summary may link here but cannot substitute for it.
+
+## Shared vocabulary
+
+| Term | Definition |
+|---|---|
+| **Capability** | A coherent behavior or contract that creates one outcome someone can use, depend on, test, or revert. |
+| **Independently useful outcome** | An outcome that provides value or establishes a reusable contract even if neighboring work never ships. |
+| **Public/durable contract** | A persisted format, identifier, API, event, schema, file representation, caller-facing type, or externally consumed interface that must remain interpretable beyond one call stack. |
+| **Observable path** | A user-visible or externally observable route through the behavior, including success, miss, error, retry, persistence, and operator paths. |
+| **Owning boundary** | The layer where a guarantee becomes true and therefore must be proved: serializer, store, service, route, component, workflow, CLI, or equivalent. |
+| **Invariant** | The single property every changed layer establishes or proves. |
+| **Stop condition** | A discovered fact that invalidates the current slice boundaries and requires a report before implementation continues. |
 
 ## §1 Mission
 
-{{TODO: ONE sentence stating the single change. Resist the urge to add a second sentence.}}
+One sentence describing one independently useful outcome and its value. The word “and” is allowed only when it does not join separate outcomes.
 
-## §2 Why this slice (context for the subagent)
+```text
+<caller or user> can <single capability> so that <value>.
+```
 
-- {{TODO: prior PR(s) that produced the inputs this slice consumes; merge hashes for traceability}}
-- {{TODO: what this slice converts from "produced" to "consumed", or otherwise advances}}
-- {{TODO: explicitly: what this slice does NOT do (no retriever rewiring, no grading change, no new gold, etc.) — keeps scope honest}}
+**Invariant:** `<one property every changed layer establishes or proves>`
 
-## §3 Authoritative inputs (read these in this order, before writing any code)
+## §2 Context, authority, and boundaries
 
-1. **`.cursor/rules/external-agent-pr-loop.mdc`** — the §4 allowlist / §5 denylist / §7 verification contract that this PR will be reviewed against.
-2. {{TODO: anchor file (schema, contract, decision doc) — read-only here}}
-3. {{TODO: canonical example file the worker should mirror (test layout, prompt shape, etc.)}}
-4. {{TODO: registry / gold / fixture the worker must compare against}}
-5. {{TODO: the harness / dispatcher / writer file the worker will edit, with line ranges if it's a large file}}
-6. **`tests/conftest.py`** — confirm session-autouse `load_dungeonmindbuddy_dotenv()` is wired so live tests don't need exported keys (see `.cursor/rules/dungeonbuddy-environment.mdc`).
+| Field | Required content |
+|---|---|
+| Parent authority | `<architecture, decision, tracker, or issue>` |
+| Repository rules | `<dispatch, security, language, or review rules>` |
+| Base revision | `<immutable SHA / revision>` |
+| Predecessor contract | `<merged PR, canonical schema/type, captured fixture, or none>` |
+| Exact input consumed | `<artifact, payload, event, store revision, or caller contract>` |
+| Named successor | `<capability intentionally deferred>` |
+| What remains false | `<specific behavior not delivered by this slice>` |
+| Explicit non-goals | `<policy, API, UI, migration, cleanup, management surface, or diagnostics>` |
+
+Read authoritative inputs in order before changing code:
+
+1. `<architecture / decision authority>`
+2. `<active tracker or issue state>`
+3. `<predecessor contract / captured fixture>`
+4. `<implementation seam>`
+5. `<existing owning tests>`
+
+If the base moved, an authority conflicts, or the predecessor shape differs from this handoff, stop and report the consequence before implementation.
+
+## §3 Observable-path inventory
+
+Mandatory for user-facing, multi-entry, stateful, persistence, or multi-source work. Otherwise: `Not applicable — <one-sentence reason>`.
+
+| Path | Current behavior | Required behavior | Same invariant as §1? | Owning boundary |
+|---|---|---|---:|---|
+| `<entry / interaction path>` | `<today>` | `<after this slice>` | Yes / No | `<layer>` |
+
+Inventory success, ordinary miss, error/unavailable, stale context, retry/replay, save/reload, traversal, and operator paths where relevant. A `No` in “Same invariant” is a split trigger unless the row is explicitly removed from this mission.
 
 ## §4 Files in scope (allowlist)
 
-| Action | Path | Purpose |
+Every changed path must appear here. The expected focused diff must be expressible from this table.
+
+| Action | Path | Purpose: how this establishes or proves §1 |
 |---|---|---|
-| {{TODO: Create / Modify}} | `{{TODO: relative/path/to/file}}` | {{TODO: one-sentence purpose}} |
-| {{TODO: …}} | `{{TODO: …}}` | {{TODO: …}} |
+| Create / Modify / Delete | `{{TODO: relative/path}}` | `{{TODO}}` |
 
-> The agent's expected `git diff --stat` MUST be expressible from this allowlist. If a path is not in this table, the worker will be told to revert it during review.
+**Bounded discovery exception:** `Not applicable — <reason>` or complete all fields:
 
-## §5 Files explicitly OUT OF SCOPE (denylist)
+```text
+Directory:
+Maximum additional paths:
+Allowed path kinds:
+Decision rule for including one:
+```
 
-Do NOT touch any of these. Concrete collision risks named alongside the path:
+Unrestricted globs such as `src/**` are prohibited. If another path is needed outside the table or bounded exception, stop and report it; do not add it silently.
 
-| Path | Why this PR must not touch it |
+## §5 Files and capabilities explicitly out of scope
+
+| Path, layer, or capability | Why this slice must not touch or claim it |
 |---|---|
-| `{{TODO: tempting/path/the/worker/will/reach/for}}` | {{TODO: collision risk — e.g. "test_*.py basename already exists on main with different content; renaming would orphan it"; or "gold file for an unrelated benchmark; 'while you're in there' edits silently change rubric"; or "schema doc that the planner reads — moving lines reorders neighbors and changes prompt-cache keys"}} |
-| `{{TODO: …}}` | {{TODO: …}} |
+| `{{TODO}}` | `{{TODO: successor ownership, collision risk, or separate invariant}}` |
 
-If the worker thinks one of these is genuinely needed, it must stop and ask in the PR description before opening the PR.
+Nearby work is not authorization. Dogfood search, notes, classifications, management controls, persistence, reports, or dedicated panels are product capabilities unless §1 names them as the single mission.
 
-## §6 Implementation contract
+## §6 Implementation contract and conditional matrices
 
-### {{TODO: New module 1}}
+Specify behavior, not a code recipe.
 
-```python
-{{TODO: function signatures, types, docstring shapes; no implementation}}
+```text
+Input:
+  <types, artifacts, exact predecessor authority>
+
+Output:
+  <public result, durable artifact, or observable state>
+
+Invariant:
+  <same invariant as §1>
+
+Failure behavior:
+  <named failure> → <stable result, unresolved state, or blocked transition>
+
+Replay / idempotency:
+  same input →
+  changed input →
+  retry after partial failure →
+
+Trust boundary:
+  Verifies:
+  Records or trusts without proving:
 ```
 
-Determinism / ordering rules:
-- {{TODO: e.g. preserve the writer's canonical sort `sorted(records, key=lambda r: r.record_id)`}}
-- {{TODO: e.g. "do not mutate input records"}}
+For irreversible work:
 
-### {{TODO: New module 2 / harness wiring}}
-
-{{TODO: where in the existing file the new code slots in (line ranges from §3 are useful here)}}
-
-```python
-{{TODO: argparse flag spec, emission slot, error-handling pattern}}
+```text
+Commit point:
+Before commit:
+After commit:
+Truthful result after a post-commit failure:
 ```
 
-## §7 Verification commands
+Each matrix is required when applicable. Use `Not applicable — <one-sentence reason>`; never omit one silently.
 
-The worker must run **every** command and paste the output into the PR body. The reviewer reruns each. **Every behavioral guarantee in §9 below must be exercised by at least one command here, at the boundary the guarantee describes.**
+### A. State and fallback matrix
+
+Required when multiple states, dependencies, sources, or sibling paths exist.
+
+| Observable path | Loading / initializing | Exact success | Ordinary miss | Dependency unavailable | Integrity / contract failure | Stale / superseded | Retry / replay |
+|---|---|---|---|---|---|---|---|
+| `<path>` | `<defer / fail / fallback>` | `<primary source>` | `<unresolved / named fallback>` | `<behavior>` | `<fail closed / behavior>` | `<behavior>` | `<allowed conditions>` |
+
+Name every fallback source. Audit every sibling path sharing the same trust boundary.
+
+### B. Identity matrix
+
+Required when IDs, labels, aliases, normalization, merge, rename, deletion, or rebinding affect resolution.
+
+| Situation | Required rule | Ambiguity behavior | Fallback permitted? |
+|---|---|---|---|
+| Exact ID | `<rule>` | `<rule>` | Yes / No: `<source>` |
+| Alias / label | `<unique-only / prohibited / other>` | `<rule>` | Yes / No |
+| Normalized key | `<rule or prohibited>` | `<rule>` | Yes / No |
+| Rename / deletion / rebind | `<stable identity behavior>` | `<rule>` | Yes / No |
+
+First-win matching should normally be prohibited. Display labels must not silently substitute for durable identity.
+
+### C. Persistence and replay matrix
+
+Required when data survives restart, save/reload, retries, replay, compatibility, or migration.
+
+| Operation | Durable representation | Round-trip guarantee | Duplicate / replay behavior | Compatibility / migration | Rollback / reversion |
+|---|---|---|---|---|---|
+| `<write / load / replay>` | `<format / revision>` | `<exact property>` | `<rule>` | `<rule>` | `<rule>` |
+
+A new persisted format or durable identifier is not an incidental adapter detail. If independently useful or revertible from §1, stop and propose a successor slice.
+
+### D. Predecessor-to-consumer mapping
+
+Required when adapting an existing API, event, schema, file, fixture, or error payload.
+
+**Grounding source:** `<exact captured fixture | canonical schema/type | field-level mapping>`
+
+| Predecessor field / outcome | Real shape and optionality | Consumer field / behavior | Transformation | Proof fixture/test |
+|---|---|---|---|---|
+| `<field>` | `<type, identifier shape, nullability, error payload>` | `<destination>` | `<mapping>` | `<path/test>` |
+
+Invented “close enough” fixture vocabulary is not acceptable proof.
+
+## §7 Verification ownership map and commands
+
+Every behavioral guarantee must be exercised at its owning boundary. Lower-level helper coverage is necessary when useful but cannot prove a higher-level claim.
+
+| Guarantee | Owning boundary | Command or manual scenario | Expected evidence |
+|---|---|---|---|
+| `<guarantee>` | `<serializer/store/service/route/component/workflow/CLI>` | `<exact command or scenario>` | `<observable result>` |
+
+Run every applicable command and record exact results:
 
 ```bash
-# Sanity: existing surfaces still green.
-uv run pytest tests/<owning-suite>/ -q
-
-# New unit-level tests for the modules added in §6.
-uv run pytest tests/<owning-suite>/test_<new>.py -q
-
-# Boundary-level test for the §9 guarantees that live at the harness/dispatcher/writer layer.
-uv run pytest tests/test_<harness-or-boundary>.py -q
-
-# Smoke: actually invoke the new flag end-to-end and inspect the field shape.
-uv run python -m <module> --<new-flag> ... | head -20
+<focused owning-boundary test>
+<contract or exact round-trip test>
+<integration / failure-injection test>
+<repository-specific build, formatting, or lint command>
+git diff --check
+git diff --stat <base>...HEAD -- <§4 paths>
+git diff --name-only <base>...HEAD
 ```
 
-## §8 Reporting contract
+### Minimal live proof
 
-In the PR body the worker MUST include:
+`Not applicable — <reason>` or:
 
-1. **`git diff --stat` filtered to the §4 allowlist paths only.** Not the whole-tree stat (mixes in dispatcher's uncommitted work).
-2. **Verbatim §7 output** — pass/fail counts, last 20 lines on failure.
-3. **One-paragraph "what stayed unchanged"** — call out at least the legacy-path no-op invariants (e.g. "default runs without the new flag are byte-identical to current main").
+```text
+Existing surface used:
+Smallest scenario:
+Expected observation:
+Evidence captured:
+```
+
+If live proof requires new search, persistence, notes, classifications, management controls, reports, or a dedicated panel, stop for split review.
+
+### Baseline failure protocol
+
+For any required command already failing on base:
+
+- run or cite the same command on base and head;
+- record whether head introduces additional failures;
+- do not call the gate green;
+- name the explicit operator waiver required if it remains an acceptance gate.
+
+## §8 Required handback
+
+The PR body or implementation handback must include:
+
+1. Base SHA/revision and head SHA/revision.
+2. Actual changed paths and focused diff stat limited to §4.
+3. Every §7 command/scenario and exact result.
+4. Provenance of each result: author-local, independently rerun local, or CI.
+5. Live/manual evidence when applicable.
+6. Baseline failures with base/head comparison.
+7. Explicit operator waivers; `none` when none exist.
+8. Paths outside §4; `none` or a stop report.
+9. Stop conditions encountered and resolution; `none` when none exist.
+10. Successor capabilities deferred and still false.
+11. Confirmation that the authoritative handoff was implemented without compression or omitted constraints.
 
 ## §9 Acceptance rubric
 
-The reviewer will accept ONLY if every bullet below is true. Each bullet is paired with the §7 command that verifies it.
+The reviewer accepts only when every bullet is true and each behavioral bullet names its §7 proof.
 
-- [ ] {{TODO: behavioral guarantee 1}} — verified by `{{TODO: §7 command name}}`.
-- [ ] {{TODO: behavioral guarantee 2}} — verified by `{{TODO: §7 command name}}`.
-- [ ] {{TODO: scope guarantee — "no files outside §4 are touched"}} — verified by `git diff --stat <base>...HEAD` filtered to §4.
-- [ ] {{TODO: legacy-path no-op invariant — "default runs without the new flag are byte-identical to main"}} — verified by `{{TODO: harness-boundary command, NOT loader-level}}`.
+- [ ] Exactly one independently useful capability from §1 was delivered — proved by `<§7 proof>`.
+- [ ] The declared invariant holds across every observable path in §3 — proved by `<§7 proofs>`.
+- [ ] No second public/durable contract was silently introduced — proved by `<diff inspection + contract tests>`.
+- [ ] State, fallback, identity, persistence, and predecessor behavior follow every applicable §6 matrix — proved by `<§7 proofs>`.
+- [ ] Real predecessor vocabulary and shapes are used — proved by `<captured fixture / schema / mapping test>`.
+- [ ] No path outside §4 changed — proved by `<changed-path command>`.
+- [ ] Baseline failures are reported truthfully and any required waiver is explicit — proved by `<base/head evidence>`.
+- [ ] Minimal live proof did not grow into an unacknowledged product surface — proved by `<scenario or Not applicable reason>`.
+- [ ] The named successor remains unimplemented and unclaimed.
 
-> **Reviewer reminder:** if a bullet describes a behavioral guarantee at a particular boundary (harness, dispatcher, writer), the §7 command that verifies it MUST exercise it at that boundary. Loader-side or unit-side coverage is necessary but not sufficient.
+## Stop conditions
 
-## §10 Out-of-band notes (optional)
+Stop and report rather than expanding if implementation discovers:
 
-- {{TODO: e.g. "this slice intentionally does not touch the canvas payload — Phase 4 work" — keeps reviewers from asking}}
-- {{TODO: e.g. "if the worker hits a sandbox issue with `gh pr create`, post the PR-body markdown back to the dispatcher and the dispatcher will open the PR by hand"}}
+- a second independently useful outcome;
+- a new public/durable contract not owned by §1;
+- unresolved identity, state, fallback, persistence, replay, or compatibility semantics;
+- a predecessor contract that differs materially from the authoritative fixture/schema/mapping;
+- a required path outside §4 or its bounded discovery exception;
+- a new product or operator surface disguised as verification;
+- an irreversible operation outside the declared commit model;
+- a repository rule or architecture conflict;
+- a base/head failure that requires an operator waiver before acceptance.
+
+```text
+Stop condition:
+Why the current mission cannot absorb it:
+New public/durable contract discovered:
+Affected observable paths or ownership layers:
+Proposed successor slice:
+Tracker or authority update needed:
+```
