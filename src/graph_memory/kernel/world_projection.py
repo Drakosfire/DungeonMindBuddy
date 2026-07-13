@@ -353,6 +353,49 @@ def _assertion_semantic_fingerprint(assertion: GraphContributionAssertion) -> tu
     )
 
 
+def _node_core_semantic_fingerprint(
+    assertion: GraphContributionAssertion,
+) -> tuple[Any, ...]:
+    """Fingerprint correction-sensitive node semantics, excluding aliases.
+
+    Node aliases are additive: independently accepted node assertions may
+    provide distinct spellings for the same node without being contradictory.
+    All remaining semantic fields still must agree; a label/kind/role
+    correction must supersede the older contribution rather than coexist.
+    """
+    value = dict(semantic_assertion_value(assertion.value))
+    value.pop("aliases", None)
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        _canonicalize_json_value(assertion.temporal_scope),
+    )
+
+
+def _assert_active_node_assertions_agree(
+    assertions: list[GraphContributionAssertion],
+    *,
+    node_id: str,
+) -> None:
+    fingerprints = {
+        assertion.assertion_id: _node_core_semantic_fingerprint(assertion)
+        for assertion in assertions
+    }
+    if len(set(fingerprints.values())) <= 1:
+        return
+    raise _integrity_error(
+        "Active node assertions disagree on correction-sensitive semantics.",
+        detail=f"node_id={node_id!r} assertion_fingerprints={fingerprints!r}",
+    )
+
+
 def _validate_assertion_identity(
     assertion: GraphContributionAssertion,
     *,
@@ -488,8 +531,6 @@ def _load_revision_context(
     request: WorldGraphProjectionRequest,
 ) -> tuple[str, str, UnionSupergraphStore]:
     world_id = request.world_id
-    head, head_store = _load_head_with_integrity(root, world_id)
-
     if request.revision_pin:
         try:
             world_paths.assert_safe_revision_id(request.revision_pin)
@@ -500,6 +541,12 @@ def _load_revision_context(
                 status_code=422,
                 diagnostics=[_diagnostic("invalid_revision_pin", str(exc))],
             ) from exc
+    # Caller-controlled pin syntax must win error precedence over storage
+    # state. A malformed request remains invalid even when the world is
+    # absent or its head is corrupt.
+    head, head_store = _load_head_with_integrity(root, world_id)
+
+    if request.revision_pin:
         revision_id, store = _load_revision_store_with_integrity(
             root,
             world_id,
@@ -564,31 +611,37 @@ def _collect_assertion_provenance_from_contributions(
                 ),
             )
         explicit_evidence_ids = set(explicit_assertion_evidence_ref_ids(matched_candidate))
-        recorded_evidence_ids = set(
-            support.per_contribution_evidence_ref_ids.get(contribution_id, [])
-        )
-        if explicit_evidence_ids != recorded_evidence_ids:
-            raise _integrity_error(
-                "Contribution evidence lineage does not match revision support record.",
-                detail=(
-                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
-                    f"loaded_evidence={sorted(explicit_evidence_ids)!r} "
-                    f"recorded_evidence={sorted(recorded_evidence_ids)!r}"
-                ),
-            )
         explicit_artifact_ids = set(explicit_assertion_source_artifact_ids(matched_candidate))
-        recorded_artifact_ids = set(
-            support.per_contribution_source_artifact_ids.get(contribution_id, [])
+        lineage_is_bound = (
+            support.provenance_lineage_version >= 1
+            or bool(support.per_contribution_evidence_ref_ids)
+            or bool(support.per_contribution_source_artifact_ids)
         )
-        if explicit_artifact_ids != recorded_artifact_ids:
-            raise _integrity_error(
-                "Contribution source artifact lineage does not match revision support record.",
-                detail=(
-                    f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
-                    f"loaded_artifacts={sorted(explicit_artifact_ids)!r} "
-                    f"recorded_artifacts={sorted(recorded_artifact_ids)!r}"
-                ),
+        if lineage_is_bound:
+            recorded_evidence_ids = set(
+                support.per_contribution_evidence_ref_ids.get(contribution_id, [])
             )
+            if explicit_evidence_ids != recorded_evidence_ids:
+                raise _integrity_error(
+                    "Contribution evidence lineage does not match revision support record.",
+                    detail=(
+                        f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                        f"loaded_evidence={sorted(explicit_evidence_ids)!r} "
+                        f"recorded_evidence={sorted(recorded_evidence_ids)!r}"
+                    ),
+                )
+            recorded_artifact_ids = set(
+                support.per_contribution_source_artifact_ids.get(contribution_id, [])
+            )
+            if explicit_artifact_ids != recorded_artifact_ids:
+                raise _integrity_error(
+                    "Contribution source artifact lineage does not match revision support record.",
+                    detail=(
+                        f"assertion_id={support.assertion_id!r} contribution_id={contribution_id!r} "
+                        f"loaded_artifacts={sorted(explicit_artifact_ids)!r} "
+                        f"recorded_artifacts={sorted(recorded_artifact_ids)!r}"
+                    ),
+                )
         evidence_ids.update(explicit_evidence_ids)
         artifact_ids.update(explicit_artifact_ids)
         if (
@@ -1240,17 +1293,19 @@ def _active_node_semantics(
         _resolve_assertion_from_support(root, world_id, store, support)
         for support in node_supports
     ]
-    _assert_active_object_assertions_agree(
-        assertions,
-        object_kind="node",
-        graph_object_id=node_id,
-    )
+    _assert_active_node_assertions_agree(assertions, node_id=node_id)
     representative = min(assertions, key=lambda assertion: assertion.assertion_id)
     value = dict(representative.value)
     label = representative.label or str(value.get("label") or fallback.label)
     kind = str(value.get("kind") or fallback.kind)
     role = str(value.get("role") or kind)
-    base_aliases = list(value.get("aliases") or [label])
+    base_aliases = [
+        alias
+        for assertion in assertions
+        for alias in list(dict(assertion.value).get("aliases") or [])
+    ]
+    if not base_aliases:
+        base_aliases = [label]
     aliases = _active_node_aliases(
         root, world_id, store, node_id, identity_context, base_aliases
     )
@@ -1303,10 +1358,17 @@ def _normalized_adjacency_candidate(
         kind=related_kind,
         predicate=relationship.predicate,
         direction=_endpoint_relative_direction(relationship, source_node_id),
-        anchored_to_focus_session=any(
-            store.evidence[evidence_ref_id].session_id == focus_session_id
-            for evidence_ref_id in relationship.evidence_ref_ids
-            if evidence_ref_id in store.evidence
+        anchored_to_focus_session=(
+            candidate.anchored_to_focus_session
+            or (
+                focus_session_id is not None
+                and focus_session_id in relationship.session_ids
+            )
+            or any(
+                store.evidence[evidence_ref_id].session_id == focus_session_id
+                for evidence_ref_id in relationship.evidence_ref_ids
+                if evidence_ref_id in store.evidence
+            )
         ),
         source_domains=list(relationship.source_domains),
         evidence_ref_ids=list(relationship.evidence_ref_ids),

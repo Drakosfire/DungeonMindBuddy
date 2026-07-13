@@ -696,7 +696,6 @@ def test_malformed_head_revision_fails_integrity_without_pin(
         kernel.project_world_graph(tmp_path, _request())
     assert exc_info.value.code == "projection_integrity_error"
 
-
 def test_malformed_head_file_fails_integrity_without_pin(
     tmp_path: Path,
     loaded_bundle,
@@ -884,6 +883,14 @@ def test_multi_source_missing_assertion_fails_integrity(
             DUP_MISSING_CONTRIBUTION_ID,
         }
     )
+    support["per_contribution_evidence_ref_ids"] = {
+        **support.get("per_contribution_evidence_ref_ids", {}),
+        DUP_MISSING_CONTRIBUTION_ID: list(support.get("evidence_ref_ids", [])),
+    }
+    support["per_contribution_source_artifact_ids"] = {
+        **support.get("per_contribution_source_artifact_ids", {}),
+        DUP_MISSING_CONTRIBUTION_ID: list(support.get("source_artifact_ids", [])),
+    }
     store.assertion_support[assertion.assertion_id] = support
     kernel.publish_world_revision(
         tmp_path,
@@ -938,6 +945,14 @@ def test_multi_source_semantic_divergence_fails_integrity(
             DUP_DIVERGENT_CONTRIBUTION_ID,
         }
     )
+    support["per_contribution_evidence_ref_ids"] = {
+        **support.get("per_contribution_evidence_ref_ids", {}),
+        DUP_DIVERGENT_CONTRIBUTION_ID: list(support.get("evidence_ref_ids", [])),
+    }
+    support["per_contribution_source_artifact_ids"] = {
+        **support.get("per_contribution_source_artifact_ids", {}),
+        DUP_DIVERGENT_CONTRIBUTION_ID: list(support.get("source_artifact_ids", [])),
+    }
     store.assertion_support[assertion.assertion_id] = support
     kernel.publish_world_revision(
         tmp_path,
@@ -1068,6 +1083,8 @@ def test_unsupported_edge_omitted_from_relationships_and_node_adjacency(
             continue
         support["support_state"] = "unsupported"
         support["active_contribution_ids"] = []
+        support["per_contribution_evidence_ref_ids"] = {}
+        support["per_contribution_source_artifact_ids"] = {}
         store.assertion_support[assertion_id] = support
         break
 
@@ -1911,3 +1928,251 @@ def test_head_pointing_to_nonexistent_revision_fails_integrity_pinned_and_unpinn
             _request(revision_pin=pinned_revision_id),
         )
     assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_legacy_support_without_lineage_maps_projects_as_head_and_historical_pin(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Pre-lineage revisions remain readable without pretending they asserted
+    empty provenance; only revisions carrying lineage maps are held to the new
+    exact-per-contribution check.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    for assertion_id, raw_support in store.assertion_support.items():
+        support = dict(raw_support)
+        support.pop("provenance_lineage_version", None)
+        support.pop("per_contribution_evidence_ref_ids", None)
+        support.pop("per_contribution_source_artifact_ids", None)
+        store.assertion_support[assertion_id] = support
+    legacy = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-legacy-provenance-support"],
+    )
+    legacy_revision_id = legacy.revision.revision_id
+
+    assert kernel.project_world_graph(tmp_path, _request()).snapshot.revision_id == (
+        legacy_revision_id
+    )
+
+    alias_assertion = kernel.build_assertion(
+        assertion_kind="alias",
+        acceptance_state="accepted",
+        subject_node_id=TRIPOD_ID,
+        label="Legacy Compatibility Alias",
+        campaign_scope=CAMPAIGN_ID,
+        value={"alias": "Legacy Compatibility Alias"},
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:legacy-provenance",
+        source_revision_id="legacy-provenance-1",
+        accepted_assertions=[alias_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+
+    pinned = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=legacy_revision_id),
+    )
+    assert pinned.snapshot.revision_id == legacy_revision_id
+
+
+def test_alias_embedded_provenance_materializes_before_projection(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    alias_text = "Embedded Evidence Alias"
+    artifact_id = "graph-native:test:alias-embedded-provenance"
+    evidence_ref_id = "evidence:test:alias-embedded-provenance"
+    alias_assertion = kernel.build_assertion(
+        assertion_kind="alias",
+        acceptance_state="accepted",
+        subject_node_id=TRIPOD_ID,
+        label=alias_text,
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "alias": alias_text,
+            "source_artifacts": [
+                {
+                    "source_artifact_id": artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": "graph-data://test/alias-embedded-provenance",
+                }
+            ],
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": "test://alias-embedded-provenance",
+                }
+            ],
+        },
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=artifact_id,
+        source_revision_id="alias-embedded-provenance-1",
+        accepted_assertions=[alias_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    assert alias_text in tripod.aliases
+    assert evidence_ref_id in tripod.evidence_ref_ids
+    assert artifact_id in tripod.source_artifact_ids
+
+
+def test_multiple_active_node_assertions_union_aliases_and_historical_pin(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    original_node = next(
+        assertion
+        for assertion in _assertions_from_contribution_json(original_payload)
+        if assertion.assertion_kind == "node" and assertion.subject_node_id == TRIPOD_ID
+    )
+    extra_alias = "The Null-Calf"
+    duplicate_node = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=TRIPOD_ID,
+        predicate=original_node.predicate,
+        label=original_node.label,
+        value={**dict(original_node.value), "aliases": [extra_alias]},
+        evidence_ref_ids=list(original_node.evidence_ref_ids),
+        source_artifact_id=original_node.source_artifact_id,
+        source_revision_id=original_node.source_revision_id,
+        campaign_scope=original_node.campaign_scope,
+        temporal_scope=original_node.temporal_scope,
+        visibility=original_node.visibility,
+        epistemic_kind=original_node.epistemic_kind,
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="additive-node-alias-1",
+        accepted_assertions=[duplicate_node],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    pinned_revision_id = merged.revision_id
+    contribution_id = merged.contribution_ids[0]
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    assert extra_alias in tripod.aliases
+
+    retracted = kernel.retract_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution_id=contribution_id,
+        reason="remove additive node alias for test",
+    )
+    assert retracted.published is True
+    head_tripod = next(
+        node
+        for node in kernel.project_world_graph(tmp_path, _request()).nodes
+        if node.node_id == TRIPOD_ID
+    )
+    assert extra_alias not in head_tripod.aliases
+    pinned_tripod = next(
+        node
+        for node in kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin=pinned_revision_id),
+        ).nodes
+        if node.node_id == TRIPOD_ID
+    )
+    assert extra_alias in pinned_tripod.aliases
+
+
+def test_session_scoped_relationship_remains_focus_anchored_without_session_evidence(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    replacement_assertions = _assertions_from_contribution_json(original_payload)
+    for assertion in replacement_assertions:
+        value = dict(assertion.value)
+        if str(value.get("edge_id") or "") == edge_id:
+            assertion.value = {**value, "session_ids": [FOCUS_SESSION_ID]}
+    replacement = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="focus-anchor-session-ids-1",
+        accepted_assertions=replacement_assertions,
+        supersedes_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    result = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=replacement,
+        superseded_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    assert result.published is True
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(focus_kind="session", session_id=FOCUS_SESSION_ID),
+    )
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    candidate = next(item for item in tripod.adjacency if item.edge_id == edge_id)
+    expansion = next(
+        item for item in tripod.suggested_expansions if item.edge_id == edge_id
+    )
+    assert candidate.anchored_to_focus_session is True
+    assert expansion.anchored_to_focus_session is True
+
+
+@pytest.mark.parametrize("head_state", ["missing", "malformed"])
+def test_invalid_revision_pin_precedes_head_loading(
+    tmp_path: Path,
+    loaded_bundle,
+    head_state: str,
+) -> None:
+    if head_state == "malformed":
+        _initialize(tmp_path, loaded_bundle)
+        _head_path(tmp_path).write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(
+            tmp_path,
+            _request(revision_pin="rev:not-a-valid-revision-id"),
+        )
+    assert exc_info.value.code == "invalid_request"
