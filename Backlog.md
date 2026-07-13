@@ -7,6 +7,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+
+## [IDEA] Plan board seeds scaffold, not full Session Prep.md — captured 2026-07-13
+**Context:** PR008A `/plan?dogfood=1` dogfood note
+**Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Feels like a "markdown loader" dumping incomplete plan content.
+**Action:** Decide whether Plan should hydrate from `planningDocument.targetRelpath` corpus Markdown (with local-draft overlay) vs keep an empty/scaffold board that only becomes the prep file on Save. Separate from World Graph projection work.
+**Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import
+**Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`
+
+
 ## Resume after Graph Review authored-memory pause
 
 **Checkpoint:** PR #305 merged 2026-07-09. Read `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` before reopening this workstream.

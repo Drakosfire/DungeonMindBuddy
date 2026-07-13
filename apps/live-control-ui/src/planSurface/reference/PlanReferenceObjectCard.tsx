@@ -23,13 +23,13 @@ function projectionStateNote(
   if (resolution.kind === "graph-node") return null;
 
   if (projectionState === "loading") {
-    return "Union Supergraph projection is still loading. Resolution may change once graph memory is available.";
+    return "World Graph projection is still loading. Resolution may change once graph memory is available.";
   }
   if (projectionState === "unavailable") {
-    return "Union Supergraph projection is unavailable. Showing corpus fallback or unresolved state.";
+    return "World Graph projection is unavailable. Showing corpus fallback or unresolved state.";
   }
   if (projectionState === "error") {
-    return "Union Supergraph projection failed to load. Showing corpus fallback or unresolved state.";
+    return "World Graph projection failed to load. Corpus fallback is disabled until the graph recovers.";
   }
   if (projectionState === "ready") {
     return "Graph memory did not resolve this reference.";
@@ -114,7 +114,7 @@ export function PlanReferenceObjectCard({
 }: PlanReferenceObjectCardProps) {
   const projection = useOptionalProjection();
   const { resolvePlanRelationship, projectionState: resolverProjectionState } =
-    usePlanGraphReferenceResolver(sessionDescriptor);
+    usePlanGraphReferenceResolver();
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
 
   const effectiveProjectionState =
@@ -124,7 +124,7 @@ export function PlanReferenceObjectCard({
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
       if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
-      if (resolverProjectionState === "loading") return;
+      if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
       setNavigatingRelationshipId(relationship.id);
       try {
@@ -147,7 +147,9 @@ export function PlanReferenceObjectCard({
   );
 
   const relationshipsDisabled =
-    Boolean(navigatingRelationshipId) || resolverProjectionState === "loading";
+    Boolean(navigatingRelationshipId)
+    || resolverProjectionState === "loading"
+    || resolverProjectionState === "error";
 
   if (resolution.kind === "graph-node" && resolution.graphObject) {
     const model = {

@@ -84,6 +84,8 @@ import type {
   RecapGraphPresentationResponse,
   RecapGraphQuery,
   UnionSupergraphProjectionResponse,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
   PartyRegistrySurfaceResponse,
   PartyRegistrySessionRosterWriteCommitRequest,
   PartyRegistrySessionRosterWriteCommitResponse,
@@ -126,14 +128,65 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
+export interface LiveApiErrorDiagnostic {
+  code: string;
+  message: string;
+  severity?: string;
+}
+
+export interface LiveApiErrorOptions {
+  code?: string | null;
+  diagnostics?: LiveApiErrorDiagnostic[] | null;
+}
+
 export class LiveApiError extends Error {
+  public readonly code?: string | null;
+  public readonly diagnostics?: LiveApiErrorDiagnostic[] | null;
+
   constructor(
     message: string,
     public readonly status: number,
+    options?: LiveApiErrorOptions,
   ) {
     super(message);
     this.name = "LiveApiError";
+    this.code = options?.code ?? null;
+    this.diagnostics = options?.diagnostics ?? null;
   }
+}
+
+function parseWorldGraphErrorFields(body: {
+  schema?: unknown;
+  code?: unknown;
+  message?: unknown;
+  diagnostics?: unknown;
+}): Pick<LiveApiErrorOptions, "code" | "diagnostics"> {
+  const isWorldGraphError =
+    body.schema === "dmb_world_graph_projection_error_v1"
+    || (typeof body.code === "string" && typeof body.message === "string");
+
+  if (!isWorldGraphError) {
+    return { code: null, diagnostics: null };
+  }
+
+  const code = typeof body.code === "string" ? body.code : null;
+  const diagnostics = Array.isArray(body.diagnostics)
+    ? body.diagnostics
+        .filter(
+          (entry): entry is LiveApiErrorDiagnostic =>
+            typeof entry === "object"
+            && entry != null
+            && typeof (entry as LiveApiErrorDiagnostic).code === "string"
+            && typeof (entry as LiveApiErrorDiagnostic).message === "string",
+        )
+        .map((entry) => ({
+          code: entry.code,
+          message: entry.message,
+          severity: typeof entry.severity === "string" ? entry.severity : undefined,
+        }))
+    : null;
+
+  return { code, diagnostics };
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -146,19 +199,29 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     let detail = response.statusText;
+    let errorOptions: LiveApiErrorOptions | undefined;
     try {
-      const body = await parseJsonBody<{ detail?: unknown }>(response);
-      if (typeof body.detail === "string") {
+      const body = await parseJsonBody<{
+        detail?: unknown;
+        message?: unknown;
+        schema?: unknown;
+        code?: unknown;
+        diagnostics?: unknown;
+      }>(response);
+      if (typeof body.message === "string") {
+        detail = body.message;
+      } else if (typeof body.detail === "string") {
         detail = body.detail;
       } else if (body.detail != null) {
         detail = JSON.stringify(body.detail);
       }
+      errorOptions = parseWorldGraphErrorFields(body);
     } catch (parseError) {
       if (parseError instanceof Error) {
         detail = parseError.message;
       }
     }
-    throw new LiveApiError(detail, response.status);
+    throw new LiveApiError(detail, response.status, errorOptions);
   }
   return parseJsonBody<T>(response);
 }
@@ -403,6 +466,15 @@ export async function getUnionSupergraphProjection(
   return apiFetch<UnionSupergraphProjectionResponse>(
     `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
   );
+}
+
+export async function postWorldGraphProjection(
+  request: WorldGraphProjectionRequest,
+): Promise<WorldGraphProjection> {
+  return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function getDefaultUnionSupergraphProjection(

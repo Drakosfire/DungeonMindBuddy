@@ -14,6 +14,27 @@ import {
 } from "./components/agentInteractionHistory";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import * as liveApi from "../api/liveApi";
+
+const worldGraphProjection = {
+  schema: "dmb_world_graph_projection_v1" as const,
+  snapshot: {
+    worldId: "eldyrwild",
+    campaignId: "longmont-c2",
+    revisionId: "rev-1",
+    headRevisionId: "rev-1",
+    isHead: true,
+    focus: { kind: "session" as const, sessionId: "session-21" },
+    admissibility: "gm" as const,
+  },
+  summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+  nodes: [],
+  relationships: [],
+  attributes: [],
+  evidence: [],
+  sourceArtifacts: [],
+  diagnostics: [],
+};
 
 function PlanSurfaceTestHarness() {
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
@@ -34,6 +55,7 @@ function renderPlanSurface() {
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
     localStorage.clear();
     window.history.pushState({}, "", "/plan");
   });
@@ -58,12 +80,16 @@ describe("PlanSurfaceShell", () => {
     );
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit", hidden: true })).toBeInTheDocument();
+    // Docked Edit starts open; the side tab is hidden until the drawer closes.
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
+    expect(screen.getByText("World Graph objects")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-graph-ref-search")).toBeInTheDocument();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -947,22 +973,21 @@ describe("PlanSurfaceShell", () => {
 
   it("projects reference chip resolution through the shared container", async () => {
     const user = userEvent.setup();
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    vi.mocked(liveApi.postWorldGraphProjection).mockRestore();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url.includes("/api/live/graph-preview/union-supergraph/projection")) {
+      if (url === "/api/live/world-graph/projection") {
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          schema: "dmb_world_graph_projection_request_v1",
+          worldId: "eldyrwild",
+          campaignId: "longmont-c2",
+          focus: { kind: "session", sessionId: "session-21" },
+          admissibility: "gm",
+        });
         return {
           ok: true,
-          json: async () => ({
-            campaign_id: "longmont-c2",
-            session_id: "session-21",
-            node_views: {},
-            focus: {
-              focused_evidence_ref_ids: [],
-              focused_edge_ids: [],
-              focused_node_ids: [],
-            },
-            mentions: [],
-          }),
+          text: async () => JSON.stringify(worldGraphProjection),
         } as Response;
       }
       return {
@@ -979,6 +1004,10 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
 
+    await waitFor(() => {
+      expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
+    });
+
     const canvas = screen.getByTestId("plan-surface-canvas-editor");
     const chip = canvas.querySelector(".md-ref-chip") as HTMLElement;
     fireEvent.click(chip);
@@ -993,6 +1022,10 @@ describe("PlanSurfaceShell", () => {
     expect(within(projection).getByLabelText(/North Reach Gate corpus fallback object/i)).toBeInTheDocument();
     expect(within(projection).getByText(/Location reference resolved from corpus index/i)).toBeInTheDocument();
     expect(within(projection).queryByLabelText(/selected object/i)).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/live/world-graph/projection",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("shows Markdown save control in the edit toolbar", () => {

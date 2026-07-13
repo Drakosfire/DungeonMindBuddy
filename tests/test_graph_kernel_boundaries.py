@@ -208,11 +208,6 @@ TS_LEGACY_SELECTOR_ALLOWLIST: dict[str, frozenset[str]] = {
             "previewUnionStorePath",
         }
     ),
-    "apps/live-control-ui/src/planSurface/reference/usePlanGraphReferenceResolver.ts": frozenset(
-        {
-            "useLatestGraphIngest",
-        }
-    ),
 }
 
 _TS_SELECTOR_RE = re.compile(

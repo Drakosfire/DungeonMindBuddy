@@ -1,9 +1,19 @@
-import type { UnionSupergraphProjectionResponse, GraphProjectionNodeView } from "../../api/types";
+import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectCardViewModel } from "../../graphObjectCard";
-import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import {
+  GRAPH_NODE_REF_TYPE,
+  type RunbookReferenceAttrs,
+} from "../../tiptap/references/runbookReferences";
 import { normalizeReferenceKey } from "./referenceResolver";
 import type { ReferenceResolution } from "./referenceResolver";
+import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
+
+export function isGraphNativeReference(
+  refType: string | null | undefined,
+): boolean {
+  return refType === GRAPH_NODE_REF_TYPE;
+}
 
 export type PlanReferenceResolutionKind =
   | "graph-node"
@@ -17,6 +27,13 @@ export type PlanGraphProjectionState =
   | "unavailable"
   | "error";
 
+/** Corpus fallback is allowed only when World Graph is unavailable, or ready with an ordinary miss. */
+export function isCorpusFallbackAllowed(
+  projectionState: PlanGraphProjectionState | null,
+): boolean {
+  return projectionState === "unavailable" || projectionState === "ready";
+}
+
 export interface PlanReferenceResolution {
   kind: PlanReferenceResolutionKind;
   locator: string;
@@ -27,20 +44,20 @@ export interface PlanReferenceResolution {
   /** Populated when label/alias lookup matched more than one graph node. */
   ambiguousNodeIds?: string[];
   fallback?: ReferenceResolution | null;
-  source: "union-supergraph" | "corpus-index" | "unresolved" | "error";
+  source: "world-graph" | "corpus-index" | "unresolved" | "error";
   message?: string | null;
-  /** Union Supergraph projection availability at resolve time. */
+  /** World Graph projection availability at resolve time. */
   graphProjectionState?: PlanGraphProjectionState | null;
 }
 
-export interface UnionSupergraphNodeIndex {
-  byNodeId: Map<string, GraphProjectionNodeView>;
+export interface WorldGraphNodeIndex {
+  byNodeId: Map<string, WorldGraphProjectionNodeView>;
   /** Label/alias keys map to every node that claims that key; unique-only lookups use length === 1. */
-  byLabelKey: Map<string, GraphProjectionNodeView[]>;
+  byLabelKey: Map<string, WorldGraphProjectionNodeView[]>;
 }
 
 export type GraphNodeProjectionLookup =
-  | { status: "found"; node: GraphProjectionNodeView }
+  | { status: "found"; node: WorldGraphProjectionNodeView }
   | { status: "ambiguous"; matchingNodeIds: string[] }
   | { status: "miss" };
 
@@ -64,25 +81,23 @@ export function parseGraphNodeLocator(locator: string): string | null {
   return null;
 }
 
-export function buildUnionSupergraphNodeIndex(
-  projection: UnionSupergraphProjectionResponse,
-): UnionSupergraphNodeIndex {
-  const byNodeId = new Map<string, GraphProjectionNodeView>();
-  const byLabelKey = new Map<string, GraphProjectionNodeView[]>();
+export function buildWorldGraphNodeIndex(projection: WorldGraphProjection): WorldGraphNodeIndex {
+  const byNodeId = new Map<string, WorldGraphProjectionNodeView>();
+  const byLabelKey = new Map<string, WorldGraphProjectionNodeView[]>();
 
-  const registerLabelKey = (value: string, node: GraphProjectionNodeView) => {
+  const registerLabelKey = (value: string, node: WorldGraphProjectionNodeView) => {
     const key = normalizeReferenceKey(value);
     if (!key) return;
 
     const existing = byLabelKey.get(key) ?? [];
-    if (existing.some((entry) => entry.node_id === node.node_id)) return;
+    if (existing.some((entry) => entry.nodeId === node.nodeId)) return;
 
     byLabelKey.set(key, [...existing, node]);
   };
 
-  for (const node of Object.values(projection.node_views)) {
-    byNodeId.set(node.node_id, node);
-    registerLabelKey(node.node_id, node);
+  for (const node of projection.nodes) {
+    byNodeId.set(node.nodeId, node);
+    registerLabelKey(node.nodeId, node);
     registerLabelKey(node.label, node);
     for (const alias of node.aliases ?? []) {
       registerLabelKey(alias, node);
@@ -93,7 +108,7 @@ export function buildUnionSupergraphNodeIndex(
 }
 
 function uniqueLabelKeyMatch(
-  index: UnionSupergraphNodeIndex,
+  index: WorldGraphNodeIndex,
   key: string,
 ): GraphNodeProjectionLookup {
   const normalized = normalizeReferenceKey(key);
@@ -106,13 +121,13 @@ function uniqueLabelKeyMatch(
   if (matches.length > 1) {
     return {
       status: "ambiguous",
-      matchingNodeIds: matches.map((node) => node.node_id),
+      matchingNodeIds: matches.map((node) => node.nodeId),
     };
   }
   return { status: "miss" };
 }
 
-function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphNodeProjectionLookup {
+function lookupNodeById(index: WorldGraphNodeIndex, nodeId: string): GraphNodeProjectionLookup {
   const trimmed = String(nodeId || "").trim();
   if (!trimmed) return { status: "miss" };
 
@@ -122,12 +137,35 @@ function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphN
   return uniqueLabelKeyMatch(index, trimmed);
 }
 
-function lookupNodeByLabel(index: UnionSupergraphNodeIndex, label: string): GraphNodeProjectionLookup {
+function lookupExactNodeId(
+  index: WorldGraphNodeIndex,
+  nodeId: string,
+): GraphNodeProjectionLookup {
+  const trimmed = String(nodeId || "").trim();
+  if (!trimmed) return { status: "miss" };
+  const direct = index.byNodeId.get(trimmed);
+  return direct ? { status: "found", node: direct } : { status: "miss" };
+}
+
+function lookupNodeByLabel(index: WorldGraphNodeIndex, label: string): GraphNodeProjectionLookup {
   return uniqueLabelKeyMatch(index, label);
 }
 
+function graphNativeNodeId(options: {
+  locator?: string | null;
+  refId?: string | null;
+}): string | null {
+  const fromRefId = String(options.refId || "").trim();
+  if (fromRefId) return fromRefId;
+  if (!options.locator) return null;
+  const parsed = parseGraphNodeLocator(options.locator);
+  if (parsed) return parsed;
+  const trimmed = String(options.locator).trim();
+  return trimmed || null;
+}
+
 export function findGraphNodeInProjection(
-  index: UnionSupergraphNodeIndex,
+  index: WorldGraphNodeIndex,
   options: {
     locator?: string | null;
     refType?: string | null;
@@ -135,6 +173,13 @@ export function findGraphNodeInProjection(
     label?: string | null;
   },
 ): GraphNodeProjectionLookup {
+  // Graph-native chips bind only to durable node IDs — never label/alias rebind.
+  if (isGraphNativeReference(options.refType)) {
+    const nodeId = graphNativeNodeId(options);
+    if (!nodeId) return { status: "miss" };
+    return lookupExactNodeId(index, nodeId);
+  }
+
   const candidates: string[] = [];
 
   const parsedLocator = options.locator ? parseGraphNodeLocator(options.locator) : null;
@@ -177,7 +222,7 @@ function resolutionLocator(input: {
 }
 
 function graphNodeResolution(
-  node: GraphProjectionNodeView,
+  node: WorldGraphProjectionNodeView,
   locator: string,
   refType?: string | null,
   refId?: string | null,
@@ -187,10 +232,10 @@ function graphNodeResolution(
     locator,
     refType: refType ?? null,
     refId: refId ?? null,
-    graphObject: buildGraphObjectCardFromNodeView(node),
-    graphNodeId: node.node_id,
+    graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(node)),
+    graphNodeId: node.nodeId,
     fallback: null,
-    source: "union-supergraph",
+    source: "world-graph",
     message: `Resolved graph node ${node.label}.`,
   };
 }
@@ -298,9 +343,48 @@ export interface ResolvePlanReferenceFromGraphProjectionInput {
   refId?: string | null;
   label?: string | null;
   ref?: RunbookReferenceAttrs | null;
-  projection?: UnionSupergraphProjectionResponse | null;
+  projection?: WorldGraphProjection | null;
   /** Precomputed corpus-index resolution from `resolveReference()` — not fetched here. */
   fallbackResolution?: ReferenceResolution | null;
+}
+
+function exactGraphNativeMiss(
+  locator: string,
+  refType: string | null,
+  refId: string | null,
+): PlanReferenceResolution {
+  const idLabel = refId?.trim() || "unknown";
+  return {
+    kind: "unresolved",
+    locator,
+    refType,
+    refId,
+    graphObject: null,
+    graphNodeId: null,
+    fallback: null,
+    source: "unresolved",
+    message: appendIngestEscalationHint(
+      `Graph node "${idLabel}" was not found in the loaded World Graph projection.`,
+    ),
+  };
+}
+
+function graphNativeUnavailable(
+  locator: string,
+  refType: string | null,
+  refId: string | null,
+): PlanReferenceResolution {
+  return {
+    kind: "unresolved",
+    locator,
+    refType,
+    refId,
+    graphObject: null,
+    graphNodeId: null,
+    fallback: null,
+    source: "unresolved",
+    message: "World Graph is unavailable; graph-native reference cannot be resolved.",
+  };
 }
 
 export function resolvePlanReferenceFromGraphProjection(
@@ -310,14 +394,16 @@ export function resolvePlanReferenceFromGraphProjection(
   const refType = input.refType ?? input.ref?.refType ?? null;
   const refId = input.refId ?? input.ref?.refId ?? null;
   const label = input.label ?? input.ref?.label ?? null;
+  const graphNative = isGraphNativeReference(refType);
 
   if (input.projection) {
-    const index = buildUnionSupergraphNodeIndex(input.projection);
+    const index = buildWorldGraphNodeIndex(input.projection);
     const lookup = findGraphNodeInProjection(index, {
       locator: input.locator ?? locator,
       refType,
       refId,
-      label,
+      // Graph-native refs must not rebind through display labels.
+      label: graphNative ? null : label,
     });
 
     if (lookup.status === "found") {
@@ -327,6 +413,15 @@ export function resolvePlanReferenceFromGraphProjection(
     if (lookup.status === "ambiguous") {
       return ambiguousGraphResolution(locator, refType, refId, lookup.matchingNodeIds);
     }
+
+    if (graphNative) {
+      return exactGraphNativeMiss(locator, refType, refId);
+    }
+  }
+
+  if (graphNative) {
+    // Never adapt corpus fallback for graph-native chips — even when projection is absent.
+    return graphNativeUnavailable(locator, refType, refId);
   }
 
   return fallbackPlanResolution(locator, refType, refId, input.fallbackResolution);

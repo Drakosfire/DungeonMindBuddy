@@ -34,6 +34,15 @@ describe("buildPlanDogfoodReport", () => {
         updatedAt: "2026-07-09T00:00:00.000Z",
       },
       saveStatusLabel: "Saved to Markdown",
+      graphSnapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-21",
+        headRevisionId: "rev-22",
+        isHead: false,
+        focus: { kind: "session", sessionId: "session-21" },
+        admissibility: "gm",
+      },
       generatedAt: "2026-07-09T12:00:00.000Z",
     });
 
@@ -44,6 +53,9 @@ describe("buildPlanDogfoodReport", () => {
     expect(report).toContain("Document: Longmont C2 Session 23 Prep");
     expect(report).toContain("Target path: corpus/eldyrwild-markdown");
     expect(report).toContain("Save status: Saved to Markdown");
+    expect(report).toContain("World Graph revision: rev-21");
+    expect(report).toContain("World Graph head revision: rev-22");
+    expect(report).toContain("World Graph focus: session-21");
     expect(report).toContain("Generated at: 2026-07-09T12:00:00.000Z");
     expect(report).toContain("- [x] Open /plan for the intended campaign/session");
     expect(report).toContain("- [x] Add real prep notes to the board");
@@ -58,6 +70,7 @@ describe("buildPlanDogfoodReport", () => {
       checklist: PLAN_DOGFOOD_CHECKLIST,
       state: { checked: {}, notes: "", updatedAt: null },
       saveStatusLabel: "Local draft",
+      graphSnapshot: null,
       generatedAt: "2026-07-09T12:00:00.000Z",
     });
 

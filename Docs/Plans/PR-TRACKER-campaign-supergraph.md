@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker (**sole ACTIVE AUTHORITY** for this workstream’s sequencing)
 **Date:** 2026-07-10
-**Updated:** 2026-07-12 (PR007A DOING; PR006D2 DONE #337; PR006D3A/D3B DEFERRED; PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)
+**Updated:** 2026-07-12 (PR008A DOING; PR007A DONE #339; PR006D2 DONE #337; PR006D3A/D3B DEFERRED; PR006D split into D1/D2/D3; #336 draft = D1 generic Kernel init; PR006C #335 DONE; PR006B #334 DONE; PR006A #333 DONE; PR005B DONE #329)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 
@@ -558,7 +558,7 @@ is sufficient for projection dogfood.
 
 ## PR007 — Projection Engine
 
-**Status:** `DOING` (PR007A active — revision-pinned read snapshot)
+**Status:** `DONE` (PR007A / GitHub #339)
 **Phase:** 4
 **Purpose:** Focus-as-lens projection over the materialized World Supergraph with revision pinning and visibility/admissibility enforcement.
 
@@ -591,7 +591,7 @@ is sufficient for projection dogfood.
 
 ### PR007A — Revision-pinned World Graph read snapshot
 
-**Status:** `DOING`
+**Status:** `DONE` (GitHub #339)
 **Purpose:** Deliver the first production read API for revision-pinned World Graph
 projection over the PR006D published Eldyrwild graph.
 
@@ -608,16 +608,15 @@ deterministic lexical search; trust boundary honesty.
 
 ## PR008A — /plan World Graph dogfood migration
 
-**Status:** `BLOCKED` on PR007A
+**Status:** `DOING`
 **Phase:** 5
-**Purpose:** First read-only agent + Plan dogfood against PR007A projection — same revision ID and durable node IDs across UI object/reference navigation and Agent Interaction deterministic query context.
+**Purpose:** First read-only Plan object-card dogfood against the PR007A projection, with one loaded revision shared by Plan reference navigation and dogfood diagnostics.
 
 **Deliverables:**
 
 - Plan graph-context wiring to production projection contract (`worldId` + `campaignId` + focus)
 - UI object/reference navigation uses PR007A projection (not latest-ingest)
-- Agent Interaction uses PR007A deterministic query context (`snapshot`, capped `matchedNodeIds`, `matchReasons`)
-- Both surfaces expose the same `revisionId` and durable node IDs
+- Plan exposes the loaded `revisionId`, `worldId`, `campaignId`, focus, and head status
 - Existing source/citation reading remains the evidentiary layer
 - Insert-refs / dogfood search against real projection
 - Continue object-card usefulness dogfood against the PR006D published World Supergraph
@@ -626,12 +625,11 @@ deterministic lexical search; trust boundary honesty.
 **Success criteria:**
 
 - Real campaign dogfood can add/view/remove/judge cards against the PR006D published World Supergraph via PR007A projection
-- Agent Interaction can consume the same revision-pinned projection context as Plan navigation
 - Diagnostics show requested focus/context that matches GM intent
 - No Plan-local graph store; no graph/corpus deletes from dogfood remove
 - `useLatestGraphIngest` is gone from Plan production path (not deferred to PR012)
 
-**Non-goals:** Generalized GraphRAG / tool registry / graph writes; full retrieval sophistication (PR010 may follow); Author Draft in Plan; identity merge in Plan.
+**Non-goals:** Agent Interaction; generalized GraphRAG / tool registry / graph writes; full retrieval sophistication (PR010 may follow); Author Draft in Plan; identity merge in Plan.
 
 **Depends on:** PR007A. Builds on existing GraphObjectCard path (GitHub PR316–PR321 era).
 
@@ -642,6 +640,15 @@ Remaining consumer: none
 Required deletion PR: this PR (PR008A)
 ```
 
+### PR008B — Agent Interaction World Graph query-context integration
+
+**Status:** `READY` after PR008A.
+
+**Purpose:** Give Agent Interaction deterministic, revision-pinned World Graph query
+context after the Plan migration proves the projection contract useful.
+
+**Non-goals:** Plan read-path changes, graph writes, or compatibility reads.
+
 ### PR008 follow-ons (as needed)
 
 - Broader Plan surface polish after PR008A vertical dogfood lands
@@ -651,11 +658,11 @@ Required deletion PR: this PR (PR008A)
 
 ## PR008 — Plan Surface Migration (umbrella)
 
-**Status:** `BLOCKED` on PR007A
+**Status:** `DOING` (via PR008A)
 **Phase:** 5
 **Purpose:** Umbrella for Plan surface migration; **PR008A** is the required first vertical dogfood slice. Broader Plan follow-ons may trail PR008A without blocking first read-only agent dogfood.
 
-**Depends on:** PR007A.
+**Depends on:** PR007A (`DONE`).
 
 ---
 

@@ -13,6 +13,8 @@ import {
   getGoldGraphProjection,
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
+  LiveApiError,
+  postWorldGraphProjection,
   getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
@@ -168,6 +170,44 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe(
       "/api/live/graph-preview/union-supergraph/projection?session_id=session-23&preview_source=dogfood-preview",
     );
+  });
+
+  it("postWorldGraphProjection posts only the World Graph request contract", async () => {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session" as const, sessionId: "session-21" },
+      admissibility: "gm" as const,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_world_graph_projection_v1",
+        snapshot: {},
+        summary: {},
+        nodes: [],
+        relationships: [],
+        attributes: [],
+        evidence: [],
+        sourceArtifacts: [],
+        diagnostics: [],
+      }),
+    );
+
+    await postWorldGraphProjection(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/projection");
+    expect(String(url)).not.toContain("?");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual([
+      "schema",
+      "worldId",
+      "campaignId",
+      "focus",
+      "admissibility",
+    ]);
   });
 
   it("getGoldGraphProjection calls gold projection endpoint with read-only query params", async () => {
@@ -544,6 +584,58 @@ describe("liveApi artifact/capability helpers", () => {
     expect(JSON.stringify(body)).not.toContain("absolute_path");
     expect(JSON.stringify(body)).not.toContain("relative_path");
     expect(response).toEqual(expected);
+  });
+});
+
+describe("liveApi World Graph error preservation", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      text: async () =>
+        JSON.stringify({
+          schema: "dmb_world_graph_projection_error_v1",
+          code: "projection_integrity_error",
+          message: "Projection integrity check failed.",
+          statusCode: 409,
+          diagnostics: [
+            {
+              code: "missing_node",
+              message: "Node npc-glowkindle is missing.",
+              severity: "error",
+            },
+          ],
+        }),
+    } as Response);
+
+    await expect(
+      postWorldGraphProjection({
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        focus: { kind: "session", sessionId: "session-21" },
+        admissibility: "gm",
+      }),
+    ).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 409,
+      message: "Projection integrity check failed.",
+      code: "projection_integrity_error",
+      diagnostics: [
+        {
+          code: "missing_node",
+          message: "Node npc-glowkindle is missing.",
+          severity: "error",
+        },
+      ],
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
 

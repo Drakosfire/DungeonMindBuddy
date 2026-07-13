@@ -1857,6 +1857,107 @@ export interface UnionSupergraphProjectionResponse {
   authored_overlay?: AuthoredOverlayProjectionSummary;
 }
 
+export interface WorldGraphProjectionFocus {
+  kind: "none" | "session";
+  sessionId: string | null;
+}
+
+export interface WorldGraphProjectionRequest {
+  schema: "dmb_world_graph_projection_request_v1";
+  worldId: string;
+  campaignId: string;
+  focus: WorldGraphProjectionFocus;
+  admissibility: "gm" | "player";
+}
+
+export interface WorldGraphProjectionSnapshot {
+  worldId: string;
+  campaignId: string;
+  revisionId: string;
+  headRevisionId: string;
+  isHead: boolean;
+  focus: WorldGraphProjectionFocus;
+  admissibility: "gm" | "player";
+}
+
+export interface WorldGraphProjectionEvidenceBadge {
+  evidenceRefId: string;
+  sourceArtifactId: string;
+  sourceDomain: string;
+  evidenceRole: string;
+  isFocusSessionEvidence: boolean;
+  canOpenSource: boolean;
+  canHighlightSpan: boolean;
+  label?: string | null;
+  sessionId?: string | null;
+  sourceSpanRefId?: string | null;
+}
+
+export interface WorldGraphProjectionAdjacencyCandidate {
+  edgeId: string;
+  nodeId: string;
+  label: string;
+  kind: string;
+  predicate: string;
+  direction: string;
+  anchoredToFocusSession: boolean;
+  sourceDomains: string[];
+  evidenceRefIds: string[];
+  edgeLabel?: string | null;
+  sessionIds: string[];
+  relatedSummary?: string | null;
+  sourceExcerpt?: string | null;
+}
+
+export interface WorldGraphProjectionSuggestedExpansion extends WorldGraphProjectionAdjacencyCandidate {
+  rank: number;
+  rankReason: string;
+}
+
+export interface WorldGraphProjectionNodeView {
+  nodeId: string;
+  label: string;
+  kind: string;
+  role: string;
+  aliases: string[];
+  sourceDomains: string[];
+  summary?: string | null;
+  anchoredToFocusSession: boolean;
+  evidenceBadges: WorldGraphProjectionEvidenceBadge[];
+  adjacency: WorldGraphProjectionAdjacencyCandidate[];
+  suggestedExpansions: WorldGraphProjectionSuggestedExpansion[];
+  evidenceRefIds: string[];
+  sourceArtifactIds: string[];
+}
+
+export interface WorldGraphProjectionSummary {
+  nodeCount: number;
+  relationshipCount: number;
+  attributeCount: number;
+  evidenceCount: number;
+  sourceArtifactCount: number;
+  projectionTruncated: boolean;
+}
+
+export interface WorldGraphProjection {
+  schema: "dmb_world_graph_projection_v1";
+  snapshot: WorldGraphProjectionSnapshot;
+  summary: WorldGraphProjectionSummary;
+  nodes: WorldGraphProjectionNodeView[];
+  relationships: unknown[];
+  attributes: unknown[];
+  evidence: unknown[];
+  sourceArtifacts: unknown[];
+  diagnostics: Array<{ code: string; message: string; severity: "error" | "warning" | "info" }>;
+}
+
+export interface WorldGraphProjectionErrorResponse {
+  schema: "dmb_world_graph_projection_error_v1";
+  code: string;
+  message: string;
+  statusCode: number;
+}
+
 export interface GoldGraphProjectionResponse extends UnionSupergraphProjectionResponse {
   source_kind: "gold_fixture";
   fixture_version?: string | null;

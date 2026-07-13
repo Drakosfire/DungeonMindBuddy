@@ -30,7 +30,9 @@ type TiptapNode = {
   text?: string;
 };
 
-const typedReferencePattern = /\[([^\]]+)\]\(#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_-]*)\)/g;
+/** refId may include colons for graph-native durable IDs (`threat:tripod-null-calf`). */
+const typedReferencePattern =
+  /\[([^\]]+)\]\(#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_.:-]*)\)/g;
 const graphNodeReferencePattern = /\[([^\]]+)\]\(dmb-node:([^)]+)\)/g;
 const headingPattern = /^(#{1,3})\s+(.+)$/;
 const bulletListPattern = /^-\s+(.+)$/;

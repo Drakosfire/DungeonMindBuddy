@@ -16,6 +16,8 @@ export interface AppChromeToolSection {
   title: string;
   actions: AppChromeAction[];
   defaultOpen?: boolean;
+  /** Optional rich panel under the section actions (e.g. graph search). */
+  panel?: ReactNode;
 }
 
 export interface AppChromeTools {
@@ -78,10 +80,15 @@ function EditToolboxDrawer({ pinnedActions, sections, onClose }: EditToolboxDraw
         {sections.map((section) => (
           <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
             <summary>{section.title}</summary>
-            <div className="app-edit-fold-bd app-edit-actions">
-              {section.actions.map((action) => (
-                <ChromeActionButton key={action.id} action={action} />
-              ))}
+            <div className="app-edit-fold-bd">
+              {section.actions.length > 0 ? (
+                <div className="app-edit-actions">
+                  {section.actions.map((action) => (
+                    <ChromeActionButton key={action.id} action={action} />
+                  ))}
+                </div>
+              ) : null}
+              {section.panel ? <div className="app-edit-fold-panel">{section.panel}</div> : null}
             </div>
           </details>
         ))}
@@ -127,6 +134,7 @@ function EditToolbox({
         aria-expanded={isOpen}
         aria-controls="app-edit-toolbox-drawer"
         title="Edit"
+        hidden={isOpen}
       >
         Edit
       </button>

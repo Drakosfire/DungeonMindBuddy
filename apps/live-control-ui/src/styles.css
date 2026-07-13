@@ -128,10 +128,18 @@ code {
   text-orientation: mixed;
 }
 
-.app-edit-toolbox-toggle:hover,
-.app-edit-toolbox.open .app-edit-toolbox-toggle {
+.app-edit-toolbox-toggle:hover {
   border-color: #7aa2f7;
   color: #7aa2f7;
+}
+
+.app-edit-toolbox.open .app-edit-toolbox-toggle,
+.app-edit-toolbox-toggle[hidden] {
+  display: none !important;
+}
+
+.app-edit-fold-panel {
+  margin-top: 0.35rem;
 }
 
 .app-edit-toolbox-backdrop {

@@ -230,22 +230,23 @@ snapshot → PR008 Plan surface migration. PR006D3 `/ingest` UI remains deferred
 
 **Objective:** Plan (then Play, including combat lenses) consume projections only; no surface-owned graph semantics.
 
-**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. First read-only Plan + Agent dogfood can begin once PR007A lands; full retrieval sophistication may follow in Phase 7 (PR010) but is not a blocker for PR008A vertical dogfood.
+**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. PR008A is the narrow Plan read-path migration; Agent Interaction follows as PR008B after this projection consumer is proven.
 
 **Dependencies:** Phase 4 (PR007A read snapshot; PR006D3 UI not required).
 
-**Dogfood path:** PR006D2 activation → PR007A projection read API → **PR008A** Plan + Agent wiring.
+**Dogfood path:** PR006D2 activation → PR007A projection read API → **PR008A** Plan wiring → **PR008B** Agent Interaction query context.
 PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
 
-**Expected PR slices:** Tracker **PR008A** (Plan + Agent vertical dogfood), **PR008** follow-ons, **PR009** (Play), Build follow-ons as needed.
+**Expected PR slices:** Tracker **PR008A** (Plan object-card dogfood), **PR008B** (Agent Interaction query context), **PR008** follow-ons, **PR009** (Play), Build follow-ons as needed.
 
 **Demolition owned here (Plan):** Delete the session-derived `useLatestGraphIngest` path in the same PR that wires real projection (no deferral to PR012 without a named consumer).
 
 **Suggested Plan sub-sequence:**
 
-1. Wire Plan + Agent Interaction to Projection Engine / production graph-context contract (PR008A).
-2. Rerun object-card usefulness dogfood against the Phase 3 graph.
-3. Expand retrieval sophistication in PR010 when needed; Plan-scoped graph-memory Q&A can follow PR008A dogfood.
+1. Wire Plan to the Projection Engine / production graph-context contract (PR008A).
+2. Wire Agent Interaction to the same contract only after Plan dogfood proves it useful (PR008B).
+3. Rerun object-card usefulness dogfood against the Phase 3 graph.
+4. Expand retrieval sophistication in PR010 when needed; Plan-scoped graph-memory Q&A can follow PR008A dogfood.
 
 **Exit criteria:**
 
