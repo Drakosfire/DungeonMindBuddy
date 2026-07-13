@@ -326,14 +326,17 @@ def _run_llm_grounded_answer(
     model = _live_query_model(root)
     try:
         client = OpenAI()
+        # gpt-5.x chat/codex models reject temperature on Responses API.
         response = client.responses.create(
             model=model,
             input=prompt,
-            temperature=0.2,
             max_output_tokens=400,
         )
-    except Exception:
-        warnings.append("llm_grounding_call_failed")
+    except Exception as exc:
+        detail = str(exc).strip().replace("\n", " ")[:160]
+        warnings.append(
+            f"llm_grounding_call_failed:{detail}" if detail else "llm_grounding_call_failed"
+        )
         return None, warnings
 
     answer = _extract_answer_text(response)
