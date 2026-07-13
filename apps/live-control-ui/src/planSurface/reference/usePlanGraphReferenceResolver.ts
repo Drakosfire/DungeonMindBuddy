@@ -16,6 +16,7 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import type { PlanSessionDescriptor } from "../types";
 import {
   isCorpusFallbackAllowed,
+  isGraphNativeReference,
   resolvePlanReferenceFromGraphProjection,
   type PlanGraphProjectionState,
   type PlanReferenceResolution,
@@ -114,6 +115,27 @@ export async function resolvePlanReferenceWithFallback(
       projectionState,
       "World Graph projection failed; corpus fallback disabled.",
     );
+  }
+
+  // Graph-native chips: exact nodeId only. Never label rebind. Never corpus indexes.
+  if (isGraphNativeReference(ref.refType)) {
+    if (projectionState === "unavailable" || !options.projection) {
+      return unresolvedResolution(
+        ref,
+        projectionState,
+        "World Graph is unavailable; graph-native reference cannot be resolved.",
+      );
+    }
+
+    const graphResolution = resolvePlanReferenceFromGraphProjection({
+      ref,
+      projection: options.projection,
+    });
+
+    return {
+      ...graphResolution,
+      graphProjectionState: projectionState,
+    };
   }
 
   if (options.projection) {

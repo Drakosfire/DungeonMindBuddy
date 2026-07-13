@@ -379,4 +379,69 @@ describe("resolvePlanReferenceWithFallback", () => {
     expect(isCorpusFallbackAllowed("error")).toBe(false);
     expect(isCorpusFallbackAllowed("loading")).toBe(false);
   });
+
+  it("does not rebind a missing graph-node id when another node shares the label", async () => {
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [
+        {
+          ...glowkindleNode,
+          nodeId: "threat:other-beast",
+          label: "Tripod Null-Calf",
+          aliases: ["Tripod Null-Calf"],
+          kind: "threat",
+        },
+      ],
+    };
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index must not be queried for graph-native refs");
+    });
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "threat:tripod-null-calf",
+        label: "Tripod Null-Calf",
+      },
+      {
+        projection: twinProjection,
+        projectionState: "ready",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.graphNodeId).toBeNull();
+    expect(resolution.graphObject).toBeNull();
+    expect(resolution.message).toMatch(/not found/i);
+    expect(resolution.message).not.toMatch(/invalid reference locator/i);
+  });
+
+  it("reports World Graph unavailable for colon graph-node chips without corpus or invalid-locator errors", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index must not be queried for graph-native refs");
+    });
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "threat:tripod-null-calf",
+        label: "Tripod Null-Calf",
+      },
+      {
+        projection: null,
+        projectionState: "unavailable",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.graphProjectionState).toBe("unavailable");
+    expect(resolution.message).toMatch(/world graph is unavailable/i);
+    expect(resolution.message).not.toMatch(/invalid reference locator/i);
+  });
 });

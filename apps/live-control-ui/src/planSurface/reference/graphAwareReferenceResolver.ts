@@ -1,10 +1,19 @@
 import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectCardViewModel } from "../../graphObjectCard";
-import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import {
+  GRAPH_NODE_REF_TYPE,
+  type RunbookReferenceAttrs,
+} from "../../tiptap/references/runbookReferences";
 import { normalizeReferenceKey } from "./referenceResolver";
 import type { ReferenceResolution } from "./referenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
+
+export function isGraphNativeReference(
+  refType: string | null | undefined,
+): boolean {
+  return refType === GRAPH_NODE_REF_TYPE;
+}
 
 export type PlanReferenceResolutionKind =
   | "graph-node"
@@ -128,8 +137,31 @@ function lookupNodeById(index: WorldGraphNodeIndex, nodeId: string): GraphNodePr
   return uniqueLabelKeyMatch(index, trimmed);
 }
 
+function lookupExactNodeId(
+  index: WorldGraphNodeIndex,
+  nodeId: string,
+): GraphNodeProjectionLookup {
+  const trimmed = String(nodeId || "").trim();
+  if (!trimmed) return { status: "miss" };
+  const direct = index.byNodeId.get(trimmed);
+  return direct ? { status: "found", node: direct } : { status: "miss" };
+}
+
 function lookupNodeByLabel(index: WorldGraphNodeIndex, label: string): GraphNodeProjectionLookup {
   return uniqueLabelKeyMatch(index, label);
+}
+
+function graphNativeNodeId(options: {
+  locator?: string | null;
+  refId?: string | null;
+}): string | null {
+  const fromRefId = String(options.refId || "").trim();
+  if (fromRefId) return fromRefId;
+  if (!options.locator) return null;
+  const parsed = parseGraphNodeLocator(options.locator);
+  if (parsed) return parsed;
+  const trimmed = String(options.locator).trim();
+  return trimmed || null;
 }
 
 export function findGraphNodeInProjection(
@@ -141,6 +173,13 @@ export function findGraphNodeInProjection(
     label?: string | null;
   },
 ): GraphNodeProjectionLookup {
+  // Graph-native chips bind only to durable node IDs — never label/alias rebind.
+  if (isGraphNativeReference(options.refType)) {
+    const nodeId = graphNativeNodeId(options);
+    if (!nodeId) return { status: "miss" };
+    return lookupExactNodeId(index, nodeId);
+  }
+
   const candidates: string[] = [];
 
   const parsedLocator = options.locator ? parseGraphNodeLocator(options.locator) : null;
@@ -309,6 +348,45 @@ export interface ResolvePlanReferenceFromGraphProjectionInput {
   fallbackResolution?: ReferenceResolution | null;
 }
 
+function exactGraphNativeMiss(
+  locator: string,
+  refType: string | null,
+  refId: string | null,
+): PlanReferenceResolution {
+  const idLabel = refId?.trim() || "unknown";
+  return {
+    kind: "unresolved",
+    locator,
+    refType,
+    refId,
+    graphObject: null,
+    graphNodeId: null,
+    fallback: null,
+    source: "unresolved",
+    message: appendIngestEscalationHint(
+      `Graph node "${idLabel}" was not found in the loaded World Graph projection.`,
+    ),
+  };
+}
+
+function graphNativeUnavailable(
+  locator: string,
+  refType: string | null,
+  refId: string | null,
+): PlanReferenceResolution {
+  return {
+    kind: "unresolved",
+    locator,
+    refType,
+    refId,
+    graphObject: null,
+    graphNodeId: null,
+    fallback: null,
+    source: "unresolved",
+    message: "World Graph is unavailable; graph-native reference cannot be resolved.",
+  };
+}
+
 export function resolvePlanReferenceFromGraphProjection(
   input: ResolvePlanReferenceFromGraphProjectionInput,
 ): PlanReferenceResolution {
@@ -316,6 +394,7 @@ export function resolvePlanReferenceFromGraphProjection(
   const refType = input.refType ?? input.ref?.refType ?? null;
   const refId = input.refId ?? input.ref?.refId ?? null;
   const label = input.label ?? input.ref?.label ?? null;
+  const graphNative = isGraphNativeReference(refType);
 
   if (input.projection) {
     const index = buildWorldGraphNodeIndex(input.projection);
@@ -323,7 +402,8 @@ export function resolvePlanReferenceFromGraphProjection(
       locator: input.locator ?? locator,
       refType,
       refId,
-      label,
+      // Graph-native refs must not rebind through display labels.
+      label: graphNative ? null : label,
     });
 
     if (lookup.status === "found") {
@@ -333,6 +413,15 @@ export function resolvePlanReferenceFromGraphProjection(
     if (lookup.status === "ambiguous") {
       return ambiguousGraphResolution(locator, refType, refId, lookup.matchingNodeIds);
     }
+
+    if (graphNative) {
+      return exactGraphNativeMiss(locator, refType, refId);
+    }
+  }
+
+  if (graphNative) {
+    // Never adapt corpus fallback for graph-native chips — even when projection is absent.
+    return graphNativeUnavailable(locator, refType, refId);
   }
 
   return fallbackPlanResolution(locator, refType, refId, input.fallbackResolution);

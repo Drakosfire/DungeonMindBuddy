@@ -178,4 +178,45 @@ describe("graphAwareReferenceResolver", () => {
 
     expect(JSON.stringify(projection)).toBe(snapshot);
   });
+
+  it("does not rebind a missing graph-node id through a matching label", () => {
+    const labelTwin: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "threat:other-beast",
+      label: "Tripod Null-Calf",
+      aliases: ["Tripod Null-Calf"],
+      kind: "threat",
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [labelTwin],
+    };
+
+    const result = resolvePlanReferenceFromGraphProjection({
+      ref: {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "threat:tripod-null-calf",
+        label: "Tripod Null-Calf",
+      },
+      projection: twinProjection,
+      fallbackResolution: {
+        status: "error",
+        ref: {
+          kind: "ref",
+          refType: "graph-node",
+          refId: "threat:tripod-null-calf",
+          label: "Tripod Null-Calf",
+        },
+        message: "Invalid reference locator.",
+      },
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.graphNodeId).toBeNull();
+    expect(result.graphObject).toBeNull();
+    expect(result.fallback).toBeNull();
+    expect(result.message).toMatch(/threat:tripod-null-calf/i);
+    expect(result.message).not.toMatch(/invalid reference locator/i);
+  });
 });
