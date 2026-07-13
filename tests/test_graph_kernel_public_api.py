@@ -68,3 +68,15 @@ def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
     ):
         assert name in public_names
         assert callable(getattr(kernel, name)) or name == "WorldGraphProjectionError"
+
+    # PR010A retrieval + source-anchor admission APIs are implemented and exported.
+    for name in (
+        "search_campaign_graph",
+        "get_campaign_object",
+        "get_object_neighborhood",
+        "get_object_evidence",
+        "read_source_anchor",
+        "WorldGraphRetrievalError",
+    ):
+        assert name in public_names
+        assert callable(getattr(kernel, name)) or name == "WorldGraphRetrievalError"

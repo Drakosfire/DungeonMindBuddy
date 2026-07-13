@@ -1,0 +1,1246 @@
+"""Kernel World Graph retrieval + source-anchor admission (PR010A).
+
+Every operation loads or derives from exactly one immutable World Graph
+revision through the existing PR007A projection integrity path
+(``_load_revision_context`` + ``build_projection_payload``), then performs
+deterministic, graph-only search/lookup/traversal/evidence/anchor logic on
+top of that already-integrity-verified projection and store. There is no
+manifest, corpus-index, repository search, arbitrary-path, vector, or LLM
+dependency anywhere in this module.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, TypeVar
+
+from pydantic import BaseModel
+
+from graph_memory.evidence.assertion_support import DurableAssertionSupport
+from graph_memory.kernel.world_projection import (
+    WorldGraphProjectionError,
+    _active_supports_for_graph_object,
+    _load_revision_context,
+    _load_validated_contribution,
+    _parse_support,
+    build_projection_payload,
+    resolve_projection_admissibility,
+)
+from graph_memory.projection.world_projection import (
+    PROJECTION_REQUEST_SCHEMA,
+    WorldGraphProjection,
+    WorldGraphProjectionAttributeView,
+    WorldGraphProjectionDiagnostic,
+    WorldGraphProjectionFocus,
+    WorldGraphProjectionNodeView,
+    WorldGraphProjectionRelationshipView,
+    WorldGraphProjectionRequest,
+    rank_search_node_matches,
+)
+from graph_memory.retrieval.models import (
+    RetrievalOperation,
+    RetrievalOutcome,
+    WorldGraphEvidenceRequest,
+    WorldGraphNeighborhoodRequest,
+    WorldGraphObjectRequest,
+    WorldGraphRetrievalAttribute,
+    WorldGraphRetrievalCoverage,
+    WorldGraphRetrievalDiagnostic,
+    WorldGraphRetrievalNode,
+    WorldGraphRetrievalRelationship,
+    WorldGraphRetrievalRequestContext,
+    WorldGraphRetrievalResult,
+    WorldGraphRetrievalSnapshot,
+    WorldGraphRetrievalTrustBoundary,
+    WorldGraphSearchRequest,
+    WorldGraphSourceAnchor,
+    WorldGraphSourceAnchorReadRequest,
+    WorldGraphSourceAnchorReadResult,
+    compute_source_anchor_id,
+)
+from graph_memory.retrieval.source_reader import (
+    SourceReadError,
+    SourceReadOutcome,
+    parse_graph_data_uri,
+    parse_heading_locator,
+    parse_json_pointer_locator,
+    parse_repo_uri,
+    read_graph_data_json_pointer_anchor,
+    read_repo_heading_anchor,
+)
+from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.union_supergraph.projection_identity import (
+    build_union_projection_identity_context,
+)
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+_UNAVAILABLE_PROJECTION_CODES = frozenset({"world_graph_unavailable", "revision_not_found"})
+_SOURCE_READ_UNAVAILABLE_CODES = frozenset({"source_unavailable"})
+_SEED_MATCH_SCORE = 1_000_000
+_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+
+# Mirrors ``graph_memory.projection.world_projection._SEARCH_STOPWORDS`` so the
+# relationship/related-node ranking extension does not score noise words
+# ("in", "the", "is", ...) as substring matches against short attribute text.
+_STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "as", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "could", "should", "may", "might", "must", "shall", "can",
+    "what", "which", "who", "whom", "whose", "where", "when", "why", "how",
+    "i", "me", "my", "we", "our", "you", "your", "they", "their", "it",
+    "its", "this", "that", "these", "those", "am", "about", "into", "through",
+    "during", "before", "after", "above", "below", "between", "under", "again",
+    "further", "then", "once", "here", "there", "all", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "than", "too", "very", "just", "also", "now",
+})
+
+_TRUST_CAN = [
+    "Every returned node, relationship, attribute, and source anchor is admitted by one "
+    "explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+    "Source anchors are exact-matched and revalidated against that context before any content "
+    "is returned; no anchor from another revision or context resolves.",
+    "Anchor derivation is deterministic: the same admissible input always produces the same "
+    "anchor id and the same ordering.",
+]
+_TRUST_CANNOT = [
+    "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+    "Quality or completeness of graph extraction is not audited by this contract.",
+    "An omitted source is not proof that a fact is absent from the underlying prose.",
+]
+
+
+class WorldGraphRetrievalError(Exception):
+    """Stable retrieval failure with an API-safe code and diagnostics."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str,
+        status_code: int,
+        diagnostics: list[WorldGraphRetrievalDiagnostic] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+        self.diagnostics = list(diagnostics or [])
+
+
+@dataclass(frozen=True)
+class _AnchorDerivation:
+    anchor: WorldGraphSourceAnchor
+    locator: str | None
+    source_artifact_uri: str
+    contribution_id: str | None
+
+
+def _default_repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _trust_boundary() -> WorldGraphRetrievalTrustBoundary:
+    return WorldGraphRetrievalTrustBoundary(can_trust=list(_TRUST_CAN), cannot_trust=list(_TRUST_CANNOT))
+
+
+def _revalidate(model_cls: type[_ModelT], request: _ModelT) -> _ModelT:
+    try:
+        return model_cls.model_validate(request.model_dump(mode="json", by_alias=True))
+    except Exception as exc:
+        raise WorldGraphRetrievalError(
+            f"{model_cls.__name__} is invalid.",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="invalid_request", message=str(exc), severity="error"
+                )
+            ],
+        ) from exc
+
+
+_CONTEXT_FIELD_NAMES = frozenset(
+    {"schema_", "world_id", "campaign_id", "focus", "admissibility", "revision_pin"}
+)
+
+
+def _request_summary(request: WorldGraphRetrievalRequestContext) -> dict[str, Any]:
+    return request.model_dump(mode="json", by_alias=True, exclude=_CONTEXT_FIELD_NAMES)
+
+
+def _convert_projection_diagnostic(
+    diagnostic: WorldGraphProjectionDiagnostic,
+) -> WorldGraphRetrievalDiagnostic:
+    return WorldGraphRetrievalDiagnostic(
+        code=diagnostic.code, message=diagnostic.message, severity=diagnostic.severity
+    )
+
+
+def _map_projection_error(exc: WorldGraphProjectionError) -> WorldGraphRetrievalError:
+    return WorldGraphRetrievalError(
+        str(exc),
+        code=exc.code,
+        status_code=exc.status_code,
+        diagnostics=[_convert_projection_diagnostic(d) for d in exc.diagnostics],
+    )
+
+
+def _load_projection_and_store(
+    root: Path,
+    *,
+    world_id: str,
+    campaign_id: str,
+    focus: WorldGraphProjectionFocus,
+    admissibility: str,
+    revision_pin: str | None,
+) -> tuple[WorldGraphProjection, UnionSupergraphStore] | None:
+    """Load one revision-pinned projection + its store through the PR007A path.
+
+    Returns ``None`` when the request is well-formed but the world/head/
+    revision cannot be opened (retrieval outcome ``unavailable``). Raises
+    ``WorldGraphRetrievalError`` for invalid-request or integrity failures.
+    """
+    proj_request = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        focus=focus,
+        admissibility=admissibility,
+        revision_pin=revision_pin,
+    )
+    try:
+        resolve_projection_admissibility(admissibility)
+        revision_id, head_revision_id, store = _load_revision_context(root, proj_request)
+        projection = build_projection_payload(
+            request=proj_request,
+            revision_id=revision_id,
+            head_revision_id=head_revision_id,
+            store=store,
+            root=root,
+            world_id=world_id,
+        )
+    except WorldGraphProjectionError as exc:
+        if exc.code in _UNAVAILABLE_PROJECTION_CODES:
+            return None
+        raise _map_projection_error(exc) from exc
+    return projection, store
+
+
+def _snapshot_from_projection(projection: WorldGraphProjection) -> WorldGraphRetrievalSnapshot:
+    snapshot = projection.snapshot
+    return WorldGraphRetrievalSnapshot(
+        world_id=snapshot.world_id,
+        campaign_id=snapshot.campaign_id,
+        revision_id=snapshot.revision_id,
+        head_revision_id=snapshot.head_revision_id,
+        is_head=snapshot.is_head,
+        focus=snapshot.focus,
+        admissibility=snapshot.admissibility,
+    )
+
+
+def _unavailable_result(
+    operation: RetrievalOperation,
+    request: WorldGraphRetrievalRequestContext,
+    *,
+    requested_node_id: str | None = None,
+) -> WorldGraphRetrievalResult:
+    return WorldGraphRetrievalResult(
+        operation=operation,
+        outcome="unavailable",
+        snapshot=None,
+        request_summary=_request_summary(request),
+        requested_node_id=requested_node_id,
+        trust_boundary=_trust_boundary(),
+        diagnostics=[
+            WorldGraphRetrievalDiagnostic(
+                code="world_graph_unavailable",
+                message="The requested world graph or revision could not be opened.",
+                severity="warning",
+            )
+        ],
+    )
+
+
+def _convert_node(node: WorldGraphProjectionNodeView) -> WorldGraphRetrievalNode:
+    return WorldGraphRetrievalNode(
+        node_id=node.node_id,
+        label=node.label,
+        kind=node.kind,
+        role=node.role,
+        aliases=list(node.aliases),
+        source_domains=list(node.source_domains),
+        summary=node.summary,
+        anchored_to_focus_session=node.anchored_to_focus_session,
+        evidence_ref_ids=list(node.evidence_ref_ids),
+        source_artifact_ids=list(node.source_artifact_ids),
+    )
+
+
+def _convert_relationship(
+    relationship: WorldGraphProjectionRelationshipView,
+) -> WorldGraphRetrievalRelationship:
+    return WorldGraphRetrievalRelationship(
+        edge_id=relationship.edge_id,
+        source_node_id=relationship.source_node_id,
+        target_node_id=relationship.target_node_id,
+        predicate=relationship.predicate,
+        label=relationship.label,
+        direction=relationship.direction,
+        session_ids=list(relationship.session_ids),
+        source_domains=list(relationship.source_domains),
+        visibility=relationship.visibility,
+        campaign_scope=relationship.campaign_scope,
+        epistemic_kind=relationship.epistemic_kind,
+        evidence_ref_ids=list(relationship.evidence_ref_ids),
+        source_artifact_ids=list(relationship.source_artifact_ids),
+        active_contribution_ids=list(relationship.active_contribution_ids),
+    )
+
+
+def _convert_attribute(attribute: WorldGraphProjectionAttributeView) -> WorldGraphRetrievalAttribute:
+    return WorldGraphRetrievalAttribute(
+        assertion_id=attribute.assertion_id,
+        subject_node_id=attribute.subject_node_id,
+        predicate=attribute.predicate,
+        label=attribute.label,
+        value=dict(attribute.value),
+        text_value=attribute.text_value,
+        epistemic_kind=attribute.epistemic_kind,
+        visibility=attribute.visibility,
+        campaign_scope=attribute.campaign_scope,
+        temporal_scope=(
+            dict(attribute.temporal_scope) if attribute.temporal_scope is not None else None
+        ),
+        support_state=attribute.support_state,
+        active_contribution_ids=list(attribute.active_contribution_ids),
+        evidence_ref_ids=list(attribute.evidence_ref_ids),
+        source_artifact_ids=list(attribute.source_artifact_ids),
+    )
+
+
+def _casefold(value: str | None) -> str:
+    return (value or "").casefold()
+
+
+def _tokenize(text: str) -> list[str]:
+    return [
+        token
+        for token in _TOKEN_PATTERN.findall(_casefold(text))
+        if len(token) > 1 and token not in _STOPWORDS
+    ]
+
+
+def _token_in_text(token: str, text: str) -> bool:
+    if not text:
+        return False
+    if token in text:
+        return True
+    if token.endswith("s") and len(token) > 3 and token[:-1] in text:
+        return True
+    if not token.endswith("s") and f"{token}s" in text:
+        return True
+    return False
+
+
+def _extend_scores_with_relationships(
+    nodes: list[WorldGraphProjectionNodeView],
+    relationships: list[WorldGraphProjectionRelationshipView],
+    query_text: str,
+    scores: dict[str, int],
+    match_reasons: dict[str, list[str]],
+) -> None:
+    """Boost node scores from relationship predicate/label and related-node text.
+
+    A query may only match through the *other* endpoint's display text (e.g.
+    searching "North Gate" should also surface a threat node connected to a
+    "North Gate" node by a relevant relationship), so both endpoints of every
+    relationship are considered independently.
+    """
+    query_cf = _casefold(query_text)
+    tokens = _tokenize(query_text)
+    if not query_cf and not tokens:
+        return
+    label_by_id = {node.node_id: node.label for node in nodes}
+    for relationship in relationships:
+        source_label = label_by_id.get(relationship.source_node_id, "")
+        target_label = label_by_id.get(relationship.target_node_id, "")
+        for endpoint_id, related_label in (
+            (relationship.source_node_id, target_label),
+            (relationship.target_node_id, source_label),
+        ):
+            if endpoint_id not in label_by_id:
+                continue
+            blob = " ".join(
+                filter(None, [relationship.predicate, relationship.label, related_label])
+            ).casefold()
+            score = 0
+            reasons: list[str] = []
+            if query_cf and query_cf in blob:
+                score = max(score, 160)
+                reasons.append("relationship_or_related_node_phrase")
+            for token in tokens:
+                if _token_in_text(token, blob):
+                    score += 45
+                    reasons.append(f"token:{token}:relationship_or_related_node")
+            if score:
+                scores[endpoint_id] = max(scores.get(endpoint_id, 0), score)
+                match_reasons.setdefault(endpoint_id, []).extend(reasons)
+
+
+def _rank_search_matches(
+    nodes: list[WorldGraphProjectionNodeView],
+    attributes: list[WorldGraphProjectionAttributeView],
+    relationships: list[WorldGraphProjectionRelationshipView],
+    query_text: str,
+    seed_node_ids: list[str],
+) -> tuple[list[tuple[WorldGraphProjectionNodeView, int]], dict[str, list[str]], list[str]]:
+    ranked, match_reasons = rank_search_node_matches(nodes, attributes, query_text)
+    scores = {node.node_id: score for node, score in ranked}
+    _extend_scores_with_relationships(nodes, relationships, query_text, scores, match_reasons)
+
+    node_by_id = {node.node_id: node for node in nodes}
+    missing_seed_ids = sorted({seed_id for seed_id in seed_node_ids if seed_id not in node_by_id})
+    for seed_id in seed_node_ids:
+        if seed_id in node_by_id:
+            scores[seed_id] = max(scores.get(seed_id, 0), _SEED_MATCH_SCORE)
+            match_reasons.setdefault(seed_id, []).append("exact_seed")
+
+    for node_id, reasons in match_reasons.items():
+        match_reasons[node_id] = sorted(set(reasons))
+
+    ranked_final = sorted(
+        (
+            (node_by_id[node_id], score)
+            for node_id, score in scores.items()
+            if node_id in node_by_id
+        ),
+        key=lambda item: (-item[1], item[0].node_id),
+    )
+    return ranked_final, match_reasons, missing_seed_ids
+
+
+def _truncated_fields(**flags: bool) -> list[str]:
+    return sorted(name for name, flag in flags.items() if flag)
+
+
+def _determine_outcome(
+    *,
+    truncated: bool,
+    partial: bool,
+    has_content: bool,
+    denied: bool = False,
+) -> RetrievalOutcome:
+    if denied:
+        return "denied"
+    if truncated:
+        return "truncated"
+    if partial and has_content:
+        return "partial"
+    if has_content:
+        return "enough"
+    return "empty"
+
+
+def _outcome_diagnostics(coverage: WorldGraphRetrievalCoverage) -> list[WorldGraphRetrievalDiagnostic]:
+    diagnostics: list[WorldGraphRetrievalDiagnostic] = []
+    if coverage.missing_seed_node_ids:
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="missing_seed_node_ids",
+                message=(
+                    "Seed node ids not found in this revision: "
+                    f"{', '.join(coverage.missing_seed_node_ids)}."
+                ),
+                severity="warning",
+            )
+        )
+    if coverage.truncated_fields:
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="result_truncated",
+                message=f"Result truncated for: {', '.join(coverage.truncated_fields)}.",
+                severity="warning",
+            )
+        )
+    if coverage.unreadable_anchor_ids:
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="unreadable_source_anchors",
+                message=f"{len(coverage.unreadable_anchor_ids)} source anchor(s) are not readable.",
+                severity="warning",
+            )
+        )
+    return diagnostics
+
+
+def _classify_locator(uri: str, locator: str | None) -> tuple[str, bool]:
+    if locator is None:
+        return "unsupported", False
+    if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
+        return "heading", True
+    if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
+        return "json_pointer", True
+    return "unsupported", False
+
+
+def _display_label(locator: str | None) -> str | None:
+    if locator is None:
+        return None
+    heading_text = parse_heading_locator(locator)
+    if heading_text:
+        return heading_text
+    pointer = parse_json_pointer_locator(locator)
+    if pointer:
+        return pointer
+    return None
+
+
+def _all_active_supports(store: UnionSupergraphStore) -> list[DurableAssertionSupport]:
+    supports: list[DurableAssertionSupport] = []
+    for raw_support in store.assertion_support.values():
+        support = _parse_support(raw_support)
+        if support.support_state == "supported" and support.active_contribution_ids:
+            supports.append(support)
+    return supports
+
+
+def _anchor_derivations_for_supports(
+    *,
+    store: UnionSupergraphStore,
+    projection: WorldGraphProjection,
+    supports: list[DurableAssertionSupport],
+) -> list[_AnchorDerivation]:
+    snapshot = projection.snapshot
+    derivations: dict[str, _AnchorDerivation] = {}
+
+    for support in supports:
+        for contribution_id in support.active_contribution_ids:
+            evidence_ref_ids = support.per_contribution_evidence_ref_ids.get(contribution_id, [])
+            for evidence_ref_id in evidence_ref_ids:
+                evidence = store.evidence.get(evidence_ref_id)
+                if evidence is None:
+                    continue
+                source_artifact = store.source_artifacts.get(evidence.source_artifact_id)
+                if source_artifact is None:
+                    continue
+                locator = evidence.locator
+                anchor_id = compute_source_anchor_id(
+                    world_id=snapshot.world_id,
+                    campaign_id=snapshot.campaign_id,
+                    focus=snapshot.focus,
+                    admissibility=snapshot.admissibility,
+                    revision_id=snapshot.revision_id,
+                    evidence_ref_id=evidence_ref_id,
+                    source_artifact_id=evidence.source_artifact_id,
+                    locator_identity=locator or "",
+                )
+                locator_kind, readable = _classify_locator(source_artifact.uri, locator)
+                existing = derivations.get(anchor_id)
+                if existing is not None:
+                    merged_object_ids = set(existing.anchor.supporting_graph_object_ids)
+                    if support.graph_object_id:
+                        merged_object_ids.add(support.graph_object_id)
+                    merged_assertion_ids = set(existing.anchor.supporting_assertion_ids)
+                    merged_assertion_ids.add(support.assertion_id)
+                    derivations[anchor_id] = _AnchorDerivation(
+                        anchor=existing.anchor.model_copy(
+                            update={
+                                "supporting_graph_object_ids": sorted(merged_object_ids),
+                                "supporting_assertion_ids": sorted(merged_assertion_ids),
+                            }
+                        ),
+                        locator=existing.locator,
+                        source_artifact_uri=existing.source_artifact_uri,
+                        contribution_id=existing.contribution_id,
+                    )
+                    continue
+                anchor = WorldGraphSourceAnchor(
+                    anchor_id=anchor_id,
+                    revision_id=snapshot.revision_id,
+                    evidence_ref_id=evidence_ref_id,
+                    source_artifact_id=evidence.source_artifact_id,
+                    source_domain=str(evidence.source_domain),
+                    session_id=evidence.session_id,
+                    supporting_graph_object_ids=(
+                        [support.graph_object_id] if support.graph_object_id else []
+                    ),
+                    supporting_assertion_ids=[support.assertion_id],
+                    readable=readable,
+                    locator_kind=locator_kind,  # type: ignore[arg-type]
+                    display_label=_display_label(locator),
+                )
+                derivations[anchor_id] = _AnchorDerivation(
+                    anchor=anchor,
+                    locator=locator,
+                    source_artifact_uri=source_artifact.uri,
+                    contribution_id=contribution_id,
+                )
+    return sorted(derivations.values(), key=lambda item: item.anchor.anchor_id)
+
+
+def _source_anchors_for_targets(
+    *,
+    store: UnionSupergraphStore,
+    projection: WorldGraphProjection,
+    graph_object_ids: set[str],
+    assertion_ids: set[str],
+    max_source_anchors: int,
+) -> tuple[list[WorldGraphSourceAnchor], bool, list[str]]:
+    supports: list[DurableAssertionSupport] = []
+    seen_assertion_ids: set[str] = set()
+    for graph_object_id in sorted(graph_object_ids):
+        for support in _active_supports_for_graph_object(store, graph_object_id):
+            if support.assertion_id in seen_assertion_ids:
+                continue
+            seen_assertion_ids.add(support.assertion_id)
+            supports.append(support)
+    if assertion_ids:
+        for raw_support in store.assertion_support.values():
+            support = _parse_support(raw_support)
+            if support.assertion_id not in assertion_ids:
+                continue
+            if support.support_state != "supported" or not support.active_contribution_ids:
+                continue
+            if support.assertion_id in seen_assertion_ids:
+                continue
+            seen_assertion_ids.add(support.assertion_id)
+            supports.append(support)
+
+    derivations = _anchor_derivations_for_supports(
+        store=store, projection=projection, supports=supports
+    )
+    anchors = [item.anchor for item in derivations]
+    truncated = len(anchors) > max_source_anchors
+    bounded = anchors[:max_source_anchors]
+    unreadable_ids = [anchor.anchor_id for anchor in bounded if not anchor.readable]
+    return bounded, truncated, unreadable_ids
+
+
+def search_campaign_graph(
+    root: Path, request: WorldGraphSearchRequest
+) -> WorldGraphRetrievalResult:
+    request = _revalidate(WorldGraphSearchRequest, request)
+    loaded = _load_projection_and_store(
+        root,
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        focus=request.focus,
+        admissibility=request.admissibility,
+        revision_pin=request.revision_pin,
+    )
+    if loaded is None:
+        return _unavailable_result("search", request)
+    projection, store = loaded
+
+    ranked, match_reasons, missing_seed_ids = _rank_search_matches(
+        projection.nodes,
+        projection.attributes,
+        projection.relationships,
+        request.query_text,
+        request.seed_node_ids,
+    )
+
+    node_cap = request.bounds.max_nodes
+    node_truncated = len(ranked) > node_cap
+    selected_nodes = [node for node, _score in ranked[:node_cap]]
+    selected_node_ids = {node.node_id for node in selected_nodes}
+    matched_node_ids = [node.node_id for node in selected_nodes]
+
+    rel_cap = request.bounds.max_relationships
+    candidate_relationships = [
+        relationship
+        for relationship in projection.relationships
+        if relationship.source_node_id in selected_node_ids
+        or relationship.target_node_id in selected_node_ids
+    ]
+    relationship_truncated = len(candidate_relationships) > rel_cap
+    selected_relationships = candidate_relationships[:rel_cap]
+
+    attr_cap = request.bounds.max_attributes
+    candidate_attributes = [
+        attribute
+        for attribute in projection.attributes
+        if attribute.subject_node_id in selected_node_ids
+    ]
+    attribute_truncated = len(candidate_attributes) > attr_cap
+    selected_attributes = candidate_attributes[:attr_cap]
+
+    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+        store=store,
+        projection=projection,
+        graph_object_ids=selected_node_ids | {r.edge_id for r in selected_relationships},
+        assertion_ids={a.assertion_id for a in selected_attributes},
+        max_source_anchors=request.bounds.max_source_anchors,
+    )
+
+    coverage = WorldGraphRetrievalCoverage(
+        requested_seed_node_ids=list(request.seed_node_ids),
+        missing_seed_node_ids=missing_seed_ids,
+        unreadable_anchor_ids=unreadable_ids,
+        truncated_fields=_truncated_fields(
+            nodes=node_truncated,
+            relationships=relationship_truncated,
+            attributes=attribute_truncated,
+            source_anchors=anchor_truncated,
+        ),
+    )
+    outcome = _determine_outcome(
+        truncated=bool(coverage.truncated_fields),
+        partial=bool(missing_seed_ids) or bool(unreadable_ids),
+        has_content=bool(selected_nodes),
+    )
+
+    return WorldGraphRetrievalResult(
+        operation="search",
+        outcome=outcome,
+        snapshot=_snapshot_from_projection(projection),
+        request_summary=_request_summary(request),
+        matched_node_ids=matched_node_ids,
+        match_reasons={
+            node_id: match_reasons[node_id]
+            for node_id in matched_node_ids
+            if node_id in match_reasons
+        },
+        nodes=[_convert_node(node) for node in selected_nodes],
+        relationships=[_convert_relationship(r) for r in selected_relationships],
+        attributes=[_convert_attribute(a) for a in selected_attributes],
+        source_anchors=source_anchors,
+        coverage=coverage,
+        trust_boundary=_trust_boundary(),
+        diagnostics=_outcome_diagnostics(coverage),
+    )
+
+
+def get_campaign_object(
+    root: Path, request: WorldGraphObjectRequest
+) -> WorldGraphRetrievalResult:
+    request = _revalidate(WorldGraphObjectRequest, request)
+    loaded = _load_projection_and_store(
+        root,
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        focus=request.focus,
+        admissibility=request.admissibility,
+        revision_pin=request.revision_pin,
+    )
+    if loaded is None:
+        return _unavailable_result("object", request, requested_node_id=request.node_id)
+    projection, store = loaded
+
+    identity_context = build_union_projection_identity_context(store)
+    resolved_node_id = request.node_id
+    diagnostics: list[WorldGraphRetrievalDiagnostic] = []
+    survivor_id = identity_context.merged_away_to_survivor.get(request.node_id)
+    if survivor_id is not None:
+        resolved_node_id = survivor_id
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="active_identity_redirect",
+                message=(
+                    f"Requested node id {request.node_id!r} has an active identity redirect "
+                    f"to {survivor_id!r}."
+                ),
+                severity="info",
+            )
+        )
+
+    node_view = next(
+        (node for node in projection.nodes if node.node_id == resolved_node_id), None
+    )
+    if node_view is None:
+        return WorldGraphRetrievalResult(
+            operation="object",
+            outcome="empty",
+            snapshot=_snapshot_from_projection(projection),
+            request_summary=_request_summary(request),
+            requested_node_id=request.node_id,
+            resolved_node_id=None,
+            trust_boundary=_trust_boundary(),
+            diagnostics=diagnostics,
+        )
+
+    rel_cap = request.bounds.max_relationships
+    candidate_relationships = [
+        relationship
+        for relationship in projection.relationships
+        if resolved_node_id in (relationship.source_node_id, relationship.target_node_id)
+    ]
+    relationship_truncated = len(candidate_relationships) > rel_cap
+    selected_relationships = candidate_relationships[:rel_cap]
+
+    attr_cap = request.bounds.max_attributes
+    candidate_attributes = [
+        attribute
+        for attribute in projection.attributes
+        if attribute.subject_node_id == resolved_node_id
+    ]
+    attribute_truncated = len(candidate_attributes) > attr_cap
+    selected_attributes = candidate_attributes[:attr_cap]
+
+    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+        store=store,
+        projection=projection,
+        graph_object_ids={resolved_node_id} | {r.edge_id for r in selected_relationships},
+        assertion_ids={a.assertion_id for a in selected_attributes},
+        max_source_anchors=request.bounds.max_source_anchors,
+    )
+
+    coverage = WorldGraphRetrievalCoverage(
+        unreadable_anchor_ids=unreadable_ids,
+        truncated_fields=_truncated_fields(
+            relationships=relationship_truncated,
+            attributes=attribute_truncated,
+            source_anchors=anchor_truncated,
+        ),
+    )
+    diagnostics = diagnostics + _outcome_diagnostics(coverage)
+    outcome = _determine_outcome(
+        truncated=bool(coverage.truncated_fields), partial=False, has_content=True
+    )
+
+    return WorldGraphRetrievalResult(
+        operation="object",
+        outcome=outcome,
+        snapshot=_snapshot_from_projection(projection),
+        request_summary=_request_summary(request),
+        matched_node_ids=[resolved_node_id],
+        requested_node_id=request.node_id,
+        resolved_node_id=resolved_node_id,
+        nodes=[_convert_node(node_view)],
+        relationships=[_convert_relationship(r) for r in selected_relationships],
+        attributes=[_convert_attribute(a) for a in selected_attributes],
+        source_anchors=source_anchors,
+        coverage=coverage,
+        trust_boundary=_trust_boundary(),
+        diagnostics=diagnostics,
+    )
+
+
+def get_object_neighborhood(
+    root: Path, request: WorldGraphNeighborhoodRequest
+) -> WorldGraphRetrievalResult:
+    request = _revalidate(WorldGraphNeighborhoodRequest, request)
+    loaded = _load_projection_and_store(
+        root,
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        focus=request.focus,
+        admissibility=request.admissibility,
+        revision_pin=request.revision_pin,
+    )
+    if loaded is None:
+        return _unavailable_result("neighborhood", request)
+    projection, store = loaded
+
+    node_by_id = {node.node_id: node for node in projection.nodes}
+    missing_seed_ids = sorted(
+        {seed_id for seed_id in request.seed_node_ids if seed_id not in node_by_id}
+    )
+    present_seed_ids = list(
+        dict.fromkeys(seed_id for seed_id in request.seed_node_ids if seed_id in node_by_id)
+    )
+
+    adjacency: dict[str, list[WorldGraphProjectionRelationshipView]] = {}
+    for relationship in projection.relationships:
+        adjacency.setdefault(relationship.source_node_id, []).append(relationship)
+        adjacency.setdefault(relationship.target_node_id, []).append(relationship)
+
+    visited_node_ids: set[str] = set(present_seed_ids)
+    visited_edge_ids: set[str] = set()
+    frontier = list(present_seed_ids)
+    for _depth in range(request.max_depth):
+        next_frontier: list[str] = []
+        for node_id in sorted(frontier):
+            for relationship in sorted(
+                adjacency.get(node_id, []), key=lambda item: item.edge_id
+            ):
+                visited_edge_ids.add(relationship.edge_id)
+                other_id = (
+                    relationship.target_node_id
+                    if relationship.source_node_id == node_id
+                    else relationship.source_node_id
+                )
+                if other_id not in visited_node_ids:
+                    visited_node_ids.add(other_id)
+                    next_frontier.append(other_id)
+        frontier = next_frontier
+
+    others_ordered = sorted(visited_node_ids - set(present_seed_ids))
+    node_cap = request.bounds.max_nodes
+    total_before_cap = len(present_seed_ids) + len(others_ordered)
+    remaining_capacity = max(node_cap - len(present_seed_ids), 0)
+    selected_ids = present_seed_ids + others_ordered[:remaining_capacity]
+    node_truncated = total_before_cap > len(selected_ids)
+    selected_node_id_set = set(selected_ids)
+
+    rel_cap = request.bounds.max_relationships
+    candidate_relationships = sorted(
+        (
+            relationship
+            for relationship in projection.relationships
+            if relationship.edge_id in visited_edge_ids
+            and relationship.source_node_id in selected_node_id_set
+            and relationship.target_node_id in selected_node_id_set
+        ),
+        key=lambda item: item.edge_id,
+    )
+    relationship_truncated = len(candidate_relationships) > rel_cap
+    selected_relationships = candidate_relationships[:rel_cap]
+
+    attr_cap = request.bounds.max_attributes
+    candidate_attributes = [
+        attribute
+        for attribute in projection.attributes
+        if attribute.subject_node_id in selected_node_id_set
+    ]
+    attribute_truncated = len(candidate_attributes) > attr_cap
+    selected_attributes = candidate_attributes[:attr_cap]
+
+    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+        store=store,
+        projection=projection,
+        graph_object_ids=selected_node_id_set | {r.edge_id for r in selected_relationships},
+        assertion_ids={a.assertion_id for a in selected_attributes},
+        max_source_anchors=request.bounds.max_source_anchors,
+    )
+
+    nodes_out = [_convert_node(node_by_id[node_id]) for node_id in selected_ids]
+    coverage = WorldGraphRetrievalCoverage(
+        requested_seed_node_ids=list(request.seed_node_ids),
+        missing_seed_node_ids=missing_seed_ids,
+        unreadable_anchor_ids=unreadable_ids,
+        truncated_fields=_truncated_fields(
+            nodes=node_truncated,
+            relationships=relationship_truncated,
+            attributes=attribute_truncated,
+            source_anchors=anchor_truncated,
+        ),
+    )
+    outcome = _determine_outcome(
+        truncated=bool(coverage.truncated_fields),
+        partial=bool(missing_seed_ids),
+        has_content=bool(nodes_out),
+    )
+
+    return WorldGraphRetrievalResult(
+        operation="neighborhood",
+        outcome=outcome,
+        snapshot=_snapshot_from_projection(projection),
+        request_summary=_request_summary(request),
+        matched_node_ids=selected_ids,
+        nodes=nodes_out,
+        relationships=[_convert_relationship(r) for r in selected_relationships],
+        attributes=[_convert_attribute(a) for a in selected_attributes],
+        source_anchors=source_anchors,
+        coverage=coverage,
+        trust_boundary=_trust_boundary(),
+        diagnostics=_outcome_diagnostics(coverage),
+    )
+
+
+def get_object_evidence(
+    root: Path, request: WorldGraphEvidenceRequest
+) -> WorldGraphRetrievalResult:
+    request = _revalidate(WorldGraphEvidenceRequest, request)
+    loaded = _load_projection_and_store(
+        root,
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        focus=request.focus,
+        admissibility=request.admissibility,
+        revision_pin=request.revision_pin,
+    )
+    if loaded is None:
+        return _unavailable_result("evidence", request)
+    projection, store = loaded
+
+    target = request.target
+    nodes_out: list[WorldGraphRetrievalNode] = []
+    relationships_out: list[WorldGraphRetrievalRelationship] = []
+    attributes_out: list[WorldGraphRetrievalAttribute] = []
+    graph_object_ids: set[str] = set()
+    assertion_ids: set[str] = set()
+    found = False
+
+    if target.kind == "node":
+        node_view = next(
+            (node for node in projection.nodes if node.node_id == target.id), None
+        )
+        if node_view is not None:
+            found = True
+            nodes_out = [_convert_node(node_view)]
+            graph_object_ids = {target.id}
+    elif target.kind == "relationship":
+        relationship_view = next(
+            (r for r in projection.relationships if r.edge_id == target.id), None
+        )
+        if relationship_view is not None:
+            found = True
+            relationships_out = [_convert_relationship(relationship_view)]
+            graph_object_ids = {target.id}
+    else:
+        attribute_view = next(
+            (a for a in projection.attributes if a.assertion_id == target.id), None
+        )
+        if attribute_view is not None:
+            found = True
+            attributes_out = [_convert_attribute(attribute_view)]
+            assertion_ids = {target.id}
+
+    if not found:
+        return WorldGraphRetrievalResult(
+            operation="evidence",
+            outcome="empty",
+            snapshot=_snapshot_from_projection(projection),
+            request_summary=_request_summary(request),
+            trust_boundary=_trust_boundary(),
+        )
+
+    source_anchors, anchor_truncated, unreadable_ids = _source_anchors_for_targets(
+        store=store,
+        projection=projection,
+        graph_object_ids=graph_object_ids,
+        assertion_ids=assertion_ids,
+        max_source_anchors=request.bounds.max_source_anchors,
+    )
+    coverage = WorldGraphRetrievalCoverage(
+        unreadable_anchor_ids=unreadable_ids,
+        truncated_fields=_truncated_fields(source_anchors=anchor_truncated),
+    )
+    outcome = _determine_outcome(
+        truncated=bool(coverage.truncated_fields),
+        partial=bool(unreadable_ids),
+        has_content=bool(source_anchors),
+    )
+
+    return WorldGraphRetrievalResult(
+        operation="evidence",
+        outcome=outcome,
+        snapshot=_snapshot_from_projection(projection),
+        request_summary=_request_summary(request),
+        nodes=nodes_out,
+        relationships=relationships_out,
+        attributes=attributes_out,
+        source_anchors=source_anchors,
+        coverage=coverage,
+        trust_boundary=_trust_boundary(),
+        diagnostics=_outcome_diagnostics(coverage),
+    )
+
+
+def _handle_source_read(
+    read_callable: Callable[[], SourceReadOutcome],
+) -> SourceReadOutcome | None:
+    try:
+        return read_callable()
+    except SourceReadError as exc:
+        if exc.code in _SOURCE_READ_UNAVAILABLE_CODES:
+            return None
+        raise WorldGraphRetrievalError(
+            str(exc),
+            code=exc.code,
+            status_code=409,
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(code=exc.code, message=str(exc), severity="error")
+            ],
+        ) from exc
+
+
+def read_source_anchor(
+    root: Path,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path | None = None,
+) -> WorldGraphSourceAnchorReadResult:
+    request = _revalidate(WorldGraphSourceAnchorReadRequest, request)
+    resolved_repo_root = repo_root if repo_root is not None else _default_repo_root()
+
+    loaded = _load_projection_and_store(
+        root,
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        focus=request.focus,
+        admissibility=request.admissibility,
+        revision_pin=request.revision_pin,
+    )
+    if loaded is None:
+        return WorldGraphSourceAnchorReadResult(
+            outcome="unavailable",
+            snapshot=None,
+            anchor_id=request.anchor_id,
+            trust_boundary=_trust_boundary(),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="world_graph_unavailable",
+                    message="The requested world graph or revision could not be opened.",
+                    severity="warning",
+                )
+            ],
+        )
+    projection, store = loaded
+    snapshot = _snapshot_from_projection(projection)
+
+    derivations = _anchor_derivations_for_supports(
+        store=store, projection=projection, supports=_all_active_supports(store)
+    )
+    match = next(
+        (item for item in derivations if item.anchor.anchor_id == request.anchor_id), None
+    )
+    if match is None:
+        return WorldGraphSourceAnchorReadResult(
+            outcome="empty",
+            snapshot=snapshot,
+            anchor_id=request.anchor_id,
+            trust_boundary=_trust_boundary(),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="unknown_anchor",
+                    message=(
+                        "No admissible source anchor matches this anchor id in the "
+                        "requested context."
+                    ),
+                    severity="warning",
+                )
+            ],
+        )
+
+    anchor = match.anchor
+    if not anchor.readable or anchor.locator_kind == "unsupported":
+        return WorldGraphSourceAnchorReadResult(
+            outcome="partial",
+            snapshot=snapshot,
+            anchor_id=request.anchor_id,
+            evidence_ref_id=anchor.evidence_ref_id,
+            source_artifact_id=anchor.source_artifact_id,
+            source_domain=anchor.source_domain,
+            locator_kind=anchor.locator_kind,
+            trust_boundary=_trust_boundary(),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="unsupported_locator",
+                    message="This source anchor's locator/URI scheme is not supported for reading.",
+                    severity="warning",
+                )
+            ],
+        )
+
+    source_artifact = store.source_artifacts.get(anchor.source_artifact_id)
+    if source_artifact is None:
+        raise WorldGraphRetrievalError(
+            "Source artifact referenced by an admissible anchor is missing from the "
+            "revision store.",
+            code="projection_integrity_error",
+            status_code=409,
+        )
+
+    read_outcome: SourceReadOutcome | None
+    if anchor.locator_kind == "heading":
+        relative_path = parse_repo_uri(source_artifact.uri)
+        heading_text = parse_heading_locator(match.locator or "")
+        if relative_path is None or heading_text is None:
+            raise WorldGraphRetrievalError(
+                "Heading anchor URI/locator no longer matches the expected "
+                "repo:// + heading: shape.",
+                code="projection_integrity_error",
+                status_code=409,
+            )
+        extra = source_artifact.model_extra or {}
+        raw_sha = extra.get("content_sha256")
+        expected_sha = raw_sha if isinstance(raw_sha, str) and raw_sha else None
+        read_outcome = _handle_source_read(
+            lambda: read_repo_heading_anchor(
+                repo_root=resolved_repo_root,
+                relative_path=relative_path,
+                heading_text=heading_text,
+                expected_content_sha256=expected_sha,
+                max_chars=request.max_chars,
+            )
+        )
+    elif anchor.locator_kind == "json_pointer":
+        json_pointer = parse_json_pointer_locator(match.locator or "")
+        if json_pointer is None or match.contribution_id is None:
+            raise WorldGraphRetrievalError(
+                "JSON-pointer anchor locator/context no longer matches the expected "
+                "graph-data:// + jsonptr: shape.",
+                code="projection_integrity_error",
+                status_code=409,
+            )
+        try:
+            contribution = _load_validated_contribution(
+                root, request.world_id, match.contribution_id
+            )
+        except WorldGraphProjectionError as exc:
+            raise _map_projection_error(exc) from exc
+        read_outcome = _handle_source_read(
+            lambda: read_graph_data_json_pointer_anchor(
+                contribution_payload=contribution.model_dump(mode="json"),
+                json_pointer=json_pointer,
+                max_chars=request.max_chars,
+            )
+        )
+    else:
+        read_outcome = None
+
+    if read_outcome is None:
+        return WorldGraphSourceAnchorReadResult(
+            outcome="unavailable",
+            snapshot=snapshot,
+            anchor_id=request.anchor_id,
+            evidence_ref_id=anchor.evidence_ref_id,
+            source_artifact_id=anchor.source_artifact_id,
+            source_domain=anchor.source_domain,
+            locator_kind=anchor.locator_kind,
+            trust_boundary=_trust_boundary(),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="source_unavailable",
+                    message="The admitted source could not be opened.",
+                    severity="warning",
+                )
+            ],
+        )
+
+    outcome: RetrievalOutcome = "truncated" if read_outcome.truncated else "enough"
+    diagnostics: list[WorldGraphRetrievalDiagnostic] = []
+    if read_outcome.truncated:
+        diagnostics.append(
+            WorldGraphRetrievalDiagnostic(
+                code="content_truncated",
+                message=f"Content truncated to {request.max_chars} characters.",
+                severity="warning",
+            )
+        )
+
+    return WorldGraphSourceAnchorReadResult(
+        outcome=outcome,
+        snapshot=snapshot,
+        anchor_id=request.anchor_id,
+        evidence_ref_id=anchor.evidence_ref_id,
+        source_artifact_id=anchor.source_artifact_id,
+        source_domain=anchor.source_domain,
+        locator_kind=anchor.locator_kind,
+        media_type=read_outcome.media_type,
+        content=read_outcome.content,
+        content_sha256=read_outcome.content_sha256,
+        line_start=read_outcome.line_start,
+        line_end=read_outcome.line_end,
+        truncated=read_outcome.truncated,
+        trust_boundary=_trust_boundary(),
+        diagnostics=diagnostics,
+    )
+
+
+__all__ = [
+    "WorldGraphRetrievalError",
+    "get_campaign_object",
+    "get_object_evidence",
+    "get_object_neighborhood",
+    "read_source_anchor",
+    "search_campaign_graph",
+]
