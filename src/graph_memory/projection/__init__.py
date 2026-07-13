@@ -8,6 +8,12 @@ from graph_memory.projection.node_view import (
     GraphProjectionSuggestedExpansion,
     GraphProjectionTextHighlightSpan,
 )
+from graph_memory.projection.world_projection import (
+    WorldGraphProjection,
+    WorldGraphProjectionErrorResponse,
+    WorldGraphProjectionRequest,
+    WorldGraphQueryContext,
+)
 from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
     RecapProjectionMention,
@@ -28,4 +34,8 @@ __all__ = [
     "build_focus_overlay",
     "build_node_view",
     "build_recap_graph_projection",
+    "WorldGraphProjection",
+    "WorldGraphProjectionErrorResponse",
+    "WorldGraphProjectionRequest",
+    "WorldGraphQueryContext",
 ]

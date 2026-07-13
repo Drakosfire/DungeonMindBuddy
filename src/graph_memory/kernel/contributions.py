@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -99,6 +100,86 @@ def semantic_assertion_value(value: dict[str, Any] | None) -> dict[str, Any]:
         for key, item in dict(value or {}).items()
         if key not in PROVENANCE_ONLY_ASSERTION_VALUE_KEYS
     }
+
+
+@dataclass(frozen=True)
+class AssertionProvenance:
+    """Normalized explicit provenance declared by one assertion.
+
+    This is deliberately independent of assertion identity: provenance-only
+    fields may change without changing ``assertion_id``, so merge,
+    validation, and projection must all derive their lineage from this same
+    representation.
+    """
+
+    evidence_ref_ids: list[str]
+    source_artifact_ids: list[str]
+
+
+def normalize_assertion_provenance(
+    assertion: GraphContributionAssertion,
+) -> AssertionProvenance:
+    """Return every supported explicit provenance representation consistently."""
+    value = dict(assertion.value or {})
+    evidence_ref_ids: set[str] = set(assertion.evidence_ref_ids)
+    nested_evidence_ref_ids = value.get("evidence_ref_ids")
+    if isinstance(nested_evidence_ref_ids, list):
+        evidence_ref_ids.update(
+            str(item) for item in nested_evidence_ref_ids if str(item).strip()
+        )
+
+    source_artifact_ids: set[str] = set()
+    if assertion.source_artifact_id:
+        source_artifact_ids.add(assertion.source_artifact_id)
+    nested_source_artifact_id = value.get("source_artifact_id")
+    if nested_source_artifact_id:
+        source_artifact_ids.add(str(nested_source_artifact_id))
+
+    for entry in value.get("evidence") or []:
+        if not isinstance(entry, dict):
+            continue
+        evidence_ref_id = entry.get("evidence_ref_id")
+        if evidence_ref_id:
+            evidence_ref_ids.add(str(evidence_ref_id))
+        source_artifact_id = entry.get("source_artifact_id")
+        if source_artifact_id:
+            source_artifact_ids.add(str(source_artifact_id))
+
+    for entry in value.get("source_artifacts") or []:
+        if isinstance(entry, dict):
+            source_artifact_id = entry.get("source_artifact_id")
+            if source_artifact_id:
+                source_artifact_ids.add(str(source_artifact_id))
+
+    return AssertionProvenance(
+        evidence_ref_ids=sorted(evidence_ref_ids),
+        source_artifact_ids=sorted(source_artifact_ids),
+    )
+
+
+def explicit_assertion_evidence_ref_ids(assertion: GraphContributionAssertion) -> list[str]:
+    """Full explicit evidence lineage declared by one assertion.
+
+    Includes ``evidence_ref_ids`` (top level and nested under ``value``) and
+    ``evidence_ref_id`` entries embedded in ``value["evidence"]`` objects.
+    Provenance-only fields are excluded from assertion identity, so this must
+    be the single place both the merge (write) path and the projection (read)
+    path derive "what evidence did this contribution actually assert" from —
+    otherwise a mutation to provenance-only fields can silently change what
+    the projection returns without changing ``assertion_id``.
+    """
+    return normalize_assertion_provenance(assertion).evidence_ref_ids
+
+
+def explicit_assertion_source_artifact_ids(assertion: GraphContributionAssertion) -> list[str]:
+    """Full explicit source-artifact lineage declared by one assertion.
+
+    Includes ``source_artifact_id`` (top level and nested under ``value``)
+    and ``source_artifact_id`` entries embedded in ``value["source_artifacts"]``
+    objects. See ``explicit_assertion_evidence_ref_ids`` for why this must be
+    shared between the merge and projection paths.
+    """
+    return normalize_assertion_provenance(assertion).source_artifact_ids
 
 
 def _canonicalize_assertion_identity(

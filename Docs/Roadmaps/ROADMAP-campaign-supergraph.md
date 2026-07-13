@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
-**Status:** Canonical implementation roadmap  
-**Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)  
-**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
-**PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
+**Status:** Canonical implementation roadmap
+**Date:** 2026-07-10
+**Updated:** 2026-07-11 (PR005B contract link; Phase 2.5 / PR011 point at CONTRACT-agent-tool-authored-prep-contributions-v0)
+**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
+**PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Document audit:** [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
 
 This roadmap describes **implementation milestones**, not experiments. Phases are sequential where noted; PR slices inside a phase may parallelize only when dependencies allow.
@@ -162,7 +162,7 @@ fact; publication must not knowingly proceed under that incorrect contract.
 - **PR006A** — Heterogeneous Provenance Diagnostic
 - **PR006B** — Separate Semantic Assertion Identity from Provenance
 - **PR006C** — Approved Initial Contribution Bundle
-- **PR006D** — Publish Initial Eldyrwild C2 World Supergraph
+- **PR006D** — Publish Initial Eldyrwild C2 World Supergraph (D1 Kernel init DONE; D2 operator activation DONE; D3 `/ingest` UI deferred)
 
 **Demolition owned here:** Remove or isolate production dependence on preview union stores and named preview sources for **runtime graph availability**. Runtime must load the world graph head, not a preview fixture. Delete replaced paths in this PR unless a named consumer remains.
 
@@ -193,7 +193,8 @@ fact; publication must not knowingly proceed under that incorrect contract.
 - Loads **without** preview source, eval fixture, explicit manifest, or latest-session selector as the selection mechanism.
 - Projection work (Phase 4) uses this graph as its acceptance fixture.
 - Plan migration (Phase 5) can be tested against the PR006D published World
-  Supergraph.
+  Supergraph once PR007A read snapshot lands. `/ingest` UI (PR006D3) is deferred
+  and is not a Plan dogfood dependency — operator activation via PR006D2 suffices.
 
 ---
 
@@ -205,7 +206,10 @@ fact; publication must not knowingly proceed under that incorrect contract.
 
 **Dependencies:** Phase 3 (real populated graph).
 
-**Expected PR slices:** Tracker **PR007**.
+**Expected PR slices:** Tracker **PR007** (PR007A read snapshot active).
+
+**Dogfood path:** PR006D2 operator activation → PR007A revision-pinned read
+snapshot → PR008 Plan surface migration. PR006D3 `/ingest` UI remains deferred.
 
 **Demolition owned here:** Replace graph-preview selection APIs with the persistent world graph read API. Delete replaced production selectors in this PR unless a named consumer remains.
 
@@ -226,19 +230,22 @@ fact; publication must not knowingly proceed under that incorrect contract.
 
 **Objective:** Plan (then Play, including combat lenses) consume projections only; no surface-owned graph semantics.
 
-**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. Q&A waits until cards are useful against real memory.
+**Motivation:** Object cards and dogfood harnesses exist. They need the real projection from Phase 3–4. First read-only Plan + Agent dogfood can begin once PR007A lands; full retrieval sophistication may follow in Phase 7 (PR010) but is not a blocker for PR008A vertical dogfood.
 
-**Dependencies:** Phase 4.
+**Dependencies:** Phase 4 (PR007A read snapshot; PR006D3 UI not required).
 
-**Expected PR slices:** Tracker **PR008** (Plan), **PR009** (Play), Build follow-ons as needed.
+**Dogfood path:** PR006D2 activation → PR007A projection read API → **PR008A** Plan + Agent wiring.
+PR006D3 `/ingest` UI deferred — not a blocker for Plan dogfood.
+
+**Expected PR slices:** Tracker **PR008A** (Plan + Agent vertical dogfood), **PR008** follow-ons, **PR009** (Play), Build follow-ons as needed.
 
 **Demolition owned here (Plan):** Delete the session-derived `useLatestGraphIngest` path in the same PR that wires real projection (no deferral to PR012 without a named consumer).
 
 **Suggested Plan sub-sequence:**
 
-1. Wire Plan to Projection Engine / production graph-context contract.
+1. Wire Plan + Agent Interaction to Projection Engine / production graph-context contract (PR008A).
 2. Rerun object-card usefulness dogfood against the Phase 3 graph.
-3. Only then: Plan-scoped graph-memory Q&A (later / retrieval-backed).
+3. Expand retrieval sophistication in PR010 when needed; Plan-scoped graph-memory Q&A can follow PR008A dogfood.
 
 **Exit criteria:**
 
@@ -329,11 +336,13 @@ fact; publication must not knowingly proceed under that incorrect contract.
 | GitHub PR321 dogfood harness + blocker discovery | Evidence that real graph context is required |
 | Informal “plan graph-context” | Absorbed into Phase 4 **PR007** + Plan wiring **PR008** |
 | Informal “continue dogfood” | Phase 5 after Phase 3 materialization |
-| Informal “Plan Q&A” | After useful cards; prefer Phase 7 retrieval-backed |
+| Informal “Plan Q&A” | PR008A dogfood first; prefer PR010 when retrieval-backed |
 
-Do not resume Q&A as the next architecture move. Repair semantic assertion
-identity, approve and publish the graph-native contribution bundle, then
-project, then migrate Plan.
+Do not treat broad Q&A retrieval as the immediate next architecture move. After
+PR007A projection lands, the next product slice is **PR008A** — read-only Plan
+plus Agent query dogfood on the projected graph — while **PR010** carries
+generalized retrieval-backed Q&A. Repair semantic assertion identity, approve
+and publish the graph-native contribution bundle, then project, then wire Plan.
 
 ---
 

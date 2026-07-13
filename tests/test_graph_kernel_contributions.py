@@ -207,11 +207,3 @@ def test_kernel_exports_pr005_apis_after_pr005() -> None:
     ):
         assert name in kernel.__all__
         assert hasattr(kernel, name)
-
-    for name in (
-        "project_world_graph",
-        "build_projection_payload",
-        "resolve_projection_admissibility",
-    ):
-        assert name not in kernel.__all__
-        assert not hasattr(kernel, name)

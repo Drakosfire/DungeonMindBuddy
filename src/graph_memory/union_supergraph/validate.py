@@ -349,6 +349,46 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 f"assertion_support {support_id} source_artifact_id "
                 f"{artifact_id!r} does not resolve",
             )
+        active_contribution_ids = set(typed.active_contribution_ids)
+        _require(
+            set(typed.per_contribution_evidence_ref_ids) == active_contribution_ids,
+            errors,
+            f"assertion_support {support_id} evidence lineage keys must "
+            "exactly match active_contribution_ids",
+        )
+        _require(
+            set(typed.per_contribution_source_artifact_ids)
+            == active_contribution_ids,
+            errors,
+            f"assertion_support {support_id} source-artifact lineage keys "
+            "must exactly match active_contribution_ids",
+        )
+        for contribution_id, evidence_ids in typed.per_contribution_evidence_ref_ids.items():
+            _require(
+                isinstance(contribution_id, str) and contribution_id.strip(),
+                errors,
+                f"assertion_support {support_id} has empty evidence lineage contribution id",
+            )
+            for evidence_id in evidence_ids:
+                _require(
+                    evidence_id in evidence,
+                    errors,
+                    f"assertion_support {support_id} contribution {contribution_id!r} "
+                    f"evidence_ref_id {evidence_id!r} does not resolve",
+                )
+        for contribution_id, artifact_ids in typed.per_contribution_source_artifact_ids.items():
+            _require(
+                isinstance(contribution_id, str) and contribution_id.strip(),
+                errors,
+                f"assertion_support {support_id} has empty source lineage contribution id",
+            )
+            for artifact_id in artifact_ids:
+                _require(
+                    artifact_id in artifacts,
+                    errors,
+                    f"assertion_support {support_id} contribution {contribution_id!r} "
+                    f"source_artifact_id {artifact_id!r} does not resolve",
+                )
         if typed.graph_object_id is not None:
             _require(
                 typed.graph_object_id in nodes or typed.graph_object_id in edges,

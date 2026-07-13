@@ -14,6 +14,9 @@ from graph_memory.kernel.contribution_models import (
 from graph_memory.kernel.contributions import (
     _canonicalize_graph_contribution_assertions,
     create_graph_contribution,
+    explicit_assertion_evidence_ref_ids,
+    explicit_assertion_source_artifact_ids,
+    normalize_assertion_provenance,
 )
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
@@ -161,6 +164,135 @@ def _ensure_evidence(
     evidence[evidence_ref_id] = UnionSupergraphEvidence.model_validate(payload)
 
 
+def _materialize_assertion_provenance(
+    store: UnionSupergraphStore,
+    assertion: GraphContributionAssertion,
+    contribution: GraphContribution,
+    *,
+    context: str,
+    strict_embedded_evidence: bool = False,
+) -> tuple[
+    dict[str, UnionSupergraphEvidence],
+    dict[str, UnionSupergraphSourceArtifact],
+    list[str],
+]:
+    """Materialize every provenance form accepted by the shared normalizer.
+
+    Reference-only evidence ids must already resolve in the store; embedded
+    evidence and source-artifact payloads create their records here. This
+    makes it impossible for a merge to publish provenance the projection
+    reader cannot close over later.
+    """
+    value = dict(assertion.value)
+    provenance = normalize_assertion_provenance(assertion)
+    evidence = dict(store.evidence)
+    artifacts = dict(store.source_artifacts)
+    default_artifact_id = (
+        assertion.source_artifact_id
+        or contribution.source_artifact_id
+        or f"artifact:{contribution.contribution_id}"
+    )
+    default_domain = str(value.get("source_domain") or "manual_seed")
+
+    for artifact_payload in value.get("source_artifacts") or []:
+        if not isinstance(artifact_payload, dict):
+            raise ValueError(
+                f"{context} assertion {assertion.assertion_id} has invalid "
+                "embedded source artifact"
+            )
+        artifact_id = str(artifact_payload.get("source_artifact_id") or "")
+        if not artifact_id:
+            raise ValueError(
+                f"{context} assertion {assertion.assertion_id} embedded source "
+                "artifact is missing source_artifact_id"
+            )
+        artifact = UnionSupergraphSourceArtifact.model_validate(artifact_payload)
+        existing = artifacts.get(artifact_id)
+        if existing is not None and existing.model_dump(mode="json") != artifact.model_dump(
+            mode="json"
+        ):
+            raise ValueError(
+                f"{context} assertion {assertion.assertion_id} source artifact "
+                f"{artifact_id!r} disagrees with existing artifact"
+            )
+        artifacts[artifact_id] = artifact
+
+    for evidence_payload in value.get("evidence") or []:
+        if not isinstance(evidence_payload, dict):
+            raise ValueError(
+                f"{context} assertion {assertion.assertion_id} has invalid "
+                "embedded evidence"
+            )
+        evidence_ref_id = str(evidence_payload.get("evidence_ref_id") or "")
+        if not evidence_ref_id:
+            raise ValueError(
+                f"{context} assertion {assertion.assertion_id} embedded evidence "
+                "is missing evidence_ref_id"
+            )
+        evidence_artifact_id = str(
+            evidence_payload.get("source_artifact_id") or default_artifact_id
+        )
+        if strict_embedded_evidence:
+            artifact = artifacts.get(evidence_artifact_id)
+            if artifact is None:
+                raise ValueError(
+                    f"{context} assertion {assertion.assertion_id} evidence "
+                    f"{evidence_ref_id!r} is missing source artifact "
+                    f"{evidence_artifact_id!r}"
+                )
+            evidence_domain = str(
+                evidence_payload.get("source_domain") or default_domain
+            )
+            if artifact.source_domain != evidence_domain:
+                raise ValueError(
+                    f"{context} assertion {assertion.assertion_id} evidence "
+                    f"{evidence_ref_id!r} source domain disagrees with "
+                    f"artifact {evidence_artifact_id!r}"
+                )
+        _ensure_evidence(
+            evidence,
+            artifacts,
+            evidence_ref_id=evidence_ref_id,
+            source_artifact_id=evidence_artifact_id,
+            source_domain=str(evidence_payload.get("source_domain") or default_domain),
+            campaign_id=store.campaign_id,
+            session_id=evidence_payload.get("session_id"),
+            locator=evidence_payload.get("locator"),
+            source_span_ref_id=evidence_payload.get("source_span_ref_id"),
+        )
+
+    for artifact_id in provenance.source_artifact_ids:
+        if artifact_id not in artifacts:
+            _ensure_artifact(
+                artifacts,
+                artifact_id=artifact_id,
+                source_domain=default_domain,
+                campaign_id=store.campaign_id,
+            )
+
+    missing_evidence = [
+        evidence_ref_id
+        for evidence_ref_id in provenance.evidence_ref_ids
+        if evidence_ref_id not in evidence
+    ]
+    if missing_evidence:
+        raise ValueError(
+            f"{context} assertion {assertion.assertion_id} has unresolved "
+            f"evidence references: {missing_evidence}"
+        )
+    missing_artifacts = [
+        artifact_id
+        for artifact_id in provenance.source_artifact_ids
+        if artifact_id not in artifacts
+    ]
+    if missing_artifacts:
+        raise ValueError(
+            f"{context} assertion {assertion.assertion_id} has unresolved "
+            f"source artifacts: {missing_artifacts}"
+        )
+    return evidence, artifacts, provenance.evidence_ref_ids
+
+
 def _add_support(
     support: dict[str, DurableAssertionSupport],
     assertion: GraphContributionAssertion,
@@ -169,17 +301,21 @@ def _add_support(
     graph_object_id: str | None,
 ) -> None:
     existing = support.get(assertion.assertion_id)
-    artifact_ids = [aid for aid in [assertion.source_artifact_id] if aid]
+    contribution_evidence_ref_ids = explicit_assertion_evidence_ref_ids(assertion)
+    contribution_source_artifact_ids = explicit_assertion_source_artifact_ids(assertion)
     if existing is None:
         support[assertion.assertion_id] = DurableAssertionSupport(
             assertion_id=assertion.assertion_id,
             active_contribution_ids=[contribution_id],
-            evidence_ref_ids=list(assertion.evidence_ref_ids),
-            source_artifact_ids=artifact_ids,
+            evidence_ref_ids=contribution_evidence_ref_ids,
+            source_artifact_ids=contribution_source_artifact_ids,
             support_state="supported",
             introduced_by_contribution_id=contribution_id,
             assertion_kind=assertion.assertion_kind,
             graph_object_id=graph_object_id,
+            provenance_lineage_version=1,
+            per_contribution_evidence_ref_ids={contribution_id: contribution_evidence_ref_ids},
+            per_contribution_source_artifact_ids={contribution_id: contribution_source_artifact_ids},
         )
         return
 
@@ -187,13 +323,17 @@ def _add_support(
     if contribution_id not in active:
         active.append(contribution_id)
     evidence = list(existing.evidence_ref_ids)
-    for ref in assertion.evidence_ref_ids:
+    for ref in contribution_evidence_ref_ids:
         if ref not in evidence:
             evidence.append(ref)
     sources = list(existing.source_artifact_ids)
-    for aid in artifact_ids:
+    for aid in contribution_source_artifact_ids:
         if aid not in sources:
             sources.append(aid)
+    per_contribution_evidence = dict(existing.per_contribution_evidence_ref_ids)
+    per_contribution_evidence[contribution_id] = contribution_evidence_ref_ids
+    per_contribution_sources = dict(existing.per_contribution_source_artifact_ids)
+    per_contribution_sources[contribution_id] = contribution_source_artifact_ids
     support[assertion.assertion_id] = existing.model_copy(
         update={
             "active_contribution_ids": active,
@@ -201,6 +341,9 @@ def _add_support(
             "source_artifact_ids": sources,
             "support_state": "supported",
             "graph_object_id": existing.graph_object_id or graph_object_id,
+            "provenance_lineage_version": 1,
+            "per_contribution_evidence_ref_ids": per_contribution_evidence,
+            "per_contribution_source_artifact_ids": per_contribution_sources,
         }
     )
 
@@ -219,6 +362,10 @@ def _remove_contribution_support(
         active = [
             cid for cid in record.active_contribution_ids if cid != contribution_id
         ]
+        per_contribution_evidence = dict(record.per_contribution_evidence_ref_ids)
+        per_contribution_evidence.pop(contribution_id, None)
+        per_contribution_sources = dict(record.per_contribution_source_artifact_ids)
+        per_contribution_sources.pop(contribution_id, None)
         superseded = list(record.superseded_contribution_ids)
         retracted = list(record.retracted_contribution_ids)
         if as_superseded:
@@ -236,6 +383,8 @@ def _remove_contribution_support(
                 "superseded_contribution_ids": superseded,
                 "retracted_contribution_ids": retracted,
                 "support_state": state,
+                "per_contribution_evidence_ref_ids": per_contribution_evidence,
+                "per_contribution_source_artifact_ids": per_contribution_sources,
             }
         )
         if not active:
@@ -248,6 +397,14 @@ def _mark_graph_objects_unsupported(
     support: dict[str, DurableAssertionSupport],
     unsupported_assertion_ids: list[str],
 ) -> UnionSupergraphStore:
+    """Flip a node/edge's own memory_state when it loses its defining support.
+
+    Attribute and alias assertions share ``graph_object_id`` with the node or
+    edge they describe, but they are not what makes that node/edge exist --
+    losing an alias must not evict the whole node from the graph. Only a
+    ``node``/``edge`` kind assertion losing support means the graph object
+    itself is unsupported.
+    """
     nodes = dict(store.nodes)
     edges = dict(store.edges)
     for assertion_id in unsupported_assertion_ids:
@@ -255,7 +412,19 @@ def _mark_graph_objects_unsupported(
         if record is None or not record.graph_object_id:
             continue
         object_id = record.graph_object_id
-        if object_id in nodes:
+        has_other_active_support = any(
+            candidate.assertion_id != assertion_id
+            and candidate.graph_object_id == object_id
+            and candidate.assertion_kind == record.assertion_kind
+            and candidate.support_state == "supported"
+            and candidate.active_contribution_ids
+            for candidate in support.values()
+        )
+        if (
+            object_id in nodes
+            and record.assertion_kind == "node"
+            and not has_other_active_support
+        ):
             node = nodes[object_id]
             nodes[object_id] = node.model_copy(
                 update={
@@ -266,7 +435,11 @@ def _mark_graph_objects_unsupported(
                     }
                 }
             )
-        if object_id in edges:
+        if (
+            object_id in edges
+            and record.assertion_kind == "edge"
+            and not has_other_active_support
+        ):
             edge = edges[object_id]
             edges[object_id] = edge.model_copy(
                 update={
@@ -293,42 +466,10 @@ def _apply_node_assertion(
         )
 
     nodes = dict(store.nodes)
-    evidence = dict(store.evidence)
-    artifacts = dict(store.source_artifacts)
     aliases = dict(store.aliases)
-
-    evidence_ids = list(assertion.evidence_ref_ids)
-    for ref_payload in value.get("evidence") or []:
-        if not isinstance(ref_payload, dict):
-            continue
-        ref_id = str(ref_payload.get("evidence_ref_id") or "")
-        if not ref_id:
-            continue
-        _ensure_evidence(
-            evidence,
-            artifacts,
-            evidence_ref_id=ref_id,
-            source_artifact_id=str(
-                ref_payload.get("source_artifact_id")
-                or assertion.source_artifact_id
-                or f"artifact:{contribution.contribution_id}"
-            ),
-            source_domain=str(ref_payload.get("source_domain") or "manual_seed"),
-            campaign_id=store.campaign_id,
-            session_id=ref_payload.get("session_id"),
-            locator=ref_payload.get("locator"),
-            source_span_ref_id=ref_payload.get("source_span_ref_id"),
-        )
-        if ref_id not in evidence_ids:
-            evidence_ids.append(ref_id)
-
-    for artifact_payload in value.get("source_artifacts") or []:
-        if isinstance(artifact_payload, dict) and artifact_payload.get(
-            "source_artifact_id"
-        ):
-            artifacts[str(artifact_payload["source_artifact_id"])] = (
-                UnionSupergraphSourceArtifact.model_validate(artifact_payload)
-            )
+    evidence, artifacts, evidence_ids = _materialize_assertion_provenance(
+        store, assertion, contribution, context="node"
+    )
 
     if not evidence_ids:
         # Fall back to creating contribution-scoped evidence so validation can pass.
@@ -435,42 +576,10 @@ def _apply_edge_assertion(
         )
 
     edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
-    evidence = dict(store.evidence)
-    artifacts = dict(store.source_artifacts)
     edges = dict(store.edges)
-
-    evidence_ids = list(assertion.evidence_ref_ids)
-    for ref_payload in value.get("evidence") or []:
-        if not isinstance(ref_payload, dict):
-            continue
-        ref_id = str(ref_payload.get("evidence_ref_id") or "")
-        if not ref_id:
-            continue
-        _ensure_evidence(
-            evidence,
-            artifacts,
-            evidence_ref_id=ref_id,
-            source_artifact_id=str(
-                ref_payload.get("source_artifact_id")
-                or assertion.source_artifact_id
-                or f"artifact:{contribution.contribution_id}"
-            ),
-            source_domain=str(ref_payload.get("source_domain") or "manual_seed"),
-            campaign_id=store.campaign_id,
-            session_id=ref_payload.get("session_id"),
-            locator=ref_payload.get("locator"),
-            source_span_ref_id=ref_payload.get("source_span_ref_id"),
-        )
-        if ref_id not in evidence_ids:
-            evidence_ids.append(ref_id)
-
-    for artifact_payload in value.get("source_artifacts") or []:
-        if isinstance(artifact_payload, dict) and artifact_payload.get(
-            "source_artifact_id"
-        ):
-            artifacts[str(artifact_payload["source_artifact_id"])] = (
-                UnionSupergraphSourceArtifact.model_validate(artifact_payload)
-            )
+    evidence, artifacts, evidence_ids = _materialize_assertion_provenance(
+        store, assertion, contribution, context="edge"
+    )
 
     if not evidence_ids:
         ref_id = f"evidence:{contribution.contribution_id}:{edge_id}"
@@ -547,6 +656,7 @@ def _apply_edge_assertion(
 def _apply_alias_assertion(
     store: UnionSupergraphStore,
     assertion: GraphContributionAssertion,
+    contribution: GraphContribution,
 ) -> tuple[UnionSupergraphStore, str]:
     node_id = assertion.subject_node_id
     alias = assertion.label or str(assertion.value.get("alias") or "")
@@ -557,15 +667,34 @@ def _apply_alias_assertion(
             f"alias assertion {assertion.assertion_id} node does not exist"
         )
 
+    evidence, artifacts, evidence_ref_ids = _materialize_assertion_provenance(
+        store, assertion, contribution, context="alias"
+    )
     nodes = dict(store.nodes)
     node = nodes[node_id]
     aliases_list = list(node.aliases)
     if alias not in aliases_list:
         aliases_list.append(alias)
-    nodes[node_id] = node.model_copy(update={"aliases": aliases_list})
+    node_evidence_ref_ids = list(node.evidence_ref_ids)
+    for evidence_ref_id in evidence_ref_ids:
+        if evidence_ref_id not in node_evidence_ref_ids:
+            node_evidence_ref_ids.append(evidence_ref_id)
+    nodes[node_id] = node.model_copy(
+        update={"aliases": aliases_list, "evidence_ref_ids": node_evidence_ref_ids}
+    )
     alias_map = dict(store.aliases)
     alias_map[alias.casefold()] = node_id
-    return store.model_copy(update={"nodes": nodes, "aliases": alias_map}), node_id
+    return (
+        store.model_copy(
+            update={
+                "nodes": nodes,
+                "aliases": alias_map,
+                "evidence": evidence,
+                "source_artifacts": artifacts,
+            }
+        ),
+        node_id,
+    )
 
 
 # Identity outcomes that never create durable support / graph mutations on merge.
@@ -593,90 +722,15 @@ def _apply_attribute_assertion(
     assertion: GraphContributionAssertion,
     contribution: GraphContribution,
 ) -> tuple[UnionSupergraphStore, str | None]:
-    """Materialize embedded attribute evidence/artifacts; return subject id."""
+    """Materialize normalized attribute provenance; return subject id."""
     subject_id = assertion.subject_node_id
-    value = dict(assertion.value)
-    evidence = dict(store.evidence)
-    artifacts = dict(store.source_artifacts)
-
-    for artifact_payload in value.get("source_artifacts") or []:
-        if not isinstance(artifact_payload, dict):
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} has invalid "
-                "embedded source artifact"
-            )
-        artifact_id = str(artifact_payload.get("source_artifact_id") or "")
-        if not artifact_id:
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} embedded source "
-                "artifact is missing source_artifact_id"
-            )
-        artifact = UnionSupergraphSourceArtifact.model_validate(artifact_payload)
-        existing_artifact = artifacts.get(artifact_id)
-        if (
-            existing_artifact is not None
-            and existing_artifact.model_dump(mode="json")
-            != artifact.model_dump(mode="json")
-        ):
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} source artifact "
-                f"{artifact_id!r} disagrees with existing artifact"
-            )
-        artifacts[artifact_id] = artifact
-
-    for ref_payload in value.get("evidence") or []:
-        if not isinstance(ref_payload, dict):
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} has invalid "
-                "embedded evidence"
-            )
-        payload = dict(ref_payload)
-        payload.setdefault("evidence_role", "contribution_support")
-        payload.setdefault("can_open_source", True)
-        payload.setdefault(
-            "can_highlight_span", bool(payload.get("source_span_ref_id"))
-        )
-        try:
-            embedded = UnionSupergraphEvidence.model_validate(payload)
-        except ValueError as exc:
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} has invalid "
-                f"embedded evidence: {exc}"
-            ) from exc
-        artifact = artifacts.get(embedded.source_artifact_id)
-        if artifact is None:
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} evidence "
-                f"{embedded.evidence_ref_id!r} is missing source artifact "
-                f"{embedded.source_artifact_id!r}"
-            )
-        if embedded.source_domain != artifact.source_domain:
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} evidence "
-                f"{embedded.evidence_ref_id!r} source domain disagrees with "
-                f"artifact {embedded.source_artifact_id!r}"
-            )
-        existing_evidence = evidence.get(embedded.evidence_ref_id)
-        if (
-            existing_evidence is not None
-            and existing_evidence.model_dump(mode="json")
-            != embedded.model_dump(mode="json")
-        ):
-            raise ValueError(
-                f"attribute assertion {assertion.assertion_id} evidence "
-                f"{embedded.evidence_ref_id!r} disagrees with existing evidence"
-            )
-        evidence[embedded.evidence_ref_id] = embedded
-
-    missing_evidence = [
-        ref_id for ref_id in assertion.evidence_ref_ids if ref_id not in evidence
-    ]
-    if missing_evidence:
-        raise ValueError(
-            f"attribute assertion {assertion.assertion_id} has unresolved "
-            f"evidence references: {missing_evidence}"
-        )
-
+    evidence, artifacts, _evidence_ref_ids = _materialize_assertion_provenance(
+        store,
+        assertion,
+        contribution,
+        context="attribute",
+        strict_embedded_evidence=True,
+    )
     return (
         store.model_copy(update={"evidence": evidence, "source_artifacts": artifacts}),
         subject_id,
@@ -706,7 +760,9 @@ def apply_accepted_assertions(
                 working, assertion, contribution
             )
         elif assertion.assertion_kind == "alias":
-            working, graph_object_id = _apply_alias_assertion(working, assertion)
+            working, graph_object_id = _apply_alias_assertion(
+                working, assertion, contribution
+            )
         elif assertion.assertion_kind in {"attribute", "evidence_ref"}:
             working, graph_object_id = _apply_attribute_assertion(
                 working, assertion, contribution

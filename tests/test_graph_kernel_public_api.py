@@ -29,19 +29,10 @@ def test_kernel_public_api_can_publish_and_load_world_graph(tmp_path: Path) -> N
 
 def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
     public_names = set(kernel.__all__)
+    assert ALL_RESERVED_KERNEL_APIS == ()
     for name in ALL_RESERVED_KERNEL_APIS:
         assert name not in public_names, f"{name} must not be exported as complete Kernel API"
         assert not hasattr(kernel, name), f"{name} leaked onto graph_memory.kernel"
-
-    from graph_memory.kernel import contracts
-
-    for name in ALL_RESERVED_KERNEL_APIS:
-        fn = getattr(contracts, name)
-        try:
-            fn()
-            raise AssertionError(f"{name} must raise NotImplementedError")
-        except NotImplementedError as exc:
-            assert "reserved" in str(exc).lower() or "PR00" in str(exc)
 
     # PR004 identity APIs are implemented and exported.
     for name in (
@@ -67,11 +58,13 @@ def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
         assert name in public_names
         assert callable(getattr(kernel, name))
 
-    # PR007 projection remains reserved.
+    # PR007A projection APIs are implemented and exported.
     for name in (
         "project_world_graph",
         "build_projection_payload",
         "resolve_projection_admissibility",
+        "search_world_graph_projection",
+        "WorldGraphProjectionError",
     ):
-        assert name not in public_names
-        assert not hasattr(kernel, name)
+        assert name in public_names
+        assert callable(getattr(kernel, name)) or name == "WorldGraphProjectionError"
