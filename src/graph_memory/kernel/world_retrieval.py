@@ -23,6 +23,7 @@ from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.world_projection import (
     WorldGraphProjectionError,
     _active_supports_for_graph_object,
+    _endpoint_relative_direction,
     _load_revision_context,
     _load_validated_contribution,
     _parse_support,
@@ -284,14 +285,21 @@ def _convert_node(node: WorldGraphProjectionNodeView) -> WorldGraphRetrievalNode
 
 def _convert_relationship(
     relationship: WorldGraphProjectionRelationshipView,
+    *,
+    direction_from_node_id: str | None = None,
 ) -> WorldGraphRetrievalRelationship:
+    direction = (
+        _endpoint_relative_direction(relationship, direction_from_node_id)
+        if direction_from_node_id is not None
+        else relationship.direction
+    )
     return WorldGraphRetrievalRelationship(
         edge_id=relationship.edge_id,
         source_node_id=relationship.source_node_id,
         target_node_id=relationship.target_node_id,
         predicate=relationship.predicate,
         label=relationship.label,
-        direction=relationship.direction,
+        direction=direction,
         session_ids=list(relationship.session_ids),
         source_domains=list(relationship.source_domains),
         visibility=relationship.visibility,
@@ -501,13 +509,40 @@ def _display_label(locator: str | None) -> str | None:
     return None
 
 
-def _all_active_supports(store: UnionSupergraphStore) -> list[DurableAssertionSupport]:
+def _projection_admitted_anchor_derivations(
+    *,
+    store: UnionSupergraphStore,
+    projection: WorldGraphProjection,
+) -> list[_AnchorDerivation]:
+    graph_object_ids = (
+        {node.node_id for node in projection.nodes}
+        | {relationship.edge_id for relationship in projection.relationships}
+    )
+    assertion_ids = {attribute.assertion_id for attribute in projection.attributes}
+
     supports: list[DurableAssertionSupport] = []
-    for raw_support in store.assertion_support.values():
-        support = _parse_support(raw_support)
-        if support.support_state == "supported" and support.active_contribution_ids:
+    seen_assertion_ids: set[str] = set()
+    for graph_object_id in sorted(graph_object_ids):
+        for support in _active_supports_for_graph_object(store, graph_object_id):
+            if support.assertion_id in seen_assertion_ids:
+                continue
+            seen_assertion_ids.add(support.assertion_id)
             supports.append(support)
-    return supports
+    if assertion_ids:
+        for raw_support in store.assertion_support.values():
+            support = _parse_support(raw_support)
+            if support.assertion_id not in assertion_ids:
+                continue
+            if support.support_state != "supported" or not support.active_contribution_ids:
+                continue
+            if support.assertion_id in seen_assertion_ids:
+                continue
+            seen_assertion_ids.add(support.assertion_id)
+            supports.append(support)
+
+    return _anchor_derivations_for_supports(
+        store=store, projection=projection, supports=supports
+    )
 
 
 def _anchor_derivations_for_supports(
@@ -801,7 +836,9 @@ def get_campaign_object(
     )
     diagnostics = diagnostics + _outcome_diagnostics(coverage)
     outcome = _determine_outcome(
-        truncated=bool(coverage.truncated_fields), partial=False, has_content=True
+        truncated=bool(coverage.truncated_fields),
+        partial=bool(unreadable_ids),
+        has_content=True,
     )
 
     return WorldGraphRetrievalResult(
@@ -846,20 +883,29 @@ def get_object_neighborhood(
         dict.fromkeys(seed_id for seed_id in request.seed_node_ids if seed_id in node_by_id)
     )
 
+    node_cap = request.bounds.max_nodes
+    seed_truncated = len(present_seed_ids) > node_cap
+    if seed_truncated:
+        present_seed_ids = present_seed_ids[:node_cap]
+
     adjacency: dict[str, list[WorldGraphProjectionRelationshipView]] = {}
     for relationship in projection.relationships:
         adjacency.setdefault(relationship.source_node_id, []).append(relationship)
         adjacency.setdefault(relationship.target_node_id, []).append(relationship)
 
+    node_depth: dict[str, int] = {seed_id: 0 for seed_id in present_seed_ids}
+    edge_discoverer: dict[str, str] = {}
     visited_node_ids: set[str] = set(present_seed_ids)
     visited_edge_ids: set[str] = set()
     frontier = list(present_seed_ids)
-    for _depth in range(request.max_depth):
+    for depth in range(1, request.max_depth + 1):
         next_frontier: list[str] = []
         for node_id in sorted(frontier):
             for relationship in sorted(
                 adjacency.get(node_id, []), key=lambda item: item.edge_id
             ):
+                if relationship.edge_id not in edge_discoverer:
+                    edge_discoverer[relationship.edge_id] = node_id
                 visited_edge_ids.add(relationship.edge_id)
                 other_id = (
                     relationship.target_node_id
@@ -868,15 +914,19 @@ def get_object_neighborhood(
                 )
                 if other_id not in visited_node_ids:
                     visited_node_ids.add(other_id)
+                    node_depth[other_id] = depth
                     next_frontier.append(other_id)
         frontier = next_frontier
 
-    others_ordered = sorted(visited_node_ids - set(present_seed_ids))
-    node_cap = request.bounds.max_nodes
-    total_before_cap = len(present_seed_ids) + len(others_ordered)
+    others_ordered = sorted(
+        (node_id for node_id in visited_node_ids if node_id not in set(present_seed_ids)),
+        key=lambda node_id: (node_depth.get(node_id, request.max_depth + 1), node_id),
+    )
     remaining_capacity = max(node_cap - len(present_seed_ids), 0)
     selected_ids = present_seed_ids + others_ordered[:remaining_capacity]
-    node_truncated = total_before_cap > len(selected_ids)
+    node_truncated = seed_truncated or (
+        len(present_seed_ids) + len(others_ordered) > len(selected_ids)
+    )
     selected_node_id_set = set(selected_ids)
 
     rel_cap = request.bounds.max_relationships
@@ -924,7 +974,7 @@ def get_object_neighborhood(
     )
     outcome = _determine_outcome(
         truncated=bool(coverage.truncated_fields),
-        partial=bool(missing_seed_ids),
+        partial=bool(missing_seed_ids) or bool(unreadable_ids),
         has_content=bool(nodes_out),
     )
 
@@ -935,7 +985,13 @@ def get_object_neighborhood(
         request_summary=_request_summary(request),
         matched_node_ids=selected_ids,
         nodes=nodes_out,
-        relationships=[_convert_relationship(r) for r in selected_relationships],
+        relationships=[
+            _convert_relationship(
+                relationship,
+                direction_from_node_id=edge_discoverer[relationship.edge_id],
+            )
+            for relationship in selected_relationships
+        ],
         attributes=[_convert_attribute(a) for a in selected_attributes],
         source_anchors=source_anchors,
         coverage=coverage,
@@ -1086,9 +1142,7 @@ def read_source_anchor(
     projection, store = loaded
     snapshot = _snapshot_from_projection(projection)
 
-    derivations = _anchor_derivations_for_supports(
-        store=store, projection=projection, supports=_all_active_supports(store)
-    )
+    derivations = _projection_admitted_anchor_derivations(store=store, projection=projection)
     match = next(
         (item for item in derivations if item.anchor.anchor_id == request.anchor_id), None
     )

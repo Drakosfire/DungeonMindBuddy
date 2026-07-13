@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -28,6 +30,11 @@ from graph_memory.retrieval.models import (
     WorldGraphRetrievalBounds,
     WorldGraphSearchRequest,
     WorldGraphSourceAnchorReadRequest,
+)
+from graph_memory.retrieval.source_reader import (
+    SourceReadError,
+    read_graph_data_json_pointer_anchor,
+    read_repo_heading_anchor,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -192,13 +199,15 @@ def test_search_absent_phrase_never_calls_legacy_manifest_lookup(
     def _boom(*_args, **_kwargs):
         raise AssertionError("legacy manifest/corpus lookup must never be called")
 
+    monkeypatch.setattr("src.live_play.manifest_context_query.run_query", _boom, raising=True)
     monkeypatch.setattr(
-        "graph_memory.kernel.world_retrieval.read_graph_data_json_pointer_anchor",
-        _boom,
-        raising=True,
+        "src.live_play.manifest_context_query.retrieve_candidates", _boom, raising=True
     )
     monkeypatch.setattr(
-        "graph_memory.kernel.world_retrieval.read_repo_heading_anchor", _boom, raising=True
+        "src.live_play.manifest_context_query.build_context_packet", _boom, raising=True
+    )
+    monkeypatch.setattr(
+        "src.live_play.live_query_context.run_context_lookup_turn", _boom, raising=True
     )
 
     result = kernel.search_campaign_graph(
@@ -421,16 +430,22 @@ def test_neighborhood_direction_is_endpoint_relative(
     tmp_path: Path, loaded_bundle
 ) -> None:
     _initialize(tmp_path, loaded_bundle)
-    result = kernel.get_object_neighborhood(
-        tmp_path, _neighborhood_request([TRIPOD_ID], max_depth=1)
-    )
     edge_id = (
         "edge:threat:tripod-null-calf:appeared_in:"
         "event:longmont-c2:session-23:mireward-gate-battle"
     )
-    relationship = next(r for r in result.relationships if r.edge_id == edge_id)
-    assert relationship.source_node_id == TRIPOD_ID
-    assert relationship.target_node_id == EVENT_ID
+
+    from_tripod = kernel.get_object_neighborhood(
+        tmp_path, _neighborhood_request([TRIPOD_ID], max_depth=1)
+    )
+    from_event = kernel.get_object_neighborhood(
+        tmp_path, _neighborhood_request([EVENT_ID], max_depth=1)
+    )
+
+    tripod_edge = next(r for r in from_tripod.relationships if r.edge_id == edge_id)
+    event_edge = next(r for r in from_event.relationships if r.edge_id == edge_id)
+    assert tripod_edge.direction == "outbound"
+    assert event_edge.direction == "inbound"
 
 
 def test_neighborhood_missing_seed_is_partial(tmp_path: Path, loaded_bundle) -> None:
@@ -448,6 +463,40 @@ def test_neighborhood_max_depth_rejects_out_of_range() -> None:
         WorldGraphNeighborhoodRequest.model_validate(
             {**_context(), "seedNodeIds": [TRIPOD_ID], "maxDepth": 3}
         )
+
+
+def test_neighborhood_depth_ordered_cap_prefers_depth_one_before_depth_two(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    result = kernel.get_object_neighborhood(
+        tmp_path,
+        _neighborhood_request(
+            [TRIPOD_ID],
+            max_depth=2,
+            bounds=WorldGraphRetrievalBounds(max_nodes=2),
+        ),
+    )
+    node_ids = [node.node_id for node in result.nodes]
+    assert node_ids == [TRIPOD_ID, EVENT_ID]
+    assert result.outcome == "truncated"
+    assert "nodes" in result.coverage.truncated_fields
+
+
+def test_neighborhood_seed_cap_truncates_in_request_order(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    result = kernel.get_object_neighborhood(
+        tmp_path,
+        _neighborhood_request(
+            [TRIPOD_ID, EVENT_ID, LOCATION_MIREWARD_ID],
+            max_depth=1,
+            bounds=WorldGraphRetrievalBounds(max_nodes=2),
+        ),
+    )
+    assert [node.node_id for node in result.nodes] == [TRIPOD_ID, EVENT_ID]
+    assert result.outcome == "truncated"
 
 
 # --- Evidence ---------------------------------------------------------------
@@ -570,44 +619,178 @@ def test_read_source_anchor_repo_heading_with_digest(
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes((REPO_ROOT / MIRATHORN_RELATIVE_PATH).read_bytes())
 
+    with pytest.raises(WorldGraphRetrievalError) as exc_info:
+        kernel.read_source_anchor(
+            tmp_path,
+            _anchor_read_request(anchor.anchor_id),
+            repo_root=fake_repo_root,
+        )
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "heading_not_found"
+
+
+def test_read_source_anchor_repo_heading_exact_match_with_digest(
+    tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    heading_text = "PR010A Synthetic Section"
+    relative_path = "corpus/test/pr010a-synthetic-heading.md"
+    markdown = (
+        "---\n"
+        "title: \"Synthetic Doc\"\n"
+        "campaign: longmont-c2\n"
+        "---\n"
+        "\n"
+        f"# {heading_text}\n"
+        "\n"
+        "Synthetic section body for PR010A heading read.\n"
+    )
+    raw_bytes = markdown.encode("utf-8")
+    content_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+
+    fake_repo_root = tmp_path_factory.mktemp("fake-repo-root-synthetic")
+    dest = fake_repo_root / relative_path
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(raw_bytes)
+
+    source_artifact_id = "graph-native:test:pr010a-synthetic-heading"
+    evidence_ref_id = "evidence:test:pr010a-synthetic-heading"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="location:pr010a-synthetic-heading",
+        label="PR010A Synthetic Heading",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+            "aliases": ["PR010A Synthetic Heading"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": f"heading:{heading_text}",
+                }
+            ],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": f"repo://{relative_path}",
+                    "content_sha256": content_sha256,
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id="pr010a-synthetic-heading-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    anchor = _first_anchor_for_node(
+        tmp_path, "location:pr010a-synthetic-heading", evidence_ref_id=evidence_ref_id
+    )
     read_result = kernel.read_source_anchor(
         tmp_path,
         _anchor_read_request(anchor.anchor_id),
         repo_root=fake_repo_root,
     )
-    # The Mirathorn document has no heading exactly matching the admitted
-    # heading locator text; it falls back to the frontmatter-title match and
-    # returns the whole (long) body, which exceeds even the hard-max bound.
-    assert read_result.outcome == "truncated"
-    assert read_result.truncated is True
+    assert read_result.outcome == "enough"
     assert read_result.media_type == "text/markdown"
-    assert "Mirathorn" in (read_result.content or "")
-    assert read_result.content_sha256 == (
-        "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342"
-    )
+    assert "Synthetic section body" in (read_result.content or "")
+    assert read_result.content_sha256 == content_sha256
+    assert read_result.line_start == 6
+    assert read_result.line_end == 8
 
 
 def test_read_source_anchor_fails_closed_after_source_mutation(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
     _initialize(tmp_path, loaded_bundle)
-    anchor = _first_anchor_for_node(
-        tmp_path, MIRATHORN_ID, evidence_ref_id=MIRATHORN_EVIDENCE_REF_ID
-    )
+    heading_text = "PR010A Mutation Section"
+    relative_path = "corpus/test/pr010a-mutation-heading.md"
+    markdown = f"# {heading_text}\nOriginal body.\n"
+    raw_bytes = markdown.encode("utf-8")
+    content_sha256 = hashlib.sha256(raw_bytes).hexdigest()
 
     fake_repo_root = tmp_path_factory.mktemp("fake-repo-root-mutate")
-    dest = fake_repo_root / MIRATHORN_RELATIVE_PATH
+    dest = fake_repo_root / relative_path
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes((REPO_ROOT / MIRATHORN_RELATIVE_PATH).read_bytes())
+    dest.write_bytes(raw_bytes)
 
+    source_artifact_id = "graph-native:test:pr010a-mutation-heading"
+    evidence_ref_id = "evidence:test:pr010a-mutation-heading"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="location:pr010a-mutation-heading",
+        label="PR010A Mutation Heading",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+            "aliases": ["PR010A Mutation Heading"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": f"heading:{heading_text}",
+                }
+            ],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": f"repo://{relative_path}",
+                    "content_sha256": content_sha256,
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id="pr010a-mutation-heading-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    anchor = _first_anchor_for_node(
+        tmp_path, "location:pr010a-mutation-heading", evidence_ref_id=evidence_ref_id
+    )
     first_read = kernel.read_source_anchor(
         tmp_path,
         _anchor_read_request(anchor.anchor_id),
         repo_root=fake_repo_root,
     )
-    assert first_read.outcome in ("enough", "truncated")
+    assert first_read.outcome == "enough"
 
-    dest.write_text("---\ntitle: \"The City of Mirathorn\"\n---\nTampered content.\n")
+    dest.write_text(f"# {heading_text}\nTampered content.\n")
 
     with pytest.raises(WorldGraphRetrievalError) as exc_info:
         kernel.read_source_anchor(
@@ -777,3 +960,211 @@ def test_source_anchor_read_max_chars_hard_max_enforced() -> None:
                 "maxChars": 999_999,
             }
         )
+
+
+# --- Projection-bound admission + source_reader adversarial proofs -----------
+
+
+def test_read_source_anchor_denies_anchor_for_projection_omitted_object(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    evidence_result = kernel.get_object_evidence(
+        tmp_path,
+        _evidence_request(WorldGraphEvidenceTarget(kind="relationship", id=edge_id)),
+    )
+    anchor = evidence_result.source_anchors[0]
+    anchor_id = anchor.anchor_id
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    edge = store.edges[edge_id]
+    edge_state = dict(edge.state or {})
+    edge_state["memory_state"] = "unsupported_assertion"
+    store.edges[edge_id] = edge.model_copy(update={"state": edge_state})
+    for assertion_id, raw_support in store.assertion_support.items():
+        support = dict(raw_support)
+        if support.get("graph_object_id") != edge_id:
+            continue
+        support["support_state"] = "unsupported"
+        support["active_contribution_ids"] = []
+        support["per_contribution_evidence_ref_ids"] = {}
+        support["per_contribution_source_artifact_ids"] = {}
+        store.assertion_support[assertion_id] = support
+        break
+    kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-pr010a-omitted-edge-anchor"],
+    )
+
+    read_result = kernel.read_source_anchor(tmp_path, _anchor_read_request(anchor_id))
+    assert read_result.outcome == "empty"
+    assert read_result.content is None
+
+
+def test_object_partial_when_unreadable_source_anchors_present(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    node_id = "threat:object-partial-unreadable"
+    unsupported_source_artifact_id = "graph-native:test:object-partial-unreadable"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Object Partial Unreadable",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=unsupported_source_artifact_id,
+        value={
+            "kind": "threat",
+            "role": "threat",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Object Partial Unreadable"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": "evidence:test:object-partial-unreadable",
+                    "source_artifact_id": unsupported_source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": "unsupported-scheme:not-readable",
+                }
+            ],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": unsupported_source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": "https://example.invalid/not-repo-or-graph-data",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=unsupported_source_artifact_id,
+        source_revision_id="object-partial-unreadable-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    result = kernel.get_campaign_object(tmp_path, _object_request(node_id))
+    assert result.outcome == "partial"
+    assert result.coverage.unreadable_anchor_ids
+
+
+def test_neighborhood_partial_when_unreadable_source_anchors_present(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    node_id = "threat:neighborhood-partial-unreadable"
+    unsupported_source_artifact_id = "graph-native:test:neighborhood-partial-unreadable"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Neighborhood Partial Unreadable",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=unsupported_source_artifact_id,
+        value={
+            "kind": "threat",
+            "role": "threat",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Neighborhood Partial Unreadable"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": "evidence:test:neighborhood-partial-unreadable",
+                    "source_artifact_id": unsupported_source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": "unsupported-scheme:not-readable",
+                }
+            ],
+            "source_artifacts": [
+                {
+                    "source_artifact_id": unsupported_source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": "https://example.invalid/not-repo-or-graph-data",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=unsupported_source_artifact_id,
+        source_revision_id="neighborhood-partial-unreadable-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+
+    result = kernel.get_object_neighborhood(
+        tmp_path, _neighborhood_request([node_id], max_depth=1)
+    )
+    assert result.outcome == "partial"
+    assert result.coverage.unreadable_anchor_ids
+
+
+def test_source_reader_rejects_repo_path_escape(tmp_path: Path) -> None:
+    with pytest.raises(SourceReadError) as exc_info:
+        read_repo_heading_anchor(
+            repo_root=tmp_path,
+            relative_path="../outside.md",
+            heading_text="Escape",
+            expected_content_sha256=None,
+            max_chars=1000,
+        )
+    assert exc_info.value.code == "unsupported_locator"
+
+
+def test_source_reader_rejects_ambiguous_heading(tmp_path: Path) -> None:
+    relative_path = "docs/ambiguous.md"
+    markdown = "# Same Heading\none\n# Same Heading\ntwo\n"
+    dest = tmp_path / relative_path
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(markdown, encoding="utf-8")
+    with pytest.raises(SourceReadError) as exc_info:
+        read_repo_heading_anchor(
+            repo_root=tmp_path,
+            relative_path=relative_path,
+            heading_text="Same Heading",
+            expected_content_sha256=None,
+            max_chars=1000,
+        )
+    assert exc_info.value.code == "ambiguous_heading"
+
+
+def test_source_reader_rejects_malformed_json_pointer_escape() -> None:
+    with pytest.raises(SourceReadError) as exc_info:
+        read_graph_data_json_pointer_anchor(
+            contribution_payload={"values": ["ok"]},
+            json_pointer="/values/~",
+            max_chars=1000,
+        )
+    assert exc_info.value.code == "invalid_json_pointer"
+
+
+def test_source_reader_json_pointer_slash_is_empty_string_key() -> None:
+    payload = {"": "root-member", "nested": {"child": "value"}}
+    outcome = read_graph_data_json_pointer_anchor(
+        contribution_payload=payload,
+        json_pointer="/",
+        max_chars=1000,
+    )
+    assert json.loads(outcome.content) == "root-member"

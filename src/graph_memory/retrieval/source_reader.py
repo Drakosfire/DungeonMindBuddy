@@ -80,23 +80,22 @@ def parse_json_pointer_locator(locator: str) -> str | None:
     return None
 
 
-def _strip_frontmatter(text: str) -> tuple[dict[str, str] | None, str]:
+def _strip_frontmatter(text: str) -> tuple[dict[str, str] | None, str, int]:
     """Split a leading YAML frontmatter block from the Markdown body.
 
-    Implements a minimal ``key: value`` reader — enough to recover a
-    document ``title`` without a YAML dependency or a cross-package import
-    into ``src.ingestion``. Not a general YAML parser.
+    Returns ``(frontmatter, body, body_line_offset)`` where ``body_line_offset``
+    is the 0-based line index in the original file where body line 0 begins.
     """
     lines = text.splitlines()
     if not lines or lines[0].strip() != _FRONTMATTER_DELIMITER:
-        return None, text
+        return None, text, 0
     end_index: int | None = None
     for index in range(1, len(lines)):
         if lines[index].strip() == _FRONTMATTER_DELIMITER:
             end_index = index
             break
     if end_index is None:
-        return None, text
+        return None, text, 0
     frontmatter: dict[str, str] = {}
     for raw_line in lines[1:end_index]:
         if ":" not in raw_line:
@@ -106,8 +105,9 @@ def _strip_frontmatter(text: str) -> tuple[dict[str, str] | None, str]:
         value = value.strip().strip('"').strip("'")
         if key:
             frontmatter[key] = value
+    body_line_offset = end_index + 1
     body_lines = lines[end_index + 1 :]
-    return frontmatter, "\n".join(body_lines)
+    return frontmatter, "\n".join(body_lines), body_line_offset
 
 
 def _find_headings(body_lines: list[str]) -> list[tuple[int, int, str]]:
@@ -189,7 +189,7 @@ def read_repo_heading_anchor(
             code="source_unavailable",
         ) from exc
 
-    frontmatter, body = _strip_frontmatter(text)
+    _frontmatter, body, body_line_offset = _strip_frontmatter(text)
     body_lines = body.splitlines()
     headings = _find_headings(body_lines)
     matches = [item for item in headings if item[2] == heading_text]
@@ -199,21 +199,15 @@ def read_repo_heading_anchor(
             "Multiple headings match the requested heading text.",
             code="ambiguous_heading",
         )
-    if len(matches) == 1:
-        heading_index, heading_level, _heading_text = matches[0]
-        start, end = _extract_heading_section(body_lines, heading_index, heading_level)
-        section_lines = body_lines[start:end]
-    else:
-        frontmatter_title = (frontmatter or {}).get("title")
-        if frontmatter_title is not None and frontmatter_title == heading_text:
-            start, end = 0, len(body_lines)
-            section_lines = body_lines
-        else:
-            raise SourceReadError(
-                "Requested heading was not found in the source document.",
-                code="heading_not_found",
-            )
+    if len(matches) != 1:
+        raise SourceReadError(
+            "Requested heading was not found in the source document.",
+            code="heading_not_found",
+        )
 
+    heading_index, heading_level, _heading_text = matches[0]
+    start, end = _extract_heading_section(body_lines, heading_index, heading_level)
+    section_lines = body_lines[start:end]
     section_text = "\n".join(section_lines).strip("\n")
     truncated = len(section_text) > max_chars
     bounded_text = section_text[:max_chars]
@@ -221,14 +215,42 @@ def read_repo_heading_anchor(
         content=bounded_text,
         media_type="text/markdown",
         content_sha256=actual_sha256,
-        line_start=start + 1,
-        line_end=end,
+        line_start=start + body_line_offset + 1,
+        line_end=end + body_line_offset,
         truncated=truncated,
     )
 
 
+def _decode_json_pointer_token(raw_token: str) -> str:
+    decoded: list[str] = []
+    index = 0
+    while index < len(raw_token):
+        char = raw_token[index]
+        if char != "~":
+            decoded.append(char)
+            index += 1
+            continue
+        if index + 1 >= len(raw_token):
+            raise SourceReadError(
+                "JSON pointer escape sequence is incomplete.",
+                code="invalid_json_pointer",
+            )
+        escaped = raw_token[index + 1]
+        if escaped == "0":
+            decoded.append("~")
+        elif escaped == "1":
+            decoded.append("/")
+        else:
+            raise SourceReadError(
+                "JSON pointer escape sequence is invalid.",
+                code="invalid_json_pointer",
+            )
+        index += 2
+    return "".join(decoded)
+
+
 def _resolve_json_pointer(document: Any, pointer: str) -> Any:
-    if pointer in ("", "/"):
+    if pointer == "":
         return document
     if not pointer.startswith("/"):
         raise SourceReadError(
@@ -238,7 +260,7 @@ def _resolve_json_pointer(document: Any, pointer: str) -> Any:
     tokens = pointer.split("/")[1:]
     current = document
     for raw_token in tokens:
-        token = raw_token.replace("~1", "/").replace("~0", "~")
+        token = _decode_json_pointer_token(raw_token)
         if isinstance(current, list):
             if not re.fullmatch(r"\d+", token):
                 raise SourceReadError(

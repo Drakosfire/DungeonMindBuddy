@@ -33,6 +33,7 @@ from graph_memory.retrieval.models import (
     WorldGraphEvidenceTarget,
     WorldGraphNeighborhoodRequest,
     WorldGraphObjectRequest,
+    WorldGraphRetrievalBounds,
     WorldGraphRetrievalErrorResponse,
     WorldGraphRetrievalResult,
     WorldGraphSearchRequest,
@@ -59,6 +60,8 @@ ORDERED_CONTRIBUTION_IDS = [
     "contribution:022187fdefdf4557",
 ]
 TRIPOD_ID = "threat:tripod-null-calf"
+MIRATHORN_ID = "location:mirathorn"
+MIRATHORN_EVIDENCE_REF_ID = "evidence:corpus:worldbuilding:mirathorn"
 
 
 @pytest.fixture
@@ -370,6 +373,23 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         WorldGraphNeighborhoodRequest(seed_node_ids=[TRIPOD_ID], max_depth=1, **_context()),
         root=root,
     )
+    neighborhood_partial = get_object_neighborhood(
+        WorldGraphNeighborhoodRequest(
+            seed_node_ids=[TRIPOD_ID, "threat:does-not-exist"],
+            max_depth=1,
+            **_context(),
+        ),
+        root=root,
+    )
+    neighborhood_truncated = get_object_neighborhood(
+        WorldGraphNeighborhoodRequest(
+            seed_node_ids=[TRIPOD_ID],
+            max_depth=2,
+            bounds=WorldGraphRetrievalBounds(max_nodes=1),
+            **_context(),
+        ),
+        root=root,
+    )
     evidence_for_node = get_object_evidence(
         WorldGraphEvidenceRequest(
             target=WorldGraphEvidenceTarget(kind="node", id=TRIPOD_ID), **_context()
@@ -386,6 +406,26 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         ),
         root=root,
     )
+
+    evidence_for_mirathorn = get_object_evidence(
+        WorldGraphEvidenceRequest(
+            target=WorldGraphEvidenceTarget(kind="node", id=MIRATHORN_ID), **_context()
+        ),
+        root=root,
+    )
+    mirathorn_anchor_id = next(
+        anchor.anchor_id
+        for anchor in evidence_for_mirathorn.source_anchors
+        if anchor.evidence_ref_id == MIRATHORN_EVIDENCE_REF_ID
+    )
+    try:
+        read_source_anchor(
+            WorldGraphSourceAnchorReadRequest(anchor_id=mirathorn_anchor_id, **_context()),
+            root=root,
+        )
+        source_anchor_read_integrity_error: WorldGraphRetrievalServiceError | None = None
+    except WorldGraphRetrievalServiceError as exc:
+        source_anchor_read_integrity_error = exc
 
     empty_root = root / "uninitialized"
     search_unavailable = search_campaign_graph(
@@ -414,6 +454,7 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
 
     assert campaign_mismatch_error is not None
     assert invalid_admissibility_error is not None
+    assert source_anchor_read_integrity_error is not None
 
     examples = {
         "searchEnough": _dump(search_enough),
@@ -422,9 +463,14 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         "objectFound": _dump(object_found),
         "objectEmpty": _dump(object_empty),
         "neighborhoodDepth1": _dump(neighborhood_depth_1),
+        "neighborhoodPartial": _dump(neighborhood_partial),
+        "neighborhoodTruncated": _dump(neighborhood_truncated),
         "evidenceForNode": _dump(evidence_for_node),
         "sourceAnchorRead": _dump(source_anchor_read),
         "sourceAnchorReadUnknown": _dump(source_anchor_read_unknown),
+        "sourceAnchorReadIntegrityError": _dump(
+            source_anchor_read_integrity_error.response()
+        ),
         "campaignMismatchError": _dump(campaign_mismatch_error.response()),
         "invalidAdmissibilityError": _dump(invalid_admissibility_error.response()),
     }
