@@ -1,12 +1,13 @@
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
-import type { UnionSupergraphProjectionResponse } from "../../api/types";
+import type { WorldGraphProjection } from "../../api/types";
 import {
   resolvePlanReferenceFromGraphProjection,
   type PlanGraphProjectionState,
   type PlanReferenceResolution,
 } from "./graphAwareReferenceResolver";
 import { REFERENCE_INDEX_ENDPOINTS, resolveReference } from "./referenceResolver";
+import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
 
 function appendIngestEscalationHint(message: string): string {
   if (/ingest/i.test(message)) return message;
@@ -49,7 +50,7 @@ function unresolvedRelationshipMiss(
  * Resolve a GraphObjectCard relationship target through the Plan graph-aware ladder.
  *
  * Rules:
- * - targetId → exact `projection.node_views[targetId]` only (no label fallback)
+ * - targetId → exact `projection.nodes[].nodeId` only (no label fallback)
  * - label-only → unique label/alias match only; ambiguous stays unresolved
  * - never first-win on duplicate aliases
  */
@@ -60,7 +61,7 @@ export async function resolvePlanRelationshipTarget({
   fetchImpl,
 }: {
   relationship: GraphObjectRelationshipViewModel;
-  projection?: UnionSupergraphProjectionResponse | null;
+  projection?: WorldGraphProjection | null;
   projectionState?: PlanGraphProjectionState | null;
   fetchImpl?: typeof fetch;
 }): Promise<PlanReferenceResolution> {
@@ -73,7 +74,7 @@ export async function resolvePlanRelationshipTarget({
 
     // Exact node-id lookup only — do not pass label into the general resolver,
     // which would otherwise unique-match a different node by label on miss.
-    const exactNode = projection?.node_views?.[targetId] ?? null;
+    const exactNode = projection?.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
       return withProjectionState(
         {
@@ -81,10 +82,10 @@ export async function resolvePlanRelationshipTarget({
           locator,
           refType: targetKind,
           refId: targetId,
-          graphObject: buildGraphObjectCardFromNodeView(exactNode),
-          graphNodeId: exactNode.node_id,
+          graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(exactNode)),
+          graphNodeId: exactNode.nodeId,
           fallback: null,
-          source: "union-supergraph",
+          source: "world-graph",
           message: `Resolved graph node ${exactNode.label}.`,
         },
         projectionState,

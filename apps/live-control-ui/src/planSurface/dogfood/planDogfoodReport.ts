@@ -1,4 +1,5 @@
 import type { PlanSessionDescriptor } from "../types";
+import type { WorldGraphProjectionSnapshot } from "../../api/types";
 import type { PlanDogfoodChecklistItem, PlanDogfoodState } from "./planDogfoodState";
 
 export function buildPlanDogfoodReport(args: {
@@ -6,9 +7,10 @@ export function buildPlanDogfoodReport(args: {
   checklist: PlanDogfoodChecklistItem[];
   state: PlanDogfoodState;
   saveStatusLabel: string;
+  graphSnapshot: WorldGraphProjectionSnapshot | null;
   generatedAt: string;
 }): string {
-  const { sessionDescriptor, checklist, state, saveStatusLabel, generatedAt } = args;
+  const { sessionDescriptor, checklist, state, saveStatusLabel, graphSnapshot, generatedAt } = args;
   const { planningDocument } = sessionDescriptor;
 
   const checklistLines = checklist.map((item) => {
@@ -28,6 +30,9 @@ export function buildPlanDogfoodReport(args: {
     `Document: ${planningDocument.title}`,
     `Target path: ${planningDocument.targetRelpath}`,
     `Save status: ${saveStatusLabel}`,
+    `World Graph revision: ${graphSnapshot?.revisionId ?? "unavailable"}`,
+    `World Graph head revision: ${graphSnapshot?.headRevisionId ?? "unavailable"}`,
+    `World Graph focus: ${graphSnapshot?.focus.sessionId ?? "none"}`,
     `Generated at: ${generatedAt}`,
     "",
     "## Checklist",

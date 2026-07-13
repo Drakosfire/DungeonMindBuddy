@@ -1,37 +1,42 @@
 import { renderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
-import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import { resetReferenceIndexCache } from "./referenceResolver";
-import { usePlanGraphReferenceResolver, resolvePlanReferenceWithFallback } from "./usePlanGraphReferenceResolver";
+import {
+  PlanGraphReferenceResolverProvider,
+  usePlanGraphReferenceResolver,
+  resolvePlanReferenceWithFallback,
+} from "./usePlanGraphReferenceResolver";
 
-const glowkindleNode: GraphProjectionNodeView = {
-  node_id: "npc-glowkindle",
+const glowkindleNode: WorldGraphProjectionNodeView = {
+  nodeId: "npc-glowkindle",
   label: "Glowkindle",
   kind: "npc",
   role: "merchant",
   aliases: ["Glow"],
-  source_domains: ["recap"],
-  evidence_badges: [],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
   adjacency: [],
-  anchored_to_focus_session: true,
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
   summary: "A friendly merchant.",
 };
 
-const projection: UnionSupergraphProjectionResponse = {
-  campaign_id: "longmont-c2",
-  session_id: "session-21",
-  node_views: {
-    "npc-glowkindle": glowkindleNode,
+const projection: WorldGraphProjection = {
+  schema: "dmb_world_graph_projection_v1",
+  snapshot: {
+    worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+    isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
   },
-  focus: {
-    focused_evidence_ref_ids: [],
-    focused_edge_ids: [],
-    focused_node_ids: [],
-  },
-  mentions: [],
+  summary: { nodeCount: 1, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+  nodes: [glowkindleNode],
+  relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
 };
 
 const sessionDescriptor = {
@@ -52,6 +57,14 @@ const sessionDescriptor = {
   },
 };
 
+function resolverWrapper({ children }: { children: ReactNode }) {
+  return createElement(
+    PlanGraphReferenceResolverProvider,
+    { sessionDescriptor },
+    children,
+  );
+}
+
 describe("usePlanGraphReferenceResolver", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -59,13 +72,13 @@ describe("usePlanGraphReferenceResolver", () => {
   });
 
   it("loads projection and resolves graph-node hits without corpus-index fetch", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue(projection);
+    const projectionSpy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(projection);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({ npcs: [] }),
     } as Response);
 
-    const { result } = renderHook(() => usePlanGraphReferenceResolver(sessionDescriptor));
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(), { wrapper: resolverWrapper });
 
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
 
@@ -80,26 +93,30 @@ describe("usePlanGraphReferenceResolver", () => {
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
     expect(resolution.graphProjectionState).toBe("ready");
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(projectionSpy).toHaveBeenCalledWith({
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session", sessionId: "session-21" },
+      admissibility: "gm",
+    });
   });
 
   it("resolves relationship targetId through resolvePlanRelationship", async () => {
-    const innNode: GraphProjectionNodeView = {
+    const innNode: WorldGraphProjectionNodeView = {
       ...glowkindleNode,
-      node_id: "location-inn",
+      nodeId: "location-inn",
       label: "Inn",
       kind: "location",
       role: "location",
       aliases: [],
     };
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
       ...projection,
-      node_views: {
-        "npc-glowkindle": glowkindleNode,
-        "location-inn": innNode,
-      },
+      nodes: [glowkindleNode, innNode],
     });
 
-    const { result } = renderHook(() => usePlanGraphReferenceResolver(sessionDescriptor));
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(), { wrapper: resolverWrapper });
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
 
     const resolution = await result.current.resolvePlanRelationship({
@@ -116,7 +133,7 @@ describe("usePlanGraphReferenceResolver", () => {
   });
 
   it("marks projection unavailable without crashing resolution", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockRejectedValue(
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(
       new LiveApiError("missing projection", 404),
     );
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -129,7 +146,7 @@ describe("usePlanGraphReferenceResolver", () => {
       }),
     } as Response);
 
-    const { result } = renderHook(() => usePlanGraphReferenceResolver(sessionDescriptor));
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(), { wrapper: resolverWrapper });
 
     await waitFor(() => expect(result.current.projectionState).toBe("unavailable"));
 
@@ -176,22 +193,22 @@ describe("resolvePlanReferenceWithFallback", () => {
   });
 
   it("does not fetch corpus index when graph projection match is ambiguous", async () => {
-    const ambiguousProjection: UnionSupergraphProjectionResponse = {
+    const ambiguousProjection: WorldGraphProjection = {
       ...projection,
-      node_views: {
-        "npc-lysandra-a": {
+      nodes: [
+        {
           ...glowkindleNode,
-          node_id: "npc-lysandra-a",
+          nodeId: "npc-lysandra-a",
           label: "Lysandra Ironveil",
           aliases: ["Lysandra"],
         },
-        "npc-lysandra-b": {
+        {
           ...glowkindleNode,
-          node_id: "npc-lysandra-b",
+          nodeId: "npc-lysandra-b",
           label: "Lysandra of the Gate",
           aliases: ["Lysandra"],
         },
-      },
+      ],
     };
 
     const fetchImpl = vi.fn(async () => {

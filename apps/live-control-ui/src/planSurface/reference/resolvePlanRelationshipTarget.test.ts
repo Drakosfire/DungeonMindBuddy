@@ -1,73 +1,79 @@
 import { describe, expect, it } from "vitest";
 
-import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
+import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
 
-const glowkindleNode: GraphProjectionNodeView = {
-  node_id: "npc-glowkindle",
+const glowkindleNode: WorldGraphProjectionNodeView = {
+  nodeId: "npc-glowkindle",
   label: "Glowkindle",
   kind: "npc",
   role: "merchant",
   aliases: ["Glow"],
-  source_domains: ["recap"],
-  evidence_badges: [],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
   adjacency: [],
-  anchored_to_focus_session: true,
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
   summary: "A friendly merchant.",
 };
 
-const innNode: GraphProjectionNodeView = {
-  node_id: "location-inn",
+const innNode: WorldGraphProjectionNodeView = {
+  nodeId: "location-inn",
   label: "Inn",
   kind: "location",
   role: "location",
   aliases: ["The Inn"],
-  source_domains: ["recap"],
-  evidence_badges: [],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
   adjacency: [],
-  anchored_to_focus_session: true,
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
   summary: "Meeting place.",
 };
 
-const lysandraA: GraphProjectionNodeView = {
-  node_id: "npc-lysandra-a",
+const lysandraA: WorldGraphProjectionNodeView = {
+  nodeId: "npc-lysandra-a",
   label: "Lysandra",
   kind: "npc",
   role: "npc",
   aliases: ["Lysandra"],
-  source_domains: ["recap"],
-  evidence_badges: [],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
   adjacency: [],
-  anchored_to_focus_session: true,
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
 };
 
-const lysandraB: GraphProjectionNodeView = {
-  node_id: "npc-lysandra-b",
+const lysandraB: WorldGraphProjectionNodeView = {
+  nodeId: "npc-lysandra-b",
   label: "Lysandra of the Gate",
   kind: "npc",
   role: "npc",
   aliases: ["Lysandra"],
-  source_domains: ["recap"],
-  evidence_badges: [],
+  sourceDomains: ["recap"],
+  evidenceBadges: [],
   adjacency: [],
-  anchored_to_focus_session: true,
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
 };
 
-const projection: UnionSupergraphProjectionResponse = {
-  campaign_id: "longmont-c2",
-  session_id: "session-21",
-  node_views: {
-    "npc-glowkindle": glowkindleNode,
-    "location-inn": innNode,
-    "npc-lysandra-a": lysandraA,
-    "npc-lysandra-b": lysandraB,
+const projection: WorldGraphProjection = {
+  schema: "dmb_world_graph_projection_v1",
+  snapshot: {
+    worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+    isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
   },
-  focus: {
-    focused_evidence_ref_ids: [],
-    focused_edge_ids: [],
-    focused_node_ids: [],
-  },
-  mentions: [],
+  summary: { nodeCount: 4, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+  nodes: [glowkindleNode, innNode, lysandraA, lysandraB],
+  relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
 };
 
 describe("resolvePlanRelationshipTarget", () => {

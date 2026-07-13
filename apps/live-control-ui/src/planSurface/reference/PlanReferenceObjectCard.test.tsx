@@ -10,12 +10,13 @@ import { ProjectionProvider, useProjection } from "../projection/projectionConte
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
+import { PlanGraphReferenceResolverProvider } from "./usePlanGraphReferenceResolver";
 
 vi.mock("../../api/liveApi", async () => {
   const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
   return {
     ...actual,
-    getUnionSupergraphProjection: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -139,7 +140,21 @@ const surfaceConfig: SurfaceConfig = {
 };
 
 function renderWithProjection(ui: ReactElement) {
-  return render(<ProjectionProvider config={surfaceConfig}>{ui}</ProjectionProvider>);
+  return render(
+    <ProjectionProvider config={surfaceConfig}>
+      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+        {ui}
+      </PlanGraphReferenceResolverProvider>
+    </ProjectionProvider>,
+  );
+}
+
+function renderWithResolver(ui: ReactElement) {
+  return render(
+    <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+      {ui}
+    </PlanGraphReferenceResolverProvider>,
+  );
 }
 
 function PlanReferenceProjectionHarness({
@@ -171,7 +186,37 @@ function PlanReferenceProjectionHarness({
 
 describe("PlanReferenceObjectCard", () => {
   beforeEach(() => {
-    vi.mocked(liveApi.getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+        isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
+      },
+      summary: { nodeCount: 2, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+      nodes: [
+        {
+          nodeId: "npc-glowkindle", label: "Glowkindle", kind: "npc", role: "merchant", aliases: ["Glow"],
+          sourceDomains: ["recap"], summary: "A friendly merchant.", anchoredToFocusSession: true,
+          evidenceBadges: [], adjacency: [], suggestedExpansions: [], evidenceRefIds: [], sourceArtifactIds: [],
+        },
+        {
+          nodeId: "location-inn", label: "Inn", kind: "location", role: "location", aliases: ["The Inn"],
+          sourceDomains: ["recap"], summary: "Meeting place.", anchoredToFocusSession: true,
+          evidenceBadges: [], adjacency: [], suggestedExpansions: [], evidenceRefIds: [], sourceArtifactIds: [],
+        },
+        {
+          nodeId: "npc-lysandra-a", label: "Lysandra Ironveil", kind: "npc", role: "npc", aliases: ["Lysandra"],
+          sourceDomains: ["recap"], summary: "First Lysandra.", anchoredToFocusSession: true,
+          evidenceBadges: [], adjacency: [], suggestedExpansions: [], evidenceRefIds: [], sourceArtifactIds: [],
+        },
+        {
+          nodeId: "npc-lysandra-b", label: "Lysandra of the Gate", kind: "npc", role: "npc", aliases: ["Lysandra"],
+          sourceDomains: ["recap"], summary: "Second Lysandra.", anchoredToFocusSession: true,
+          evidenceBadges: [], adjacency: [], suggestedExpansions: [], evidenceRefIds: [], sourceArtifactIds: [],
+        },
+      ],
+      relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
+    });
   });
 
   it("renders GraphObjectCard for graph-node hits", async () => {
@@ -181,12 +226,12 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
     const user = userEvent.setup();
-    render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     const card = screen.getByLabelText(/Glowkindle graph object/i);
     expect(card).toHaveClass("graph-object-card");
@@ -218,12 +263,12 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
     const user = userEvent.setup();
-    render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     const card = screen.getByLabelText(/Glowkindle graph object/i);
     const details = within(card).getByText("Details").closest("details");
@@ -248,7 +293,7 @@ describe("PlanReferenceObjectCard", () => {
       }),
       graphNodeId: "statblock-tripod",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
@@ -283,11 +328,11 @@ describe("PlanReferenceObjectCard", () => {
       }),
       graphNodeId: "statblock-tripod",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
-    render(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     expect(screen.queryByRole("button", { name: "Open statblock tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toBeInTheDocument();
@@ -301,7 +346,7 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
@@ -323,7 +368,7 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("disables related-object buttons while the card-local graph projection is loading", async () => {
-    vi.mocked(liveApi.getUnionSupergraphProjection).mockImplementation(
+    vi.mocked(liveApi.postWorldGraphProjection).mockImplementation(
       () => new Promise(() => undefined),
     );
 
@@ -333,7 +378,7 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
@@ -372,7 +417,7 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(nodeWithAmbiguousRelation),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
@@ -421,7 +466,7 @@ describe("PlanReferenceObjectCard", () => {
       graphObject: buildGraphObjectCardFromNodeView(nodeWithMissingRelation),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
       graphProjectionState: "ready",
     };
 
@@ -461,7 +506,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    render(
+    renderWithResolver(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
@@ -507,7 +552,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    render(
+    renderWithResolver(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
@@ -557,7 +602,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "unavailable",
     };
 
-    render(
+    renderWithResolver(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
@@ -565,6 +610,6 @@ describe("PlanReferenceObjectCard", () => {
       />,
     );
 
-    expect(screen.getByText(/Union Supergraph projection is unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/World Graph projection is unavailable/i)).toBeInTheDocument();
   });
 });

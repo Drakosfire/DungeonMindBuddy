@@ -23,13 +23,13 @@ function projectionStateNote(
   if (resolution.kind === "graph-node") return null;
 
   if (projectionState === "loading") {
-    return "Union Supergraph projection is still loading. Resolution may change once graph memory is available.";
+    return "World Graph projection is still loading. Resolution may change once graph memory is available.";
   }
   if (projectionState === "unavailable") {
-    return "Union Supergraph projection is unavailable. Showing corpus fallback or unresolved state.";
+    return "World Graph projection is unavailable. Showing corpus fallback or unresolved state.";
   }
   if (projectionState === "error") {
-    return "Union Supergraph projection failed to load. Showing corpus fallback or unresolved state.";
+    return "World Graph projection failed to load. Showing corpus fallback or unresolved state.";
   }
   if (projectionState === "ready") {
     return "Graph memory did not resolve this reference.";
@@ -114,7 +114,7 @@ export function PlanReferenceObjectCard({
 }: PlanReferenceObjectCardProps) {
   const projection = useOptionalProjection();
   const { resolvePlanRelationship, projectionState: resolverProjectionState } =
-    usePlanGraphReferenceResolver(sessionDescriptor);
+    usePlanGraphReferenceResolver();
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
 
   const effectiveProjectionState =

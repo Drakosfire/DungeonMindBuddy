@@ -2,8 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as liveApi from "../../api/liveApi";
 import type { PlanSessionDescriptor } from "../types";
 import { createPlanCanvasStorageKey } from "../config/planSessionDescriptor";
+import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { PlanDogfoodPanel } from "./PlanDogfoodPanel";
 import {
   planDogfoodStorageKey,
@@ -35,10 +37,12 @@ const sessionDescriptor: PlanSessionDescriptor = {
 
 function renderPanel(saveStatusLabel = "Local draft · not yet saved to Markdown") {
   return render(
-    <PlanDogfoodPanel
-      sessionDescriptor={sessionDescriptor}
-      saveStatusLabel={saveStatusLabel}
-    />,
+    <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+      <PlanDogfoodPanel
+        sessionDescriptor={sessionDescriptor}
+        saveStatusLabel={saveStatusLabel}
+      />
+    </PlanGraphReferenceResolverProvider>,
   );
 }
 
@@ -55,6 +59,26 @@ describe("dogfoodModeFromLocation", () => {
 describe("PlanDogfoodPanel", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.restoreAllMocks();
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-21" },
+        admissibility: "gm",
+      },
+      summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
   });
 
   it("renders checklist and notes", () => {
@@ -63,6 +87,7 @@ describe("PlanDogfoodPanel", () => {
     expect(screen.getByRole("region", { name: "Dogfood checklist" })).toBeInTheDocument();
     expect(screen.getByText("Add real prep notes to the board")).toBeInTheDocument();
     expect(screen.getByLabelText("Dogfood notes")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-world-graph-snapshot")).toHaveTextContent("World Graph unavailable.");
   });
 
   it("checking an item persists to localStorage", async () => {

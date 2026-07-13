@@ -13,6 +13,7 @@ import {
   getGoldGraphProjection,
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
+  postWorldGraphProjection,
   getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
@@ -168,6 +169,44 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe(
       "/api/live/graph-preview/union-supergraph/projection?session_id=session-23&preview_source=dogfood-preview",
     );
+  });
+
+  it("postWorldGraphProjection posts only the World Graph request contract", async () => {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session" as const, sessionId: "session-21" },
+      admissibility: "gm" as const,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_world_graph_projection_v1",
+        snapshot: {},
+        summary: {},
+        nodes: [],
+        relationships: [],
+        attributes: [],
+        evidence: [],
+        sourceArtifacts: [],
+        diagnostics: [],
+      }),
+    );
+
+    await postWorldGraphProjection(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/projection");
+    expect(String(url)).not.toContain("?");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual([
+      "schema",
+      "worldId",
+      "campaignId",
+      "focus",
+      "admissibility",
+    ]);
   });
 
   it("getGoldGraphProjection calls gold projection endpoint with read-only query params", async () => {

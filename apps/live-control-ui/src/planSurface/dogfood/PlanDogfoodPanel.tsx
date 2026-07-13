@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { PlanSessionDescriptor } from "../types";
+import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { buildPlanDogfoodReport } from "./planDogfoodReport";
 import {
   clearPlanDogfoodState,
@@ -23,6 +24,7 @@ export function PlanDogfoodPanel({
   sessionDescriptor,
   saveStatusLabel,
 }: PlanDogfoodPanelProps) {
+  const { projection, projectionState, projectionError } = usePlanGraphReferenceResolver();
   const [collapsed, setCollapsed] = useState(false);
   const [state, setState] = useState<PlanDogfoodState>(() =>
     loadPlanDogfoodState(window.localStorage, sessionDescriptor),
@@ -48,9 +50,10 @@ export function PlanDogfoodPanel({
         checklist: PLAN_DOGFOOD_CHECKLIST,
         state,
         saveStatusLabel,
+        graphSnapshot: projection?.snapshot ?? null,
         generatedAt: new Date().toISOString(),
       }),
-    [sessionDescriptor, state, saveStatusLabel],
+    [sessionDescriptor, state, saveStatusLabel, projection?.snapshot],
   );
 
   const handleToggle = (itemId: string, checked: boolean) => {
@@ -121,6 +124,27 @@ export function PlanDogfoodPanel({
               </li>
             ))}
           </ul>
+
+          <section aria-label="World Graph snapshot" data-testid="plan-world-graph-snapshot">
+            <p className="plan-surface-kicker">World Graph snapshot</p>
+            {projection ? (
+              <>
+                <p>Revision: <code>{projection.snapshot.revisionId}</code></p>
+                <p>
+                  {projection.snapshot.worldId} · {projection.snapshot.campaignId} ·{" "}
+                  {projection.snapshot.focus.kind === "session"
+                    ? projection.snapshot.focus.sessionId
+                    : "no focus"}
+                </p>
+              </>
+            ) : (
+              <p>
+                {projectionState === "error"
+                  ? `World Graph failed to load: ${projectionError ?? "unknown error"}`
+                  : "World Graph unavailable."}
+              </p>
+            )}
+          </section>
 
           <label className="plan-dogfood-notes-label" htmlFor="plan-dogfood-notes">
             Dogfood notes

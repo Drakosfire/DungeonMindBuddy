@@ -11,6 +11,7 @@ import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "./projection/projectionContext";
+import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import type { PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
 
@@ -31,7 +32,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   return (
     <EditCapabilityProvider>
       <ProjectionProvider config={config}>
-        <div
+        <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+          <div
           className="plan-surface-root"
           data-surface={config.id}
           data-md-theme={config.theme.themeId}
@@ -56,7 +58,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
             <AdaptiveProjectionContainer config={config} />
           </div>
           <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
-        </div>
+          </div>
+        </PlanGraphReferenceResolverProvider>
       </ProjectionProvider>
     </EditCapabilityProvider>
   );

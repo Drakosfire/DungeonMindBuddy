@@ -1,9 +1,10 @@
-import type { UnionSupergraphProjectionResponse, GraphProjectionNodeView } from "../../api/types";
+import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectCardViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { normalizeReferenceKey } from "./referenceResolver";
 import type { ReferenceResolution } from "./referenceResolver";
+import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
 
 export type PlanReferenceResolutionKind =
   | "graph-node"
@@ -27,20 +28,20 @@ export interface PlanReferenceResolution {
   /** Populated when label/alias lookup matched more than one graph node. */
   ambiguousNodeIds?: string[];
   fallback?: ReferenceResolution | null;
-  source: "union-supergraph" | "corpus-index" | "unresolved" | "error";
+  source: "world-graph" | "corpus-index" | "unresolved" | "error";
   message?: string | null;
-  /** Union Supergraph projection availability at resolve time. */
+  /** World Graph projection availability at resolve time. */
   graphProjectionState?: PlanGraphProjectionState | null;
 }
 
-export interface UnionSupergraphNodeIndex {
-  byNodeId: Map<string, GraphProjectionNodeView>;
+export interface WorldGraphNodeIndex {
+  byNodeId: Map<string, WorldGraphProjectionNodeView>;
   /** Label/alias keys map to every node that claims that key; unique-only lookups use length === 1. */
-  byLabelKey: Map<string, GraphProjectionNodeView[]>;
+  byLabelKey: Map<string, WorldGraphProjectionNodeView[]>;
 }
 
 export type GraphNodeProjectionLookup =
-  | { status: "found"; node: GraphProjectionNodeView }
+  | { status: "found"; node: WorldGraphProjectionNodeView }
   | { status: "ambiguous"; matchingNodeIds: string[] }
   | { status: "miss" };
 
@@ -64,25 +65,23 @@ export function parseGraphNodeLocator(locator: string): string | null {
   return null;
 }
 
-export function buildUnionSupergraphNodeIndex(
-  projection: UnionSupergraphProjectionResponse,
-): UnionSupergraphNodeIndex {
-  const byNodeId = new Map<string, GraphProjectionNodeView>();
-  const byLabelKey = new Map<string, GraphProjectionNodeView[]>();
+export function buildWorldGraphNodeIndex(projection: WorldGraphProjection): WorldGraphNodeIndex {
+  const byNodeId = new Map<string, WorldGraphProjectionNodeView>();
+  const byLabelKey = new Map<string, WorldGraphProjectionNodeView[]>();
 
-  const registerLabelKey = (value: string, node: GraphProjectionNodeView) => {
+  const registerLabelKey = (value: string, node: WorldGraphProjectionNodeView) => {
     const key = normalizeReferenceKey(value);
     if (!key) return;
 
     const existing = byLabelKey.get(key) ?? [];
-    if (existing.some((entry) => entry.node_id === node.node_id)) return;
+    if (existing.some((entry) => entry.nodeId === node.nodeId)) return;
 
     byLabelKey.set(key, [...existing, node]);
   };
 
-  for (const node of Object.values(projection.node_views)) {
-    byNodeId.set(node.node_id, node);
-    registerLabelKey(node.node_id, node);
+  for (const node of projection.nodes) {
+    byNodeId.set(node.nodeId, node);
+    registerLabelKey(node.nodeId, node);
     registerLabelKey(node.label, node);
     for (const alias of node.aliases ?? []) {
       registerLabelKey(alias, node);
@@ -93,7 +92,7 @@ export function buildUnionSupergraphNodeIndex(
 }
 
 function uniqueLabelKeyMatch(
-  index: UnionSupergraphNodeIndex,
+  index: WorldGraphNodeIndex,
   key: string,
 ): GraphNodeProjectionLookup {
   const normalized = normalizeReferenceKey(key);
@@ -106,13 +105,13 @@ function uniqueLabelKeyMatch(
   if (matches.length > 1) {
     return {
       status: "ambiguous",
-      matchingNodeIds: matches.map((node) => node.node_id),
+      matchingNodeIds: matches.map((node) => node.nodeId),
     };
   }
   return { status: "miss" };
 }
 
-function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphNodeProjectionLookup {
+function lookupNodeById(index: WorldGraphNodeIndex, nodeId: string): GraphNodeProjectionLookup {
   const trimmed = String(nodeId || "").trim();
   if (!trimmed) return { status: "miss" };
 
@@ -122,12 +121,12 @@ function lookupNodeById(index: UnionSupergraphNodeIndex, nodeId: string): GraphN
   return uniqueLabelKeyMatch(index, trimmed);
 }
 
-function lookupNodeByLabel(index: UnionSupergraphNodeIndex, label: string): GraphNodeProjectionLookup {
+function lookupNodeByLabel(index: WorldGraphNodeIndex, label: string): GraphNodeProjectionLookup {
   return uniqueLabelKeyMatch(index, label);
 }
 
 export function findGraphNodeInProjection(
-  index: UnionSupergraphNodeIndex,
+  index: WorldGraphNodeIndex,
   options: {
     locator?: string | null;
     refType?: string | null;
@@ -177,7 +176,7 @@ function resolutionLocator(input: {
 }
 
 function graphNodeResolution(
-  node: GraphProjectionNodeView,
+  node: WorldGraphProjectionNodeView,
   locator: string,
   refType?: string | null,
   refId?: string | null,
@@ -187,10 +186,10 @@ function graphNodeResolution(
     locator,
     refType: refType ?? null,
     refId: refId ?? null,
-    graphObject: buildGraphObjectCardFromNodeView(node),
-    graphNodeId: node.node_id,
+    graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(node)),
+    graphNodeId: node.nodeId,
     fallback: null,
-    source: "union-supergraph",
+    source: "world-graph",
     message: `Resolved graph node ${node.label}.`,
   };
 }
@@ -298,7 +297,7 @@ export interface ResolvePlanReferenceFromGraphProjectionInput {
   refId?: string | null;
   label?: string | null;
   ref?: RunbookReferenceAttrs | null;
-  projection?: UnionSupergraphProjectionResponse | null;
+  projection?: WorldGraphProjection | null;
   /** Precomputed corpus-index resolution from `resolveReference()` — not fetched here. */
   fallbackResolution?: ReferenceResolution | null;
 }
@@ -312,7 +311,7 @@ export function resolvePlanReferenceFromGraphProjection(
   const label = input.label ?? input.ref?.label ?? null;
 
   if (input.projection) {
-    const index = buildUnionSupergraphNodeIndex(input.projection);
+    const index = buildWorldGraphNodeIndex(input.projection);
     const lookup = findGraphNodeInProjection(index, {
       locator: input.locator ?? locator,
       refType,

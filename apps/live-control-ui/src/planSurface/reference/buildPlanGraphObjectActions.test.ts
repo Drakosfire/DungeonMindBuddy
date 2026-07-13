@@ -71,7 +71,7 @@ describe("buildPlanGraphObjectActions", () => {
       ),
       graphNodeId: "statblock-tripod",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
 
     const actions = buildPlanGraphObjectActions({
@@ -98,7 +98,7 @@ describe("buildPlanGraphObjectActions", () => {
       graphObject: buildGraphObjectCardFromNodeView(makeNode()),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
     const withoutEvidence: PlanReferenceResolution = {
       kind: "graph-node",
@@ -115,7 +115,7 @@ describe("buildPlanGraphObjectActions", () => {
       ),
       graphNodeId: "npc-empty",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
 
     expect(
@@ -158,7 +158,7 @@ describe("buildPlanGraphObjectActions", () => {
       ),
       graphNodeId: "npc-lysandra",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
     const noStatblock: PlanReferenceResolution = {
       kind: "graph-node",
@@ -166,7 +166,7 @@ describe("buildPlanGraphObjectActions", () => {
       graphObject: buildGraphObjectCardFromNodeView(makeNode()),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
 
     const withAction = buildPlanGraphObjectActions({
@@ -212,7 +212,7 @@ describe("buildPlanGraphObjectActions", () => {
       ),
       graphNodeId: "roll-table-gate",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
     const noRollTable: PlanReferenceResolution = {
       kind: "graph-node",
@@ -220,7 +220,7 @@ describe("buildPlanGraphObjectActions", () => {
       graphObject: buildGraphObjectCardFromNodeView(makeNode()),
       graphNodeId: "npc-glowkindle",
       fallback: null,
-      source: "union-supergraph",
+      source: "world-graph",
     };
 
     const withAction = buildPlanGraphObjectActions({

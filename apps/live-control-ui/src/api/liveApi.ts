@@ -84,6 +84,8 @@ import type {
   RecapGraphPresentationResponse,
   RecapGraphQuery,
   UnionSupergraphProjectionResponse,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
   PartyRegistrySurfaceResponse,
   PartyRegistrySessionRosterWriteCommitRequest,
   PartyRegistrySessionRosterWriteCommitResponse,
@@ -147,8 +149,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body = await parseJsonBody<{ detail?: unknown }>(response);
-      if (typeof body.detail === "string") {
+      const body = await parseJsonBody<{ detail?: unknown; message?: unknown }>(response);
+      if (typeof body.message === "string") {
+        detail = body.message;
+      } else if (typeof body.detail === "string") {
         detail = body.detail;
       } else if (body.detail != null) {
         detail = JSON.stringify(body.detail);
@@ -403,6 +407,15 @@ export async function getUnionSupergraphProjection(
   return apiFetch<UnionSupergraphProjectionResponse>(
     `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
   );
+}
+
+export async function postWorldGraphProjection(
+  request: WorldGraphProjectionRequest,
+): Promise<WorldGraphProjection> {
+  return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function getDefaultUnionSupergraphProjection(

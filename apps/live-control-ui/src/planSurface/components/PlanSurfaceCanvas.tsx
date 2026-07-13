@@ -48,7 +48,7 @@ export function PlanSurfaceCanvas({
   );
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip } = useProjection();
-  const { resolvePlanReference, projectionState } = usePlanGraphReferenceResolver(sessionDescriptor);
+  const { resolvePlanReference, projectionState } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
