@@ -646,6 +646,7 @@ export async function postLiveQuery(
       agent_thread_id: options.agentThreadId ?? null,
       hermes_session_id: options.hermesSessionId ?? null,
       trace_requested: options.traceRequested ?? null,
+      world_graph_context: options.worldGraphContext ?? undefined,
     }),
   });
 }

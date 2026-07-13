@@ -3,10 +3,15 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.schema_validation import LiveRowValidationError
+from apps.live_control_server.services.agent_world_graph_query_context import (
+    AgentWorldGraphQueryContextError,
+    AgentWorldGraphQueryContextRequest,
+)
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.services.citation_source_reader import (
     CitationSourceError,
@@ -168,6 +173,7 @@ class LiveQueryRequest(BaseModel):
     agent_thread_id: str | None = None
     hermes_session_id: str | None = None
     trace_requested: bool | None = None
+    world_graph_context: AgentWorldGraphQueryContextRequest | None = None
 
 
 class ResolveRollRequest(BaseModel):
@@ -806,8 +812,8 @@ def post_tiptap_markdown_write_commit(
     return response.model_dump(mode="json")
 
 
-@router.post("/query")
-def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
+@router.post("/query", response_model=None)
+def post_live_query(body: LiveQueryRequest) -> Any:
     base = session_dir()
     packet, _, _, _ = load_session(base)
     if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
@@ -824,6 +830,27 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             agent_thread_id=body.agent_thread_id,
             hermes_session_id=body.hermes_session_id,
             trace_requested=body.trace_requested,
+            world_graph_context=body.world_graph_context,
+            outer_campaign_id=body.campaign_id,
+        )
+    except AgentWorldGraphQueryContextError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.response_body())
+    except ValidationError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "schema": "dmb_world_graph_projection_error_v1",
+                "code": "invalid_request",
+                "message": str(exc),
+                "statusCode": 422,
+                "diagnostics": [
+                    {
+                        "code": "invalid_request",
+                        "message": str(exc),
+                        "severity": "error",
+                    }
+                ],
+            },
         )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

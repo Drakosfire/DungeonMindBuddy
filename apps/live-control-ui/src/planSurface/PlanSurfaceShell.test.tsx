@@ -36,6 +36,52 @@ const worldGraphProjection = {
   diagnostics: [],
 };
 
+const expectedWorldGraphContextRequest = {
+  schema: "dmb_agent_world_graph_query_context_request_v1",
+  world_id: "eldyrwild",
+  campaign_id: "longmont-c2",
+  focus: { kind: "session", session_id: "session-21" },
+  admissibility: "gm",
+  revision_pin: "rev-1",
+};
+
+function mockWorldGraphQueryContext(
+  status: "ready" | "empty" | "unavailable",
+  overrides: Partial<{
+    matched_node_ids: string[];
+    nodes: Array<Record<string, unknown>>;
+    relationships: Array<Record<string, unknown>>;
+    attributes: Array<Record<string, unknown>>;
+    warning_codes: string[];
+    diagnostics: Array<Record<string, unknown>>;
+  }> = {},
+) {
+  return {
+    schema: "dmb_agent_world_graph_query_context_v1",
+    status,
+    world_id: "eldyrwild",
+    campaign_id: "longmont-c2",
+    revision_id: "rev-1",
+    head_revision_id: "rev-1",
+    is_head: true,
+    focus: { kind: "session", session_id: "session-21" },
+    admissibility: "gm",
+    query_text: "test query",
+    matched_node_ids: overrides.matched_node_ids ?? [],
+    nodes: overrides.nodes ?? [],
+    relationships: overrides.relationships ?? [],
+    attributes: overrides.attributes ?? [],
+    projection_truncated: false,
+    diagnostics: overrides.diagnostics ?? [],
+    warning_codes: overrides.warning_codes ?? [],
+    trust_boundary: {
+      graph_role: "structured_campaign_memory_and_navigation",
+      citation_authority: "corpus_source_evidence",
+      graph_citations_permitted: false,
+    },
+  };
+}
+
 function PlanSurfaceTestHarness() {
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
 
@@ -259,6 +305,7 @@ describe("PlanSurfaceShell", () => {
       campaign_id: "longmont-c2",
       session: 21,
       query_backend: "live",
+      world_graph_context: expectedWorldGraphContextRequest,
     });
     const sourceCall = vi.mocked(globalThis.fetch).mock.calls[2];
     expect(String(sourceCall[0])).toContain("/api/live/citation-source");
@@ -405,7 +452,199 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Blended").length).toBeGreaterThan(0);
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({ query_backend: "hermes" });
+    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
+      query_backend: "hermes",
+      world_graph_context: expectedWorldGraphContextRequest,
+    });
+  });
+
+  it("sends world graph context on follow-up turns without a thread-level pin", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "First answer",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: {},
+            provenance: {},
+            citations: [],
+            world_graph_context: mockWorldGraphQueryContext("ready"),
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "Second answer",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: {},
+            provenance: {},
+            citations: [],
+            world_graph_context: mockWorldGraphQueryContext("ready"),
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.type(screen.getByLabelText("Question"), "First question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    expect(await screen.findByText("First answer")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Question"), "Second question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+
+    const firstQueryBody = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[1][1]?.body));
+    const secondQueryBody = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[2][1]?.body));
+    expect(firstQueryBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
+    expect(secondQueryBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
+    expect(firstQueryBody).not.toHaveProperty("revision_pin");
+    expect(secondQueryBody).not.toHaveProperty("revision_pin");
+  });
+
+  it("renders ready world graph context with matched durable IDs", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "Lysandro is at the gate.",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: {},
+            provenance: {},
+            citations: [],
+            world_graph_context: mockWorldGraphQueryContext("ready", {
+              matched_node_ids: ["node-lysandro"],
+              nodes: [{
+                node_id: "node-lysandro",
+                label: "Lysandro",
+                kind: "npc",
+                role: "antagonist",
+                summary: "Gate antagonist",
+                anchored_to_focus_session: true,
+              }],
+            }),
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.type(screen.getByLabelText("Question"), "Who is Lysandro?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    const graphPanel = await screen.findByRole("region", { name: "World graph query context" });
+    expect(graphPanel).toHaveTextContent("Graph context · ready");
+    expect(graphPanel).toHaveTextContent("node-lysandro");
+    expect(graphPanel).toHaveTextContent("Lysandro");
+  });
+
+  it("renders empty and unavailable world graph context states", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "No graph matches.",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: {},
+            provenance: {},
+            citations: [],
+            world_graph_context: mockWorldGraphQueryContext("empty", {
+              warning_codes: ["graph_context_empty"],
+            }),
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "Graph unavailable.",
+            classification: {},
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: {},
+            provenance: {},
+            citations: [],
+            world_graph_context: mockWorldGraphQueryContext("unavailable", {
+              warning_codes: ["world_graph_unavailable"],
+            }),
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+
+    await user.type(screen.getByLabelText("Question"), "Empty graph question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    expect(await screen.findByText("Graph context · empty")).toBeInTheDocument();
+    expect(screen.getByText("graph_context_empty")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Question"), "Unavailable graph question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    expect(await screen.findByText("Graph context · unavailable")).toBeInTheDocument();
+    expect(screen.getByText("world_graph_unavailable")).toBeInTheDocument();
+  });
+
+  it("disables ask submit while world graph projection is loading", async () => {
+    const user = userEvent.setup();
+    let resolveProjection: ((value: typeof worldGraphProjection) => void) | undefined;
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(
+      () => new Promise((resolve) => {
+        resolveProjection = resolve;
+      }),
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    expect(await screen.findByText("Initializing world graph context…")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Question"), "Ask before projection is ready?");
+    const submitButton = screen.getByRole("button", { name: "Ask prep memory" });
+    expect(submitButton).toBeDisabled();
+
+    resolveProjection?.(worldGraphProjection);
+    await waitFor(() => expect(submitButton).not.toBeDisabled());
   });
 
   it("warns when a prep memory answer has no grounding evidence", async () => {

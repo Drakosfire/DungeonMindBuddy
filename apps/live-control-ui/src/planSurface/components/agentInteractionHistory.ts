@@ -11,6 +11,8 @@ import type {
   LiveQueryCitation,
   AgentEvidenceSnapshot,
   CitationFreshnessStatus,
+  AgentWorldGraphQueryContext,
+  PersistedWorldGraphContextSummary,
 } from "../../api/types";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
@@ -177,6 +179,32 @@ export function worstCorpusFreshnessStatus(statuses: CitationFreshnessStatus[]):
   );
 }
 
+function buildWorldGraphContextSummary(
+  context: AgentWorldGraphQueryContext | null | undefined,
+): PersistedWorldGraphContextSummary | null {
+  if (!context) return null;
+  const warningCodes = [...(context.warning_codes ?? [])];
+  if (!warningCodes.includes("graph_context_detail_not_persisted")) {
+    warningCodes.push("graph_context_detail_not_persisted");
+  }
+  return {
+    schema: "dmb_agent_world_graph_context_summary_v1",
+    status: context.status,
+    worldId: context.world_id,
+    campaignId: context.campaign_id,
+    revisionId: context.revision_id,
+    isHead: context.is_head,
+    focus: {
+      kind: context.focus.kind,
+      sessionId: context.focus.session_id,
+    },
+    admissibility: context.admissibility,
+    matchedNodeIds: context.matched_node_ids,
+    projectionTruncated: context.projection_truncated,
+    warningCodes,
+  };
+}
+
 export function turnFromResponse(
   question: string,
   response: LiveQueryResponse,
@@ -198,6 +226,8 @@ export function turnFromResponse(
     retrievalFreshness: response.retrieval_freshness ?? null,
     evidenceSnapshots: response.evidence_snapshots ?? buildEvidenceSnapshots(response.citations ?? [], now),
     corpusFreshness: null,
+    worldGraphContext: response.world_graph_context ?? null,
+    worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
   };
 }
 
@@ -345,16 +375,20 @@ export function deleteAgentThread(thread: AgentInteractionThread): void {
 export function persistAgentThread(thread: AgentInteractionThread): void {
   const bounded: AgentInteractionThread = {
     ...thread,
-    turns: thread.turns.slice(0, AGENT_TURN_HISTORY_CAP).map((turn) => ({
-      ...turn,
-      contextSummary: turn.contextSummary,
-      citations: turn.citations ?? [],
-      trace: safeTraceForPersistence(turn.trace),
-      warnings: turn.warnings ?? [],
-      retrievalFreshness: turn.retrievalFreshness ?? null,
-      evidenceSnapshots: turn.evidenceSnapshots ?? [],
-      corpusFreshness: turn.corpusFreshness ?? null,
-    })),
+    turns: thread.turns.slice(0, AGENT_TURN_HISTORY_CAP).map((turn) => {
+      const { worldGraphContext: _stripped, ...persistedTurn } = turn;
+      return {
+        ...persistedTurn,
+        contextSummary: turn.contextSummary,
+        citations: turn.citations ?? [],
+        trace: safeTraceForPersistence(turn.trace),
+        warnings: turn.warnings ?? [],
+        retrievalFreshness: turn.retrievalFreshness ?? null,
+        evidenceSnapshots: turn.evidenceSnapshots ?? [],
+        corpusFreshness: turn.corpusFreshness ?? null,
+        worldGraphContextSummary: turn.worldGraphContextSummary ?? null,
+      };
+    }),
   };
   localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);
   localStorage.setItem(threadStorageKey(thread.campaignId, thread.threadId), JSON.stringify(bounded));

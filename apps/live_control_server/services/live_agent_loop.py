@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.services.agent_world_graph_query_context import (
+    AgentWorldGraphQueryContextRequest,
+    render_world_graph_prompt_block,
+    resolve_agent_world_graph_query_context,
+)
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
@@ -397,6 +402,22 @@ def _should_route_context_lookup(text: str, event_type: str) -> bool:
     )
 
 
+def _attach_world_graph_context(
+    response: dict[str, Any],
+    world_graph_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if world_graph_context is not None:
+        response["world_graph_context"] = world_graph_context
+        warning_codes = list(world_graph_context.get("warning_codes") or [])
+        if warning_codes:
+            existing = list(response.get("warnings") or [])
+            for code in warning_codes:
+                if code not in existing:
+                    existing.append(code)
+            response["warnings"] = existing
+    return response
+
+
 def process_live_query(
     text: str,
     *,
@@ -407,6 +428,8 @@ def process_live_query(
     agent_thread_id: str | None = None,
     hermes_session_id: str | None = None,
     trace_requested: bool | None = None,
+    world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
+    outer_campaign_id: str | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
@@ -414,8 +437,17 @@ def process_live_query(
     repo = root or repo_root()
     packet, _layout, _events, _jobs = load_session(session_base)
 
+    graph_envelope: dict[str, Any] | None = None
+    if world_graph_context is not None:
+        campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
+        graph_envelope = resolve_agent_world_graph_query_context(
+            world_graph_context,
+            outer_text=text,
+            outer_campaign_id=campaign_id,
+        )
+
     if query_backend == "hermes":
-        return run_hermes_conversation(
+        response = run_hermes_conversation(
             text,
             packet=packet,
             request_manifest_path=request_manifest_path,
@@ -423,12 +455,19 @@ def process_live_query(
             turn_id=resolved_turn_id,
             hermes_session_id=hermes_session_id,
             trace_requested=trace_requested,
+            world_graph_context=graph_envelope,
         )
+        return _attach_world_graph_context(response, graph_envelope)
     if query_backend not in LIVE_QUERY_BACKENDS:
         raise ValueError(f"unsupported query backend: {query_backend}")
 
     classification = classify_live_turn(text)
     if _should_route_context_lookup(text, classification.event_type):
+        graph_prompt = (
+            render_world_graph_prompt_block(graph_envelope)
+            if graph_envelope is not None
+            else None
+        )
         context_result = run_context_lookup_turn(
             question=text,
             classification=classification,
@@ -436,6 +475,7 @@ def process_live_query(
             root=repo,
             session=int(packet["session"]),
             request_manifest_path=request_manifest_path,
+            world_graph_prompt_block=graph_prompt,
         )
         response = dict(context_result.response)
         response["retrieval_freshness"] = build_retrieval_freshness_decision(
@@ -445,11 +485,12 @@ def process_live_query(
             status=str(response.get("status") or "ok"),
         )
         response = _with_evidence_snapshots(response)
-        return _with_conversation_fields(
+        response = _with_conversation_fields(
             response,
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
         )
+        return _attach_world_graph_context(response, graph_envelope)
 
     result: LiveTurnResult = handle_live_turn(
         packet,
@@ -480,7 +521,12 @@ def process_live_query(
         "warnings": [],
         "mutations": [],
     }
-    return _with_conversation_fields(response, agent_thread_id=resolved_agent_thread_id, turn_id=resolved_turn_id)
+    response = _with_conversation_fields(
+        response,
+        agent_thread_id=resolved_agent_thread_id,
+        turn_id=resolved_turn_id,
+    )
+    return _attach_world_graph_context(response, graph_envelope)
 
 
 def _with_evidence_snapshots(response: dict[str, Any]) -> dict[str, Any]:
@@ -514,12 +560,14 @@ def run_hermes_conversation(
     turn_id: str | None,
     hermes_session_id: str | None = None,
     trace_requested: bool | None = None,
+    world_graph_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     response = _process_hermes_context_query(
         text,
         packet=packet,
         request_manifest_path=request_manifest_path,
         hermes_session_id=hermes_session_id,
+        world_graph_context=world_graph_context,
     )
     hermes_session = None
     if hermes_session_id:
@@ -543,6 +591,7 @@ def _process_hermes_context_query(
     packet: dict[str, Any],
     request_manifest_path: str | None,
     hermes_session_id: str | None = None,
+    world_graph_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if os.getenv(HERMES_CLI_MODE_ENV, "").strip().lower() == "cli":
         return _process_hermes_cli_query(
@@ -550,6 +599,7 @@ def _process_hermes_context_query(
             packet=packet,
             request_manifest_path=request_manifest_path,
             hermes_session_id=hermes_session_id,
+            world_graph_context=world_graph_context,
         )
 
     from integrations.hermes.plugins.dungeonbuddy import handle_dungeon_context_lookup
@@ -557,6 +607,11 @@ def _process_hermes_context_query(
     trace_id = _new_trace_id("hermes-trace")
     started_at = _utc_now_z()
     started_mono = time.monotonic()
+    graph_prompt = (
+        render_world_graph_prompt_block(world_graph_context)
+        if world_graph_context is not None
+        else None
+    )
 
     params: dict[str, Any] = {
         "question": text,
@@ -570,7 +625,20 @@ def _process_hermes_context_query(
     completed_at = _utc_now_z()
     elapsed_ms = int((time.monotonic() - started_mono) * 1000)
 
+    def _graph_step() -> dict[str, str]:
+        return {
+            "name": "world_graph_query_context",
+            "summary": (
+                f"Graph context supplied status={world_graph_context.get('status')} "
+                f"revision={world_graph_context.get('revision_id')} "
+                f"matched={len(list(world_graph_context.get('matched_node_ids') or []))}"
+            ),
+        }
+
     if not data.get("success"):
+        steps = [{"name": "dungeon_context_lookup", "summary": "Lookup failed"}]
+        if world_graph_context is not None:
+            steps.insert(0, _graph_step())
         agent_trace = _build_agent_trace(
             trace_id=trace_id,
             runtime="in_process",
@@ -581,9 +649,9 @@ def _process_hermes_context_query(
             completed_at=completed_at,
             elapsed_ms=elapsed_ms,
             toolset="dungeonbuddy",
-            prompt_char_count=len(text),
-            prompt_token_estimate=_estimate_token_count(text),
-            steps=[{"name": "dungeon_context_lookup", "summary": "Lookup failed"}],
+            prompt_char_count=len(text) + (len(graph_prompt) if graph_prompt else 0),
+            prompt_token_estimate=_estimate_token_count(text + (graph_prompt or "")),
+            steps=steps,
             context_summary=_context_summary_from_packet(
                 None,
                 manifest_path=str(data.get("manifest_path") or request_manifest_path or "") or None,
@@ -623,6 +691,9 @@ def _process_hermes_context_query(
         else "Hermes needs follow-up source reads before a grounded answer. Review suggested routes."
     )
     manifest_path = str(data.get("manifest_path") or request_manifest_path or "") or None
+    steps = _hermes_in_process_steps(summary)
+    if world_graph_context is not None:
+        steps.insert(0, _graph_step())
     agent_trace = _build_agent_trace(
         trace_id=trace_id,
         runtime="in_process",
@@ -633,9 +704,9 @@ def _process_hermes_context_query(
         completed_at=completed_at,
         elapsed_ms=elapsed_ms,
         toolset="dungeonbuddy",
-        prompt_char_count=len(text),
-        prompt_token_estimate=_estimate_token_count(text),
-        steps=_hermes_in_process_steps(summary),
+        prompt_char_count=len(text) + (len(graph_prompt) if graph_prompt else 0),
+        prompt_token_estimate=_estimate_token_count(text + (graph_prompt or "")),
+        steps=steps,
         context_summary=_context_summary_from_packet(
             context_packet,
             manifest_path=manifest_path,
@@ -649,6 +720,13 @@ def _process_hermes_context_query(
             }
         ] if manifest_path else [],
     )
+
+    diagnostics: dict[str, Any] = {
+        "hermes_tool": "dungeon_context_lookup",
+        "sufficiency_summary": summary,
+    }
+    if world_graph_context is not None:
+        diagnostics["world_graph_prompt_supplied"] = True
 
     return _with_evidence_snapshots({
         "schema": "dmb_live_query_response_v1",
@@ -665,10 +743,7 @@ def _process_hermes_context_query(
         "events_written": [],
         "jobs_queued": [],
         "next_suggestions": list(summary.get("suggested_routes") or []),
-        "diagnostics": {
-            "hermes_tool": "dungeon_context_lookup",
-            "sufficiency_summary": summary,
-        },
+        "diagnostics": diagnostics,
         "provenance": {
             "mode": "hermes_context_lookup",
             "backend": "hermes",
@@ -704,6 +779,7 @@ def _process_hermes_cli_query(
     packet: dict[str, Any],
     request_manifest_path: str | None,
     hermes_session_id: str | None = None,
+    world_graph_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     query_id = f"hermes-cli-query-{uuid.uuid4().hex[:12]}"
     trace_id = _new_trace_id("hermes-cli-trace")
@@ -749,6 +825,11 @@ def _process_hermes_cli_query(
         sufficiency_summary=sufficiency_summary,
     )
     prompt_context = _prompt_context_from_packet(context_packet)
+    graph_prompt = (
+        render_world_graph_prompt_block(world_graph_context)
+        if world_graph_context is not None
+        else None
+    )
 
     resume_warnings: list[str] = []
     if hermes_session_id:
@@ -765,6 +846,8 @@ def _process_hermes_cli_query(
         "Question: "
         f"{text}\n\nRetrieved evidence excerpts:\n{prompt_context}"
     )
+    if graph_prompt:
+        prompt += f"\n\n{graph_prompt}"
     if request_manifest_path:
         prompt += f"\nUse manifest path if a DungeonBuddy tool asks for one: {request_manifest_path}"
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentInteractionThread, AgentInteractionTrace } from "../../api/types";
+import type { AgentInteractionThread, AgentInteractionTrace, AgentWorldGraphQueryContext } from "../../api/types";
 import {
   activeThreadStorageKey,
   buildEvidenceSnapshots,
@@ -12,6 +12,7 @@ import {
   persistAgentThreadIndex,
   renameAgentThread,
   safeTraceForPersistence,
+  turnFromResponse,
   worstCorpusFreshnessStatus,
   setActiveAgentThread,
   threadIndexStorageKey,
@@ -217,5 +218,79 @@ describe("agentInteractionHistory", () => {
     expect(trace?.prompt_preview).toBeUndefined();
     expect(trace?.artifact_refs[0].path).toBe("");
     expect(trace?.artifact_refs[1].path).toBe("artifacts/trace.json");
+  });
+
+  it("persists world graph summary only and strips full graph projection detail", () => {
+    const worldGraphContext: AgentWorldGraphQueryContext = {
+      schema: "dmb_agent_world_graph_query_context_v1",
+      status: "ready",
+      world_id: "eldyrwild",
+      campaign_id: "longmont-c2",
+      revision_id: "rev-1",
+      head_revision_id: "rev-1",
+      is_head: true,
+      focus: { kind: "session", session_id: "session-21" },
+      admissibility: "gm",
+      query_text: "Who is Lysandro?",
+      matched_node_ids: ["node-lysandro"],
+      nodes: [{
+        node_id: "node-lysandro",
+        label: "Lysandro",
+        kind: "npc",
+        role: "antagonist",
+        summary: "Gate antagonist",
+        anchored_to_focus_session: true,
+      }],
+      relationships: [{
+        edge_id: "edge-1",
+        source_node_id: "node-lysandro",
+        target_node_id: "node-gate",
+        predicate: "located_at",
+        label: "at the gate",
+        direction: "outgoing",
+        session_ids: ["session-21"],
+      }],
+      attributes: [{
+        assertion_id: "assert-1",
+        subject_node_id: "node-lysandro",
+        predicate: "role",
+        label: "Role",
+        text_value: "antagonist",
+      }],
+      projection_truncated: false,
+      diagnostics: [{ code: "ok", message: "ready", severity: "info" }],
+      warning_codes: [],
+      trust_boundary: {
+        graph_role: "structured_campaign_memory_and_navigation",
+        citation_authority: "corpus_source_evidence",
+        graph_citations_permitted: false,
+      },
+    };
+
+    const thread = makeThread("Graph prep");
+    const turn = turnFromResponse("Who is Lysandro?", {
+      answer: "Lysandro is at the gate.",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      world_graph_context: worldGraphContext,
+    }, "live");
+    thread.turns = [turn];
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    expect(stored).toContain("dmb_agent_world_graph_context_summary_v1");
+    expect(stored).toContain("node-lysandro");
+    expect(stored).toContain("graph_context_detail_not_persisted");
+    expect(stored).not.toContain("dmb_agent_world_graph_query_context_v1");
+    expect(stored).not.toContain("prompt_preview");
+    expect(stored).not.toContain("relationships");
+    expect(stored).not.toContain("attributes");
+    expect(stored).not.toContain("Gate antagonist");
+    expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].worldGraphContext).toBeUndefined();
+    expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].worldGraphContextSummary?.matchedNodeIds).toEqual(["node-lysandro"]);
   });
 });

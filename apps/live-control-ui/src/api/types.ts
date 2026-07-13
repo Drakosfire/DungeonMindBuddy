@@ -451,6 +451,8 @@ export interface AgentInteractionTurn {
   retrievalFreshness?: RetrievalFreshnessDecision | null;
   evidenceSnapshots?: AgentEvidenceSnapshot[];
   corpusFreshness?: CitationFreshnessCheckResult | null;
+  worldGraphContext?: AgentWorldGraphQueryContext | null;
+  worldGraphContextSummary?: PersistedWorldGraphContextSummary | null;
 }
 
 export interface AgentInteractionThread {
@@ -489,10 +491,82 @@ export interface AgentInteractionThreadIndex {
   threads: AgentInteractionThreadSummary[];
 }
 
+export interface AgentWorldGraphQueryContextRequest {
+  schema: "dmb_agent_world_graph_query_context_request_v1";
+  world_id: string;
+  campaign_id: string;
+  focus: { kind: "none" | "session"; session_id: string | null };
+  admissibility: "gm";
+  revision_pin: string | null;
+}
+
+export type AgentWorldGraphQueryContextStatus = "ready" | "empty" | "unavailable";
+
+export interface AgentWorldGraphQueryContext {
+  schema: "dmb_agent_world_graph_query_context_v1";
+  status: AgentWorldGraphQueryContextStatus;
+  world_id: string;
+  campaign_id: string;
+  revision_id: string | null;
+  head_revision_id: string | null;
+  is_head: boolean | null;
+  focus: { kind: "none" | "session"; session_id: string | null };
+  admissibility: "gm";
+  query_text: string;
+  matched_node_ids: string[];
+  nodes: Array<{
+    node_id: string;
+    label: string;
+    kind: string;
+    role: string;
+    summary: string | null;
+    anchored_to_focus_session: boolean;
+  }>;
+  relationships: Array<{
+    edge_id: string;
+    source_node_id: string;
+    target_node_id: string;
+    predicate: string;
+    label: string;
+    direction: string | null;
+    session_ids: string[];
+  }>;
+  attributes: Array<{
+    assertion_id: string;
+    subject_node_id: string;
+    predicate: string | null;
+    label: string | null;
+    text_value: string | null;
+  }>;
+  projection_truncated: boolean;
+  diagnostics: Array<{ code: string; message: string; severity: string }>;
+  warning_codes: string[];
+  trust_boundary: {
+    graph_role: string;
+    citation_authority: string;
+    graph_citations_permitted: boolean;
+  };
+}
+
+export interface PersistedWorldGraphContextSummary {
+  schema: "dmb_agent_world_graph_context_summary_v1";
+  status: AgentWorldGraphQueryContextStatus;
+  worldId: string;
+  campaignId: string;
+  revisionId: string | null;
+  isHead: boolean | null;
+  focus: { kind: "none" | "session"; sessionId: string | null };
+  admissibility: "gm";
+  matchedNodeIds: string[];
+  projectionTruncated: boolean;
+  warningCodes: string[];
+}
+
 export interface LiveQueryOptions {
   agentThreadId?: string | null;
   hermesSessionId?: string | null;
   traceRequested?: boolean | null;
+  worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
 }
 
 export interface AgentInteractionTurnMeta {
@@ -577,6 +651,7 @@ export interface LiveQueryResponse {
   hermes_session?: HermesSessionHandle | null;
   retrieval_freshness?: RetrievalFreshnessDecision | null;
   evidence_snapshots?: AgentEvidenceSnapshot[];
+  world_graph_context?: AgentWorldGraphQueryContext | null;
 }
 
 export interface LiveEvent {

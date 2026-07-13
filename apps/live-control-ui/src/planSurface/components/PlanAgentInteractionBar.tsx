@@ -27,6 +27,12 @@ import { buildPacketReview } from "./contextSufficiencyLadder";
 import { TraceDetailsPanel } from "./TraceDetailsPanel";
 import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
+import { WorldGraphQueryContextPanel } from "./WorldGraphQueryContextPanel";
+import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
+import {
+  buildPlanAgentWorldGraphQueryContextRequest,
+  getPlanWorldGraphContext,
+} from "../reference/planGraphContextRequest";
 import {
   PREP_MEMORY_PROMPTS,
   answerHeading,
@@ -157,7 +163,7 @@ function sessionNumbers(bundle: IngestionSourceBundle): number[] {
 }
 
 export function PlanAgentInteractionBar({
-  planView,
+  planView: _planView,
   sessionDescriptor,
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
@@ -165,6 +171,10 @@ export function PlanAgentInteractionBar({
   checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
+  const { projection, projectionState, projectionError } = usePlanGraphReferenceResolver();
+  const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor);
+  const hasSupportedGraphContext = planWorldGraphContext != null;
+  const graphContextInitializing = hasSupportedGraphContext && projectionState === "loading";
   const open = agentInteraction.paneState.isOpen;
   const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -459,6 +469,11 @@ export function PlanAgentInteractionBar({
           agentThreadId: currentThread.threadId,
           hermesSessionId: currentThread.hermesSession?.sessionId ?? null,
           traceRequested: currentThread.uiState?.traceVisible ?? false,
+          worldGraphContext: planWorldGraphContext && projectionState !== "loading"
+            ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
+                revisionPin: projection?.snapshot.revisionId ?? null,
+              })
+            : null,
         },
       );
       const nextTurn = turnFromResponse(trimmed, response, queryBackend);
@@ -630,7 +645,19 @@ export function PlanAgentInteractionBar({
                     rows={3}
                   />
                 </label>
-                <button type="submit" disabled={!question.trim() || askStatus === "asking"}>
+                {graphContextInitializing ? (
+                  <p className="plan-agent-muted">Initializing world graph context…</p>
+                ) : null}
+                {hasSupportedGraphContext && projectionState === "error" ? (
+                  <p className="plan-agent-warning">
+                    World graph projection error: {projectionError ?? "unknown error"}.
+                    {" "}Query will continue with an unpinned revision.
+                  </p>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={!question.trim() || askStatus === "asking" || graphContextInitializing}
+                >
                   {askStatus === "asking" ? "Asking…" : "Ask prep memory"}
                 </button>
                 {askStatus === "error" ? (
@@ -708,6 +735,21 @@ export function PlanAgentInteractionBar({
                       </section>
                     ) : null}
                     <RetrievalFreshnessPanel decision={answer.retrieval_freshness} />
+                    {activeTurn ? (
+                      <WorldGraphQueryContextPanel
+                        context={
+                          turnResponses[activeTurn.turnId]?.world_graph_context
+                          ?? activeTurn.worldGraphContext
+                          ?? null
+                        }
+                        summary={activeTurn.worldGraphContextSummary}
+                        persistedOnly={
+                          !turnResponses[activeTurn.turnId]?.world_graph_context
+                          && !activeTurn.worldGraphContext
+                          && Boolean(activeTurn.worldGraphContextSummary)
+                        }
+                      />
+                    ) : null}
                     {activeTurn ? (
                       <CorpusChangeSignalPanel
                         status={corpusSignalStatus}
