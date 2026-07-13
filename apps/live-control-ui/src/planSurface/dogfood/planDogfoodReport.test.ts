@@ -57,8 +57,8 @@ describe("buildPlanDogfoodReport", () => {
     expect(report).toContain("World Graph head revision: rev-22");
     expect(report).toContain("World Graph focus: session-21");
     expect(report).toContain("Generated at: 2026-07-09T12:00:00.000Z");
-    expect(report).toContain("- [x] Open /plan for the intended campaign/session");
-    expect(report).toContain("- [x] Add real prep notes to the board");
+    expect(report).toContain("- [x] Open /plan?dogfood=1 with the intended live session dir");
+    expect(report).toContain("- [x] Edit the board with real prep notes for this session");
     expect(report).toContain("- [ ] Stop the dev server");
     expect(report).toContain("Save felt trustworthy.");
     expect(report).toContain("## Suggested follow-ups");

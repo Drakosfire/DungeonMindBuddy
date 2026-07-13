@@ -178,10 +178,14 @@ describe("IngestionModule", () => {
     expect(await screen.findByText("Raw Recap Ingestion")).toBeInTheDocument();
   });
 
-  it("disables stage preview with empty raw text", () => {
+  it("disables stage preview with empty raw text", async () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
-    expect(screen.getByText("Paste raw recap text, then continue to preview.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stage + Preview" })).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        screen.getByText(/paste or load a recap|Inspect or load a session/i),
+      ).toBeInTheDocument(),
+    );
   });
 
   it("submits stage_preview with edited recap session and no raw_path", async () => {
@@ -338,7 +342,9 @@ describe("IngestionModule", () => {
     expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
     expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText("Next: click Build Frontmatter Seed, then review the generated seed.")).toBeInTheDocument(),
+      expect(
+        screen.getByText("Next: Build Frontmatter Seed, then breadcrumb and session memory."),
+      ).toBeInTheDocument(),
     );
     await user.click(screen.getByText("Terminal path stays available"));
     expect(screen.getByText("Materialize waits for breadcrumb_found.")).toBeInTheDocument();
@@ -407,7 +413,10 @@ describe("IngestionModule", () => {
       }),
     );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getAllByText("Complete: graph projection is ready. Review the rendered recap and graph chips.").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Complete: recap memory and preview graph are ready. Review chips in Recap View.")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
   });
 
@@ -507,7 +516,7 @@ describe("IngestionModule", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 23 - Mireward"));
     expect(screen.getByText("What was ingested?")).toBeInTheDocument();
-    expect(screen.getByText("records: 3")).toBeInTheDocument();
+    expect(screen.getAllByText("records: 3").length).toBeGreaterThan(0);
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
@@ -591,7 +600,7 @@ describe("IngestionModule", () => {
     );
     expect(screen.getAllByText("breadcrumb_found").length).toBeGreaterThan(0);
     await waitFor(() =>
-      expect(screen.getByText("Next: click Materialize Session Memory.")).toBeInTheDocument(),
+      expect(screen.getByText("Next: Materialize Session Memory.")).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeEnabled();
   });
@@ -1042,7 +1051,9 @@ describe("IngestionModule", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getAllByText(/Complete: graph projection is ready|Ingestion ready_for_planning_activation/).length,
+        screen.getAllByText(
+          /Complete: recap memory and preview graph are ready|Complete: graph projection is ready|Ingestion ready_for_planning_activation/,
+        ).length,
       ).toBeGreaterThan(0);
     });
   });
@@ -1105,5 +1116,84 @@ describe("IngestionModule", () => {
         }),
       ),
     );
+  });
+
+  it("shows Session-24 readiness: memory ready, graph missing, titled canonical Found", async () => {
+    const titled =
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md";
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({
+          session: 24,
+          status: "ready_for_planning_activation",
+          states: [
+            "recap_reused",
+            "normalized_reused",
+            "breadcrumb_found",
+            "session_memory_materialized",
+            "ready_for_planning_activation",
+            "graph_preview_missing",
+            "ingest_status_inspected",
+          ],
+          paths: {
+            ...makeStatus().paths,
+            canonical_recap: titled,
+            normalized_recap:
+              "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+          },
+          warnings: ["slug_mismatch_used_disk_breadcrumb"],
+          ingest_report: {
+            graph_preview: { status: "missing" },
+            corpus_impact: [
+              {
+                key: "canonical_recap",
+                relpath: titled,
+                exists: true,
+                size_bytes: 8500,
+              },
+              {
+                key: "normalized_recap",
+                relpath:
+                  "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+                exists: true,
+                size_bytes: 8900,
+              },
+              {
+                key: "session_memory_jsonl",
+                relpath:
+                  "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 24 - Mireward Gate Battle.records_meta.jsonl",
+                exists: true,
+                size_bytes: 1200,
+                record_count: 76,
+              },
+            ],
+          },
+          entity_spelling_audit: [],
+        });
+      }
+      return makeStatus({ session: 24, entity_spelling_audit: [] });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={25} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(/Next: run category graph extraction to materialize the preview union store/i)
+          .length,
+      ).toBeGreaterThan(0),
+    );
+    expect(screen.getByText("Recap memory")).toBeInTheDocument();
+    expect(screen.getByText("Graph preview")).toBeInTheDocument();
+    expect(screen.getAllByText("Ready").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not ready").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Complete:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Prove")).toBeInTheDocument();
+
+    const canonicalRows = screen.getAllByText("canonical recap");
+    const proveCanonical = canonicalRows
+      .map((node) => node.closest("li"))
+      .find((row) => row?.textContent?.includes(titled));
+    expect(proveCanonical).toBeTruthy();
+    expect(proveCanonical).toHaveTextContent("Found");
   });
 });

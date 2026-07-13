@@ -509,3 +509,54 @@ def test_default_safe_mode_does_not_create_embeddings_or_live_files(tmp_path: Pa
             "job_queue.jsonl",
             "current_state.json",
         }
+
+
+def test_inspect_resolves_titled_canonical_when_slug_default_missing(tmp_path: Path) -> None:
+    """Session-24 shape: titled canonical exists; default Session N - Recap.md does not."""
+    corpus = _seed_corpus(tmp_path)
+    recaps = corpus / "Longmont Campaign/Campaign 2/Session Recaps"
+    titled = "Session 24 - Mireward Gate Battle.md"
+    (recaps / titled).write_text("# Session 24 Recap\n\nGate battle continues.\n", encoding="utf-8")
+    (recaps / "_normalized").mkdir(parents=True, exist_ok=True)
+    (recaps / "_normalized" / titled).write_text("normalized", encoding="utf-8")
+    (recaps / "_breadcrumbed").mkdir(parents=True, exist_ok=True)
+    (recaps / "_breadcrumbed" / "Session 24 - Mireward Gate Battle.frontmatter_seed.md").write_text(
+        "---\n---\n",
+        encoding="utf-8",
+    )
+    (recaps / "_breadcrumbed" / "Session 24 - Mireward Gate Battle.breadcrumbed.md").write_text(
+        "breadcrumb",
+        encoding="utf-8",
+    )
+    (recaps / "_session_memory").mkdir(parents=True, exist_ok=True)
+    (recaps / "_session_memory" / "Session 24 - Mireward Gate Battle.records_meta.jsonl").write_text(
+        '{"schema":"dmb_session_memory_record_v1"}\n',
+        encoding="utf-8",
+    )
+    (recaps / "_session_memory" / "Session 24 - Mireward Gate Battle.records_meta.json").write_text(
+        '{"unit_count":1}\n',
+        encoding="utf-8",
+    )
+
+    status = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=24,
+        title=None,
+        slug=None,
+        corpus=corpus,
+    )
+
+    expected_rel = f"Longmont Campaign/Campaign 2/Session Recaps/{titled}"
+    assert status["paths"]["canonical_recap"] == expected_rel
+    assert "recap_reused" in status["states"]
+    assert "session_memory_materialized" in status["states"]
+    assert "slug_mismatch_used_disk_breadcrumb" in status["warnings"]
+
+    impact = {
+        row["key"]: row
+        for row in status["ingest_report"]["corpus_impact"]
+        if isinstance(row, dict)
+    }
+    assert impact["canonical_recap"]["exists"] is True
+    assert impact["canonical_recap"]["relpath"] == expected_rel
+    assert impact["normalized_recap"]["exists"] is True

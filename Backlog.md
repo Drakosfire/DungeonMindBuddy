@@ -7,13 +7,20 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Ingest Recap full wizard simplification — captured 2026-07-13
+**Context:** Plan-surface dogfood found the 8-chip ingest tracker contradicting itself (Prove/Memory Done while next action demanded graph extraction; Canonical Missing for titled Session 24 files).
+**Insight:** Tracker + proof honesty landed as a 3-lane readiness model (`buildIngestReadiness`) plus titled-canonical inspect resolution. The Generate Recap Memory / Advanced button matrix is still a multi-path wizard and remains hard to teach.
+**Action:** Collapse Ingest Recap controls into one primary path (paste/load → generate memory+graph) with advanced steps behind disclosure only; keep readiness lanes as the single status surface.
+**Surfaces when:** editing `IngestionModule.tsx`, dogfooding `/ingest` Ingest Recap, or simplifying operator ingest UX.
+**Refs:** `apps/live-control-ui/src/modules/ingestReadiness.ts`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `src/live_play/recap_ingest_pipeline.py`
 
-## [IDEA] Plan board seeds scaffold, not full Session Prep.md — captured 2026-07-13
-**Context:** PR008A `/plan?dogfood=1` dogfood note
-**Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Feels like a "markdown loader" dumping incomplete plan content.
-**Action:** Decide whether Plan should hydrate from `planningDocument.targetRelpath` corpus Markdown (with local-draft overlay) vs keep an empty/scaffold board that only becomes the prep file on Save. Separate from World Graph projection work.
-**Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import
-**Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`
+
+## [READY] Plan board hydrates from Session Prep.md — captured 2026-07-13
+**Context:** PR008A `/plan?dogfood=1` dogfood note; promoted 2026-07-13 after confirming load (not Agent graph dogfood) is the next Plan prep-loop gap. Design checkpoint step 2 in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
+**Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Save already writes `Session N Prep.md`; reload does not re-read it. Feels like a broken markdown loader.
+**Action:** Implement corpus hydration for the primary Plan board: `GET /api/live/session-prep/resolve` (seed from `stash@{0}` SessionPrepLoader WIP) → on mount, if no fresher localStorage draft, read `planningDocument.targetRelpath` via existing citation-source/markdown→TipTap path and seed the board; show nav status (corpus vs local-draft overlay). Optional: `?prepSession=` override so Session 25 Prep can open when live packet session ≠ 24. Defer multi-doc picker and `session_N/` crawl.
+**Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import, leaving PR008B for Plan prep UX
+**Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`, `PlanSurfaceCanvas.tsx`, `stash@{0}` SessionPrepLoader hydration, `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md` §7 step 2
 
 
 ## Resume after Graph Review authored-memory pause

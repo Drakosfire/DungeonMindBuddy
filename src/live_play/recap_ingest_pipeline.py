@@ -22,6 +22,7 @@ from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
 from src.corpus.session_recap_paths import (
     breadcrumbed_relpath,
+    canonical_recap_candidates,
     frontmatter_seed_relpath,
     is_generic_recap_tail,
     normalized_recap_candidates,
@@ -308,6 +309,44 @@ def _disk_derivative_paths(
             corpus_root=corpus_dir,
         ),
     }
+
+
+def _resolve_canonical_recap_rel(
+    corpus_dir: Path,
+    *,
+    campaign_number: int,
+    session: int,
+    slug_default_rel: str,
+    normalized_rel: str | None,
+) -> str:
+    """Prefer the titled on-disk canonical that matches the normalized stem.
+
+    Slug-default paths like ``Session N - Recap.md`` are only kept when no titled
+    sibling exists beside the resolved normalized recap.
+    """
+    prefix = session_recaps_prefix(campaign_number)
+    if normalized_rel:
+        stem = Path(str(normalized_rel)).stem
+        titled_rel = f"{prefix}/{stem}.md"
+        if (corpus_dir / titled_rel).is_file():
+            return titled_rel
+        for candidate in canonical_recap_candidates(
+            corpus_dir,
+            campaign_number=campaign_number,
+            session=session,
+        ):
+            if candidate.stem == stem:
+                return f"{prefix}/{candidate.name}"
+    if (corpus_dir / slug_default_rel).is_file():
+        return slug_default_rel
+    candidates = canonical_recap_candidates(
+        corpus_dir,
+        campaign_number=campaign_number,
+        session=session,
+    )
+    if len(candidates) == 1:
+        return f"{prefix}/{candidates[0].name}"
+    return slug_default_rel
 
 
 def _resolve_breadcrumb_path(
@@ -854,6 +893,7 @@ def inspect_recap_ingest_status(
         "session_memory_meta": paths.session_memory_meta_rel,
     }
 
+    slug_default_canonical = paths.canonical_recap_rel
     try:
         disk_paths = _disk_derivative_paths(
             corpus_dir,
@@ -864,7 +904,7 @@ def inspect_recap_ingest_status(
         if disk_paths["normalized_recap"] != paths.normalized_recap_rel:
             status.add_warning("slug_mismatch_used_disk_breadcrumb")
     except FileNotFoundError:
-        pass
+        disk_paths = None
 
     duplicate_candidates = _annotate_normalized_duplicates(
         status,
@@ -885,7 +925,20 @@ def inspect_recap_ingest_status(
             status.paths.update(disk_paths)
             status.add_warning("continuing with recommended normalized recap among duplicates")
         except FileNotFoundError:
-            pass
+            disk_paths = None
+
+    status.paths["canonical_recap"] = _resolve_canonical_recap_rel(
+        corpus_dir,
+        campaign_number=paths.campaign_number,
+        session=session,
+        slug_default_rel=slug_default_canonical,
+        normalized_rel=str(status.paths.get("normalized_recap") or "") or None,
+    )
+    if (
+        status.paths["canonical_recap"] != slug_default_canonical
+        and "slug_mismatch_used_disk_breadcrumb" not in status.warnings
+    ):
+        status.add_warning("slug_mismatch_used_disk_breadcrumb")
 
     staged_path = (corpus_dir / str(status.paths["staged_raw_notes"])).resolve()
     if staged_path.is_file():

@@ -13,32 +13,53 @@ export interface PlanDogfoodState {
 }
 
 export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
-  { id: "open-plan", label: "Open /plan for the intended campaign/session" },
+  {
+    id: "open-plan",
+    label: "Open /plan?dogfood=1 with the intended live session dir",
+    description: "URL campaign/session params do not select the Plan session; live packet does.",
+  },
   {
     id: "confirm-context",
-    label: "Confirm the header shows expected prep and memory sessions",
+    label: "Confirm header prep/memory sessions and Nav target path",
+    description: "prepSession = liveSession + 1; target should be Session {prep} Prep.md",
   },
-  { id: "add-real-notes", label: "Add real prep notes to the board" },
+  {
+    id: "observe-board-source",
+    label: "Record whether the board is scaffold, local draft, or full corpus prep",
+    description: "Corpus hydrate on load is not shipped; scaffold/local draft is expected.",
+  },
+  {
+    id: "protect-existing-prep",
+    label: "If Session Prep.md already has content, paste it before Save",
+    description: "Saving scaffold would overwrite the durable prep file.",
+  },
+  { id: "add-real-notes", label: "Edit the board with real prep notes for this session" },
   { id: "use-reference-chip", label: "Add or use at least one reference chip" },
-  { id: "save-markdown", label: "Save to Markdown" },
+  { id: "save-markdown", label: "Save to Markdown and confirm the target file updated" },
   {
     id: "reload-tab",
-    label: "Reload the browser tab and confirm content remains",
+    label: "Reload the tab and confirm the local draft remains",
+    description: "This proves localStorage recovery, not corpus re-read.",
+  },
+  {
+    id: "optional-clear-local-proof",
+    label: "(Optional) Clear Plan canvas localStorage, reload, confirm scaffold returns",
+    description: "Falsifies corpus hydrate; skip if you do not want to re-paste content.",
   },
   { id: "stop-server", label: "Stop the dev server" },
   { id: "restart-server", label: "Restart the dev server" },
   {
     id: "reopen-plan",
-    label: "Reopen /plan and confirm saved/recovered content",
+    label: "Reopen /plan and confirm local draft recovery",
   },
   {
     id: "inspect-card",
     label: "Click a reference chip and inspect the selected-object card",
   },
-  { id: "source-preview", label: "Use Show source preview from the card" },
+  { id: "source-preview", label: "Use Show source preview from the card when available" },
   {
     id: "graph-object-add",
-    label: "Add at least one graph-projected object to the dogfood list",
+    label: "Find a World Graph object (Edit → World Graph objects) and add it to the dogfood list",
   },
   {
     id: "graph-object-view",
@@ -52,15 +73,21 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
     id: "graph-object-remove",
     label: "Remove a card from the dogfood list (local only)",
   },
-  { id: "ask-prep-memory", label: "Ask prep memory a real question" },
+  {
+    id: "ask-prep-memory",
+    label: "Ask prep memory a real question for this prep session",
+  },
   {
     id: "open-supporting-source",
-    label: "Open a supporting source from the prep-memory answer",
+    label: "Open a supporting corpus citation source from the answer",
   },
-  { id: "record-useful", label: "Record what felt useful" },
+  {
+    id: "record-useful",
+    label: "Record what felt useful for writing Session Prep",
+  },
   {
     id: "record-confusing",
-    label: "Record what felt confusing, stale, too graph-y, or missing",
+    label: "Record what felt confusing, stale, scaffold-y, or missing (especially load)",
   },
 ];
 

@@ -799,6 +799,17 @@ code {
   opacity: 0.64;
 }
 
+.ingestion-readiness-lanes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ingestion-readiness-detail {
+  margin: 0.2rem 0 0;
+  color: #9aa3b5;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .wizard-step-chip {
   border-radius: 999px;
   font-size: 0.82rem;

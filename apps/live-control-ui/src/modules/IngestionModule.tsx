@@ -21,6 +21,7 @@ import {
   syncReviewCampaignUrl,
 } from "../planSurface/sessionCampaignContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
+import { buildIngestReadiness } from "./ingestReadiness";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -460,12 +461,6 @@ function hasReviewOnlySpellingVariants(result: RecapIngestStatus): boolean {
   return Array.isArray(result.entity_spelling_audit) && result.entity_spelling_audit.length > 0;
 }
 
-function workflowStepState(done: boolean, active: boolean): "done" | "active" | "locked" {
-  if (done) return "done";
-  if (active) return "active";
-  return "locked";
-}
-
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -506,10 +501,6 @@ function evidenceRows(values: string[]): ReactNode {
     return <li className="module-muted">None</li>;
   }
   return values.map((value) => <li key={value}>{value}</li>);
-}
-
-function pathStatus(result: RecapIngestStatus | null, key: string): "done" | "waiting" {
-  return result?.paths?.[key] ? "done" : "waiting";
 }
 
 function pathLabel(key: string): string {
@@ -885,7 +876,9 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const hasPreviewUnionStore = hasState(latestResult, "preview_union_store_ready");
+  const hasPreviewUnionStore =
+    graphPreview?.status === "preview_union_store_ready" ||
+    hasState(latestResult, "preview_union_store_ready");
   const hasNormalizedRecap = hasApplied;
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
@@ -894,48 +887,8 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     graphPreview?.candidate_graph_path ||
     graphPreview?.status === "candidate_validation_ready",
   );
-  const workflowSteps = [
-    {
-      id: "source",
-      label: "Source",
-      state: workflowStepState(validRecapSession && sourceInputSatisfied, activeStep === 1),
-    },
-    {
-      id: "preview",
-      label: "Preview",
-      state: workflowStepState(hasUsablePreview, activeStep === 2 && !hasUsablePreview),
-    },
-    {
-      id: "apply",
-      label: "Apply",
-      state: workflowStepState(hasApplied, hasPreview && !hasApplied),
-    },
-    {
-      id: "seed",
-      label: "Seed",
-      state: workflowStepState(hasFrontmatterSeed, hasApplied && !hasFrontmatterSeed),
-    },
-    {
-      id: "breadcrumb",
-      label: "Breadcrumb",
-      state: workflowStepState(hasBreadcrumb, hasFrontmatterSeed && !hasBreadcrumb),
-    },
-    {
-      id: "memory",
-      label: "Memory",
-      state: workflowStepState(hasMaterialized, hasBreadcrumb && !hasMaterialized),
-    },
-    {
-      id: "graph",
-      label: "Graph",
-      state: workflowStepState(hasPreviewUnionStore, hasNormalizedRecap && !hasPreviewUnionStore),
-    },
-    {
-      id: "prove",
-      label: "Prove",
-      state: workflowStepState(hasMaterialized, hasMaterialized),
-    },
-  ];
+  const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
+  const readinessLanes = [ingestReadiness.memory, ingestReadiness.graph, ingestReadiness.attention];
   const workflowNextAction = (() => {
     if (state.status === "running_full_ingest") {
       return "Working: normalizing recap, then category graph extraction (actors → locations → collectives → objects → threads → beats → edges).";
@@ -950,18 +903,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     if (hasPreviewUnionStore && forceGraphRun) {
       return "Ready to replace the preview graph: run category graph extraction to start a fresh extraction run.";
     }
-    if (hasPreviewUnionStore) return "Complete: graph projection is ready. Review the rendered recap and graph chips.";
-    if (!validRecapSession) return "Enter a valid recap/source session number.";
-    if (!rawTextSatisfied && !hasUsablePreview) return "Paste raw recap text, then continue to preview.";
-    if (!hasUsablePreview) return "Next: click Generate Recap Memory to stage, normalize, and extract the graph projection.";
-    if (!genericGuardPass) return "Session title is required before saving canon.";
-    if (!hasApplied) return "Next: review the preview, then click Apply + Normalize.";
-    if (!hasFrontmatterSeed) return "Next: click Build Frontmatter Seed, then review the generated seed.";
-    if (!hasBreadcrumb) return "Next: after reviewing the seed, click Run Breadcrumb Ingest.";
-    if (!hasMaterialized) return "Next: click Materialize Session Memory.";
-    if (hasNormalizedRecap && graphPreview?.blocked_reason) return `Graph projection not ready: ${graphPreview.blocked_reason}`;
-    if (hasNormalizedRecap) return "Next: click Generate Recap Memory to run category graph extraction and materialize the preview union store.";
-    return "Complete: session memory is ready for planning activation.";
+    return ingestReadiness.nextAction;
   })();
   const applyDisabledReason =
     hasApplied
@@ -1870,13 +1812,26 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
 
   const report = latestResult?.ingest_report ?? {};
   const previewDiff = typeof report.preview_diff === "string" ? report.preview_diff : "";
-  const proofPaths = proofPathKeys(latestResult);
   const sessionMemoryRecordCount = String(report.session_memory_record_count ?? "-");
   const sessionMemoryCheck = String(report.session_memory_check ?? "-");
   const titlePlaceholder =
     inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
+  const proofRows =
+    corpusImpact.length > 0
+      ? corpusImpact.map((row) => ({
+          key: row.key,
+          relpath: row.relpath,
+          exists: row.exists,
+          record_count: row.record_count,
+        }))
+      : proofPathKeys(latestResult).map((key) => ({
+          key,
+          relpath: latestResult?.paths?.[key] ?? null,
+          exists: false,
+          record_count: undefined as number | undefined,
+        }));
   const hasNormalizedDuplicates = normalizedDuplicates.length > 1;
   const recommendedKeep =
     normalizedDuplicates.find((row) => row.recommended)?.basename ?? null;
@@ -1936,15 +1891,27 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
 
       <section className="ingestion-flow-card" aria-label="Ingestion workflow progress">
         <div>
-          <p className="ingestion-flow-kicker">Single workflow with human review gates</p>
+          <p className="ingestion-flow-kicker">Readiness from on-disk inspect</p>
           <h3>Current next action</h3>
           <p role="status" aria-live="polite">{workflowNextAction}</p>
         </div>
-        <ol className="ingestion-flow-steps">
-          {workflowSteps.map((step) => (
-            <li key={step.id} className={`ingestion-flow-step ingestion-flow-step-${step.state}`}>
-              <span>{step.label}</span>
-              <strong>{step.state === "done" ? "Done" : step.state === "active" ? "Now" : "Waiting"}</strong>
+        <ol className="ingestion-flow-steps ingestion-readiness-lanes">
+          {readinessLanes.map((lane) => (
+            <li
+              key={lane.id}
+              className={`ingestion-flow-step ingestion-flow-step-${lane.state === "ready" ? "done" : lane.state === "blocked" ? "active" : lane.state === "not_ready" ? "active" : "locked"}`}
+            >
+              <span>{lane.label}</span>
+              <strong>
+                {lane.state === "ready"
+                  ? "Ready"
+                  : lane.state === "blocked"
+                    ? "Blocked"
+                    : lane.state === "not_ready"
+                      ? "Not ready"
+                      : "Idle"}
+              </strong>
+              <p className="ingestion-readiness-detail">{lane.detail}</p>
             </li>
           ))}
         </ol>
@@ -2486,22 +2453,23 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
           <section className="ingestion-proof-card" aria-label="Ingestion proof artifacts">
             <h4>Prove</h4>
             <p className="module-muted">
-              UI-first proof uses current API metadata: artifact paths, session-memory counts, and entity
-              review rows.
+              On-disk existence from the latest inspect/status check (not path strings alone).
             </p>
             <div className="ingestion-proof-metrics">
               <span className="pill pill-neutral">records: {sessionMemoryRecordCount}</span>
               <span className="pill pill-neutral">check: {sessionMemoryCheck}</span>
             </div>
             <ul className="ingestion-proof-paths">
-              {proofPaths.map((key) => {
-                const value = latestResult?.paths?.[key] ?? null;
-                const statusLabel = pathStatus(latestResult, key);
+              {proofRows.map((row) => {
+                const statusLabel = row.exists ? "done" : "waiting";
                 return (
-                  <li key={key} className={`ingestion-proof-path ingestion-proof-path-${statusLabel}`}>
-                    <span>{pathLabel(key)}</span>
-                    <strong>{statusLabel === "done" ? "Found" : "Waiting"}</strong>
-                    <code>{value ?? "not reported yet"}</code>
+                  <li key={row.key} className={`ingestion-proof-path ingestion-proof-path-${statusLabel}`}>
+                    <span>{pathLabel(row.key)}</span>
+                    <strong>{row.exists ? "Found" : "Missing"}</strong>
+                    <code>{row.relpath ?? "not reported yet"}</code>
+                    {typeof row.record_count === "number" ? (
+                      <span className="pill pill-neutral">records: {row.record_count}</span>
+                    ) : null}
                   </li>
                 );
               })}
@@ -2512,7 +2480,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
             <section className="ingestion-proof-card" aria-label="What was ingested">
               <h4>What was ingested?</h4>
               <p className="module-muted">
-                Read-only corpus impact from the latest ingest/status check.
+                Read-only corpus impact previews from the latest ingest/status check.
               </p>
               <div className="ingestion-impact-list">
                 {corpusImpact.map((row) => (
