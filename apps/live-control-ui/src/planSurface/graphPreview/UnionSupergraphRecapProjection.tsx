@@ -62,11 +62,13 @@ export function UnionSupergraphRecapProjection({
     <div className="recap-reader-root union-supergraph-recap-root">
       <header className="recap-reader-header">
         <div>
-          <p className="plan-surface-kicker">Union supergraph · dogfood</p>
+          <p className="plan-surface-kicker">Preview union · session extract</p>
           <h2>Session focus lens</h2>
           <p>
-            Global campaign graph with a Session {payload.focus.focus_session_id?.replace("session-", "") ?? "?"}{" "}
-            focus overlay. Hover recap chips for a quick scan; click to expand and crawl suggested connections.
+            This view projects the latest <strong>session preview union</strong> for Session{" "}
+            {payload.focus.focus_session_id?.replace("session-", "") ?? "?"} — not the campaign-wide
+            world supergraph. Chips are alias matches in this recap; prior-session history only appears
+            if that memory was merged into this preview store (it usually is not).
           </p>
           <p className="union-supergraph-source-note">
             Source: {sourceCopy.label}. {sourceCopy.description}

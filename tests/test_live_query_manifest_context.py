@@ -206,7 +206,14 @@ def test_context_lookup_without_manifest_defaults_is_truthful_when_dogfood_off(
 def test_context_lookup_stubbed_llm_path_emits_citations(
     isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def _fake_llm_answer(*, question: str, packet: dict[str, object], root: Path) -> tuple[str | None, list[str]]:
+    def _fake_llm_answer(
+        *,
+        question: str,
+        packet: dict[str, object],
+        root: Path,
+        world_graph_prompt_block: str | None = None,
+    ) -> tuple[str | None, list[str]]:
+        del world_graph_prompt_block
         admitted = list(packet.get("admitted_evidence") or [])
         assert admitted, "expected admitted evidence for stubbed llm test"
         evidence_id = str(admitted[0].get("evidence_id") or "ev-unknown")
@@ -224,3 +231,58 @@ def test_context_lookup_stubbed_llm_path_emits_citations(
     assert "stub grounded answer citing" in body["answer"].lower()
     assert body["citations"], "expected citations from stubbed llm answer"
     assert "llm_grounding_call_failed" not in (body.get("warnings") or [])
+
+
+def test_llm_grounded_answer_omits_temperature_for_responses_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """gpt-5.x chat models reject temperature on Responses API (400)."""
+    import sys
+    import types
+
+    captured: dict[str, object] = {}
+
+    class _FakeResponses:
+        def create(self, **kwargs):  # type: ignore[no-untyped-def]
+            captured.update(kwargs)
+
+            class _Resp:
+                output_text = "Grounded [ev-1]."
+
+            return _Resp()
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.responses = _FakeResponses()
+
+    openai_mod = types.ModuleType("openai")
+    openai_mod.OpenAI = _FakeClient  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", openai_mod)
+    monkeypatch.setattr(live_query_context, "load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "sk-test")
+    monkeypatch.setattr(live_query_context, "_live_query_model", lambda _root: "gpt-5.3-chat-latest")
+
+    answer, warnings = live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?",
+        packet={
+            "admitted_evidence": [
+                {
+                    "evidence_id": "ev-1",
+                    "source_role": "play_recap",
+                    "authority": "canon_play",
+                    "path": "x.md",
+                    "line_start": 1,
+                    "line_end": 1,
+                    "unit_id": "u",
+                    "text_excerpt": "Tripod is a siege scout.",
+                }
+            ],
+            "rejected_evidence": [],
+        },
+        root=ROOT,
+    )
+    assert answer == "Grounded [ev-1]."
+    assert warnings == []
+    assert "temperature" not in captured
+    assert captured.get("model") == "gpt-5.3-chat-latest"
+    assert captured.get("max_output_tokens") == 400

@@ -179,7 +179,12 @@ def assign_evidence_ids(packet: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def render_grounded_prompt(question: str, packet: dict[str, Any]) -> str:
+def render_grounded_prompt(
+    question: str,
+    packet: dict[str, Any],
+    *,
+    world_graph_prompt_block: str | None = None,
+) -> str:
     admitted_rows: list[str] = []
     for row in list(packet.get("admitted_evidence") or []):
         admitted_rows.append(
@@ -220,15 +225,16 @@ def render_grounded_prompt(question: str, packet: dict[str, Any]) -> str:
         "Never claim write capability in this response path; it is read-only.",
         "If asked to mutate artifacts, explicitly refuse mutation and stay read-only.",
     ]
-    return "\n\n".join(
-        [
-            "You are answering a live planning question for a TTRPG campaign.",
-            "Rules:\n- " + "\n- ".join(rules),
-            f"Question:\n{question}",
-            "ADMITTED EVIDENCE:\n" + ("\n\n".join(admitted_rows) if admitted_rows else "(none)"),
-            "REJECTED EVIDENCE:\n" + ("\n\n".join(rejected_rows) if rejected_rows else "(none)"),
-        ]
-    )
+    sections = [
+        "You are answering a live planning question for a TTRPG campaign.",
+        "Rules:\n- " + "\n- ".join(rules),
+        f"Question:\n{question}",
+        "ADMITTED EVIDENCE:\n" + ("\n\n".join(admitted_rows) if admitted_rows else "(none)"),
+        "REJECTED EVIDENCE:\n" + ("\n\n".join(rejected_rows) if rejected_rows else "(none)"),
+    ]
+    if world_graph_prompt_block:
+        sections.append(world_graph_prompt_block)
+    return "\n\n".join(sections)
 
 
 def _extract_answer_text(response: Any) -> str:
@@ -299,6 +305,7 @@ def _run_llm_grounded_answer(
     question: str,
     packet: dict[str, Any],
     root: Path,
+    world_graph_prompt_block: str | None = None,
 ) -> tuple[str | None, list[str]]:
     warnings: list[str] = []
     load_dungeonmindbuddy_dotenv()
@@ -311,18 +318,25 @@ def _run_llm_grounded_answer(
         warnings.append("llm_client_unavailable")
         return None, warnings
 
-    prompt = render_grounded_prompt(question, packet)
+    prompt = render_grounded_prompt(
+        question,
+        packet,
+        world_graph_prompt_block=world_graph_prompt_block,
+    )
     model = _live_query_model(root)
     try:
         client = OpenAI()
+        # gpt-5.x chat/codex models reject temperature on Responses API.
         response = client.responses.create(
             model=model,
             input=prompt,
-            temperature=0.2,
             max_output_tokens=400,
         )
-    except Exception:
-        warnings.append("llm_grounding_call_failed")
+    except Exception as exc:
+        detail = str(exc).strip().replace("\n", " ")[:160]
+        warnings.append(
+            f"llm_grounding_call_failed:{detail}" if detail else "llm_grounding_call_failed"
+        )
         return None, warnings
 
     answer = _extract_answer_text(response)
@@ -368,6 +382,7 @@ def run_context_lookup_turn(
     root: Path,
     session: int,
     request_manifest_path: str | None = None,
+    world_graph_prompt_block: str | None = None,
 ) -> ContextLookupResult:
     query_id = f"live-query-{uuid.uuid4().hex[:12]}"
     manifest_path = resolve_manifest_path(
@@ -413,6 +428,7 @@ def run_context_lookup_turn(
         question=question,
         packet=context_packet,
         root=root,
+        world_graph_prompt_block=world_graph_prompt_block,
     )
     if answer is None:
         answer = build_fallback_grounded_answer(question, context_packet)
@@ -430,8 +446,14 @@ def run_context_lookup_turn(
         },
         "grounding_prompt_policy": _grounding_prompt_policy(),
     }
+    if world_graph_prompt_block:
+        provenance["world_graph_prompt_supplied"] = True
     if _env_flag_enabled(_DEBUG_GROUNDED_PROMPT_ENV):
-        provenance["grounded_prompt"] = render_grounded_prompt(question, context_packet)
+        provenance["grounded_prompt"] = render_grounded_prompt(
+            question,
+            context_packet,
+            world_graph_prompt_block=world_graph_prompt_block,
+        )
 
     response = {
         "schema": "dmb_live_query_response_v1",

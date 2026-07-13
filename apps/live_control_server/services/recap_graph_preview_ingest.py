@@ -496,11 +496,53 @@ def _artifact_uri(repo: Path, artifact: dict[str, Any] | None) -> str | None:
     return _repo_relative((repo / uri).resolve(), repo)
 
 
+def _extracted_nodes_from_preview_union(
+    repo: Path, preview_union_store_path: str | None
+) -> list[dict[str, str]]:
+    """Compact kind/label roster from the preview union store (for ingest diagnostics)."""
+
+    if not preview_union_store_path:
+        return []
+    store_path = (repo / preview_union_store_path).resolve()
+    try:
+        payload = json.loads(store_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    raw_nodes = payload.get("nodes")
+    if isinstance(raw_nodes, dict):
+        node_iter = raw_nodes.values()
+    elif isinstance(raw_nodes, list):
+        node_iter = raw_nodes
+    else:
+        return []
+    extracted: list[dict[str, str]] = []
+    for node in node_iter:
+        if not isinstance(node, dict):
+            continue
+        label = node.get("label") or node.get("name") or node.get("display_name")
+        node_id = node.get("node_id") or node.get("id")
+        kind = node.get("kind") or node.get("type") or node.get("node_type") or "unknown"
+        if not label and not node_id:
+            continue
+        extracted.append(
+            {
+                "node_id": str(node_id or label),
+                "kind": str(kind),
+                "label": str(label or node_id),
+            }
+        )
+    extracted.sort(key=lambda row: (row["kind"].lower(), row["label"].lower(), row["node_id"]))
+    return extracted
+
+
 def _status_from_summary(
     repo: Path, summary: GraphIngestRunSummary, *, normalized_recap_path: str | None
 ) -> dict[str, Any]:
     manifest_path = (repo / summary.manifest_path).resolve()
     candidate_path = _candidate_graph_path(repo, manifest_path)
+    extracted_nodes = _extracted_nodes_from_preview_union(repo, summary.preview_union_store_path)
     status = {
         "status": summary.status,
         "run_dir": summary.run_dir,
@@ -511,6 +553,7 @@ def _status_from_summary(
         "node_count": summary.node_count,
         "edge_count": summary.edge_count,
         "evidence_ref_count": summary.evidence_ref_count,
+        "extracted_nodes": extracted_nodes,
         "next_actions": list(summary.next_actions),
         "can_open_union_graph": summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and bool(summary.preview_union_store_path),
@@ -558,6 +601,7 @@ def _missing_status(normalized_recap_path: str | None) -> dict[str, Any]:
         "node_count": 0,
         "edge_count": 0,
         "evidence_ref_count": 0,
+        "extracted_nodes": [],
         "next_actions": (
             ["build_graph_preview_bundle"]
             if normalized_recap_path

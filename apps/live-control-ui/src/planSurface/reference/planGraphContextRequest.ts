@@ -1,4 +1,4 @@
-import type { WorldGraphProjectionRequest } from "../../api/types";
+import type { AgentWorldGraphQueryContextRequest, WorldGraphProjectionRequest } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
 
 export interface PlanWorldGraphContext {
@@ -40,5 +40,22 @@ export function buildPlanWorldGraphProjectionRequest(
     campaignId: context.campaignId,
     focus: context.focus,
     admissibility: "gm",
+  };
+}
+
+export function buildPlanAgentWorldGraphQueryContextRequest(
+  context: PlanWorldGraphContext,
+  options?: { revisionPin?: string | null },
+): AgentWorldGraphQueryContextRequest {
+  return {
+    schema: "dmb_agent_world_graph_query_context_request_v1",
+    world_id: context.worldId,
+    campaign_id: context.campaignId,
+    focus: {
+      kind: context.focus.kind,
+      session_id: context.focus.sessionId,
+    },
+    admissibility: "gm",
+    revision_pin: options?.revisionPin ?? null,
   };
 }

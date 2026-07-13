@@ -753,3 +753,626 @@ def test_retrieval_freshness_builder_states_are_lightweight() -> None:
     )
     assert insufficient["decision"] == "insufficient_grounding"
     assert insufficient["warnings"]
+
+
+# --- PR008B: Agent World Graph query context ---
+
+_GRAPH_NESTED = {
+    "schema": "dmb_agent_world_graph_query_context_request_v1",
+    "world_id": "eldyrwild",
+    "campaign_id": "longmont-c2",
+    "focus": {"kind": "session", "session_id": "session-21"},
+    "admissibility": "gm",
+    "revision_pin": None,
+}
+
+
+def _pr008b_init_world(tmp_path: Path) -> None:
+    import graph_memory.kernel as kernel
+    from graph_memory.contribution_bundles import load_contribution_bundle
+    from graph_memory.kernel.world_initialization import initialize_world_from_contributions
+    from graph_memory.kernel.world_initialization_models import (
+        PLAN_SCHEMA,
+        WorldInitializationApprovalAttestation,
+        WorldInitializationContribution,
+        WorldInitializationPlan,
+    )
+
+    bundle_path = Path(
+        "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
+    )
+    bundle = load_contribution_bundle(bundle_path)
+    by_id = {item.contribution_id: item for item in bundle.contributions}
+    ordered = [
+        "contribution:82f23934d8eaca8a",
+        "contribution:43782369bd717d32",
+        "contribution:33d7cdb0ff623f28",
+        "contribution:c086a0b72324ff16",
+        "contribution:1227841724520c18",
+        "contribution:022187fdefdf4557",
+    ]
+    plan = WorldInitializationPlan(
+        schema=PLAN_SCHEMA,
+        world_id="eldyrwild",
+        campaign_id="longmont-c2",
+        focus_session_id="session-23",
+        ordered_contributions=[
+            WorldInitializationContribution(
+                contribution_id=contribution_id,
+                payload_sha256=kernel.compute_contribution_payload_sha256(
+                    by_id[contribution_id]
+                ),
+            )
+            for contribution_id in ordered
+        ],
+        approval_attestation=WorldInitializationApprovalAttestation(
+            bundle_id="eldyrwild-longmont-c2-initial-v1",
+            bundle_digest=(
+                "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+            ),
+            approved_bundle_merge_sha="f69c69f271c427209860d902636347b70fea5920",
+        ),
+    )
+    initialize_world_from_contributions(
+        tmp_path,
+        plan=plan,
+        contributions=list(bundle.contributions),
+        actor="gm",
+    )
+
+
+def test_live_query_world_graph_preflight_once_before_backend(
+    client: TestClient,
+    isolated_session: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import agent_world_graph_query_context as adapter
+    from apps.live_control_server.services import live_agent_loop
+    from types import SimpleNamespace
+
+    calls: list[str] = []
+
+    def spy_resolve(nested, *, outer_text, outer_campaign_id, root=None, project_fn=None):
+        calls.append(outer_text)
+        return {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:test",
+            "head_revision_id": "rev:test",
+            "is_head": True,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": outer_text,
+            "matched_node_ids": ["threat:tripod-null-calf"],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        }
+
+    def fake_context_lookup_turn(**kwargs: object) -> SimpleNamespace:
+        assert kwargs.get("world_graph_prompt_block")
+        assert "WORLD GRAPH CONTEXT" in str(kwargs.get("world_graph_prompt_block"))
+        return SimpleNamespace(
+            response={
+                "schema": "dmb_live_query_response_v1",
+                "query_id": "live-query-wg",
+                "session": 22,
+                "mode": "context_lookup",
+                "status": "ok",
+                "answer": "Grounded [ev-1].",
+                "classification": {
+                    "latency_mode": "context_lookup",
+                    "event_type": "context_question",
+                },
+                "events_written": [],
+                "jobs_queued": [],
+                "next_suggestions": [],
+                "diagnostics": [],
+                "provenance": {},
+                "citations": [
+                    {
+                        "evidence_id": "ev-1",
+                        "path": "corpus/example.md",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "source_role": "play_recap",
+                        "authority": "canon_play",
+                    }
+                ],
+                "context_packet": {"admitted_evidence": [], "rejected_evidence": []},
+                "warnings": [],
+                "mutations": [],
+            },
+            events_to_write=[],
+            jobs_to_queue=[],
+        )
+
+    monkeypatch.setattr(adapter, "resolve_agent_world_graph_query_context", spy_resolve)
+    monkeypatch.setattr(live_agent_loop, "resolve_agent_world_graph_query_context", spy_resolve)
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "What should I remember about the Tripod Null-Calf?",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(calls) == 1
+    assert body["world_graph_context"]["status"] == "ready"
+    assert body["world_graph_context"]["matched_node_ids"] == ["threat:tripod-null-calf"]
+    assert all(c.get("evidence_id", "").startswith("ev-") for c in body["citations"])
+
+
+def test_live_and_hermes_receive_equivalent_graph_context(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+    from types import SimpleNamespace
+
+    envelope = {
+        "schema": "dmb_agent_world_graph_query_context_v1",
+        "status": "ready",
+        "world_id": "eldyrwild",
+        "campaign_id": "longmont-c2",
+        "revision_id": "rev:parity",
+        "head_revision_id": "rev:parity",
+        "is_head": True,
+        "focus": {"kind": "session", "session_id": "session-21"},
+        "admissibility": "gm",
+        "query_text": "Tripod Null-Calf",
+        "matched_node_ids": ["threat:tripod-null-calf"],
+        "nodes": [
+            {
+                "node_id": "threat:tripod-null-calf",
+                "label": "Tripod Null-Calf",
+                "kind": "threat",
+                "role": "antagonist",
+                "summary": "gate pressure",
+                "anchored_to_focus_session": False,
+            }
+        ],
+        "relationships": [],
+        "attributes": [],
+        "projection_truncated": False,
+        "diagnostics": [],
+        "warning_codes": [],
+        "trust_boundary": {
+            "graph_role": "structured_campaign_memory_and_navigation",
+            "citation_authority": "corpus_source_evidence",
+            "graph_citations_permitted": False,
+        },
+    }
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: dict(envelope),
+    )
+
+    def fake_context_lookup_turn(**kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            response={
+                "schema": "dmb_live_query_response_v1",
+                "query_id": "live-parity",
+                "session": 22,
+                "mode": "context_lookup",
+                "status": "ok",
+                "answer": "live answer",
+                "classification": {
+                    "latency_mode": "context_lookup",
+                    "event_type": "context_question",
+                },
+                "events_written": [],
+                "jobs_queued": [],
+                "next_suggestions": [],
+                "diagnostics": [],
+                "provenance": {},
+                "citations": [],
+                "context_packet": {"admitted_evidence": [], "rejected_evidence": []},
+                "warnings": [],
+                "mutations": [],
+            },
+            events_to_write=[],
+            jobs_to_queue=[],
+        )
+
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+
+    live_body = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "Tripod Null-Calf",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    ).json()
+
+    hermes_body = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "Tripod Null-Calf",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    ).json()
+
+    assert live_body["world_graph_context"] == hermes_body["world_graph_context"]
+    assert live_body["world_graph_context"]["revision_id"] == "rev:parity"
+
+
+def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In-process Hermes must not pretend dungeon_context_lookup received the graph."""
+    from apps.live_control_server.services import live_agent_loop
+    import integrations.hermes.plugins.dungeonbuddy as dungeonbuddy
+
+    envelope = {
+        "schema": "dmb_agent_world_graph_query_context_v1",
+        "status": "ready",
+        "world_id": "eldyrwild",
+        "campaign_id": "longmont-c2",
+        "revision_id": "rev:honest",
+        "head_revision_id": "rev:honest",
+        "is_head": True,
+        "focus": {"kind": "session", "session_id": "session-21"},
+        "admissibility": "gm",
+        "query_text": "Tripod Null-Calf",
+        "matched_node_ids": ["threat:tripod-null-calf"],
+        "nodes": [
+            {
+                "node_id": "threat:tripod-null-calf",
+                "label": "Tripod Null-Calf",
+                "kind": "threat",
+                "role": "antagonist",
+                "summary": "gate pressure",
+                "anchored_to_focus_session": False,
+            }
+        ],
+        "relationships": [],
+        "attributes": [],
+        "projection_truncated": False,
+        "diagnostics": [],
+        "warning_codes": [],
+        "trust_boundary": {
+            "graph_role": "structured_campaign_memory_and_navigation",
+            "citation_authority": "corpus_source_evidence",
+            "graph_citations_permitted": False,
+        },
+    }
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: dict(envelope),
+    )
+
+    captured_params: dict[str, object] = {}
+    real_lookup = dungeonbuddy.handle_dungeon_context_lookup
+
+    def spy_lookup(params: dict, **kwargs: object) -> str:
+        captured_params.clear()
+        captured_params.update(params)
+        return real_lookup(params, **kwargs)
+
+    # Late import inside _process_hermes_context_query picks this up at call time.
+    monkeypatch.setattr(dungeonbuddy, "handle_dungeon_context_lookup", spy_lookup)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "Tripod Null-Calf",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["world_graph_context"]["revision_id"] == "rev:honest"
+    assert "world_graph_prompt_supplied" not in body.get("diagnostics", {})
+    assert captured_params, "expected dungeon_context_lookup to be called"
+    assert set(captured_params.keys()) <= {"question", "question_id", "manifest_path"}
+    assert "WORLD GRAPH CONTEXT" not in json.dumps(captured_params)
+    steps = body["agent_trace"]["steps"]
+    assert steps[0]["name"] == "world_graph_context_attached_to_response"
+    assert "not passed to dungeon_context_lookup" in steps[0]["summary"]
+    assert body["agent_trace"]["prompt_char_count"] == len("Tripod Null-Calf")
+    assert all(step["name"] != "world_graph_query_context" for step in steps)
+
+
+def test_world_graph_unavailable_allows_corpus_path(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "unavailable",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": None,
+            "head_revision_id": None,
+            "is_head": None,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "Tripod?",
+            "matched_node_ids": [],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": ["world_graph_unavailable"],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+
+    backend_called = {"live": False}
+
+    def fake_context_lookup_turn(**kwargs: object) -> SimpleNamespace:
+        backend_called["live"] = True
+        return SimpleNamespace(
+            response={
+                "schema": "dmb_live_query_response_v1",
+                "query_id": "live-unavail",
+                "session": 22,
+                "mode": "context_lookup",
+                "status": "ok",
+                "answer": "corpus-only answer",
+                "classification": {
+                    "latency_mode": "context_lookup",
+                    "event_type": "context_question",
+                },
+                "events_written": [],
+                "jobs_queued": [],
+                "next_suggestions": [],
+                "diagnostics": [],
+                "provenance": {},
+                "citations": [],
+                "context_packet": {"admitted_evidence": [], "rejected_evidence": []},
+                "warnings": [],
+                "mutations": [],
+            },
+            events_to_write=[],
+            jobs_to_queue=[],
+        )
+
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "text": "Tripod?",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert backend_called["live"] is True
+    assert body["world_graph_context"]["status"] == "unavailable"
+    assert "world_graph_unavailable" in body["warnings"]
+
+
+def test_invalid_revision_pin_fails_without_backend(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextError,
+    )
+    from apps.live_control_server.services import live_agent_loop
+    from graph_memory.projection.world_projection import WorldGraphProjectionDiagnostic
+
+    backend_called = {"live": False}
+
+    def boom(*args, **kwargs):
+        raise AgentWorldGraphQueryContextError(
+            "invalid pin",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[
+                WorldGraphProjectionDiagnostic(
+                    code="invalid_request",
+                    message="invalid pin",
+                    severity="error",
+                )
+            ],
+        )
+
+    def fake_context_lookup_turn(**kwargs: object):
+        backend_called["live"] = True
+        raise AssertionError("backend must not run")
+
+    monkeypatch.setattr(live_agent_loop, "resolve_agent_world_graph_query_context", boom)
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+
+    nested = dict(_GRAPH_NESTED)
+    nested["revision_pin"] = "not a safe pin!!!"
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "text": "Tripod?",
+            "world_graph_context": nested,
+        },
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert backend_called["live"] is False
+
+
+def test_revision_not_found_fails_without_backend(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextError,
+    )
+    from apps.live_control_server.services import live_agent_loop
+    from graph_memory.projection.world_projection import WorldGraphProjectionDiagnostic
+
+    backend_called = {"live": False}
+
+    def boom(*args, **kwargs):
+        raise AgentWorldGraphQueryContextError(
+            "missing",
+            code="revision_not_found",
+            status_code=404,
+            diagnostics=[
+                WorldGraphProjectionDiagnostic(
+                    code="revision_not_found",
+                    message="missing",
+                    severity="error",
+                )
+            ],
+        )
+
+    def fake_context_lookup_turn(**kwargs: object):
+        backend_called["live"] = True
+        raise AssertionError("backend must not run")
+
+    monkeypatch.setattr(live_agent_loop, "resolve_agent_world_graph_query_context", boom)
+    monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+
+    nested = dict(_GRAPH_NESTED)
+    nested["revision_pin"] = "rev:" + ("a" * 32)
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "text": "Tripod?",
+            "world_graph_context": nested,
+        },
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "revision_not_found"
+    assert backend_called["live"] is False
+
+
+def test_hermes_cli_includes_graph_prompt_block(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+
+    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
+    monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:cli",
+            "head_revision_id": "rev:cli",
+            "is_head": True,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "Tripod",
+            "matched_node_ids": ["threat:tripod-null-calf"],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        live_agent_loop,
+        "_run_dungeon_context_lookup_for_cli",
+        lambda *args, **kwargs: {
+            "success": True,
+            "context_packet": {"admitted_evidence": [], "rejected_evidence": []},
+            "sufficiency_summary": {"answerable_now": True, "suggested_routes": []},
+            "manifest_path": None,
+        },
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["prompt"] = args[-1]
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="cli answer")
+
+    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "_collect_hermes_home_artifacts",
+        lambda hermes_home: ([], {}, []),
+    )
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "Tripod",
+            "world_graph_context": _GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    prompt = str(captured.get("prompt") or "")
+    assert prompt.count("WORLD GRAPH CONTEXT:") == 1
+    assert "threat:tripod-null-calf" in prompt
+    assert "not source quotations" in prompt
+    assert response.json()["world_graph_context"]["revision_id"] == "rev:cli"

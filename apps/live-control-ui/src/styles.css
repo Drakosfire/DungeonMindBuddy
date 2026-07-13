@@ -799,6 +799,17 @@ code {
   opacity: 0.64;
 }
 
+.ingestion-readiness-lanes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ingestion-readiness-detail {
+  margin: 0.2rem 0 0;
+  color: #9aa3b5;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .wizard-step-chip {
   border-radius: 999px;
   font-size: 0.82rem;
@@ -1147,6 +1158,32 @@ code {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin: 0.5rem 0;
+}
+
+.ingestion-extracted-nodes {
+  margin: 0.65rem 0 0.25rem;
+}
+
+.ingestion-extracted-node-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ingestion-extracted-node-list li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ingestion-extracted-node-list strong {
+  text-transform: lowercase;
+  color: var(--muted, #6b7280);
 }
 
 .ingestion-proof-paths {

@@ -39,19 +39,22 @@ export function CorpusChangeSignalPanel({
   const details = copy[status] ?? copy.unknown;
   return (
     <section className="plan-agent-corpus-signal" data-status={status} aria-label="Corpus change signal">
-      <div>
-        <p className="plan-surface-kicker">Corpus change signal</p>
-        <h4>{details.title}</h4>
-        <p>{details.body}</p>
-        <p className="plan-agent-muted">
-          {snapshotCount ? `${snapshotCount} lightweight evidence snapshot${snapshotCount === 1 ? "" : "s"} stored.` : "No evidence snapshots stored."}
-          {checkedAt ? ` Checked ${new Date(checkedAt).toLocaleString()}.` : ""}
-        </p>
-        {warnings.length ? <p className="plan-agent-warning">{warnings.join(" ")}</p> : null}
-      </div>
-      <button type="button" onClick={onCheck} disabled={checking || snapshotCount === 0}>
-        {checking ? "Checking…" : "Check current source state"}
-      </button>
+      <details className="plan-agent-metadata-drawer">
+        <summary>{details.title}</summary>
+        <div>
+          <p className="plan-surface-kicker">Corpus change signal</p>
+          <h4>{details.title}</h4>
+          <p>{details.body}</p>
+          <p className="plan-agent-muted">
+            {snapshotCount ? `${snapshotCount} lightweight evidence snapshot${snapshotCount === 1 ? "" : "s"} stored.` : "No evidence snapshots stored."}
+            {checkedAt ? ` Checked ${new Date(checkedAt).toLocaleString()}.` : ""}
+          </p>
+          {warnings.length ? <p className="plan-agent-warning">{warnings.join(" ")}</p> : null}
+        </div>
+        <button type="button" onClick={onCheck} disabled={checking || snapshotCount === 0}>
+          {checking ? "Checking…" : "Check current source state"}
+        </button>
+      </details>
     </section>
   );
 }

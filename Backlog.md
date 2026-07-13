@@ -7,13 +7,36 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Hermes backend = in-process agent LLM (not CLI oneshot) — captured 2026-07-13
+**Priority:** high — product intent for Plan Agent Interaction; CLI path was a spike, not the destination.
+**Context:** Plan dogfood clarified Live vs Hermes. Live currently owns OpenAI Responses synthesis. Hermes default is in-process `dungeon_context_lookup` with a canned status string; `DUNGEONMIND_LIVE_HERMES_MODE=cli` shells out to `hermes --oneshot`. User: Hermes agent *is* the LLM backing — wire it for graph queries; do not want CLI command mode. PR008B pre-merge honesty fix: in-process path now traces `world_graph_context_attached_to_response` and does **not** set `world_graph_prompt_supplied` / count unused graph prompt tokens — envelope stays on the response for UI only until Hermes actually consumes it.
+**Insight:** Target shape is Hermes as orchestration/runtime (tool loops over dungeonbuddy + world-graph query context), with manifest/corpus retrieval as evidence and World Graph as navigation memory — not a live-control subprocess wrapper and not a second OpenAI one-shot parallel to Live. Also spike: conversational follow-ups (“What is it connected to?”), chat/thread identity + graph-context continuity, distinguish retrieval vs agent synthesis vs conversation memory, harden nested-request error envelopes, improve connected-object chat UI.
+**Action:** Replace Hermes Plan path with in-process Hermes agent loop that can call dungeonbuddy tools + consume PR008B `world_graph_context`; retire CLI mode as the product path (keep only if needed for local debug). Live stays as the non-agent retrieval+synthesis ladder until Hermes is ready, then reassess whether Live remains.
+**Surfaces when:** Hermes radio on Ask prep memory, `run_hermes_conversation`, `DUNGEONMIND_LIVE_HERMES_MODE`, `integrations/hermes/plugins/dungeonbuddy`, PR008B agent interaction, graph query across World Graph
+**Refs:** `Docs/Plans/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`, `apps/live_control_server/services/live_agent_loop.py`, `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
 
-## [IDEA] Plan board seeds scaffold, not full Session Prep.md — captured 2026-07-13
-**Context:** PR008A `/plan?dogfood=1` dogfood note
-**Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Feels like a "markdown loader" dumping incomplete plan content.
-**Action:** Decide whether Plan should hydrate from `planningDocument.targetRelpath` corpus Markdown (with local-draft overlay) vs keep an empty/scaffold board that only becomes the prep file on Save. Separate from World Graph projection work.
-**Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import
-**Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`
+## [READY] Recap View / ingest must project world graph (not session preview union) — captured 2026-07-13
+**Priority:** high — blocks useful Graph Review / node authoring dogfood (authoring against session-isolated extracts is redundant).
+**Context:** Session 24 ingest dogfood. After LLM extract, Recap View (`/plan?tool=recap`, Open Recap View from `/ingest`) loads `useLatestGraphIngest: true` → session preview union only. Edge / Mireward Reach / PCs show current-session evidence only; Session 23’s Edge is a different store identity. World head exists at `out/graph_memory/worlds/eldyrwild/` (`pc:caelynn`, `location:mireward`, …) but is not what Recap View reads. Header previously claimed “Global campaign graph” (copy corrected to session preview honesty).
+**Insight:** Session preview unions are extract proposals, not campaign memory. Without world-graph (or merged multi-session) projection, chips can’t show prior-session lineage and authoring tools re-create work that should already exist as world identity.
+**Action:** Point Recap View / Plan graph projection at the persistent world-graph head with campaign + focus session overlay (campaign-supergraph PR007/PR008 path); stop treating latest session preview union as the runtime graph for authoring dogfood. Keep preview union as ingest review of *this extract* only, clearly labeled. Until then, defer heavy node-authoring dogfood on Recap View.
+**Surfaces when:** Recap View chips, Graph Review authoring, object cards, Edge/Mireward/PC cross-session history, `/ingest` Open Recap View, `getUnionSupergraphProjection` / `useLatestGraphIngest`, PR007A/PR008 world-graph projection migration, graph object authoring dogfood
+**Refs:** `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx`, `UnionSupergraphRecapProjection.tsx`, `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` (PR006D/PR007/PR008), `out/graph_memory/worlds/eldyrwild/head.json`, Session 24 run `out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/`
+
+## [READY] Ingest Recap full wizard simplification — captured 2026-07-13
+**Context:** Plan-surface dogfood found the 8-chip ingest tracker contradicting itself (Prove/Memory Done while next action demanded graph extraction; Canonical Missing for titled Session 24 files).
+**Insight:** Tracker + proof honesty landed as a 3-lane readiness model (`buildIngestReadiness`) plus titled-canonical inspect resolution. The Generate Recap Memory / Advanced button matrix is still a multi-path wizard and remains hard to teach.
+**Action:** Collapse Ingest Recap controls into one primary path (paste/load → generate memory+graph) with advanced steps behind disclosure only; keep readiness lanes as the single status surface.
+**Surfaces when:** editing `IngestionModule.tsx`, dogfooding `/ingest` Ingest Recap, or simplifying operator ingest UX.
+**Refs:** `apps/live-control-ui/src/modules/ingestReadiness.ts`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `src/live_play/recap_ingest_pipeline.py`
+
+
+## [READY] Plan board hydrates from Session Prep.md — captured 2026-07-13
+**Context:** PR008A `/plan?dogfood=1` dogfood note; promoted 2026-07-13 after confirming load (not Agent graph dogfood) is the next Plan prep-loop gap. Design checkpoint step 2 in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
+**Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Save already writes `Session N Prep.md`; reload does not re-read it. Feels like a broken markdown loader.
+**Action:** Implement corpus hydration for the primary Plan board: `GET /api/live/session-prep/resolve` (seed from `stash@{0}` SessionPrepLoader WIP) → on mount, if no fresher localStorage draft, read `planningDocument.targetRelpath` via existing citation-source/markdown→TipTap path and seed the board; show nav status (corpus vs local-draft overlay). Optional: `?prepSession=` override so Session 25 Prep can open when live packet session ≠ 24. Defer multi-doc picker and `session_N/` crawl.
+**Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import, leaving PR008B for Plan prep UX
+**Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`, `PlanSurfaceCanvas.tsx`, `stash@{0}` SessionPrepLoader hydration, `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md` §7 step 2
 
 
 ## Resume after Graph Review authored-memory pause

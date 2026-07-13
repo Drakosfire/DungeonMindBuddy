@@ -24,35 +24,38 @@ export function RetrievalFreshnessPanel({ decision }: { decision: RetrievalFresh
   const copy = DECISION_COPY[decision.decision] ?? DECISION_COPY.insufficient_grounding;
   return (
     <section className="plan-agent-retrieval-freshness" data-decision={decision.decision} aria-label="Retrieval freshness">
-      <div>
-        <p className="plan-surface-kicker">Grounding</p>
-        <h4>{copy.label}</h4>
-        <p>{copy.summary}</p>
-      </div>
-      <p>{decision.reason}</p>
-      <dl>
+      <details className="plan-agent-metadata-drawer">
+        <summary>Grounding · {copy.label}</summary>
         <div>
-          <dt>Fresh retrieval</dt>
-          <dd>{decision.used_fresh_retrieval ? "yes" : "no"}</dd>
+          <p className="plan-surface-kicker">Grounding</p>
+          <h4>{copy.label}</h4>
+          <p>{copy.summary}</p>
         </div>
-        <div>
-          <dt>Thread context</dt>
-          <dd>{decision.used_thread_context ? "yes" : "no"}</dd>
-        </div>
-        <div>
-          <dt>Admitted / rejected</dt>
-          <dd>{decision.admitted_evidence_count} / {decision.rejected_evidence_count}</dd>
-        </div>
-        <div>
-          <dt>Prior turns</dt>
-          <dd>{decision.prior_turn_count}</dd>
-        </div>
-      </dl>
-      {decision.warnings.length ? (
-        <ul>
-          {decision.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-        </ul>
-      ) : null}
+        <p>{decision.reason}</p>
+        <dl>
+          <div>
+            <dt>Fresh retrieval</dt>
+            <dd>{decision.used_fresh_retrieval ? "yes" : "no"}</dd>
+          </div>
+          <div>
+            <dt>Thread context</dt>
+            <dd>{decision.used_thread_context ? "yes" : "no"}</dd>
+          </div>
+          <div>
+            <dt>Admitted / rejected</dt>
+            <dd>{decision.admitted_evidence_count} / {decision.rejected_evidence_count}</dd>
+          </div>
+          <div>
+            <dt>Prior turns</dt>
+            <dd>{decision.prior_turn_count}</dd>
+          </div>
+        </dl>
+        {decision.warnings.length ? (
+          <ul>
+            {decision.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+          </ul>
+        ) : null}
+      </details>
     </section>
   );
 }

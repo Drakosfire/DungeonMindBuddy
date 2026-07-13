@@ -85,7 +85,7 @@ describe("PlanDogfoodPanel", () => {
     renderPanel();
 
     expect(screen.getByRole("region", { name: "Dogfood checklist" })).toBeInTheDocument();
-    expect(screen.getByText("Add real prep notes to the board")).toBeInTheDocument();
+    expect(screen.getByText("Edit the board with real prep notes for this session")).toBeInTheDocument();
     expect(screen.getByLabelText("Dogfood notes")).toBeInTheDocument();
     expect(screen.getByTestId("plan-world-graph-snapshot")).toHaveTextContent("World Graph unavailable.");
   });
@@ -95,7 +95,7 @@ describe("PlanDogfoodPanel", () => {
     renderPanel();
 
     const checkbox = screen.getByRole("checkbox", {
-      name: "Add real prep notes to the board",
+      name: "Edit the board with real prep notes for this session",
     });
     await user.click(checkbox);
 
@@ -118,7 +118,7 @@ describe("PlanDogfoodPanel", () => {
 
     renderPanel();
 
-    expect(screen.getByRole("checkbox", { name: "Save to Markdown" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Save to Markdown and confirm the target file updated" })).toBeChecked();
   });
 
   it("persists notes to localStorage", async () => {
@@ -155,7 +155,7 @@ describe("PlanDogfoodPanel", () => {
     expect(localStorage.getItem(planDogfoodStorageKey(sessionDescriptor))).toBeNull();
     expect(localStorage.getItem(canvasKey)).toContain("board-content");
     expect(screen.getByLabelText("Dogfood notes")).toHaveValue("");
-    expect(screen.getByRole("checkbox", { name: "Open /plan for the intended campaign/session" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Open /plan?dogfood=1 with the intended live session dir" })).not.toBeChecked();
   });
 
   it("copies dogfood report to clipboard and shows success message", async () => {
@@ -167,7 +167,7 @@ describe("PlanDogfoodPanel", () => {
     });
 
     renderPanel("Saved to Markdown");
-    await user.click(screen.getByRole("checkbox", { name: "Open /plan for the intended campaign/session" }));
+    await user.click(screen.getByRole("checkbox", { name: "Open /plan?dogfood=1 with the intended live session dir" }));
     await user.type(screen.getByLabelText("Dogfood notes"), "Useful source preview.");
     await user.click(screen.getByRole("button", { name: "Copy dogfood report" }));
 

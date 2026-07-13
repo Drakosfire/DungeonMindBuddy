@@ -226,6 +226,9 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["candidate_graph_path"] is not None
     assert (ROOT / graph["preview_union_store_path"]).is_file()
+    assert isinstance(graph.get("extracted_nodes"), list)
+    assert len(graph["extracted_nodes"]) >= 1
+    assert {"node_id", "kind", "label"} <= set(graph["extracted_nodes"][0].keys())
 
 
 def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
