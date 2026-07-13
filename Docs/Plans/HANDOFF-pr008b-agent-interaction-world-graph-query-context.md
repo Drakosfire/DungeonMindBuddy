@@ -368,7 +368,7 @@ If `npm run build` or unrelated suites already fail on base, run the same comman
 
 ```text
 IMPLEMENTATION_BASE: 9e78fea3028ab1d9b041d9e78115bb910adbf78b
-HEAD: (pending commit on campaign-supergraph/pr008b-agent-world-graph-query-context)
+HEAD: e93e29f30ed5a3377e7368eeaf04169ce6a57a95
 Ancestor check: git merge-base --is-ancestor BASE HEAD → OK
 
 Changed paths (§4 only):
