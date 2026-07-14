@@ -14,6 +14,7 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 )
 from apps.live_control_server.services.hermes_graph_query import (
     HermesGraphQueryRequestError,
+    normalize_hermes_conversation_history,
 )
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.services.citation_source_reader import (
@@ -177,6 +178,26 @@ class LiveQueryRequest(BaseModel):
     hermes_session_id: str | None = None
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
+    conversation_history: Any | None = None
+
+
+def _history_is_absent(value: Any) -> bool:
+    return value is None or (isinstance(value, list) and len(value) == 0)
+
+
+def _parse_live_query_conversation_history(
+    *,
+    query_backend: str,
+    conversation_history: Any | None,
+) -> list[dict[str, str]] | None:
+    if _history_is_absent(conversation_history):
+        return None
+    if query_backend != "hermes":
+        raise HermesGraphQueryRequestError(
+            "conversation_history is supported only for Hermes queries.",
+            code="conversation_history_not_supported",
+        )
+    return normalize_hermes_conversation_history(conversation_history)
 
 
 class ResolveRollRequest(BaseModel):
@@ -825,6 +846,10 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             detail="campaign_id/session do not match loaded live packet",
         )
     try:
+        normalized_history = _parse_live_query_conversation_history(
+            query_backend=body.query_backend,
+            conversation_history=body.conversation_history,
+        )
         return process_live_query(
             body.text,
             base=base,
@@ -835,6 +860,7 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             trace_requested=body.trace_requested,
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,
+            conversation_history=normalized_history,
         )
     except HermesGraphQueryRequestError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())

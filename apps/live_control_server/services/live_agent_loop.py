@@ -19,6 +19,7 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 )
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
 from apps.live_control_server.services.hermes_graph_query import (
+    normalize_hermes_conversation_history,
     run_hermes_graph_query,
     validate_hermes_query_inputs,
 )
@@ -434,6 +435,7 @@ def process_live_query(
     trace_requested: bool | None = None,
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
     outer_campaign_id: str | None = None,
+    conversation_history: Any | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
@@ -466,6 +468,7 @@ def process_live_query(
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
             root=world_graph_root(),
+            conversation_history=normalize_hermes_conversation_history(conversation_history),
         )
 
     if query_backend not in LIVE_QUERY_BACKENDS:

@@ -63,6 +63,11 @@ UNAVAILABLE_OUTCOME = "unavailable"
 WORLD_GRAPH_UNAVAILABLE_CODE = "world_graph_unavailable"
 GRAPH_TOOL_ERROR_CODE = "hermes_graph_tool_error"
 
+MAX_HERMES_HISTORY_MESSAGES = 12
+MAX_HERMES_HISTORY_MESSAGE_CHARS = 4000
+MAX_HERMES_HISTORY_TOTAL_CHARS = 16000
+_ALLOWED_HISTORY_ROLES = frozenset({"user", "assistant"})
+
 
 class HermesGraphQueryRequestError(ValueError):
     """Hermes-only request validation failure — do not invoke the host."""
@@ -123,6 +128,56 @@ def _usage_unavailable() -> dict[str, Any]:
         "output_tokens": None,
         "total_tokens": None,
     }
+
+
+def _history_invalid(message: str) -> HermesGraphQueryRequestError:
+    return HermesGraphQueryRequestError(message, code="hermes_history_invalid")
+
+
+def normalize_hermes_conversation_history(value: Any) -> list[dict[str, str]] | None:
+    """Strict service/route normalizer for optional prior visible prose."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise _history_invalid("conversation_history must be a list, null, or absent.")
+    if len(value) == 0:
+        return None
+    if len(value) > MAX_HERMES_HISTORY_MESSAGES:
+        raise _history_invalid("conversation_history exceeds maximum message count.")
+    if len(value) % 2 != 0:
+        raise _history_invalid(
+            "conversation_history must contain complete user/assistant pairs."
+        )
+
+    normalized: list[dict[str, str]] = []
+    total_chars = 0
+    for index, item in enumerate(value):
+        expected_role = "user" if index % 2 == 0 else "assistant"
+        if not isinstance(item, Mapping) or isinstance(item, (str, bytes)):
+            raise _history_invalid("conversation_history entries must be objects.")
+        unknown = set(item.keys()) - {"role", "content"}
+        if unknown:
+            raise _history_invalid("conversation_history entries contain unknown keys.")
+        role = item.get("role")
+        if role not in _ALLOWED_HISTORY_ROLES:
+            raise _history_invalid("conversation_history role must be user or assistant.")
+        if role != expected_role:
+            raise _history_invalid(
+                "conversation_history messages must alternate user then assistant."
+            )
+        content_raw = item.get("content")
+        if not isinstance(content_raw, str):
+            raise _history_invalid("conversation_history content must be a string.")
+        content = content_raw.strip()
+        if not content:
+            raise _history_invalid("conversation_history content must be non-empty.")
+        if len(content) > MAX_HERMES_HISTORY_MESSAGE_CHARS:
+            raise _history_invalid("conversation_history message exceeds maximum length.")
+        total_chars += len(content)
+        if total_chars > MAX_HERMES_HISTORY_TOTAL_CHARS:
+            raise _history_invalid("conversation_history exceeds total content budget.")
+        normalized.append({"role": role, "content": content})
+    return normalized
 
 
 def validate_hermes_query_inputs(
@@ -196,6 +251,7 @@ def build_hermes_graph_turn_request(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
     """Translate resolved World Graph context into one host turn request."""
     revision_id = _require_resolved_revision(graph_envelope)
@@ -216,6 +272,11 @@ def build_hermes_graph_turn_request(
             "Server-selected graph root must be absolute.",
             code="world_graph_context_invalid",
         )
+    history_copy = (
+        [{"role": item["role"], "content": item["content"]} for item in conversation_history]
+        if conversation_history
+        else None
+    )
     request = HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,
@@ -223,7 +284,7 @@ def build_hermes_graph_turn_request(
         focus=host_focus,
         admissibility=admissibility,
         revision_pin=revision_id,
-        conversation_history=None,
+        conversation_history=history_copy,
         session_id=None,
         root=graph_root,
         capability_policy=None,
@@ -816,6 +877,7 @@ def run_hermes_graph_query(
     turn_id: str | None,
     root: Path | None = None,
     host_factory: HostFactory | None = None,
+    conversation_history: Any | None = None,
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
@@ -830,10 +892,12 @@ def run_hermes_graph_query(
             turn_id=turn_id,
         )
 
+    normalized_history = normalize_hermes_conversation_history(conversation_history)
     request, scope = build_hermes_graph_turn_request(
         question=text,
         graph_envelope=graph_envelope,
         root=root,
+        conversation_history=normalized_history,
     )
     factory = host_factory or get_hermes_graph_agent_host
     host = factory()
@@ -858,12 +922,16 @@ def run_hermes_graph_query(
 __all__ = [
     "ABSTENTION_ANSWER",
     "EXECUTION_ERROR_ANSWER",
+    "MAX_HERMES_HISTORY_MESSAGE_CHARS",
+    "MAX_HERMES_HISTORY_MESSAGES",
+    "MAX_HERMES_HISTORY_TOTAL_CHARS",
     "UNAVAILABLE_ANSWER",
     "HermesGraphQueryRequestError",
     "build_hermes_graph_product_response",
     "build_hermes_graph_turn_request",
     "build_hermes_graph_unavailable_response",
     "classify_hermes_graph_result",
+    "normalize_hermes_conversation_history",
     "run_hermes_graph_query",
     "validate_hermes_query_inputs",
 ]

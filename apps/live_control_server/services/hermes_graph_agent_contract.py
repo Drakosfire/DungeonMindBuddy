@@ -236,6 +236,36 @@ def _deserialize_focus(focus: Any) -> dict[str, str | None] | None:
     return _serialize_focus(dict(focus))
 
 
+def _require_nonempty_str(value: Any, *, label: str, max_chars: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a string")
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(f"{label} must be a non-empty string")
+    if len(trimmed) > max_chars:
+        raise ValueError(f"{label} exceeds max length {max_chars}")
+    return trimmed
+
+
+def _validate_history_pairs(items: Sequence[Mapping[str, Any]]) -> None:
+    if len(items) % 2 != 0:
+        raise ValueError("conversationHistory must contain complete user/assistant pairs")
+    for index, item in enumerate(items):
+        expected_role = "user" if index % 2 == 0 else "assistant"
+        role = item.get("role")
+        if role not in {"user", "assistant"}:
+            raise ValueError("conversationHistory role must be user or assistant")
+        if role != expected_role:
+            raise ValueError(
+                "conversationHistory messages must alternate user then assistant"
+            )
+        _require_nonempty_str(
+            item.get("content"),
+            label="conversationHistory.content",
+            max_chars=MAX_MESSAGE_CHARS,
+        )
+
+
 def _serialize_history(
     history: Sequence[Mapping[str, Any]] | None,
 ) -> list[dict[str, str]] | None:
@@ -254,12 +284,15 @@ def _serialize_history(
             label="conversationHistory.role",
             max_chars=MAX_ID_CHARS,
         )
-        content = _require_str(
+        if role not in {"user", "assistant"}:
+            raise ValueError("conversationHistory role must be user or assistant")
+        content = _require_nonempty_str(
             item.get("content"),
             label="conversationHistory.content",
             max_chars=MAX_MESSAGE_CHARS,
         )
         bounded.append({"role": role, "content": _clip_str(content, max_chars=MAX_MESSAGE_CHARS)})
+    _validate_history_pairs(bounded)
     return bounded
 
 
