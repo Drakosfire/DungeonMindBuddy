@@ -49,8 +49,10 @@ import {
   PREP_MEMORY_PROMPTS,
   answerHeading,
   hasGrounding,
+  isHermesGraphAgentResponse,
   prepMemoryLabel,
   UNGROUNDED_ANSWER_WARNING,
+  validateHermesGraphCitations,
 } from "./prepMemoryQa";
 
 interface PlanAgentInteractionBarProps {
@@ -95,10 +97,6 @@ const HERMES_GROUNDING_STATES: HermesGraphGroundingState[] = [
   "error",
 ];
 
-function isHermesGraphAgentResponse(answer: LiveQueryResponse): boolean {
-  return answer.mode === "hermes_graph_agent" || answer.agent_trace?.mode === "hermes_graph_agent";
-}
-
 type HermesGroundingParseResult =
   | { kind: "none" }
   | { kind: "malformed"; reason: string }
@@ -116,55 +114,10 @@ function parseHermesGraphGrounding(answer: LiveQueryResponse): HermesGroundingPa
   return { kind: "valid", grounding };
 }
 
-// TODO(prepMemoryQa): delegate Hermes headings/warnings to prepMemoryQa once sibling exports land.
-function resolveAnswerHeading(answer: LiveQueryResponse): string {
-  const parsed = parseHermesGraphGrounding(answer);
-  if (parsed.kind === "valid") {
-    switch (parsed.grounding.state) {
-      case "grounded":
-        return "Graph-grounded answer";
-      case "partial":
-        return "Qualified graph answer";
-      case "abstained":
-        return "Graph evidence gap";
-      case "error":
-        return "Hermes graph error";
-    }
-  }
-  if (parsed.kind === "malformed") return "Hermes grounding contract error";
-  return answerHeading(answer);
-}
-
-function shouldShowUngroundedWarning(answer: LiveQueryResponse): boolean {
-  const parsed = parseHermesGraphGrounding(answer);
-  if (parsed.kind === "valid" || parsed.kind === "malformed") return false;
-  return !hasGrounding(answer);
-}
-
-function shouldShowGraphCitationCards(answer: LiveQueryResponse): boolean {
-  const parsed = parseHermesGraphGrounding(answer);
-  return parsed.kind === "valid"
-    && (parsed.grounding.state === "grounded" || parsed.grounding.state === "partial");
-}
-
 function isLegacyPathCitation(citation: LiveQueryCitation): citation is LegacyPathCitation {
   if (citation.kind === "world_graph_anchor") return false;
   return typeof (citation as LegacyPathCitation).path === "string"
     && typeof (citation as LegacyPathCitation).evidence_id === "string";
-}
-
-function isValidWorldGraphAnchorCitation(citation: LiveQueryCitation): citation is WorldGraphAnchorCitation {
-  if (citation.kind !== "world_graph_anchor" || citation.schema !== "dmb_world_graph_anchor_citation_v1") {
-    return false;
-  }
-  return Boolean(
-    citation.anchor_id
-    && citation.world_id
-    && citation.campaign_id
-    && citation.revision_id
-    && citation.admissibility
-    && (citation.focus.kind === "none" || citation.focus.kind === "session"),
-  );
 }
 
 function graphCitationKey(citation: WorldGraphAnchorCitation): string {
@@ -174,11 +127,6 @@ function graphCitationKey(citation: WorldGraphAnchorCitation): string {
 function shortenAnchorId(anchorId: string): string {
   if (anchorId.length <= 28) return anchorId;
   return `${anchorId.slice(0, 14)}…${anchorId.slice(-10)}`;
-}
-
-function graphCitationsFromAnswer(answer: LiveQueryResponse): WorldGraphAnchorCitation[] {
-  if (!shouldShowGraphCitationCards(answer)) return [];
-  return (answer.citations ?? []).filter(isValidWorldGraphAnchorCitation);
 }
 
 function focusMatchesCitation(
@@ -401,9 +349,12 @@ export function PlanAgentInteractionBar({
   } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
-  const graphCitationCards = answer ? graphCitationsFromAnswer(answer) : [];
+  const hermesCitationValidation = answer && isHermesGraphAgentResponse(answer)
+    ? validateHermesGraphCitations(answer.citations, answer.grounding)
+    : { citations: [] as WorldGraphAnchorCitation[], contractWarning: null as string | null };
+  const graphCitationCards = hermesCitationValidation.citations;
   const hermesGrounding = answer ? parseHermesGraphGrounding(answer) : { kind: "none" as const };
-  const answerHeadingLabel = answer ? resolveAnswerHeading(answer) : "";
+  const answerHeadingLabel = answer ? answerHeading(answer) : "";
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
   const corpusFreshness = activeTurn?.corpusFreshness ?? null;
@@ -684,7 +635,7 @@ export function PlanAgentInteractionBar({
         updatedAt: new Date().toISOString(),
         activeBackend: queryBackend,
         hermesSession: isHermesGraphAgentTurn
-          ? (response.hermes_session ?? null)
+          ? null
           : (response.hermes_session ?? currentThread.hermesSession ?? null),
         turns: nextTurns,
         uiState: {
@@ -921,11 +872,14 @@ export function PlanAgentInteractionBar({
                         answer={packetReview ? null : answer.answer}
                       />
                     ) : null}
-                    {!shouldShowUngroundedWarning(answer) ? null : (
+                    {!isHermesGraphAgentResponse(answer) && !hasGrounding(answer) ? (
                       <p className="plan-agent-grounding-warning">
                         {UNGROUNDED_ANSWER_WARNING}
                       </p>
-                    )}
+                    ) : null}
+                    {hermesCitationValidation.contractWarning ? (
+                      <p className="plan-agent-error">{hermesCitationValidation.contractWarning}</p>
+                    ) : null}
                     {hermesGrounding.kind === "malformed" ? (
                       <p className="plan-agent-error">{hermesGrounding.reason}</p>
                     ) : null}

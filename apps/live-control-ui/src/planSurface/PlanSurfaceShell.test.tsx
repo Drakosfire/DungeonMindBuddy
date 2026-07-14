@@ -1531,11 +1531,11 @@ describe("PlanSurfaceShell", () => {
   });
 
   it.each([
-    ["grounded", true] as const,
-    ["partial", true] as const,
-    ["abstained", false] as const,
-    ["error", false] as const,
-  ])("renders Hermes graph grounding state %s", async (state, showCards) => {
+    ["grounded", "Graph-grounded answer", true] as const,
+    ["partial", "Qualified graph answer", true] as const,
+    ["abstained", "Graph evidence gap", false] as const,
+    ["error", "Hermes graph error", false] as const,
+  ])("renders Hermes graph grounding state %s", async (state, heading, showCards) => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
@@ -1557,8 +1557,9 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByText(`${state} answer`)).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: heading })).toHaveTextContent(`${state} answer`);
     if (showCards) {
       expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
     } else {
@@ -1570,6 +1571,95 @@ describe("PlanSurfaceShell", () => {
     if (state === "error") {
       expect(screen.getByText("graph_query_failed")).toBeInTheDocument();
     }
+  });
+
+  it("shows contract error for grounded Hermes graph answer with scope-mismatched citation", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          answer: "Citation scope mismatch answer.",
+          citations: [buildGraphAnchorCitation("rev-wrong-revision")],
+        })),
+      } as Response);
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+
+    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toHaveTextContent(
+      "Citation scope mismatch answer.",
+    );
+    expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
+    expect(screen.getByText(/graph citations were dropped due to scope or revision mismatch/i)).toBeInTheDocument();
+  });
+
+  it("clears stale hermesSession after Hermes graph submit and omits it from subsequent live asks", async () => {
+    const user = userEvent.setup();
+    const staleSession = {
+      sessionId: "stale-hermes-session-handle",
+      runtime: "api",
+      title: "Stale Hermes session",
+    };
+    const seededThread = {
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Stale session thread"),
+      hermesSession: staleSession,
+    };
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seededThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", seededThread.threadId), JSON.stringify(seededThread));
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          hermes_session: {
+            sessionId: "malformed-should-not-persist",
+            runtime: "api",
+            title: "Bad session from response",
+          },
+        })),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          answer: "Follow-up live answer.",
+          classification: {},
+          events_written: [],
+          jobs_queued: [],
+          next_suggestions: [],
+          diagnostics: [],
+          provenance: {},
+          citations: [],
+          context_packet: null,
+        }),
+      } as Response);
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Stale session thread");
+    await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+
+    const storedAfterGraph = JSON.parse(
+      localStorage.getItem(threadStorageKey("longmont-c2", seededThread.threadId)) ?? "{}",
+    );
+    expect(storedAfterGraph.hermesSession).toBeNull();
+
+    await user.type(screen.getByLabelText("Question"), "Follow-up live question?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    expect(await screen.findByText("Follow-up live answer.")).toBeInTheDocument();
+
+    const followUpCall = vi.mocked(globalThis.fetch).mock.calls[2];
+    const followUpBody = JSON.parse(String(followUpCall[1]?.body));
+    expect(followUpBody.hermes_session_id).toBeNull();
   });
 
   it("opens graph citations through the opaque source-anchor read route with pinned revision", async () => {
