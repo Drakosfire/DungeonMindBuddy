@@ -222,13 +222,13 @@ def _resolve_capability_policy(
 def _prepare_isolated_hermes_home(
     home: Path,
     *,
-    enabled_toolsets: Sequence[str],
+    enabled_plugin_ids: Sequence[str],
 ) -> None:
     home.mkdir(parents=True, exist_ok=True)
     config_path = home / "config.yaml"
     config = {
         "plugins": {
-            "enabled": list(enabled_toolsets),
+            "enabled": list(enabled_plugin_ids),
             "disabled": [],
         }
     }
@@ -246,6 +246,7 @@ def _scope_block(policy: HermesCapabilityPolicy) -> str:
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revisionPin": scope.revision_pin,
+        "enabledPluginIds": list(policy.enabled_plugin_ids),
         "enabledToolsets": list(policy.enabled_toolsets),
         "enabledToolNames": list(policy.enabled_tool_names),
         "processIsolation": PROCESS_ISOLATION_MODE,
@@ -452,10 +453,13 @@ def _reject_unsupported_builtin_toolsets(
 def _rediscoverable_plugin_toolsets(
     policy: HermesCapabilityPolicy,
 ) -> frozenset[str]:
-    """Toolsets this wrapper will rediscover via plugin loading (not builtins)."""
+    """Toolsets owned by activated plugins that this wrapper will rediscover."""
     builtins = _hermes_builtin_toolset_names()
     return frozenset(
-        name for name in policy.enabled_toolsets if name not in builtins
+        toolset
+        for activation in policy.plugin_activations
+        for toolset in activation.toolsets
+        if toolset not in builtins
     )
 
 
@@ -476,14 +480,15 @@ def _purge_stale_rediscoverable_plugin_tools(
             registry.deregister(entry.name)
 
 
-def _find_loaded_plugin(manager: Any, toolset_name: str) -> Any | None:
-    loaded = manager._plugins.get(toolset_name)
+def _find_loaded_plugin(manager: Any, plugin_id: str) -> Any | None:
+    """Locate a loaded plugin by registry key or manifest name."""
+    loaded = manager._plugins.get(plugin_id)
     if loaded is not None:
         return loaded
     for key, plugin in manager._plugins.items():
         manifest = getattr(plugin, "manifest", None)
         name = getattr(manifest, "name", None) if manifest is not None else None
-        if key == toolset_name or name == toolset_name:
+        if key == plugin_id or name == plugin_id:
             return plugin
     return None
 
@@ -492,24 +497,29 @@ def _verify_enabled_plugin_discovery(
     hermes_plugins: Any,
     policy: HermesCapabilityPolicy,
 ) -> str | None:
-    """Prove each enabled *plugin* toolset loaded successfully in this sweep.
+    """Prove each activated plugin loaded, then check its attributed tools.
 
-    Compares each toolset only against tools attributed to that toolset in the
-    policy — never against the full ``enabled_tool_names`` set.
+    Lookup uses :attr:`HermesPluginActivation.plugin_id`. Expected tools are
+    the union of policy rules for that activation's toolsets — never a
+    comparison of every policy tool against a single plugin.
     """
     if _safe_mode_enabled():
         return "hermes_plugin_discovery_skipped"
 
     manager = hermes_plugins.get_plugin_manager()
-    for toolset in _rediscoverable_plugin_toolsets(policy):
-        loaded = _find_loaded_plugin(manager, toolset)
+    builtins = _hermes_builtin_toolset_names()
+    for activation in policy.plugin_activations:
+        # Built-in toolsets are rejected earlier; skip any residual activation.
+        if not any(toolset not in builtins for toolset in activation.toolsets):
+            continue
+        loaded = _find_loaded_plugin(manager, activation.plugin_id)
         if loaded is None:
             return "hermes_plugin_not_loaded"
         if not bool(getattr(loaded, "enabled", False)):
             return "hermes_plugin_disabled"
         if getattr(loaded, "error", None):
             return "hermes_plugin_load_error"
-        expected = set(policy.tool_names_for_toolset(toolset))
+        expected = set(policy.expected_tool_names_for_plugin(activation.plugin_id))
         registered = set(getattr(loaded, "tools_registered", []) or [])
         if expected and not expected.issubset(registered):
             return "hermes_plugin_registration_incomplete"
@@ -693,7 +703,7 @@ def run_hermes_graph_agent_turn(
         try:
             _prepare_isolated_hermes_home(
                 hermes_home,
-                enabled_toolsets=policy.enabled_toolsets,
+                enabled_plugin_ids=policy.enabled_plugin_ids,
             )
             os.environ["HERMES_HOME"] = str(hermes_home)
 

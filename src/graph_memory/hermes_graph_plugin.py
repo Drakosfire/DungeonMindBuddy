@@ -62,6 +62,22 @@ class HermesGraphScope:
 
 
 @dataclass(frozen=True, slots=True)
+class HermesPluginActivation:
+    """Binds a Hermes plugin registry identity to one or more model toolsets.
+
+    ``plugin_id`` is written to ``plugins.enabled`` and used to look up the
+    loaded plugin (path-derived key or manifest name). ``toolsets`` are the
+    names passed to ``AIAgent(enabled_toolsets=...)`` and used when attributing
+    tools via :class:`HermesToolCapabilityRule.toolset`. These namespaces are
+    intentionally independent — a plugin may register tools under a toolset
+    that differs from its plugin key / manifest name.
+    """
+
+    plugin_id: str
+    toolsets: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class HermesToolCapabilityRule:
     """Per-tool constraints within a capability policy.
 
@@ -89,15 +105,22 @@ class HermesCapabilityPolicy:
     """Caller-supplied capability boundary for an embedded Hermes turn.
 
     The default factory is graph-only / five-tool / read-only. Callers may
-    enable additional **plugin** toolsets with matching per-tool rules. Hermes
-    built-in toolsets (terminal, web, …) are not supported by this wrapper yet
-    and must be rejected explicitly rather than silently deregistered.
+    enable additional **plugins** via :attr:`plugin_activations` (Hermes
+    ``plugins.enabled`` identities) and expose their toolsets via
+    :attr:`enabled_toolsets`. Hermes built-in toolsets (terminal, web, …)
+    are not supported by this wrapper yet and must be rejected explicitly
+    rather than silently deregistered.
     """
 
     enabled_toolsets: tuple[str, ...]
     enabled_tool_names: tuple[str, ...]
     graph_scope: HermesGraphScope
     tool_rules: tuple[HermesToolCapabilityRule, ...]
+    plugin_activations: tuple[HermesPluginActivation, ...]
+
+    @property
+    def enabled_plugin_ids(self) -> tuple[str, ...]:
+        return tuple(activation.plugin_id for activation in self.plugin_activations)
 
     def rule_for(self, tool_name: str) -> HermesToolCapabilityRule | None:
         for rule in self.tool_rules:
@@ -110,6 +133,18 @@ class HermesCapabilityPolicy:
             rule.tool_name for rule in self.tool_rules if rule.toolset == toolset
         )
 
+    def toolsets_for_plugin(self, plugin_id: str) -> tuple[str, ...]:
+        for activation in self.plugin_activations:
+            if activation.plugin_id == plugin_id:
+                return activation.toolsets
+        return ()
+
+    def expected_tool_names_for_plugin(self, plugin_id: str) -> tuple[str, ...]:
+        names: list[str] = []
+        for toolset in self.toolsets_for_plugin(plugin_id):
+            names.extend(self.tool_names_for_toolset(toolset))
+        return tuple(names)
+
 
 def default_graph_only_capability_policy(
     scope: HermesGraphScope,
@@ -120,6 +155,12 @@ def default_graph_only_capability_policy(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
         graph_scope=scope,
+        plugin_activations=(
+            HermesPluginActivation(
+                plugin_id=TOOLSET_NAME,
+                toolsets=(TOOLSET_NAME,),
+            ),
+        ),
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
@@ -139,10 +180,26 @@ def validate_capability_policy_structure(
 
     Returns an error code string, or ``None`` when the policy is well-formed.
     """
+    if not policy.plugin_activations:
+        return "hermes_capability_policy_empty_plugin_activations"
     if not policy.enabled_toolsets:
         return "hermes_capability_policy_empty_toolsets"
     if not policy.enabled_tool_names:
         return "hermes_capability_policy_empty_tools"
+    plugin_ids = [activation.plugin_id for activation in policy.plugin_activations]
+    if len(plugin_ids) != len(set(plugin_ids)):
+        return "hermes_capability_policy_duplicate_plugin_ids"
+    if any(not activation.plugin_id.strip() for activation in policy.plugin_activations):
+        return "hermes_capability_policy_empty_plugin_id"
+    activation_toolsets: list[str] = []
+    for activation in policy.plugin_activations:
+        if not activation.toolsets:
+            return "hermes_capability_policy_empty_plugin_toolsets"
+        activation_toolsets.extend(activation.toolsets)
+    if len(activation_toolsets) != len(set(activation_toolsets)):
+        return "hermes_capability_policy_duplicate_plugin_toolsets"
+    if set(activation_toolsets) != set(policy.enabled_toolsets):
+        return "hermes_capability_policy_plugin_toolset_mismatch"
     names = list(policy.enabled_tool_names)
     if len(names) != len(set(names)):
         return "hermes_capability_policy_duplicate_tool_names"
@@ -312,6 +369,7 @@ __all__ = [
     "TOOLSET_NAME",
     "HermesCapabilityPolicy",
     "HermesGraphScope",
+    "HermesPluginActivation",
     "HermesToolCapabilityRule",
     "ToolEffect",
     "apply_capability_policy_to_arguments",

@@ -31,6 +31,7 @@ from graph_memory.hermes_graph_plugin import (
     TOOLSET_NAME,
     HermesCapabilityPolicy,
     HermesGraphScope,
+    HermesPluginActivation,
     HermesToolCapabilityRule,
     apply_capability_policy_to_arguments,
     default_graph_only_capability_policy,
@@ -102,6 +103,13 @@ def _default_scope(**overrides: Any) -> HermesGraphScope:
     }
     payload.update(overrides)
     return HermesGraphScope(**payload)
+
+
+def _graph_plugin_activation() -> HermesPluginActivation:
+    return HermesPluginActivation(
+        plugin_id=TOOLSET_NAME,
+        toolsets=(TOOLSET_NAME,),
+    )
 
 
 def test_hermes_aiagent_imports_from_locked_environment() -> None:
@@ -279,6 +287,7 @@ def test_capability_policy_rejects_unlisted_tool() -> None:
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=("search_campaign_graph",),
         graph_scope=_default_scope(),
+        plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
                 tool_name="search_campaign_graph",
@@ -905,6 +914,7 @@ def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=("search_campaign_graph", "get_campaign_object"),
         graph_scope=_default_scope(),
+        plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
                 tool_name="search_campaign_graph",
@@ -927,6 +937,7 @@ def test_policy_with_incomplete_enabled_names_fails_before_provider(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
         graph_scope=_default_scope(),
+        plugin_activations=(_graph_plugin_activation(),),
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
@@ -1281,16 +1292,23 @@ def test_tool_events_use_authoritative_policy_scope_not_model_args(
         assert event.bounded_ids.get("queryTextChars") == len("secret query")
 
 
-SYNTH_TOOLSET = "dmb_synth_probe"
-SYNTH_TOOL_NAME = "synth_probe_ping"
+SYNTH_PLUGIN_KEY = "campaign-utilities/probe"
+SYNTH_MANIFEST_NAME = "campaign_utilities"
+SYNTH_TOOLSET = "campaign_weather"
+SYNTH_TOOL_NAME = "synth_weather_ping"
 
 
 def _seed_synth_user_plugin(home: Path) -> None:
-    """Install a minimal Hermes user plugin under ``HERMES_HOME/plugins``."""
-    plugin_dir = home / "plugins" / SYNTH_TOOLSET
+    """Install a synthetic plugin whose key/manifest/toolset deliberately differ.
+
+    Hermes flat plugins set ``key = manifest.name``. A category layout
+    (``plugins/<category>/<name>/``) yields a path-derived key that can differ
+    from both the manifest name and the registered toolset.
+    """
+    plugin_dir = home / "plugins" / "campaign-utilities" / "probe"
     plugin_dir.mkdir(parents=True, exist_ok=True)
     (plugin_dir / "plugin.yaml").write_text(
-        "name: dmb_synth_probe\n"
+        f"name: {SYNTH_MANIFEST_NAME}\n"
         "version: 0.0.1\n"
         "description: Synthetic second plugin for mixed-policy regression\n"
         "kind: standalone\n",
@@ -1307,11 +1325,11 @@ def _seed_synth_user_plugin(home: Path) -> None:
         f'        toolset="{SYNTH_TOOLSET}",\n'
         "        schema={\n"
         f'            "name": "{SYNTH_TOOL_NAME}",\n'
-        '            "description": "Synthetic probe tool",\n'
+        '            "description": "Synthetic weather probe tool",\n'
         '            "parameters": {"type": "object", "properties": {}},\n'
         "        },\n"
         "        handler=_handler,\n"
-        '        description="Synthetic probe tool",\n'
+        '        description="Synthetic weather probe tool",\n'
         "    )\n",
         encoding="utf-8",
     )
@@ -1321,18 +1339,20 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Graph + synthetic second plugin toolset both load and validate."""
+    """Graph + synthetic plugin with distinct key/manifest/toolset identities."""
     from apps.live_control_server.services import hermes_graph_agent as agent_mod
 
     real_prepare = agent_mod._prepare_isolated_hermes_home
+    captured_plugin_ids: list[list[str]] = []
 
     def _prepare_with_synth(
         home: Path,
         *,
-        enabled_toolsets: list[str] | tuple[str, ...],
+        enabled_plugin_ids: list[str] | tuple[str, ...],
     ) -> None:
-        real_prepare(home, enabled_toolsets=enabled_toolsets)
-        if SYNTH_TOOLSET in enabled_toolsets:
+        captured_plugin_ids.append(list(enabled_plugin_ids))
+        real_prepare(home, enabled_plugin_ids=enabled_plugin_ids)
+        if SYNTH_PLUGIN_KEY in enabled_plugin_ids:
             _seed_synth_user_plugin(home)
 
     monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
@@ -1342,6 +1362,13 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
         enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
         enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
         graph_scope=_default_scope(),
+        plugin_activations=(
+            _graph_plugin_activation(),
+            HermesPluginActivation(
+                plugin_id=SYNTH_PLUGIN_KEY,
+                toolsets=(SYNTH_TOOLSET,),
+            ),
+        ),
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
@@ -1372,10 +1399,20 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
         agent_factory=_FakeAgent,
     )
     assert result.status == "ok", (result.error_code, result.error_message)
+    assert captured_plugin_ids == [[TOOLSET_NAME, SYNTH_PLUGIN_KEY]]
+    assert SYNTH_TOOLSET not in captured_plugin_ids[0]
+    assert SYNTH_MANIFEST_NAME not in captured_plugin_ids[0]
     init = _FakeAgent.last_init or {}
     assert init.get("enabled_toolsets") == [TOOLSET_NAME, SYNTH_TOOLSET]
+    assert SYNTH_PLUGIN_KEY not in (init.get("enabled_toolsets") or [])
+    assert SYNTH_MANIFEST_NAME not in (init.get("enabled_toolsets") or [])
+    assert len({SYNTH_PLUGIN_KEY, SYNTH_MANIFEST_NAME, SYNTH_TOOLSET}) == 3
     assert set(policy.tool_names_for_toolset(TOOLSET_NAME)) == set(graph_names)
     assert policy.tool_names_for_toolset(SYNTH_TOOLSET) == (SYNTH_TOOL_NAME,)
+    assert policy.enabled_plugin_ids == (TOOLSET_NAME, SYNTH_PLUGIN_KEY)
+    assert policy.expected_tool_names_for_plugin(SYNTH_PLUGIN_KEY) == (
+        SYNTH_TOOL_NAME,
+    )
 
 
 def test_builtin_hermes_toolset_is_explicitly_rejected(tmp_path: Path) -> None:
@@ -1384,6 +1421,10 @@ def test_builtin_hermes_toolset_is_explicitly_rejected(tmp_path: Path) -> None:
         enabled_toolsets=(TOOLSET_NAME, "terminal"),
         enabled_tool_names=ORDERED_TOOL_NAMES + ("terminal",),
         graph_scope=_default_scope(),
+        plugin_activations=(
+            _graph_plugin_activation(),
+            HermesPluginActivation(plugin_id="terminal", toolsets=("terminal",)),
+        ),
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
@@ -1429,6 +1470,7 @@ def test_policy_rule_toolset_must_be_enabled() -> None:
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=("search_campaign_graph",),
         graph_scope=_default_scope(),
+        plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
                 tool_name="search_campaign_graph",
@@ -1440,4 +1482,26 @@ def test_policy_rule_toolset_must_be_enabled() -> None:
     )
     assert validate_capability_policy_structure(bad) == (
         "hermes_capability_policy_rule_toolset_mismatch"
+    )
+
+
+def test_policy_plugin_activations_must_cover_enabled_toolsets() -> None:
+    from graph_memory.hermes_graph_plugin import validate_capability_policy_structure
+
+    bad = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME, "campaign_weather"),
+        enabled_tool_names=("search_campaign_graph",),
+        graph_scope=_default_scope(),
+        plugin_activations=(_graph_plugin_activation(),),
+        tool_rules=(
+            HermesToolCapabilityRule(
+                tool_name="search_campaign_graph",
+                toolset=TOOLSET_NAME,
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+    assert validate_capability_policy_structure(bad) == (
+        "hermes_capability_policy_plugin_toolset_mismatch"
     )
