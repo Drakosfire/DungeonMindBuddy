@@ -19,6 +19,7 @@ from apps.live_control_server.services.hermes_graph_query import (
     ABSTENTION_ANSWER,
     EXECUTION_ERROR_ANSWER,
     UNAVAILABLE_ANSWER,
+    build_hermes_graph_product_response,
     build_hermes_graph_turn_request,
     classify_hermes_graph_result,
     run_hermes_graph_query,
@@ -862,6 +863,38 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
     assert trace["context_summary"] == {}
     assert trace["artifact_refs"] == []
     assert isinstance(trace["tool_events"], list)
+
+
+def test_malformed_tool_event_returns_typed_contract_error_not_500() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    malformed = _tool_event(source_anchor_ids=["anchor:MALFORMED-LEAK"])
+    object.__setattr__(malformed, "bounded_ids", None)
+    object.__setattr__(malformed, "source_anchor_ids", None)
+    result = _ok_result(events=[malformed])
+
+    response = build_hermes_graph_product_response(
+        packet=PACKET,
+        result=result,
+        scope=scope,
+        agent_thread_id="agent-thread-malformed",
+        turn_id="agent-turn-malformed",
+        started_at="2026-07-14T18:00:00Z",
+        completed_at="2026-07-14T18:00:01Z",
+        elapsed_ms=1,
+        world_graph_context=READY_ENVELOPE,
+    )
+    assert response["status"] == "error"
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == "hermes_grounding_contract_error"
+    assert response["agent_trace"]["tool_events"] == []
+    blob = json.dumps(response)
+    assert "MALFORMED-LEAK" not in blob
+    assert '"bounded_ids": null' not in blob
+    assert '"source_anchor_ids": null' not in blob
 
 
 def test_http_world_graph_unavailable_is_typed_not_422(

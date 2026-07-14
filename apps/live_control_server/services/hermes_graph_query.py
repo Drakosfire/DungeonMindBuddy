@@ -344,16 +344,24 @@ def _project_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
 def _safe_projected_tool_events(
     events: Sequence[HermesGraphToolEvent],
     scope: _DispatchedScope,
-) -> tuple[list[dict[str, Any]], bool]:
-    """Project in-scope events; drop contradictory (foreign) events entirely."""
+) -> tuple[list[dict[str, Any]], bool, bool]:
+    """Project in-scope events; drop contradictory (foreign) events entirely.
+
+    Returns ``(projected, saw_mismatch, projection_ok)``. On any projection
+    failure, returns an empty projected list and ``projection_ok=False`` so the
+    product envelope can stay a typed grounding-contract error.
+    """
     projected: list[dict[str, Any]] = []
     saw_mismatch = False
-    for event in events:
-        if _tool_event_scope_contradicts(event, scope):
-            saw_mismatch = True
-            continue
-        projected.append(_project_tool_event(event))
-    return projected, saw_mismatch
+    try:
+        for event in events:
+            if _tool_event_scope_contradicts(event, scope):
+                saw_mismatch = True
+                continue
+            projected.append(_project_tool_event(event))
+    except Exception:
+        return [], saw_mismatch, False
+    return projected, saw_mismatch, True
 
 
 def _unique_source_anchors(events: Sequence[HermesGraphToolEvent]) -> list[str]:
@@ -416,6 +424,7 @@ def classify_hermes_graph_result(
     result: HermesGraphAgentTurnResult,
     *,
     scope: _DispatchedScope,
+    projection_ok: bool | None = None,
 ) -> tuple[GroundingState, str, list[str], list[str], str | None]:
     """Classify grounding from status + final_response + tool_events only.
 
@@ -424,13 +433,9 @@ def classify_hermes_graph_result(
     """
     _ = result.messages  # transcript is never evidence for PR354
 
-    projected_ok = True
-    try:
-        for event in result.tool_events:
-            _project_tool_event(event)
-    except Exception:
-        projected_ok = False
-    if not projected_ok:
+    if projection_ok is None:
+        _, _, projection_ok = _safe_projected_tool_events(result.tool_events, scope)
+    if not projection_ok:
         return (
             "error",
             EXECUTION_ERROR_ANSWER,
@@ -683,13 +688,28 @@ def build_hermes_graph_product_response(
     elapsed_ms: int,
     world_graph_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    state, answer, warnings, diagnostic_codes, error_code = classify_hermes_graph_result(
-        result,
-        scope=scope,
+    # Project once behind a safe boundary; reuse for classification and trace.
+    projected_events, saw_mismatch, projection_ok = _safe_projected_tool_events(
+        result.tool_events,
+        scope,
     )
-    projected_events, saw_mismatch = _safe_projected_tool_events(result.tool_events, scope)
-    if saw_mismatch and "hermes_tool_event_scope_mismatch" not in diagnostic_codes:
-        diagnostic_codes = [*diagnostic_codes, "hermes_tool_event_scope_mismatch"]
+    if not projection_ok:
+        state: GroundingState = "error"
+        answer = EXECUTION_ERROR_ANSWER
+        warnings: list[str] = []
+        diagnostic_codes = ["hermes_grounding_contract_error"]
+        error_code: str | None = "hermes_grounding_contract_error"
+        projected_events = []
+        grounding_events: Sequence[HermesGraphToolEvent] = []
+    else:
+        state, answer, warnings, diagnostic_codes, error_code = classify_hermes_graph_result(
+            result,
+            scope=scope,
+            projection_ok=True,
+        )
+        grounding_events = result.tool_events
+        if saw_mismatch and "hermes_tool_event_scope_mismatch" not in diagnostic_codes:
+            diagnostic_codes = [*diagnostic_codes, "hermes_tool_event_scope_mismatch"]
     response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
@@ -723,7 +743,7 @@ def build_hermes_graph_product_response(
         "grounding": _grounding_block(
             state=state,
             scope=scope,
-            tool_events=result.tool_events,
+            tool_events=grounding_events,
             diagnostic_codes=diagnostic_codes,
             warnings=warnings,
         ),
