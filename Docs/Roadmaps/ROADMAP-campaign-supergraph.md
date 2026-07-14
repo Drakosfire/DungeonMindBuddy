@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-14 — PR010B Rung 4A–4B done (#353/#354); PR355 Plan graph evidence presentation active
+**Updated:** 2026-07-14 — PR010B Rung 4C / PR355 done; Rung 5 same-thread object continuity is next critical path
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -64,15 +64,15 @@ PR009 Play migration may proceed independently after PR008 lessons. Multi-source
 PR010B is decomposed into independently useful rungs:
 
 ```text
-DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
+DONE    PR010B Rung 1 — graph-only dispatcher (#350)
 DONE    PR010B Rung 2 — model-visible catalog and adapter (#351)
 DONE    PR010B Rung 3 — embedded Hermes graph-agent turn (#352)
-DONE    PR010B Rung 4A — persistent process-isolated host (#353)
+DONE    PR010B Rung 4A — process-isolated host (#353)
 DONE    PR010B Rung 4B — single-turn backend product cutover (#354)
-DOING   PR010B Rung 4C / PR355 — Plan graph evidence presentation and reload-safe turn persistence
-NEXT    PR010B Rung 5 — same-thread object continuity
-LATER   PR010B Rung 6 — Hermes session-pointer continuity
-LATER   PR010B Rung 7 — product acceptance, demolition, and backend-toggle removal
+DONE    PR010B Rung 4C — Plan evidence presentation and completed-turn persistence (#355)
+READY   PR010B Rung 5 — same-thread object continuity through bounded visible-prose replay
+LATER   PR010B Rung 6 — durable Hermes session-pointer and reload/process lifecycle
+LATER   PR010B Rung 7 — cumulative product acceptance and replaced-path demolition
 ```
 
 ---
@@ -168,7 +168,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Doing — Rung 1–4B complete (#350–#354); PR355 Plan graph evidence presentation and reload-safe turn persistence active.
+**Status:** Doing — Rung 1–4C complete (#350–#355); Rung 5 same-thread object continuity is the next critical-path capability. PR011 remains blocked until PR010B is cumulatively accepted. PR009 remains an independent parallel lane.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 
@@ -179,15 +179,16 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 - **Rung 3 (DONE / #352):** Embedded in-process Hermes `AIAgent` turn with packaged `dungeonbuddy_graph` plugin, optional caller-owned history, and typed tool-event results.
 - **Rung 4A (DONE / #353):** Persistent process-isolated Hermes graph-agent host.
 - **Rung 4B (DONE / #354):** Single-turn Hermes backend product cutover through the host with fail-closed grounding.
-- **Rung 4C / PR355 (DOING):** Plan presentation of grounding, opaque graph citations, bounded tool trace, and reload-safe local turn persistence (display only — not Hermes session resume).
-- **Rung 5 (NEXT):** Same-thread object continuity (bounded prior-turn history / pronoun resolution with fresh graph reads).
-- **Rung 6 (LATER):** Hermes session-pointer continuity across reload/process restart.
-- **Rung 7 (LATER):** Product acceptance, obsolete retrieval demolition, and backend-toggle removal.
+- **Rung 4C / PR355 (DONE / #355):** Plan presentation of grounding, opaque graph citations, bounded tool trace, and reload-safe local completed-turn persistence (display only — not Hermes session resume).
+- **Rung 5 (READY / planned #356):** Same-thread object continuity through bounded replay of prior visible role/content pairs. Prior prose may resolve pronouns and shorthand; it is never campaign truth. Fresh graph retrieval remains the exclusive authority for facts, grounding, and citations. Rung 5 does not establish a persistent Hermes session, persist an internal Hermes transcript, own demolition, or change the backend selector/default.
+- **Rung 6 (LATER):** Durable Hermes session-pointer continuity and reload/process-restart lifecycle (distinct from Rung 4C display persistence and Rung 5 stateless prose replay).
+- **Rung 7 (LATER):** Cumulative product acceptance, obsolete Hermes path demolition, backend-toggle removal, and default-backend decision.
 
 **Target runtime shape:**
 
-- Hermes owns synthesis, tool choice, and thread conversation state.
-- One Hermes session maps to one Agent Interaction thread.
+- Hermes owns synthesis and tool choice for each graph-agent turn.
+- Rung 5 continuity is bounded visible-prose replay from the active local Plan thread, not a durable Hermes session.
+- Rung 6 (not yet) owns one Hermes session pointer per Agent Interaction thread and its process/restart lifecycle.
 - The runtime is embedded/in-process or uses a supported session API; shelling out to `hermes --oneshot` is not the product path.
 - The Live synthesizer is not a fallback for Hermes failures or graph misses.
 - Hermes long-term memory is disabled for campaign facts.
@@ -210,7 +211,7 @@ These tools are graph/revision scoped. `read_source_anchor` accepts an opaque an
 4. Ask in the same thread: “What is it connected to that should affect my prep?”
 5. Hermes resolves “it” from thread context, performs bounded graph traversal, and explains concrete prep implications.
 6. If the graph lacks an answer, Hermes says so and reports the missing coverage. It does not search other Markdown.
-7. Reload restores the thread/session pointer and can continue without treating chat history as campaign canon.
+7. Reload restores completed-turn display (Rung 4C). Durable Hermes session-pointer resume is Rung 6, not Rung 5 prose replay.
 
 **Non-goals:** Full operator tool parity, graph writes, draft persistence, preview/confirm, Play migration, generalized autonomous planning, or broad UI redesign.
 
