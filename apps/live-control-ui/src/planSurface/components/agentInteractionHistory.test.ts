@@ -712,4 +712,90 @@ describe("agentInteractionHistory", () => {
     expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].worldGraphContext).toBeUndefined();
     expect(loadAgentThreadById("longmont-c2", thread.threadId)?.turns[0].worldGraphContextSummary?.matchedNodeIds).toEqual(["node-lysandro"]);
   });
+
+  it("normalizes object-valued trace shell fields and non-array warnings in turnFromResponse", () => {
+    const turn = turnFromResponse("Where is Tripod?", {
+      answer: "Tripod stands at the North Gate.",
+      mode: "hermes_graph_agent",
+      status: { unexpected: true } as never,
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      warnings: { secret: "unexpected object" } as never,
+      agent_trace: {
+        trace_id: "trace-shell",
+        runtime: "process_isolated",
+        backend: { unexpected: true },
+        mode: "hermes_graph_agent",
+        provider: { nested: true },
+        model: ["not", "a", "string"],
+        toolset: { name: "nope" },
+        started_at: "2026-07-14T18:00:00Z",
+        completed_at: "2026-07-14T18:00:01Z",
+        elapsed_ms: 12,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [],
+        warnings: [{ secret: "unexpected object" }, "bounded string warning"],
+      } as never,
+    }, "hermes");
+
+    expect(turn.status).toBe("ok");
+    expect(turn.warnings).toEqual(["bounded string warning"]);
+    expect(turn.trace?.backend).toBe("hermes");
+    expect(turn.trace?.provider).toBeUndefined();
+    expect(turn.trace?.model).toBeUndefined();
+    expect(turn.trace?.toolset).toBeUndefined();
+    expect(turn.trace?.warnings).toEqual(["bounded string warning"]);
+    expect(turn.grounding?.state).toBe("grounded");
+  });
+
+  it("keeps validated grounding when top-level warnings are a non-array object", () => {
+    const turn = turnFromResponse("Where is Tripod?", {
+      answer: "Tripod stands at the North Gate.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: {
+        schema: "dmb_hermes_graph_grounding_v1",
+        state: "grounded",
+      } as never,
+      citations: [null] as never,
+      warnings: { not: "an array" } as never,
+      agent_trace: {
+        trace_id: "trace-malformed-grounding",
+        runtime: "process_isolated",
+        backend: "hermes",
+        mode: "hermes_graph_agent",
+        started_at: "2026-07-14T18:00:00Z",
+        completed_at: "2026-07-14T18:00:01Z",
+        elapsed_ms: 1,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [],
+        warnings: [],
+      } as AgentInteractionTrace,
+    }, "hermes");
+
+    expect(turn.warnings).toEqual([]);
+    expect(turn.grounding).toBeNull();
+    expect(turn.citations).toEqual([]);
+    expect(turn.trace?.backend).toBe("hermes");
+  });
 });

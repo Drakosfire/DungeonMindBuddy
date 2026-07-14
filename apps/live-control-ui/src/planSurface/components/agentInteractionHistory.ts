@@ -186,12 +186,28 @@ function sanitizeHermesGraphToolEvents(toolEvents: unknown): HermesGraphToolTrac
     .map((event) => event as HermesGraphToolTraceEvent);
 }
 
-function sanitizePersistedWarnings(warnings: unknown): string[] {
+export function sanitizePersistedWarnings(warnings: unknown): string[] {
   if (!Array.isArray(warnings)) return [];
   return warnings
     .slice(0, MAX_PERSISTED_WARNINGS)
     .map((warning) => truncatePersistedString(warning) ?? "")
     .filter(Boolean);
+}
+
+function firstPersistedString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const truncated = truncatePersistedString(value);
+    if (truncated) return truncated;
+  }
+  return null;
+}
+
+/** Prefer top-level warnings when they are an array; otherwise fall back to agent_trace.warnings. */
+function warningsFromResponse(response: LiveQueryResponse): string[] {
+  if (Array.isArray(response.warnings)) {
+    return sanitizePersistedWarnings(response.warnings);
+  }
+  return sanitizePersistedWarnings(response.agent_trace?.warnings);
 }
 
 /** Strict Hermes graph-agent trace projection — only the handoff whitelist. */
@@ -409,25 +425,32 @@ export function turnFromResponse(
 ): AgentInteractionTurn {
   const now = new Date().toISOString();
   const isHermesGraph = response.mode === "hermes_graph_agent";
+  const turnId = firstPersistedString(response.turn_id, response.agent_trace?.trace_id, response.query_id)
+    ?? newId("agent-turn");
+  const askedAt = firstPersistedString(response.agent_trace?.started_at) ?? now;
+  const completedAt = firstPersistedString(response.agent_trace?.completed_at) ?? now;
+  const status = firstPersistedString(response.status, response.agent_trace?.status) ?? "ok";
+  const warnings = warningsFromResponse(response);
 
   if (isHermesGraph) {
     const validated = validateHermesGraphCitations(response.citations, response.grounding);
+    const rawTrace = isRecord(response.agent_trace)
+      ? { ...response.agent_trace, mode: "hermes_graph_agent" }
+      : response.agent_trace == null
+        ? null
+        : { mode: "hermes_graph_agent" };
     return {
-      turnId: response.turn_id ?? response.agent_trace?.trace_id ?? response.query_id ?? newId("agent-turn"),
-      askedAt: response.agent_trace?.started_at ?? now,
-      completedAt: response.agent_trace?.completed_at ?? now,
+      turnId,
+      askedAt,
+      completedAt,
       question,
-      answer: response.answer,
+      answer: typeof response.answer === "string" ? response.answer : "",
       backend,
-      status: response.status ?? response.agent_trace?.status ?? "ok",
+      status,
       contextSummary: undefined,
       citations: validated.citations,
-      trace: safeTraceForPersistence(
-        response.agent_trace
-          ? { ...response.agent_trace, mode: "hermes_graph_agent" }
-          : response.agent_trace,
-      ),
-      warnings: (response.warnings ?? response.agent_trace?.warnings ?? []).slice(0, MAX_PERSISTED_WARNINGS),
+      trace: safeTraceForPersistence(rawTrace),
+      warnings,
       retrievalFreshness: null,
       evidenceSnapshots: [],
       corpusFreshness: null,
@@ -438,19 +461,31 @@ export function turnFromResponse(
   }
 
   return {
-    turnId: response.turn_id ?? response.agent_trace?.trace_id ?? response.query_id ?? newId("agent-turn"),
-    askedAt: response.agent_trace?.started_at ?? now,
-    completedAt: response.agent_trace?.completed_at ?? now,
+    turnId,
+    askedAt,
+    completedAt,
     question,
-    answer: response.answer,
+    answer: typeof response.answer === "string" ? response.answer : "",
     backend,
-    status: response.status ?? response.agent_trace?.status ?? "ok",
+    status,
     contextSummary: contextSummaryFromResponse(response),
-    citations: (response.citations ?? []).filter((citation) => citation && typeof citation === "object"),
-    trace: response.agent_trace ?? null,
-    warnings: response.warnings ?? response.agent_trace?.warnings ?? [],
+    citations: (Array.isArray(response.citations) ? response.citations : []).filter(
+      (citation) => citation && typeof citation === "object",
+    ),
+    // Normalize shell fields for render, but keep truncated prompt_preview in-memory.
+    // Persistence re-runs safeTraceForPersistence and strips prompt_preview.
+    trace: (() => {
+      const normalized = safeTraceForPersistence(response.agent_trace);
+      if (!normalized || !isRecord(response.agent_trace)) return normalized;
+      const promptPreview = truncatePersistedString(response.agent_trace.prompt_preview);
+      return promptPreview ? { ...normalized, prompt_preview: promptPreview } : normalized;
+    })(),
+    warnings,
     retrievalFreshness: response.retrieval_freshness ?? null,
-    evidenceSnapshots: response.evidence_snapshots ?? buildEvidenceSnapshots(response.citations ?? [], now),
+    evidenceSnapshots: response.evidence_snapshots ?? buildEvidenceSnapshots(
+      Array.isArray(response.citations) ? response.citations : [],
+      now,
+    ),
     corpusFreshness: null,
     worldGraphContext: response.world_graph_context ?? null,
     worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),

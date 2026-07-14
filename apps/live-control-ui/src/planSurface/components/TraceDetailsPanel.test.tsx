@@ -111,6 +111,34 @@ describe("TraceDetailsPanel", () => {
     expect(screen.getByText("Skipped 1 malformed graph tool event.")).toBeInTheDocument();
   });
 
+  it("normalizes object-valued shell fields and drops object warnings without crashing", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          backend: { unexpected: true } as never,
+          runtime: { nested: true } as never,
+          status: { ok: false } as never,
+          mode: "hermes_graph_agent",
+          provider: { nested: true } as never,
+          model: ["not", "a", "string"] as never,
+          toolset: { name: "nope" } as never,
+          trace_id: { id: "nope" } as never,
+          started_at: { when: "nope" } as never,
+          warnings: [{ secret: "unexpected object" }, "bounded string warning"] as never,
+          tool_events: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText(/· unknown · 42ms/)).toBeInTheDocument();
+    expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
+    expect(screen.getByText("n/a / n/a")).toBeInTheDocument();
+    expect(screen.getByText("bounded string warning")).toBeInTheDocument();
+    expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
+  });
+
   it("drops null events and object-valued tool_name while keeping valid siblings", () => {
     render(
       <TraceDetailsPanel

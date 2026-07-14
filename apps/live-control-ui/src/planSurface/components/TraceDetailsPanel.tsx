@@ -29,6 +29,14 @@ function stringArrayField(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function displayString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function displayOptionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function normalizeGraphToolEvent(raw: unknown): HermesGraphToolTraceEvent | null {
   if (!raw || typeof raw !== "object") return null;
   const event = raw as Record<string, unknown>;
@@ -75,7 +83,20 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
   const context = isRecord(trace.context_summary) ? trace.context_summary : {};
   const steps = Array.isArray(trace.steps) ? trace.steps : [];
   const stepCount = steps.length;
-  const isHermesGraphAgent = trace.mode === "hermes_graph_agent";
+  const backend = displayString(trace.backend);
+  const runtime = displayString(trace.runtime);
+  const status = displayString(trace.status, "unknown");
+  const mode = displayString(trace.mode);
+  const provider = displayOptionalString(trace.provider);
+  const model = displayOptionalString(trace.model);
+  const toolset = displayOptionalString(trace.toolset);
+  const traceId = displayString(trace.trace_id);
+  const startedAt = displayString(trace.started_at);
+  const hermesSessionId = displayOptionalString(trace.hermes_session_id);
+  const commandSummary = displayOptionalString(trace.command_summary);
+  const promptPreview = displayOptionalString(trace.prompt_preview);
+  const warnings = stringArrayField(trace.warnings);
+  const isHermesGraphAgent = mode === "hermes_graph_agent";
   const rawToolEvents = Array.isArray(trace.tool_events) ? trace.tool_events : [];
   const normalizedToolEvents = rawToolEvents
     .map((event) => normalizeGraphToolEvent(event))
@@ -91,24 +112,24 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
         <summary>
           <span>Agent trace</span>
           <span className="plan-agent-muted">
-            {trace.backend} · {trace.runtime} · {trace.status} · {elapsedMs}ms
+            {backend} · {runtime} · {status} · {elapsedMs}ms
           </span>
         </summary>
 
         <dl className="plan-agent-trace-grid">
           <div>
             <dt>Mode</dt>
-            <dd>{trace.mode}</dd>
+            <dd>{mode}</dd>
           </div>
           <div>
             <dt>Provider / model</dt>
             <dd>
-              {trace.provider ?? "n/a"} / {trace.model ?? "n/a"}
+              {provider ?? "n/a"} / {model ?? "n/a"}
             </dd>
           </div>
           <div>
             <dt>Toolset</dt>
-            <dd>{trace.toolset ?? "n/a"}</dd>
+            <dd>{toolset ?? "n/a"}</dd>
           </div>
           <div>
             <dt>Elapsed</dt>
@@ -135,31 +156,31 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           ) : null}
           <div>
             <dt>Trace id</dt>
-            <dd><code>{trace.trace_id}</code></dd>
+            <dd><code>{traceId}</code></dd>
           </div>
           <div>
             <dt>Started</dt>
-            <dd>{trace.started_at}</dd>
+            <dd>{startedAt}</dd>
           </div>
-          {isHermesGraphAgent && trace.hermes_session_id ? (
+          {isHermesGraphAgent && hermesSessionId ? (
             <div>
               <dt>Hermes session (observability)</dt>
-              <dd><code>{trace.hermes_session_id}</code></dd>
+              <dd><code>{hermesSessionId}</code></dd>
             </div>
           ) : null}
         </dl>
 
-        {!isHermesGraphAgent && trace.command_summary ? (
+        {!isHermesGraphAgent && commandSummary ? (
           <div className="plan-agent-trace-command">
             <h5>Command</h5>
-            <code>{trace.command_summary}</code>
+            <code>{commandSummary}</code>
           </div>
         ) : null}
 
-        {!isHermesGraphAgent && trace.prompt_preview ? (
+        {!isHermesGraphAgent && promptPreview ? (
           <details className="plan-agent-trace-prompt">
-            <summary>Prompt sent to Hermes ({trace.prompt_char_count ?? trace.prompt_preview.length} chars)</summary>
-            <pre>{trace.prompt_preview}</pre>
+            <summary>Prompt sent to Hermes ({trace.prompt_char_count ?? promptPreview.length} chars)</summary>
+            <pre>{promptPreview}</pre>
           </details>
         ) : null}
 
@@ -324,11 +345,11 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
         ) : null}
 
-        {trace.warnings?.length ? (
+        {warnings.length ? (
           <div className="plan-agent-trace-warnings">
             <h5>Warnings</h5>
             <ul>
-              {trace.warnings.map((warning) => (
+              {warnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
             </ul>

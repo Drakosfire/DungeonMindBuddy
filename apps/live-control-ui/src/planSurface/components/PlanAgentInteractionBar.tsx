@@ -487,28 +487,50 @@ export function PlanAgentInteractionBar({
     () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
     [turns, activeTurnId],
   );
-  const answer = activeTurn ? (turnResponses[activeTurn.turnId] ?? ({
-    answer: activeTurn.answer,
-    status: activeTurn.status,
-    mode: activeTurn.trace?.mode
-      ?? (activeTurn.grounding?.schema === "dmb_hermes_graph_grounding_v1" ? "hermes_graph_agent" : undefined),
-    citations: activeTurn.citations ?? [],
-    warnings: activeTurn.warnings ?? [],
-    agent_trace: activeTurn.trace ?? null,
-    context_packet: null,
-    classification: {} as never,
-    events_written: [],
-    jobs_queued: [],
-    next_suggestions: [],
-    diagnostics: {},
-    provenance: {},
-    retrieval_freshness: activeTurn.retrievalFreshness ?? null,
-    grounding: activeTurn.grounding ?? null,
-  } satisfies LiveQueryResponse)) : null;
+  const answer = activeTurn ? (() => {
+    const fromTurn = {
+      answer: activeTurn.answer,
+      status: activeTurn.status,
+      mode: activeTurn.trace?.mode
+        ?? (activeTurn.grounding?.schema === "dmb_hermes_graph_grounding_v1" ? "hermes_graph_agent" : undefined),
+      citations: activeTurn.citations ?? [],
+      warnings: activeTurn.warnings ?? [],
+      agent_trace: activeTurn.trace ?? null,
+      context_packet: null,
+      classification: {} as never,
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      retrieval_freshness: activeTurn.retrievalFreshness ?? null,
+      grounding: activeTurn.grounding ?? null,
+      world_graph_context: activeTurn.worldGraphContext ?? null,
+    } satisfies LiveQueryResponse;
+    const wire = turnResponses[activeTurn.turnId];
+    if (!wire) return fromTurn;
+    // Keep wire-only fields (context packet, diagnostics), but never prefer raw
+    // grounding / citations / warnings / agent_trace over the sanitized turn.
+    return {
+      ...wire,
+      answer: activeTurn.answer,
+      status: activeTurn.status,
+      citations: activeTurn.citations ?? [],
+      warnings: activeTurn.warnings ?? [],
+      agent_trace: activeTurn.trace ?? null,
+      grounding: activeTurn.grounding ?? null,
+      retrieval_freshness: activeTurn.retrievalFreshness ?? wire.retrieval_freshness ?? null,
+    };
+  })() : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
   const hermesCitationValidation = answer && isHermesGraphAgentResponse(answer)
-    ? validateHermesGraphCitations(answer.citations, answer.grounding)
+    ? validateHermesGraphCitations(
+        // Prefer wire citations/grounding so drop warnings remain visible after
+        // turnFromResponse has already filtered the persisted turn copy.
+        (activeTurn ? turnResponses[activeTurn.turnId]?.citations : undefined) ?? answer.citations,
+        (activeTurn ? turnResponses[activeTurn.turnId]?.grounding : undefined) ?? answer.grounding,
+      )
     : { citations: [] as WorldGraphAnchorCitation[], contractWarning: null as string | null };
   const graphCitationCards = hermesCitationValidation.citations;
   const hermesGrounding = answer ? parseHermesGraphGroundingView(answer) : { kind: "none" as const };
@@ -784,10 +806,7 @@ export function PlanAgentInteractionBar({
             : null,
         },
       );
-      const nextTurn = {
-        ...turnFromResponse(trimmed, response, queryBackend),
-        grounding: response.grounding ?? null,
-      };
+      const nextTurn = turnFromResponse(trimmed, response, queryBackend);
       const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
       const isHermesGraphAgentTurn = response.mode === "hermes_graph_agent"
         || response.agent_trace?.mode === "hermes_graph_agent";
@@ -1029,9 +1048,9 @@ export function PlanAgentInteractionBar({
 
                 {answer ? (
                   <div className="plan-agent-answer">
-                    {answer.agent_trace && traceVisible ? (
+                    {activeTurn?.trace && traceVisible ? (
                       <TraceDetailsPanel
-                        trace={answer.agent_trace}
+                        trace={activeTurn.trace}
                         answer={packetReview ? null : answer.answer}
                       />
                     ) : null}
@@ -1066,7 +1085,7 @@ export function PlanAgentInteractionBar({
                         ))}
                       </ul>
                     ) : null}
-                    {!(answer.agent_trace && traceVisible && !packetReview) ? (
+                    {!(activeTurn?.trace && traceVisible && !packetReview) ? (
                       <section
                         className={`plan-agent-answer-card plan-agent-answer-card-${hermesGrounding.kind === "valid" ? hermesGrounding.grounding.state : "legacy"}`}
                         aria-label={answerHeadingLabel}
@@ -1214,7 +1233,7 @@ export function PlanAgentInteractionBar({
                     {packetReview ? (
                       <ContextSufficiencyPanel review={packetReview} />
                     ) : null}
-                    {!packetReview && !answer.agent_trace ? (
+                    {!packetReview && !activeTurn?.trace ? (
                       <p className="plan-agent-muted">No trace or context packet returned.</p>
                     ) : null}
                     {answer.citations?.length ? (

@@ -1925,6 +1925,75 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
   });
 
+  it("renders through Plan submit when Hermes agent_trace shell fields are objects", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          warnings: { secret: "unexpected object" },
+          agent_trace: {
+            ...buildHermesGraphQueryResponse().agent_trace,
+            backend: { unexpected: true },
+            runtime: "process_isolated",
+            status: "ok",
+            provider: { nested: true },
+            model: ["not", "a", "string"],
+            toolset: { name: "nope" },
+            warnings: [{ secret: "unexpected object" }, "bounded string warning"],
+          },
+        })),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+    expect(screen.getByText(/hermes · process_isolated · ok · 88ms/)).toBeInTheDocument();
+    expect(screen.getByText("bounded string warning")).toBeInTheDocument();
+    expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+  });
+  it("keeps Plan usable when top-level warnings are non-array and grounding is malformed", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          grounding: {
+            schema: "dmb_hermes_graph_grounding_v1",
+            state: "grounded",
+          },
+          citations: [null],
+          warnings: { not: "an array" },
+          agent_trace: {
+            ...buildHermesGraphQueryResponse().agent_trace,
+            warnings: { also: "not an array" },
+          },
+        })),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
+  });
+
   it("accepts the Kernel unavailable source-anchor envelope with snapshot=null", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
