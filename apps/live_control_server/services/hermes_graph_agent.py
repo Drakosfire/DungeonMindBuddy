@@ -43,6 +43,7 @@ from typing import Any, Literal
 import yaml
 
 from graph_memory.hermes_graph_plugin import (
+    TOOLSET_NAME,
     HermesCapabilityPolicy,
     HermesGraphScope,
     HermesToolCapabilityRule,
@@ -427,10 +428,68 @@ def _validate_model_visible_surface(
     return None
 
 
+def _safe_mode_enabled() -> bool:
+    value = (os.environ.get("HERMES_SAFE_MODE") or "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _purge_stale_policy_tools_from_registry(
+    registry: Any,
+    policy: HermesCapabilityPolicy,
+) -> None:
+    """Remove prior process-global registry entries covered by this policy.
+
+    Hermes ``discover_plugins(force=True)`` clears plugin-manager tracking but
+    does not clear the global tool registry. Stale names would otherwise
+    satisfy surface validation after a skipped or failed discovery.
+    """
+    enabled_toolsets = set(policy.enabled_toolsets)
+    enabled_names = set(policy.enabled_tool_names)
+    entries, _ = registry._snapshot_state()
+    for entry in entries:
+        if entry.toolset in enabled_toolsets or entry.name in enabled_names:
+            registry.deregister(entry.name)
+
+
+def _verify_current_graph_plugin_discovery(
+    hermes_plugins: Any,
+    policy: HermesCapabilityPolicy,
+) -> str | None:
+    """Prove the current discovery sweep loaded the graph plugin successfully."""
+    if _safe_mode_enabled():
+        return "hermes_plugin_discovery_skipped"
+
+    manager = hermes_plugins.get_plugin_manager()
+    loaded = manager._plugins.get(TOOLSET_NAME)
+    if loaded is None:
+        for key, plugin in manager._plugins.items():
+            manifest = getattr(plugin, "manifest", None)
+            name = getattr(manifest, "name", None) if manifest is not None else None
+            if key == TOOLSET_NAME or name == TOOLSET_NAME:
+                loaded = plugin
+                break
+    if loaded is None:
+        return "hermes_graph_plugin_not_loaded"
+    if not bool(getattr(loaded, "enabled", False)):
+        return "hermes_graph_plugin_disabled"
+    if getattr(loaded, "error", None):
+        return "hermes_graph_plugin_load_error"
+
+    registered = list(getattr(loaded, "tools_registered", []) or [])
+    expected = set(policy.enabled_tool_names)
+    if TOOLSET_NAME in policy.enabled_toolsets and not expected.issubset(set(registered)):
+        return "hermes_graph_plugin_registration_incomplete"
+    return None
+
+
 def _pre_tool_call_policy_hook(
     policy: HermesCapabilityPolicy,
 ) -> Callable[..., Any]:
-    """Hermes-wide pre-dispatch guard for every tool (graph or future non-graph)."""
+    """Hermes-wide pre-dispatch allowlist for every tool name.
+
+    Effect metadata beyond nonempty ``allowed_effects`` is enforced in the
+    graph plugin handlers for this rung (see ``HermesToolCapabilityRule``).
+    """
 
     def _hook(
         tool_name: str,
@@ -463,9 +522,22 @@ def _pre_tool_call_policy_hook(
 
 
 class _ToolEventCollector:
-    def __init__(self) -> None:
+    def __init__(self, policy: HermesCapabilityPolicy) -> None:
         self.events: list[HermesGraphToolEvent] = []
         self._starts_by_call_id: dict[str, float] = {}
+        self._scope = policy.graph_scope
+
+    def _authoritative_scope_fields(self) -> dict[str, Any]:
+        scope = self._scope
+        return {
+            "world_id": str(scope.world_id),
+            "campaign_id": str(scope.campaign_id),
+            "focus": _bounded_focus(scope.focus),
+            "admissibility": str(scope.admissibility),
+            "revision_pin": (
+                None if scope.revision_pin is None else str(scope.revision_pin)
+            ),
+        }
 
     def on_start(
         self,
@@ -484,23 +556,16 @@ class _ToolEventCollector:
         )
         self._starts_by_call_id[call_key] = started
         args = args if isinstance(args, dict) else {}
+        scope_fields = self._authoritative_scope_fields()
         self.events.append(
             HermesGraphToolEvent(
                 tool_name=str(tool_name),
                 state="start",
-                world_id=str(args["worldId"]) if args.get("worldId") is not None else None,
-                campaign_id=(
-                    str(args["campaignId"]) if args.get("campaignId") is not None else None
-                ),
-                focus=_bounded_focus(args.get("focus")),
-                admissibility=(
-                    str(args["admissibility"])
-                    if args.get("admissibility") is not None
-                    else None
-                ),
-                revision_pin=(
-                    str(args["revisionPin"]) if args.get("revisionPin") is not None else None
-                ),
+                world_id=scope_fields["world_id"],
+                campaign_id=scope_fields["campaign_id"],
+                focus=scope_fields["focus"],
+                admissibility=scope_fields["admissibility"],
+                revision_pin=scope_fields["revision_pin"],
                 bounded_ids=_safe_ids_from_args(args),
             )
         )
@@ -525,24 +590,17 @@ class _ToolEventCollector:
         )
         summary = _summarize_tool_result(result)
         state: ToolEventState = "error" if summary["is_error"] else "completion"
+        scope_fields = self._authoritative_scope_fields()
         self.events.append(
             HermesGraphToolEvent(
                 tool_name=str(tool_name),
                 state=state,
                 duration_ms=duration_ms,
-                world_id=str(args["worldId"]) if args.get("worldId") is not None else None,
-                campaign_id=(
-                    str(args["campaignId"]) if args.get("campaignId") is not None else None
-                ),
-                focus=_bounded_focus(args.get("focus")),
-                admissibility=(
-                    str(args["admissibility"])
-                    if args.get("admissibility") is not None
-                    else None
-                ),
-                revision_pin=(
-                    str(args["revisionPin"]) if args.get("revisionPin") is not None else None
-                ),
+                world_id=scope_fields["world_id"],
+                campaign_id=scope_fields["campaign_id"],
+                focus=scope_fields["focus"],
+                admissibility=scope_fields["admissibility"],
+                revision_pin=scope_fields["revision_pin"],
                 bounded_ids=_safe_ids_from_args(args),
                 retrieval_schema=summary["retrieval_schema"],
                 outcome=summary["outcome"],
@@ -587,16 +645,17 @@ def run_hermes_graph_agent_turn(
             error_message="Hermes capability policy failed structural validation.",
         )
 
-    hermes_home = Path(tempfile.mkdtemp(prefix="dmb-hermes-graph-home-"))
-    previous_home = os.environ.get("HERMES_HOME")
-    root_token = set_graph_root_override(request.root)
-    policy_token = set_active_capability_policy(policy)
-    collector = _ToolEventCollector()
-    pre_tool_hook: Callable[..., Any] | None = None
-    plugin_manager: Any | None = None
-    whitelist_installed = False
-
     with _RUNTIME_LOCK:
+        # Capture and mutate process-global env only while holding the lock so
+        # concurrent turns cannot restore a sibling's deleted temp home.
+        hermes_home = Path(tempfile.mkdtemp(prefix="dmb-hermes-graph-home-"))
+        previous_home = os.environ.get("HERMES_HOME")
+        root_token = set_graph_root_override(request.root)
+        policy_token = set_active_capability_policy(policy)
+        collector = _ToolEventCollector(policy)
+        pre_tool_hook: Callable[..., Any] | None = None
+        plugin_manager: Any | None = None
+        whitelist_installed = False
         try:
             _prepare_isolated_hermes_home(
                 hermes_home,
@@ -623,9 +682,26 @@ def run_hermes_graph_agent_turn(
                 with hermes_import_namespace():
                     from hermes_cli import plugins as hermes_plugins
                     from model_tools import get_tool_definitions
+                    from tools.registry import registry
 
-                    # Deterministic discovery under the isolated profile.
+                    # Drop stale global registry entries before rediscovery.
+                    _purge_stale_policy_tools_from_registry(registry, policy)
+
                     hermes_plugins.discover_plugins(force=True)
+
+                    discovery_error = _verify_current_graph_plugin_discovery(
+                        hermes_plugins,
+                        policy,
+                    )
+                    if discovery_error is not None:
+                        return _error_result(
+                            hermes_session_id=session_id,
+                            error_code=discovery_error,
+                            error_message=(
+                                "Hermes graph plugin was not successfully loaded "
+                                "during the current discovery sweep."
+                            ),
+                        )
 
                     visible_defs = get_tool_definitions(
                         enabled_toolsets=list(policy.enabled_toolsets),
@@ -646,7 +722,6 @@ def run_hermes_graph_agent_turn(
                             ),
                         )
 
-                    # Hermes-wide authorization: thread whitelist + pre_tool_call.
                     hermes_plugins.set_thread_tool_whitelist(
                         set(policy.enabled_tool_names),
                         deny_msg_fmt=(

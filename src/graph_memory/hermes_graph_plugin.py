@@ -63,7 +63,15 @@ class HermesGraphScope:
 
 @dataclass(frozen=True, slots=True)
 class HermesToolCapabilityRule:
-    """Per-tool constraints within a capability policy."""
+    """Per-tool constraints within a capability policy.
+
+    ``allowed_effects`` is enforced by the graph plugin handlers for this
+    rung (every graph handler dispatches as ``read``). Hermes-wide effect
+    classification for arbitrary non-graph tools is **not** implemented yet;
+    do not treat this field as a complete cross-toolset write/read gate until
+    a later rung associates authoritative effect metadata with every
+    model-visible tool.
+    """
 
     tool_name: str
     require_graph_scope: bool = True

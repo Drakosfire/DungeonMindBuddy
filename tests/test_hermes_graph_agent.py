@@ -1064,3 +1064,209 @@ def test_default_runtime_refreshes_discovery_after_prior_hermes_import(
     )
     assert result.status == "ok", (result.error_code, result.error_message)
     assert result.process_isolation == "process_exclusive"
+
+
+def test_concurrent_turns_restore_original_hermes_home(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Second turn must not restore a deleted sibling temporary HERMES_HOME."""
+    import time as time_mod
+
+    original = tmp_path / "original-hermes-home"
+    original.mkdir()
+    (original / "config.yaml").write_text("plugins:\n  enabled: []\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(original))
+
+    a_inside = threading.Event()
+    release_a = threading.Event()
+    results: list[Any] = [None, None]
+
+    class _HoldA(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            del kwargs
+            a_inside.set()
+            assert release_a.wait(timeout=5)
+            return {
+                "final_response": user_message,
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    class _QuickB(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            del kwargs
+            return {
+                "final_response": user_message,
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    def _run_a() -> None:
+        results[0] = run_hermes_graph_agent_turn(
+            HermesGraphAgentTurnRequest(
+                question="one",
+                world_id="world:eldyrwild",
+                campaign_id="campaign:c1",
+                root=tmp_path / "ga",
+            ),
+            agent_factory=_HoldA,
+        )
+
+    def _run_b() -> None:
+        # Wait until A holds the lock inside run_conversation with its temp home.
+        assert a_inside.wait(timeout=5)
+        time_mod.sleep(0.02)
+        results[1] = run_hermes_graph_agent_turn(
+            HermesGraphAgentTurnRequest(
+                question="two",
+                world_id="world:eldyrwild",
+                campaign_id="campaign:c1",
+                root=tmp_path / "gb",
+            ),
+            agent_factory=_QuickB,
+        )
+
+    t_a = threading.Thread(target=_run_a)
+    t_b = threading.Thread(target=_run_b)
+    t_a.start()
+    t_b.start()
+    assert a_inside.wait(timeout=5)
+    release_a.set()
+    t_a.join(timeout=10)
+    t_b.join(timeout=10)
+    assert results[0] is not None and results[0].status == "ok"
+    assert results[1] is not None and results[1].status == "ok"
+    restored = os.environ.get("HERMES_HOME")
+    assert restored == str(original)
+    assert Path(restored).is_dir()
+    assert (Path(restored) / "config.yaml").is_file()
+
+
+def test_discovery_failure_after_success_fails_before_agent_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stale registry names must not satisfy surface checks after a failed rediscovery."""
+    first = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="first",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path / "g1",
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert first.status == "ok"
+
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+    from hermes_cli import plugins as hermes_plugins
+
+    real_discover = hermes_plugins.discover_plugins
+
+    def _skip_discover(*, force: bool = False) -> None:
+        del force
+        # Simulate safe-mode / skipped discovery: mark discovered without loading.
+        manager = hermes_plugins.get_plugin_manager()
+        manager._plugins.clear()
+        manager._discovered = True
+
+    monkeypatch.setattr(hermes_plugins, "discover_plugins", _skip_discover)
+    # Also force the runtime's safe-mode check path when env is set.
+    monkeypatch.setenv("HERMES_SAFE_MODE", "1")
+
+    class _MustNotConstruct(_FakeAgent):
+        def __init__(self, **kwargs: Any) -> None:
+            raise AssertionError("agent must not construct after discovery failure")
+
+    second = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="second",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path / "g2",
+        ),
+        agent_factory=_MustNotConstruct,
+    )
+    assert second.status == "error"
+    assert second.error_code in {
+        "hermes_plugin_discovery_skipped",
+        "hermes_graph_plugin_not_loaded",
+        "hermes_tool_surface_mismatch",
+        "hermes_graph_plugin_registration_incomplete",
+    }
+    assert second.final_response is None
+
+    monkeypatch.delenv("HERMES_SAFE_MODE", raising=False)
+    monkeypatch.setattr(hermes_plugins, "discover_plugins", real_discover)
+    # Sanity: runtime remains usable after the failure path.
+    third = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="third",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path / "g3",
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert third.status == "ok", (third.error_code, third.error_message)
+    del agent_mod
+
+
+def test_tool_events_use_authoritative_policy_scope_not_model_args(
+    tmp_path: Path,
+) -> None:
+    class _SpoofScopeAgent(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            del user_message, kwargs
+            args = {
+                "worldId": "/secret/path/or/prompt-dump",
+                "campaignId": "x" * 5000,
+                "admissibility": "player-spoof",
+                "revisionPin": "rev:spoof",
+                "focus": {"kind": "session", "sessionId": "session:spoof"},
+                "queryText": "secret query",
+            }
+            self._start("c1", "search_campaign_graph", args)
+            self._complete(
+                "c1",
+                "search_campaign_graph",
+                args,
+                json.dumps(
+                    {
+                        "schema": "dmb_world_graph_retrieval_result_v1",
+                        "operation": "search",
+                        "outcome": "empty",
+                        "matchedNodeIds": [],
+                    }
+                ),
+            )
+            return {
+                "final_response": "ok",
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            admissibility="gm",
+            revision_pin=None,
+            focus={"kind": "none", "sessionId": None},
+            root=tmp_path,
+        ),
+        agent_factory=_SpoofScopeAgent,
+    )
+    assert result.status == "ok"
+    for event in result.tool_events:
+        assert event.world_id == "world:eldyrwild"
+        assert event.campaign_id == "campaign:c1"
+        assert event.admissibility == "gm"
+        assert event.revision_pin is None
+        assert event.focus == {"kind": "none"}
+        assert "/secret/path" not in (event.world_id or "")
+        assert "player-spoof" not in (event.admissibility or "")
+        assert "queryText" not in event.bounded_ids
+        assert event.bounded_ids.get("queryTextChars") == len("secret query")
