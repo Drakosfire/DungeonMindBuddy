@@ -373,6 +373,13 @@ export interface LiveContextPacket {
 
 export type LiveQueryBackend = "live" | "hermes";
 
+export type HermesConversationHistoryRole = "user" | "assistant";
+
+export interface HermesConversationHistoryMessage {
+  role: HermesConversationHistoryRole;
+  content: string;
+}
+
 export interface AgentInteractionTraceUsage {
   available: boolean;
   input_tokens: number | null;
@@ -620,6 +627,7 @@ export interface LiveQueryOptions {
   hermesSessionId?: string | null;
   traceRequested?: boolean | null;
   worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
+  conversationHistory?: unknown;
 }
 
 export interface AgentInteractionTurnMeta {

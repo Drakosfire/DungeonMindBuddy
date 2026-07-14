@@ -94,6 +94,7 @@ import type {
   PartyRegistrySessionRosterWritePrepareRequest,
   PartyRegistrySessionRosterWritePrepareResponse,
 } from "./types";
+import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 const defaultUnionSupergraphPreviewSource =
@@ -648,32 +649,43 @@ export async function postLiveQuery(
   queryBackend: LiveQueryBackend = "live",
   options: LiveQueryOptions = {},
 ): Promise<LiveQueryResponse> {
-  const body =
-    queryBackend === "hermes"
-      ? {
-          campaign_id: campaignId,
-          session,
-          mode: "live",
-          query_backend: "hermes",
-          text,
-          agent_thread_id: options.agentThreadId ?? null,
-          trace_requested: options.traceRequested ?? null,
-          ...(options.worldGraphContext != null
-            ? { world_graph_context: options.worldGraphContext }
-            : {}),
-        }
-      : {
-          campaign_id: campaignId,
-          session,
-          mode: "live",
-          query_backend: queryBackend,
-          text,
-          manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
-          agent_thread_id: options.agentThreadId ?? null,
-          hermes_session_id: options.hermesSessionId ?? null,
-          trace_requested: options.traceRequested ?? null,
-          world_graph_context: options.worldGraphContext ?? undefined,
-        };
+  if (queryBackend === "hermes") {
+    const normalizedHistory = normalizeHermesOutboundConversationHistory(
+      options.conversationHistory,
+    );
+    const body: Record<string, unknown> = {
+      campaign_id: campaignId,
+      session,
+      mode: "live",
+      query_backend: "hermes",
+      text,
+      agent_thread_id: options.agentThreadId ?? null,
+      trace_requested: options.traceRequested ?? null,
+      ...(options.worldGraphContext != null
+        ? { world_graph_context: options.worldGraphContext }
+        : {}),
+      ...(normalizedHistory.length > 0
+        ? { conversation_history: normalizedHistory }
+        : {}),
+    };
+    return apiFetch<LiveQueryResponse>("/api/live/query", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  const body = {
+    campaign_id: campaignId,
+    session,
+    mode: "live",
+    query_backend: queryBackend,
+    text,
+    manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+    agent_thread_id: options.agentThreadId ?? null,
+    hermes_session_id: options.hermesSessionId ?? null,
+    trace_requested: options.traceRequested ?? null,
+    world_graph_context: options.worldGraphContext ?? undefined,
+  };
 
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",

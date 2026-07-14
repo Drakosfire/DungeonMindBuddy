@@ -31,6 +31,7 @@ import {
   threadTitleFromQuestion,
   turnFromResponse,
 } from "../../agentInteraction/agentInteractionStorage";
+import { buildHermesConversationHistory } from "../../agentInteraction/hermesConversationHistory";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
@@ -804,6 +805,11 @@ export function PlanAgentInteractionBar({
                 revisionPin: projection?.snapshot.revisionId ?? null,
               })
             : null,
+          ...(queryBackend === "hermes"
+            ? {
+                conversationHistory: buildHermesConversationHistory(currentThread.turns),
+              }
+            : {}),
         },
       );
       const nextTurn = turnFromResponse(trimmed, response, queryBackend);
