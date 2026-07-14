@@ -88,6 +88,14 @@ from graph_memory.kernel.world_projection import (
     resolve_projection_admissibility,
     search_world_graph_projection,
 )
+from graph_memory.kernel.world_retrieval import (
+    WorldGraphRetrievalError,
+    get_campaign_object,
+    get_object_evidence,
+    get_object_neighborhood,
+    read_source_anchor,
+    search_campaign_graph,
+)
 from graph_memory.kernel.world_graph import (
     WorldGraphError,
     WorldGraphHead,
@@ -191,4 +199,11 @@ __all__ = [
     "project_world_graph",
     "resolve_projection_admissibility",
     "search_world_graph_projection",
+    # Retrieval + source-anchor admission (PR010A)
+    "WorldGraphRetrievalError",
+    "get_campaign_object",
+    "get_object_evidence",
+    "get_object_neighborhood",
+    "read_source_anchor",
+    "search_campaign_graph",
 ]
