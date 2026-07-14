@@ -109,6 +109,7 @@ def _attribute_assertion(
     attribute: str = "battlefield_role",
     evidence_ref_id: str = "evidence:attribute:1",
     source_artifact_id: str = "artifact:attribute:1",
+    source_revision_id: str = "attribute-revision-1",
     artifact_domain: str = "manual_seed",
     evidence_domain: str | None = None,
     include_evidence: bool = True,
@@ -141,7 +142,7 @@ def _attribute_assertion(
         value=value,
         evidence_ref_ids=[evidence_ref_id],
         source_artifact_id=source_artifact_id,
-        source_revision_id="attribute-revision-1",
+        source_revision_id=source_revision_id,
         campaign_scope="longmont-c2",
         epistemic_kind="fact",
         visibility="gm",
@@ -246,10 +247,13 @@ def test_multiple_attributes_share_legitimate_evidence(seeded_root) -> None:
     )
     assert first_result.published is True
 
+    # Distinct contribution identity (source_revision_id) so this is a new
+    # contribution_id; shared evidence may still materialize once on the store.
     second_assertion = _attribute_assertion(
         attribute="challenge_expectation",
         evidence_ref_id="evidence:attribute:shared",
         source_artifact_id="artifact:attribute:shared",
+        source_revision_id="rev-shared-2",
         include_artifact=False,
     )
     second = _attribute_contribution(second_assertion)
@@ -665,7 +669,10 @@ def _with_legacy_assertion_id(assertion):
 
 def _seed_active_legacy_contribution(root: Path, contribution):
     """Persist a pre-repair contribution and publish its legacy support into head."""
-    from graph_memory.kernel.contribution_merge import apply_accepted_assertions
+    from graph_memory.kernel.contribution_merge import (
+        apply_accepted_assertions,
+        stamp_contribution_source_digest,
+    )
     from graph_memory.world_supergraph.contribution_store import (
         # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local legacy head fixture.
         ContributionIndex,
@@ -688,6 +695,10 @@ def _seed_active_legacy_contribution(root: Path, contribution):
 
     head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     proposed, _support, _accepted = apply_accepted_assertions(store, contribution)
+    # Source digests are a separate forward-only authority plane from assertion
+    # identity repair. Stamp digests here so these fixtures isolate the legacy
+    # assertion-id gate.
+    proposed = stamp_contribution_source_digest(proposed, contribution)
     kernel.publish_world_graph_revision(
         root,
         WORLD_ID,

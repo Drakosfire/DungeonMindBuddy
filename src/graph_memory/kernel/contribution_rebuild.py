@@ -9,6 +9,7 @@ from typing import Any
 from graph_memory.kernel.contribution_models import ContributionMergeResult
 from graph_memory.kernel.contributions import (
     _canonicalize_graph_contribution_assertions,
+    compute_contribution_source_payload_sha256,
 )
 from graph_memory.kernel.identity_decisions import (
     merge_identity,
@@ -45,6 +46,16 @@ def _canonical_graph_fingerprint(store: UnionSupergraphStore) -> str:
         "assertion_support": payload.get("assertion_support", {}),
         "evidence": payload.get("evidence", {}),
         "source_artifacts": payload.get("source_artifacts", {}),
+        "contribution_source_payload_sha256": payload.get(
+            "contribution_source_payload_sha256", {}
+        ),
+        "initialization_contribution_ids": payload.get(
+            "initialization_contribution_ids", []
+        ),
+        "initialization_plan_digest": payload.get("initialization_plan_digest"),
+        "initialization_attestation_digest": payload.get(
+            "initialization_attestation_digest"
+        ),
     }
     return json.dumps(focused, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -186,11 +197,17 @@ def rebuild_from_contributions(
 
     accepted_ids: list[str] = []
     assertion_identity_rekeys: list[dict[str, str]] = []
+    payload_digests = dict(baseline.contribution_source_payload_sha256)
     for cid in replay_ids:
         contrib = load_contribution_record(root, world_id, cid)
         if contrib.status == "failed":
             diagnostics.append(f"skip_failed:{cid}")
             continue
+        # Digest the on-disk ledger record before in-memory identity rekeying so
+        # migration leave ledger bytes authoritative for graph-data source reads.
+        payload_digests[contrib.contribution_id] = (
+            compute_contribution_source_payload_sha256(contrib)
+        )
         contrib, rekeys = _canonicalize_graph_contribution_assertions(contrib)
         for old_assertion_id, new_assertion_id in rekeys:
             assertion_identity_rekeys.append(
@@ -234,9 +251,26 @@ def rebuild_from_contributions(
             continue
         working = _apply_identity_decision(working, decision)
 
-    working = working.model_copy(update={"adjacency": rebuild_adjacency(working)})
+    working = working.model_copy(
+        update={
+            "adjacency": rebuild_adjacency(working),
+            "contribution_source_payload_sha256": payload_digests,
+        }
+    )
 
     head, head_revision, current = load_current_world_graph(root, world_id)
+    if current.initialization_plan_digest is not None:
+        working = working.model_copy(
+            update={
+                "initialization_contribution_ids": list(
+                    current.initialization_contribution_ids
+                ),
+                "initialization_plan_digest": current.initialization_plan_digest,
+                "initialization_attestation_digest": (
+                    current.initialization_attestation_digest
+                ),
+            }
+        )
     compared_head_revision_id = head.head_revision_id
     equivalent_to_pre_publish_head = (
         _canonical_graph_fingerprint(working) == _canonical_graph_fingerprint(current)

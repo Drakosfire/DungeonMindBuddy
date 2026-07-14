@@ -145,6 +145,11 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     identity_decisions: list[dict[str, Any]] = Field(default_factory=list)
     # PR005 durable assertion support ledger (plain dicts; Kernel owns typed models).
     assertion_support: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # Revision-bound contribution source-authority digests (lifecycle-neutral).
+    contribution_source_payload_sha256: dict[str, str] = Field(default_factory=dict)
+    initialization_contribution_ids: list[str] = Field(default_factory=list)
+    initialization_plan_digest: str | None = None
+    initialization_attestation_digest: str | None = None
     adjacency: dict[str, list[UnionSupergraphAdjacencyItem]]
     diagnostics: UnionSupergraphDiagnostics
 

@@ -13,6 +13,7 @@ from graph_memory.kernel.contribution_models import (
 )
 from graph_memory.kernel.contributions import (
     _canonicalize_graph_contribution_assertions,
+    compute_contribution_source_payload_sha256,
     create_graph_contribution,
     explicit_assertion_evidence_ref_ids,
     explicit_assertion_source_artifact_ids,
@@ -62,6 +63,64 @@ def _with_support_map(
             "assertion_support": {
                 key: value.model_dump(mode="json") for key, value in support.items()
             }
+        }
+    )
+
+
+def stamp_contribution_source_digest(
+    store: UnionSupergraphStore,
+    contribution: GraphContribution,
+) -> UnionSupergraphStore:
+    """Bind a lifecycle-neutral contribution source digest into revision state.
+
+    Digests are write-once per contribution ID. A later ledger lifecycle change
+    (status/diagnostics) must not alter an already stamped digest.
+    """
+    digest = compute_contribution_source_payload_sha256(contribution)
+    payloads = dict(store.contribution_source_payload_sha256)
+    existing = payloads.get(contribution.contribution_id)
+    if existing is not None and existing != digest:
+        raise ValueError(
+            "contribution source digest already bound with a different value: "
+            f"{contribution.contribution_id}"
+        )
+    payloads[contribution.contribution_id] = digest
+    return store.model_copy(update={"contribution_source_payload_sha256": payloads})
+
+
+def stamp_initialization_authority(
+    store: UnionSupergraphStore,
+    *,
+    initialization_contribution_ids: list[str],
+    initialization_plan_digest: str,
+    initialization_attestation_digest: str,
+) -> UnionSupergraphStore:
+    """Write-once initialization authority stamp for a World Graph store.
+
+    Internal to the initialization workflow only — not a public Kernel mutator.
+    Callers must already have validated plan/contribution coherence.
+    """
+    if not initialization_plan_digest.strip():
+        raise ValueError("initialization_plan_digest must be non-empty")
+    if not initialization_attestation_digest.strip():
+        raise ValueError("initialization_attestation_digest must be non-empty")
+    ids = list(initialization_contribution_ids)
+    if store.initialization_plan_digest is not None:
+        if (
+            store.initialization_plan_digest != initialization_plan_digest
+            or store.initialization_attestation_digest
+            != initialization_attestation_digest
+            or list(store.initialization_contribution_ids) != ids
+        ):
+            raise ValueError(
+                "initialization authority already established with different values"
+            )
+        return store
+    return store.model_copy(
+        update={
+            "initialization_contribution_ids": ids,
+            "initialization_plan_digest": initialization_plan_digest,
+            "initialization_attestation_digest": initialization_attestation_digest,
         }
     )
 
@@ -868,6 +927,39 @@ def _head_requires_assertion_identity_migration(
     return False
 
 
+def _head_lacks_contribution_source_authority(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+) -> bool:
+    """True when non-failed ledger contributions lack coherent source digests.
+
+    Forward-only: incomplete heads are refused. Operators must reinitialize (or
+    rebuild to recompute from the ledger), not rely on a legacy-migration path.
+    """
+    index = load_contribution_index(root, world_id)
+    failed = set(index.failed_contribution_ids)
+    digests = store.contribution_source_payload_sha256 or {}
+    for contribution_id in index.all_contribution_ids:
+        if contribution_id in failed:
+            continue
+        try:
+            contrib = load_contribution_record(root, world_id, contribution_id)
+        except FileNotFoundError:
+            # Indexed, non-failed contributions must have a ledger record. A
+            # missing file means graph-data source authority cannot be verified.
+            return True
+        if contrib.status == "failed":
+            continue
+        expected = digests.get(contribution_id)
+        if expected is None:
+            return True
+        actual = compute_contribution_source_payload_sha256(contrib)
+        if actual != expected:
+            return True
+    return False
+
+
 def _migration_required_result(
     *,
     world_id: str,
@@ -875,11 +967,21 @@ def _migration_required_result(
     contribution_ids: list[str],
     diagnostics: list[str],
     superseded_contribution_ids: list[str] | None = None,
+    reason: str = "assertion_identity_migration_required",
 ) -> ContributionMergeResult:
+    if reason == "contribution_source_authority_incomplete":
+        guidance = (
+            "reinitialize the world graph (or rebuild_from_contributions with "
+            "publish=True to recompute digests) before merge, supersession, or retraction"
+        )
+    else:
+        guidance = (
+            "rebuild_from_contributions(publish=True) required before merge or supersession"
+        )
     migration_diagnostics = [
         *diagnostics,
-        "assertion_identity_migration_required",
-        "rebuild_from_contributions(publish=True) required before merge or supersession",
+        reason,
+        guidance,
     ]
     return ContributionMergeResult(
         world_id=world_id,
@@ -951,6 +1053,16 @@ def merge_contribution_to_revision(
     if index.baseline_revision_id is None:
         index = index.model_copy(update={"baseline_revision_id": parent_revision_id})
 
+    # Forward-only: refuse incomplete source authority before any idempotent no-op.
+    if _head_lacks_contribution_source_authority(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=diagnostics,
+            reason="contribution_source_authority_incomplete",
+        )
+
     # Idempotent reprocessing: same contribution already active and applied.
     if contribution.contribution_id in index.active_contribution_ids:
         try:
@@ -977,13 +1089,14 @@ def merge_contribution_to_revision(
 
     # Pre-repair heads keep legacy assertion IDs. Re-merge/supersede under the
     # current semantic rule would overwrite ledger records and create mixed
-    # identity support. Require explicit rebuild migration first.
+    # identity support. Require explicit rebuild first.
     if _head_requires_assertion_identity_migration(root, world_id, current_store):
         return _migration_required_result(
             world_id=world_id,
             parent_revision_id=parent_revision_id,
             contribution_ids=[contribution.contribution_id],
             diagnostics=diagnostics,
+            reason="assertion_identity_migration_required",
         )
 
     # Persist contribution record before attempting graph mutation.
@@ -1000,6 +1113,7 @@ def merge_contribution_to_revision(
         proposed = proposed.model_copy(
             update={"adjacency": _rebuild_adjacency(proposed)}
         )
+        proposed = stamp_contribution_source_digest(proposed, to_store)
 
         publish_result = publish_world_graph_revision(
             root,
@@ -1080,6 +1194,15 @@ def supersede_graph_contribution(
                 f"head is {head.head_revision_id!r}"
             )
 
+    if _head_lacks_contribution_source_authority(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[new_contribution.contribution_id],
+            diagnostics=list(new_contribution.diagnostics),
+            superseded_contribution_ids=[],
+            reason="contribution_source_authority_incomplete",
+        )
     old = load_contribution_record(root, world_id, superseded_contribution_id)
     if _head_requires_assertion_identity_migration(root, world_id, current_store):
         return _migration_required_result(
@@ -1088,6 +1211,7 @@ def supersede_graph_contribution(
             contribution_ids=[new_contribution.contribution_id],
             diagnostics=list(new_contribution.diagnostics),
             superseded_contribution_ids=[],
+            reason="assertion_identity_migration_required",
         )
     support = _support_map(current_store)
     unsupported = _remove_contribution_support(
@@ -1130,6 +1254,7 @@ def supersede_graph_contribution(
         proposed = proposed.model_copy(
             update={"adjacency": _rebuild_adjacency(proposed)}
         )
+        proposed = stamp_contribution_source_digest(proposed, new_contribution)
         publish_result = publish_world_graph_revision(
             root,
             world_id,
@@ -1201,6 +1326,15 @@ def retract_graph_contribution(
                 f"stale parent: expected {expected_parent_revision_id!r}, "
                 f"head is {head.head_revision_id!r}"
             )
+
+    if _head_lacks_contribution_source_authority(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution_id],
+            diagnostics=[],
+            reason="contribution_source_authority_incomplete",
+        )
 
     existing = load_contribution_record(root, world_id, contribution_id)
     support = _support_map(current_store)
