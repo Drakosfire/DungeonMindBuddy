@@ -1181,3 +1181,166 @@ def test_malformed_mixed_with_valid_emits_no_citations() -> None:
     blob = json.dumps(response)
     assert "MALFORMED-MIX" not in blob
     assert "anchor:valid-sibling" not in blob
+
+
+VALID_HISTORY = [
+    {"role": "user", "content": "What do we know about Tripod Null-Calf at the North Gate?"},
+    {
+        "role": "assistant",
+        "content": "Tripod Null-Calf is a siege scout at revision FOREIGN_REVISION_A.",
+    },
+]
+
+
+def test_normalize_rejects_malformed_history() -> None:
+    from apps.live_control_server.services.hermes_graph_query import (
+        normalize_hermes_conversation_history,
+    )
+
+    with pytest.raises(Exception) as odd:
+        normalize_hermes_conversation_history([{"role": "user", "content": "only one"}])
+    assert odd.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
+
+    with pytest.raises(Exception) as bad_role:
+        normalize_hermes_conversation_history(
+            [
+                {"role": "system", "content": "hidden"},
+                {"role": "assistant", "content": "hi"},
+            ]
+        )
+    assert bad_role.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
+
+
+def test_follow_up_passes_exact_history_to_host(tmp_path: Path) -> None:
+    host = _FakeHost(_ok_result())
+    run_hermes_graph_query(
+        text="What is it connected to?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-followup",
+        turn_id="turn-2",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=VALID_HISTORY,
+    )
+    assert len(host.calls) == 1
+    assert host.calls[0].conversation_history == VALID_HISTORY
+    assert host.calls[0].session_id is None
+
+
+def test_revision_a_history_with_revision_b_dispatch_uses_only_b(tmp_path: Path) -> None:
+    envelope_b = {
+        **READY_ENVELOPE,
+        "revision_id": "FOREIGN_REVISION_B",
+        "head_revision_id": "FOREIGN_REVISION_B",
+    }
+    host = _FakeHost(
+        _ok_result(
+            events=[
+                _tool_event(
+                    revision_pin="FOREIGN_REVISION_B",
+                    source_anchor_ids=["FOREIGN_SOURCE_ANCHOR_B"],
+                )
+            ]
+        )
+    )
+    response = run_hermes_graph_query(
+        text="What is it connected to?",
+        packet=PACKET,
+        graph_envelope=envelope_b,
+        agent_thread_id="agent-thread-revision",
+        turn_id="turn-revision-b",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=[
+            {
+                "role": "user",
+                "content": "Tripod at FOREIGN_REVISION_A with FOREIGN_SOURCE_ANCHOR_A",
+            },
+            {
+                "role": "assistant",
+                "content": "Revision FOREIGN_REVISION_A prose only.",
+            },
+        ],
+    )
+    assert host.calls[0].revision_pin == "FOREIGN_REVISION_B"
+    assert response["grounding"]["revision_id"] == "FOREIGN_REVISION_B"
+    assert [c["anchor_id"] for c in response["citations"]] == ["FOREIGN_SOURCE_ANCHOR_B"]
+    blob = json.dumps(response)
+    assert "FOREIGN_REVISION_A" not in blob
+    assert "FOREIGN_SOURCE_ANCHOR_A" not in blob
+
+
+def test_contradictory_assistant_prose_does_not_create_authority(tmp_path: Path) -> None:
+    contradictory_history = [
+        {"role": "user", "content": "What do we know about Tripod Null-Calf?"},
+        {
+            "role": "assistant",
+            "content": (
+                "Tripod Null-Calf is allied with the Gate Wardens and has no "
+                "relationship to the North Gate."
+            ),
+        },
+    ]
+    host = _FakeHost(
+        _ok_result(
+            final_response="Tripod threatens the North Gate per current graph evidence.",
+            events=[
+                _tool_event(
+                    source_anchor_ids=["FOREIGN_SOURCE_ANCHOR_B"],
+                )
+            ],
+        )
+    )
+    response = run_hermes_graph_query(
+        text="What is it connected to?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-contradiction",
+        turn_id="turn-contradiction",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=contradictory_history,
+    )
+    assert response["answer"] == "Tripod threatens the North Gate per current graph evidence."
+    assert response["citations"][0]["anchor_id"] == "FOREIGN_SOURCE_ANCHOR_B"
+    assert "Gate Wardens" not in json.dumps(response["citations"])
+
+
+def test_valid_history_graph_gap_still_abstains(tmp_path: Path) -> None:
+    host = _FakeHost(
+        _ok_result(
+            final_response="History prose should not answer this.",
+            events=[_tool_event(outcome="empty", source_anchor_ids=[])],
+        )
+    )
+    response = run_hermes_graph_query(
+        text="What is it connected to?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-gap",
+        turn_id="turn-gap",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=VALID_HISTORY,
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["citations"] == []
+
+
+def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:
+    host = _FakeHost(_ok_result())
+    with pytest.raises(Exception) as exc:
+        run_hermes_graph_query(
+            text="follow-up",
+            packet=PACKET,
+            graph_envelope=READY_ENVELOPE,
+            agent_thread_id="agent-thread-invalid",
+            turn_id="turn-invalid",
+            root=tmp_path,
+            host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+            conversation_history={"role": "user", "content": "not a list"},
+        )
+    assert exc.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
+    assert host.calls == []

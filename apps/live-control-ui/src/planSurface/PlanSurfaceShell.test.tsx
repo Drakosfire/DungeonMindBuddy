@@ -1798,6 +1798,96 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"))).toHaveLength(0);
   });
 
+  it("serializes bounded prior-turn history on the second Hermes submit in the same thread", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What do we know about Tripod Null-Calf at the North Gate?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    await user.clear(screen.getByLabelText("Question"));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText(/Conversation \(2\)/);
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    expect(queryCalls).toHaveLength(2);
+    const firstBody = JSON.parse(String(queryCalls[0][1]?.body)) as Record<string, unknown>;
+    const secondBody = JSON.parse(String(queryCalls[1][1]?.body)) as Record<string, unknown>;
+    expect(firstBody).not.toHaveProperty("conversation_history");
+    expect(secondBody.text).toBe("What is it connected to that should affect my prep?");
+    expect(secondBody.conversation_history).toEqual([
+      {
+        role: "user",
+        content: "What do we know about Tripod Null-Calf at the North Gate?",
+      },
+      { role: "assistant", content: "Tripod stands at the North Gate." },
+    ]);
+    expect(secondBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
+    expect(JSON.stringify(secondBody)).not.toContain("hermes_session_id");
+    expect(JSON.stringify(secondBody.conversation_history)).not.toContain("source-anchor");
+  });
+
+  it("does not leak Thread A history into Thread B follow-up requests", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    await user.click(screen.getByRole("button", { name: "New prep thread" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    const threadBBody = JSON.parse(String(queryCalls.at(-1)?.[1]?.body)) as Record<string, unknown>;
+    expect(threadBBody).not.toHaveProperty("conversation_history");
+    expect(JSON.stringify(threadBBody)).not.toContain("Thread A turn 1?");
+  });
+
   it("uses the saved citation revision when opening graph evidence after reload", async () => {
     const user = userEvent.setup();
     const savedThread = {

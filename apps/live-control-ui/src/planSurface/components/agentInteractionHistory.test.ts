@@ -798,4 +798,49 @@ describe("agentInteractionHistory", () => {
     expect(turn.citations).toEqual([]);
     expect(turn.trace?.backend).toBe("hermes");
   });
+
+  it("projects only valid sibling turns for outbound Hermes continuity", async () => {
+    const { buildHermesConversationHistory } = await import("../../agentInteraction/hermesConversationHistory");
+    const thread = makeThread("Continuity thread");
+    thread.turns = [
+      {
+        ...thread.turns[0],
+        turnId: "valid-turn",
+        question: "Valid question?",
+        answer: "Valid answer.",
+      },
+      {
+        turnId: "malformed-turn",
+        askedAt: "2026-06-22T00:00:02.000Z",
+        completedAt: "2026-06-22T00:00:03.000Z",
+        question: "",
+        answer: "Missing question should drop.",
+        backend: "hermes",
+        status: "ok",
+      } as never,
+      {
+        turnId: "poison-turn",
+        askedAt: "2026-06-22T00:00:04.000Z",
+        completedAt: "2026-06-22T00:00:05.000Z",
+        question: "Poison question?",
+        answer: "Poison answer.",
+        backend: "hermes",
+        status: "ok",
+        trace: { trace_id: "RAW_TRACE_SECRET" } as never,
+        citations: [graphCitation],
+        grounding: graphGrounding,
+      } as never,
+    ];
+    const history = buildHermesConversationHistory(thread.turns);
+    expect(history).toEqual([
+      { role: "user", content: "Poison question?" },
+      { role: "assistant", content: "Poison answer." },
+      { role: "user", content: "Valid question?" },
+      { role: "assistant", content: "Valid answer." },
+    ]);
+    const stored = JSON.stringify(thread);
+    expect(stored).not.toContain("conversation_history");
+    expect(stored).not.toContain("hermes_session_id");
+    expect(stored).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+  });
 });

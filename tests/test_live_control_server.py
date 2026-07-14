@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1560,3 +1561,191 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     assert body["answer"] == "host not cli"
     assert body["world_graph_context"]["revision_id"] == "rev:cli"
     assert "prompt_preview" not in body["agent_trace"]
+
+
+def test_hermes_history_accepts_valid_wire_shape(
+    client: TestClient,
+    isolated_session: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
+
+    captured: dict[str, Any] = {}
+
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            captured["history"] = request.conversation_history
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="Follow-up grounded.",
+                messages=[],
+                hermes_session_id="hermes-obs",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:route",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:route-2"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:route",
+            "head_revision_id": "rev:route",
+            "is_head": True,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "follow-up",
+            "matched_node_ids": [],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "What is it connected to?",
+            "world_graph_context": _GRAPH_NESTED,
+            "conversation_history": [
+                {
+                    "role": "user",
+                    "content": "What do we know about Tripod Null-Calf at the North Gate?",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Tripod Null-Calf is a siege scout.",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200
+    assert captured["history"] == [
+        {
+            "role": "user",
+            "content": "What do we know about Tripod Null-Calf at the North Gate?",
+        },
+        {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+    ]
+
+
+@pytest.mark.parametrize(
+    "history,expected_code",
+    [
+        ("not-a-list", "hermes_history_invalid"),
+        ([{"role": "user", "content": "solo"}], "hermes_history_invalid"),
+        (
+            [
+                {"role": "assistant", "content": "wrong order"},
+                {"role": "user", "content": "second"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "x", "trace": "HOSTILE_TRACE"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+    ],
+)
+def test_hermes_history_invalid_returns_422_without_execution(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    history: Any,
+    expected_code: str,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "process_live_query",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("process_live_query must not run")
+        ),
+    )
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "follow-up",
+            "world_graph_context": _GRAPH_NESTED,
+            "conversation_history": history,
+        },
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == expected_code
+    assert "HOSTILE_TRACE" not in json.dumps(body)
+
+
+def test_live_backend_rejects_non_empty_history(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import live_agent_loop
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "process_live_query",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("process_live_query must not run")
+        ),
+    )
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "follow-up",
+            "conversation_history": [
+                {"role": "user", "content": "prior"},
+                {"role": "assistant", "content": "answer"},
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "conversation_history_not_supported"

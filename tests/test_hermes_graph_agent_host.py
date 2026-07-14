@@ -772,6 +772,50 @@ def test_oversized_history_rejected() -> None:
         serialize_hermes_graph_agent_turn_request(_request(conversation_history=history))
 
 
+def test_history_rejects_unknown_keys_and_non_alternating_pairs() -> None:
+    with pytest.raises(ValueError, match="unknown keys"):
+        serialize_hermes_graph_agent_turn_request(
+            _request(
+                conversation_history=[
+                    {"role": "user", "content": "hi", "trace": "RAW_TRACE_SECRET"},
+                    {"role": "assistant", "content": "there"},
+                ]
+            )
+        )
+    with pytest.raises(ValueError, match="alternate"):
+        serialize_hermes_graph_agent_turn_request(
+            _request(
+                conversation_history=[
+                    {"role": "assistant", "content": "wrong"},
+                    {"role": "user", "content": "order"},
+                ]
+            )
+        )
+    with pytest.raises(ValueError, match="user or assistant"):
+        serialize_hermes_graph_agent_turn_request(
+            _request(
+                conversation_history=[
+                    {"role": "system", "content": "hidden"},
+                    {"role": "assistant", "content": "there"},
+                ]
+            )
+        )
+
+
+def test_history_round_trip_preserves_chronological_pairs() -> None:
+    request = _request(
+        conversation_history=[
+            {"role": "user", "content": "Turn 1 question"},
+            {"role": "assistant", "content": "Turn 1 answer"},
+            {"role": "user", "content": "Turn 2 question"},
+            {"role": "assistant", "content": "Turn 2 answer"},
+        ]
+    )
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    restored = deserialize_hermes_graph_agent_turn_request(wire)
+    assert restored.conversation_history == request.conversation_history
+
+
 def test_oversized_policy_collections_rejected() -> None:
     policy = HermesCapabilityPolicy(
         enabled_toolsets=tuple(f"toolset-{index}" for index in range(MAX_POLICY_TOOLSETS + 1)),

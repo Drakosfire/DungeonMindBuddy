@@ -408,14 +408,17 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
 
 
 def test_turn_passes_history_and_captures_messages(tmp_path: Path) -> None:
-    history = [{"role": "user", "content": "Remember: it means Tripod."}]
+    history = [
+        {"role": "user", "content": "What do we know about Tripod Null-Calf at the North Gate?"},
+        {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+    ]
     result = run_hermes_graph_agent_turn(
         HermesGraphAgentTurnRequest(
             question="What is it connected to?",
             world_id="world:eldyrwild",
             campaign_id="campaign:c1",
             conversation_history=history,
-            session_id="sess-hist",
+            session_id=None,
             root=tmp_path,
         ),
         agent_factory=_FakeAgent,
@@ -423,9 +426,9 @@ def test_turn_passes_history_and_captures_messages(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert _FakeAgent.last_run is not None
     assert _FakeAgent.last_run["conversation_history"] == history
+    assert _FakeAgent.last_run["user_message"] == "What is it connected to?"
     assert result.final_response == "Tripod is at the North Gate."
     assert result.messages[0]["role"] == "user"
-    assert result.hermes_session_id == "sess-hist"
 
 
 def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) -> None:
