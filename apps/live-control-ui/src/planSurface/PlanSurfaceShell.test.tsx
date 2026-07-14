@@ -1757,7 +1757,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     const reader = await screen.findByRole("region", { name: "Graph evidence preview" });
-    expect(reader).toHaveTextContent(/did not match the pinned citation contract/i);
+    expect(reader).toHaveTextContent(/does not match the pinned citation|did not match the pinned citation contract/i);
     expect(reader).not.toHaveTextContent("Contradictory body should not render.");
   });
 
@@ -1873,5 +1873,121 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByText("Graph tool activity (1)")).toBeInTheDocument();
     expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Trace On/i })).toBeInTheDocument();
+  });
+
+  it("renders a contract-error card for malformed Hermes grounding or null citations without crashing", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          grounding: {
+            schema: "dmb_hermes_graph_grounding_v1",
+            state: "grounded",
+          },
+          citations: [null],
+        })),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+
+    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
+  });
+
+  it("treats grounded Hermes answers with null revision as a contract error", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          grounding: buildHermesGraphGrounding("grounded", { revision_id: null }),
+        })),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+
+    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
+  });
+
+  it("accepts the Kernel unavailable source-anchor envelope with snapshot=null", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_world_graph_source_anchor_read_v1",
+          outcome: "unavailable",
+          snapshot: null,
+          anchorId: "source-anchor:v1:fixture-anchor",
+          evidenceRefId: null,
+          sourceArtifactId: null,
+          sourceDomain: null,
+          locatorKind: null,
+          mediaType: null,
+          content: null,
+          contentSha256: null,
+          lineStart: null,
+          lineEnd: null,
+          truncated: false,
+          diagnostics: [{ code: "graph_unavailable", message: "Revision cannot be opened.", severity: "error" }],
+        }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
+      "Source anchor content is unavailable.",
+    );
+    expect(screen.getByText("Revision cannot be opened.")).toBeInTheDocument();
+    expect(screen.queryByText("Source-anchor read response did not match the pinned citation contract.")).not.toBeInTheDocument();
+  });
+
+  it("hides the corpus change signal panel for graph-only Hermes turns", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: /Trace On/i }));
+
+    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Corpus change signal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check current source state" })).not.toBeInTheDocument();
   });
 });

@@ -16,6 +16,10 @@ import type {
   HermesGraphToolTraceEvent,
   LegacyPathCitation,
 } from "../../api/types";
+import {
+  parseHermesGraphGrounding,
+  validateHermesGraphCitations,
+} from "./prepMemoryQa";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
 export const AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS = 6;
@@ -154,22 +158,65 @@ function sanitizePersistedToolEvent(
 }
 
 function isLegacyPathCitationForSnapshot(
-  citation: LiveQueryCitation,
+  citation: unknown,
 ): citation is LegacyPathCitation & { path: string } {
-  return citation.kind !== "world_graph_anchor" && Boolean(citation.path) && !isAbsolutePath(citation.path);
+  if (!citation || typeof citation !== "object") return false;
+  const candidate = citation as LegacyPathCitation;
+  if (candidate.kind === "world_graph_anchor") return false;
+  return Boolean(candidate.path)
+    && typeof candidate.path === "string"
+    && !isAbsolutePath(candidate.path);
+}
+
+function sanitizeHermesGraphToolEvents(
+  toolEvents: HermesGraphToolTraceEvent[] | null | undefined,
+): HermesGraphToolTraceEvent[] {
+  return (toolEvents ?? [])
+    .slice(0, MAX_PERSISTED_TOOL_EVENTS)
+    .map((event) => sanitizePersistedToolEvent(event))
+    .filter((event): event is Omit<HermesGraphToolTraceEvent, "bounded_ids"> => event !== null)
+    .map((event) => event as HermesGraphToolTraceEvent);
+}
+
+/** Strict Hermes graph-agent trace projection — only the handoff whitelist. */
+function safeHermesGraphTraceForPersistence(
+  trace: AgentInteractionTrace,
+): AgentInteractionTrace {
+  return {
+    trace_id: truncatePersistedString(trace.trace_id) ?? "",
+    runtime: truncatePersistedString(trace.runtime) ?? "",
+    backend: truncatePersistedString(trace.backend) ?? "hermes",
+    mode: "hermes_graph_agent",
+    started_at: truncatePersistedString(trace.started_at) ?? "",
+    completed_at: truncatePersistedString(trace.completed_at) ?? "",
+    elapsed_ms: typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0,
+    status: truncatePersistedString(trace.status) ?? "unknown",
+    usage: {
+      available: false,
+      input_tokens: null,
+      output_tokens: null,
+      total_tokens: null,
+    },
+    steps: [],
+    context_summary: {},
+    artifact_refs: [],
+    tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
+    hermes_session_id: truncatePersistedString(trace.hermes_session_id),
+    process_isolation: truncatePersistedString(trace.process_isolation),
+    warnings: (trace.warnings ?? [])
+      .slice(0, MAX_PERSISTED_WARNINGS)
+      .map((warning) => truncatePersistedString(warning) ?? "")
+      .filter(Boolean),
+  };
 }
 
 export function safeTraceForPersistence(
   trace: AgentInteractionTrace | null | undefined,
 ): AgentInteractionTrace | null {
   if (!trace) return null;
-  const shouldPersistToolEvents = trace.mode === "hermes_graph_agent" || Boolean(trace.tool_events?.length);
-  const sanitizedToolEvents = shouldPersistToolEvents
-    ? (trace.tool_events ?? [])
-        .slice(0, MAX_PERSISTED_TOOL_EVENTS)
-        .map((event) => sanitizePersistedToolEvent(event))
-        .filter((event): event is Omit<HermesGraphToolTraceEvent, "bounded_ids"> => event !== null)
-    : undefined;
+  if (trace.mode === "hermes_graph_agent") {
+    return safeHermesGraphTraceForPersistence(trace);
+  }
 
   return {
     trace_id: trace.trace_id,
@@ -198,13 +245,48 @@ export function safeTraceForPersistence(
       label: ref.label,
       path: ref.path && !isAbsolutePath(ref.path) ? ref.path : "",
     })),
-    tool_events: sanitizedToolEvents as HermesGraphToolTraceEvent[] | undefined,
+    tool_events: undefined,
     hermes_session_id: truncatePersistedString(trace.hermes_session_id),
     process_isolation: truncatePersistedString(trace.process_isolation),
     warnings: (trace.warnings ?? [])
       .slice(0, MAX_PERSISTED_WARNINGS)
       .map((warning) => truncatePersistedString(warning) ?? "")
       .filter(Boolean),
+  };
+}
+
+function isHermesGraphTurn(turn: Pick<AgentInteractionTurn, "backend" | "grounding" | "trace">): boolean {
+  return turn.trace?.mode === "hermes_graph_agent"
+    || turn.grounding?.schema === "dmb_hermes_graph_grounding_v1"
+    || (turn.backend === "hermes" && Boolean(turn.grounding));
+}
+
+/** Re-validate grounding/citations and re-project Hermes traces on load and write. */
+export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteractionTurn {
+  if (isHermesGraphTurn(turn)) {
+    const validated = validateHermesGraphCitations(turn.citations, turn.grounding);
+    return {
+      ...turn,
+      grounding: validated.grounding,
+      citations: validated.citations,
+      evidenceSnapshots: [],
+      corpusFreshness: null,
+      worldGraphContext: null,
+      trace: safeTraceForPersistence(
+        turn.trace
+          ? { ...turn.trace, mode: "hermes_graph_agent" }
+          : turn.trace,
+      ),
+    };
+  }
+
+  return {
+    ...turn,
+    citations: (turn.citations ?? []).filter((citation) => {
+      if (!citation || typeof citation !== "object") return false;
+      return isLegacyPathCitationForSnapshot(citation) || Boolean((citation as LegacyPathCitation).path);
+    }),
+    trace: safeTraceForPersistence(turn.trace),
   };
 }
 
@@ -278,6 +360,35 @@ export function turnFromResponse(
   backend: LiveQueryBackend,
 ): AgentInteractionTurn {
   const now = new Date().toISOString();
+  const isHermesGraph = response.mode === "hermes_graph_agent";
+
+  if (isHermesGraph) {
+    const validated = validateHermesGraphCitations(response.citations, response.grounding);
+    return {
+      turnId: response.turn_id ?? response.agent_trace?.trace_id ?? response.query_id ?? newId("agent-turn"),
+      askedAt: response.agent_trace?.started_at ?? now,
+      completedAt: response.agent_trace?.completed_at ?? now,
+      question,
+      answer: response.answer,
+      backend,
+      status: response.status ?? response.agent_trace?.status ?? "ok",
+      contextSummary: undefined,
+      citations: validated.citations,
+      trace: safeTraceForPersistence(
+        response.agent_trace
+          ? { ...response.agent_trace, mode: "hermes_graph_agent" }
+          : response.agent_trace,
+      ),
+      warnings: (response.warnings ?? response.agent_trace?.warnings ?? []).slice(0, MAX_PERSISTED_WARNINGS),
+      retrievalFreshness: null,
+      evidenceSnapshots: [],
+      corpusFreshness: null,
+      worldGraphContext: response.world_graph_context ?? null,
+      worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+      grounding: validated.grounding,
+    };
+  }
+
   return {
     turnId: response.turn_id ?? response.agent_trace?.trace_id ?? response.query_id ?? newId("agent-turn"),
     askedAt: response.agent_trace?.started_at ?? now,
@@ -287,7 +398,7 @@ export function turnFromResponse(
     backend,
     status: response.status ?? response.agent_trace?.status ?? "ok",
     contextSummary: contextSummaryFromResponse(response),
-    citations: response.citations ?? [],
+    citations: (response.citations ?? []).filter((citation) => citation && typeof citation === "object"),
     trace: response.agent_trace ?? null,
     warnings: response.warnings ?? response.agent_trace?.warnings ?? [],
     retrievalFreshness: response.retrieval_freshness ?? null,
@@ -295,7 +406,7 @@ export function turnFromResponse(
     corpusFreshness: null,
     worldGraphContext: response.world_graph_context ?? null,
     worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
-    grounding: response.grounding ?? null,
+    grounding: parseHermesGraphGrounding(response.grounding),
   };
 }
 
@@ -334,7 +445,10 @@ export function loadAgentThread(campaignId: string, surfaceId = "plan"): AgentIn
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return { ...parsed, turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP) };
+    return {
+      ...parsed,
+      turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP).map(sanitizePersistedTurn),
+    };
   } catch {
     return null;
   }
@@ -346,7 +460,10 @@ export function loadAgentThreadById(campaignId: string, threadId: string): Agent
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return { ...parsed, turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP) };
+    return {
+      ...parsed,
+      turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP).map(sanitizePersistedTurn),
+    };
   } catch {
     return null;
   }
@@ -444,18 +561,19 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
   const bounded: AgentInteractionThread = {
     ...thread,
     turns: thread.turns.slice(0, AGENT_TURN_HISTORY_CAP).map((turn) => {
-      const { worldGraphContext: _stripped, ...persistedTurn } = turn;
+      const sanitized = sanitizePersistedTurn(turn);
+      const { worldGraphContext: _stripped, ...persistedTurn } = sanitized;
       return {
         ...persistedTurn,
-        contextSummary: turn.contextSummary,
-        citations: turn.citations ?? [],
-        trace: safeTraceForPersistence(turn.trace),
-        warnings: turn.warnings ?? [],
-        retrievalFreshness: turn.retrievalFreshness ?? null,
-        evidenceSnapshots: turn.evidenceSnapshots ?? [],
-        corpusFreshness: turn.corpusFreshness ?? null,
-        worldGraphContextSummary: turn.worldGraphContextSummary ?? null,
-        grounding: turn.grounding ?? null,
+        contextSummary: sanitized.contextSummary,
+        citations: sanitized.citations ?? [],
+        trace: safeTraceForPersistence(sanitized.trace),
+        warnings: sanitized.warnings ?? [],
+        retrievalFreshness: sanitized.retrievalFreshness ?? null,
+        evidenceSnapshots: sanitized.evidenceSnapshots ?? [],
+        corpusFreshness: sanitized.corpusFreshness ?? null,
+        worldGraphContextSummary: sanitized.worldGraphContextSummary ?? null,
+        grounding: sanitized.grounding ?? null,
       };
     }),
   };

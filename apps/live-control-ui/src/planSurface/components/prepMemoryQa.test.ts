@@ -6,6 +6,8 @@ import {
   answerHeading,
   hasGrounding,
   isWorldGraphAnchorCitation,
+  parseHermesGraphGrounding,
+  parseWorldGraphAnchorCitation,
   prepMemoryLabel,
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
@@ -135,6 +137,80 @@ describe("prepMemoryQa helpers", () => {
     }]);
     expect(answerHeading(mismatchedCitation)).toBe("Hermes grounding contract error");
     expect(hasGrounding(mismatchedCitation)).toBe(false);
+  });
+
+  it("rejects grounded or partial envelopes with null revision as a contract error", () => {
+    const nullRevision = hermesResponse("grounded", [graphCitation], { revision_id: null });
+    expect(answerHeading(nullRevision)).toBe("Hermes grounding contract error");
+    expect(hasGrounding(nullRevision)).toBe(false);
+    expect(validateHermesGraphCitations(nullRevision.citations, nullRevision.grounding).citations).toHaveLength(0);
+
+    const partialNull = hermesResponse("partial", [graphCitation], { revision_id: null });
+    expect(answerHeading(partialNull)).toBe("Hermes grounding contract error");
+  });
+
+  it("parses grounding and citations from unknown JSON without throwing", () => {
+    expect(parseHermesGraphGrounding(null)).toBeNull();
+    expect(parseHermesGraphGrounding("grounded")).toBeNull();
+    expect(parseHermesGraphGrounding({
+      schema: "dmb_hermes_graph_grounding_v1",
+      state: "grounded",
+    })).toBeNull();
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      diagnostic_codes: "not-an-array",
+    })).toBeNull();
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      warnings: null,
+    })).toEqual(expect.objectContaining({ warnings: [] }));
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      focus: null,
+    })).toBeNull();
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      diagnostic_codes: undefined,
+      warnings: undefined,
+    })).toEqual(expect.objectContaining({
+      diagnostic_codes: [],
+      warnings: [],
+    }));
+
+    expect(parseWorldGraphAnchorCitation(null)).toBeNull();
+    expect(parseWorldGraphAnchorCitation(42)).toBeNull();
+    expect(parseWorldGraphAnchorCitation({ kind: "world_graph_anchor" })).toBeNull();
+    expect(parseWorldGraphAnchorCitation({
+      ...graphCitation,
+      focus: undefined,
+    })).toBeNull();
+    expect(isWorldGraphAnchorCitation(null)).toBe(false);
+    expect(isWorldGraphAnchorCitation(graphCitation)).toBe(true);
+
+    const malformed = validateHermesGraphCitations(
+      [null, "x", graphCitation, { kind: "world_graph_anchor" }],
+      {
+        schema: "dmb_hermes_graph_grounding_v1",
+        state: "grounded",
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: { kind: "session", session_id: "session-21" },
+        admissibility: "gm",
+        revision_id: "rev-1",
+        successful_tool_count: 1,
+        source_anchor_count: 1,
+      },
+    );
+    expect(malformed.citations).toHaveLength(1);
+    expect(malformed.citations[0].anchor_id).toBe(graphCitation.anchor_id);
+    expect(answerHeading({
+      ...hermesResponse("grounded"),
+      grounding: {
+        schema: "dmb_hermes_graph_grounding_v1",
+        state: "grounded",
+      } as never,
+      citations: [null as never],
+    })).toBe("Hermes grounding contract error");
   });
 
   it("validates graph citations against grounding scope and revision", () => {

@@ -13,11 +13,9 @@ import type {
   CitationSourceResponse,
   AgentInteractionTurn,
   HermesGraphGrounding,
-  HermesGraphGroundingState,
   IngestionSourceBundle,
   LegacyPathCitation,
   LiveQueryBackend,
-  LiveQueryCitation,
   LiveQueryResponse,
   PlanViewProjection,
   SourceUnit,
@@ -50,6 +48,7 @@ import {
   answerHeading,
   hasGrounding,
   isHermesGraphAgentResponse,
+  parseHermesGraphGrounding,
   prepMemoryLabel,
   UNGROUNDED_ANSWER_WARNING,
   validateHermesGraphCitations,
@@ -90,11 +89,20 @@ function lineLabel(lineStart?: number | null, lineEnd?: number | null): string {
   return `line ${lineStart ?? lineEnd}`;
 }
 
-const HERMES_GROUNDING_STATES: HermesGraphGroundingState[] = [
-  "grounded",
+const SOURCE_ANCHOR_READ_SCHEMA = "dmb_world_graph_source_anchor_read_v1";
+const CANONICAL_SOURCE_ANCHOR_OUTCOMES = [
+  "enough",
   "partial",
-  "abstained",
-  "error",
+  "empty",
+  "denied",
+  "truncated",
+  "unavailable",
+] as const;
+type CanonicalSourceAnchorOutcome = (typeof CANONICAL_SOURCE_ANCHOR_OUTCOMES)[number];
+const CONTENT_BEARING_SOURCE_ANCHOR_OUTCOMES: readonly CanonicalSourceAnchorOutcome[] = [
+  "enough",
+  "partial",
+  "truncated",
 ];
 
 type HermesGroundingParseResult =
@@ -102,22 +110,25 @@ type HermesGroundingParseResult =
   | { kind: "malformed"; reason: string }
   | { kind: "valid"; grounding: HermesGraphGrounding };
 
-function parseHermesGraphGrounding(answer: LiveQueryResponse): HermesGroundingParseResult {
+function parseHermesGraphGroundingView(answer: LiveQueryResponse): HermesGroundingParseResult {
   if (!isHermesGraphAgentResponse(answer)) return { kind: "none" };
-  const grounding = answer.grounding;
-  if (!grounding || grounding.schema !== "dmb_hermes_graph_grounding_v1") {
+  const grounding = parseHermesGraphGrounding(answer.grounding);
+  if (!grounding) {
     return { kind: "malformed", reason: "Missing or invalid Hermes graph grounding envelope." };
-  }
-  if (!HERMES_GROUNDING_STATES.includes(grounding.state)) {
-    return { kind: "malformed", reason: `Unknown grounding state: ${String(grounding.state)}` };
   }
   return { kind: "valid", grounding };
 }
 
-function isLegacyPathCitation(citation: LiveQueryCitation): citation is LegacyPathCitation {
-  if (citation.kind === "world_graph_anchor") return false;
-  return typeof (citation as LegacyPathCitation).path === "string"
-    && typeof (citation as LegacyPathCitation).evidence_id === "string";
+function isLegacyPathCitation(citation: unknown): citation is LegacyPathCitation {
+  if (!citation || typeof citation !== "object") return false;
+  const candidate = citation as LegacyPathCitation;
+  if (candidate.kind === "world_graph_anchor") return false;
+  return typeof candidate.path === "string" && typeof candidate.evidence_id === "string";
+}
+
+function turnHasLegacyPathEvidence(turn: AgentInteractionTurn): boolean {
+  if ((turn.evidenceSnapshots?.length ?? 0) > 0) return true;
+  return (turn.citations ?? []).some((citation) => isLegacyPathCitation(citation));
 }
 
 function graphCitationKey(citation: WorldGraphAnchorCitation): string {
@@ -129,6 +140,10 @@ function shortenAnchorId(anchorId: string): string {
   return `${anchorId.slice(0, 14)}…${anchorId.slice(-10)}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function focusMatchesCitation(
   citation: WorldGraphAnchorCitation,
   snapshot: NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
@@ -138,18 +153,84 @@ function focusMatchesCitation(
   return snapshot.focus.sessionId === citationSessionId;
 }
 
+function isCanonicalSourceAnchorOutcome(value: unknown): value is CanonicalSourceAnchorOutcome {
+  return typeof value === "string"
+    && (CANONICAL_SOURCE_ANCHOR_OUTCOMES as readonly string[]).includes(value);
+}
+
 function validateGraphSourceAnchorRead(
   citation: WorldGraphAnchorCitation,
-  response: WorldGraphSourceAnchorReadResponse,
-): boolean {
-  if (response.anchorId !== citation.anchor_id) return false;
+  response: unknown,
+): { ok: true; response: WorldGraphSourceAnchorReadResponse } | { ok: false; reason: string } {
+  if (!isRecord(response)) {
+    return { ok: false, reason: "Source-anchor read response was not an object." };
+  }
+  if (response.schema !== SOURCE_ANCHOR_READ_SCHEMA) {
+    return { ok: false, reason: "Source-anchor read response schema mismatch." };
+  }
+  if (!isCanonicalSourceAnchorOutcome(response.outcome)) {
+    return { ok: false, reason: "Source-anchor read outcome is not canonical." };
+  }
+  if (response.anchorId !== citation.anchor_id) {
+    return { ok: false, reason: "Source-anchor read anchorId does not match the citation." };
+  }
+
+  const diagnostics = Array.isArray(response.diagnostics) ? response.diagnostics : null;
+  if (response.diagnostics != null && diagnostics === null) {
+    return { ok: false, reason: "Source-anchor read diagnostics must be an array." };
+  }
+
+  if (response.outcome === "unavailable") {
+    if (response.snapshot != null && !isRecord(response.snapshot)) {
+      return { ok: false, reason: "Source-anchor unavailable response has malformed snapshot." };
+    }
+    return {
+      ok: true,
+      response: {
+        ...(response as unknown as WorldGraphSourceAnchorReadResponse),
+        schema: SOURCE_ANCHOR_READ_SCHEMA,
+        outcome: "unavailable",
+        snapshot: response.snapshot == null
+          ? null
+          : response.snapshot as WorldGraphSourceAnchorReadResponse["snapshot"],
+        diagnostics: (diagnostics ?? []) as WorldGraphSourceAnchorReadResponse["diagnostics"],
+      },
+    };
+  }
+
   const snapshot = response.snapshot;
-  if (!snapshot) return false;
-  return snapshot.worldId === citation.world_id
-    && snapshot.campaignId === citation.campaign_id
-    && snapshot.admissibility === citation.admissibility
-    && snapshot.revisionId === citation.revision_id
-    && focusMatchesCitation(citation, snapshot);
+  if (!isRecord(snapshot)) {
+    return { ok: false, reason: "Source-anchor read requires a matching snapshot." };
+  }
+  if (
+    snapshot.worldId !== citation.world_id
+    || snapshot.campaignId !== citation.campaign_id
+    || snapshot.admissibility !== citation.admissibility
+    || snapshot.revisionId !== citation.revision_id
+    || !focusMatchesCitation(
+      citation,
+      snapshot as NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
+    )
+  ) {
+    return { ok: false, reason: "Source-anchor read snapshot does not match the pinned citation." };
+  }
+
+  if (CONTENT_BEARING_SOURCE_ANCHOR_OUTCOMES.includes(response.outcome)) {
+    if (typeof response.content !== "string") {
+      return { ok: false, reason: "Content-bearing source-anchor outcomes require string content." };
+    }
+  }
+
+  return {
+    ok: true,
+    response: {
+      ...(response as unknown as WorldGraphSourceAnchorReadResponse),
+      schema: SOURCE_ANCHOR_READ_SCHEMA,
+      outcome: response.outcome,
+      snapshot: snapshot as NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
+      diagnostics: (diagnostics ?? []) as WorldGraphSourceAnchorReadResponse["diagnostics"],
+    },
+  };
 }
 
 function graphSourceAnchorHasContent(outcome: string): boolean {
@@ -353,7 +434,7 @@ export function PlanAgentInteractionBar({
     ? validateHermesGraphCitations(answer.citations, answer.grounding)
     : { citations: [] as WorldGraphAnchorCitation[], contractWarning: null as string | null };
   const graphCitationCards = hermesCitationValidation.citations;
-  const hermesGrounding = answer ? parseHermesGraphGrounding(answer) : { kind: "none" as const };
+  const hermesGrounding = answer ? parseHermesGraphGroundingView(answer) : { kind: "none" as const };
   const answerHeadingLabel = answer ? answerHeading(answer) : "";
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
@@ -575,13 +656,18 @@ export function PlanAgentInteractionBar({
         anchorId: citation.anchor_id,
         maxChars: 4000,
       });
-      if (!validateGraphSourceAnchorRead(citation, response)) {
+      const validated = validateGraphSourceAnchorRead(citation, response);
+      if (!validated.ok) {
         setGraphReadStatus("contract_error");
-        setGraphReadError("Source-anchor read response did not match the pinned citation contract.");
+        setGraphReadError(validated.reason);
         return;
       }
-      setGraphReadResponse(response);
-      setGraphReadWarnings(response.diagnostics.map((item) => item.message).filter(Boolean));
+      setGraphReadResponse(validated.response);
+      setGraphReadWarnings(
+        validated.response.diagnostics
+          .map((item) => item.message)
+          .filter(Boolean),
+      );
       setGraphReadStatus("ready");
     } catch (loadError) {
       setGraphReadStatus("error");
@@ -928,7 +1014,7 @@ export function PlanAgentInteractionBar({
                         }
                       />
                     ) : null}
-                    {activeTurn ? (
+                    {activeTurn && turnHasLegacyPathEvidence(activeTurn) ? (
                       <CorpusChangeSignalPanel
                         status={corpusSignalStatus}
                         snapshotCount={activeTurn.evidenceSnapshots?.length ?? 0}
@@ -1004,28 +1090,30 @@ export function PlanAgentInteractionBar({
                           <p className="plan-agent-error">{graphReadError ?? "Graph source-anchor contract error."}</p>
                         ) : null}
                         {graphReadStatus === "ready" && graphReadResponse ? (
-                          graphSourceAnchorHasContent(graphReadResponse.outcome) && graphReadResponse.content ? (
-                            <>
-                              {graphReadWarnings.length ? (
-                                <ul className="plan-agent-graph-read-warnings">
-                                  {graphReadWarnings.map((warning) => (
-                                    <li key={warning}>{warning}</li>
-                                  ))}
-                                </ul>
-                              ) : null}
+                          <>
+                            {graphReadWarnings.length ? (
+                              <ul className="plan-agent-graph-read-warnings">
+                                {graphReadWarnings.map((warning) => (
+                                  <li key={warning}>{warning}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {graphSourceAnchorHasContent(graphReadResponse.outcome)
+                              && typeof graphReadResponse.content === "string"
+                              && graphReadResponse.content ? (
                               <pre>{graphReadResponse.content}</pre>
-                            </>
-                          ) : (
-                            <p className="plan-agent-muted plan-agent-graph-read-empty">
-                              {graphReadResponse.outcome === "empty"
-                                ? "No content at this pinned source anchor."
-                                : graphReadResponse.outcome === "denied"
-                                  ? "Source anchor read denied for this admissibility scope."
-                                  : graphReadResponse.outcome === "unavailable"
-                                    ? "Source anchor content is unavailable."
-                                    : "No readable content returned for this source anchor."}
-                            </p>
-                          )
+                            ) : (
+                              <p className="plan-agent-muted plan-agent-graph-read-empty">
+                                {graphReadResponse.outcome === "empty"
+                                  ? "No content at this pinned source anchor."
+                                  : graphReadResponse.outcome === "denied"
+                                    ? "Source anchor read denied for this admissibility scope."
+                                    : graphReadResponse.outcome === "unavailable"
+                                      ? "Source anchor content is unavailable."
+                                      : "No readable content returned for this source anchor."}
+                              </p>
+                            )}
+                          </>
                         ) : null}
                       </section>
                     ) : null}
