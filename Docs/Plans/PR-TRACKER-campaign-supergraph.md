@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-13 — PR010B Rung 1 done (#350); Rung 2 active (model-visible catalog + JSON adapter); Rung 3 next (real agent/session loop)
+**Updated:** 2026-07-13 — PR010B Rung 1–2 done (#350/#351); Rung 3 active (embedded Hermes graph-agent turn); Rung 4 next (thread/session binding)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -143,23 +143,23 @@ Broader Plan polish may continue as independent product slices, but it does not 
 
 ```text
 DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
-DOING   PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter
-NEXT    PR010B Rung 3 — real in-process Hermes agent/session loop
-LATER   PR010B thread binding, product replacement, dogfood acceptance, and demolition
+DONE    PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter (#351)
+DOING   PR010B Rung 3 — embedded Hermes graph-agent turn
+NEXT    PR010B Rung 4 — Agent Interaction thread/session binding
+LATER   product replacement, dogfood acceptance, and demolition
 ```
 
 - **PR010B Rung 1 — graph-only Hermes read-tool executor** (`DONE` via #350): exact internal dispatch from the five PR010A tool names to the merged live-control retrieval service.
-- **PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter** (this capability): OpenAI/Hermes-compatible function definitions derived from the same Rung 1 registry metadata, plus JSON-string execution over Rung 1 with existing PR010A success/error envelopes.
+- **PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter** (`DONE` via #351): OpenAI/Hermes-compatible function definitions derived from the same Rung 1 registry metadata, plus JSON-string execution over Rung 1 with existing PR010A success/error envelopes.
+- **PR010B Rung 3 — embedded Hermes graph-agent turn** (this capability): dependency-locked in-process `AIAgent` turn with packaged `dungeonbuddy_graph` plugin; optional caller-owned history; typed result with ordered safe tool events. No thread binding or durable persistence.
 
-**Next rung (blocked on Rung 2):**
+**Next rung (blocked on Rung 3):**
 
-- **PR010B Rung 3 — real in-process Hermes agent/session loop** using this catalog and adapter.
+- **PR010B Rung 4 — Agent Interaction thread/session binding and reload continuity**
 
 **Later rungs (still false):**
 
-- PR010B Rung 4 — Agent Interaction thread/session binding and reload continuity.
 - PR010B replacement / acceptance — Plan product wiring, obsolete Hermes retrieval demolition, dogfood proof, backend-toggle removal.
-
 **Purpose:** Make Hermes the actual conversational agent for Plan prep, using only PR010A graph retrieval and graph-admitted source anchors.
 
 **Deliverables:**
