@@ -149,6 +149,34 @@ describe("prepMemoryQa helpers", () => {
     expect(answerHeading(partialNull)).toBe("Hermes grounding contract error");
   });
 
+  it("rejects impossible focus scopes for grounding and citations", () => {
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      focus: { kind: "session", session_id: null },
+    })).toBeNull();
+    expect(parseHermesGraphGrounding({
+      ...baseGrounding,
+      focus: { kind: "none", session_id: "session-21" },
+    })).toBeNull();
+    expect(parseWorldGraphAnchorCitation({
+      ...graphCitation,
+      focus: { kind: "session", session_id: null },
+    })).toBeNull();
+    expect(parseWorldGraphAnchorCitation({
+      ...graphCitation,
+      focus: { kind: "none", session_id: "session-21" },
+    })).toBeNull();
+
+    const matchingMalformed = hermesResponse("grounded", [{
+      ...graphCitation,
+      focus: { kind: "session", session_id: null } as never,
+    }], {
+      focus: { kind: "session", session_id: null } as never,
+    });
+    expect(answerHeading(matchingMalformed)).toBe("Hermes grounding contract error");
+    expect(hasGrounding(matchingMalformed)).toBe(false);
+  });
+
   it("parses grounding and citations from unknown JSON without throwing", () => {
     expect(parseHermesGraphGrounding(null)).toBeNull();
     expect(parseHermesGraphGrounding("grounded")).toBeNull();

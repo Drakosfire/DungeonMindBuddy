@@ -93,6 +93,47 @@ describe("TraceDetailsPanel", () => {
     expect(screen.getByText("Skipped 1 malformed graph tool event.")).toBeInTheDocument();
   });
 
+  it("tolerates non-array tool_events, object tool_name, object ID collections, and missing usage", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          usage: undefined as never,
+          tool_events: {
+            tool_name: "should-not-iterate",
+          } as never,
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("not reported")).toBeInTheDocument();
+    expect(screen.getByText("Skipped 1 malformed graph tool event.")).toBeInTheDocument();
+  });
+
+  it("drops null events and object-valued tool_name while keeping valid siblings", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          tool_events: [
+            null as never,
+            { tool_name: { nested: true }, state: "completion" } as never,
+            {
+              ...(pr354HermesTrace.tool_events?.[0] ?? {}),
+              matched_node_ids: { not: "array" } as never,
+              relationship_ids: "nope" as never,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Graph tool activity (1)")).toBeInTheDocument();
+    expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
+    expect(screen.getByText("Skipped 2 malformed graph tool events.")).toBeInTheDocument();
+  });
+
   it("redacts Hermes graph agent prompt preview and legacy artifact paths", () => {
     render(
       <TraceDetailsPanel

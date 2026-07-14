@@ -99,9 +99,9 @@ const CANONICAL_SOURCE_ANCHOR_OUTCOMES = [
   "unavailable",
 ] as const;
 type CanonicalSourceAnchorOutcome = (typeof CANONICAL_SOURCE_ANCHOR_OUTCOMES)[number];
-const CONTENT_BEARING_SOURCE_ANCHOR_OUTCOMES: readonly CanonicalSourceAnchorOutcome[] = [
+/** Outcomes that require string content when present; partial may legitimately omit content. */
+const REQUIRED_CONTENT_SOURCE_ANCHOR_OUTCOMES: readonly CanonicalSourceAnchorOutcome[] = [
   "enough",
-  "partial",
   "truncated",
 ];
 
@@ -144,13 +144,79 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function focusMatchesCitation(
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function parseSnapshotFocus(
+  value: unknown,
+): { kind: string; sessionId: string | null } | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.kind !== "string") return null;
+  if (!(value.sessionId === null || typeof value.sessionId === "string")) return null;
+  if (value.kind === "none") {
+    if (value.sessionId !== null) return null;
+    return { kind: "none", sessionId: null };
+  }
+  if (value.kind === "session") {
+    if (!isNonEmptyString(value.sessionId)) return null;
+    return { kind: "session", sessionId: value.sessionId };
+  }
+  return null;
+}
+
+function parseSourceAnchorSnapshot(
+  value: unknown,
+): WorldGraphSourceAnchorReadResponse["snapshot"] | null {
+  if (!isRecord(value)) return null;
+  if (!isNonEmptyString(value.worldId)) return null;
+  if (!isNonEmptyString(value.campaignId)) return null;
+  if (!isNonEmptyString(value.revisionId)) return null;
+  if (typeof value.headRevisionId !== "string") return null;
+  if (typeof value.isHead !== "boolean") return null;
+  if (!isNonEmptyString(value.admissibility)) return null;
+  const focus = parseSnapshotFocus(value.focus);
+  if (!focus) return null;
+  return {
+    worldId: value.worldId,
+    campaignId: value.campaignId,
+    revisionId: value.revisionId,
+    headRevisionId: value.headRevisionId,
+    isHead: value.isHead,
+    focus,
+    admissibility: value.admissibility,
+  };
+}
+
+function snapshotMatchesCitation(
   citation: WorldGraphAnchorCitation,
   snapshot: NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
 ): boolean {
+  if (snapshot.worldId !== citation.world_id) return false;
+  if (snapshot.campaignId !== citation.campaign_id) return false;
+  if (snapshot.admissibility !== citation.admissibility) return false;
+  if (snapshot.revisionId !== citation.revision_id) return false;
   if (snapshot.focus.kind !== citation.focus.kind) return false;
   const citationSessionId = citation.focus.session_id ?? null;
   return snapshot.focus.sessionId === citationSessionId;
+}
+
+function parseSourceAnchorDiagnostics(
+  value: unknown,
+): WorldGraphSourceAnchorReadResponse["diagnostics"] | null {
+  if (value == null) return [];
+  if (!Array.isArray(value)) return null;
+  const diagnostics: WorldGraphSourceAnchorReadResponse["diagnostics"] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+    if (typeof item.code !== "string" || typeof item.message !== "string") return null;
+    diagnostics.push({
+      code: item.code,
+      message: item.message,
+      severity: typeof item.severity === "string" ? item.severity : "info",
+    });
+  }
+  return diagnostics;
 }
 
 function isCanonicalSourceAnchorOutcome(value: unknown): value is CanonicalSourceAnchorOutcome {
@@ -175,14 +241,31 @@ function validateGraphSourceAnchorRead(
     return { ok: false, reason: "Source-anchor read anchorId does not match the citation." };
   }
 
-  const diagnostics = Array.isArray(response.diagnostics) ? response.diagnostics : null;
-  if (response.diagnostics != null && diagnostics === null) {
-    return { ok: false, reason: "Source-anchor read diagnostics must be an array." };
+  const diagnostics = parseSourceAnchorDiagnostics(response.diagnostics);
+  if (diagnostics === null) {
+    return { ok: false, reason: "Source-anchor read diagnostics are malformed." };
   }
 
   if (response.outcome === "unavailable") {
-    if (response.snapshot != null && !isRecord(response.snapshot)) {
+    if (response.snapshot == null) {
+      return {
+        ok: true,
+        response: {
+          ...(response as unknown as WorldGraphSourceAnchorReadResponse),
+          schema: SOURCE_ANCHOR_READ_SCHEMA,
+          outcome: "unavailable",
+          snapshot: null,
+          content: typeof response.content === "string" ? response.content : null,
+          diagnostics,
+        },
+      };
+    }
+    const snapshot = parseSourceAnchorSnapshot(response.snapshot);
+    if (!snapshot) {
       return { ok: false, reason: "Source-anchor unavailable response has malformed snapshot." };
+    }
+    if (!snapshotMatchesCitation(citation, snapshot)) {
+      return { ok: false, reason: "Source-anchor unavailable snapshot does not match the pinned citation." };
     }
     return {
       ok: true,
@@ -190,35 +273,27 @@ function validateGraphSourceAnchorRead(
         ...(response as unknown as WorldGraphSourceAnchorReadResponse),
         schema: SOURCE_ANCHOR_READ_SCHEMA,
         outcome: "unavailable",
-        snapshot: response.snapshot == null
-          ? null
-          : response.snapshot as WorldGraphSourceAnchorReadResponse["snapshot"],
-        diagnostics: (diagnostics ?? []) as WorldGraphSourceAnchorReadResponse["diagnostics"],
+        snapshot,
+        content: typeof response.content === "string" ? response.content : null,
+        diagnostics,
       },
     };
   }
 
-  const snapshot = response.snapshot;
-  if (!isRecord(snapshot)) {
+  const snapshot = parseSourceAnchorSnapshot(response.snapshot);
+  if (!snapshot) {
     return { ok: false, reason: "Source-anchor read requires a matching snapshot." };
   }
-  if (
-    snapshot.worldId !== citation.world_id
-    || snapshot.campaignId !== citation.campaign_id
-    || snapshot.admissibility !== citation.admissibility
-    || snapshot.revisionId !== citation.revision_id
-    || !focusMatchesCitation(
-      citation,
-      snapshot as NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
-    )
-  ) {
+  if (!snapshotMatchesCitation(citation, snapshot)) {
     return { ok: false, reason: "Source-anchor read snapshot does not match the pinned citation." };
   }
 
-  if (CONTENT_BEARING_SOURCE_ANCHOR_OUTCOMES.includes(response.outcome)) {
+  if (REQUIRED_CONTENT_SOURCE_ANCHOR_OUTCOMES.includes(response.outcome)) {
     if (typeof response.content !== "string") {
       return { ok: false, reason: "Content-bearing source-anchor outcomes require string content." };
     }
+  } else if (response.content != null && typeof response.content !== "string") {
+    return { ok: false, reason: "Source-anchor content must be a string or null." };
   }
 
   return {
@@ -227,13 +302,15 @@ function validateGraphSourceAnchorRead(
       ...(response as unknown as WorldGraphSourceAnchorReadResponse),
       schema: SOURCE_ANCHOR_READ_SCHEMA,
       outcome: response.outcome,
-      snapshot: snapshot as NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
-      diagnostics: (diagnostics ?? []) as WorldGraphSourceAnchorReadResponse["diagnostics"],
+      snapshot,
+      content: typeof response.content === "string" ? response.content : null,
+      diagnostics,
     },
   };
 }
 
-function graphSourceAnchorHasContent(outcome: string): boolean {
+function graphSourceAnchorHasContent(outcome: string, content: string | null | undefined): boolean {
+  if (typeof content !== "string" || !content) return false;
   return outcome === "enough" || outcome === "partial" || outcome === "truncated";
 }
 
@@ -1098,9 +1175,10 @@ export function PlanAgentInteractionBar({
                                 ))}
                               </ul>
                             ) : null}
-                            {graphSourceAnchorHasContent(graphReadResponse.outcome)
-                              && typeof graphReadResponse.content === "string"
-                              && graphReadResponse.content ? (
+                            {graphSourceAnchorHasContent(
+                              graphReadResponse.outcome,
+                              graphReadResponse.content,
+                            ) ? (
                               <pre>{graphReadResponse.content}</pre>
                             ) : (
                               <p className="plan-agent-muted plan-agent-graph-read-empty">
@@ -1110,7 +1188,9 @@ export function PlanAgentInteractionBar({
                                     ? "Source anchor read denied for this admissibility scope."
                                     : graphReadResponse.outcome === "unavailable"
                                       ? "Source anchor content is unavailable."
-                                      : "No readable content returned for this source anchor."}
+                                      : graphReadResponse.outcome === "partial"
+                                        ? "Qualified source-anchor read returned no readable content."
+                                        : "No readable content returned for this source anchor."}
                               </p>
                             )}
                           </>

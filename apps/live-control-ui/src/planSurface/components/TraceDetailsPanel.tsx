@@ -5,15 +5,19 @@ interface TraceDetailsPanelProps {
   answer?: string | null;
 }
 
-function formatTokens(usage: AgentInteractionTrace["usage"]): string {
-  if (!usage.available) {
+function formatTokens(usage: unknown): string {
+  if (!isRecord(usage) || usage.available !== true) {
     return "not reported";
   }
   const parts: string[] = [];
-  if (usage.input_tokens !== null) parts.push(`in ${usage.input_tokens}`);
-  if (usage.output_tokens !== null) parts.push(`out ${usage.output_tokens}`);
-  if (usage.total_tokens !== null) parts.push(`total ${usage.total_tokens}`);
+  if (typeof usage.input_tokens === "number") parts.push(`in ${usage.input_tokens}`);
+  if (typeof usage.output_tokens === "number") parts.push(`out ${usage.output_tokens}`);
+  if (typeof usage.total_tokens === "number") parts.push(`total ${usage.total_tokens}`);
   return parts.length ? parts.join(" · ") : "available (no counts)";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringField(value: unknown): string | null {
@@ -49,7 +53,7 @@ function normalizeGraphToolEvent(raw: unknown): HermesGraphToolTraceEvent | null
     focus,
     admissibility: stringField(event.admissibility),
     revision_pin: stringField(event.revision_pin),
-    bounded_ids: event.bounded_ids && typeof event.bounded_ids === "object"
+    bounded_ids: event.bounded_ids && typeof event.bounded_ids === "object" && !Array.isArray(event.bounded_ids)
       ? event.bounded_ids as Record<string, unknown>
       : {},
     retrieval_schema: stringField(event.retrieval_schema),
@@ -68,13 +72,18 @@ function formatIdList(ids: string[]): string {
 }
 
 export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
-  const context = trace.context_summary ?? {};
-  const stepCount = trace.steps?.length ?? 0;
+  const context = isRecord(trace.context_summary) ? trace.context_summary : {};
+  const steps = Array.isArray(trace.steps) ? trace.steps : [];
+  const stepCount = steps.length;
   const isHermesGraphAgent = trace.mode === "hermes_graph_agent";
-  const normalizedToolEvents = (trace.tool_events ?? [])
+  const rawToolEvents = Array.isArray(trace.tool_events) ? trace.tool_events : [];
+  const normalizedToolEvents = rawToolEvents
     .map((event) => normalizeGraphToolEvent(event))
     .filter((event): event is HermesGraphToolTraceEvent => event != null);
-  const skippedToolEvents = (trace.tool_events?.length ?? 0) - normalizedToolEvents.length;
+  const skippedToolEvents = !Array.isArray(trace.tool_events) && trace.tool_events != null
+    ? 1
+    : rawToolEvents.length - normalizedToolEvents.length;
+  const elapsedMs = typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0;
 
   return (
     <section className="plan-agent-trace" aria-label="Agent interaction trace">
@@ -82,7 +91,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
         <summary>
           <span>Agent trace</span>
           <span className="plan-agent-muted">
-            {trace.backend} · {trace.runtime} · {trace.status} · {trace.elapsed_ms}ms
+            {trace.backend} · {trace.runtime} · {trace.status} · {elapsedMs}ms
           </span>
         </summary>
 
@@ -103,7 +112,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
           <div>
             <dt>Elapsed</dt>
-            <dd>{trace.elapsed_ms} ms</dd>
+            <dd>{elapsedMs} ms</dd>
           </div>
           <div>
             <dt>Steps</dt>
@@ -197,7 +206,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
         ) : null}
 
-        {isHermesGraphAgent && normalizedToolEvents.length ? (
+        {isHermesGraphAgent && (normalizedToolEvents.length > 0 || skippedToolEvents > 0) ? (
           <details className="plan-agent-trace-tool-events" open>
             <summary>Graph tool activity ({normalizedToolEvents.length})</summary>
             <ul>
@@ -273,33 +282,44 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </details>
         ) : null}
 
-        {!isHermesGraphAgent && trace.steps?.length ? (
+        {!isHermesGraphAgent && steps.length ? (
           <details className="plan-agent-trace-steps">
-            <summary>Tool / step trace ({trace.steps.length})</summary>
+            <summary>Tool / step trace ({steps.length})</summary>
             <ul>
-              {trace.steps.map((step, index) => (
-                <li key={`${step.name}-${index}`}>
-                  <strong>{step.name}</strong>
-                  <span>{step.summary}</span>
-                </li>
-              ))}
+              {steps.map((step, index) => {
+                const record = step && typeof step === "object" ? step as Record<string, unknown> : {};
+                const name = typeof record.name === "string" ? record.name : `step-${index}`;
+                const summary = typeof record.summary === "string" ? record.summary : "";
+                return (
+                  <li key={`${name}-${index}`}>
+                    <strong>{name}</strong>
+                    <span>{summary}</span>
+                  </li>
+                );
+              })}
             </ul>
           </details>
         ) : null}
 
-        {!isHermesGraphAgent && trace.artifact_refs?.length ? (
+        {!isHermesGraphAgent && Array.isArray(trace.artifact_refs) && trace.artifact_refs.length ? (
           <div className="plan-agent-trace-artifacts">
             <h5>Artifact refs</h5>
             <ul>
-              {trace.artifact_refs.map((ref) => (
-                <li key={`${ref.kind}-${ref.path}`}>
-                  <div className="plan-agent-trace-artifact-meta">
-                    <strong>{ref.kind}</strong>
-                    {ref.label ? <span>{ref.label}</span> : null}
-                  </div>
-                  <code>{ref.path}</code>
-                </li>
-              ))}
+              {trace.artifact_refs.map((ref, index) => {
+                const record = ref && typeof ref === "object" ? ref as Record<string, unknown> : {};
+                const kind = typeof record.kind === "string" ? record.kind : "ref";
+                const path = typeof record.path === "string" ? record.path : "";
+                const label = typeof record.label === "string" ? record.label : null;
+                return (
+                  <li key={`${kind}-${path}-${index}`}>
+                    <div className="plan-agent-trace-artifact-meta">
+                      <strong>{kind}</strong>
+                      {label ? <span>{label}</span> : null}
+                    </div>
+                    <code>{path}</code>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ) : null}

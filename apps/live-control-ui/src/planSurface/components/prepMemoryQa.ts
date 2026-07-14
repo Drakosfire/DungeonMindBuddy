@@ -47,16 +47,20 @@ function normalizeStringArray(value: unknown): string[] | null {
   return value;
 }
 
+/** Authoritative focus: session requires non-empty session_id; none requires null. */
 function parseFocus(
   value: unknown,
 ): { kind: "none" | "session"; session_id: string | null } | null {
   if (!isRecord(value)) return null;
-  if (value.kind !== "none" && value.kind !== "session") return null;
-  if (!(value.session_id === null || typeof value.session_id === "string")) return null;
-  return {
-    kind: value.kind,
-    session_id: value.session_id,
-  };
+  if (value.kind === "none") {
+    if (value.session_id !== null) return null;
+    return { kind: "none", session_id: null };
+  }
+  if (value.kind === "session") {
+    if (!isNonEmptyString(value.session_id)) return null;
+    return { kind: "session", session_id: value.session_id };
+  }
+  return null;
 }
 
 /** Parse and normalize a Hermes grounding envelope from unknown JSON. */

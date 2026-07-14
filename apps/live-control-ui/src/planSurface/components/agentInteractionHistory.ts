@@ -118,34 +118,43 @@ const MAX_PERSISTED_DIAGNOSTIC_CODES = 32;
 const MAX_PERSISTED_WARNINGS = 16;
 const MAX_PERSISTED_STRING_SCALAR = 512;
 
-function truncatePersistedString(value: string | null | undefined): string | null {
-  if (value == null) return null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function truncatePersistedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
   return value.length > MAX_PERSISTED_STRING_SCALAR ? value.slice(0, MAX_PERSISTED_STRING_SCALAR) : value;
 }
 
-function sanitizePersistedIdList(ids: string[] | null | undefined): string[] {
-  return (ids ?? [])
+function sanitizePersistedIdList(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  return ids
     .slice(0, MAX_PERSISTED_IDS)
     .map((id) => truncatePersistedString(id) ?? "")
     .filter(Boolean);
 }
 
 function sanitizePersistedToolEvent(
-  event: HermesGraphToolTraceEvent | null | undefined,
+  event: unknown,
 ): Omit<HermesGraphToolTraceEvent, "bounded_ids"> | null {
-  if (!event?.tool_name) return null;
+  if (!isRecord(event)) return null;
+  const toolName = truncatePersistedString(event.tool_name);
+  if (!toolName) return null;
+  const focusRaw = event.focus;
+  const focus = isRecord(focusRaw)
+    ? {
+        kind: truncatePersistedString(focusRaw.kind),
+        session_id: truncatePersistedString(focusRaw.session_id),
+      }
+    : null;
   return {
-    tool_name: truncatePersistedString(event.tool_name) ?? "",
-    state: truncatePersistedString(event.state) ?? "",
-    duration_ms: event.duration_ms ?? null,
+    tool_name: toolName,
+    state: truncatePersistedString(event.state) ?? "unknown",
+    duration_ms: typeof event.duration_ms === "number" ? event.duration_ms : null,
     world_id: truncatePersistedString(event.world_id),
     campaign_id: truncatePersistedString(event.campaign_id),
-    focus: event.focus
-      ? {
-          kind: truncatePersistedString(event.focus.kind),
-          session_id: truncatePersistedString(event.focus.session_id),
-        }
-      : null,
+    focus,
     admissibility: truncatePersistedString(event.admissibility),
     revision_pin: truncatePersistedString(event.revision_pin),
     retrieval_schema: truncatePersistedString(event.retrieval_schema),
@@ -168,20 +177,36 @@ function isLegacyPathCitationForSnapshot(
     && !isAbsolutePath(candidate.path);
 }
 
-function sanitizeHermesGraphToolEvents(
-  toolEvents: HermesGraphToolTraceEvent[] | null | undefined,
-): HermesGraphToolTraceEvent[] {
-  return (toolEvents ?? [])
+function sanitizeHermesGraphToolEvents(toolEvents: unknown): HermesGraphToolTraceEvent[] {
+  if (!Array.isArray(toolEvents)) return [];
+  return toolEvents
     .slice(0, MAX_PERSISTED_TOOL_EVENTS)
     .map((event) => sanitizePersistedToolEvent(event))
     .filter((event): event is Omit<HermesGraphToolTraceEvent, "bounded_ids"> => event !== null)
     .map((event) => event as HermesGraphToolTraceEvent);
 }
 
+function sanitizePersistedWarnings(warnings: unknown): string[] {
+  if (!Array.isArray(warnings)) return [];
+  return warnings
+    .slice(0, MAX_PERSISTED_WARNINGS)
+    .map((warning) => truncatePersistedString(warning) ?? "")
+    .filter(Boolean);
+}
+
 /** Strict Hermes graph-agent trace projection — only the handoff whitelist. */
 function safeHermesGraphTraceForPersistence(
-  trace: AgentInteractionTrace,
+  trace: Record<string, unknown>,
 ): AgentInteractionTrace {
+  const droppedEvents = Array.isArray(trace.tool_events)
+    ? Math.max(0, trace.tool_events.length - sanitizeHermesGraphToolEvents(trace.tool_events).length)
+    : 0;
+  const warnings = sanitizePersistedWarnings(trace.warnings);
+  if (droppedEvents > 0) {
+    warnings.push("One or more malformed graph tool events were ignored.");
+  } else if (trace.tool_events != null && !Array.isArray(trace.tool_events)) {
+    warnings.push("Malformed graph tool_events collection was ignored.");
+  }
   return {
     trace_id: truncatePersistedString(trace.trace_id) ?? "",
     runtime: truncatePersistedString(trace.runtime) ?? "",
@@ -203,55 +228,67 @@ function safeHermesGraphTraceForPersistence(
     tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
     hermes_session_id: truncatePersistedString(trace.hermes_session_id),
     process_isolation: truncatePersistedString(trace.process_isolation),
-    warnings: (trace.warnings ?? [])
-      .slice(0, MAX_PERSISTED_WARNINGS)
-      .map((warning) => truncatePersistedString(warning) ?? "")
-      .filter(Boolean),
+    warnings: warnings.slice(0, MAX_PERSISTED_WARNINGS),
   };
 }
 
 export function safeTraceForPersistence(
-  trace: AgentInteractionTrace | null | undefined,
+  trace: unknown,
 ): AgentInteractionTrace | null {
-  if (!trace) return null;
+  if (!isRecord(trace)) return null;
   if (trace.mode === "hermes_graph_agent") {
     return safeHermesGraphTraceForPersistence(trace);
   }
 
+  const steps = Array.isArray(trace.steps) ? trace.steps : [];
+  const artifactRefs = Array.isArray(trace.artifact_refs) ? trace.artifact_refs : [];
+  const usage = isRecord(trace.usage)
+    ? {
+        available: Boolean(trace.usage.available),
+        input_tokens: typeof trace.usage.input_tokens === "number" ? trace.usage.input_tokens : null,
+        output_tokens: typeof trace.usage.output_tokens === "number" ? trace.usage.output_tokens : null,
+        total_tokens: typeof trace.usage.total_tokens === "number" ? trace.usage.total_tokens : null,
+      }
+    : { available: false, input_tokens: null, output_tokens: null, total_tokens: null };
+
   return {
-    trace_id: trace.trace_id,
-    runtime: trace.runtime,
-    backend: trace.backend,
-    mode: trace.mode,
-    provider: trace.provider ?? null,
-    model: trace.model ?? null,
-    started_at: trace.started_at,
-    completed_at: trace.completed_at,
-    elapsed_ms: trace.elapsed_ms,
-    status: trace.status,
-    toolset: trace.toolset ?? null,
+    trace_id: truncatePersistedString(trace.trace_id) ?? "",
+    runtime: truncatePersistedString(trace.runtime) ?? "",
+    backend: truncatePersistedString(trace.backend) ?? "",
+    mode: truncatePersistedString(trace.mode) ?? "",
+    provider: truncatePersistedString(trace.provider),
+    model: truncatePersistedString(trace.model),
+    started_at: truncatePersistedString(trace.started_at) ?? "",
+    completed_at: truncatePersistedString(trace.completed_at) ?? "",
+    elapsed_ms: typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0,
+    status: truncatePersistedString(trace.status) ?? "unknown",
+    toolset: truncatePersistedString(trace.toolset),
     command_summary: truncatePersistedString(trace.command_summary),
     prompt_preview: undefined,
-    prompt_char_count: trace.prompt_char_count ?? null,
-    prompt_token_estimate: trace.prompt_token_estimate ?? null,
-    usage: trace.usage,
-    steps: (trace.steps ?? []).slice(0, 12).map((step) => ({
-      name: truncatePersistedString(step.name) ?? "",
-      summary: truncatePersistedString(step.name) ?? "",
-    })),
-    context_summary: trace.context_summary,
-    artifact_refs: (trace.artifact_refs ?? []).map((ref) => ({
-      kind: ref.kind,
-      label: ref.label,
-      path: ref.path && !isAbsolutePath(ref.path) ? ref.path : "",
-    })),
+    prompt_char_count: typeof trace.prompt_char_count === "number" ? trace.prompt_char_count : null,
+    prompt_token_estimate: typeof trace.prompt_token_estimate === "number" ? trace.prompt_token_estimate : null,
+    usage,
+    steps: steps.slice(0, 12).map((step) => {
+      const record = isRecord(step) ? step : {};
+      return {
+        name: truncatePersistedString(record.name) ?? "",
+        summary: truncatePersistedString(record.name) ?? "",
+      };
+    }),
+    context_summary: isRecord(trace.context_summary) ? trace.context_summary as AgentInteractionTrace["context_summary"] : {},
+    artifact_refs: artifactRefs.map((ref) => {
+      const record = isRecord(ref) ? ref : {};
+      const path = typeof record.path === "string" && !isAbsolutePath(record.path) ? record.path : "";
+      return {
+        kind: truncatePersistedString(record.kind) ?? "",
+        label: truncatePersistedString(record.label),
+        path,
+      };
+    }),
     tool_events: undefined,
     hermes_session_id: truncatePersistedString(trace.hermes_session_id),
     process_isolation: truncatePersistedString(trace.process_isolation),
-    warnings: (trace.warnings ?? [])
-      .slice(0, MAX_PERSISTED_WARNINGS)
-      .map((warning) => truncatePersistedString(warning) ?? "")
-      .filter(Boolean),
+    warnings: sanitizePersistedWarnings(trace.warnings),
   };
 }
 
@@ -265,6 +302,9 @@ function isHermesGraphTurn(turn: Pick<AgentInteractionTurn, "backend" | "groundi
 export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteractionTurn {
   if (isHermesGraphTurn(turn)) {
     const validated = validateHermesGraphCitations(turn.citations, turn.grounding);
+    const rawTrace = turn.trace && isRecord(turn.trace)
+      ? { ...turn.trace, mode: "hermes_graph_agent" }
+      : turn.trace;
     return {
       ...turn,
       grounding: validated.grounding,
@@ -272,22 +312,30 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
       evidenceSnapshots: [],
       corpusFreshness: null,
       worldGraphContext: null,
-      trace: safeTraceForPersistence(
-        turn.trace
-          ? { ...turn.trace, mode: "hermes_graph_agent" }
-          : turn.trace,
-      ),
+      trace: safeTraceForPersistence(rawTrace),
     };
   }
 
+  const citations = Array.isArray(turn.citations) ? turn.citations : [];
   return {
     ...turn,
-    citations: (turn.citations ?? []).filter((citation) => {
+    citations: citations.filter((citation) => {
       if (!citation || typeof citation !== "object") return false;
       return isLegacyPathCitationForSnapshot(citation) || Boolean((citation as LegacyPathCitation).path);
     }),
     trace: safeTraceForPersistence(turn.trace),
   };
+}
+
+/** Drop only a malformed turn; never throw through to discard the thread. */
+export function sanitizePersistedTurnSafe(turn: unknown): AgentInteractionTurn | null {
+  try {
+    if (!isRecord(turn)) return null;
+    if (typeof turn.turnId !== "string" || typeof turn.question !== "string") return null;
+    return sanitizePersistedTurn(turn as unknown as AgentInteractionTurn);
+  } catch {
+    return null;
+  }
 }
 
 
@@ -447,7 +495,10 @@ export function loadAgentThread(campaignId: string, surfaceId = "plan"): AgentIn
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
     return {
       ...parsed,
-      turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP).map(sanitizePersistedTurn),
+      turns: parsed.turns
+        .slice(0, AGENT_TURN_HISTORY_CAP)
+        .map((turn) => sanitizePersistedTurnSafe(turn))
+        .filter((turn): turn is AgentInteractionTurn => turn !== null),
     };
   } catch {
     return null;
@@ -462,7 +513,10 @@ export function loadAgentThreadById(campaignId: string, threadId: string): Agent
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
     return {
       ...parsed,
-      turns: parsed.turns.slice(0, AGENT_TURN_HISTORY_CAP).map(sanitizePersistedTurn),
+      turns: parsed.turns
+        .slice(0, AGENT_TURN_HISTORY_CAP)
+        .map((turn) => sanitizePersistedTurnSafe(turn))
+        .filter((turn): turn is AgentInteractionTurn => turn !== null),
     };
   } catch {
     return null;
@@ -560,10 +614,11 @@ export function deleteAgentThread(thread: AgentInteractionThread): void {
 export function persistAgentThread(thread: AgentInteractionThread): void {
   const bounded: AgentInteractionThread = {
     ...thread,
-    turns: thread.turns.slice(0, AGENT_TURN_HISTORY_CAP).map((turn) => {
-      const sanitized = sanitizePersistedTurn(turn);
+    turns: thread.turns.slice(0, AGENT_TURN_HISTORY_CAP).flatMap((turn) => {
+      const sanitized = sanitizePersistedTurnSafe(turn);
+      if (!sanitized) return [];
       const { worldGraphContext: _stripped, ...persistedTurn } = sanitized;
-      return {
+      return [{
         ...persistedTurn,
         contextSummary: sanitized.contextSummary,
         citations: sanitized.citations ?? [],
@@ -574,7 +629,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
         corpusFreshness: sanitized.corpusFreshness ?? null,
         worldGraphContextSummary: sanitized.worldGraphContextSummary ?? null,
         grounding: sanitized.grounding ?? null,
-      };
+      }];
     }),
   };
   localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);

@@ -439,6 +439,103 @@ describe("agentInteractionHistory", () => {
     expect(reloaded?.turns[0].trace?.command_summary).toBeUndefined();
   });
 
+  it("ignores malformed tool_events collections and ID fields without discarding the thread", () => {
+    const validTrace = safeTraceForPersistence({
+      trace_id: "trace-ok",
+      runtime: "api",
+      backend: "hermes",
+      mode: "hermes_graph_agent",
+      started_at: "2026-06-22T00:00:00.000Z",
+      completed_at: "2026-06-22T00:00:01.000Z",
+      elapsed_ms: 1,
+      status: "ok",
+      usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+      steps: [],
+      context_summary: {},
+      artifact_refs: [],
+      warnings: [],
+      tool_events: [{
+        tool_name: "graph_read",
+        state: "completion",
+        duration_ms: 1,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        admissibility: "gm",
+        revision_pin: "rev-1",
+        bounded_ids: {},
+        retrieval_schema: null,
+        outcome: "enough",
+        matched_node_ids: ["node-1"],
+        relationship_ids: [],
+        source_anchor_ids: [graphCitation.anchor_id],
+        diagnostic_codes: [],
+      }],
+    });
+
+    expect(safeTraceForPersistence({
+      ...validTrace,
+      tool_events: {},
+    } as never)?.tool_events).toEqual([]);
+    expect(safeTraceForPersistence({
+      ...validTrace,
+      tool_events: [null, { tool_name: { nested: true } }, {
+        tool_name: "graph_read",
+        state: "completion",
+        matched_node_ids: { not: "array" },
+        relationship_ids: "nope",
+        source_anchor_ids: 12,
+        diagnostic_codes: null,
+      }],
+    } as never)?.tool_events).toHaveLength(1);
+
+    const thread = makeThread("Poisoned Hermes thread");
+    const goodTurn = turnFromResponse("Who is Lysandro?", {
+      answer: "Lysandro is at the gate.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      agent_trace: validTrace ?? undefined,
+    }, "hermes");
+    thread.turns = [goodTurn];
+    persistAgentThread(thread);
+
+    const stored = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "{}");
+    stored.turns.push({
+      turnId: "poison-turn",
+      askedAt: "2026-06-22T00:00:00.000Z",
+      completedAt: "2026-06-22T00:00:01.000Z",
+      question: "Poison?",
+      answer: "Poison answer",
+      backend: "hermes",
+      status: "ok",
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      trace: {
+        ...(validTrace ?? {}),
+        mode: "hermes_graph_agent",
+        tool_events: {},
+        usage: null,
+      },
+    });
+    stored.turns[0].trace.tool_events = [null, { tool_name: "still-valid", state: "completion", matched_node_ids: {} }];
+    localStorage.setItem(threadStorageKey("longmont-c2", thread.threadId), JSON.stringify(stored));
+
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded).not.toBeNull();
+    expect(reloaded?.turns.length).toBeGreaterThanOrEqual(1);
+    expect(reloaded?.turns[0].trace?.tool_events?.[0]?.tool_name).toBe("still-valid");
+    expect(reloaded?.turns.some((turn) => turn.turnId === "poison-turn")).toBe(true);
+    expect(reloaded?.turns.find((turn) => turn.turnId === "poison-turn")?.trace?.tool_events).toEqual([]);
+  });
+
   it("does not build path evidence snapshots for graph citations", () => {
     const snapshots = buildEvidenceSnapshots([
       graphCitation,

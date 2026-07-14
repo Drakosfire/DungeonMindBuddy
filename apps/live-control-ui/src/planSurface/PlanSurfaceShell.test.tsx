@@ -1969,6 +1969,129 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByText("Source-anchor read response did not match the pinned citation contract.")).not.toBeInTheDocument();
   });
 
+  it("accepts unavailable with a matching authoritative snapshot and rejects a contradictory one", async () => {
+    const user = userEvent.setup();
+    const matchingUnavailable = {
+      schema: "dmb_world_graph_source_anchor_read_v1",
+      outcome: "unavailable",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-pinned-1",
+        headRevisionId: "rev-pinned-1",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-21" },
+        admissibility: "gm",
+      },
+      anchorId: "source-anchor:v1:fixture-anchor",
+      evidenceRefId: null,
+      sourceArtifactId: null,
+      sourceDomain: null,
+      locatorKind: null,
+      mediaType: null,
+      content: null,
+      contentSha256: null,
+      lineStart: null,
+      lineEnd: null,
+      truncated: false,
+      diagnostics: [{ code: "source_unreadable", message: "Source artifact is unreadable.", severity: "error" }],
+    };
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(matchingUnavailable),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
+      "Source anchor content is unavailable.",
+    );
+    expect(screen.getByText("Source artifact is unreadable.")).toBeInTheDocument();
+
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+      ok: true,
+      text: async () => JSON.stringify({
+        ...matchingUnavailable,
+        snapshot: {
+          ...matchingUnavailable.snapshot,
+          campaignId: "FOREIGN_CAMPAIGN_ID",
+        },
+      }),
+    } as Response);
+    await user.click(screen.getByRole("button", { name: "Open evidence" }));
+    expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
+      /does not match the pinned citation/i,
+    );
+    expect(screen.queryByText("Source artifact is unreadable.")).not.toBeInTheDocument();
+  });
+
+  it("accepts Kernel partial with null content and shows diagnostics", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_world_graph_source_anchor_read_v1",
+          outcome: "partial",
+          snapshot: {
+            worldId: "eldyrwild",
+            campaignId: "longmont-c2",
+            revisionId: "rev-pinned-1",
+            headRevisionId: "rev-pinned-1",
+            isHead: true,
+            focus: { kind: "session", sessionId: "session-21" },
+            admissibility: "gm",
+          },
+          anchorId: "source-anchor:v1:fixture-anchor",
+          evidenceRefId: null,
+          sourceArtifactId: null,
+          sourceDomain: null,
+          locatorKind: "unsupported",
+          mediaType: null,
+          content: null,
+          contentSha256: null,
+          lineStart: null,
+          lineEnd: null,
+          truncated: false,
+          diagnostics: [{
+            code: "unsupported_locator",
+            message: "Locator kind is unsupported for content extraction.",
+            severity: "warning",
+          }],
+        }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    const reader = await screen.findByRole("region", { name: "Graph evidence preview" });
+    expect(reader).toHaveTextContent("Qualified source-anchor read returned no readable content.");
+    expect(reader).toHaveTextContent("Locator kind is unsupported for content extraction.");
+    expect(reader).not.toHaveTextContent("contract");
+  });
+
   it("hides the corpus change signal panel for graph-only Hermes turns", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
