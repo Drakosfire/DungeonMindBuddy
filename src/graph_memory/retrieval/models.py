@@ -13,10 +13,13 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from graph_memory.projection.world_projection import WorldGraphProjectionFocus
+from graph_memory.projection.world_projection import (
+    FocusKind,
+    WorldGraphProjectionFocus,
+)
 
 RETRIEVAL_SEARCH_REQUEST_SCHEMA = "dmb_world_graph_search_request_v1"
 RETRIEVAL_OBJECT_REQUEST_SCHEMA = "dmb_world_graph_object_request_v1"
@@ -46,7 +49,9 @@ EvidenceTargetKind = Literal["node", "relationship", "attribute"]
 LocatorKind = Literal["heading", "json_pointer", "unsupported"]
 
 
-class _RetrievalModel(BaseModel):
+class _RetrievalResponseModel(BaseModel):
+    """Response/envelope models may be constructed from field names in Kernel code."""
+
     model_config = ConfigDict(
         alias_generator=to_camel,
         extra="forbid",
@@ -55,29 +60,60 @@ class _RetrievalModel(BaseModel):
     )
 
 
-class WorldGraphRetrievalDiagnostic(_RetrievalModel):
+class _RetrievalRequestModel(BaseModel):
+    """HTTP request models accept camelCase aliases only — no snake_case wire keys."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        extra="forbid",
+        populate_by_name=False,
+        strict=True,
+    )
+
+
+class WorldGraphRetrievalDiagnostic(_RetrievalResponseModel):
     code: str
     message: str
     severity: Literal["error", "warning", "info"] = "info"
 
 
-class WorldGraphRetrievalBounds(_RetrievalModel):
+class WorldGraphRetrievalBounds(_RetrievalRequestModel):
     max_nodes: int = Field(default=8, ge=1, le=12)
     max_relationships: int = Field(default=16, ge=1, le=24)
     max_attributes: int = Field(default=24, ge=1, le=32)
     max_source_anchors: int = Field(default=24, ge=1, le=32)
 
 
-class WorldGraphRetrievalEvidenceBounds(_RetrievalModel):
+class WorldGraphRetrievalEvidenceBounds(_RetrievalRequestModel):
     max_source_anchors: int = Field(default=24, ge=1, le=32)
 
 
-class WorldGraphRetrievalRequestContext(_RetrievalModel):
+class WorldGraphRetrievalFocus(_RetrievalRequestModel):
+    """Alias-only focus for retrieval wire requests (not the projection model)."""
+
+    kind: FocusKind = "none"
+    session_id: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_session_id(self) -> WorldGraphRetrievalFocus:
+        if self.kind == "session" and not self.session_id:
+            raise ValueError("sessionId is required when focus.kind is session")
+        if self.kind == "none" and self.session_id is not None:
+            raise ValueError("sessionId must be null when focus.kind is none")
+        return self
+
+    def to_projection_focus(self) -> WorldGraphProjectionFocus:
+        return WorldGraphProjectionFocus.model_validate(
+            self.model_dump(mode="json", by_alias=True)
+        )
+
+
+class WorldGraphRetrievalRequestContext(_RetrievalRequestModel):
     """Common request context shared by every PR010A operation."""
 
     world_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
-    focus: WorldGraphProjectionFocus = Field(default_factory=WorldGraphProjectionFocus)
+    focus: WorldGraphRetrievalFocus = Field(default_factory=WorldGraphRetrievalFocus)
     admissibility: str = "gm"
     revision_pin: str | None = None
 
@@ -90,9 +126,7 @@ def _reject_blank_ids(value: list[str]) -> list[str]:
 
 
 class WorldGraphSearchRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RETRIEVAL_SEARCH_REQUEST_SCHEMA] = Field(
-        alias="schema", default=RETRIEVAL_SEARCH_REQUEST_SCHEMA
-    )
+    schema_: Literal[RETRIEVAL_SEARCH_REQUEST_SCHEMA] = Field(alias="schema")
     query_text: str = Field(min_length=1)
     seed_node_ids: list[str] = Field(default_factory=list)
     bounds: WorldGraphRetrievalBounds = Field(default_factory=WorldGraphRetrievalBounds)
@@ -104,17 +138,13 @@ class WorldGraphSearchRequest(WorldGraphRetrievalRequestContext):
 
 
 class WorldGraphObjectRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RETRIEVAL_OBJECT_REQUEST_SCHEMA] = Field(
-        alias="schema", default=RETRIEVAL_OBJECT_REQUEST_SCHEMA
-    )
+    schema_: Literal[RETRIEVAL_OBJECT_REQUEST_SCHEMA] = Field(alias="schema")
     node_id: str = Field(min_length=1)
     bounds: WorldGraphRetrievalBounds = Field(default_factory=WorldGraphRetrievalBounds)
 
 
 class WorldGraphNeighborhoodRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA] = Field(
-        alias="schema", default=RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA
-    )
+    schema_: Literal[RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA] = Field(alias="schema")
     seed_node_ids: list[str] = Field(min_length=1, max_length=8)
     max_depth: Literal[1, 2] = 1
     bounds: WorldGraphRetrievalBounds = Field(default_factory=WorldGraphRetrievalBounds)
@@ -125,15 +155,13 @@ class WorldGraphNeighborhoodRequest(WorldGraphRetrievalRequestContext):
         return _reject_blank_ids(value)
 
 
-class WorldGraphEvidenceTarget(_RetrievalModel):
+class WorldGraphEvidenceTarget(_RetrievalRequestModel):
     kind: EvidenceTargetKind
     id: str = Field(min_length=1)
 
 
 class WorldGraphEvidenceRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RETRIEVAL_EVIDENCE_REQUEST_SCHEMA] = Field(
-        alias="schema", default=RETRIEVAL_EVIDENCE_REQUEST_SCHEMA
-    )
+    schema_: Literal[RETRIEVAL_EVIDENCE_REQUEST_SCHEMA] = Field(alias="schema")
     target: WorldGraphEvidenceTarget
     bounds: WorldGraphRetrievalEvidenceBounds = Field(
         default_factory=WorldGraphRetrievalEvidenceBounds
@@ -141,9 +169,7 @@ class WorldGraphEvidenceRequest(WorldGraphRetrievalRequestContext):
 
 
 class WorldGraphSourceAnchorReadRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA] = Field(
-        alias="schema", default=RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA
-    )
+    schema_: Literal[RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA] = Field(alias="schema")
     anchor_id: str = Field(min_length=1)
     max_chars: int = Field(
         default=SOURCE_ANCHOR_READ_MAX_CHARS_DEFAULT,
@@ -152,7 +178,7 @@ class WorldGraphSourceAnchorReadRequest(WorldGraphRetrievalRequestContext):
     )
 
 
-class WorldGraphRetrievalSnapshot(_RetrievalModel):
+class WorldGraphRetrievalSnapshot(_RetrievalResponseModel):
     world_id: str
     campaign_id: str
     revision_id: str
@@ -162,12 +188,12 @@ class WorldGraphRetrievalSnapshot(_RetrievalModel):
     admissibility: str
 
 
-class WorldGraphRetrievalTrustBoundary(_RetrievalModel):
+class WorldGraphRetrievalTrustBoundary(_RetrievalResponseModel):
     can_trust: list[str] = Field(default_factory=list)
     cannot_trust: list[str] = Field(default_factory=list)
 
 
-class WorldGraphRetrievalCoverage(_RetrievalModel):
+class WorldGraphRetrievalCoverage(_RetrievalResponseModel):
     requested_seed_node_ids: list[str] = Field(default_factory=list)
     missing_seed_node_ids: list[str] = Field(default_factory=list)
     resolved_redirects: dict[str, str] = Field(default_factory=dict)
@@ -176,7 +202,7 @@ class WorldGraphRetrievalCoverage(_RetrievalModel):
     unreadable_anchor_ids: list[str] = Field(default_factory=list)
 
 
-class WorldGraphRetrievalNode(_RetrievalModel):
+class WorldGraphRetrievalNode(_RetrievalResponseModel):
     node_id: str
     label: str
     kind: str
@@ -189,7 +215,7 @@ class WorldGraphRetrievalNode(_RetrievalModel):
     source_artifact_ids: list[str] = Field(default_factory=list)
 
 
-class WorldGraphRetrievalRelationship(_RetrievalModel):
+class WorldGraphRetrievalRelationship(_RetrievalResponseModel):
     edge_id: str
     source_node_id: str
     target_node_id: str
@@ -207,7 +233,7 @@ class WorldGraphRetrievalRelationship(_RetrievalModel):
     active_contribution_ids: list[str] = Field(default_factory=list)
 
 
-class WorldGraphRetrievalAttribute(_RetrievalModel):
+class WorldGraphRetrievalAttribute(_RetrievalResponseModel):
     assertion_id: str
     subject_node_id: str
     predicate: str | None = None
@@ -224,7 +250,7 @@ class WorldGraphRetrievalAttribute(_RetrievalModel):
     source_artifact_ids: list[str] = Field(default_factory=list)
 
 
-class WorldGraphSourceAnchor(_RetrievalModel):
+class WorldGraphSourceAnchor(_RetrievalResponseModel):
     anchor_id: str
     revision_id: str
     evidence_ref_id: str
@@ -238,7 +264,7 @@ class WorldGraphSourceAnchor(_RetrievalModel):
     display_label: str | None = None
 
 
-class WorldGraphRetrievalResult(_RetrievalModel):
+class WorldGraphRetrievalResult(_RetrievalResponseModel):
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
     )
@@ -261,7 +287,7 @@ class WorldGraphRetrievalResult(_RetrievalModel):
     diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)
 
 
-class WorldGraphSourceAnchorReadResult(_RetrievalModel):
+class WorldGraphSourceAnchorReadResult(_RetrievalResponseModel):
     schema_: Literal[RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA
     )
@@ -284,7 +310,7 @@ class WorldGraphSourceAnchorReadResult(_RetrievalModel):
     diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)
 
 
-class WorldGraphRetrievalErrorResponse(_RetrievalModel):
+class WorldGraphRetrievalErrorResponse(_RetrievalResponseModel):
     schema_: Literal[RETRIEVAL_ERROR_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_ERROR_SCHEMA
     )
@@ -355,6 +381,7 @@ __all__ = [
     "WorldGraphRetrievalDiagnostic",
     "WorldGraphRetrievalErrorResponse",
     "WorldGraphRetrievalEvidenceBounds",
+    "WorldGraphRetrievalFocus",
     "WorldGraphRetrievalNode",
     "WorldGraphRetrievalRelationship",
     "WorldGraphRetrievalRequestContext",

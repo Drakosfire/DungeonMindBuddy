@@ -966,7 +966,7 @@ def search_campaign_graph(
         root,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus,
+        focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
     )
@@ -1078,7 +1078,7 @@ def get_campaign_object(
         root,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus,
+        focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
     )
@@ -1198,7 +1198,7 @@ def get_object_neighborhood(
         root,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus,
+        focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
     )
@@ -1352,7 +1352,7 @@ def get_object_evidence(
         root,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus,
+        focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
     )
@@ -1476,7 +1476,7 @@ def read_source_anchor(
         root,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus,
+        focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
     )
