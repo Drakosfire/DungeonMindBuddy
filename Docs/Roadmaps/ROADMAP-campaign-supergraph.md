@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-13 — PR008A/PR008B landed; graph-only Hermes retrieval path defined
+**Updated:** 2026-07-13 — PR010A done (#346–#349); PR010B Rung 1 done (#350); Rung 2 model adapter active; Rung 3 agent/session loop next
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -54,12 +54,21 @@ DONE  PR006D2  Publish Eldyrwild C2 World Supergraph
 DONE  PR007A   Revision-pinned projection/read snapshot
 DONE  PR008A   Plan World Graph object-card migration
 DONE  PR008B   Agent Interaction receives revision-pinned graph query context
-READY PR010A   Graph retrieval contract and source-anchor admission
-BLOCKED PR010B Hermes graph-retrieval dogfood
+DONE  PR010A   Graph retrieval contract and source-anchor admission
+DOING PR010B   Hermes graph-retrieval dogfood
 BLOCKED PR011  Agent Context + governed tool runtime
 ```
 
 PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-only Agent Interaction direction.
+
+PR010B is decomposed into independently useful rungs:
+
+```text
+DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
+DOING   PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter
+NEXT    PR010B Rung 3 — real in-process Hermes agent/session loop
+LATER   PR010B thread binding, product replacement, dogfood acceptance, and demolition
+```
 
 ---
 
@@ -128,7 +137,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010A — Graph retrieval contract
 
-**Status:** Ready.
+**Status:** Done via GitHub #346–#349.
 
 **Purpose:** Provide deterministic, revision-pinned retrieval primitives over projected graph state before introducing the Hermes agent loop.
 
@@ -154,9 +163,16 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Blocked on PR010A.
+**Status:** Doing — Rung 1 complete (#350); Rung 2 (model-visible catalog + JSON-string adapter) active; Rung 3 (real in-process Hermes agent/session loop) next.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
+
+**Rung sequence:**
+
+- **Rung 1 (DONE / #350):** Strict graph-only Hermes read-tool dispatcher over the five PR010A operations.
+- **Rung 2 (DOING):** Model-visible tool catalog and JSON-string execution adapter derived from the same Rung 1 registry metadata. No model loop, session, route, UI, or plugin migration.
+- **Rung 3 (NEXT):** Real in-process Hermes agent/session loop using the Rung 2 catalog and adapter.
+- **Later:** Agent Interaction thread/session binding, Plan product wiring, obsolete retrieval demolition, dogfood acceptance, and backend-toggle removal.
 
 **Target runtime shape:**
 
