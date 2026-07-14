@@ -7,6 +7,7 @@ import {
   applyCombatHpDelta,
   commitStatblockCorpusWrite,
   commitTiptapMarkdownWrite,
+  DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
   getCapabilities,
   getGraphIngestRuns,
@@ -14,7 +15,9 @@ import {
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
   LiveApiError,
+  postLiveQuery,
   postWorldGraphProjection,
+  postWorldGraphSourceAnchorRead,
   getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
@@ -636,6 +639,139 @@ describe("liveApi World Graph error preservation", () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("liveApi postLiveQuery Hermes serializer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("omits manifest_path and hermes_session_id for Hermes requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Who is Glowkindle?", "longmont-c2", 22, "hermes", {
+      hermesSessionId: "hermes-session-should-not-send",
+      agentThreadId: "thread-1",
+      traceRequested: true,
+    });
+
+    const [, init] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("manifest_path");
+    expect(body).not.toHaveProperty("hermes_session_id");
+    expect(body).toMatchObject({
+      campaign_id: "longmont-c2",
+      session: 22,
+      mode: "live",
+      query_backend: "hermes",
+      text: "Who is Glowkindle?",
+      agent_thread_id: "thread-1",
+      trace_requested: true,
+    });
+  });
+
+  it("includes manifest_path and hermes_session_id for live requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Who is Glowkindle?", "longmont-c2", 22, "live", {
+      hermesSessionId: "hermes-session-live",
+      agentThreadId: "thread-2",
+      traceRequested: false,
+    });
+
+    const [, init] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body).toHaveProperty("manifest_path", DEFAULT_PLANNING_MANIFEST_PATH);
+    expect(body).toHaveProperty("hermes_session_id", "hermes-session-live");
+    expect(body).toMatchObject({
+      campaign_id: "longmont-c2",
+      session: 22,
+      mode: "live",
+      query_backend: "live",
+      text: "Who is Glowkindle?",
+      agent_thread_id: "thread-2",
+      trace_requested: false,
+    });
+  });
+
+  it("includes world_graph_context for Hermes when provided and omits prior-turn fields", async () => {
+    const worldGraphContext = {
+      schema: "dmb_agent_world_graph_query_context_request_v1" as const,
+      world_id: "eldyrwild",
+      campaign_id: "longmont-c2",
+      focus: { kind: "session" as const, session_id: "session-22" },
+      admissibility: "gm" as const,
+      revision_pin: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Tripod threat?", "longmont-c2", 22, "hermes", {
+      worldGraphContext,
+    });
+
+    const [, init] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body.world_graph_context).toEqual(worldGraphContext);
+    expect(body).not.toHaveProperty("prior_turns");
+    expect(body).not.toHaveProperty("history");
+    expect(body).not.toHaveProperty("capability_policy");
+    expect(body).not.toHaveProperty("graph_root");
+  });
+});
+
+describe("liveApi postWorldGraphSourceAnchorRead", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("posts camelCase body to source-anchor read endpoint", async () => {
+    const request = {
+      schema: "dmb_world_graph_source_anchor_read_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session" as const, sessionId: "session-22" },
+      admissibility: "gm" as const,
+      revisionPin: "rev:031c50b108af3c2523ee04accbf6ea4d",
+      anchorId: "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+      maxChars: 4000,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_world_graph_source_anchor_read_v1",
+        outcome: "enough",
+        anchorId: request.anchorId,
+        truncated: false,
+        diagnostics: [],
+      }),
+    );
+
+    await postWorldGraphSourceAnchorRead(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/retrieval/source-anchor/read");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual([
+      "schema",
+      "worldId",
+      "campaignId",
+      "focus",
+      "admissibility",
+      "revisionPin",
+      "anchorId",
+      "maxChars",
+    ]);
+    expect(JSON.parse(String(init?.body)).focus).toEqual({
+      kind: "session",
+      sessionId: "session-22",
+    });
   });
 });
 

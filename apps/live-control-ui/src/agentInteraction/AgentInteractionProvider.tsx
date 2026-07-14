@@ -140,7 +140,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(question),
       updatedAt: new Date().toISOString(),
       activeBackend: backend,
-      hermesSession: response.hermes_session ?? currentThread.hermesSession ?? null,
+      hermesSession: response.mode === "hermes_graph_agent"
+        ? null
+        : (response.hermes_session ?? currentThread.hermesSession ?? null),
       turns: nextTurns,
       uiState: {
         traceVisible: currentThread.uiState?.traceVisible ?? false,

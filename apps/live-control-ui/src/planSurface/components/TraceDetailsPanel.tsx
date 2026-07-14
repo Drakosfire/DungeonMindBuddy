@@ -1,4 +1,4 @@
-import type { AgentInteractionTrace } from "../../api/types";
+import type { AgentInteractionTrace, HermesGraphToolTraceEvent } from "../../api/types";
 
 interface TraceDetailsPanelProps {
   trace: AgentInteractionTrace;
@@ -16,9 +16,65 @@ function formatTokens(usage: AgentInteractionTrace["usage"]): string {
   return parts.length ? parts.join(" · ") : "available (no counts)";
 }
 
+function stringField(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function stringArrayField(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizeGraphToolEvent(raw: unknown): HermesGraphToolTraceEvent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const event = raw as Record<string, unknown>;
+  const toolName = stringField(event.tool_name);
+  if (!toolName) return null;
+  const focusRaw = event.focus;
+  const focus = focusRaw && typeof focusRaw === "object"
+    ? {
+        kind: stringField((focusRaw as Record<string, unknown>).kind),
+        session_id: stringField((focusRaw as Record<string, unknown>).session_id)
+          ?? (typeof (focusRaw as Record<string, unknown>).session_id === "string"
+            ? (focusRaw as Record<string, unknown>).session_id as string
+            : null),
+      }
+    : null;
+  return {
+    tool_name: toolName,
+    state: stringField(event.state) ?? "unknown",
+    duration_ms: typeof event.duration_ms === "number" ? event.duration_ms : null,
+    world_id: stringField(event.world_id),
+    campaign_id: stringField(event.campaign_id),
+    focus,
+    admissibility: stringField(event.admissibility),
+    revision_pin: stringField(event.revision_pin),
+    bounded_ids: event.bounded_ids && typeof event.bounded_ids === "object"
+      ? event.bounded_ids as Record<string, unknown>
+      : {},
+    retrieval_schema: stringField(event.retrieval_schema),
+    outcome: stringField(event.outcome),
+    matched_node_ids: stringArrayField(event.matched_node_ids),
+    relationship_ids: stringArrayField(event.relationship_ids),
+    source_anchor_ids: stringArrayField(event.source_anchor_ids),
+    diagnostic_codes: stringArrayField(event.diagnostic_codes),
+  };
+}
+
+function formatIdList(ids: string[]): string {
+  if (!ids.length) return "none";
+  if (ids.length <= 3) return ids.join(", ");
+  return `${ids.slice(0, 3).join(", ")} (+${ids.length - 3} more)`;
+}
+
 export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
   const context = trace.context_summary ?? {};
   const stepCount = trace.steps?.length ?? 0;
+  const isHermesGraphAgent = trace.mode === "hermes_graph_agent";
+  const normalizedToolEvents = (trace.tool_events ?? [])
+    .map((event) => normalizeGraphToolEvent(event))
+    .filter((event): event is HermesGraphToolTraceEvent => event != null);
+  const skippedToolEvents = (trace.tool_events?.length ?? 0) - normalizedToolEvents.length;
 
   return (
     <section className="plan-agent-trace" aria-label="Agent interaction trace">
@@ -57,7 +113,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
             <dt>Tokens</dt>
             <dd>{formatTokens(trace.usage)}</dd>
           </div>
-          {trace.prompt_char_count != null ? (
+          {trace.prompt_char_count != null && !isHermesGraphAgent ? (
             <div>
               <dt>Prompt size</dt>
               <dd>
@@ -76,16 +132,22 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
             <dt>Started</dt>
             <dd>{trace.started_at}</dd>
           </div>
+          {isHermesGraphAgent && trace.hermes_session_id ? (
+            <div>
+              <dt>Hermes session (observability)</dt>
+              <dd><code>{trace.hermes_session_id}</code></dd>
+            </div>
+          ) : null}
         </dl>
 
-        {trace.command_summary ? (
+        {!isHermesGraphAgent && trace.command_summary ? (
           <div className="plan-agent-trace-command">
             <h5>Command</h5>
             <code>{trace.command_summary}</code>
           </div>
         ) : null}
 
-        {trace.prompt_preview ? (
+        {!isHermesGraphAgent && trace.prompt_preview ? (
           <details className="plan-agent-trace-prompt">
             <summary>Prompt sent to Hermes ({trace.prompt_char_count ?? trace.prompt_preview.length} chars)</summary>
             <pre>{trace.prompt_preview}</pre>
@@ -121,7 +183,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
               {context.context_payload_kind ? (
                 <li>Payload kind: {context.context_payload_kind}</li>
               ) : null}
-              {context.manifest_path ? (
+              {!isHermesGraphAgent && context.manifest_path ? (
                 <li>
                   Manifest: <code>{context.manifest_path}</code>
                 </li>
@@ -135,7 +197,83 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
         ) : null}
 
-        {trace.steps?.length ? (
+        {isHermesGraphAgent && normalizedToolEvents.length ? (
+          <details className="plan-agent-trace-tool-events" open>
+            <summary>Graph tool activity ({normalizedToolEvents.length})</summary>
+            <ul>
+              {normalizedToolEvents.map((event, index) => (
+                <li key={`${event.tool_name}-${index}`} className="plan-agent-trace-tool-event">
+                  <div className="plan-agent-trace-tool-event-header">
+                    <strong>{event.tool_name}</strong>
+                    <span className="plan-agent-muted">
+                      {event.state}
+                      {event.duration_ms != null ? ` · ${event.duration_ms}ms` : ""}
+                      {event.outcome ? ` · ${event.outcome}` : ""}
+                    </span>
+                  </div>
+                  <dl className="plan-agent-trace-tool-event-grid">
+                    {event.world_id ? (
+                      <div>
+                        <dt>World</dt>
+                        <dd><code>{event.world_id}</code></dd>
+                      </div>
+                    ) : null}
+                    {event.campaign_id ? (
+                      <div>
+                        <dt>Campaign</dt>
+                        <dd><code>{event.campaign_id}</code></dd>
+                      </div>
+                    ) : null}
+                    {event.revision_pin ? (
+                      <div>
+                        <dt>Revision pin</dt>
+                        <dd><code>{event.revision_pin}</code></dd>
+                      </div>
+                    ) : null}
+                    {event.focus?.kind ? (
+                      <div>
+                        <dt>Focus</dt>
+                        <dd>
+                          {event.focus.kind}
+                          {event.focus.session_id ? ` · ${event.focus.session_id}` : ""}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {event.admissibility ? (
+                      <div>
+                        <dt>Admissibility</dt>
+                        <dd>{event.admissibility}</dd>
+                      </div>
+                    ) : null}
+                    <div>
+                      <dt>Matched nodes</dt>
+                      <dd>{formatIdList(event.matched_node_ids)}</dd>
+                    </div>
+                    <div>
+                      <dt>Relationships</dt>
+                      <dd>{formatIdList(event.relationship_ids)}</dd>
+                    </div>
+                    <div>
+                      <dt>Source anchors</dt>
+                      <dd>{formatIdList(event.source_anchor_ids)}</dd>
+                    </div>
+                    <div>
+                      <dt>Diagnostic codes</dt>
+                      <dd>{formatIdList(event.diagnostic_codes)}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+            {skippedToolEvents > 0 ? (
+              <p className="plan-agent-warning plan-agent-trace-tool-event-warning">
+                Skipped {skippedToolEvents} malformed graph tool event{skippedToolEvents === 1 ? "" : "s"}.
+              </p>
+            ) : null}
+          </details>
+        ) : null}
+
+        {!isHermesGraphAgent && trace.steps?.length ? (
           <details className="plan-agent-trace-steps">
             <summary>Tool / step trace ({trace.steps.length})</summary>
             <ul>
@@ -149,7 +287,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </details>
         ) : null}
 
-        {trace.artifact_refs?.length ? (
+        {!isHermesGraphAgent && trace.artifact_refs?.length ? (
           <div className="plan-agent-trace-artifacts">
             <h5>Artifact refs</h5>
             <ul>

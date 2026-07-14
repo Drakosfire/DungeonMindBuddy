@@ -13,6 +13,8 @@ import type {
   CitationFreshnessStatus,
   AgentWorldGraphQueryContext,
   PersistedWorldGraphContextSummary,
+  HermesGraphToolTraceEvent,
+  LegacyPathCitation,
 } from "../../api/types";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
@@ -106,10 +108,69 @@ function isAbsolutePath(path: string): boolean {
   return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
 }
 
+const MAX_PERSISTED_TOOL_EVENTS = 24;
+const MAX_PERSISTED_IDS = 32;
+const MAX_PERSISTED_DIAGNOSTIC_CODES = 32;
+const MAX_PERSISTED_WARNINGS = 16;
+const MAX_PERSISTED_STRING_SCALAR = 512;
+
+function truncatePersistedString(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  return value.length > MAX_PERSISTED_STRING_SCALAR ? value.slice(0, MAX_PERSISTED_STRING_SCALAR) : value;
+}
+
+function sanitizePersistedIdList(ids: string[] | null | undefined): string[] {
+  return (ids ?? [])
+    .slice(0, MAX_PERSISTED_IDS)
+    .map((id) => truncatePersistedString(id) ?? "")
+    .filter(Boolean);
+}
+
+function sanitizePersistedToolEvent(
+  event: HermesGraphToolTraceEvent | null | undefined,
+): Omit<HermesGraphToolTraceEvent, "bounded_ids"> | null {
+  if (!event?.tool_name) return null;
+  return {
+    tool_name: truncatePersistedString(event.tool_name) ?? "",
+    state: truncatePersistedString(event.state) ?? "",
+    duration_ms: event.duration_ms ?? null,
+    world_id: truncatePersistedString(event.world_id),
+    campaign_id: truncatePersistedString(event.campaign_id),
+    focus: event.focus
+      ? {
+          kind: truncatePersistedString(event.focus.kind),
+          session_id: truncatePersistedString(event.focus.session_id),
+        }
+      : null,
+    admissibility: truncatePersistedString(event.admissibility),
+    revision_pin: truncatePersistedString(event.revision_pin),
+    retrieval_schema: truncatePersistedString(event.retrieval_schema),
+    outcome: truncatePersistedString(event.outcome),
+    matched_node_ids: sanitizePersistedIdList(event.matched_node_ids),
+    relationship_ids: sanitizePersistedIdList(event.relationship_ids),
+    source_anchor_ids: sanitizePersistedIdList(event.source_anchor_ids),
+    diagnostic_codes: sanitizePersistedIdList(event.diagnostic_codes).slice(0, MAX_PERSISTED_DIAGNOSTIC_CODES),
+  };
+}
+
+function isLegacyPathCitationForSnapshot(
+  citation: LiveQueryCitation,
+): citation is LegacyPathCitation & { path: string } {
+  return citation.kind !== "world_graph_anchor" && Boolean(citation.path) && !isAbsolutePath(citation.path);
+}
+
 export function safeTraceForPersistence(
   trace: AgentInteractionTrace | null | undefined,
 ): AgentInteractionTrace | null {
   if (!trace) return null;
+  const shouldPersistToolEvents = trace.mode === "hermes_graph_agent" || Boolean(trace.tool_events?.length);
+  const sanitizedToolEvents = shouldPersistToolEvents
+    ? (trace.tool_events ?? [])
+        .slice(0, MAX_PERSISTED_TOOL_EVENTS)
+        .map((event) => sanitizePersistedToolEvent(event))
+        .filter((event): event is Omit<HermesGraphToolTraceEvent, "bounded_ids"> => event !== null)
+    : undefined;
+
   return {
     trace_id: trace.trace_id,
     runtime: trace.runtime,
@@ -122,14 +183,14 @@ export function safeTraceForPersistence(
     elapsed_ms: trace.elapsed_ms,
     status: trace.status,
     toolset: trace.toolset ?? null,
-    command_summary: trace.command_summary ?? null,
+    command_summary: truncatePersistedString(trace.command_summary),
     prompt_preview: undefined,
     prompt_char_count: trace.prompt_char_count ?? null,
     prompt_token_estimate: trace.prompt_token_estimate ?? null,
     usage: trace.usage,
     steps: (trace.steps ?? []).slice(0, 12).map((step) => ({
-      name: step.name,
-      summary: step.name,
+      name: truncatePersistedString(step.name) ?? "",
+      summary: truncatePersistedString(step.name) ?? "",
     })),
     context_summary: trace.context_summary,
     artifact_refs: (trace.artifact_refs ?? []).map((ref) => ({
@@ -137,7 +198,13 @@ export function safeTraceForPersistence(
       label: ref.label,
       path: ref.path && !isAbsolutePath(ref.path) ? ref.path : "",
     })),
-    warnings: trace.warnings ?? [],
+    tool_events: sanitizedToolEvents as HermesGraphToolTraceEvent[] | undefined,
+    hermes_session_id: truncatePersistedString(trace.hermes_session_id),
+    process_isolation: truncatePersistedString(trace.process_isolation),
+    warnings: (trace.warnings ?? [])
+      .slice(0, MAX_PERSISTED_WARNINGS)
+      .map((warning) => truncatePersistedString(warning) ?? "")
+      .filter(Boolean),
   };
 }
 
@@ -146,7 +213,7 @@ export function buildEvidenceSnapshots(
   citations: LiveQueryCitation[] | null | undefined,
   capturedAt = new Date().toISOString(),
 ): AgentEvidenceSnapshot[] {
-  return (citations ?? []).filter((citation) => citation.path && !isAbsolutePath(citation.path)).map((citation) => {
+  return (citations ?? []).filter(isLegacyPathCitationForSnapshot).map((citation) => {
     const locator = [
       citation.path,
       citation.line_start ?? "",
@@ -228,6 +295,7 @@ export function turnFromResponse(
     corpusFreshness: null,
     worldGraphContext: response.world_graph_context ?? null,
     worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+    grounding: response.grounding ?? null,
   };
 }
 
@@ -387,6 +455,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
         evidenceSnapshots: turn.evidenceSnapshots ?? [],
         corpusFreshness: turn.corpusFreshness ?? null,
         worldGraphContextSummary: turn.worldGraphContextSummary ?? null,
+        grounding: turn.grounding ?? null,
       };
     }),
   };

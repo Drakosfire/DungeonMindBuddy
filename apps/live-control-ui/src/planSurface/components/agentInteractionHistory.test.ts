@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentInteractionThread, AgentInteractionTrace, AgentWorldGraphQueryContext } from "../../api/types";
+import type {
+  AgentInteractionThread,
+  AgentInteractionTrace,
+  AgentWorldGraphQueryContext,
+  HermesGraphGrounding,
+  WorldGraphAnchorCitation,
+} from "../../api/types";
 import {
   activeThreadStorageKey,
   buildEvidenceSnapshots,
@@ -19,6 +25,43 @@ import {
   threadStorageKey,
   upsertThreadInIndex,
 } from "./agentInteractionHistory";
+
+const NO_LEAK_MARKERS = [
+  "/foreign/absolute/path.md",
+  "FOREIGN_WORLD_ID",
+  "FOREIGN_CAMPAIGN_ID",
+  "FOREIGN_REVISION_ID",
+  "FOREIGN_SOURCE_ANCHOR_ID",
+  "RAW_PROMPT_SECRET",
+  "RAW_TOOL_ARGUMENT_SECRET",
+  "RAW_SOURCE_BODY_SECRET",
+  "RAW_HERMES_MESSAGE_SECRET",
+] as const;
+
+const graphGrounding: HermesGraphGrounding = {
+  schema: "dmb_hermes_graph_grounding_v1",
+  state: "grounded",
+  world_id: "eldyrwild",
+  campaign_id: "longmont-c2",
+  focus: { kind: "session", session_id: "session-21" },
+  admissibility: "gm",
+  revision_id: "rev-1",
+  successful_tool_count: 1,
+  source_anchor_count: 1,
+  diagnostic_codes: [],
+  warnings: [],
+};
+
+const graphCitation: WorldGraphAnchorCitation = {
+  schema: "dmb_world_graph_anchor_citation_v1",
+  kind: "world_graph_anchor",
+  anchor_id: "source-anchor:v1:abc",
+  world_id: "eldyrwild",
+  campaign_id: "longmont-c2",
+  focus: { kind: "session", session_id: "session-21" },
+  admissibility: "gm",
+  revision_id: "rev-1",
+};
 
 function makeThread(title = "Inn prep", updatedAt = "2026-06-22T00:00:00.000Z"): AgentInteractionThread {
   return {
@@ -218,6 +261,181 @@ describe("agentInteractionHistory", () => {
     expect(trace?.prompt_preview).toBeUndefined();
     expect(trace?.artifact_refs[0].path).toBe("");
     expect(trace?.artifact_refs[1].path).toBe("artifacts/trace.json");
+  });
+
+  it("persists grounding, graph citations, and sanitized tool events with reload round-trip", () => {
+    const thread = makeThread("Hermes graph prep");
+    const turn = turnFromResponse("Who is Lysandro?", {
+      answer: "Lysandro is at the gate.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      agent_trace: {
+        trace_id: "trace-hermes",
+        runtime: "api",
+        backend: "hermes",
+        mode: "hermes_graph_agent",
+        started_at: "2026-06-22T00:00:00.000Z",
+        completed_at: "2026-06-22T00:00:01.000Z",
+        elapsed_ms: 12,
+        status: "ok",
+        prompt_preview: "RAW_PROMPT_SECRET",
+        usage: { available: true, input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [{ kind: "file", label: "foreign", path: "/foreign/absolute/path.md" }],
+        tool_events: [{
+          tool_name: "graph_read",
+          state: "completion",
+          duration_ms: 8,
+          world_id: "eldyrwild",
+          campaign_id: "longmont-c2",
+          focus: { kind: "session", session_id: "session-21" },
+          admissibility: "gm",
+          revision_pin: "rev-1",
+          bounded_ids: { secret: "RAW_TOOL_ARGUMENT_SECRET" },
+          retrieval_schema: "dmb_world_graph_projection_v1",
+          outcome: "enough",
+          matched_node_ids: ["node-1"],
+          relationship_ids: ["edge-1"],
+          source_anchor_ids: [graphCitation.anchor_id],
+          diagnostic_codes: ["ok"],
+        }],
+        warnings: ["bounded warning"],
+      } as AgentInteractionTrace,
+    }, "hermes");
+    thread.turns = [turn];
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    for (const marker of NO_LEAK_MARKERS) {
+      expect(stored).not.toContain(marker);
+    }
+    expect(stored).toContain("dmb_hermes_graph_grounding_v1");
+    expect(stored).toContain("dmb_world_graph_anchor_citation_v1");
+    expect(stored).toContain("graph_read");
+    expect(stored).not.toContain("bounded_ids");
+    expect(stored).not.toContain("prompt_preview");
+
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded?.turns[0].grounding?.state).toBe("grounded");
+    expect(reloaded?.turns[0].citations?.[0]).toMatchObject({ kind: "world_graph_anchor", anchor_id: graphCitation.anchor_id });
+    expect(reloaded?.turns[0].trace?.tool_events?.[0]).toMatchObject({
+      tool_name: "graph_read",
+      outcome: "enough",
+      matched_node_ids: ["node-1"],
+    });
+    expect(reloaded?.turns[0].trace?.tool_events?.[0]).not.toHaveProperty("bounded_ids");
+  });
+
+  it("does not build path evidence snapshots for graph citations", () => {
+    const snapshots = buildEvidenceSnapshots([
+      graphCitation,
+      {
+        evidence_id: "e1",
+        path: "corpus/test.md",
+        line_start: 2,
+        line_end: 3,
+        source_role: "play_recap",
+        authority: "canon_play",
+      },
+    ]);
+
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].path).toBe("corpus/test.md");
+  });
+
+  it("caps sanitized graph tool events and string fields", () => {
+    const longId = `id-${"x".repeat(600)}`;
+    const trace = safeTraceForPersistence({
+      trace_id: "trace-caps",
+      runtime: "api",
+      backend: "hermes",
+      mode: "hermes_graph_agent",
+      started_at: "2026-06-22T00:00:00.000Z",
+      completed_at: "2026-06-22T00:00:01.000Z",
+      elapsed_ms: 1,
+      status: "ok",
+      usage: { available: true, input_tokens: null, output_tokens: null, total_tokens: null },
+      steps: [],
+      context_summary: {},
+      artifact_refs: [],
+      warnings: Array.from({ length: 20 }, (_, index) => `warning-${index}`),
+      tool_events: Array.from({ length: 30 }, (_, index) => ({
+        tool_name: `tool-${index}`,
+        state: "completion",
+        duration_ms: index,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        admissibility: "gm",
+        revision_pin: "rev-1",
+        bounded_ids: { leak: "RAW_TOOL_ARGUMENT_SECRET" },
+        retrieval_schema: null,
+        outcome: "enough",
+        matched_node_ids: Array.from({ length: 40 }, (_, idIndex) => `node-${idIndex}`),
+        relationship_ids: [],
+        source_anchor_ids: [longId],
+        diagnostic_codes: Array.from({ length: 40 }, (_, codeIndex) => `diag-${codeIndex}`),
+      })),
+    } as AgentInteractionTrace);
+
+    expect(trace?.warnings).toHaveLength(16);
+    expect(trace?.tool_events).toHaveLength(24);
+    expect(trace?.tool_events?.[0].matched_node_ids).toHaveLength(32);
+    expect(trace?.tool_events?.[0].diagnostic_codes).toHaveLength(32);
+    expect(trace?.tool_events?.[0].source_anchor_ids[0]).toHaveLength(512);
+    expect(JSON.stringify(trace)).not.toContain("bounded_ids");
+    expect(JSON.stringify(trace)).not.toContain("RAW_TOOL_ARGUMENT_SECRET");
+  });
+
+  it("tolerates legacy persisted turns without grounding, kind, or tool events", () => {
+    const legacyThread = makeThread("Legacy turn");
+    legacyThread.turns = [{
+      turnId: "legacy-turn",
+      askedAt: "2026-06-22T00:00:00.000Z",
+      completedAt: "2026-06-22T00:00:01.000Z",
+      question: "Legacy?",
+      answer: "Legacy answer",
+      backend: "live",
+      status: "ok",
+      citations: [{
+        evidence_id: "e1",
+        path: "corpus/test.md",
+        line_start: 1,
+        line_end: 1,
+        source_role: "play_recap",
+        authority: "canon_play",
+      }],
+      trace: {
+        trace_id: "legacy-trace",
+        runtime: "live",
+        backend: "live",
+        mode: "live",
+        started_at: "2026-06-22T00:00:00.000Z",
+        completed_at: "2026-06-22T00:00:01.000Z",
+        elapsed_ms: 1,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        warnings: [],
+      },
+    }];
+    localStorage.setItem(threadStorageKey("longmont-c2", legacyThread.threadId), JSON.stringify(legacyThread));
+
+    const reloaded = loadAgentThreadById("longmont-c2", legacyThread.threadId);
+    expect(reloaded?.turns[0].grounding).toBeUndefined();
+    expect(reloaded?.turns[0].citations?.[0].path).toBe("corpus/test.md");
+    expect(reloaded?.turns[0].trace?.tool_events).toBeUndefined();
   });
 
   it("persists world graph summary only and strips full graph projection detail", () => {

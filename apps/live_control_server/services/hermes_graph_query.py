@@ -30,6 +30,7 @@ GroundingState = Literal["grounded", "partial", "abstained", "error"]
 HostFactory = Callable[[], HermesGraphAgentHost]
 
 GROUNDING_SCHEMA = "dmb_hermes_graph_grounding_v1"
+CITATION_SCHEMA = "dmb_world_graph_anchor_citation_v1"
 LIVE_QUERY_SCHEMA = "dmb_live_query_response_v1"
 VALIDATION_ERROR_SCHEMA = "dmb_live_query_validation_error_v1"
 MODE = "hermes_graph_agent"
@@ -376,6 +377,38 @@ def _unique_source_anchors(events: Sequence[HermesGraphToolEvent]) -> list[str]:
     return ordered
 
 
+def _graph_citations_from_evidence(
+    *,
+    state: GroundingState,
+    scope: _DispatchedScope,
+    tool_events: Sequence[HermesGraphToolEvent],
+) -> list[dict[str, Any]]:
+    """Project opaque graph citations from PR354-accepted evidence only.
+
+    Citations are emitted only for grounded/partial finals. Anchor IDs come
+    solely from evidence-bearing completions at the dispatched scope; model
+    prose, messages, and trace strings never create citations.
+    """
+    if state not in {"grounded", "partial"}:
+        return []
+    evidence = [event for event in tool_events if _is_evidence_bearing(event, scope)]
+    anchors = _unique_source_anchors(evidence)
+    focus = dict(scope.focus)
+    return [
+        {
+            "schema": CITATION_SCHEMA,
+            "kind": "world_graph_anchor",
+            "anchor_id": anchor_id,
+            "world_id": scope.world_id,
+            "campaign_id": scope.campaign_id,
+            "focus": focus,
+            "admissibility": scope.admissibility,
+            "revision_id": scope.revision_id,
+        }
+        for anchor_id in anchors
+    ]
+
+
 def _later_evidence_recovers(
     events: Sequence[HermesGraphToolEvent],
     *,
@@ -710,6 +743,21 @@ def build_hermes_graph_product_response(
         grounding_events = result.tool_events
         if saw_mismatch and "hermes_tool_event_scope_mismatch" not in diagnostic_codes:
             diagnostic_codes = [*diagnostic_codes, "hermes_tool_event_scope_mismatch"]
+    citations = _graph_citations_from_evidence(
+        state=state,
+        scope=scope,
+        tool_events=grounding_events,
+    )
+    grounding = _grounding_block(
+        state=state,
+        scope=scope,
+        tool_events=grounding_events,
+        diagnostic_codes=diagnostic_codes,
+        warnings=warnings,
+    )
+    if state in {"grounded", "partial"}:
+        # Product contract: citation count matches accepted unique anchors.
+        grounding["source_anchor_count"] = len(citations)
     response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
@@ -736,17 +784,11 @@ def build_hermes_graph_product_response(
             "mode": MODE,
             "process_isolation": result.process_isolation,
         },
-        "citations": [],
+        "citations": citations,
         "context_packet": None,
         "warnings": list(warnings),
         "mutations": [],
-        "grounding": _grounding_block(
-            state=state,
-            scope=scope,
-            tool_events=grounding_events,
-            diagnostic_codes=diagnostic_codes,
-            warnings=warnings,
-        ),
+        "grounding": grounding,
         "agent_trace": _agent_trace(
             state=state,
             result=result,

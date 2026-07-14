@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-14 — PR010B Rung 3 done; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active
+**Updated:** 2026-07-14 — PR010B Rung 4A–4B done (#353/#354); PR355 Plan graph evidence presentation active
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -65,12 +65,14 @@ PR010B is decomposed into independently useful rungs:
 
 ```text
 DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
-DONE    PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter (#351)
-DONE    PR010B Rung 3 — embedded Hermes graph-agent turn
-DONE    PR010B Rung 4 / PR353 — persistent Hermes graph-agent host (#353)
-DOING   PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover
-NEXT    PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, dogfood
-LATER   PR010B product replacement, demolition, thread continuity
+DONE    PR010B Rung 2 — model-visible catalog and adapter (#351)
+DONE    PR010B Rung 3 — embedded Hermes graph-agent turn (#352)
+DONE    PR010B Rung 4A — persistent process-isolated host (#353)
+DONE    PR010B Rung 4B — single-turn backend product cutover (#354)
+DOING   PR010B Rung 4C / PR355 — Plan graph evidence presentation and reload-safe turn persistence
+NEXT    PR010B Rung 5 — same-thread object continuity
+LATER   PR010B Rung 6 — Hermes session-pointer continuity
+LATER   PR010B Rung 7 — product acceptance, demolition, and backend-toggle removal
 ```
 
 ---
@@ -166,7 +168,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Doing — Rung 1–3 complete; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active; PR355 Plan presentation/citations next.
+**Status:** Doing — Rung 1–4B complete (#350–#354); PR355 Plan graph evidence presentation and reload-safe turn persistence active.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 
@@ -174,9 +176,13 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 - **Rung 1 (DONE / #350):** Strict graph-only Hermes read-tool dispatcher over the five PR010A operations.
 - **Rung 2 (DONE / #351):** Model-visible tool catalog and JSON-string execution adapter derived from the same Rung 1 registry metadata.
-- **Rung 3 (DOING):** Embedded in-process Hermes `AIAgent` turn with packaged `dungeonbuddy_graph` plugin, optional caller-owned history, and typed tool-event results. No thread binding, persistence, routes, or UI.
-- **Rung 4 (NEXT):** Agent Interaction thread/session binding and reload continuity.
-- **Later:** Plan product wiring, obsolete retrieval demolition, dogfood acceptance, and backend-toggle removal.
+- **Rung 3 (DONE / #352):** Embedded in-process Hermes `AIAgent` turn with packaged `dungeonbuddy_graph` plugin, optional caller-owned history, and typed tool-event results.
+- **Rung 4A (DONE / #353):** Persistent process-isolated Hermes graph-agent host.
+- **Rung 4B (DONE / #354):** Single-turn Hermes backend product cutover through the host with fail-closed grounding.
+- **Rung 4C / PR355 (DOING):** Plan presentation of grounding, opaque graph citations, bounded tool trace, and reload-safe local turn persistence (display only — not Hermes session resume).
+- **Rung 5 (NEXT):** Same-thread object continuity (bounded prior-turn history / pronoun resolution with fresh graph reads).
+- **Rung 6 (LATER):** Hermes session-pointer continuity across reload/process restart.
+- **Rung 7 (LATER):** Product acceptance, obsolete retrieval demolition, and backend-toggle removal.
 
 **Target runtime shape:**
 

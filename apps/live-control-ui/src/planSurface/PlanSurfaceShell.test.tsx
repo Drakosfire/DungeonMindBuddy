@@ -1414,4 +1414,374 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/Saved to Markdown/i);
   });
+
+  function buildHermesGraphGrounding(
+    state: "grounded" | "partial" | "abstained" | "error",
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      schema: "dmb_hermes_graph_grounding_v1",
+      state,
+      world_id: "eldyrwild",
+      campaign_id: "longmont-c2",
+      focus: { kind: "session", session_id: "session-21" },
+      admissibility: "gm",
+      revision_id: "rev-pinned-1",
+      successful_tool_count: state === "error" ? 0 : 1,
+      source_anchor_count: state === "grounded" || state === "partial" ? 1 : 0,
+      diagnostic_codes: state === "error" ? ["graph_query_failed"] : [],
+      warnings: state === "partial" ? ["partial graph evidence"] : [],
+      ...overrides,
+    };
+  }
+
+  function buildGraphAnchorCitation(revisionId = "rev-pinned-1") {
+    return {
+      schema: "dmb_world_graph_anchor_citation_v1",
+      kind: "world_graph_anchor",
+      anchor_id: "source-anchor:v1:fixture-anchor",
+      world_id: "eldyrwild",
+      campaign_id: "longmont-c2",
+      focus: { kind: "session", session_id: "session-21" },
+      admissibility: "gm",
+      revision_id: revisionId,
+    };
+  }
+
+  function buildHermesGraphQueryResponse(overrides: Record<string, unknown> = {}) {
+    return {
+      answer: "Tripod stands at the North Gate.",
+      classification: { latency_mode: "hermes_graph_agent", event_type: "hermes_graph_agent" },
+      mode: "hermes_graph_agent",
+      status: "ok",
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: { backend: "hermes", runtime: "process_isolated" },
+      citations: [buildGraphAnchorCitation()],
+      context_packet: null,
+      grounding: buildHermesGraphGrounding("grounded"),
+      agent_trace: {
+        trace_id: "agent-trace-pr355",
+        runtime: "process_isolated",
+        backend: "hermes",
+        mode: "hermes_graph_agent",
+        started_at: "2026-07-14T18:00:00Z",
+        completed_at: "2026-07-14T18:00:01Z",
+        elapsed_ms: 88,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [{
+          tool_name: "search_campaign_graph",
+          state: "completion",
+          duration_ms: 20,
+          outcome: "enough",
+          world_id: "eldyrwild",
+          campaign_id: "longmont-c2",
+          revision_pin: "rev-pinned-1",
+          focus: { kind: "session", session_id: "session-21" },
+          admissibility: "gm",
+          matched_node_ids: ["node-tripod"],
+          relationship_ids: [],
+          source_anchor_ids: ["source-anchor:v1:fixture-anchor"],
+          diagnostic_codes: [],
+          bounded_ids: {},
+          retrieval_schema: null,
+        }],
+        warnings: [],
+      },
+      hermes_session: null,
+      ...overrides,
+    };
+  }
+
+  it("keeps Hermes interaction UI available when the source bundle fails to load", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: false, status: 500, text: async () => "bundle failed" } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(await screen.findByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Trace On" }));
+
+    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    await user.click(screen.getByText("Memory coverage diagnostics"));
+    expect(document.querySelector(".plan-agent-diagnostics-drawer .plan-agent-error")).toBeTruthy();
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/query"))).toBe(true);
+  });
+
+  it.each([
+    ["grounded", true] as const,
+    ["partial", true] as const,
+    ["abstained", false] as const,
+    ["error", false] as const,
+  ])("renders Hermes graph grounding state %s", async (state, showCards) => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+          answer: `${state} answer`,
+          grounding: buildHermesGraphGrounding(state),
+          citations: showCards ? [buildGraphAnchorCitation()] : [],
+          agent_trace: {
+            ...buildHermesGraphQueryResponse().agent_trace,
+            trace_id: `agent-trace-${state}`,
+          },
+        })),
+      } as Response);
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), `${state} question?`);
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    expect(await screen.findByText(`${state} answer`)).toBeInTheDocument();
+    if (showCards) {
+      expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
+    }
+    if (state === "abstained") {
+      expect(screen.queryByText(/No grounded evidence returned/i)).not.toBeInTheDocument();
+    }
+    if (state === "error") {
+      expect(screen.getByText("graph_query_failed")).toBeInTheDocument();
+    }
+  });
+
+  it("opens graph citations through the opaque source-anchor read route with pinned revision", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_world_graph_source_anchor_read_v1",
+          outcome: "enough",
+          anchorId: "source-anchor:v1:fixture-anchor",
+          truncated: false,
+          content: "Pinned anchor body from graph memory.",
+          diagnostics: [],
+          snapshot: {
+            worldId: "eldyrwild",
+            campaignId: "longmont-c2",
+            revisionId: "rev-pinned-1",
+            headRevisionId: "rev-pinned-1",
+            isHead: true,
+            focus: { kind: "session", sessionId: "session-21" },
+            admissibility: "gm",
+          },
+        }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
+      "Pinned anchor body from graph memory.",
+    );
+    const readCall = vi.mocked(globalThis.fetch).mock.calls.find(([url]) =>
+      String(url).includes("/api/live/world-graph/retrieval/source-anchor/read"),
+    );
+    expect(readCall).toBeTruthy();
+    expect(JSON.parse(String(readCall?.[1]?.body))).toEqual({
+      schema: "dmb_world_graph_source_anchor_read_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session", sessionId: "session-21" },
+      admissibility: "gm",
+      revisionPin: "rev-pinned-1",
+      anchorId: "source-anchor:v1:fixture-anchor",
+      maxChars: 4000,
+    });
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/citation-source"))).toBe(false);
+  });
+
+  it("shows no graph evidence content when the source-anchor read contradicts the citation contract", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_world_graph_source_anchor_read_v1",
+          outcome: "enough",
+          anchorId: "source-anchor:v1:fixture-anchor",
+          truncated: false,
+          content: "Contradictory body should not render.",
+          diagnostics: [],
+          snapshot: {
+            worldId: "eldyrwild",
+            campaignId: "longmont-c2",
+            revisionId: "rev-wrong",
+            headRevisionId: "rev-wrong",
+            isHead: true,
+            focus: { kind: "session", sessionId: "session-21" },
+            admissibility: "gm",
+          },
+        }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    const reader = await screen.findByRole("region", { name: "Graph evidence preview" });
+    expect(reader).toHaveTextContent(/did not match the pinned citation contract/i);
+    expect(reader).not.toHaveTextContent("Contradictory body should not render.");
+  });
+
+  it("reloads saved Hermes graph grounding, citations, and trace without a new query", async () => {
+    const user = userEvent.setup();
+    const savedThread = {
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      turns: [{
+        turnId: "turn-saved-graph",
+        askedAt: "2026-07-14T18:00:00Z",
+        completedAt: "2026-07-14T18:00:01Z",
+        question: "Saved graph question?",
+        answer: "Saved graph answer.",
+        backend: "hermes" as const,
+        status: "ok",
+        citations: [buildGraphAnchorCitation("rev-saved-original")],
+        trace: buildHermesGraphQueryResponse().agent_trace,
+        grounding: buildHermesGraphGrounding("grounded", { revision_id: "rev-saved-original" }),
+        warnings: [],
+      }],
+      uiState: { traceVisible: true, scrollAnchorTurnId: "turn-saved-graph" },
+    };
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+
+    expect(await screen.findByText("Saved graph answer.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("Graph tool activity (1)")).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"))).toHaveLength(0);
+  });
+
+  it("uses the saved citation revision when opening graph evidence after reload", async () => {
+    const user = userEvent.setup();
+    const savedThread = {
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      turns: [{
+        turnId: "turn-saved-graph",
+        askedAt: "2026-07-14T18:00:00Z",
+        completedAt: "2026-07-14T18:00:01Z",
+        question: "Saved graph question?",
+        answer: "Saved graph answer.",
+        backend: "hermes" as const,
+        status: "ok",
+        citations: [buildGraphAnchorCitation("rev-saved-original")],
+        trace: null,
+        grounding: buildHermesGraphGrounding("grounded", { revision_id: "rev-saved-original" }),
+        warnings: [],
+      }],
+      uiState: { traceVisible: false, scrollAnchorTurnId: "turn-saved-graph" },
+    };
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          schema: "dmb_world_graph_source_anchor_read_v1",
+          outcome: "enough",
+          anchorId: "source-anchor:v1:fixture-anchor",
+          truncated: false,
+          content: "Saved revision body.",
+          diagnostics: [],
+          snapshot: {
+            worldId: "eldyrwild",
+            campaignId: "longmont-c2",
+            revisionId: "rev-saved-original",
+            headRevisionId: "rev-head-newer",
+            isHead: false,
+            focus: { kind: "session", sessionId: "session-21" },
+            admissibility: "gm",
+          },
+        }),
+      } as Response);
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+
+    expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent("Saved revision body.");
+    const readCall = vi.mocked(globalThis.fetch).mock.calls.find(([url]) =>
+      String(url).includes("/api/live/world-graph/retrieval/source-anchor/read"),
+    );
+    expect(JSON.parse(String(readCall?.[1]?.body)).revisionPin).toBe("rev-saved-original");
+  });
+
+  it("shows graph tool activity when Trace On is enabled for Hermes graph answers", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    expect(await screen.findByText("Graph tool activity (1)")).toBeInTheDocument();
+    expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Trace On/i })).toBeInTheDocument();
+  });
 });

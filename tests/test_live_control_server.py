@@ -293,7 +293,18 @@ def test_query_can_route_through_hermes_backend(
     assert body["classification"]["intent"] == "hermes_graph_agent"
     assert body["status"] == "ok"
     assert body["grounding"]["state"] == "grounded"
-    assert body["citations"] == []
+    assert body["citations"] == [
+        {
+            "schema": "dmb_world_graph_anchor_citation_v1",
+            "kind": "world_graph_anchor",
+            "anchor_id": "anchor:route-1",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "revision_id": "rev:route",
+        }
+    ]
     assert body["context_packet"] is None
     assert body["hermes_session"] is None
     assert body["events_written"] == []
@@ -1254,7 +1265,18 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     assert body["agent_trace"]["steps"] == []
     assert body["agent_trace"]["context_summary"] == {}
     assert body["agent_trace"]["artifact_refs"] == []
-    assert body["citations"] == []
+    assert body["citations"] == [
+        {
+            "schema": "dmb_world_graph_anchor_citation_v1",
+            "kind": "world_graph_anchor",
+            "anchor_id": "anchor:honest",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "revision_id": "rev:honest",
+        }
+    ]
 
 
 def test_world_graph_unavailable_allows_corpus_path(

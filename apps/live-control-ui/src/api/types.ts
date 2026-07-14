@@ -279,13 +279,61 @@ export interface TurnClassification {
   skill_check?: Record<string, unknown> | null;
 }
 
-export interface LiveQueryCitation {
+export interface LegacyPathCitation {
+  kind?: "legacy_path";
   evidence_id: string;
   path: string;
   line_start: number | null;
   line_end: number | null;
   source_role: string;
   authority: string;
+}
+
+export interface WorldGraphAnchorCitation {
+  schema: "dmb_world_graph_anchor_citation_v1";
+  kind: "world_graph_anchor";
+  anchor_id: string;
+  world_id: string;
+  campaign_id: string;
+  focus: { kind: "none" | "session"; session_id: string | null };
+  admissibility: string;
+  revision_id: string;
+}
+
+export type LiveQueryCitation = LegacyPathCitation | WorldGraphAnchorCitation;
+
+export type HermesGraphGroundingState = "grounded" | "partial" | "abstained" | "error";
+
+export interface HermesGraphGrounding {
+  schema: "dmb_hermes_graph_grounding_v1";
+  state: HermesGraphGroundingState;
+  world_id: string;
+  campaign_id: string;
+  focus: { kind: "none" | "session"; session_id: string | null };
+  admissibility: string;
+  revision_id: string | null;
+  successful_tool_count: number;
+  source_anchor_count: number;
+  diagnostic_codes: string[];
+  warnings: string[];
+}
+
+export interface HermesGraphToolTraceEvent {
+  tool_name: string;
+  state: "start" | "completion" | "error" | string;
+  duration_ms: number | null;
+  world_id: string | null;
+  campaign_id: string | null;
+  focus: { kind: string | null; session_id: string | null } | null;
+  admissibility: string | null;
+  revision_pin: string | null;
+  bounded_ids: Record<string, unknown>;
+  retrieval_schema: string | null;
+  outcome: string | null;
+  matched_node_ids: string[];
+  relationship_ids: string[];
+  source_anchor_ids: string[];
+  diagnostic_codes: string[];
 }
 
 export interface LiveContextEvidenceRef {
@@ -404,7 +452,7 @@ export interface AgentInteractionTrace {
   context_summary: AgentInteractionContextSummary;
   artifact_refs: AgentInteractionTraceArtifactRef[];
   /** Additive PR354 graph-tool events; presentation owned by PR355. */
-  tool_events?: unknown[];
+  tool_events?: HermesGraphToolTraceEvent[];
   hermes_session_id?: string | null;
   process_isolation?: string | null;
   warnings: string[];
@@ -457,6 +505,7 @@ export interface AgentInteractionTurn {
   corpusFreshness?: CitationFreshnessCheckResult | null;
   worldGraphContext?: AgentWorldGraphQueryContext | null;
   worldGraphContextSummary?: PersistedWorldGraphContextSummary | null;
+  grounding?: HermesGraphGrounding | null;
 }
 
 export interface AgentInteractionThread {
@@ -656,6 +705,7 @@ export interface LiveQueryResponse {
   retrieval_freshness?: RetrievalFreshnessDecision | null;
   evidence_snapshots?: AgentEvidenceSnapshot[];
   world_graph_context?: AgentWorldGraphQueryContext | null;
+  grounding?: HermesGraphGrounding | null;
 }
 
 export interface LiveEvent {
@@ -2043,6 +2093,45 @@ export interface WorldGraphProjectionErrorResponse {
   code: string;
   message: string;
   statusCode: number;
+}
+
+export interface WorldGraphSourceAnchorReadRequest {
+  schema: "dmb_world_graph_source_anchor_read_request_v1";
+  worldId: string;
+  campaignId: string;
+  focus: WorldGraphProjectionFocus;
+  admissibility: "gm" | "player" | string;
+  revisionPin: string | null;
+  anchorId: string;
+  maxChars?: number;
+}
+
+export interface WorldGraphSourceAnchorReadSnapshot {
+  worldId: string;
+  campaignId: string;
+  revisionId: string;
+  headRevisionId: string;
+  isHead: boolean;
+  focus: WorldGraphProjectionFocus;
+  admissibility: string;
+}
+
+export interface WorldGraphSourceAnchorReadResponse {
+  schema: "dmb_world_graph_source_anchor_read_v1";
+  outcome: "enough" | "partial" | "empty" | "denied" | "truncated" | "unavailable" | string;
+  snapshot: WorldGraphSourceAnchorReadSnapshot | null;
+  anchorId: string;
+  evidenceRefId: string | null;
+  sourceArtifactId: string | null;
+  sourceDomain: string | null;
+  locatorKind: "heading" | "json_pointer" | "unsupported" | string | null;
+  mediaType: string | null;
+  content: string | null;
+  contentSha256: string | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  truncated: boolean;
+  diagnostics: Array<{ code: string; message: string; severity: string }>;
 }
 
 export interface GoldGraphProjectionResponse extends UnionSupergraphProjectionResponse {

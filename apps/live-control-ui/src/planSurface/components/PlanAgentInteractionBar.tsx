@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { getSourceBundle, postCitationFreshness, postCitationSource, postLiveQuery } from "../../api/liveApi";
+import {
+  getSourceBundle,
+  postCitationFreshness,
+  postCitationSource,
+  postLiveQuery,
+  postWorldGraphSourceAnchorRead,
+} from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   CitationFreshnessResponse,
   CitationSourceResponse,
   AgentInteractionTurn,
+  HermesGraphGrounding,
+  HermesGraphGroundingState,
   IngestionSourceBundle,
+  LegacyPathCitation,
   LiveQueryBackend,
+  LiveQueryCitation,
   LiveQueryResponse,
   PlanViewProjection,
   SourceUnit,
+  WorldGraphAnchorCitation,
+  WorldGraphSourceAnchorReadResponse,
 } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
 
@@ -47,6 +59,7 @@ interface PlanAgentInteractionBarProps {
   loadBundle?: typeof getSourceBundle;
   askCorpus?: typeof postLiveQuery;
   readCitationSource?: typeof postCitationSource;
+  readGraphSourceAnchor?: typeof postWorldGraphSourceAnchorRead;
   checkCitationFreshness?: typeof postCitationFreshness;
 }
 
@@ -75,6 +88,126 @@ function lineLabel(lineStart?: number | null, lineEnd?: number | null): string {
   return `line ${lineStart ?? lineEnd}`;
 }
 
+const HERMES_GROUNDING_STATES: HermesGraphGroundingState[] = [
+  "grounded",
+  "partial",
+  "abstained",
+  "error",
+];
+
+function isHermesGraphAgentResponse(answer: LiveQueryResponse): boolean {
+  return answer.mode === "hermes_graph_agent" || answer.agent_trace?.mode === "hermes_graph_agent";
+}
+
+type HermesGroundingParseResult =
+  | { kind: "none" }
+  | { kind: "malformed"; reason: string }
+  | { kind: "valid"; grounding: HermesGraphGrounding };
+
+function parseHermesGraphGrounding(answer: LiveQueryResponse): HermesGroundingParseResult {
+  if (!isHermesGraphAgentResponse(answer)) return { kind: "none" };
+  const grounding = answer.grounding;
+  if (!grounding || grounding.schema !== "dmb_hermes_graph_grounding_v1") {
+    return { kind: "malformed", reason: "Missing or invalid Hermes graph grounding envelope." };
+  }
+  if (!HERMES_GROUNDING_STATES.includes(grounding.state)) {
+    return { kind: "malformed", reason: `Unknown grounding state: ${String(grounding.state)}` };
+  }
+  return { kind: "valid", grounding };
+}
+
+// TODO(prepMemoryQa): delegate Hermes headings/warnings to prepMemoryQa once sibling exports land.
+function resolveAnswerHeading(answer: LiveQueryResponse): string {
+  const parsed = parseHermesGraphGrounding(answer);
+  if (parsed.kind === "valid") {
+    switch (parsed.grounding.state) {
+      case "grounded":
+        return "Graph-grounded answer";
+      case "partial":
+        return "Qualified graph answer";
+      case "abstained":
+        return "Graph evidence gap";
+      case "error":
+        return "Hermes graph error";
+    }
+  }
+  if (parsed.kind === "malformed") return "Hermes grounding contract error";
+  return answerHeading(answer);
+}
+
+function shouldShowUngroundedWarning(answer: LiveQueryResponse): boolean {
+  const parsed = parseHermesGraphGrounding(answer);
+  if (parsed.kind === "valid" || parsed.kind === "malformed") return false;
+  return !hasGrounding(answer);
+}
+
+function shouldShowGraphCitationCards(answer: LiveQueryResponse): boolean {
+  const parsed = parseHermesGraphGrounding(answer);
+  return parsed.kind === "valid"
+    && (parsed.grounding.state === "grounded" || parsed.grounding.state === "partial");
+}
+
+function isLegacyPathCitation(citation: LiveQueryCitation): citation is LegacyPathCitation {
+  if (citation.kind === "world_graph_anchor") return false;
+  return typeof (citation as LegacyPathCitation).path === "string"
+    && typeof (citation as LegacyPathCitation).evidence_id === "string";
+}
+
+function isValidWorldGraphAnchorCitation(citation: LiveQueryCitation): citation is WorldGraphAnchorCitation {
+  if (citation.kind !== "world_graph_anchor" || citation.schema !== "dmb_world_graph_anchor_citation_v1") {
+    return false;
+  }
+  return Boolean(
+    citation.anchor_id
+    && citation.world_id
+    && citation.campaign_id
+    && citation.revision_id
+    && citation.admissibility
+    && (citation.focus.kind === "none" || citation.focus.kind === "session"),
+  );
+}
+
+function graphCitationKey(citation: WorldGraphAnchorCitation): string {
+  return `graph:${citation.anchor_id}:${citation.revision_id}`;
+}
+
+function shortenAnchorId(anchorId: string): string {
+  if (anchorId.length <= 28) return anchorId;
+  return `${anchorId.slice(0, 14)}…${anchorId.slice(-10)}`;
+}
+
+function graphCitationsFromAnswer(answer: LiveQueryResponse): WorldGraphAnchorCitation[] {
+  if (!shouldShowGraphCitationCards(answer)) return [];
+  return (answer.citations ?? []).filter(isValidWorldGraphAnchorCitation);
+}
+
+function focusMatchesCitation(
+  citation: WorldGraphAnchorCitation,
+  snapshot: NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
+): boolean {
+  if (snapshot.focus.kind !== citation.focus.kind) return false;
+  const citationSessionId = citation.focus.session_id ?? null;
+  return snapshot.focus.sessionId === citationSessionId;
+}
+
+function validateGraphSourceAnchorRead(
+  citation: WorldGraphAnchorCitation,
+  response: WorldGraphSourceAnchorReadResponse,
+): boolean {
+  if (response.anchorId !== citation.anchor_id) return false;
+  const snapshot = response.snapshot;
+  if (!snapshot) return false;
+  return snapshot.worldId === citation.world_id
+    && snapshot.campaignId === citation.campaign_id
+    && snapshot.admissibility === citation.admissibility
+    && snapshot.revisionId === citation.revision_id
+    && focusMatchesCitation(citation, snapshot);
+}
+
+function graphSourceAnchorHasContent(outcome: string): boolean {
+  return outcome === "enough" || outcome === "partial" || outcome === "truncated";
+}
+
 function evidenceCardsFromAnswer(answer: LiveQueryResponse): EvidenceCard[] {
   const cards = new Map<string, EvidenceCard>();
   for (const item of answer.context_packet?.admitted_evidence ?? []) {
@@ -90,6 +223,7 @@ function evidenceCardsFromAnswer(answer: LiveQueryResponse): EvidenceCard[] {
     });
   }
   for (const citation of answer.citations ?? []) {
+    if (!isLegacyPathCitation(citation)) continue;
     const key = citationKey(citation.path, citation.evidence_id);
     if (cards.has(key)) continue;
     cards.set(key, {
@@ -168,6 +302,7 @@ export function PlanAgentInteractionBar({
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
   readCitationSource = postCitationSource,
+  readGraphSourceAnchor = postWorldGraphSourceAnchorRead,
   checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
@@ -196,6 +331,10 @@ export function PlanAgentInteractionBar({
   const [sourceStatus, setSourceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceResponse, setSourceResponse] = useState<CitationSourceResponse | null>(null);
+  const [graphReadStatus, setGraphReadStatus] = useState<"idle" | "loading" | "ready" | "error" | "contract_error">("idle");
+  const [graphReadError, setGraphReadError] = useState<string | null>(null);
+  const [graphReadResponse, setGraphReadResponse] = useState<WorldGraphSourceAnchorReadResponse | null>(null);
+  const [graphReadWarnings, setGraphReadWarnings] = useState<string[]>([]);
   const threadSummaries = agentInteraction.threadSummaries;
   const [threadSwitcherOpen, setThreadSwitcherOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -245,6 +384,8 @@ export function PlanAgentInteractionBar({
   const answer = activeTurn ? (turnResponses[activeTurn.turnId] ?? ({
     answer: activeTurn.answer,
     status: activeTurn.status,
+    mode: activeTurn.trace?.mode
+      ?? (activeTurn.grounding?.schema === "dmb_hermes_graph_grounding_v1" ? "hermes_graph_agent" : undefined),
     citations: activeTurn.citations ?? [],
     warnings: activeTurn.warnings ?? [],
     agent_trace: activeTurn.trace ?? null,
@@ -256,9 +397,13 @@ export function PlanAgentInteractionBar({
     diagnostics: {},
     provenance: {},
     retrieval_freshness: activeTurn.retrievalFreshness ?? null,
+    grounding: activeTurn.grounding ?? null,
   } satisfies LiveQueryResponse)) : null;
   const packetReview = answer ? buildPacketReview(answer) : null;
   const citationCards = answer ? evidenceCardsFromAnswer(answer) : [];
+  const graphCitationCards = answer ? graphCitationsFromAnswer(answer) : [];
+  const hermesGrounding = answer ? parseHermesGraphGrounding(answer) : { kind: "none" as const };
+  const answerHeadingLabel = answer ? resolveAnswerHeading(answer) : "";
   const threadTitle = thread?.title ?? "New prep thread";
   const traceVisible = thread?.uiState?.traceVisible ?? false;
   const corpusFreshness = activeTurn?.corpusFreshness ?? null;
@@ -276,6 +421,10 @@ export function PlanAgentInteractionBar({
     setSourceStatus("idle");
     setSourceError(null);
     setSourceResponse(null);
+    setGraphReadStatus("idle");
+    setGraphReadError(null);
+    setGraphReadResponse(null);
+    setGraphReadWarnings([]);
   }
 
   function refreshThreadSummaries() {
@@ -433,6 +582,10 @@ export function PlanAgentInteractionBar({
     setSourceStatus("loading");
     setSourceError(null);
     setSourceResponse(null);
+    setGraphReadStatus("idle");
+    setGraphReadError(null);
+    setGraphReadResponse(null);
+    setGraphReadWarnings([]);
     try {
       const response = await readCitationSource({
         path: card.path,
@@ -445,6 +598,43 @@ export function PlanAgentInteractionBar({
     } catch (loadError) {
       setSourceStatus("error");
       setSourceError(loadError instanceof Error ? loadError.message : "Unable to read citation source");
+    }
+  }
+
+  async function openGraphCitationSource(citation: WorldGraphAnchorCitation) {
+    setSelectedCitationKey(graphCitationKey(citation));
+    setGraphReadStatus("loading");
+    setGraphReadError(null);
+    setGraphReadResponse(null);
+    setGraphReadWarnings([]);
+    setSourceStatus("idle");
+    setSourceError(null);
+    setSourceResponse(null);
+    try {
+      const response = await readGraphSourceAnchor({
+        schema: "dmb_world_graph_source_anchor_read_request_v1",
+        worldId: citation.world_id,
+        campaignId: citation.campaign_id,
+        focus: {
+          kind: citation.focus.kind,
+          sessionId: citation.focus.session_id ?? null,
+        },
+        admissibility: citation.admissibility,
+        revisionPin: citation.revision_id,
+        anchorId: citation.anchor_id,
+        maxChars: 4000,
+      });
+      if (!validateGraphSourceAnchorRead(citation, response)) {
+        setGraphReadStatus("contract_error");
+        setGraphReadError("Source-anchor read response did not match the pinned citation contract.");
+        return;
+      }
+      setGraphReadResponse(response);
+      setGraphReadWarnings(response.diagnostics.map((item) => item.message).filter(Boolean));
+      setGraphReadStatus("ready");
+    } catch (loadError) {
+      setGraphReadStatus("error");
+      setGraphReadError(loadError instanceof Error ? loadError.message : "Unable to read graph source anchor");
     }
   }
 
@@ -469,7 +659,9 @@ export function PlanAgentInteractionBar({
         queryBackend,
         {
           agentThreadId: currentThread.threadId,
-          hermesSessionId: currentThread.hermesSession?.sessionId ?? null,
+          ...(queryBackend === "live"
+            ? { hermesSessionId: currentThread.hermesSession?.sessionId ?? null }
+            : {}),
           traceRequested: currentThread.uiState?.traceVisible ?? false,
           worldGraphContext: planWorldGraphContext && projectionState !== "loading"
             ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
@@ -478,15 +670,22 @@ export function PlanAgentInteractionBar({
             : null,
         },
       );
-      const nextTurn = turnFromResponse(trimmed, response, queryBackend);
+      const nextTurn = {
+        ...turnFromResponse(trimmed, response, queryBackend),
+        grounding: response.grounding ?? null,
+      };
       const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
+      const isHermesGraphAgentTurn = response.mode === "hermes_graph_agent"
+        || response.agent_trace?.mode === "hermes_graph_agent";
       const nextThread: AgentInteractionThread = {
         ...currentThread,
         threadId: response.agent_thread_id ?? currentThread.threadId,
         title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(trimmed),
         updatedAt: new Date().toISOString(),
         activeBackend: queryBackend,
-        hermesSession: response.hermes_session ?? currentThread.hermesSession ?? null,
+        hermesSession: isHermesGraphAgentTurn
+          ? (response.hermes_session ?? null)
+          : (response.hermes_session ?? currentThread.hermesSession ?? null),
         turns: nextTurns,
         uiState: {
           traceVisible: currentThread.uiState?.traceVisible ?? false,
@@ -581,27 +780,22 @@ export function PlanAgentInteractionBar({
             </section>
           ) : null}
 
-          {status === "loading" ? <p className="plan-agent-muted">Loading source bundle…</p> : null}
-          {status === "error" ? (
-            <p className="plan-agent-error">{error ?? "Unable to load source bundle."}</p>
-          ) : null}
-          {bundle ? (
-            <div className="plan-agent-content">
-              {showNewThreadSuggestion ? (
-                <section className="plan-agent-thread-suggestion" aria-label="Thread getting long">
-                  <div>
-                    <p className="plan-surface-kicker">Thread getting long</p>
-                    <p>
-                      This thread has {turns.length} turns. Start a new prep thread for a fresh topic?
-                    </p>
-                  </div>
-                  <div>
-                    <button type="button" onClick={createNewThread}>Start new thread</button>
-                    <button type="button" onClick={dismissNewThreadSuggestion}>Keep going</button>
-                  </div>
-                </section>
-              ) : null}
-              <form className="plan-agent-ask" onSubmit={submitQuestion}>
+          <div className="plan-agent-content">
+            {showNewThreadSuggestion ? (
+              <section className="plan-agent-thread-suggestion" aria-label="Thread getting long">
+                <div>
+                  <p className="plan-surface-kicker">Thread getting long</p>
+                  <p>
+                    This thread has {turns.length} turns. Start a new prep thread for a fresh topic?
+                  </p>
+                </div>
+                <div>
+                  <button type="button" onClick={createNewThread}>Start new thread</button>
+                  <button type="button" onClick={dismissNewThreadSuggestion}>Keep going</button>
+                </div>
+              </section>
+            ) : null}
+            <form className="plan-agent-ask" onSubmit={submitQuestion}>
                 <h3>Ask prep memory</h3>
                 <fieldset className="plan-agent-backend-picker">
                   <legend>Answer mode</legend>
@@ -653,7 +847,9 @@ export function PlanAgentInteractionBar({
                 {hasSupportedGraphContext && projectionState === "error" ? (
                   <p className="plan-agent-warning">
                     World graph projection error: {projectionError ?? "unknown error"}.
-                    {" "}Query will continue with an unpinned revision.
+                    {queryBackend === "hermes"
+                      ? " The server will resolve the authoritative revision for Hermes graph queries."
+                      : " Query will continue with an unpinned revision."}
                   </p>
                 ) : null}
                 <button
@@ -725,14 +921,40 @@ export function PlanAgentInteractionBar({
                         answer={packetReview ? null : answer.answer}
                       />
                     ) : null}
-                    {!hasGrounding(answer) ? (
+                    {!shouldShowUngroundedWarning(answer) ? null : (
                       <p className="plan-agent-grounding-warning">
                         {UNGROUNDED_ANSWER_WARNING}
                       </p>
+                    )}
+                    {hermesGrounding.kind === "malformed" ? (
+                      <p className="plan-agent-error">{hermesGrounding.reason}</p>
+                    ) : null}
+                    {hermesGrounding.kind === "valid" && hermesGrounding.grounding.state === "error" ? (
+                      <div className="plan-agent-graph-grounding-error">
+                        {hermesGrounding.grounding.diagnostic_codes.length ? (
+                          <ul>
+                            {hermesGrounding.grounding.diagnostic_codes.map((code) => (
+                              <li key={code}><code>{code}</code></li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="plan-agent-muted">Hermes graph query failed without diagnostic codes.</p>
+                        )}
+                      </div>
+                    ) : null}
+                    {hermesGrounding.kind === "valid" && hermesGrounding.grounding.state === "partial" && hermesGrounding.grounding.warnings.length ? (
+                      <ul className="plan-agent-graph-grounding-warnings">
+                        {hermesGrounding.grounding.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
                     ) : null}
                     {!(answer.agent_trace && traceVisible && !packetReview) ? (
-                      <section className="plan-agent-answer-card" aria-label={answerHeading(answer)}>
-                        <p className="plan-surface-kicker">{answerHeading(answer)}</p>
+                      <section
+                        className={`plan-agent-answer-card plan-agent-answer-card-${hermesGrounding.kind === "valid" ? hermesGrounding.grounding.state : "legacy"}`}
+                        aria-label={answerHeadingLabel}
+                      >
+                        <p className="plan-surface-kicker plan-agent-grounding-label">{answerHeadingLabel}</p>
                         <p>{answer.answer}</p>
                       </section>
                     ) : null}
@@ -762,6 +984,31 @@ export function PlanAgentInteractionBar({
                         onCheck={() => void checkCurrentSourceState()}
                       />
                     ) : null}
+                    {graphCitationCards.length ? (
+                      <section className="plan-agent-graph-citation-cards" aria-label="Graph evidence">
+                        <h4>Graph evidence</h4>
+                        <ul>
+                          {graphCitationCards.map((citation, index) => (
+                            <li
+                              key={graphCitationKey(citation)}
+                              data-selected={selectedCitationKey === graphCitationKey(citation)}
+                            >
+                              <strong>Graph evidence {index + 1}</strong>
+                              <details className="plan-agent-graph-anchor-id">
+                                <summary><code>{shortenAnchorId(citation.anchor_id)}</code></summary>
+                                <code>{citation.anchor_id}</code>
+                              </details>
+                              <span className="plan-agent-muted plan-agent-graph-revision">
+                                Pinned revision · <code>{citation.revision_id}</code>
+                              </span>
+                              <button type="button" onClick={() => void openGraphCitationSource(citation)}>
+                                Open evidence
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
                     {citationCards.length ? (
                       <details className="plan-agent-metadata-drawer">
                         <summary>Supporting sources ({citationCards.length})</summary>
@@ -782,6 +1029,51 @@ export function PlanAgentInteractionBar({
                           </ul>
                         </section>
                       </details>
+                    ) : null}
+                    {graphReadStatus !== "idle" ? (
+                      <section className="plan-agent-graph-source-reader" aria-label="Graph evidence preview">
+                        <div>
+                          <p className="plan-surface-kicker">Graph evidence preview</p>
+                          <h4>
+                            {graphReadStatus === "loading"
+                              ? "Loading graph evidence…"
+                              : graphReadResponse?.anchorId ?? "Graph evidence unavailable"}
+                          </h4>
+                        </div>
+                        {graphReadStatus === "loading" ? (
+                          <p className="plan-agent-muted">Reading pinned source anchor…</p>
+                        ) : null}
+                        {graphReadStatus === "error" ? (
+                          <p className="plan-agent-error">{graphReadError ?? "Unable to read graph source anchor."}</p>
+                        ) : null}
+                        {graphReadStatus === "contract_error" ? (
+                          <p className="plan-agent-error">{graphReadError ?? "Graph source-anchor contract error."}</p>
+                        ) : null}
+                        {graphReadStatus === "ready" && graphReadResponse ? (
+                          graphSourceAnchorHasContent(graphReadResponse.outcome) && graphReadResponse.content ? (
+                            <>
+                              {graphReadWarnings.length ? (
+                                <ul className="plan-agent-graph-read-warnings">
+                                  {graphReadWarnings.map((warning) => (
+                                    <li key={warning}>{warning}</li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                              <pre>{graphReadResponse.content}</pre>
+                            </>
+                          ) : (
+                            <p className="plan-agent-muted plan-agent-graph-read-empty">
+                              {graphReadResponse.outcome === "empty"
+                                ? "No content at this pinned source anchor."
+                                : graphReadResponse.outcome === "denied"
+                                  ? "Source anchor read denied for this admissibility scope."
+                                  : graphReadResponse.outcome === "unavailable"
+                                    ? "Source anchor content is unavailable."
+                                    : "No readable content returned for this source anchor."}
+                            </p>
+                          )
+                        ) : null}
+                      </section>
                     ) : null}
                     {sourceStatus !== "idle" ? (
                       <section className="plan-agent-source-reader" aria-label="Source preview">
@@ -815,10 +1107,16 @@ export function PlanAgentInteractionBar({
                     <p>{activeTurn.answer}</p>
                   </div>
                 ) : null}
-              </form>
+            </form>
 
-              <details className="plan-agent-diagnostics-drawer">
-                <summary>Memory coverage diagnostics</summary>
+            <details className="plan-agent-diagnostics-drawer">
+              <summary>Memory coverage diagnostics</summary>
+              {status === "loading" ? <p className="plan-agent-muted">Loading source bundle…</p> : null}
+              {status === "error" ? (
+                <p className="plan-agent-error">{error ?? "Unable to load source bundle."}</p>
+              ) : null}
+              {bundle ? (
+                <>
                 <section className="plan-agent-proof" aria-label="Ingestion proof">
                   <div>
                     <p className="plan-surface-kicker">Ingestion proof</p>
@@ -883,9 +1181,10 @@ export function PlanAgentInteractionBar({
                     </ul>
                   </div>
                 </div>
-              </details>
-            </div>
-          ) : null}
+                </>
+              ) : null}
+            </details>
+          </div>
         </div>
       ) : null}
 
