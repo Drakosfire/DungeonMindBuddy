@@ -113,6 +113,36 @@ def default_graph_only_capability_policy(
     )
 
 
+def validate_capability_policy_structure(
+    policy: HermesCapabilityPolicy,
+) -> str | None:
+    """Fail-closed structural checks before Hermes agent construction.
+
+    Returns an error code string, or ``None`` when the policy is well-formed.
+    """
+    if not policy.enabled_toolsets:
+        return "hermes_capability_policy_empty_toolsets"
+    if not policy.enabled_tool_names:
+        return "hermes_capability_policy_empty_tools"
+    names = list(policy.enabled_tool_names)
+    if len(names) != len(set(names)):
+        return "hermes_capability_policy_duplicate_tool_names"
+    rule_names = [rule.tool_name for rule in policy.tool_rules]
+    if len(rule_names) != len(set(rule_names)):
+        return "hermes_capability_policy_duplicate_tool_rules"
+    if set(rule_names) != set(names):
+        return "hermes_capability_policy_rule_name_mismatch"
+    if len(policy.tool_rules) != len(names):
+        return "hermes_capability_policy_rule_count_mismatch"
+    for rule in policy.tool_rules:
+        if not rule.allowed_effects:
+            return "hermes_capability_policy_empty_effects"
+        # Graph-scope tools must permit at least read for this product path.
+        if rule.require_graph_scope and "read" not in rule.allowed_effects:
+            return "hermes_capability_policy_graph_read_required"
+    return None
+
+
 def set_graph_root_override(root: Path | None) -> Any:
     """Set the ContextVar token for an optional World Graph root override."""
     return _graph_root_override.set(root)
@@ -271,4 +301,5 @@ __all__ = [
     "reset_graph_root_override",
     "set_active_capability_policy",
     "set_graph_root_override",
+    "validate_capability_policy_structure",
 ]

@@ -439,6 +439,9 @@ def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) ->
     assert completion.relationship_ids == ["edge:tripod-north-gate"]
     assert completion.source_anchor_ids == ["source-anchor:v1:abc"]
     assert completion.diagnostic_codes == ["coverage_gap"]
+    assert "queryText" not in completion.bounded_ids
+    assert completion.bounded_ids.get("queryTextChars") == len("Tripod")
+    assert "queryTextSha25616" in completion.bounded_ids
     dumped = json.dumps(
         [
             {
@@ -452,6 +455,8 @@ def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) ->
     )
     assert "/secret/path" not in dumped
     assert "should never appear" not in dumped
+    assert "Tripod" not in dumped
+    assert result.process_isolation == "process_exclusive"
 
 
 def test_summarize_uses_pr010a_edge_id_and_top_level_anchor_id() -> None:
@@ -771,16 +776,25 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Principal integration proof: real AIAgent + mocked provider tool call."""
+    """Principal integration proof: real AIAgent + mocked provider tool call.
+
+    Imports Hermes *before* the isolated profile exists and does not manually
+    discover plugins — the default runtime must refresh discovery itself.
+    """
     from apps.live_control_server.services.hermes_graph_agent import (
         hermes_import_namespace,
         import_hermes_aiagent,
     )
 
-    home = _enable_graph_plugin(tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(home))
-
-    # Discover plugins into the process registry before the agent turn.
+    # Poison prior Hermes state: import + discover under an empty profile.
+    poison_home = tmp_path / "poison-home"
+    poison_home.mkdir()
+    (poison_home / "config.yaml").write_text(
+        "plugins:\n  enabled: []\n  disabled: []\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(poison_home))
+    AIAgent = import_hermes_aiagent()
     with hermes_import_namespace():
         from hermes_cli import plugins as hermes_plugins
 
@@ -802,7 +816,6 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
         _fake_execute,
     )
 
-    AIAgent = import_hermes_aiagent()
     tool_args = {
         "schema": "dmb_world_graph_search_request_v1",
         "worldId": "world:SPOOF",
@@ -847,6 +860,7 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
         agent.save_trajectories = False
         return agent
 
+    # Do not pre-create or discover under the turn home — runtime owns that.
     result = run_hermes_graph_agent_turn(
         HermesGraphAgentTurnRequest(
             question="Where is Tripod?",
@@ -858,7 +872,7 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
         agent_factory=_factory,
     )
 
-    assert result.status == "ok"
+    assert result.status == "ok", (result.error_code, result.error_message)
     assert result.final_response == "Tripod stands at the North Gate."
     assert adapter_calls == [
         (
@@ -881,3 +895,172 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
     assert [e.state for e in result.tool_events] == ["start", "completion"]
     assert result.tool_events[1].matched_node_ids == ["threat:tripod-null-calf"]
     assert result.tool_events[1].outcome == "enough"
+    assert result.process_isolation == "process_exclusive"
+
+
+def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
+    from graph_memory.hermes_graph_plugin import validate_capability_policy_structure
+
+    bad = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME,),
+        enabled_tool_names=("search_campaign_graph", "get_campaign_object"),
+        graph_scope=_default_scope(),
+        tool_rules=(
+            HermesToolCapabilityRule(
+                tool_name="search_campaign_graph",
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+    assert validate_capability_policy_structure(bad) == (
+        "hermes_capability_policy_rule_name_mismatch"
+    )
+
+
+def test_policy_with_incomplete_enabled_names_fails_before_provider(
+    tmp_path: Path,
+) -> None:
+    """Model-visible tools must match enabled_tool_names exactly."""
+    names = ORDERED_TOOL_NAMES[:4]
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME,),
+        enabled_tool_names=names,
+        graph_scope=_default_scope(),
+        tool_rules=tuple(
+            HermesToolCapabilityRule(
+                tool_name=name,
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            )
+            for name in names
+        ),
+    )
+
+    class _MustNotRun(_FakeAgent):
+        def __init__(self, **kwargs: Any) -> None:
+            raise AssertionError("agent must not be constructed on surface mismatch")
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+            capability_policy=policy,
+        ),
+        agent_factory=_MustNotRun,
+    )
+    assert result.status == "error"
+    assert result.error_code == "hermes_tool_surface_mismatch"
+    assert result.final_response is None
+
+
+def test_tool_event_durations_correlate_by_tool_call_id(tmp_path: Path) -> None:
+    import time as time_mod
+
+    class _ConcurrentSameTool(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            del user_message, kwargs
+            args_a = {
+                "worldId": "world:eldyrwild",
+                "campaignId": "campaign:c1",
+                "queryText": "alpha-query-text",
+            }
+            args_b = {
+                "worldId": "world:eldyrwild",
+                "campaignId": "campaign:c1",
+                "queryText": "beta-query-text-longer",
+            }
+            self._start("call-a", "search_campaign_graph", args_a)
+            time_mod.sleep(0.02)
+            self._start("call-b", "search_campaign_graph", args_b)
+            time_mod.sleep(0.03)
+            self._complete(
+                "call-a",
+                "search_campaign_graph",
+                args_a,
+                json.dumps(
+                    {
+                        "schema": "dmb_world_graph_retrieval_result_v1",
+                        "operation": "search",
+                        "outcome": "empty",
+                        "matchedNodeIds": [],
+                    }
+                ),
+            )
+            time_mod.sleep(0.02)
+            self._complete(
+                "call-b",
+                "search_campaign_graph",
+                args_b,
+                json.dumps(
+                    {
+                        "schema": "dmb_world_graph_retrieval_result_v1",
+                        "operation": "search",
+                        "outcome": "empty",
+                        "matchedNodeIds": [],
+                    }
+                ),
+            )
+            return {
+                "final_response": "done",
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+        ),
+        agent_factory=_ConcurrentSameTool,
+    )
+    assert result.status == "ok"
+    completions = [e for e in result.tool_events if e.state == "completion"]
+    assert len(completions) == 2
+    # call-a started first and completed first → shorter duration than call-b.
+    assert completions[0].duration_ms is not None
+    assert completions[1].duration_ms is not None
+    assert completions[0].duration_ms < completions[1].duration_ms
+    assert "queryText" not in completions[0].bounded_ids
+    assert completions[0].bounded_ids["queryTextChars"] == len("alpha-query-text")
+    assert completions[1].bounded_ids["queryTextChars"] == len("beta-query-text-longer")
+
+
+def test_default_runtime_refreshes_discovery_after_prior_hermes_import(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: prior Hermes import must not skip isolated-profile discovery."""
+    from apps.live_control_server.services.hermes_graph_agent import (
+        hermes_import_namespace,
+        import_hermes_aiagent,
+    )
+
+    poison = tmp_path / "prior"
+    poison.mkdir()
+    (poison / "config.yaml").write_text(
+        "plugins:\n  enabled: []\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(poison))
+    import_hermes_aiagent()
+    with hermes_import_namespace():
+        from hermes_cli import plugins as hermes_plugins
+
+        hermes_plugins.discover_plugins(force=True)
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path / "graph",
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert result.status == "ok", (result.error_code, result.error_message)
+    assert result.process_isolation == "process_exclusive"
