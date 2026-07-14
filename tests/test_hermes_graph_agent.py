@@ -6,14 +6,18 @@ import ast
 import importlib.metadata
 import json
 import os
+import threading
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
+    _summarize_tool_result,
     run_hermes_graph_agent_turn,
 )
 from apps.live_control_server.services.hermes_graph_read_tool_adapter import (
@@ -22,7 +26,25 @@ from apps.live_control_server.services.hermes_graph_read_tool_adapter import (
 from apps.live_control_server.services.hermes_graph_read_tools import (
     HERMES_GRAPH_READ_TOOL_NAMES,
 )
-from graph_memory.hermes_graph_plugin import TOOLSET_NAME
+from graph_memory.hermes_graph_plugin import (
+    ORDERED_GRAPH_TOOL_NAMES,
+    TOOLSET_NAME,
+    HermesCapabilityPolicy,
+    HermesGraphScope,
+    HermesToolCapabilityRule,
+    apply_capability_policy_to_arguments,
+    default_graph_only_capability_policy,
+    reset_active_capability_policy,
+    set_active_capability_policy,
+)
+from graph_memory.retrieval.models import (
+    RETRIEVAL_ERROR_SCHEMA,
+    WorldGraphRetrievalDiagnostic,
+    WorldGraphRetrievalRelationship,
+    WorldGraphRetrievalResult,
+    WorldGraphSourceAnchor,
+    WorldGraphSourceAnchorReadResult,
+)
 
 PLUGIN_MODULE = (
     Path(__file__).resolve().parents[1] / "src" / "graph_memory" / "hermes_graph_plugin.py"
@@ -35,13 +57,7 @@ AGENT_MODULE = (
     / "hermes_graph_agent.py"
 )
 
-ORDERED_TOOL_NAMES = (
-    "search_campaign_graph",
-    "get_campaign_object",
-    "get_object_neighborhood",
-    "get_object_evidence",
-    "read_source_anchor",
-)
+ORDERED_TOOL_NAMES = ORDERED_GRAPH_TOOL_NAMES
 
 LEGACY_TOOL_NAMES = (
     "dungeon_context_lookup",
@@ -74,6 +90,18 @@ def _collect_imports(path: Path) -> set[str]:
             for alias in node.names:
                 imported.add(f"{module}.{alias.name}" if module else alias.name)
     return imported
+
+
+def _default_scope(**overrides: Any) -> HermesGraphScope:
+    payload = {
+        "world_id": "world:eldyrwild",
+        "campaign_id": "campaign:c1",
+        "focus": {"kind": "none", "sessionId": None},
+        "admissibility": "gm",
+        "revision_pin": None,
+    }
+    payload.update(overrides)
+    return HermesGraphScope(**payload)
 
 
 def test_hermes_aiagent_imports_from_locked_environment() -> None:
@@ -184,18 +212,89 @@ def test_plugin_handlers_route_to_rung2_json_adapter(
         _fake_execute,
     )
 
-    entries, _ = registry._snapshot_state()
-    by_name = {e.name: e for e in entries if e.toolset == TOOLSET_NAME}
-    payload = {
-        "schema": "dmb_world_graph_search_request_v1",
-        "worldId": "world:eldyrwild",
-        "campaignId": "campaign:c1",
-        "queryText": "Tripod",
-    }
-    result = by_name["search_campaign_graph"].handler(payload)
-    assert isinstance(result, str)
-    assert calls == [("search_campaign_graph", payload)]
-    assert json.loads(result)["outcome"] == "empty"
+    policy = default_graph_only_capability_policy(_default_scope())
+    token = set_active_capability_policy(policy)
+    try:
+        entries, _ = registry._snapshot_state()
+        by_name = {e.name: e for e in entries if e.toolset == TOOLSET_NAME}
+        payload = {
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "world:WRONG",
+            "campaignId": "campaign:WRONG",
+            "queryText": "Tripod",
+            "focus": {"kind": "session", "sessionId": "session:spoof"},
+            "admissibility": "player",
+            "revisionPin": "rev:spoof",
+        }
+        result = by_name["search_campaign_graph"].handler(payload)
+        assert isinstance(result, str)
+        assert len(calls) == 1
+        assert calls[0][0] == "search_campaign_graph"
+        # Runtime injects authoritative scope; model spoofing is overwritten.
+        assert calls[0][1]["worldId"] == "world:eldyrwild"
+        assert calls[0][1]["campaignId"] == "campaign:c1"
+        assert calls[0][1]["admissibility"] == "gm"
+        assert calls[0][1]["revisionPin"] is None
+        assert calls[0][1]["focus"] == {"kind": "none", "sessionId": None}
+        assert calls[0][1]["queryText"] == "Tripod"
+        assert json.loads(result)["outcome"] == "empty"
+    finally:
+        reset_active_capability_policy(token)
+
+
+def test_dispatch_without_active_policy_is_denied(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = _enable_graph_plugin(tmp_path)
+    monkeypatch.setenv("HERMES_HOME", str(home))
+
+    from hermes_cli import plugins as hermes_plugins
+    from tools.registry import registry
+
+    hermes_plugins.discover_plugins(force=True)
+    # Ensure no leftover policy from other tests.
+    token = set_active_capability_policy(None)
+    try:
+        entries, _ = registry._snapshot_state()
+        by_name = {e.name: e for e in entries if e.toolset == TOOLSET_NAME}
+        result = json.loads(
+            by_name["search_campaign_graph"].handler(
+                {
+                    "schema": "dmb_world_graph_search_request_v1",
+                    "worldId": "world:eldyrwild",
+                    "campaignId": "campaign:c1",
+                    "queryText": "x",
+                }
+            )
+        )
+        assert result["schema"] == RETRIEVAL_ERROR_SCHEMA
+        assert result["code"] == "hermes_capability_policy_missing"
+    finally:
+        reset_active_capability_policy(token)
+
+
+def test_capability_policy_rejects_unlisted_tool() -> None:
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME,),
+        enabled_tool_names=("search_campaign_graph",),
+        graph_scope=_default_scope(),
+        tool_rules=(
+            HermesToolCapabilityRule(
+                tool_name="search_campaign_graph",
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+    payload, denied = apply_capability_policy_to_arguments(
+        "get_campaign_object",
+        {"worldId": "world:eldyrwild", "campaignId": "campaign:c1", "nodeId": "n1"},
+        policy=policy,
+    )
+    assert payload is None
+    assert denied is not None
+    assert json.loads(denied)["code"] == "hermes_tool_not_permitted"
 
 
 class _FakeAgent:
@@ -230,18 +329,41 @@ class _FakeAgent:
                 "admissibility": "gm",
                 "revisionPin": None,
             }
-            tool_json = json.dumps(
-                {
-                    "schema": "dmb_world_graph_retrieval_result_v1",
-                    "operation": "search",
-                    "outcome": "partial",
-                    "matchedNodeIds": ["threat:tripod-null-calf"],
-                    "relationships": [{"id": "rel:1"}],
-                    "sourceAnchors": [{"anchorId": "source-anchor:v1:abc"}],
-                    "diagnostics": [{"code": "coverage_gap"}],
-                    "content": "/secret/path should never appear in events",
-                }
+            rel = WorldGraphRetrievalRelationship(
+                edge_id="edge:tripod-north-gate",
+                source_node_id="threat:tripod-null-calf",
+                target_node_id="place:north-gate",
+                predicate="located_at",
+                label="located at",
             )
+            anchor = WorldGraphSourceAnchor(
+                anchor_id="source-anchor:v1:abc",
+                revision_id="rev:1",
+                evidence_ref_id="ev:1",
+                source_artifact_id="art:1",
+                source_domain="recap",
+                readable=True,
+                locator_kind="heading",
+            )
+            tool_model = WorldGraphRetrievalResult(
+                operation="search",
+                outcome="partial",
+                matched_node_ids=["threat:tripod-null-calf"],
+                relationships=[rel],
+                source_anchors=[anchor],
+                diagnostics=[
+                    WorldGraphRetrievalDiagnostic(
+                        code="coverage_gap",
+                        message="partial coverage",
+                        severity="warning",
+                    )
+                ],
+            )
+            tool_json = tool_model.model_dump_json(by_alias=True)
+            # Prove content redaction even if a leaky field sneaks into JSON.
+            leaked = json.loads(tool_json)
+            leaked["content"] = "/secret/path should never appear in events"
+            tool_json = json.dumps(leaked)
             self._start("call-1", "search_campaign_graph", args)
             self._complete("call-1", "search_campaign_graph", args, tool_json)
         return {
@@ -314,7 +436,7 @@ def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) ->
     completion = result.tool_events[1]
     assert completion.outcome == "partial"
     assert completion.matched_node_ids == ["threat:tripod-null-calf"]
-    assert completion.relationship_ids == ["rel:1"]
+    assert completion.relationship_ids == ["edge:tripod-north-gate"]
     assert completion.source_anchor_ids == ["source-anchor:v1:abc"]
     assert completion.diagnostic_codes == ["coverage_gap"]
     dumped = json.dumps(
@@ -330,6 +452,94 @@ def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) ->
     )
     assert "/secret/path" not in dumped
     assert "should never appear" not in dumped
+
+
+def test_summarize_uses_pr010a_edge_id_and_top_level_anchor_id() -> None:
+    retrieval = WorldGraphRetrievalResult(
+        operation="neighborhood",
+        outcome="enough",
+        matched_node_ids=["node:a"],
+        relationships=[
+            WorldGraphRetrievalRelationship(
+                edge_id="edge:real-1",
+                source_node_id="node:a",
+                target_node_id="node:b",
+                predicate="related_to",
+                label="related",
+            )
+        ],
+        source_anchors=[
+            WorldGraphSourceAnchor(
+                anchor_id="source-anchor:v1:from-list",
+                revision_id="rev:1",
+                evidence_ref_id="ev:1",
+                source_artifact_id="art:1",
+                source_domain="recap",
+                readable=True,
+                locator_kind="heading",
+            )
+        ],
+    )
+    summary = _summarize_tool_result(retrieval.model_dump_json(by_alias=True))
+    assert summary["relationship_ids"] == ["edge:real-1"]
+    assert summary["source_anchor_ids"] == ["source-anchor:v1:from-list"]
+    assert summary["is_error"] is False
+
+    anchor_read = WorldGraphSourceAnchorReadResult(
+        outcome="enough",
+        anchor_id="source-anchor:v1:top-level",
+        content="/secret/body must not be retained by summarizer consumers",
+    )
+    wire = json.loads(anchor_read.model_dump_json(by_alias=True))
+    assert "sourceAnchors" not in wire or wire.get("sourceAnchors") in (None, [])
+    assert wire["anchorId"] == "source-anchor:v1:top-level"
+    anchor_summary = _summarize_tool_result(json.dumps(wire))
+    assert anchor_summary["source_anchor_ids"] == ["source-anchor:v1:top-level"]
+    assert anchor_summary["retrieval_schema"] == "dmb_world_graph_source_anchor_read_v1"
+
+
+def test_tool_error_json_emits_error_event(tmp_path: Path) -> None:
+    class _ErrorAgent(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            del user_message, kwargs
+            args = {
+                "worldId": "world:eldyrwild",
+                "campaignId": "campaign:c1",
+                "queryText": "x",
+            }
+            self._start("c1", "search_campaign_graph", args)
+            self._complete(
+                "c1",
+                "search_campaign_graph",
+                args,
+                json.dumps(
+                    {
+                        "schema": RETRIEVAL_ERROR_SCHEMA,
+                        "code": "hermes_capability_policy_missing",
+                        "message": "denied",
+                        "statusCode": 403,
+                        "diagnostics": [],
+                    }
+                ),
+            )
+            return {
+                "final_response": "Denied.",
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+        ),
+        agent_factory=_ErrorAgent,
+    )
+    assert result.status == "ok"
+    assert [e.state for e in result.tool_events] == ["start", "error"]
+    assert result.tool_events[1].diagnostic_codes == ["hermes_capability_policy_missing"]
 
 
 @pytest.mark.parametrize("outcome", ("empty", "partial", "denied", "unavailable"))
@@ -466,8 +676,16 @@ def test_isolated_hermes_home_does_not_mutate_user_global_profile(
     before = config.read_text(encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(sentinel))
 
-    # The runtime must replace HERMES_HOME with an isolated temp home and
-    # restore the previous value afterward.
+    created_homes: list[Path] = []
+    real_mkdtemp = __import__("tempfile").mkdtemp
+
+    def _tracking_mkdtemp(*args: Any, **kwargs: Any) -> str:
+        path = real_mkdtemp(*args, **kwargs)
+        created_homes.append(Path(path))
+        return path
+
+    monkeypatch.setattr("tempfile.mkdtemp", _tracking_mkdtemp)
+
     result = run_hermes_graph_agent_turn(
         HermesGraphAgentTurnRequest(
             question="q",
@@ -480,3 +698,186 @@ def test_isolated_hermes_home_does_not_mutate_user_global_profile(
     assert result.status == "ok"
     assert config.read_text(encoding="utf-8") == before
     assert os.environ.get("HERMES_HOME") == str(sentinel)
+    assert created_homes
+    for home in created_homes:
+        assert not home.exists()
+
+
+def test_runtime_lock_serializes_concurrent_turns(tmp_path: Path) -> None:
+    import time as time_mod
+
+    active = 0
+    max_active = 0
+    counter_lock = threading.Lock()
+
+    class _SlowAgent(_FakeAgent):
+        def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
+            nonlocal active, max_active
+            with counter_lock:
+                active += 1
+                max_active = max(max_active, active)
+            time_mod.sleep(0.05)
+            with counter_lock:
+                active -= 1
+            return {
+                "final_response": user_message,
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    results: list[Any] = [None, None]
+
+    def _run(idx: int, question: str) -> None:
+        results[idx] = run_hermes_graph_agent_turn(
+            HermesGraphAgentTurnRequest(
+                question=question,
+                world_id="world:eldyrwild",
+                campaign_id="campaign:c1",
+                root=tmp_path / f"g{idx}",
+            ),
+            agent_factory=_SlowAgent,
+        )
+
+    t1 = threading.Thread(target=_run, args=(0, "one"))
+    t2 = threading.Thread(target=_run, args=(1, "two"))
+    t1.start()
+    t2.start()
+    t1.join(timeout=10)
+    t2.join(timeout=10)
+    assert results[0] is not None and results[0].status == "ok"
+    assert results[1] is not None and results[1].status == "ok"
+    assert {results[0].final_response, results[1].final_response} == {"one", "two"}
+    assert max_active == 1
+
+
+def _mock_chat_response(
+    *,
+    content: str | None = "Hello",
+    finish_reason: str = "stop",
+    tool_calls: list[Any] | None = None,
+) -> SimpleNamespace:
+    msg = SimpleNamespace(
+        content=content,
+        tool_calls=tool_calls,
+        reasoning_content=None,
+        reasoning=None,
+    )
+    choice = SimpleNamespace(message=msg, finish_reason=finish_reason)
+    resp = SimpleNamespace(choices=[choice], model="test/model", usage=None)
+    return resp
+
+
+def test_real_aiagent_dispatches_provider_tool_call_through_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Principal integration proof: real AIAgent + mocked provider tool call."""
+    from apps.live_control_server.services.hermes_graph_agent import (
+        hermes_import_namespace,
+        import_hermes_aiagent,
+    )
+
+    home = _enable_graph_plugin(tmp_path)
+    monkeypatch.setenv("HERMES_HOME", str(home))
+
+    # Discover plugins into the process registry before the agent turn.
+    with hermes_import_namespace():
+        from hermes_cli import plugins as hermes_plugins
+
+        hermes_plugins.discover_plugins(force=True)
+
+    adapter_calls: list[tuple[str, dict[str, Any]]] = []
+
+    def _fake_execute(tool_name: str, arguments: Any, *, root: Any = None) -> str:
+        del root
+        adapter_calls.append((tool_name, dict(arguments)))
+        return WorldGraphRetrievalResult(
+            operation="search",
+            outcome="enough",
+            matched_node_ids=["threat:tripod-null-calf"],
+        ).model_dump_json(by_alias=True)
+
+    monkeypatch.setattr(
+        "graph_memory.hermes_graph_plugin.execute_hermes_graph_read_tool_json",
+        _fake_execute,
+    )
+
+    AIAgent = import_hermes_aiagent()
+    tool_args = {
+        "schema": "dmb_world_graph_search_request_v1",
+        "worldId": "world:SPOOF",
+        "campaignId": "campaign:SPOOF",
+        "queryText": "Tripod",
+        "focus": {"kind": "session", "sessionId": "session:spoof"},
+        "admissibility": "player",
+        "revisionPin": "rev:spoof",
+    }
+    tc = SimpleNamespace(
+        id="call-graph-1",
+        type="function",
+        function=SimpleNamespace(
+            name="search_campaign_graph",
+            arguments=json.dumps(tool_args),
+        ),
+    )
+    tool_resp = _mock_chat_response(
+        content=None,
+        finish_reason="tool_calls",
+        tool_calls=[tc],
+    )
+    final_resp = _mock_chat_response(
+        content="Tripod stands at the North Gate.",
+        finish_reason="stop",
+    )
+
+    def _factory(**kwargs: Any) -> Any:
+        with hermes_import_namespace():
+            with patch("run_agent.OpenAI"):
+                agent = AIAgent(
+                    api_key="test-key-1234567890",
+                    base_url="https://openrouter.ai/api/v1",
+                    **kwargs,
+                )
+        agent.client = MagicMock()
+        agent.client.chat.completions.create.side_effect = [tool_resp, final_resp]
+        agent._cached_system_prompt = "test"
+        agent._use_prompt_caching = False
+        agent.tool_delay = 0
+        agent.compression_enabled = False
+        agent.save_trajectories = False
+        return agent
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Where is Tripod?",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            session_id="sess-real-aiagent",
+            root=tmp_path / "graph",
+        ),
+        agent_factory=_factory,
+    )
+
+    assert result.status == "ok"
+    assert result.final_response == "Tripod stands at the North Gate."
+    assert adapter_calls == [
+        (
+            "search_campaign_graph",
+            {
+                "schema": "dmb_world_graph_search_request_v1",
+                "worldId": "world:eldyrwild",
+                "campaignId": "campaign:c1",
+                "queryText": "Tripod",
+                "focus": {"kind": "none", "sessionId": None},
+                "admissibility": "gm",
+                "revisionPin": None,
+            },
+        )
+    ]
+    assert [e.tool_name for e in result.tool_events] == [
+        "search_campaign_graph",
+        "search_campaign_graph",
+    ]
+    assert [e.state for e in result.tool_events] == ["start", "completion"]
+    assert result.tool_events[1].matched_node_ids == ["threat:tripod-null-calf"]
+    assert result.tool_events[1].outcome == "enough"
