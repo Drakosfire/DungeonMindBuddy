@@ -18,7 +18,7 @@
       "actor": "gm",
       "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+      "currentHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
       "diagnostics": [
         {
           "code": "kernel_result",
@@ -26,22 +26,22 @@
           "severity": "info"
         }
       ],
-      "initialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+      "initialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
       "noMutationGuarantees": [
         "No new revision was published; the existing initialization matched the approved plan.",
         "The approved contribution bundle was not modified.",
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
-      "proposalId": "641433ae188e954eae2b13314e3925f0c0675860431d7c641f408bbd1631095f",
+      "planDigest": "ac2efd737df30950a3ee04a04586c886b56488d36548f15aef5aae8c6acf579b",
+      "proposalId": "66082746fb8aeab325a7275b9fccfd1048b86ad77a2b2d4bfbb5c6daea3bb431",
       "published": false,
       "receipt": {
         "acceptedAssertionCount": 30,
         "actor": "gm",
         "approvalAttestation": {
-          "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
-          "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+          "approvedBundleMergeSha": "65ae001e0852d827ecd680200a965a576c705b1d",
+          "bundleDigest": "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5",
           "bundleId": "eldyrwild-longmont-c2-initial-v1"
         },
         "assertionSupportCount": 26,
@@ -53,12 +53,12 @@
         "evidenceCount": 30,
         "focusSessionId": "session-23",
         "identityDecisionIds": [],
-        "initialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "initialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
         "nodeCount": 12,
         "orderedContributions": [
           {
             "contributionId": "contribution:82f23934d8eaca8a",
-            "payloadSha256": "b79b6427ff59d602054857fd29cf4661743c8351bef03a4f1bc0b68511293df8"
+            "payloadSha256": "36750e81732dc12486d1fbb50e1f26fafdc5edcd6498e64abcd91fae8a02a99b"
           },
           {
             "contributionId": "contribution:43782369bd717d32",
@@ -82,7 +82,7 @@
           }
         ],
         "planBindingVerified": true,
-        "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+        "planDigest": "ac2efd737df30950a3ee04a04586c886b56488d36548f15aef5aae8c6acf579b",
         "rebuildEquivalent": true,
         "schema": "dmb_world_initialization_receipt_v1",
         "sourceArtifactCount": 6,
@@ -114,7 +114,7 @@
     },
     "preparedProposal": {
       "actor": "gm",
-      "confirmToken": "232a383713beda9fdbc79a7971589967c8e3ce2908287da0b16d3c412211b4f2.eyJhY3RvciI6ImdtIiwiYXBwcm92ZWRfYnVuZGxlX21lcmdlX3NoYSI6ImY2OWM2OWYyNzFjNDI3MjA5ODYwZDkwMjYzNjM0N2I3MGZlYTU5MjAiLCJidW5kbGVfZGlnZXN0IjoiYzhlYjdlNmNhN2U3MzVjNDA4MjJjYjFlNjgzNWY5OTQ5ZjJjZDkxNWI1N2Y1NzA0ZTdiNGRhZWI3MmNmMmZjYSIsImJ1bmRsZV9pZCI6ImVsZHlyd2lsZC1sb25nbW9udC1jMi1pbml0aWFsLXYxIiwiZXhwZWN0ZWRfY291bnRzIjp7ImFjY2VwdGVkX2Fzc2VydGlvbl9jb3VudCI6MzAsImFzc2VydGlvbl9zdXBwb3J0X2NvdW50IjoyNiwiZWRnZV9jb3VudCI6MTEsImV2aWRlbmNlX2NvdW50IjozMCwibm9kZV9jb3VudCI6MTIsInNvdXJjZV9hcnRpZmFjdF9jb3VudCI6Nn0sImV4cGVjdGVkX2luaXRpYWxfcHJvZHVjdGlvbl9zdGF0ZSI6InJlYWR5Iiwia2luZCI6ImRtYl93b3JsZF9ncmFwaF9ib290c3RyYXBfY29uZmlybV92MSIsIm9yZGVyZWRfY29udHJpYnV0aW9ucyI6W3siY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOjgyZjIzOTM0ZDhlYWNhOGEiLCJwYXlsb2FkX3NoYTI1NiI6ImI3OWI2NDI3ZmY1OWQ2MDIwNTQ4NTdmZDI5Y2Y0NjYxNzQzYzgzNTFiZWYwM2E0ZjFiYzBiNjg1MTEyOTNkZjgifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjo0Mzc4MjM2OWJkNzE3ZDMyIiwicGF5bG9hZF9zaGEyNTYiOiI1YTI0NzFhODg1YjkwZDNmYzU2YzNmYTAzYjE3NTc4YjMzOTRjZjEyZGZkNTg3MjZlZDliNTAwYmZlNGMzZjEyIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MzNkN2NkYjBmZjYyM2YyOCIsInBheWxvYWRfc2hhMjU2IjoiZjIwNzFmNWRjZTg5YmIwYWQyMWExZGMzNjBjY2RiNjNhNTFlNzAxNTNiMDFlYjU1MDc2OWMwNzIyZmQ4YTBmMCJ9LHsiY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOmMwODZhMGI3MjMyNGZmMTYiLCJwYXlsb2FkX3NoYTI1NiI6ImZiZDUwZWQ1ZWQ1MjRiZDNkNzRhMGM2ZjIxMDdkNjdhN2M3MTk0NGZkZTQzZGZkYTRmNGFlMDE0YTVkNmZmZDcifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjoxMjI3ODQxNzI0NTIwYzE4IiwicGF5bG9hZF9zaGEyNTYiOiIwZDY3YzQyNWEyNGRjNjQ0MWY1NzhlMjNjZjEyNWIzNzk5OGJiNmJlYWRmYjBhMzQ3N2I4ZmY4MTBhMzcwMDZlIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MDIyMTg3ZmRlZmRmNDU1NyIsInBheWxvYWRfc2hhMjU2IjoiYzMyNjU2Zjc5N2U5MDM3NDRkM2NiZmNhYWJmODg0YjIwZWQ5NzQ4Mjk2ZmFkMDE5NjgxM2Q0OWM5MmFlZWY3OCJ9XSwicGxhbl9kaWdlc3QiOiI5OGExMjBmNjliYzMwZWU5ZDIwYzFiYjY3MjYyY2Y3OGE1OTUxYWRjZDU0YzVhNWNjNWI5NDExZWJkZGY1MTYzIiwicHJlZGljdGVkX2Jhc2VsaW5lX3JldmlzaW9uX2lkIjoicmV2OmZkM2UwYTJiOTZhN2E1OTE5YTAyYTg5MDVlNzNmN2I5IiwicHJlZGljdGVkX2luaXRpYWxfaGVhZF9yZXZpc2lvbl9pZCI6InJldjo4MzU2YzM1ODY3NWE3ZWI4MDExMDFmMWE0OWRjZGNjYyIsInByb3Bvc2FsX2lkIjoiNjQxNDMzYWUxODhlOTU0ZWFlMmIxMzMxNGUzOTI1ZjBjMDY3NTg2MDQzMWQ3YzY0MWY0MDhiYmQxNjMxMDk1ZiJ9",
+      "confirmToken": "dd635cdcdf888323062fee1c2556806e4a91b5ecbc8805dfa84c2a9e94c3e301.eyJhY3RvciI6ImdtIiwiYXBwcm92ZWRfYnVuZGxlX21lcmdlX3NoYSI6IjY1YWUwMDFlMDg1MmQ4MjdlY2Q2ODAyMDBhOTY1YTU3NmM3MDViMWQiLCJidW5kbGVfZGlnZXN0IjoiNWY4Mjg4ZDMwNTJhOWU1OTE5Mjg4NGYyYzM1YTEzZDUxZjY2NTA5NWQ4NGNjYTIwODFhNTY2MzgxMDhkM2ZhNSIsImJ1bmRsZV9pZCI6ImVsZHlyd2lsZC1sb25nbW9udC1jMi1pbml0aWFsLXYxIiwiZXhwZWN0ZWRfY291bnRzIjp7ImFjY2VwdGVkX2Fzc2VydGlvbl9jb3VudCI6MzAsImFzc2VydGlvbl9zdXBwb3J0X2NvdW50IjoyNiwiZWRnZV9jb3VudCI6MTEsImV2aWRlbmNlX2NvdW50IjozMCwibm9kZV9jb3VudCI6MTIsInNvdXJjZV9hcnRpZmFjdF9jb3VudCI6Nn0sImV4cGVjdGVkX2luaXRpYWxfcHJvZHVjdGlvbl9zdGF0ZSI6InJlYWR5Iiwia2luZCI6ImRtYl93b3JsZF9ncmFwaF9ib290c3RyYXBfY29uZmlybV92MSIsIm9yZGVyZWRfY29udHJpYnV0aW9ucyI6W3siY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOjgyZjIzOTM0ZDhlYWNhOGEiLCJwYXlsb2FkX3NoYTI1NiI6IjM2NzUwZTgxNzMyZGMxMjQ4NmQxZmJiNTBlMWYyNmZhZmRjNWVkY2Q2NDk4ZTY0YWJjZDkxZmFlOGEwMmE5OWIifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjo0Mzc4MjM2OWJkNzE3ZDMyIiwicGF5bG9hZF9zaGEyNTYiOiI1YTI0NzFhODg1YjkwZDNmYzU2YzNmYTAzYjE3NTc4YjMzOTRjZjEyZGZkNTg3MjZlZDliNTAwYmZlNGMzZjEyIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MzNkN2NkYjBmZjYyM2YyOCIsInBheWxvYWRfc2hhMjU2IjoiZjIwNzFmNWRjZTg5YmIwYWQyMWExZGMzNjBjY2RiNjNhNTFlNzAxNTNiMDFlYjU1MDc2OWMwNzIyZmQ4YTBmMCJ9LHsiY29udHJpYnV0aW9uX2lkIjoiY29udHJpYnV0aW9uOmMwODZhMGI3MjMyNGZmMTYiLCJwYXlsb2FkX3NoYTI1NiI6ImZiZDUwZWQ1ZWQ1MjRiZDNkNzRhMGM2ZjIxMDdkNjdhN2M3MTk0NGZkZTQzZGZkYTRmNGFlMDE0YTVkNmZmZDcifSx7ImNvbnRyaWJ1dGlvbl9pZCI6ImNvbnRyaWJ1dGlvbjoxMjI3ODQxNzI0NTIwYzE4IiwicGF5bG9hZF9zaGEyNTYiOiIwZDY3YzQyNWEyNGRjNjQ0MWY1NzhlMjNjZjEyNWIzNzk5OGJiNmJlYWRmYjBhMzQ3N2I4ZmY4MTBhMzcwMDZlIn0seyJjb250cmlidXRpb25faWQiOiJjb250cmlidXRpb246MDIyMTg3ZmRlZmRmNDU1NyIsInBheWxvYWRfc2hhMjU2IjoiYzMyNjU2Zjc5N2U5MDM3NDRkM2NiZmNhYWJmODg0YjIwZWQ5NzQ4Mjk2ZmFkMDE5NjgxM2Q0OWM5MmFlZWY3OCJ9XSwicGxhbl9kaWdlc3QiOiJhYzJlZmQ3MzdkZjMwOTUwYTNlZTA0YTA0NTg2Yzg4NmI1NjQ4OGQzNjU0OGYxNWFlZjVhYWU4YzZhY2Y1NzliIiwicHJlZGljdGVkX2Jhc2VsaW5lX3JldmlzaW9uX2lkIjoicmV2OmZkM2UwYTJiOTZhN2E1OTE5YTAyYTg5MDVlNzNmN2I5IiwicHJlZGljdGVkX2luaXRpYWxfaGVhZF9yZXZpc2lvbl9pZCI6InJldjoxZmExNmRlNDBiZjZhNjBjNjM2YTU2NTY5MDgyMmUwMCIsInByb3Bvc2FsX2lkIjoiNjYwODI3NDZmYjhhZWFiMzI1YTcyNzViOWZjY2ZkMTA0OGI4NmFkNzdhMmIyZDRiZmJiNWM2ZGFlYTNiYjQzMSJ9",
       "diagnostics": [],
       "effects": {
         "contributionCount": 6,
@@ -127,7 +127,7 @@
           "contribution:022187fdefdf4557"
         ],
         "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
-        "predictedInitialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "predictedInitialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
         "predictedRevisionCount": 7
       },
       "noMutationGuarantees": [
@@ -137,11 +137,11 @@
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+      "planDigest": "ac2efd737df30950a3ee04a04586c886b56488d36548f15aef5aae8c6acf579b",
       "predictedBaselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
-      "predictedInitialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+      "predictedInitialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
       "prepared": true,
-      "proposalId": "641433ae188e954eae2b13314e3925f0c0675860431d7c641f408bbd1631095f",
+      "proposalId": "66082746fb8aeab325a7275b9fccfd1048b86ad77a2b2d4bfbb5c6daea3bb431",
       "review": {
         "attributes": [
           {
@@ -581,7 +581,7 @@
           },
           {
             "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
-            "locator": "heading:The City of Mirathorn",
+            "locator": "heading:Mirathorn Overview",
             "locatorStatus": "unverified",
             "sessionId": null,
             "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
@@ -664,7 +664,7 @@
             "evidence": [
               {
                 "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
-                "locator": "heading:The City of Mirathorn",
+                "locator": "heading:Mirathorn Overview",
                 "locatorStatus": "unverified",
                 "sessionId": null,
                 "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
@@ -1352,7 +1352,7 @@
       "actor": "gm",
       "baselineRevisionId": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
       "confirmed": true,
-      "currentHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+      "currentHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
       "diagnostics": [
         {
           "code": "kernel_result",
@@ -1360,22 +1360,22 @@
           "severity": "info"
         }
       ],
-      "initialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+      "initialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
       "noMutationGuarantees": [
         "Published the approved initialization through the PR006D1 Kernel operation.",
         "The approved contribution bundle was not modified.",
         "Corpus sources were not modified.",
         "Preview or ingest-run artifacts were not modified."
       ],
-      "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
-      "proposalId": "641433ae188e954eae2b13314e3925f0c0675860431d7c641f408bbd1631095f",
+      "planDigest": "ac2efd737df30950a3ee04a04586c886b56488d36548f15aef5aae8c6acf579b",
+      "proposalId": "66082746fb8aeab325a7275b9fccfd1048b86ad77a2b2d4bfbb5c6daea3bb431",
       "published": true,
       "receipt": {
         "acceptedAssertionCount": 30,
         "actor": "gm",
         "approvalAttestation": {
-          "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
-          "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+          "approvedBundleMergeSha": "65ae001e0852d827ecd680200a965a576c705b1d",
+          "bundleDigest": "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5",
           "bundleId": "eldyrwild-longmont-c2-initial-v1"
         },
         "assertionSupportCount": 26,
@@ -1387,12 +1387,12 @@
         "evidenceCount": 30,
         "focusSessionId": "session-23",
         "identityDecisionIds": [],
-        "initialHeadRevisionId": "rev:8356c358675a7eb801101f1a49dcdccc",
+        "initialHeadRevisionId": "rev:1fa16de40bf6a60c636a565690822e00",
         "nodeCount": 12,
         "orderedContributions": [
           {
             "contributionId": "contribution:82f23934d8eaca8a",
-            "payloadSha256": "b79b6427ff59d602054857fd29cf4661743c8351bef03a4f1bc0b68511293df8"
+            "payloadSha256": "36750e81732dc12486d1fbb50e1f26fafdc5edcd6498e64abcd91fae8a02a99b"
           },
           {
             "contributionId": "contribution:43782369bd717d32",
@@ -1416,7 +1416,7 @@
           }
         ],
         "planBindingVerified": true,
-        "planDigest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+        "planDigest": "ac2efd737df30950a3ee04a04586c886b56488d36548f15aef5aae8c6acf579b",
         "rebuildEquivalent": true,
         "schema": "dmb_world_initialization_receipt_v1",
         "sourceArtifactCount": 6,
@@ -1433,8 +1433,8 @@
       "state": "active"
     },
     "readyStatus": {
-      "approvedBundleMergeSha": "f69c69f271c427209860d902636347b70fea5920",
-      "bundleDigest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+      "approvedBundleMergeSha": "65ae001e0852d827ecd680200a965a576c705b1d",
+      "bundleDigest": "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5",
       "bundleId": "eldyrwild-longmont-c2-initial-v1",
       "bundleValid": true,
       "campaignId": "longmont-c2",
@@ -1889,7 +1889,7 @@
           },
           {
             "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
-            "locator": "heading:The City of Mirathorn",
+            "locator": "heading:Mirathorn Overview",
             "locatorStatus": "unverified",
             "sessionId": null,
             "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
@@ -1972,7 +1972,7 @@
             "evidence": [
               {
                 "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
-                "locator": "heading:The City of Mirathorn",
+                "locator": "heading:Mirathorn Overview",
                 "locatorStatus": "unverified",
                 "sessionId": null,
                 "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
