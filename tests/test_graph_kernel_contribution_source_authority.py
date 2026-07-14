@@ -269,3 +269,77 @@ def test_rebuild_recomputes_source_digests_without_migration_compat(
         ),
     )
     assert allowed.published is True
+
+
+def test_missing_indexed_contribution_record_refuses_all_lifecycle_ops(
+    seeded_root: Path,
+) -> None:
+    """A missing non-failed ledger record is incomplete authority, not skippable."""
+    from graph_memory.world_supergraph.paths import contribution_path
+
+    root = seeded_root
+    first = _node_contribution(
+        artifact="artifact:missing-ledger",
+        node_id="npc_missing_ledger",
+        label="MissingLedger",
+    )
+    merged = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=first,
+    )
+    assert merged.published is True
+
+    ledger_path = contribution_path(root, WORLD_ID, first.contribution_id)
+    assert ledger_path.is_file()
+    ledger_path.unlink()
+    assert not ledger_path.exists()
+
+    blocked_merge = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=_node_contribution(
+            artifact="artifact:missing-ledger-b",
+            node_id="npc_missing_ledger_b",
+            label="MissingLedgerB",
+        ),
+    )
+    assert blocked_merge.published is False
+    assert any(
+        "contribution_source_authority_incomplete" in item
+        for item in blocked_merge.diagnostics
+    )
+
+    replacement = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:missing-ledger-replacement",
+        source_revision_id="rev-missing-ledger-replacement",
+        extraction_profile="authority-test",
+        campaign_scope="longmont-c2",
+        accepted_assertions=[],
+        supersedes_contribution_id=first.contribution_id,
+    )
+    blocked_supersede = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=replacement,
+        superseded_contribution_id=first.contribution_id,
+    )
+    assert blocked_supersede.published is False
+    assert any(
+        "contribution_source_authority_incomplete" in item
+        for item in blocked_supersede.diagnostics
+    )
+
+    blocked_retract = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=first.contribution_id,
+        reason="missing-ledger-must-not-publish",
+    )
+    assert blocked_retract.published is False
+    assert any(
+        "contribution_source_authority_incomplete" in item
+        for item in blocked_retract.diagnostics
+    )
