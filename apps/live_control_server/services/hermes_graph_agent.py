@@ -36,15 +36,29 @@ import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
 
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    PROCESS_ISOLATION_MODE,
+    HermesGraphAgentTurnRequest,
+    HermesGraphAgentTurnResult,
+    HermesGraphToolEvent,
+    ProcessIsolationMode,
+    ToolEventState,
+    deserialize_capability_policy,
+    deserialize_hermes_graph_agent_turn_request,
+    deserialize_hermes_graph_agent_turn_result,
+    serialize_capability_policy,
+    serialize_hermes_graph_agent_turn_request,
+    serialize_hermes_graph_agent_turn_result,
+)
 from graph_memory.hermes_graph_plugin import (
     HermesCapabilityPolicy,
     HermesGraphScope,
+    HermesPluginActivation,
     HermesToolCapabilityRule,
     default_graph_only_capability_policy,
     reset_active_capability_policy,
@@ -59,10 +73,6 @@ from graph_memory.retrieval.models import (
 )
 
 HermesGraphAgentStatus = Literal["ok", "error"]
-ToolEventState = Literal["start", "completion", "error"]
-ProcessIsolationMode = Literal["process_exclusive"]
-
-PROCESS_ISOLATION_MODE: ProcessIsolationMode = "process_exclusive"
 
 _RUNTIME_LOCK = threading.RLock()
 
@@ -131,51 +141,6 @@ def import_hermes_aiagent() -> Any:
         with hermes_import_namespace():
             module = importlib.import_module("run_agent")
             return module.AIAgent
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphToolEvent:
-    tool_name: str
-    state: ToolEventState
-    duration_ms: float | None = None
-    world_id: str | None = None
-    campaign_id: str | None = None
-    focus: dict[str, Any] | None = None
-    admissibility: str | None = None
-    revision_pin: str | None = None
-    bounded_ids: dict[str, Any] = field(default_factory=dict)
-    retrieval_schema: str | None = None
-    outcome: str | None = None
-    matched_node_ids: list[str] = field(default_factory=list)
-    relationship_ids: list[str] = field(default_factory=list)
-    source_anchor_ids: list[str] = field(default_factory=list)
-    diagnostic_codes: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphAgentTurnResult:
-    status: HermesGraphAgentStatus
-    final_response: str | None
-    messages: list[dict[str, Any]]
-    hermes_session_id: str
-    tool_events: list[HermesGraphToolEvent]
-    error_code: str | None = None
-    error_message: str | None = None
-    process_isolation: ProcessIsolationMode = PROCESS_ISOLATION_MODE
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphAgentTurnRequest:
-    question: str
-    world_id: str
-    campaign_id: str
-    focus: Mapping[str, Any] | None = None
-    admissibility: str | None = None
-    revision_pin: str | None = None
-    conversation_history: Sequence[Mapping[str, Any]] | None = None
-    session_id: str | None = None
-    root: Path | None = None
-    capability_policy: HermesCapabilityPolicy | None = None
 
 
 def _error_result(
@@ -918,8 +883,17 @@ __all__ = [
     "HermesGraphAgentTurnResult",
     "HermesGraphScope",
     "HermesGraphToolEvent",
+    "HermesPluginActivation",
     "HermesToolCapabilityRule",
+    "ProcessIsolationMode",
+    "ToolEventState",
+    "deserialize_capability_policy",
+    "deserialize_hermes_graph_agent_turn_request",
+    "deserialize_hermes_graph_agent_turn_result",
     "hermes_import_namespace",
     "import_hermes_aiagent",
     "run_hermes_graph_agent_turn",
+    "serialize_capability_policy",
+    "serialize_hermes_graph_agent_turn_request",
+    "serialize_hermes_graph_agent_turn_result",
 ]
