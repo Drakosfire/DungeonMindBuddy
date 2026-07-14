@@ -2339,8 +2339,23 @@
           "title": "WorldGraphEvidenceTarget",
           "type": "object"
         },
-        "WorldGraphProjectionFocus": {
+        "WorldGraphRetrievalEvidenceBounds": {
           "additionalProperties": false,
+          "properties": {
+            "maxSourceAnchors": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxsourceanchors",
+              "type": "integer"
+            }
+          },
+          "title": "WorldGraphRetrievalEvidenceBounds",
+          "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
           "properties": {
             "kind": {
               "default": "none",
@@ -2364,21 +2379,7 @@
               "title": "Sessionid"
             }
           },
-          "title": "WorldGraphProjectionFocus",
-          "type": "object"
-        },
-        "WorldGraphRetrievalEvidenceBounds": {
-          "additionalProperties": false,
-          "properties": {
-            "maxSourceAnchors": {
-              "default": 24,
-              "maximum": 32,
-              "minimum": 1,
-              "title": "Maxsourceanchors",
-              "type": "integer"
-            }
-          },
-          "title": "WorldGraphRetrievalEvidenceBounds",
+          "title": "WorldGraphRetrievalFocus",
           "type": "object"
         }
       },
@@ -2398,7 +2399,7 @@
           "type": "string"
         },
         "focus": {
-          "$ref": "#/$defs/WorldGraphProjectionFocus"
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
         },
         "revisionPin": {
           "anyOf": [
@@ -2414,7 +2415,6 @@
         },
         "schema": {
           "const": "dmb_world_graph_evidence_request_v1",
-          "default": "dmb_world_graph_evidence_request_v1",
           "enum": [
             "dmb_world_graph_evidence_request_v1"
           ],
@@ -2433,6 +2433,7 @@
       "required": [
         "worldId",
         "campaignId",
+        "schema",
         "target"
       ],
       "title": "WorldGraphEvidenceRequest",
@@ -2440,34 +2441,6 @@
     },
     "neighborhoodRequest": {
       "$defs": {
-        "WorldGraphProjectionFocus": {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "default": "none",
-              "enum": [
-                "none",
-                "session"
-              ],
-              "title": "Kind",
-              "type": "string"
-            },
-            "sessionId": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Sessionid"
-            }
-          },
-          "title": "WorldGraphProjectionFocus",
-          "type": "object"
-        },
         "WorldGraphRetrievalBounds": {
           "additionalProperties": false,
           "properties": {
@@ -2502,6 +2475,35 @@
           },
           "title": "WorldGraphRetrievalBounds",
           "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -2520,7 +2522,7 @@
           "type": "string"
         },
         "focus": {
-          "$ref": "#/$defs/WorldGraphProjectionFocus"
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
         },
         "maxDepth": {
           "default": 1,
@@ -2545,7 +2547,6 @@
         },
         "schema": {
           "const": "dmb_world_graph_neighborhood_request_v1",
-          "default": "dmb_world_graph_neighborhood_request_v1",
           "enum": [
             "dmb_world_graph_neighborhood_request_v1"
           ],
@@ -2570,6 +2571,7 @@
       "required": [
         "worldId",
         "campaignId",
+        "schema",
         "seedNodeIds"
       ],
       "title": "WorldGraphNeighborhoodRequest",
@@ -2577,34 +2579,6 @@
     },
     "objectRequest": {
       "$defs": {
-        "WorldGraphProjectionFocus": {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "default": "none",
-              "enum": [
-                "none",
-                "session"
-              ],
-              "title": "Kind",
-              "type": "string"
-            },
-            "sessionId": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Sessionid"
-            }
-          },
-          "title": "WorldGraphProjectionFocus",
-          "type": "object"
-        },
         "WorldGraphRetrievalBounds": {
           "additionalProperties": false,
           "properties": {
@@ -2639,6 +2613,35 @@
           },
           "title": "WorldGraphRetrievalBounds",
           "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -2657,7 +2660,7 @@
           "type": "string"
         },
         "focus": {
-          "$ref": "#/$defs/WorldGraphProjectionFocus"
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
         },
         "nodeId": {
           "minLength": 1,
@@ -2678,7 +2681,6 @@
         },
         "schema": {
           "const": "dmb_world_graph_object_request_v1",
-          "default": "dmb_world_graph_object_request_v1",
           "enum": [
             "dmb_world_graph_object_request_v1"
           ],
@@ -2694,6 +2696,7 @@
       "required": [
         "worldId",
         "campaignId",
+        "schema",
         "nodeId"
       ],
       "title": "WorldGraphObjectRequest",
@@ -3442,34 +3445,6 @@
     },
     "searchRequest": {
       "$defs": {
-        "WorldGraphProjectionFocus": {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "default": "none",
-              "enum": [
-                "none",
-                "session"
-              ],
-              "title": "Kind",
-              "type": "string"
-            },
-            "sessionId": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Sessionid"
-            }
-          },
-          "title": "WorldGraphProjectionFocus",
-          "type": "object"
-        },
         "WorldGraphRetrievalBounds": {
           "additionalProperties": false,
           "properties": {
@@ -3504,77 +3479,10 @@
           },
           "title": "WorldGraphRetrievalBounds",
           "type": "object"
-        }
-      },
-      "additionalProperties": false,
-      "properties": {
-        "admissibility": {
-          "default": "gm",
-          "title": "Admissibility",
-          "type": "string"
         },
-        "bounds": {
-          "$ref": "#/$defs/WorldGraphRetrievalBounds"
-        },
-        "campaignId": {
-          "minLength": 1,
-          "title": "Campaignid",
-          "type": "string"
-        },
-        "focus": {
-          "$ref": "#/$defs/WorldGraphProjectionFocus"
-        },
-        "queryText": {
-          "minLength": 1,
-          "title": "Querytext",
-          "type": "string"
-        },
-        "revisionPin": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Revisionpin"
-        },
-        "schema": {
-          "const": "dmb_world_graph_search_request_v1",
-          "default": "dmb_world_graph_search_request_v1",
-          "enum": [
-            "dmb_world_graph_search_request_v1"
-          ],
-          "title": "Schema",
-          "type": "string"
-        },
-        "seedNodeIds": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Seednodeids",
-          "type": "array"
-        },
-        "worldId": {
-          "minLength": 1,
-          "title": "Worldid",
-          "type": "string"
-        }
-      },
-      "required": [
-        "worldId",
-        "campaignId",
-        "queryText"
-      ],
-      "title": "WorldGraphSearchRequest",
-      "type": "object"
-    },
-    "sourceAnchorReadRequest": {
-      "$defs": {
-        "WorldGraphProjectionFocus": {
+        "WorldGraphRetrievalFocus": {
           "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
           "properties": {
             "kind": {
               "default": "none",
@@ -3598,7 +3506,104 @@
               "title": "Sessionid"
             }
           },
-          "title": "WorldGraphProjectionFocus",
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/WorldGraphRetrievalBounds"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "queryText": {
+          "minLength": 1,
+          "title": "Querytext",
+          "type": "string"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_search_request_v1",
+          "enum": [
+            "dmb_world_graph_search_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "seedNodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Seednodeids",
+          "type": "array"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "queryText"
+      ],
+      "title": "WorldGraphSearchRequest",
+      "type": "object"
+    },
+    "sourceAnchorReadRequest": {
+      "$defs": {
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
           "type": "object"
         }
       },
@@ -3620,7 +3625,7 @@
           "type": "string"
         },
         "focus": {
-          "$ref": "#/$defs/WorldGraphProjectionFocus"
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
         },
         "maxChars": {
           "default": 4000,
@@ -3643,7 +3648,6 @@
         },
         "schema": {
           "const": "dmb_world_graph_source_anchor_read_request_v1",
-          "default": "dmb_world_graph_source_anchor_read_request_v1",
           "enum": [
             "dmb_world_graph_source_anchor_read_request_v1"
           ],
@@ -3659,6 +3663,7 @@
       "required": [
         "worldId",
         "campaignId",
+        "schema",
         "anchorId"
       ],
       "title": "WorldGraphSourceAnchorReadRequest",

@@ -27,10 +27,13 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationContribution,
     WorldInitializationPlan,
 )
-from graph_memory.projection.world_projection import WorldGraphProjectionFocus
 from graph_memory.retrieval.models import (
+    RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+    RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+    RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+    RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+    RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
     WorldGraphEvidenceRequest,
-    WorldGraphEvidenceTarget,
     WorldGraphNeighborhoodRequest,
     WorldGraphObjectRequest,
     WorldGraphRetrievalBounds,
@@ -169,6 +172,54 @@ def test_search_route_missing_required_field_is_422(client: TestClient) -> None:
     )
     assert response.status_code == 422
     assert response.json()["schema"] == "dmb_world_graph_retrieval_error_v1"
+
+
+def test_search_route_rejects_snake_case_wire_keys(client: TestClient) -> None:
+    response = client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "world_id": WORLD_ID,
+            "campaign_id": CAMPAIGN_ID,
+            "query_text": "anything",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_search_route_rejects_schema_underscore_key(client: TestClient) -> None:
+    response = client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema_": "dmb_world_graph_search_request_v1",
+            **_base_request(queryText="anything"),
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_search_route_rejects_omitted_schema(client: TestClient) -> None:
+    response = client.post(
+        f"{RETRIEVAL_URL}/search",
+        json=_base_request(queryText="anything"),
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_search_route_rejects_nested_session_id_snake_case(client: TestClient) -> None:
+    response = client.post(
+        f"{RETRIEVAL_URL}/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            **_base_request(queryText="anything"),
+            "focus": {"kind": "session", "session_id": FOCUS_SESSION_ID},
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
 
 
 # --- Successful round-trips ---------------------------------------------------
@@ -491,19 +542,50 @@ def test_source_anchor_read_route_receipt_plan_digest_mutation_returns_409(
 
 
 def _context(**overrides) -> dict[str, Any]:
-    payload = {
-        "world_id": WORLD_ID,
-        "campaign_id": CAMPAIGN_ID,
-        "focus": WorldGraphProjectionFocus(),
+    payload: dict[str, Any] = {
+        "worldId": WORLD_ID,
+        "campaignId": CAMPAIGN_ID,
+        "focus": {"kind": "none", "sessionId": None},
         "admissibility": "gm",
-        "revision_pin": None,
+        "revisionPin": None,
     }
-    payload.update(overrides)
+    alias_map = {
+        "world_id": "worldId",
+        "campaign_id": "campaignId",
+        "revision_pin": "revisionPin",
+        "admissibility": "admissibility",
+        "focus": "focus",
+    }
+    for key, value in overrides.items():
+        wire_key = alias_map.get(key, key)
+        if hasattr(value, "model_dump"):
+            payload[wire_key] = value.model_dump(mode="json", by_alias=True)
+        else:
+            payload[wire_key] = value
     return payload
 
 
 def _dump(model) -> dict[str, Any]:
     return model.model_dump(mode="json", by_alias=True)
+
+
+def _bounds(**overrides) -> WorldGraphRetrievalBounds:
+    payload = {
+        "maxNodes": 8,
+        "maxRelationships": 16,
+        "maxAttributes": 24,
+        "maxSourceAnchors": 24,
+        **{
+            {
+                "max_nodes": "maxNodes",
+                "max_relationships": "maxRelationships",
+                "max_attributes": "maxAttributes",
+                "max_source_anchors": "maxSourceAnchors",
+            }.get(key, key): value
+            for key, value in overrides.items()
+        },
+    }
+    return WorldGraphRetrievalBounds.model_validate(payload)
 
 
 def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
@@ -516,62 +598,118 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
     _initialize(root)
 
     search_enough = search_campaign_graph(
-        WorldGraphSearchRequest(query_text="positional controller", **_context()), root=root
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                "queryText": "positional controller",
+                **_context(),
+            }
+        ),
+        root=root,
     )
     search_empty = search_campaign_graph(
-        WorldGraphSearchRequest(
-            query_text="completely unrelated phrase not present in the graph",
-            **_context(),
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                "queryText": "completely unrelated phrase not present in the graph",
+                **_context(),
+            }
         ),
         root=root,
     )
     object_found = get_campaign_object(
-        WorldGraphObjectRequest(node_id=TRIPOD_ID, **_context()), root=root
+        WorldGraphObjectRequest.model_validate(
+            {
+                "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+                "nodeId": TRIPOD_ID,
+                **_context(),
+            }
+        ),
+        root=root,
     )
     object_empty = get_campaign_object(
-        WorldGraphObjectRequest(node_id="threat:does-not-exist", **_context()), root=root
+        WorldGraphObjectRequest.model_validate(
+            {
+                "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+                "nodeId": "threat:does-not-exist",
+                **_context(),
+            }
+        ),
+        root=root,
     )
     neighborhood_depth_1 = get_object_neighborhood(
-        WorldGraphNeighborhoodRequest(seed_node_ids=[TRIPOD_ID], max_depth=1, **_context()),
+        WorldGraphNeighborhoodRequest.model_validate(
+            {
+                "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+                "seedNodeIds": [TRIPOD_ID],
+                "maxDepth": 1,
+                **_context(),
+            }
+        ),
         root=root,
     )
     neighborhood_partial = get_object_neighborhood(
-        WorldGraphNeighborhoodRequest(
-            seed_node_ids=[TRIPOD_ID, "threat:does-not-exist"],
-            max_depth=1,
-            **_context(),
+        WorldGraphNeighborhoodRequest.model_validate(
+            {
+                "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+                "seedNodeIds": [TRIPOD_ID, "threat:does-not-exist"],
+                "maxDepth": 1,
+                **_context(),
+            }
         ),
         root=root,
     )
     neighborhood_truncated = get_object_neighborhood(
-        WorldGraphNeighborhoodRequest(
-            seed_node_ids=[TRIPOD_ID],
-            max_depth=2,
-            bounds=WorldGraphRetrievalBounds(max_nodes=1),
-            **_context(),
+        WorldGraphNeighborhoodRequest.model_validate(
+            {
+                "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+                "seedNodeIds": [TRIPOD_ID],
+                "maxDepth": 2,
+                "bounds": _bounds(max_nodes=1).model_dump(mode="json", by_alias=True),
+                **_context(),
+            }
         ),
         root=root,
     )
     evidence_for_node = get_object_evidence(
-        WorldGraphEvidenceRequest(
-            target=WorldGraphEvidenceTarget(kind="node", id=TRIPOD_ID), **_context()
+        WorldGraphEvidenceRequest.model_validate(
+            {
+                "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+                "target": {"kind": "node", "id": TRIPOD_ID},
+                **_context(),
+            }
         ),
         root=root,
     )
     anchor_id = evidence_for_node.source_anchors[0].anchor_id
     source_anchor_read = read_source_anchor(
-        WorldGraphSourceAnchorReadRequest(anchor_id=anchor_id, **_context()), root=root
+        WorldGraphSourceAnchorReadRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                "anchorId": anchor_id,
+                **_context(),
+            }
+        ),
+        root=root,
     )
     source_anchor_read_unknown = read_source_anchor(
-        WorldGraphSourceAnchorReadRequest(
-            anchor_id="source-anchor:v1:" + "0" * 64, **_context()
+        WorldGraphSourceAnchorReadRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                "anchorId": "source-anchor:v1:" + "0" * 64,
+                **_context(),
+            }
         ),
         root=root,
     )
 
     evidence_for_mirathorn = get_object_evidence(
-        WorldGraphEvidenceRequest(
-            target=WorldGraphEvidenceTarget(kind="node", id=MIRATHORN_ID), **_context()
+        WorldGraphEvidenceRequest.model_validate(
+            {
+                "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+                "target": {"kind": "node", "id": MIRATHORN_ID},
+                **_context(),
+            }
         ),
         root=root,
     )
@@ -581,7 +719,13 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         if anchor.evidence_ref_id == MIRATHORN_EVIDENCE_REF_ID
     )
     source_anchor_read_repo_heading = read_source_anchor(
-        WorldGraphSourceAnchorReadRequest(anchor_id=mirathorn_anchor_id, **_context()),
+        WorldGraphSourceAnchorReadRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                "anchorId": mirathorn_anchor_id,
+                **_context(),
+            }
+        ),
         root=root,
     )
 
@@ -594,7 +738,13 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
     )
     try:
         read_source_anchor(
-            WorldGraphSourceAnchorReadRequest(anchor_id=anchor_id, **_context()),
+            WorldGraphSourceAnchorReadRequest.model_validate(
+                {
+                    "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                    "anchorId": anchor_id,
+                    **_context(),
+                }
+            ),
             root=root,
         )
         source_anchor_read_integrity_error: WorldGraphRetrievalServiceError | None = None
@@ -603,13 +753,24 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
 
     empty_root = root / "uninitialized"
     search_unavailable = search_campaign_graph(
-        WorldGraphSearchRequest(query_text="anything", **_context()), root=empty_root
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                "queryText": "anything",
+                **_context(),
+            }
+        ),
+        root=empty_root,
     )
 
     try:
         search_campaign_graph(
-            WorldGraphSearchRequest(
-                query_text="anything", **_context(campaign_id="foreign-campaign")
+            WorldGraphSearchRequest.model_validate(
+                {
+                    "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                    "queryText": "anything",
+                    **_context(campaign_id="foreign-campaign"),
+                }
             ),
             root=root,
         )
@@ -619,7 +780,13 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
 
     try:
         search_campaign_graph(
-            WorldGraphSearchRequest(query_text="anything", **_context(admissibility="player")),
+            WorldGraphSearchRequest.model_validate(
+                {
+                    "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                    "queryText": "anything",
+                    **_context(admissibility="player"),
+                }
+            ),
             root=root,
         )
         invalid_admissibility_error: WorldGraphRetrievalServiceError | None = None
