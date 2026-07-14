@@ -946,7 +946,9 @@ def _head_lacks_contribution_source_authority(
         try:
             contrib = load_contribution_record(root, world_id, contribution_id)
         except FileNotFoundError:
-            continue
+            # Indexed, non-failed contributions must have a ledger record. A
+            # missing file means graph-data source authority cannot be verified.
+            return True
         if contrib.status == "failed":
             continue
         expected = digests.get(contribution_id)
@@ -1192,7 +1194,6 @@ def supersede_graph_contribution(
                 f"head is {head.head_revision_id!r}"
             )
 
-    old = load_contribution_record(root, world_id, superseded_contribution_id)
     if _head_lacks_contribution_source_authority(root, world_id, current_store):
         return _migration_required_result(
             world_id=world_id,
@@ -1202,6 +1203,7 @@ def supersede_graph_contribution(
             superseded_contribution_ids=[],
             reason="contribution_source_authority_incomplete",
         )
+    old = load_contribution_record(root, world_id, superseded_contribution_id)
     if _head_requires_assertion_identity_migration(root, world_id, current_store):
         return _migration_required_result(
             world_id=world_id,

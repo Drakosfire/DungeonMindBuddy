@@ -19,15 +19,20 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationPlan,
 )
 from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
-from graph_memory.projection.world_projection import WorldGraphProjectionFocus
 from graph_memory.retrieval.models import (
     RETRIEVAL_RESULT_SCHEMA,
+    RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+    RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+    RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+    RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+    RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
     RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA,
     WorldGraphEvidenceRequest,
     WorldGraphEvidenceTarget,
     WorldGraphNeighborhoodRequest,
     WorldGraphObjectRequest,
     WorldGraphRetrievalBounds,
+    WorldGraphRetrievalFocus,
     WorldGraphSearchRequest,
     WorldGraphSourceAnchorReadRequest,
 )
@@ -128,38 +133,112 @@ def _context(
     revision_pin: str | None = None,
 ) -> dict:
     return {
-        "world_id": world_id,
-        "campaign_id": campaign_id,
-        "focus": WorldGraphProjectionFocus(),
+        "worldId": world_id,
+        "campaignId": campaign_id,
+        "focus": {"kind": "none"},
         "admissibility": admissibility,
-        "revision_pin": revision_pin,
+        "revisionPin": revision_pin,
     }
 
 
+def _wire_overrides(**overrides) -> dict:
+    """Map Python helper kwargs onto camelCase wire keys for alias-only models."""
+    alias_map = {
+        "world_id": "worldId",
+        "campaign_id": "campaignId",
+        "revision_pin": "revisionPin",
+        "query_text": "queryText",
+        "node_id": "nodeId",
+        "seed_node_ids": "seedNodeIds",
+        "max_depth": "maxDepth",
+        "anchor_id": "anchorId",
+        "max_chars": "maxChars",
+        "admissibility": "admissibility",
+        "focus": "focus",
+        "bounds": "bounds",
+        "target": "target",
+        "schema": "schema",
+    }
+    payload: dict = {}
+    for key, value in overrides.items():
+        wire_key = alias_map.get(key, key)
+        if hasattr(value, "model_dump"):
+            payload[wire_key] = value.model_dump(mode="json", by_alias=True)
+        else:
+            payload[wire_key] = value
+    return payload
+
+
+def _bounds(**overrides) -> WorldGraphRetrievalBounds:
+    payload = {
+        "maxNodes": 8,
+        "maxRelationships": 16,
+        "maxAttributes": 24,
+        "maxSourceAnchors": 24,
+        **{
+            {
+                "max_nodes": "maxNodes",
+                "max_relationships": "maxRelationships",
+                "max_attributes": "maxAttributes",
+                "max_source_anchors": "maxSourceAnchors",
+            }.get(key, key): value
+            for key, value in overrides.items()
+        },
+    }
+    return WorldGraphRetrievalBounds.model_validate(payload)
+
+
 def _search_request(query_text: str, **overrides) -> WorldGraphSearchRequest:
-    return WorldGraphSearchRequest(query_text=query_text, **{**_context(), **overrides})
+    payload = {
+        "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+        "queryText": query_text,
+        **_context(),
+        **_wire_overrides(**overrides),
+    }
+    return WorldGraphSearchRequest.model_validate(payload)
 
 
 def _object_request(node_id: str, **overrides) -> WorldGraphObjectRequest:
-    return WorldGraphObjectRequest(node_id=node_id, **{**_context(), **overrides})
+    payload = {
+        "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+        "nodeId": node_id,
+        **_context(),
+        **_wire_overrides(**overrides),
+    }
+    return WorldGraphObjectRequest.model_validate(payload)
 
 
 def _neighborhood_request(
     seed_node_ids: list[str], *, max_depth: int = 1, **overrides
 ) -> WorldGraphNeighborhoodRequest:
-    return WorldGraphNeighborhoodRequest(
-        seed_node_ids=seed_node_ids,
-        max_depth=max_depth,
-        **{**_context(), **overrides},
-    )
+    payload = {
+        "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+        "seedNodeIds": seed_node_ids,
+        "maxDepth": max_depth,
+        **_context(),
+        **_wire_overrides(**overrides),
+    }
+    return WorldGraphNeighborhoodRequest.model_validate(payload)
 
 
 def _evidence_request(target: WorldGraphEvidenceTarget, **overrides) -> WorldGraphEvidenceRequest:
-    return WorldGraphEvidenceRequest(target=target, **{**_context(), **overrides})
+    payload = {
+        "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+        "target": target.model_dump(mode="json", by_alias=True),
+        **_context(),
+        **_wire_overrides(**overrides),
+    }
+    return WorldGraphEvidenceRequest.model_validate(payload)
 
 
 def _anchor_read_request(anchor_id: str, **overrides) -> WorldGraphSourceAnchorReadRequest:
-    return WorldGraphSourceAnchorReadRequest(anchor_id=anchor_id, **{**_context(), **overrides})
+    payload = {
+        "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+        "anchorId": anchor_id,
+        **_context(),
+        **_wire_overrides(**overrides),
+    }
+    return WorldGraphSourceAnchorReadRequest.model_validate(payload)
 
 
 # --- Search ---------------------------------------------------------------
@@ -259,7 +338,7 @@ def test_search_respects_bounds_and_reports_truncation(
         tmp_path,
         _search_request(
             "location event party threat",
-            bounds=WorldGraphRetrievalBounds(max_nodes=1),
+            bounds=_bounds(max_nodes=1),
         ),
     )
     assert len(result.nodes) <= 1
@@ -309,6 +388,7 @@ def test_search_extra_field_is_rejected_by_model() -> None:
     with pytest.raises(ValidationError):
         WorldGraphSearchRequest.model_validate(
             {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
                 **_context(),
                 "queryText": "hello",
                 "unexpectedField": "nope",
@@ -465,7 +545,12 @@ def test_neighborhood_missing_seed_is_partial(tmp_path: Path, loaded_bundle) -> 
 def test_neighborhood_max_depth_rejects_out_of_range() -> None:
     with pytest.raises(ValidationError):
         WorldGraphNeighborhoodRequest.model_validate(
-            {**_context(), "seedNodeIds": [TRIPOD_ID], "maxDepth": 3}
+            {
+                "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+                **_context(),
+                "seedNodeIds": [TRIPOD_ID],
+                "maxDepth": 3,
+            }
         )
 
 
@@ -478,7 +563,7 @@ def test_neighborhood_depth_ordered_cap_prefers_depth_one_before_depth_two(
         _neighborhood_request(
             [TRIPOD_ID],
             max_depth=2,
-            bounds=WorldGraphRetrievalBounds(max_nodes=2),
+            bounds=_bounds(max_nodes=2),
         ),
     )
     node_ids = [node.node_id for node in result.nodes]
@@ -496,7 +581,7 @@ def test_neighborhood_seed_cap_truncates_in_request_order(
         _neighborhood_request(
             [TRIPOD_ID, EVENT_ID, LOCATION_MIREWARD_ID],
             max_depth=1,
-            bounds=WorldGraphRetrievalBounds(max_nodes=2),
+            bounds=_bounds(max_nodes=2),
         ),
     )
     assert [node.node_id for node in result.nodes] == [TRIPOD_ID, EVENT_ID]
@@ -1049,7 +1134,9 @@ def test_read_source_anchor_wrong_focus_context_returns_no_content(
         tmp_path,
         _anchor_read_request(
             anchor.anchor_id,
-            focus=WorldGraphProjectionFocus(kind="session", session_id=FOCUS_SESSION_ID),
+            focus=WorldGraphRetrievalFocus.model_validate(
+                {"kind": "session", "sessionId": FOCUS_SESSION_ID}
+            ),
         ),
     )
     assert read_result.outcome == "empty"
@@ -1135,7 +1222,12 @@ def test_anchor_id_is_deterministic_across_replay(tmp_path: Path, loaded_bundle)
 def test_source_anchor_read_request_rejects_unknown_field() -> None:
     with pytest.raises(ValidationError):
         WorldGraphSourceAnchorReadRequest.model_validate(
-            {**_context(), "anchorId": "source-anchor:v1:" + "0" * 64, "path": "/etc/passwd"}
+            {
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                **_context(),
+                "anchorId": "source-anchor:v1:" + "0" * 64,
+                "path": "/etc/passwd",
+            }
         )
 
 
@@ -1143,9 +1235,55 @@ def test_source_anchor_read_max_chars_hard_max_enforced() -> None:
     with pytest.raises(ValidationError):
         WorldGraphSourceAnchorReadRequest.model_validate(
             {
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
                 **_context(),
                 "anchorId": "source-anchor:v1:" + "0" * 64,
                 "maxChars": 999_999,
+            }
+        )
+
+
+def test_search_request_rejects_snake_case_wire_keys() -> None:
+    with pytest.raises(ValidationError):
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                "world_id": WORLD_ID,
+                "campaign_id": CAMPAIGN_ID,
+                "query_text": "hello",
+            }
+        )
+
+
+def test_search_request_rejects_schema_underscore_key() -> None:
+    with pytest.raises(ValidationError):
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema_": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                **_context(),
+                "queryText": "hello",
+            }
+        )
+
+
+def test_search_request_rejects_omitted_schema() -> None:
+    with pytest.raises(ValidationError):
+        WorldGraphSearchRequest.model_validate(
+            {
+                **_context(),
+                "queryText": "hello",
+            }
+        )
+
+
+def test_search_request_rejects_nested_session_id_snake_case() -> None:
+    with pytest.raises(ValidationError):
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                **_context(),
+                "queryText": "hello",
+                "focus": {"kind": "session", "session_id": "session-1"},
             }
         )
 
@@ -1253,7 +1391,7 @@ def test_read_source_anchor_denies_anchor_for_projection_omitted_object(
     forged_anchor_id = compute_source_anchor_id(
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
-        focus=WorldGraphProjectionFocus(),
+        focus=WorldGraphRetrievalFocus(),
         admissibility="gm",
         revision_id=revision_after.revision_id,
         evidence_ref_id=evidence_ref_id,
@@ -1546,7 +1684,7 @@ def test_max_source_anchors_cap_does_not_create_anchor_gaps(
         tmp_path,
         _object_request(
             TRIPOD_ID,
-            bounds=WorldGraphRetrievalBounds(max_source_anchors=1),
+            bounds=_bounds(max_source_anchors=1),
         ),
     )
     assert result.outcome == "truncated"
