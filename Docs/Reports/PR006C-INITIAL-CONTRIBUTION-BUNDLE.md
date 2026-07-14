@@ -112,12 +112,18 @@ rejected assertions: 0
 approval basis: merge of PR006C (bootstrap package for /ingest)
 ```
 
-PR006D must pin:
+PR006D / bootstrap activation must pin **together**:
 
-- the actual PR006C merge SHA; and
+- `approved_bundle_merge_sha`: the Git commit that introduced the currently approved bundle bytes; and
 - this bundle digest
 
 then exercise the same path the GM will use: load into `/ingest` → validate → inspect/approve → merge → publish.
+
+### Re-attestation (Mirathorn locator correction)
+
+The original PR006C approval merge was `f69c69f271c427209860d902636347b70fea5920` for digest `c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca`.
+
+The Mirathorn locator correction produces digest `5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5`. That digest did **not** exist at the original approval merge. Bootstrap therefore re-attests under content commit `65ae001e0852d827ecd680200a965a576c705b1d` (the commit that introduced the corrected locator + digests). Do not silently pair the new digest with the old merge SHA.
 
 ---
 

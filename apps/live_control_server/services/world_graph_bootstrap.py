@@ -57,7 +57,10 @@ APPROVED_BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 APPROVED_BUNDLE_DIGEST = (
     "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
-APPROVED_BUNDLE_MERGE_SHA = "f69c69f271c427209860d902636347b70fea5920"
+# Content re-attestation for the Mirathorn locator correction (PR010A Rung 0).
+# Historically paired with f69c69f271c427209860d902636347b70fea5920 for the
+# pre-correction digest; do not restore that pairing for the new digest.
+APPROVED_BUNDLE_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
 APPROVED_BUNDLE_RELPATH = (
     "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )

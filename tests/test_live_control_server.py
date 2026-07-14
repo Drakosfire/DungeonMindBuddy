@@ -810,7 +810,7 @@ def _pr008b_init_world(tmp_path: Path) -> None:
             bundle_digest=(
                 "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
             ),
-            approved_bundle_merge_sha="f69c69f271c427209860d902636347b70fea5920",
+            approved_bundle_merge_sha="65ae001e0852d827ecd680200a965a576c705b1d",
         ),
     )
     initialize_world_from_contributions(
