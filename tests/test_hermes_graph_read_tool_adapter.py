@@ -476,6 +476,117 @@ def test_unexpected_adapter_failure_is_fail_closed(
     assert parsed["message"] == "Hermes graph-read tool adapter failed unexpectedly."
 
 
+def test_serialize_model_failure_uses_last_resort_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = _stub_retrieval_result("enough")
+
+    def _spy(request: Any, *, root: Path | None = None) -> Any:
+        return expected
+
+    import apps.live_control_server.services.world_graph_retrieval as wgr
+
+    monkeypatch.setattr(wgr, "search_campaign_graph", _spy)
+
+    def _broken_serialize(_model: Any) -> str:
+        raise RuntimeError("/secret/serialize OPENAI_KEY=sk-serialize boom")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.hermes_graph_read_tool_adapter"
+        "._serialize_model",
+        _broken_serialize,
+    )
+    payload = execute_hermes_graph_read_tool_json(
+        "search_campaign_graph",
+        _search_args(),
+    )
+    parsed = json.loads(payload)
+    assert parsed["schema"] == RETRIEVAL_ERROR_SCHEMA
+    assert parsed["code"] == "hermes_graph_read_tool_adapter_error"
+    assert parsed["statusCode"] == 500
+    assert "/secret/serialize" not in payload
+    assert "OPENAI_KEY" not in payload
+    assert "sk-serialize" not in payload
+    assert "boom" not in parsed["message"]
+
+
+def test_dispatcher_unrelated_pydantic_model_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pydantic import BaseModel
+
+    class _Alien(BaseModel):
+        secret: str = "/secret/alien"
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.hermes_graph_read_tool_adapter"
+        ".execute_hermes_graph_read_tool",
+        lambda *_a, **_k: _Alien(),
+    )
+    payload = execute_hermes_graph_read_tool_json(
+        "search_campaign_graph",
+        _search_args(),
+    )
+    parsed = json.loads(payload)
+    assert parsed["code"] == "hermes_graph_read_tool_adapter_error"
+    assert parsed["statusCode"] == 500
+    assert "/secret/alien" not in payload
+    assert "secret" not in parsed
+
+
+def test_dispatcher_plain_object_with_model_dump_json_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Impostor:
+        def model_dump_json(self, **_kwargs: Any) -> str:
+            return '{"code":"leaked","message":"/secret/impostor"}'
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.hermes_graph_read_tool_adapter"
+        ".execute_hermes_graph_read_tool",
+        lambda *_a, **_k: _Impostor(),
+    )
+    payload = execute_hermes_graph_read_tool_json(
+        "search_campaign_graph",
+        _search_args(),
+    )
+    parsed = json.loads(payload)
+    assert parsed["code"] == "hermes_graph_read_tool_adapter_error"
+    assert parsed["statusCode"] == 500
+    assert "/secret/impostor" not in payload
+    assert parsed["schema"] == RETRIEVAL_ERROR_SCHEMA
+
+
+def test_service_error_wrong_response_type_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _WrongResponseError(WorldGraphRetrievalServiceError):
+        def response(self) -> Any:  # type: ignore[override]
+            return _stub_retrieval_result("enough")
+
+    broken = _WrongResponseError(
+        "integrity failure",
+        code="retrieval_integrity_error",
+        status_code=409,
+    )
+
+    def _raise(*_args: Any, **_kwargs: Any) -> Any:
+        raise broken
+
+    import apps.live_control_server.services.world_graph_retrieval as wgr
+
+    monkeypatch.setattr(wgr, "search_campaign_graph", _raise)
+
+    payload = execute_hermes_graph_read_tool_json(
+        "search_campaign_graph",
+        _search_args(),
+    )
+    parsed = json.loads(payload)
+    assert parsed["code"] == "hermes_graph_read_tool_adapter_error"
+    assert parsed["statusCode"] == 500
+    assert parsed["schema"] == RETRIEVAL_ERROR_SCHEMA
+
+
 @pytest.mark.parametrize("outcome", OUTCOMES)
 def test_outcomes_preserved_in_serialized_json(
     monkeypatch: pytest.MonkeyPatch,
@@ -577,3 +688,56 @@ def test_registry_export_matches_frozen_name_set() -> None:
     registry = hermes_graph_read_tool_request_models()
     assert set(registry.keys()) == set(HERMES_GRAPH_READ_TOOL_NAMES)
     assert tuple(registry.keys()) == ORDERED_TOOL_NAMES
+
+
+def test_unicode_source_anchor_content_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unicode_excerpt = "Mîrathorn — Tripod’s café and 北門 prep note"
+    expected = WorldGraphSourceAnchorReadResult(
+        outcome="enough",
+        anchor_id="source-anchor:v1:example",
+        content=unicode_excerpt,
+    )
+
+    def _spy(request: Any, *, root: Path | None = None) -> Any:
+        return expected
+
+    import apps.live_control_server.services.world_graph_retrieval as wgr
+
+    monkeypatch.setattr(wgr, "read_source_anchor", _spy)
+
+    payload = execute_hermes_graph_read_tool_json("read_source_anchor", _anchor_args())
+    parsed = json.loads(payload)
+    assert parsed["content"] == unicode_excerpt
+    assert "Mîrathorn" in payload
+    assert "café" in payload
+    assert "北門" in payload
+
+
+def _assert_no_snake_case_schema_keys(node: Any, path: str = "$") -> None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "properties" and isinstance(value, dict):
+                for prop_name in value:
+                    assert "_" not in prop_name, (
+                        f"snake_case property at {path}.properties.{prop_name}"
+                    )
+            if key == "$defs" and isinstance(value, dict):
+                for def_name, def_schema in value.items():
+                    _assert_no_snake_case_schema_keys(
+                        def_schema, f"{path}.$defs.{def_name}"
+                    )
+            else:
+                _assert_no_snake_case_schema_keys(value, f"{path}.{key}")
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            _assert_no_snake_case_schema_keys(item, f"{path}[{index}]")
+
+
+def test_catalog_schemas_use_camelcase_including_nested_defs() -> None:
+    for item in hermes_graph_read_tool_definitions():
+        _assert_no_snake_case_schema_keys(item["function"]["parameters"])
+        defs = item["function"]["parameters"].get("$defs", {})
+        assert isinstance(defs, dict)
+        assert defs

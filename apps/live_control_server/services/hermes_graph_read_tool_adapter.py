@@ -120,6 +120,24 @@ def _serialize_model(
     return model.model_dump_json(by_alias=True)
 
 
+def _build_last_resort_adapter_error_json() -> str:
+    """Immutable fail-closed envelope independent of runtime serialization helpers."""
+    model = WorldGraphRetrievalErrorResponse(
+        schema_=RETRIEVAL_ERROR_SCHEMA,
+        code="hermes_graph_read_tool_adapter_error",
+        message="Hermes graph-read tool adapter failed unexpectedly.",
+        status_code=500,
+    )
+    # Validate the envelope against the PR010A error model, then freeze the JSON.
+    validated = WorldGraphRetrievalErrorResponse.model_validate_json(
+        model.model_dump_json(by_alias=True)
+    )
+    return validated.model_dump_json(by_alias=True)
+
+
+_LAST_RESORT_ADAPTER_ERROR_JSON = _build_last_resort_adapter_error_json()
+
+
 def _contract_error_json(
     *,
     code: str,
@@ -137,11 +155,8 @@ def _contract_error_json(
 
 
 def _unexpected_adapter_error_json() -> str:
-    return _contract_error_json(
-        code="hermes_graph_read_tool_adapter_error",
-        message="Hermes graph-read tool adapter failed unexpectedly.",
-        status_code=500,
-    )
+    """Return the prevalidated last-resort envelope; never re-enter `_serialize_model`."""
+    return _LAST_RESORT_ADAPTER_ERROR_JSON
 
 
 def execute_hermes_graph_read_tool_json(
@@ -169,7 +184,15 @@ def execute_hermes_graph_read_tool_json(
                 )
             return _unexpected_adapter_error_json()
         except WorldGraphRetrievalServiceError as exc:
-            return _serialize_model(exc.response())
+            response = exc.response()
+            if not isinstance(response, WorldGraphRetrievalErrorResponse):
+                return _unexpected_adapter_error_json()
+            return _serialize_model(response)
+        if not isinstance(
+            result,
+            (WorldGraphRetrievalResult, WorldGraphSourceAnchorReadResult),
+        ):
+            return _unexpected_adapter_error_json()
         return _serialize_model(result)
     except Exception:
         return _unexpected_adapter_error_json()
