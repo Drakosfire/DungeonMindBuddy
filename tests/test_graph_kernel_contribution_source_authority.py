@@ -167,6 +167,7 @@ def test_legacy_head_without_source_digests_requires_migration(
     )
     # Simulate a legacy world: ledger+index updated without revision-bound digests.
     from graph_memory.world_supergraph.contribution_store import (
+        # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local legacy head fixture.
         ContributionIndex,
         save_contribution_index,
         upsert_contribution_in_index,
