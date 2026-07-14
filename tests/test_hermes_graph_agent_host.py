@@ -96,6 +96,20 @@ def _put_json(queue: Any, payload: dict[str, Any]) -> None:
     queue.put(encode_json_wire(payload))
 
 
+def _await_proceed_or_shutdown(request_queue: Any, request_id: str) -> str:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    while True:
+        message = decode_json_wire(request_queue.get())
+        msg_type = message.get("type")
+        if msg_type == "shutdown":
+            return "shutdown"
+        if msg_type == "proceed" and str(message.get("requestId") or "") == request_id:
+            return "proceed"
+
+
 def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
     """Picklable stub worker that never imports Rung 3 turn execution."""
     from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -109,6 +123,8 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
         if message.get("type") == "shutdown":
             _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
             return
+        if message.get("type") == "proceed":
+            continue
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
@@ -116,6 +132,9 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
         payload = message.get("payload") or {}
         question = str(payload.get("question") or "")
         result = serialize_hermes_graph_agent_turn_result(
@@ -149,6 +168,8 @@ def _slow_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
         message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
             return
+        if message.get("type") == "proceed":
+            continue
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
@@ -156,6 +177,8 @@ def _slow_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
         time.sleep(60)
 
 
@@ -172,6 +195,7 @@ def _crash_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        time.sleep(0.15)
         os._exit(1)
 
 
@@ -183,31 +207,35 @@ def _crash_once_then_ok_worker(request_queue: Any, response_queue: Any) -> None:
 
     flag_path = Path(os.environ["DMB_HERMES_HOST_CRASH_FLAG"])
     _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
-    message = decode_json_wire(request_queue.get())
-    if message.get("type") == "shutdown":
-        return
-    if message.get("type") != "execute":
-        return
-    request_id = str(message.get("requestId") or "")
-    _put_json(
-        response_queue,
-        {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
-    )
-    # Let the parent drain `accepted` before exit; otherwise a lost accept looks
-    # pre-accept and the host may retry into the success path.
-    time.sleep(0.15)
-    if not flag_path.exists():
-        flag_path.write_text("crashed-once", encoding="utf-8")
-        os._exit(1)
-    _put_json(
-        response_queue,
-        {
-            "type": "result",
-            "requestId": request_id,
-            "pid": os.getpid(),
-            "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
-        },
-    )
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        # Crash after accept is observed by parent, before/without completing proceed.
+        time.sleep(0.15)
+        if not flag_path.exists():
+            flag_path.write_text("crashed-once", encoding="utf-8")
+            os._exit(1)
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
+            },
+        )
 
 
 def _die_before_accept_once_worker(request_queue: Any, response_queue: Any) -> None:
@@ -218,26 +246,33 @@ def _die_before_accept_once_worker(request_queue: Any, response_queue: Any) -> N
 
     flag_path = Path(os.environ["DMB_HERMES_HOST_DIE_FLAG"])
     _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
-    message = decode_json_wire(request_queue.get())
-    if message.get("type") == "shutdown":
-        return
-    if not flag_path.exists():
-        flag_path.write_text("died-once", encoding="utf-8")
-        os._exit(1)
-    request_id = str(message.get("requestId") or "")
-    _put_json(
-        response_queue,
-        {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
-    )
-    _put_json(
-        response_queue,
-        {
-            "type": "result",
-            "requestId": request_id,
-            "pid": os.getpid(),
-            "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
-        },
-    )
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        if not flag_path.exists():
+            flag_path.write_text("died-once", encoding="utf-8")
+            os._exit(1)
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
+            },
+        )
 
 
 def _holding_worker(request_queue: Any, response_queue: Any) -> None:
@@ -253,6 +288,8 @@ def _holding_worker(request_queue: Any, response_queue: Any) -> None:
         message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
             return
+        if message.get("type") == "proceed":
+            continue
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
@@ -260,6 +297,8 @@ def _holding_worker(request_queue: Any, response_queue: Any) -> None:
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
         started_path.write_text(request_id, encoding="utf-8")
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -297,6 +336,8 @@ def _accept_counting_slow_worker(request_queue: Any, response_queue: Any) -> Non
         message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
             return
+        if message.get("type") == "proceed":
+            continue
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
@@ -308,6 +349,8 @@ def _accept_counting_slow_worker(request_queue: Any, response_queue: Any) -> Non
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
         time.sleep(60)
 
 
@@ -316,6 +359,179 @@ def _never_ready_worker(request_queue: Any, response_queue: Any) -> None:
     del request_queue, response_queue
     while True:
         time.sleep(60)
+
+
+def _side_effect_counting_worker(request_queue: Any, response_queue: Any) -> None:
+    """Increments a counter only after proceed — proves Rung-3-equivalent work."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    counter_path = Path(os.environ["DMB_HERMES_HOST_SIDE_EFFECT_COUNT"])
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        count = 0
+        if counter_path.exists():
+            count = int(counter_path.read_text(encoding="utf-8") or "0")
+        counter_path.write_text(str(count + 1), encoding="utf-8")
+        payload = message.get("payload") or {}
+        question = str(payload.get("question") or "")
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(
+                    HermesGraphAgentTurnResult(
+                        status="ok",
+                        final_response=f"effect:{question}",
+                        messages=[],
+                        hermes_session_id=f"worker-{os.getpid()}",
+                        tool_events=[],
+                        process_isolation="process_exclusive",
+                    )
+                ),
+            },
+        )
+
+
+def _accept_then_drop_worker(request_queue: Any, response_queue: Any) -> None:
+    """Emits accepted then waits for proceed; used with parent accept-loss simulation."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    counter_path = Path(os.environ["DMB_HERMES_HOST_SIDE_EFFECT_COUNT"])
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        count = 0
+        if counter_path.exists():
+            count = int(counter_path.read_text(encoding="utf-8") or "0")
+        counter_path.write_text(str(count + 1), encoding="utf-8")
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
+            },
+        )
+
+
+def _term_resistant_worker(request_queue: Any, response_queue: Any) -> None:
+    """Ignores graceful shutdown and SIGTERM; only SIGKILL stops it."""
+    import signal
+
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        try:
+            message = decode_json_wire(request_queue.get(timeout=0.5))
+        except Exception:
+            continue
+        if message.get("type") == "shutdown":
+            # Ignore graceful shutdown requests.
+            continue
+        if message.get("type") == "execute":
+            request_id = str(message.get("requestId") or "")
+            _put_json(
+                response_queue,
+                {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+            )
+            _await_proceed_or_shutdown(request_queue, request_id)
+            time.sleep(60)
+
+
+def _slow_ready_worker(request_queue: Any, response_queue: Any) -> None:
+    """Delays ready so overlapping start/execute can be scheduled."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    counter_path = Path(os.environ["DMB_HERMES_HOST_SIDE_EFFECT_COUNT"])
+    ready_gate = Path(os.environ["DMB_HERMES_HOST_READY_GATE"])
+    deadline = time.time() + 10
+    while time.time() < deadline and not ready_gate.exists():
+        time.sleep(0.01)
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            return
+        count = 0
+        if counter_path.exists():
+            count = int(counter_path.read_text(encoding="utf-8") or "0")
+        counter_path.write_text(str(count + 1), encoding="utf-8")
+        payload = message.get("payload") or {}
+        question = str(payload.get("question") or "")
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(
+                    HermesGraphAgentTurnResult(
+                        status="ok",
+                        final_response=f"effect:{question}",
+                        messages=[],
+                        hermes_session_id=f"worker-{os.getpid()}",
+                        tool_events=[],
+                        process_isolation="process_exclusive",
+                    )
+                ),
+            },
+        )
 
 
 def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> None:
@@ -411,6 +627,8 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         if message.get("type") == "shutdown":
             _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
             return
+        if message.get("type") == "proceed":
+            continue
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
@@ -418,6 +636,9 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             response_queue,
             {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
         try:
             payload = message.get("payload")
             request = deserialize_hermes_graph_agent_turn_request(payload)
@@ -905,7 +1126,7 @@ def test_shutdown_terminates_active_turn_promptly(
         shutdown_thread.join(timeout=5.0)
         thread.join(timeout=5.0)
         assert shutdown_thread.is_alive() is False
-        assert time.monotonic() - shutdown_started < 5.0
+        assert time.monotonic() - shutdown_started < 2.5
         assert result_holder[0] is not None
         assert result_holder[0].status == "error"
         assert result_holder[0].error_code in {
@@ -1017,10 +1238,132 @@ def test_shutdown_terminates_never_ready_worker_within_bound() -> None:
         shutdown_elapsed = time.monotonic() - shutdown_started
         thread.join(timeout=5.0)
         assert thread.is_alive() is False
-        assert shutdown_elapsed < 5.0
+        assert shutdown_elapsed < 2.5
         assert host.worker_pid is None
         assert not Path(f"/proc/{worker_pid}").exists()
         assert start_error[0] is not None
+    finally:
+        host.shutdown(timeout_s=1.0)
+
+
+def test_overlapping_start_and_execute_run_each_request_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    counter = tmp_path / "side_effects"
+    ready_gate = tmp_path / "ready_gate"
+    monkeypatch.setenv("DMB_HERMES_HOST_SIDE_EFFECT_COUNT", str(counter))
+    monkeypatch.setenv("DMB_HERMES_HOST_READY_GATE", str(ready_gate))
+    host = HermesGraphAgentHost(
+        worker_target=_slow_ready_worker,
+        ready_timeout_s=10.0,
+        turn_timeout_s=15.0,
+    )
+    start_error: list[BaseException | None] = [None]
+    result_holder: list[HermesGraphAgentTurnResult | None] = [None]
+
+    def _start() -> None:
+        try:
+            host.start()
+        except BaseException as exc:  # noqa: BLE001
+            start_error[0] = exc
+
+    def _execute() -> None:
+        result_holder[0] = host.execute(_request(question="once"))
+
+    try:
+        start_thread = threading.Thread(target=_start)
+        exec_thread = threading.Thread(target=_execute)
+        start_thread.start()
+        time.sleep(0.05)
+        exec_thread.start()
+        time.sleep(0.05)
+        ready_gate.write_text("go", encoding="utf-8")
+        start_thread.join(timeout=15.0)
+        exec_thread.join(timeout=15.0)
+        assert start_thread.is_alive() is False
+        assert exec_thread.is_alive() is False
+        assert start_error[0] is None
+        assert result_holder[0] is not None
+        assert result_holder[0].status == "ok"
+        assert result_holder[0].final_response == "effect:once"
+        assert counter.exists()
+        assert counter.read_text(encoding="utf-8") == "1"
+    finally:
+        ready_gate.write_text("go", encoding="utf-8")
+        host.shutdown()
+
+
+def test_lost_accept_does_not_replay_side_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If accepted is emitted but parent fails to observe it, no proceed → no duplicate work."""
+    counter = tmp_path / "side_effects"
+    monkeypatch.setenv("DMB_HERMES_HOST_SIDE_EFFECT_COUNT", str(counter))
+    host = HermesGraphAgentHost(
+        worker_target=_accept_then_drop_worker,
+        accept_timeout_s=2.0,
+        turn_timeout_s=10.0,
+    )
+    original_recv = HermesGraphAgentHost._recv_until
+    lost_once = {"done": False}
+
+    def _lose_first_accept(
+        self: HermesGraphAgentHost,
+        response_queue: Any,
+        process: Any,
+        *,
+        expected_types: set[str],
+        request_id: str | None,
+        timeout_s: float,
+    ) -> dict[str, Any] | None:
+        message = original_recv(
+            self,
+            response_queue,
+            process,
+            expected_types=expected_types,
+            request_id=request_id,
+            timeout_s=timeout_s,
+        )
+        if (
+            not lost_once["done"]
+            and message is not None
+            and "accepted" in expected_types
+            and message.get("type") == "accepted"
+        ):
+            lost_once["done"] = True
+            # Parent failed to observe acceptance; worker still waits for proceed.
+            return None
+        return message
+
+    monkeypatch.setattr(HermesGraphAgentHost, "_recv_until", _lose_first_accept)
+    try:
+        result = host.execute(_request(question="lost-accept"))
+        assert result.status == "ok"
+        assert lost_once["done"] is True
+        assert counter.exists()
+        assert counter.read_text(encoding="utf-8") == "1"
+    finally:
+        host.shutdown()
+
+
+def test_shutdown_deadline_kills_term_resistant_worker() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_term_resistant_worker,
+        ready_timeout_s=10.0,
+    )
+    try:
+        host.start()
+        pid = host.worker_pid
+        assert pid is not None
+        assert Path(f"/proc/{pid}").exists()
+        started = time.monotonic()
+        host.shutdown(timeout_s=2.0)
+        elapsed = time.monotonic() - started
+        assert elapsed < 2.5
+        assert host.worker_pid is None
+        assert not Path(f"/proc/{pid}").exists()
     finally:
         host.shutdown(timeout_s=1.0)
 

@@ -65,11 +65,35 @@ def _host_error_result(
     )
 
 
+def _await_worker_proceed(
+    request_queue: Queue[bytes],
+    *,
+    request_id: str,
+) -> str:
+    """Block until proceed for ``request_id`` or shutdown. Returns the type."""
+    while True:
+        raw = request_queue.get()
+        try:
+            message = decode_json_wire(raw)
+        except Exception:
+            continue
+        msg_type = message.get("type")
+        if msg_type == "shutdown":
+            return "shutdown"
+        if msg_type == "proceed" and str(message.get("requestId") or "") == request_id:
+            return "proceed"
+
+
 def hermes_graph_agent_worker_main(
     request_queue: Queue[bytes],
     response_queue: Queue[bytes],
 ) -> None:
-    """Default worker entry: import and execute Rung 3 only in the child."""
+    """Default worker entry: import and execute Rung 3 only in the child.
+
+    Acceptance is a two-phase barrier: the worker emits ``accepted``, then waits
+    for an explicit parent ``proceed`` before calling Rung 3. That keeps retries
+    safe when ``accepted`` is lost — Rung 3 never starts without authorization.
+    """
     from apps.live_control_server.services.hermes_graph_agent import (
         run_hermes_graph_agent_turn,
     )
@@ -103,6 +127,9 @@ def hermes_graph_agent_worker_main(
                 encode_json_wire({"type": "shutdown_ack", "pid": os.getpid()})
             )
             return
+        if msg_type == "proceed":
+            # Orphan proceed (no matching wait) — ignore.
+            continue
         if msg_type != "execute":
             response_queue.put(
                 encode_json_wire(
@@ -125,6 +152,12 @@ def hermes_graph_agent_worker_main(
                 }
             )
         )
+        authorization = _await_worker_proceed(request_queue, request_id=request_id)
+        if authorization == "shutdown":
+            response_queue.put(
+                encode_json_wire({"type": "shutdown_ack", "pid": os.getpid()})
+            )
+            return
         try:
             payload = message.get("payload")
             if not isinstance(payload, Mapping):
@@ -187,9 +220,12 @@ class HermesGraphAgentHost:
         self._ready_timeout_s = float(ready_timeout_s)
         self._worker_target = worker_target or hermes_graph_agent_worker_main
         self._ctx = context or mp.get_context("spawn")
+        # Serializes start() and execute() so only one thread consumes the
+        # worker response queue at a time (ready vs accepted cannot cross-steal).
         self._turn_gate = threading.Lock()
         self._worker_lock = threading.RLock()
         self._worker: _WorkerHandles | None = None
+        self._worker_ready = False
         self._started = False
         self._closed = False
 
@@ -206,21 +242,27 @@ class HermesGraphAgentHost:
 
     def start(self) -> None:
         """Ensure the host may create a worker (idempotent)."""
-        with self._worker_lock:
-            self._closed = False
-            self._started = True
-            if self._worker is not None and not self._worker.process.is_alive():
-                self._stop_worker_locked(timeout_s=1.0)
-            if self._worker is not None and self._worker.process.is_alive():
-                return
-        self._spawn_worker()
+        with self._turn_gate:
+            with self._worker_lock:
+                self._closed = False
+                self._started = True
+                if self._worker is not None and not self._worker.process.is_alive():
+                    self._stop_worker_locked(deadline=time.monotonic() + 1.0)
+                if (
+                    self._worker is not None
+                    and self._worker.process.is_alive()
+                    and self._worker_ready
+                ):
+                    return
+            self._spawn_worker()
 
     def shutdown(self, *, timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S) -> None:
-        """Stop the worker and release IPC resources."""
+        """Stop the worker within one total deadline and release IPC resources."""
+        deadline = time.monotonic() + float(timeout_s)
         with self._worker_lock:
             self._closed = True
             self._started = False
-            self._stop_worker_locked(timeout_s=timeout_s)
+            self._stop_worker_locked(deadline=deadline)
 
     def execute(
         self,
@@ -247,13 +289,16 @@ class HermesGraphAgentHost:
         turn_timeout_s: float,
     ) -> HermesGraphAgentTurnResult:
         self._started = True
+        # Retry only covers pre-enqueue / start failures. After enqueue, two-phase
+        # proceed keeps Rung 3 unstarted until accept is observed; a lost accept
+        # kills the worker (no proceed) and may retry once safely.
         for attempt in (1, 2):
             try:
                 worker = self._acquire_worker_for_turn()
             except Exception:
                 if attempt == 1:
                     with self._worker_lock:
-                        self._stop_worker_locked(timeout_s=1.0)
+                        self._stop_worker_locked(deadline=time.monotonic() + 1.0)
                     continue
                 return _host_error_result(
                     error_code="hermes_worker_start_failed",
@@ -275,7 +320,7 @@ class HermesGraphAgentHost:
                 )
 
             with self._worker_lock:
-                if self._closed or self._worker is not worker:
+                if self._closed or self._worker is not worker or not self._worker_ready:
                     if attempt == 1:
                         continue
                     return _host_error_result(
@@ -287,7 +332,9 @@ class HermesGraphAgentHost:
                 try:
                     worker.request_queue.put(wire_bytes)
                 except Exception:
-                    self._stop_worker_if_current_locked(worker, timeout_s=1.0)
+                    self._stop_worker_if_current_locked(
+                        worker, deadline=time.monotonic() + 1.0
+                    )
                     if attempt == 1:
                         continue
                     return _host_error_result(
@@ -303,23 +350,37 @@ class HermesGraphAgentHost:
                 request_id=request_id,
                 timeout_s=self._accept_timeout_s,
             )
-            if accepted is None:
+            if accepted is None or accepted.get("type") != "accepted":
+                # No proceed was sent, so two-phase workers cannot have started
+                # Rung 3. Discard and optionally retry once.
                 with self._worker_lock:
-                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
+                    self._stop_worker_if_current_locked(
+                        local_worker, deadline=time.monotonic() + 1.0
+                    )
                 if attempt == 1:
                     continue
                 return _host_error_result(
                     error_code="hermes_worker_lost",
                     error_message="Hermes graph-agent worker did not accept the request.",
                 )
-            if accepted.get("type") != "accepted":
+
+            # Acceptance observed — authorize execution. No further automatic retry.
+            try:
+                local_worker.request_queue.put(
+                    encode_json_wire(
+                        {"type": "proceed", "requestId": request_id}
+                    )
+                )
+            except Exception:
                 with self._worker_lock:
-                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
-                if attempt == 1:
-                    continue
+                    self._stop_worker_if_current_locked(
+                        local_worker, deadline=time.monotonic() + 1.0
+                    )
                 return _host_error_result(
-                    error_code="hermes_worker_protocol_error",
-                    error_message="Hermes graph-agent worker returned a bad accept.",
+                    error_code="hermes_worker_lost",
+                    error_message=(
+                        "Hermes graph-agent worker was lost after accepting the request."
+                    ),
                 )
 
             result_message = self._recv_until(
@@ -332,7 +393,9 @@ class HermesGraphAgentHost:
             if result_message is None:
                 alive = local_worker.process.is_alive()
                 with self._worker_lock:
-                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
+                    self._stop_worker_if_current_locked(
+                        local_worker, deadline=time.monotonic() + 1.0
+                    )
                 if alive:
                     return _host_error_result(
                         error_code="hermes_worker_timeout",
@@ -349,7 +412,9 @@ class HermesGraphAgentHost:
             payload = result_message.get("payload")
             if not isinstance(payload, Mapping):
                 with self._worker_lock:
-                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
+                    self._stop_worker_if_current_locked(
+                        local_worker, deadline=time.monotonic() + 1.0
+                    )
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result payload was malformed.",
@@ -358,7 +423,9 @@ class HermesGraphAgentHost:
                 return deserialize_hermes_graph_agent_turn_result(payload)
             except Exception:
                 with self._worker_lock:
-                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
+                    self._stop_worker_if_current_locked(
+                        local_worker, deadline=time.monotonic() + 1.0
+                    )
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result could not be deserialized.",
@@ -373,9 +440,13 @@ class HermesGraphAgentHost:
         with self._worker_lock:
             if self._closed:
                 raise RuntimeError("Hermes host is shut down")
-            if self._worker is not None and self._worker.process.is_alive():
+            if (
+                self._worker is not None
+                and self._worker.process.is_alive()
+                and self._worker_ready
+            ):
                 return self._worker
-            self._stop_worker_locked(timeout_s=1.0)
+            self._stop_worker_locked(deadline=time.monotonic() + 1.0)
         return self._spawn_worker()
 
     def _spawn_worker(self) -> _WorkerHandles:
@@ -383,9 +454,13 @@ class HermesGraphAgentHost:
         with self._worker_lock:
             if self._closed:
                 raise RuntimeError("Hermes host is shut down")
-            if self._worker is not None and self._worker.process.is_alive():
+            if (
+                self._worker is not None
+                and self._worker.process.is_alive()
+                and self._worker_ready
+            ):
                 return self._worker
-            self._stop_worker_locked(timeout_s=1.0)
+            self._stop_worker_locked(deadline=time.monotonic() + 1.0)
             request_queue: Queue[bytes] = self._ctx.Queue()
             response_queue: Queue[bytes] = self._ctx.Queue()
             process = self._ctx.Process(
@@ -402,9 +477,11 @@ class HermesGraphAgentHost:
                 pid=int(process.pid or 0),
             )
             self._worker = provisional
+            self._worker_ready = False
             local = provisional
             ready_timeout = self._ready_timeout_s
 
+        # Only the turn-gate holder may consume this queue during ready wait.
         ready = self._recv_until(
             local.response_queue,
             local.process,
@@ -415,35 +492,44 @@ class HermesGraphAgentHost:
 
         with self._worker_lock:
             if self._worker is not local:
-                self._discard_handles(local, timeout_s=1.0)
+                self._discard_handles(local, deadline=time.monotonic() + 1.0)
                 raise RuntimeError("Hermes worker spawn aborted")
             if self._closed:
-                self._stop_worker_locked(timeout_s=1.0)
+                self._stop_worker_locked(deadline=time.monotonic() + 1.0)
                 raise RuntimeError("Hermes worker spawn aborted by shutdown")
             if ready is None or ready.get("type") != "ready":
-                self._stop_worker_locked(timeout_s=1.0)
+                self._stop_worker_locked(deadline=time.monotonic() + 1.0)
                 raise RuntimeError("Hermes worker did not become ready")
-            # Keep the same handles object so execute cleanup can identity-match
-            # against self._worker after the ready wait released the lock.
+            self._worker_ready = True
             return local
 
     def _stop_worker_if_current_locked(
         self,
         local_worker: _WorkerHandles,
         *,
-        timeout_s: float,
+        deadline: float,
     ) -> None:
         if self._worker is local_worker:
-            self._stop_worker_locked(timeout_s=timeout_s)
+            self._stop_worker_locked(deadline=deadline)
 
-    def _stop_worker_locked(self, *, timeout_s: float) -> None:
+    def _stop_worker_locked(self, *, deadline: float) -> None:
         worker = self._worker
-        self._worker = None
         if worker is None:
+            self._worker_ready = False
             return
-        self._discard_handles(worker, timeout_s=timeout_s)
+        stopped = self._discard_handles(worker, deadline=deadline)
+        if stopped:
+            self._worker = None
+            self._worker_ready = False
+        # If the process is still alive after the deadline, retain the handle so
+        # we do not orphan a live worker from host tracking.
 
-    def _discard_handles(self, worker: _WorkerHandles, *, timeout_s: float) -> None:
+    def _discard_handles(self, worker: _WorkerHandles, *, deadline: float) -> bool:
+        """Attempt graceful → SIGTERM → SIGKILL within ``deadline``. Return True if dead."""
+
+        def remaining() -> float:
+            return max(0.0, deadline - time.monotonic())
+
         try:
             if worker.process.is_alive():
                 try:
@@ -452,18 +538,21 @@ class HermesGraphAgentHost:
                     )
                 except Exception:
                     pass
-                worker.process.join(timeout=timeout_s)
+                worker.process.join(timeout=remaining())
         finally:
             if worker.process.is_alive():
-                self._terminate_process(worker.process, timeout_s=timeout_s)
-            try:
-                worker.request_queue.close()
-            except Exception:
-                pass
-            try:
-                worker.response_queue.close()
-            except Exception:
-                pass
+                self._terminate_process(worker.process, deadline=deadline)
+            if not worker.process.is_alive():
+                try:
+                    worker.request_queue.close()
+                except Exception:
+                    pass
+                try:
+                    worker.response_queue.close()
+                except Exception:
+                    pass
+                return True
+            return False
 
     def _recv_until(
         self,
@@ -501,14 +590,20 @@ class HermesGraphAgentHost:
             return message
 
     @staticmethod
-    def _terminate_process(process: BaseProcess, *, timeout_s: float) -> None:
+    def _terminate_process(process: BaseProcess, *, deadline: float) -> None:
         if not process.is_alive():
             return
+
+        def remaining() -> float:
+            return max(0.0, deadline - time.monotonic())
+
         process.terminate()
-        process.join(timeout=timeout_s)
+        process.join(timeout=remaining())
         if process.is_alive():
             process.kill()
-            process.join(timeout=timeout_s)
+            # SIGKILL is immediate; allow a short reap window even if the
+            # shared deadline has already elapsed so we do not abandon a live pid.
+            process.join(timeout=max(remaining(), 0.25))
 
 
 def get_hermes_graph_agent_host() -> HermesGraphAgentHost:
