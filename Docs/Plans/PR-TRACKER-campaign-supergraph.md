@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-14 — PR010B Rung 3 done; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active
+**Updated:** 2026-07-14 — PR010B Rung 4A–4B done (#353/#354); PR355 Plan graph evidence presentation active
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -143,28 +143,31 @@ Broader Plan polish may continue as independent product slices, but it does not 
 
 ```text
 DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
-DONE    PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter (#351)
-DONE    PR010B Rung 3 — embedded Hermes graph-agent turn
-DONE    PR010B Rung 4 / PR353 — persistent Hermes graph-agent host (#353)
-DOING   PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover
-NEXT    PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, dogfood
-LATER   product replacement, demolition, thread continuity (Rung 5+)
+DONE    PR010B Rung 2 — model-visible catalog and adapter (#351)
+DONE    PR010B Rung 3 — embedded Hermes graph-agent turn (#352)
+DONE    PR010B Rung 4A — persistent process-isolated host (#353)
+DONE    PR010B Rung 4B — single-turn backend product cutover (#354)
+DOING   PR010B Rung 4C / PR355 — Plan graph evidence presentation and reload-safe turn persistence
+NEXT    PR010B Rung 5 — same-thread object continuity
+LATER   PR010B Rung 6 — Hermes session-pointer continuity
+LATER   PR010B Rung 7 — product acceptance, demolition, and backend-toggle removal
 ```
 
 - **PR010B Rung 1 — graph-only Hermes read-tool executor** (`DONE` via #350): exact internal dispatch from the five PR010A tool names to the merged live-control retrieval service.
 - **PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter** (`DONE` via #351): OpenAI/Hermes-compatible function definitions derived from the same Rung 1 registry metadata, plus JSON-string execution over Rung 1 with existing PR010A success/error envelopes.
-- **PR010B Rung 3 — embedded Hermes graph-agent turn** (`DONE`): dependency-locked in-process `AIAgent` turn with packaged `dungeonbuddy_graph` plugin; typed result with ordered safe tool events.
-- **PR010B Rung 4 / PR353 — persistent Hermes graph-agent host** (`DONE` via #353): process-isolated reusable worker host with bounded JSON IPC and no-replay acceptance barrier.
-- **PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover** (this capability): `query_backend="hermes"` routes one revision-pinned turn through the PR353 host with grounding classification and no legacy fallback.
+- **PR010B Rung 3 — embedded Hermes graph-agent turn** (`DONE` via #352): dependency-locked in-process `AIAgent` turn with packaged `dungeonbuddy_graph` plugin; typed result with ordered safe tool events.
+- **PR010B Rung 4A / PR353 — persistent Hermes graph-agent host** (`DONE` via #353): process-isolated reusable worker host with bounded JSON IPC and no-replay acceptance barrier.
+- **PR010B Rung 4B / PR354 — single-turn Hermes backend product cutover** (`DONE` via #354): `query_backend="hermes"` routes one revision-pinned turn through the PR353 host with grounding classification and no legacy fallback.
+- **PR010B Rung 4C / PR355 — Plan graph evidence presentation and reload-safe turn persistence** (this capability): present grounding labels, opaque revision-pinned graph citations, bounded graph-tool trace, and local turn persistence for one completed PR354 turn. Reload-safe means saved answer/citation/trace display only — not Hermes session resume.
 
-**Next sub-slice (blocked on PR354):**
+**Next rung (blocked on PR355):**
 
-- **PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, and dogfood proof**
+- **PR010B Rung 5 — same-thread object continuity**
 
 **Later rungs (still false):**
 
-- Thread/session binding and reload continuity (Rung 5+).
-- PR010B replacement / acceptance — obsolete Hermes retrieval demolition, backend-toggle removal.
+- Rung 6 — Hermes session-pointer continuity across reload/process restart.
+- Rung 7 — product acceptance, obsolete Hermes retrieval demolition, backend-toggle removal.
 **Purpose:** Make Hermes the actual conversational agent for Plan prep, using only PR010A graph retrieval and graph-admitted source anchors.
 
 **Deliverables:**

@@ -396,7 +396,28 @@ def test_run_hermes_graph_query_preserves_tool_events_and_uses_fake_host(
     assert response["status"] == "ok"
     assert response["grounding"]["state"] == "grounded"
     assert response["grounding"]["source_anchor_count"] == 2
-    assert response["citations"] == []
+    assert response["citations"] == [
+        {
+            "schema": "dmb_world_graph_anchor_citation_v1",
+            "kind": "world_graph_anchor",
+            "anchor_id": "anchor:a1",
+            "world_id": "world:eldyrwild",
+            "campaign_id": "campaign:c1",
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "revision_id": "revision:resolved-server",
+        },
+        {
+            "schema": "dmb_world_graph_anchor_citation_v1",
+            "kind": "world_graph_anchor",
+            "anchor_id": "anchor:a2",
+            "world_id": "world:eldyrwild",
+            "campaign_id": "campaign:c1",
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "revision_id": "revision:resolved-server",
+        },
+    ]
     assert response["hermes_session"] is None
     assert response["agent_thread_id"] == "agent-thread-abc"
     assert response["agent_trace"]["hermes_session_id"] == "hermes-sess-obs-only"
@@ -579,7 +600,11 @@ def test_http_hermes_grounded_and_validation(
     assert body["grounding"]["revision_id"] == "revision:http"
     assert body["agent_thread_id"] == "agent-thread-ui"
     assert body["hermes_session"] is None
-    assert body["citations"] == []
+    assert len(body["citations"]) == 1
+    assert body["citations"][0]["kind"] == "world_graph_anchor"
+    assert body["citations"][0]["anchor_id"] == "anchor:a1"
+    assert body["citations"][0]["revision_id"] == "revision:http"
+    assert body["grounding"]["source_anchor_count"] == 1
     assert host.calls[0].revision_pin == "revision:http"
     assert host.calls[0].root == tmp_path.resolve()
     assert len(host.calls) == 1
@@ -957,3 +982,202 @@ def test_http_world_graph_unavailable_is_typed_not_422(
     assert body.get("schema") == "dmb_live_query_response_v1"
     assert host_calls == []
     assert response.status_code != 422
+
+def _product_response_for_events(
+    events: list[HermesGraphToolEvent],
+    *,
+    final_response: str = "Tripod stands at the North Gate.",
+) -> dict[str, Any]:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    return build_hermes_graph_product_response(
+        packet=PACKET,
+        result=_ok_result(final_response=final_response, events=events),
+        scope=scope,
+        agent_thread_id="agent-thread-cite",
+        turn_id="agent-turn-cite",
+        started_at="2026-07-14T18:00:00Z",
+        completed_at="2026-07-14T18:00:01Z",
+        elapsed_ms=1,
+        world_graph_context=READY_ENVELOPE,
+    )
+
+
+def test_graph_citations_shape_order_dedupe_and_scope() -> None:
+    response = _product_response_for_events(
+        [
+            _tool_event(source_anchor_ids=["anchor:first", "anchor:second"]),
+            _tool_event(source_anchor_ids=["anchor:second", "anchor:third"]),
+        ]
+    )
+    assert response["grounding"]["state"] == "grounded"
+    citations = response["citations"]
+    assert [c["anchor_id"] for c in citations] == [
+        "anchor:first",
+        "anchor:second",
+        "anchor:third",
+    ]
+    assert response["grounding"]["source_anchor_count"] == 3
+    for citation in citations:
+        assert citation["schema"] == "dmb_world_graph_anchor_citation_v1"
+        assert citation["kind"] == "world_graph_anchor"
+        assert citation["world_id"] == "world:eldyrwild"
+        assert citation["campaign_id"] == "campaign:c1"
+        assert citation["focus"] == {"kind": "session", "session_id": "session-21"}
+        assert citation["admissibility"] == "gm"
+        assert citation["revision_id"] == "revision:resolved-server"
+        assert "path" not in citation
+        assert "evidence_id" not in citation
+
+
+def test_partial_emits_citations_abstained_and_error_do_not() -> None:
+    partial = _product_response_for_events(
+        [_tool_event(outcome="partial", source_anchor_ids=["anchor:partial"])],
+    )
+    assert partial["grounding"]["state"] == "partial"
+    assert [c["anchor_id"] for c in partial["citations"]] == ["anchor:partial"]
+
+    abstained = _product_response_for_events(
+        [_tool_event(outcome="empty", source_anchor_ids=[])],
+        final_response="discard me",
+    )
+    assert abstained["grounding"]["state"] == "abstained"
+    assert abstained["citations"] == []
+
+    errored = _product_response_for_events(
+        [
+            _tool_event(
+                state="error",
+                outcome=None,
+                source_anchor_ids=[],
+                diagnostic_codes=["adapter_error"],
+            )
+        ],
+        final_response="discard me",
+    )
+    assert errored["grounding"]["state"] == "error"
+    assert errored["citations"] == []
+
+
+def test_ordered_event_citation_matrix() -> None:
+    assert _product_response_for_events(
+        [
+            _tool_event(
+                state="error",
+                outcome=None,
+                source_anchor_ids=[],
+                diagnostic_codes=["adapter_error"],
+            )
+        ],
+        final_response="x",
+    )["citations"] == []
+
+    assert _product_response_for_events(
+        [
+            _tool_event(
+                state="error",
+                outcome=None,
+                source_anchor_ids=[],
+                diagnostic_codes=["adapter_error"],
+            ),
+            _tool_event(outcome="empty", source_anchor_ids=[]),
+        ],
+        final_response="x",
+    )["citations"] == []
+
+    recovered = _product_response_for_events(
+        [
+            _tool_event(
+                state="error",
+                outcome=None,
+                source_anchor_ids=["anchor:FROM_ERROR_ONLY"],
+                diagnostic_codes=["adapter_error"],
+            ),
+            _tool_event(source_anchor_ids=["anchor:recovered"]),
+        ]
+    )
+    assert recovered["grounding"]["state"] == "grounded"
+    assert [c["anchor_id"] for c in recovered["citations"]] == ["anchor:recovered"]
+    assert all(c["anchor_id"] != "anchor:FROM_ERROR_ONLY" for c in recovered["citations"])
+
+    failed = _product_response_for_events(
+        [
+            _tool_event(source_anchor_ids=["anchor:EARLY_EVIDENCE"]),
+            _tool_event(
+                state="error",
+                outcome=None,
+                source_anchor_ids=[],
+                diagnostic_codes=["adapter_error"],
+            ),
+        ]
+    )
+    assert failed["grounding"]["state"] == "error"
+    assert failed["citations"] == []
+
+    mismatched = _product_response_for_events(
+        [
+            _tool_event(
+                campaign_id="FOREIGN_CAMPAIGN_ID",
+                revision_pin="FOREIGN_REVISION_ID",
+                source_anchor_ids=["FOREIGN_SOURCE_ANCHOR_ID"],
+                matched_node_ids=["FOREIGN_WORLD_ID"],
+            ),
+            _tool_event(source_anchor_ids=["anchor:valid"]),
+        ]
+    )
+    assert mismatched["grounding"]["state"] == "error"
+    assert mismatched["citations"] == []
+    leak_blob = json.dumps(mismatched)
+    assert "FOREIGN_CAMPAIGN_ID" not in leak_blob
+    assert "FOREIGN_REVISION_ID" not in leak_blob
+    assert "FOREIGN_SOURCE_ANCHOR_ID" not in leak_blob
+    assert "/foreign/absolute/path.md" not in leak_blob
+
+
+def test_model_prose_never_creates_citations() -> None:
+    response = _product_response_for_events(
+        [],
+        final_response=(
+            "See source-anchor:v1:FROM_PROSE and /foreign/absolute/path.md "
+            "RAW_PROMPT_SECRET RAW_TOOL_ARGUMENT_SECRET RAW_SOURCE_BODY_SECRET "
+            "RAW_HERMES_MESSAGE_SECRET"
+        ),
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["citations"] == []
+    blob = json.dumps(response)
+    assert "FROM_PROSE" not in blob
+    assert "/foreign/absolute/path.md" not in blob
+    assert "RAW_PROMPT_SECRET" not in blob
+    assert "RAW_TOOL_ARGUMENT_SECRET" not in blob
+    assert "RAW_SOURCE_BODY_SECRET" not in blob
+    assert "RAW_HERMES_MESSAGE_SECRET" not in blob
+
+
+def test_malformed_mixed_with_valid_emits_no_citations() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    valid = _tool_event(source_anchor_ids=["anchor:valid-sibling"])
+    malformed = _tool_event(source_anchor_ids=["anchor:MALFORMED-MIX"])
+    object.__setattr__(malformed, "bounded_ids", None)
+    response = build_hermes_graph_product_response(
+        packet=PACKET,
+        result=_ok_result(events=[valid, malformed]),
+        scope=scope,
+        agent_thread_id="agent-thread-mix",
+        turn_id="agent-turn-mix",
+        started_at="2026-07-14T18:00:00Z",
+        completed_at="2026-07-14T18:00:01Z",
+        elapsed_ms=1,
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["citations"] == []
+    blob = json.dumps(response)
+    assert "MALFORMED-MIX" not in blob
+    assert "anchor:valid-sibling" not in blob

@@ -86,6 +86,8 @@ import type {
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
+  WorldGraphSourceAnchorReadRequest,
+  WorldGraphSourceAnchorReadResponse,
   PartyRegistrySurfaceResponse,
   PartyRegistrySessionRosterWriteCommitRequest,
   PartyRegistrySessionRosterWriteCommitResponse,
@@ -627,6 +629,18 @@ export async function postCitationFreshness(
   });
 }
 
+export async function postWorldGraphSourceAnchorRead(
+  request: WorldGraphSourceAnchorReadRequest,
+): Promise<WorldGraphSourceAnchorReadResponse> {
+  return apiFetch<WorldGraphSourceAnchorReadResponse>(
+    "/api/live/world-graph/retrieval/source-anchor/read",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
+}
+
 export async function postLiveQuery(
   text: string,
   campaignId: string,
@@ -634,20 +648,36 @@ export async function postLiveQuery(
   queryBackend: LiveQueryBackend = "live",
   options: LiveQueryOptions = {},
 ): Promise<LiveQueryResponse> {
+  const body =
+    queryBackend === "hermes"
+      ? {
+          campaign_id: campaignId,
+          session,
+          mode: "live",
+          query_backend: "hermes",
+          text,
+          agent_thread_id: options.agentThreadId ?? null,
+          trace_requested: options.traceRequested ?? null,
+          ...(options.worldGraphContext != null
+            ? { world_graph_context: options.worldGraphContext }
+            : {}),
+        }
+      : {
+          campaign_id: campaignId,
+          session,
+          mode: "live",
+          query_backend: queryBackend,
+          text,
+          manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+          agent_thread_id: options.agentThreadId ?? null,
+          hermes_session_id: options.hermesSessionId ?? null,
+          trace_requested: options.traceRequested ?? null,
+          world_graph_context: options.worldGraphContext ?? undefined,
+        };
+
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
-    body: JSON.stringify({
-      campaign_id: campaignId,
-      session,
-      mode: "live",
-      query_backend: queryBackend,
-      text,
-      manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
-      agent_thread_id: options.agentThreadId ?? null,
-      hermes_session_id: options.hermesSessionId ?? null,
-      trace_requested: options.traceRequested ?? null,
-      world_graph_context: options.worldGraphContext ?? undefined,
-    }),
+    body: JSON.stringify(body),
   });
 }
 

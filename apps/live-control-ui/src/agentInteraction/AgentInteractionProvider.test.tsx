@@ -91,6 +91,97 @@ describe("AgentInteractionProvider", () => {
     expect(result.current.turns[0].question).not.toBe("B?");
   });
 
+  it("clears stale Hermes session after hermes_graph_agent response", () => {
+    const staleSession = {
+      sessionId: "stale-hermes-session",
+      runtime: "api",
+      title: "Stale session",
+    };
+    const seeded = {
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Seeded"),
+      threadId: "seeded-thread",
+      hermesSession: staleSession,
+    };
+    persistAgentThread(seeded);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seeded.threadId);
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    expect(result.current.activeThread?.hermesSession).toEqual(staleSession);
+
+    act(() => {
+      result.current.appendResponseTurn("Graph question?", {
+        ...response,
+        mode: "hermes_graph_agent",
+        hermes_session: null,
+        agent_trace: {
+          trace_id: "trace-hermes",
+          hermes_session_id: "observability-only-session",
+          runtime: "api",
+          backend: "hermes",
+          mode: "hermes_graph_agent",
+          started_at: "2026-06-28T00:00:00.000Z",
+          completed_at: "2026-06-28T00:00:01.000Z",
+          elapsed_ms: 10,
+          status: "ok",
+          usage: { available: true, input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+          steps: [],
+          context_summary: {},
+          artifact_refs: [],
+          warnings: [],
+        } as never,
+      });
+    });
+
+    expect(result.current.activeThread?.hermesSession).toBeNull();
+    expect(result.current.activeThread?.turns[0].trace?.hermes_session_id).toBe("observability-only-session");
+  });
+
+  it("keeps subsequent Hermes turns independent without forwarding a session handle", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+
+    act(() => {
+      result.current.appendResponseTurn("First graph turn?", {
+        ...response,
+        mode: "hermes_graph_agent",
+        hermes_session: null,
+      });
+    });
+    act(() => {
+      result.current.appendResponseTurn("Second graph turn?", {
+        ...response,
+        answer: "Second answer",
+        mode: "hermes_graph_agent",
+        hermes_session: null,
+      });
+    });
+
+    expect(result.current.activeThread?.hermesSession).toBeNull();
+    expect(result.current.activeThread?.turns).toHaveLength(2);
+    expect(result.current.activeThread?.turns[0].answer).toBe("Second answer");
+  });
+
+  it("preserves legacy Live Hermes session forwarding behavior", () => {
+    const liveSession = {
+      sessionId: "live-hermes-session",
+      runtime: "cli",
+      title: "Live session",
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+
+    act(() => {
+      result.current.appendResponseTurn("Live turn?", {
+        ...response,
+        mode: "live",
+        hermes_session: liveSession,
+      });
+    });
+
+    expect(result.current.activeThread?.hermesSession).toEqual(liveSession);
+  });
+
   it("persists bounded metadata without prompt previews or raw context packets", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
