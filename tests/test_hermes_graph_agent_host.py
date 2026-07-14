@@ -25,7 +25,6 @@ from apps.live_control_server.services.hermes_graph_agent import (
 )
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     MAX_HISTORY_MESSAGES,
-    MAX_MESSAGE_CHARS,
     MAX_POLICY_TOOLSETS,
     MAX_QUESTION_CHARS,
     MAX_TOOL_EVENTS,
@@ -194,6 +193,9 @@ def _crash_once_then_ok_worker(request_queue: Any, response_queue: Any) -> None:
         response_queue,
         {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
     )
+    # Let the parent drain `accepted` before exit; otherwise a lost accept looks
+    # pre-accept and the host may retry into the success path.
+    time.sleep(0.15)
     if not flag_path.exists():
         flag_path.write_text("crashed-once", encoding="utf-8")
         os._exit(1)
@@ -309,6 +311,157 @@ def _accept_counting_slow_worker(request_queue: Any, response_queue: Any) -> Non
         time.sleep(60)
 
 
+def _never_ready_worker(request_queue: Any, response_queue: Any) -> None:
+    """Starts but never emits ready — simulates hung Rung 3 import."""
+    del request_queue, response_queue
+    while True:
+        time.sleep(60)
+
+
+def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> None:
+    """Real Rung 3 + AIAgent worker with only the external model mocked."""
+    import json as json_mod
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from apps.live_control_server.services.hermes_graph_agent import (
+        hermes_import_namespace,
+        import_hermes_aiagent,
+        run_hermes_graph_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        deserialize_hermes_graph_agent_turn_request,
+        serialize_hermes_graph_agent_turn_result,
+    )
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    def _mock_chat_response(
+        *,
+        content: str | None = "Hello",
+        finish_reason: str = "stop",
+        tool_calls: list[Any] | None = None,
+    ) -> SimpleNamespace:
+        msg = SimpleNamespace(
+            content=content,
+            tool_calls=tool_calls,
+            reasoning_content=None,
+            reasoning=None,
+        )
+        choice = SimpleNamespace(message=msg, finish_reason=finish_reason)
+        return SimpleNamespace(choices=[choice], model="test/model", usage=None)
+
+    AIAgent = import_hermes_aiagent()
+
+    def _fake_execute(tool_name: str, arguments: Any, *, root: Any = None) -> str:
+        del root
+        return WorldGraphRetrievalResult(
+            operation="search",
+            outcome="enough",
+            matched_node_ids=["threat:tripod-null-calf"],
+        ).model_dump_json(by_alias=True)
+
+    tool_args = {
+        "schema": "dmb_world_graph_search_request_v1",
+        "worldId": "world:SPOOF",
+        "campaignId": "campaign:SPOOF",
+        "queryText": "Tripod",
+        "focus": {"kind": "session", "sessionId": "session:spoof"},
+        "admissibility": "player",
+        "revisionPin": "rev:spoof",
+    }
+    tc = SimpleNamespace(
+        id="call-graph-1",
+        type="function",
+        function=SimpleNamespace(
+            name="search_campaign_graph",
+            arguments=json_mod.dumps(tool_args),
+        ),
+    )
+    tool_resp = _mock_chat_response(
+        content=None,
+        finish_reason="tool_calls",
+        tool_calls=[tc],
+    )
+    final_resp = _mock_chat_response(
+        content="Tripod stands at the North Gate.",
+        finish_reason="stop",
+    )
+
+    def _factory(**kwargs: Any) -> Any:
+        with hermes_import_namespace():
+            with patch("run_agent.OpenAI"):
+                agent = AIAgent(
+                    api_key="test-key-1234567890",
+                    base_url="https://openrouter.ai/api/v1",
+                    **kwargs,
+                )
+        agent.client = MagicMock()
+        agent.client.chat.completions.create.side_effect = [tool_resp, final_resp]
+        agent._cached_system_prompt = "test"
+        agent._use_prompt_caching = False
+        agent.tool_delay = 0
+        agent.compression_enabled = False
+        agent.save_trajectories = False
+        return agent
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        try:
+            payload = message.get("payload")
+            request = deserialize_hermes_graph_agent_turn_request(payload)
+            with patch(
+                "graph_memory.hermes_graph_plugin.execute_hermes_graph_read_tool_json",
+                _fake_execute,
+            ):
+                result = run_hermes_graph_agent_turn(request, agent_factory=_factory)
+            _put_json(
+                response_queue,
+                {
+                    "type": "result",
+                    "requestId": request_id,
+                    "pid": os.getpid(),
+                    "payload": serialize_hermes_graph_agent_turn_result(result),
+                },
+            )
+        except Exception as exc:
+            from apps.live_control_server.services.hermes_graph_agent_contract import (
+                PROCESS_ISOLATION_MODE,
+            )
+
+            _put_json(
+                response_queue,
+                {
+                    "type": "result",
+                    "requestId": request_id,
+                    "pid": os.getpid(),
+                    "payload": serialize_hermes_graph_agent_turn_result(
+                        HermesGraphAgentTurnResult(
+                            status="error",
+                            final_response=None,
+                            messages=[],
+                            hermes_session_id="",
+                            tool_events=[],
+                            error_code="hermes_worker_protocol_error",
+                            error_message=f"{type(exc).__name__}: {exc}",
+                            process_isolation=PROCESS_ISOLATION_MODE,
+                        )
+                    ),
+                },
+            )
+
+
 def test_host_module_does_not_import_rung3_runtime_module() -> None:
     source = HOST_MODULE.read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -368,10 +521,12 @@ def test_request_result_round_trip_is_bounded_and_deterministic() -> None:
 
     result = _ok_result()
     result_wire = serialize_hermes_graph_agent_turn_result(result)
+    assert result_wire["messages"] == []
     restored_result = deserialize_hermes_graph_agent_turn_result(result_wire)
     assert restored_result.status == "ok"
     assert restored_result.final_response == result.final_response
     assert restored_result.hermes_session_id == result.hermes_session_id
+    assert restored_result.messages == []
 
 
 def test_encode_json_wire_round_trips_and_is_bytes() -> None:
@@ -440,7 +595,65 @@ def test_malformed_result_structures_rejected() -> None:
         deserialize_hermes_graph_agent_turn_result(wire)
 
 
-def test_oversized_tool_events_and_messages_rejected() -> None:
+def test_host_result_wire_omits_hermes_transcript_with_tool_messages() -> None:
+    """Tool-bearing Hermes messages must not break host result serialization."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphToolEvent,
+    )
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Tripod stands at the North Gate.",
+        messages=[
+            {"role": "user", "content": "Where is Tripod?"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call-graph-1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_campaign_graph",
+                            "arguments": "{}",
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "name": "search_campaign_graph",
+                "tool_call_id": "call-graph-1",
+                "content": '{"outcome":"enough"}',
+            },
+            {"role": "assistant", "content": "Tripod stands at the North Gate."},
+        ],
+        hermes_session_id="sess-tool",
+        tool_events=[
+            HermesGraphToolEvent(tool_name="search_campaign_graph", state="start"),
+            HermesGraphToolEvent(
+                tool_name="search_campaign_graph",
+                state="completion",
+                outcome="enough",
+                matched_node_ids=["threat:tripod-null-calf"],
+            ),
+        ],
+        process_isolation="process_exclusive",
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert wire["messages"] == []
+    assert wire["finalResponse"] == "Tripod stands at the North Gate."
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.status == "ok"
+    assert restored.messages == []
+    assert restored.final_response == "Tripod stands at the North Gate."
+    assert [event.tool_name for event in restored.tool_events] == [
+        "search_campaign_graph",
+        "search_campaign_graph",
+    ]
+
+
+def test_oversized_tool_events_rejected() -> None:
     from apps.live_control_server.services.hermes_graph_agent_contract import (
         HermesGraphToolEvent,
     )
@@ -457,18 +670,6 @@ def test_oversized_tool_events_and_messages_rejected() -> None:
                 messages=[],
                 hermes_session_id="sess",
                 tool_events=events,
-                process_isolation="process_exclusive",
-            )
-        )
-    long_message = {"role": "assistant", "content": "x" * (MAX_MESSAGE_CHARS + 1)}
-    with pytest.raises(ValueError, match="content"):
-        serialize_hermes_graph_agent_turn_result(
-            HermesGraphAgentTurnResult(
-                status="ok",
-                final_response="ok",
-                messages=[long_message],
-                hermes_session_id="sess",
-                tool_events=[],
                 process_isolation="process_exclusive",
             )
         )
@@ -784,6 +985,133 @@ def test_app_lifespan_shuts_down_global_host() -> None:
     time.sleep(0.05)
     if pid is not None:
         assert not Path(f"/proc/{pid}").exists()
+
+
+def test_shutdown_terminates_never_ready_worker_within_bound() -> None:
+    host = HermesGraphAgentHost(
+        worker_target=_never_ready_worker,
+        ready_timeout_s=30.0,
+    )
+    start_error: list[BaseException | None] = [None]
+
+    def _start() -> None:
+        try:
+            host.start()
+        except BaseException as exc:  # noqa: BLE001 — capture for assertion
+            start_error[0] = exc
+
+    try:
+        thread = threading.Thread(target=_start)
+        thread.start()
+        deadline = time.time() + 5
+        worker_pid = None
+        while time.time() < deadline:
+            worker_pid = host.worker_pid
+            if worker_pid is not None and Path(f"/proc/{worker_pid}").exists():
+                break
+            time.sleep(0.01)
+        assert worker_pid is not None
+        assert Path(f"/proc/{worker_pid}").exists()
+        shutdown_started = time.monotonic()
+        host.shutdown(timeout_s=2.0)
+        shutdown_elapsed = time.monotonic() - shutdown_started
+        thread.join(timeout=5.0)
+        assert thread.is_alive() is False
+        assert shutdown_elapsed < 5.0
+        assert host.worker_pid is None
+        assert not Path(f"/proc/{worker_pid}").exists()
+        assert start_error[0] is not None
+    finally:
+        host.shutdown(timeout_s=1.0)
+
+
+def test_stale_execute_does_not_kill_replacement_worker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accept_count = tmp_path / "accept_count"
+    monkeypatch.setenv("DMB_HERMES_HOST_ACCEPT_COUNT", str(accept_count))
+    host = HermesGraphAgentHost(
+        worker_target=_accept_counting_slow_worker,
+        turn_timeout_s=60.0,
+        accept_timeout_s=2.0,
+    )
+    result_holder: list[HermesGraphAgentTurnResult | None] = [None]
+
+    def _execute_turn() -> None:
+        result_holder[0] = host.execute(_request(question="stale"))
+
+    try:
+        host.start()
+        first_pid = host.worker_pid
+        assert first_pid is not None
+        thread = threading.Thread(target=_execute_turn)
+        thread.start()
+        deadline = time.time() + 5
+        while time.time() < deadline and not accept_count.exists():
+            time.sleep(0.01)
+        assert accept_count.exists()
+
+        host.shutdown(timeout_s=2.0)
+        assert not Path(f"/proc/{first_pid}").exists()
+
+        host._worker_target = _stub_worker_main  # noqa: SLF001
+        host.start()
+        replacement_pid = host.worker_pid
+        assert replacement_pid is not None
+        assert replacement_pid != first_pid
+        assert Path(f"/proc/{replacement_pid}").exists()
+
+        thread.join(timeout=5.0)
+        assert thread.is_alive() is False
+        assert result_holder[0] is not None
+        assert result_holder[0].status == "error"
+        assert result_holder[0].error_code in {
+            "hermes_worker_lost",
+            "hermes_worker_timeout",
+        }
+        assert host.worker_pid == replacement_pid
+        assert Path(f"/proc/{replacement_pid}").exists()
+
+        recovered = host.execute(_request(question="after-replace"))
+        assert recovered.status == "ok"
+        assert recovered.final_response == "echo:after-replace"
+        assert host.worker_pid == replacement_pid
+    finally:
+        host.shutdown()
+
+
+def test_host_executes_real_aiagent_tool_turn_through_wire(tmp_path: Path) -> None:
+    """End-to-end: host wire must carry a completed tool-using Hermes turn."""
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0,
+        ready_timeout_s=90.0,
+        accept_timeout_s=30.0,
+    )
+    try:
+        result = host.execute(
+            HermesGraphAgentTurnRequest(
+                question="Where is Tripod?",
+                world_id="world:eldyrwild",
+                campaign_id="campaign:c1",
+                session_id="sess-host-tool",
+                root=tmp_path / "graph",
+            )
+        )
+        assert result.status == "ok", (result.error_code, result.error_message)
+        assert result.final_response == "Tripod stands at the North Gate."
+        assert result.messages == []
+        assert [event.tool_name for event in result.tool_events] == [
+            "search_campaign_graph",
+            "search_campaign_graph",
+        ]
+        assert [event.state for event in result.tool_events] == ["start", "completion"]
+        assert result.tool_events[1].matched_node_ids == ["threat:tripod-null-calf"]
+        assert result.tool_events[1].outcome == "enough"
+        assert result.process_isolation == "process_exclusive"
+    finally:
+        host.shutdown()
 
 
 def test_rung3_suite_entry_still_importable() -> None:

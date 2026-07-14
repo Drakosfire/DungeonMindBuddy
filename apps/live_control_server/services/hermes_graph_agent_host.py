@@ -211,8 +211,9 @@ class HermesGraphAgentHost:
             self._started = True
             if self._worker is not None and not self._worker.process.is_alive():
                 self._stop_worker_locked(timeout_s=1.0)
-            if self._worker is None:
-                self._spawn_worker_locked()
+            if self._worker is not None and self._worker.process.is_alive():
+                return
+        self._spawn_worker()
 
     def shutdown(self, *, timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S) -> None:
         """Stop the worker and release IPC resources."""
@@ -247,8 +248,36 @@ class HermesGraphAgentHost:
     ) -> HermesGraphAgentTurnResult:
         self._started = True
         for attempt in (1, 2):
+            try:
+                worker = self._acquire_worker_for_turn()
+            except Exception:
+                if attempt == 1:
+                    with self._worker_lock:
+                        self._stop_worker_locked(timeout_s=1.0)
+                    continue
+                return _host_error_result(
+                    error_code="hermes_worker_start_failed",
+                    error_message="Hermes graph-agent worker failed to start.",
+                )
+
+            request_id = str(uuid.uuid4())
+            message = {
+                "type": "execute",
+                "requestId": request_id,
+                "payload": wire_payload,
+            }
+            try:
+                wire_bytes = encode_json_wire(message)
+            except Exception:
+                return _host_error_result(
+                    error_code="hermes_worker_protocol_error",
+                    error_message="Hermes graph-agent request wire encoding failed.",
+                )
+
             with self._worker_lock:
-                if self._closed:
+                if self._closed or self._worker is not worker:
+                    if attempt == 1:
+                        continue
                     return _host_error_result(
                         error_code="hermes_worker_start_failed",
                         error_message=(
@@ -256,33 +285,9 @@ class HermesGraphAgentHost:
                         ),
                     )
                 try:
-                    worker = self._ensure_worker_locked()
-                except Exception:
-                    if attempt == 1:
-                        self._stop_worker_locked(timeout_s=1.0)
-                        continue
-                    return _host_error_result(
-                        error_code="hermes_worker_start_failed",
-                        error_message="Hermes graph-agent worker failed to start.",
-                    )
-
-                request_id = str(uuid.uuid4())
-                message = {
-                    "type": "execute",
-                    "requestId": request_id,
-                    "payload": wire_payload,
-                }
-                try:
-                    wire_bytes = encode_json_wire(message)
-                except Exception:
-                    return _host_error_result(
-                        error_code="hermes_worker_protocol_error",
-                        error_message="Hermes graph-agent request wire encoding failed.",
-                    )
-                try:
                     worker.request_queue.put(wire_bytes)
                 except Exception:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(worker, timeout_s=1.0)
                     if attempt == 1:
                         continue
                     return _host_error_result(
@@ -300,7 +305,7 @@ class HermesGraphAgentHost:
             )
             if accepted is None:
                 with self._worker_lock:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
                 if attempt == 1:
                     continue
                 return _host_error_result(
@@ -309,7 +314,7 @@ class HermesGraphAgentHost:
                 )
             if accepted.get("type") != "accepted":
                 with self._worker_lock:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
                 if attempt == 1:
                     continue
                 return _host_error_result(
@@ -327,7 +332,7 @@ class HermesGraphAgentHost:
             if result_message is None:
                 alive = local_worker.process.is_alive()
                 with self._worker_lock:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
                 if alive:
                     return _host_error_result(
                         error_code="hermes_worker_timeout",
@@ -344,7 +349,7 @@ class HermesGraphAgentHost:
             payload = result_message.get("payload")
             if not isinstance(payload, Mapping):
                 with self._worker_lock:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result payload was malformed.",
@@ -353,7 +358,7 @@ class HermesGraphAgentHost:
                 return deserialize_hermes_graph_agent_turn_result(payload)
             except Exception:
                 with self._worker_lock:
-                    self._stop_worker_locked(timeout_s=1.0)
+                    self._stop_worker_if_current_locked(local_worker, timeout_s=1.0)
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result could not be deserialized.",
@@ -364,49 +369,81 @@ class HermesGraphAgentHost:
             error_message="Hermes graph-agent worker failed before accept.",
         )
 
-    def _ensure_worker_locked(self) -> _WorkerHandles:
-        if self._worker is not None and self._worker.process.is_alive():
-            return self._worker
-        self._stop_worker_locked(timeout_s=1.0)
-        return self._spawn_worker_locked()
+    def _acquire_worker_for_turn(self) -> _WorkerHandles:
+        with self._worker_lock:
+            if self._closed:
+                raise RuntimeError("Hermes host is shut down")
+            if self._worker is not None and self._worker.process.is_alive():
+                return self._worker
+            self._stop_worker_locked(timeout_s=1.0)
+        return self._spawn_worker()
 
-    def _spawn_worker_locked(self) -> _WorkerHandles:
-        request_queue: Queue[bytes] = self._ctx.Queue()
-        response_queue: Queue[bytes] = self._ctx.Queue()
-        process = self._ctx.Process(
-            target=self._worker_target,
-            args=(request_queue, response_queue),
-            name="dmb-hermes-graph-agent-worker",
-            daemon=True,
-        )
-        process.start()
+    def _spawn_worker(self) -> _WorkerHandles:
+        """Start a worker and wait for ready without holding the lifecycle lock."""
+        with self._worker_lock:
+            if self._closed:
+                raise RuntimeError("Hermes host is shut down")
+            if self._worker is not None and self._worker.process.is_alive():
+                return self._worker
+            self._stop_worker_locked(timeout_s=1.0)
+            request_queue: Queue[bytes] = self._ctx.Queue()
+            response_queue: Queue[bytes] = self._ctx.Queue()
+            process = self._ctx.Process(
+                target=self._worker_target,
+                args=(request_queue, response_queue),
+                name="dmb-hermes-graph-agent-worker",
+                daemon=True,
+            )
+            process.start()
+            provisional = _WorkerHandles(
+                process=process,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                pid=int(process.pid or 0),
+            )
+            self._worker = provisional
+            local = provisional
+            ready_timeout = self._ready_timeout_s
+
         ready = self._recv_until(
-            response_queue,
-            process,
+            local.response_queue,
+            local.process,
             expected_types={"ready"},
             request_id=None,
-            timeout_s=self._ready_timeout_s,
+            timeout_s=ready_timeout,
         )
-        if ready is None or ready.get("type") != "ready":
-            self._terminate_process(process, timeout_s=1.0)
-            request_queue.close()
-            response_queue.close()
-            raise RuntimeError("Hermes worker did not become ready")
-        pid = int(ready.get("pid") or process.pid or 0)
-        handles = _WorkerHandles(
-            process=process,
-            request_queue=request_queue,
-            response_queue=response_queue,
-            pid=pid,
-        )
-        self._worker = handles
-        return handles
+
+        with self._worker_lock:
+            if self._worker is not local:
+                self._discard_handles(local, timeout_s=1.0)
+                raise RuntimeError("Hermes worker spawn aborted")
+            if self._closed:
+                self._stop_worker_locked(timeout_s=1.0)
+                raise RuntimeError("Hermes worker spawn aborted by shutdown")
+            if ready is None or ready.get("type") != "ready":
+                self._stop_worker_locked(timeout_s=1.0)
+                raise RuntimeError("Hermes worker did not become ready")
+            # Keep the same handles object so execute cleanup can identity-match
+            # against self._worker after the ready wait released the lock.
+            return local
+
+    def _stop_worker_if_current_locked(
+        self,
+        local_worker: _WorkerHandles,
+        *,
+        timeout_s: float,
+    ) -> None:
+        if self._worker is local_worker:
+            self._stop_worker_locked(timeout_s=timeout_s)
 
     def _stop_worker_locked(self, *, timeout_s: float) -> None:
         worker = self._worker
         self._worker = None
         if worker is None:
             return
+        self._discard_handles(worker, timeout_s=timeout_s)
+
+    def _discard_handles(self, worker: _WorkerHandles, *, timeout_s: float) -> None:
         try:
             if worker.process.is_alive():
                 try:

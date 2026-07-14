@@ -685,23 +685,12 @@ def _serialize_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
 def serialize_hermes_graph_agent_turn_result(
     result: HermesGraphAgentTurnResult,
 ) -> dict[str, Any]:
-    """Serialize a Rung 3 turn result for host IPC."""
-    if len(result.messages) > MAX_RESULT_MESSAGES:
-        raise ValueError(f"messages exceeds max {MAX_RESULT_MESSAGES}")
-    messages: list[dict[str, str]] = []
-    for item in result.messages:
-        if not isinstance(item, Mapping):
-            raise ValueError("messages entries must be mappings")
-        _reject_unknown_keys(item, frozenset({"role", "content"}), label="message")
-        messages.append(
-            {
-                "role": _require_str(item.get("role"), label="message.role", max_chars=MAX_ID_CHARS),
-                "content": _clip_str(
-                    _require_str(item.get("content"), label="message.content", max_chars=MAX_MESSAGE_CHARS),
-                    max_chars=MAX_MESSAGE_CHARS,
-                ),
-            }
-        )
+    """Serialize a Rung 3 turn result for host IPC.
+
+    Hermes transcripts may contain tool_calls / tool-role messages that are not
+    safe {role, content} records. The host wire intentionally omits ``messages``;
+    PR354 consumes ``finalResponse`` and bounded ``toolEvents`` only.
+    """
     if len(result.tool_events) > MAX_TOOL_EVENTS:
         raise ValueError(f"toolEvents exceeds max {MAX_TOOL_EVENTS}")
     final_response = result.final_response
@@ -713,7 +702,8 @@ def serialize_hermes_graph_agent_turn_result(
     return {
         "status": result.status,
         "finalResponse": final_response,
-        "messages": messages,
+        # Host IPC omits Hermes transcript; keep the key for schema stability.
+        "messages": [],
         "hermesSessionId": _clip_str(result.hermes_session_id, max_chars=MAX_SESSION_ID_CHARS),
         "toolEvents": [_serialize_tool_event(event) for event in result.tool_events],
         "errorCode": (
