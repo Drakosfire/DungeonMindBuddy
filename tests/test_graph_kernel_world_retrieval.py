@@ -657,6 +657,59 @@ def test_read_source_anchor_graph_data_json_pointer(tmp_path: Path, loaded_bundl
     assert read_result.content_sha256
 
 
+def test_repo_heading_anchor_without_admitted_digest_is_unreadable(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    evidence = kernel.get_object_evidence(
+        tmp_path,
+        _evidence_request(WorldGraphEvidenceTarget(kind="node", id=MIRATHORN_ID)),
+    )
+    mirathorn_anchor = next(
+        a
+        for a in evidence.source_anchors
+        if a.evidence_ref_id == MIRATHORN_EVIDENCE_REF_ID
+    )
+    assert mirathorn_anchor.locator_kind == "heading"
+    assert mirathorn_anchor.readable is True
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    artifact = store.source_artifacts[mirathorn_anchor.source_artifact_id]
+    stripped = artifact.model_copy(update={})
+    # Drop revision-bound content digest while keeping the URI/locator shape.
+    extra = dict(stripped.model_extra or {})
+    extra.pop("content_sha256", None)
+    object.__setattr__(stripped, "__pydantic_extra__", extra)
+    artifacts = dict(store.source_artifacts)
+    artifacts[mirathorn_anchor.source_artifact_id] = stripped
+    mutated = store.model_copy(update={"source_artifacts": artifacts})
+    kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        mutated,
+        operation_ids=["op:test-pr010a-strip-repo-content-digest"],
+    )
+
+    evidence_after = kernel.get_object_evidence(
+        tmp_path,
+        _evidence_request(WorldGraphEvidenceTarget(kind="node", id=MIRATHORN_ID)),
+    )
+    after_anchor = next(
+        a
+        for a in evidence_after.source_anchors
+        if a.evidence_ref_id == MIRATHORN_EVIDENCE_REF_ID
+    )
+    assert after_anchor.readable is False
+    assert after_anchor.locator_kind == "heading"
+    assert evidence_after.outcome == "partial"
+
+    read_result = kernel.read_source_anchor(
+        tmp_path, _anchor_read_request(after_anchor.anchor_id)
+    )
+    assert read_result.outcome == "partial"
+    assert read_result.content is None
+
+
 def test_historical_graph_data_read_survives_contribution_retraction(
     tmp_path: Path, loaded_bundle
 ) -> None:
@@ -1509,13 +1562,29 @@ def test_max_source_anchors_cap_does_not_create_anchor_gaps(
     )
 
 
+def test_source_reader_rejects_missing_content_digest(tmp_path: Path) -> None:
+    relative_path = "docs/no-digest.md"
+    dest = tmp_path / relative_path
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("# Heading\nbody\n", encoding="utf-8")
+    with pytest.raises(SourceReadError) as exc_info:
+        read_repo_heading_anchor(
+            repo_root=tmp_path,
+            relative_path=relative_path,
+            heading_text="Heading",
+            expected_content_sha256=None,  # type: ignore[arg-type]
+            max_chars=1000,
+        )
+    assert exc_info.value.code == "source_integrity_error"
+
+
 def test_source_reader_rejects_repo_path_escape(tmp_path: Path) -> None:
     with pytest.raises(SourceReadError) as exc_info:
         read_repo_heading_anchor(
             repo_root=tmp_path,
             relative_path="../outside.md",
             heading_text="Escape",
-            expected_content_sha256=None,
+            expected_content_sha256="a" * 64,
             max_chars=1000,
         )
     assert exc_info.value.code == "unsupported_locator"
@@ -1527,15 +1596,44 @@ def test_source_reader_rejects_ambiguous_heading(tmp_path: Path) -> None:
     dest = tmp_path / relative_path
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(markdown, encoding="utf-8")
+    digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
     with pytest.raises(SourceReadError) as exc_info:
         read_repo_heading_anchor(
             repo_root=tmp_path,
             relative_path=relative_path,
             heading_text="Same Heading",
-            expected_content_sha256=None,
+            expected_content_sha256=digest,
             max_chars=1000,
         )
     assert exc_info.value.code == "ambiguous_heading"
+
+
+def test_source_reader_truncated_line_range_covers_returned_bytes_only(
+    tmp_path: Path,
+) -> None:
+    relative_path = "docs/long-section.md"
+    lines = ["# Long Section"] + [f"line-{index} {'x' * 40}" for index in range(1, 21)]
+    markdown = "\n".join(lines) + "\n"
+    dest = tmp_path / relative_path
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(markdown, encoding="utf-8")
+    digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+    outcome = read_repo_heading_anchor(
+        repo_root=tmp_path,
+        relative_path=relative_path,
+        heading_text="Long Section",
+        expected_content_sha256=digest,
+        max_chars=80,
+    )
+    assert outcome.truncated is True
+    assert outcome.line_start == 1
+    assert outcome.line_end is not None
+    # Full section would extend well beyond the truncated excerpt.
+    assert outcome.line_end < 21
+    assert outcome.content is not None
+    assert outcome.content.count("\n") + 1 == (
+        outcome.line_end - outcome.line_start + 1
+    )
 
 
 def test_source_reader_rejects_malformed_json_pointer_escape() -> None:

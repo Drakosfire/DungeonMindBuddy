@@ -165,9 +165,16 @@ def read_repo_heading_anchor(
     repo_root: Path,
     relative_path: str,
     heading_text: str,
-    expected_content_sha256: str | None,
+    expected_content_sha256: str,
     max_chars: int,
 ) -> SourceReadOutcome:
+    if not isinstance(expected_content_sha256, str) or not re.fullmatch(
+        r"[0-9a-fA-F]{64}", expected_content_sha256
+    ):
+        raise SourceReadError(
+            "repo:// heading read requires an admitted content digest.",
+            code="source_integrity_error",
+        )
     resolved_path = _resolve_repo_relative_path(repo_root, relative_path)
     if not resolved_path.is_file():
         raise SourceReadError(
@@ -176,7 +183,7 @@ def read_repo_heading_anchor(
         )
     raw_bytes = resolved_path.read_bytes()
     actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
-    if expected_content_sha256 and actual_sha256 != expected_content_sha256:
+    if actual_sha256.lower() != expected_content_sha256.lower():
         raise SourceReadError(
             "repo:// source content does not match the admitted digest.",
             code="source_integrity_error",
@@ -211,12 +218,22 @@ def read_repo_heading_anchor(
     section_text = "\n".join(section_lines).strip("\n")
     truncated = len(section_text) > max_chars
     bounded_text = section_text[:max_chars]
+    line_start = start + body_line_offset + 1
+    if not bounded_text:
+        line_end = None
+    elif not truncated:
+        # Exclusive end index from _extract_heading_section → inclusive last line.
+        line_end = end + body_line_offset
+    else:
+        # Describe only the returned bytes (including a partial final line).
+        returned_line_count = bounded_text.count("\n") + 1
+        line_end = line_start + returned_line_count - 1
     return SourceReadOutcome(
         content=bounded_text,
         media_type="text/markdown",
         content_sha256=actual_sha256,
-        line_start=start + body_line_offset + 1,
-        line_end=end + body_line_offset,
+        line_start=line_start if bounded_text else None,
+        line_end=line_end,
         truncated=truncated,
     )
 

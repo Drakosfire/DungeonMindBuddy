@@ -756,16 +756,30 @@ def _verify_graph_data_contribution_digest(
         )
 
 
+def _admitted_source_content_sha256(source_artifact: Any) -> str | None:
+    raw = getattr(source_artifact, "content_sha256", None)
+    if raw is None:
+        extra = getattr(source_artifact, "model_extra", None) or {}
+        raw = extra.get("content_sha256")
+    if isinstance(raw, str) and re.fullmatch(r"[0-9a-fA-F]{64}", raw):
+        return raw.lower()
+    return None
+
+
 def _classify_locator(
     uri: str,
     locator: str | None,
     *,
     store: UnionSupergraphStore | None = None,
     contribution_id: str | None = None,
+    admitted_content_sha256: str | None = None,
 ) -> tuple[str, bool]:
     if locator is None:
         return "unsupported", False
     if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
+        # Forward-only: repo:// reads require a revision-bound admitted digest.
+        if admitted_content_sha256 is None:
+            return "heading", False
         return "heading", True
     if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
         if store is None or _graph_data_contribution_digest_authority(
@@ -859,6 +873,9 @@ def _anchor_derivations_for_supports(
                     locator,
                     store=store,
                     contribution_id=contribution_id,
+                    admitted_content_sha256=_admitted_source_content_sha256(
+                        source_artifact
+                    ),
                 )
                 existing = derivations.get(anchor_id)
                 if existing is not None:
@@ -1542,9 +1559,11 @@ def read_source_anchor(
                 code="projection_integrity_error",
                 status_code=409,
             )
-        extra = source_artifact.model_extra or {}
-        raw_sha = extra.get("content_sha256")
-        expected_sha = raw_sha if isinstance(raw_sha, str) and raw_sha else None
+        expected_sha = _admitted_source_content_sha256(source_artifact)
+        if expected_sha is None:
+            _raise_source_integrity_error(
+                "repo:// source artifact is missing a revision-bound content digest."
+            )
         read_outcome = _handle_source_read(
             lambda: read_repo_heading_anchor(
                 repo_root=resolved_repo_root,
