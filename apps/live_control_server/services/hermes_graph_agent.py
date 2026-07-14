@@ -36,12 +36,25 @@ import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
 
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    PROCESS_ISOLATION_MODE,
+    HermesGraphAgentTurnRequest,
+    HermesGraphAgentTurnResult,
+    HermesGraphToolEvent,
+    ProcessIsolationMode,
+    ToolEventState,
+    deserialize_capability_policy,
+    deserialize_hermes_graph_agent_turn_request,
+    deserialize_hermes_graph_agent_turn_result,
+    serialize_capability_policy,
+    serialize_hermes_graph_agent_turn_request,
+    serialize_hermes_graph_agent_turn_result,
+)
 from graph_memory.hermes_graph_plugin import (
     HermesCapabilityPolicy,
     HermesGraphScope,
@@ -60,10 +73,6 @@ from graph_memory.retrieval.models import (
 )
 
 HermesGraphAgentStatus = Literal["ok", "error"]
-ToolEventState = Literal["start", "completion", "error"]
-ProcessIsolationMode = Literal["process_exclusive"]
-
-PROCESS_ISOLATION_MODE: ProcessIsolationMode = "process_exclusive"
 
 _RUNTIME_LOCK = threading.RLock()
 
@@ -132,51 +141,6 @@ def import_hermes_aiagent() -> Any:
         with hermes_import_namespace():
             module = importlib.import_module("run_agent")
             return module.AIAgent
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphToolEvent:
-    tool_name: str
-    state: ToolEventState
-    duration_ms: float | None = None
-    world_id: str | None = None
-    campaign_id: str | None = None
-    focus: dict[str, Any] | None = None
-    admissibility: str | None = None
-    revision_pin: str | None = None
-    bounded_ids: dict[str, Any] = field(default_factory=dict)
-    retrieval_schema: str | None = None
-    outcome: str | None = None
-    matched_node_ids: list[str] = field(default_factory=list)
-    relationship_ids: list[str] = field(default_factory=list)
-    source_anchor_ids: list[str] = field(default_factory=list)
-    diagnostic_codes: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphAgentTurnResult:
-    status: HermesGraphAgentStatus
-    final_response: str | None
-    messages: list[dict[str, Any]]
-    hermes_session_id: str
-    tool_events: list[HermesGraphToolEvent]
-    error_code: str | None = None
-    error_message: str | None = None
-    process_isolation: ProcessIsolationMode = PROCESS_ISOLATION_MODE
-
-
-@dataclass(frozen=True, slots=True)
-class HermesGraphAgentTurnRequest:
-    question: str
-    world_id: str
-    campaign_id: str
-    focus: Mapping[str, Any] | None = None
-    admissibility: str | None = None
-    revision_pin: str | None = None
-    conversation_history: Sequence[Mapping[str, Any]] | None = None
-    session_id: str | None = None
-    root: Path | None = None
-    capability_policy: HermesCapabilityPolicy | None = None
 
 
 def _error_result(
@@ -912,359 +876,6 @@ def run_hermes_graph_agent_turn(
             shutil.rmtree(hermes_home, ignore_errors=True)
 
 
-_MAX_WIRE_HISTORY_MESSAGES = 64
-_MAX_WIRE_MESSAGE_CHARS = 8000
-_ALLOWED_EFFECTS = frozenset({"read", "write"})
-
-
-def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any]:
-    """Serialize a capability policy to a bounded JSON-compatible dict."""
-    return {
-        "enabledToolsets": list(policy.enabled_toolsets),
-        "enabledToolNames": list(policy.enabled_tool_names),
-        "graphScope": {
-            "worldId": str(policy.graph_scope.world_id),
-            "campaignId": str(policy.graph_scope.campaign_id),
-            "focus": dict(policy.graph_scope.focus),
-            "admissibility": str(policy.graph_scope.admissibility),
-            "revisionPin": (
-                None
-                if policy.graph_scope.revision_pin is None
-                else str(policy.graph_scope.revision_pin)
-            ),
-        },
-        "pluginActivations": [
-            {
-                "pluginId": str(activation.plugin_id),
-                "toolsets": list(activation.toolsets),
-            }
-            for activation in policy.plugin_activations
-        ],
-        "toolRules": [
-            {
-                "toolName": str(rule.tool_name),
-                "toolset": str(rule.toolset),
-                "requireGraphScope": bool(rule.require_graph_scope),
-                "allowedEffects": sorted(str(effect) for effect in rule.allowed_effects),
-            }
-            for rule in policy.tool_rules
-        ],
-    }
-
-
-def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilityPolicy:
-    """Rebuild a capability policy from :func:`serialize_capability_policy` output."""
-    if not isinstance(payload, Mapping):
-        raise ValueError("capability policy payload must be a mapping")
-    scope_raw = payload.get("graphScope")
-    if not isinstance(scope_raw, Mapping):
-        raise ValueError("capability policy graphScope must be a mapping")
-    focus = scope_raw.get("focus")
-    if not isinstance(focus, Mapping):
-        raise ValueError("capability policy focus must be a mapping")
-    activations_raw = payload.get("pluginActivations")
-    if not isinstance(activations_raw, list):
-        raise ValueError("capability policy pluginActivations must be a list")
-    rules_raw = payload.get("toolRules")
-    if not isinstance(rules_raw, list):
-        raise ValueError("capability policy toolRules must be a list")
-    toolsets_raw = payload.get("enabledToolsets")
-    names_raw = payload.get("enabledToolNames")
-    if not isinstance(toolsets_raw, list) or not isinstance(names_raw, list):
-        raise ValueError("capability policy toolsets/names must be lists")
-
-    activations: list[HermesPluginActivation] = []
-    for item in activations_raw:
-        if not isinstance(item, Mapping):
-            raise ValueError("plugin activation must be a mapping")
-        toolsets = item.get("toolsets")
-        if not isinstance(toolsets, list) or not all(
-            isinstance(toolset, str) for toolset in toolsets
-        ):
-            raise ValueError("plugin activation toolsets must be a list of strings")
-        plugin_id = item.get("pluginId")
-        if not isinstance(plugin_id, str) or not plugin_id.strip():
-            raise ValueError("plugin activation pluginId must be a non-empty string")
-        activations.append(
-            HermesPluginActivation(
-                plugin_id=plugin_id.strip(),
-                toolsets=tuple(str(toolset) for toolset in toolsets),
-            )
-        )
-
-    rules: list[HermesToolCapabilityRule] = []
-    for item in rules_raw:
-        if not isinstance(item, Mapping):
-            raise ValueError("tool rule must be a mapping")
-        effects_raw = item.get("allowedEffects")
-        if not isinstance(effects_raw, list):
-            raise ValueError("tool rule allowedEffects must be a list")
-        effects: set[str] = set()
-        for effect in effects_raw:
-            if not isinstance(effect, str) or effect not in _ALLOWED_EFFECTS:
-                raise ValueError(f"unsupported tool effect: {effect!r}")
-            effects.add(effect)
-        tool_name = item.get("toolName")
-        toolset = item.get("toolset")
-        if not isinstance(tool_name, str) or not isinstance(toolset, str):
-            raise ValueError("tool rule toolName/toolset must be strings")
-        rules.append(
-            HermesToolCapabilityRule(
-                tool_name=tool_name,
-                toolset=toolset,
-                require_graph_scope=bool(item.get("requireGraphScope", True)),
-                allowed_effects=frozenset(effects),  # type: ignore[arg-type]
-            )
-        )
-
-    return HermesCapabilityPolicy(
-        enabled_toolsets=tuple(str(item) for item in toolsets_raw),
-        enabled_tool_names=tuple(str(item) for item in names_raw),
-        graph_scope=HermesGraphScope(
-            world_id=str(scope_raw.get("worldId") or "").strip(),
-            campaign_id=str(scope_raw.get("campaignId") or "").strip(),
-            focus=dict(focus),
-            admissibility=str(scope_raw.get("admissibility") or "gm"),
-            revision_pin=(
-                None
-                if scope_raw.get("revisionPin") is None
-                else str(scope_raw.get("revisionPin"))
-            ),
-        ),
-        plugin_activations=tuple(activations),
-        tool_rules=tuple(rules),
-    )
-
-
-def _serialize_history(
-    history: Sequence[Mapping[str, Any]] | None,
-) -> list[dict[str, str]] | None:
-    if history is None:
-        return None
-    bounded: list[dict[str, str]] = []
-    for item in list(history)[:_MAX_WIRE_HISTORY_MESSAGES]:
-        if not isinstance(item, Mapping):
-            continue
-        role = item.get("role")
-        content = item.get("content")
-        if not isinstance(role, str) or not isinstance(content, str):
-            continue
-        if len(content) > _MAX_WIRE_MESSAGE_CHARS:
-            content = content[:_MAX_WIRE_MESSAGE_CHARS]
-        bounded.append({"role": role, "content": content})
-    return bounded
-
-
-def serialize_hermes_graph_agent_turn_request(
-    request: HermesGraphAgentTurnRequest,
-) -> dict[str, Any]:
-    """Serialize a Rung 3 turn request for host IPC (no callables)."""
-    root = request.root
-    root_str = None if root is None else str(Path(root))
-    policy_payload = (
-        None
-        if request.capability_policy is None
-        else serialize_capability_policy(request.capability_policy)
-    )
-    return {
-        "question": str(request.question),
-        "worldId": str(request.world_id),
-        "campaignId": str(request.campaign_id),
-        "focus": None if request.focus is None else dict(request.focus),
-        "admissibility": request.admissibility,
-        "revisionPin": request.revision_pin,
-        "conversationHistory": _serialize_history(request.conversation_history),
-        "sessionId": request.session_id,
-        "root": root_str,
-        "capabilityPolicy": policy_payload,
-    }
-
-
-def deserialize_hermes_graph_agent_turn_request(
-    payload: Mapping[str, Any],
-) -> HermesGraphAgentTurnRequest:
-    """Rebuild a Rung 3 turn request from host IPC payload."""
-    if not isinstance(payload, Mapping):
-        raise ValueError("turn request payload must be a mapping")
-    forbidden = {"agentFactory", "agent_factory", "callable", "importTarget", "env"}
-    if any(key in payload for key in forbidden):
-        raise ValueError("turn request payload contains forbidden fields")
-    root_raw = payload.get("root")
-    if root_raw is None:
-        root = None
-    elif isinstance(root_raw, str) and root_raw.strip():
-        root = Path(root_raw)
-    else:
-        raise ValueError("root must be a non-empty string path or null")
-    policy_raw = payload.get("capabilityPolicy")
-    policy = (
-        None if policy_raw is None else deserialize_capability_policy(policy_raw)
-    )
-    history_raw = payload.get("conversationHistory")
-    if history_raw is None:
-        history = None
-    elif isinstance(history_raw, list):
-        history = _serialize_history(history_raw)
-    else:
-        raise ValueError("conversationHistory must be a list or null")
-    focus = payload.get("focus")
-    if focus is not None and not isinstance(focus, Mapping):
-        raise ValueError("focus must be a mapping or null")
-    return HermesGraphAgentTurnRequest(
-        question=str(payload.get("question") or ""),
-        world_id=str(payload.get("worldId") or ""),
-        campaign_id=str(payload.get("campaignId") or ""),
-        focus=None if focus is None else dict(focus),
-        admissibility=(
-            None
-            if payload.get("admissibility") is None
-            else str(payload.get("admissibility"))
-        ),
-        revision_pin=(
-            None
-            if payload.get("revisionPin") is None
-            else str(payload.get("revisionPin"))
-        ),
-        conversation_history=history,
-        session_id=(
-            None if payload.get("sessionId") is None else str(payload.get("sessionId"))
-        ),
-        root=root,
-        capability_policy=policy,
-    )
-
-
-def serialize_hermes_graph_agent_turn_result(
-    result: HermesGraphAgentTurnResult,
-) -> dict[str, Any]:
-    """Serialize a Rung 3 turn result for host IPC."""
-    return {
-        "status": result.status,
-        "finalResponse": result.final_response,
-        "messages": list(result.messages),
-        "hermesSessionId": result.hermes_session_id,
-        "toolEvents": [
-            {
-                "toolName": event.tool_name,
-                "state": event.state,
-                "durationMs": event.duration_ms,
-                "worldId": event.world_id,
-                "campaignId": event.campaign_id,
-                "focus": event.focus,
-                "admissibility": event.admissibility,
-                "revisionPin": event.revision_pin,
-                "boundedIds": dict(event.bounded_ids),
-                "retrievalSchema": event.retrieval_schema,
-                "outcome": event.outcome,
-                "matchedNodeIds": list(event.matched_node_ids),
-                "relationshipIds": list(event.relationship_ids),
-                "sourceAnchorIds": list(event.source_anchor_ids),
-                "diagnosticCodes": list(event.diagnostic_codes),
-            }
-            for event in result.tool_events
-        ],
-        "errorCode": result.error_code,
-        "errorMessage": result.error_message,
-        "processIsolation": result.process_isolation,
-    }
-
-
-def deserialize_hermes_graph_agent_turn_result(
-    payload: Mapping[str, Any],
-) -> HermesGraphAgentTurnResult:
-    """Rebuild a Rung 3 turn result from host IPC payload."""
-    if not isinstance(payload, Mapping):
-        raise ValueError("turn result payload must be a mapping")
-    events_raw = payload.get("toolEvents") or []
-    if not isinstance(events_raw, list):
-        raise ValueError("toolEvents must be a list")
-    events: list[HermesGraphToolEvent] = []
-    for item in events_raw:
-        if not isinstance(item, Mapping):
-            continue
-        state = item.get("state")
-        if state not in {"start", "completion", "error"}:
-            continue
-        focus_raw = item.get("focus")
-        events.append(
-            HermesGraphToolEvent(
-                tool_name=str(item.get("toolName") or ""),
-                state=state,  # type: ignore[arg-type]
-                duration_ms=(
-                    None
-                    if item.get("durationMs") is None
-                    else float(item.get("durationMs"))
-                ),
-                world_id=(
-                    None if item.get("worldId") is None else str(item.get("worldId"))
-                ),
-                campaign_id=(
-                    None
-                    if item.get("campaignId") is None
-                    else str(item.get("campaignId"))
-                ),
-                focus=None if focus_raw is None else dict(focus_raw),
-                admissibility=(
-                    None
-                    if item.get("admissibility") is None
-                    else str(item.get("admissibility"))
-                ),
-                revision_pin=(
-                    None
-                    if item.get("revisionPin") is None
-                    else str(item.get("revisionPin"))
-                ),
-                bounded_ids=dict(item.get("boundedIds") or {}),
-                retrieval_schema=(
-                    None
-                    if item.get("retrievalSchema") is None
-                    else str(item.get("retrievalSchema"))
-                ),
-                outcome=(
-                    None if item.get("outcome") is None else str(item.get("outcome"))
-                ),
-                matched_node_ids=[
-                    str(value) for value in (item.get("matchedNodeIds") or [])
-                ],
-                relationship_ids=[
-                    str(value) for value in (item.get("relationshipIds") or [])
-                ],
-                source_anchor_ids=[
-                    str(value) for value in (item.get("sourceAnchorIds") or [])
-                ],
-                diagnostic_codes=[
-                    str(value) for value in (item.get("diagnosticCodes") or [])
-                ],
-            )
-        )
-    status = payload.get("status")
-    if status not in {"ok", "error"}:
-        raise ValueError("result status must be ok or error")
-    messages = payload.get("messages") or []
-    if not isinstance(messages, list):
-        raise ValueError("messages must be a list")
-    return HermesGraphAgentTurnResult(
-        status=status,  # type: ignore[arg-type]
-        final_response=(
-            None
-            if payload.get("finalResponse") is None
-            else str(payload.get("finalResponse"))
-        ),
-        messages=[dict(item) for item in messages if isinstance(item, Mapping)],
-        hermes_session_id=str(payload.get("hermesSessionId") or ""),
-        tool_events=events,
-        error_code=(
-            None if payload.get("errorCode") is None else str(payload.get("errorCode"))
-        ),
-        error_message=(
-            None
-            if payload.get("errorMessage") is None
-            else str(payload.get("errorMessage"))
-        ),
-        process_isolation=PROCESS_ISOLATION_MODE,
-    )
-
-
 __all__ = [
     "PROCESS_ISOLATION_MODE",
     "HermesCapabilityPolicy",
@@ -1272,7 +883,10 @@ __all__ = [
     "HermesGraphAgentTurnResult",
     "HermesGraphScope",
     "HermesGraphToolEvent",
+    "HermesPluginActivation",
     "HermesToolCapabilityRule",
+    "ProcessIsolationMode",
+    "ToolEventState",
     "deserialize_capability_policy",
     "deserialize_hermes_graph_agent_turn_request",
     "deserialize_hermes_graph_agent_turn_result",

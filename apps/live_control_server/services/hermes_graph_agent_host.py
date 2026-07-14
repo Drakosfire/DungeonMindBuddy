@@ -2,7 +2,7 @@
 
 FastAPI must not call :func:`run_hermes_graph_agent_turn` in-process. This host
 owns a reusable ``spawn`` worker that imports and executes Rung 3 only inside
-the child process, communicating through a bounded typed request/result wire.
+the child process, communicating through bounded JSON wire bytes.
 """
 
 from __future__ import annotations
@@ -19,12 +19,14 @@ from multiprocessing.process import BaseProcess
 from multiprocessing.queues import Queue
 from typing import Any, Literal
 
-from apps.live_control_server.services.hermes_graph_agent import (
+from apps.live_control_server.services.hermes_graph_agent_contract import (
     PROCESS_ISOLATION_MODE,
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
+    decode_json_wire,
     deserialize_hermes_graph_agent_turn_request,
     deserialize_hermes_graph_agent_turn_result,
+    encode_json_wire,
     serialize_hermes_graph_agent_turn_request,
     serialize_hermes_graph_agent_turn_result,
 )
@@ -64,55 +66,64 @@ def _host_error_result(
 
 
 def hermes_graph_agent_worker_main(
-    request_queue: Queue[dict[str, Any]],
-    response_queue: Queue[dict[str, Any]],
+    request_queue: Queue[bytes],
+    response_queue: Queue[bytes],
 ) -> None:
     """Default worker entry: import and execute Rung 3 only in the child."""
-    # Import inside the worker so the parent never executes the turn runtime.
     from apps.live_control_server.services.hermes_graph_agent import (
         run_hermes_graph_agent_turn,
     )
 
     response_queue.put(
-        {
-            "type": "ready",
-            "pid": os.getpid(),
-        }
+        encode_json_wire(
+            {
+                "type": "ready",
+                "pid": os.getpid(),
+            }
+        )
     )
     while True:
-        message = request_queue.get()
-        if not isinstance(message, Mapping):
+        raw = request_queue.get()
+        try:
+            message = decode_json_wire(raw)
+        except Exception:
             response_queue.put(
-                {
-                    "type": "protocol_error",
-                    "errorCode": "hermes_worker_protocol_error",
-                    "errorMessage": "Worker received a non-mapping command.",
-                }
+                encode_json_wire(
+                    {
+                        "type": "protocol_error",
+                        "errorCode": "hermes_worker_protocol_error",
+                        "errorMessage": "Worker received non-JSON command bytes.",
+                    }
+                )
             )
             continue
         msg_type = message.get("type")
         if msg_type == "shutdown":
-            response_queue.put({"type": "shutdown_ack", "pid": os.getpid()})
+            response_queue.put(
+                encode_json_wire({"type": "shutdown_ack", "pid": os.getpid()})
+            )
             return
         if msg_type != "execute":
             response_queue.put(
-                {
-                    "type": "protocol_error",
-                    "errorCode": "hermes_worker_protocol_error",
-                    "errorMessage": f"Unknown worker command type: {msg_type!r}",
-                }
+                encode_json_wire(
+                    {
+                        "type": "protocol_error",
+                        "errorCode": "hermes_worker_protocol_error",
+                        "errorMessage": f"Unknown worker command type: {msg_type!r}",
+                    }
+                )
             )
             continue
 
         request_id = str(message.get("requestId") or "")
-        # Acceptance is the no-replay boundary: after this message, the host
-        # must not transparently retry the turn.
         response_queue.put(
-            {
-                "type": "accepted",
-                "requestId": request_id,
-                "pid": os.getpid(),
-            }
+            encode_json_wire(
+                {
+                    "type": "accepted",
+                    "requestId": request_id,
+                    "pid": os.getpid(),
+                }
+            )
         )
         try:
             payload = message.get("payload")
@@ -121,37 +132,41 @@ def hermes_graph_agent_worker_main(
             request = deserialize_hermes_graph_agent_turn_request(payload)
             result = run_hermes_graph_agent_turn(request)
             response_queue.put(
-                {
-                    "type": "result",
-                    "requestId": request_id,
-                    "pid": os.getpid(),
-                    "payload": serialize_hermes_graph_agent_turn_result(result),
-                }
+                encode_json_wire(
+                    {
+                        "type": "result",
+                        "requestId": request_id,
+                        "pid": os.getpid(),
+                        "payload": serialize_hermes_graph_agent_turn_result(result),
+                    }
+                )
             )
         except Exception as exc:
             response_queue.put(
-                {
-                    "type": "result",
-                    "requestId": request_id,
-                    "pid": os.getpid(),
-                    "payload": serialize_hermes_graph_agent_turn_result(
-                        _host_error_result(
-                            error_code="hermes_worker_protocol_error",
-                            error_message=(
-                                "Hermes worker failed while executing a turn: "
-                                f"{type(exc).__name__}"
-                            ),
-                        )
-                    ),
-                }
+                encode_json_wire(
+                    {
+                        "type": "result",
+                        "requestId": request_id,
+                        "pid": os.getpid(),
+                        "payload": serialize_hermes_graph_agent_turn_result(
+                            _host_error_result(
+                                error_code="hermes_worker_protocol_error",
+                                error_message=(
+                                    "Hermes worker failed while executing a turn: "
+                                    f"{type(exc).__name__}"
+                                ),
+                            )
+                        ),
+                    }
+                )
             )
 
 
 @dataclass(frozen=True, slots=True)
 class _WorkerHandles:
     process: BaseProcess
-    request_queue: Queue[dict[str, Any]]
-    response_queue: Queue[dict[str, Any]]
+    request_queue: Queue[bytes]
+    response_queue: Queue[bytes]
     pid: int
 
 
@@ -172,9 +187,11 @@ class HermesGraphAgentHost:
         self._ready_timeout_s = float(ready_timeout_s)
         self._worker_target = worker_target or hermes_graph_agent_worker_main
         self._ctx = context or mp.get_context("spawn")
-        self._lock = threading.RLock()
+        self._turn_gate = threading.Lock()
+        self._worker_lock = threading.RLock()
         self._worker: _WorkerHandles | None = None
         self._started = False
+        self._closed = False
 
     @property
     def start_method(self) -> str:
@@ -182,21 +199,25 @@ class HermesGraphAgentHost:
 
     @property
     def worker_pid(self) -> int | None:
-        with self._lock:
+        with self._worker_lock:
             if self._worker is None:
                 return None
             return self._worker.pid
 
     def start(self) -> None:
         """Ensure the host may create a worker (idempotent)."""
-        with self._lock:
+        with self._worker_lock:
+            self._closed = False
             self._started = True
-            if self._worker is None or not self._worker.process.is_alive():
+            if self._worker is not None and not self._worker.process.is_alive():
+                self._stop_worker_locked(timeout_s=1.0)
+            if self._worker is None:
                 self._spawn_worker_locked()
 
     def shutdown(self, *, timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S) -> None:
         """Stop the worker and release IPC resources."""
-        with self._lock:
+        with self._worker_lock:
+            self._closed = True
             self._started = False
             self._stop_worker_locked(timeout_s=timeout_s)
 
@@ -206,68 +227,89 @@ class HermesGraphAgentHost:
         *,
         timeout_s: float | None = None,
     ) -> HermesGraphAgentTurnResult:
-        """Run one turn on the worker. Concurrent callers queue on the host lock."""
+        """Run one turn on the worker. Concurrent callers queue on the turn gate."""
         turn_timeout = self._turn_timeout_s if timeout_s is None else float(timeout_s)
-        wire = serialize_hermes_graph_agent_turn_request(request)
-        with self._lock:
-            return self._execute_locked(wire, turn_timeout_s=turn_timeout)
+        try:
+            wire_payload = serialize_hermes_graph_agent_turn_request(request)
+        except Exception:
+            return _host_error_result(
+                error_code="hermes_worker_protocol_error",
+                error_message="Hermes graph-agent request could not be serialized.",
+            )
+        with self._turn_gate:
+            return self._execute_turn(wire_payload, turn_timeout_s=turn_timeout)
 
-    def _execute_locked(
+    def _execute_turn(
         self,
-        wire: dict[str, Any],
+        wire_payload: dict[str, Any],
         *,
         turn_timeout_s: float,
     ) -> HermesGraphAgentTurnResult:
         self._started = True
-        # Pre-accept: one restart/retry is allowed.
         for attempt in (1, 2):
-            try:
-                worker = self._ensure_worker_locked()
-            except Exception:
-                if attempt == 1:
+            with self._worker_lock:
+                if self._closed:
+                    return _host_error_result(
+                        error_code="hermes_worker_start_failed",
+                        error_message=(
+                            "Hermes graph-agent host is shut down and cannot start a worker."
+                        ),
+                    )
+                try:
+                    worker = self._ensure_worker_locked()
+                except Exception:
+                    if attempt == 1:
+                        self._stop_worker_locked(timeout_s=1.0)
+                        continue
+                    return _host_error_result(
+                        error_code="hermes_worker_start_failed",
+                        error_message="Hermes graph-agent worker failed to start.",
+                    )
+
+                request_id = str(uuid.uuid4())
+                message = {
+                    "type": "execute",
+                    "requestId": request_id,
+                    "payload": wire_payload,
+                }
+                try:
+                    wire_bytes = encode_json_wire(message)
+                except Exception:
+                    return _host_error_result(
+                        error_code="hermes_worker_protocol_error",
+                        error_message="Hermes graph-agent request wire encoding failed.",
+                    )
+                try:
+                    worker.request_queue.put(wire_bytes)
+                except Exception:
                     self._stop_worker_locked(timeout_s=1.0)
-                    continue
-                return _host_error_result(
-                    error_code="hermes_worker_start_failed",
-                    error_message="Hermes graph-agent worker failed to start.",
-                )
+                    if attempt == 1:
+                        continue
+                    return _host_error_result(
+                        error_code="hermes_worker_lost",
+                        error_message="Hermes graph-agent worker was lost before accept.",
+                    )
+                local_worker = worker
 
-            request_id = str(uuid.uuid4())
-            try:
-                worker.request_queue.put(
-                    {
-                        "type": "execute",
-                        "requestId": request_id,
-                        "payload": wire,
-                    }
-                )
-            except Exception:
-                self._stop_worker_locked(timeout_s=1.0)
-                if attempt == 1:
-                    continue
-                return _host_error_result(
-                    error_code="hermes_worker_lost",
-                    error_message="Hermes graph-agent worker was lost before accept.",
-                )
-
-            accepted = self._wait_for_message_locked(
-                worker,
+            accepted = self._recv_until(
+                local_worker.response_queue,
+                local_worker.process,
                 expected_types={"accepted"},
                 request_id=request_id,
                 timeout_s=self._accept_timeout_s,
             )
             if accepted is None:
-                self._stop_worker_locked(timeout_s=1.0)
+                with self._worker_lock:
+                    self._stop_worker_locked(timeout_s=1.0)
                 if attempt == 1:
                     continue
                 return _host_error_result(
                     error_code="hermes_worker_lost",
-                    error_message=(
-                        "Hermes graph-agent worker did not accept the request."
-                    ),
+                    error_message="Hermes graph-agent worker did not accept the request.",
                 )
             if accepted.get("type") != "accepted":
-                self._stop_worker_locked(timeout_s=1.0)
+                with self._worker_lock:
+                    self._stop_worker_locked(timeout_s=1.0)
                 if attempt == 1:
                     continue
                 return _host_error_result(
@@ -275,16 +317,17 @@ class HermesGraphAgentHost:
                     error_message="Hermes graph-agent worker returned a bad accept.",
                 )
 
-            # Post-accept: never replay.
-            result_message = self._wait_for_message_locked(
-                worker,
+            result_message = self._recv_until(
+                local_worker.response_queue,
+                local_worker.process,
                 expected_types={"result"},
                 request_id=request_id,
                 timeout_s=turn_timeout_s,
             )
             if result_message is None:
-                alive = worker.process.is_alive()
-                self._stop_worker_locked(timeout_s=1.0)
+                alive = local_worker.process.is_alive()
+                with self._worker_lock:
+                    self._stop_worker_locked(timeout_s=1.0)
                 if alive:
                     return _host_error_result(
                         error_code="hermes_worker_timeout",
@@ -300,7 +343,8 @@ class HermesGraphAgentHost:
                 )
             payload = result_message.get("payload")
             if not isinstance(payload, Mapping):
-                self._stop_worker_locked(timeout_s=1.0)
+                with self._worker_lock:
+                    self._stop_worker_locked(timeout_s=1.0)
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result payload was malformed.",
@@ -308,7 +352,8 @@ class HermesGraphAgentHost:
             try:
                 return deserialize_hermes_graph_agent_turn_result(payload)
             except Exception:
-                self._stop_worker_locked(timeout_s=1.0)
+                with self._worker_lock:
+                    self._stop_worker_locked(timeout_s=1.0)
                 return _host_error_result(
                     error_code="hermes_worker_protocol_error",
                     error_message="Hermes worker result could not be deserialized.",
@@ -326,8 +371,8 @@ class HermesGraphAgentHost:
         return self._spawn_worker_locked()
 
     def _spawn_worker_locked(self) -> _WorkerHandles:
-        request_queue: Queue[dict[str, Any]] = self._ctx.Queue()
-        response_queue: Queue[dict[str, Any]] = self._ctx.Queue()
+        request_queue: Queue[bytes] = self._ctx.Queue()
+        response_queue: Queue[bytes] = self._ctx.Queue()
         process = self._ctx.Process(
             target=self._worker_target,
             args=(request_queue, response_queue),
@@ -335,7 +380,7 @@ class HermesGraphAgentHost:
             daemon=True,
         )
         process.start()
-        ready = self._recv_until_locked(
+        ready = self._recv_until(
             response_queue,
             process,
             expected_types={"ready"},
@@ -365,7 +410,9 @@ class HermesGraphAgentHost:
         try:
             if worker.process.is_alive():
                 try:
-                    worker.request_queue.put({"type": "shutdown"})
+                    worker.request_queue.put(
+                        encode_json_wire({"type": "shutdown"})
+                    )
                 except Exception:
                     pass
                 worker.process.join(timeout=timeout_s)
@@ -381,25 +428,9 @@ class HermesGraphAgentHost:
             except Exception:
                 pass
 
-    def _wait_for_message_locked(
+    def _recv_until(
         self,
-        worker: _WorkerHandles,
-        *,
-        expected_types: set[str],
-        request_id: str | None,
-        timeout_s: float,
-    ) -> dict[str, Any] | None:
-        return self._recv_until_locked(
-            worker.response_queue,
-            worker.process,
-            expected_types=expected_types,
-            request_id=request_id,
-            timeout_s=timeout_s,
-        )
-
-    def _recv_until_locked(
-        self,
-        response_queue: Queue[dict[str, Any]],
+        response_queue: Queue[bytes],
         process: BaseProcess,
         *,
         expected_types: set[str],
@@ -412,22 +443,25 @@ class HermesGraphAgentHost:
             if remaining <= 0:
                 return None
             try:
-                message = response_queue.get(timeout=min(remaining, 0.25))
+                raw = response_queue.get(timeout=min(remaining, 0.25))
             except Exception:
                 if not process.is_alive():
                     return None
                 continue
-            if not isinstance(message, Mapping):
+            try:
+                message = decode_json_wire(raw)
+            except Exception:
+                if not process.is_alive():
+                    return None
                 continue
             msg_type = message.get("type")
             if msg_type not in expected_types:
-                # Ignore unrelated protocol noise rather than wedging the host.
                 if not process.is_alive():
                     return None
                 continue
             if request_id is not None and str(message.get("requestId") or "") != request_id:
                 continue
-            return dict(message)
+            return message
 
     @staticmethod
     def _terminate_process(process: BaseProcess, *, timeout_s: float) -> None:

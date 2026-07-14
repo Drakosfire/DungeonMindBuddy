@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import threading
 import time
@@ -21,6 +22,16 @@ from apps.live_control_server.services.hermes_graph_agent import (
     serialize_capability_policy,
     serialize_hermes_graph_agent_turn_request,
     serialize_hermes_graph_agent_turn_result,
+)
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    MAX_HISTORY_MESSAGES,
+    MAX_MESSAGE_CHARS,
+    MAX_POLICY_TOOLSETS,
+    MAX_QUESTION_CHARS,
+    MAX_TOOL_EVENTS,
+    MAX_WIRE_BYTES,
+    encode_json_wire,
+    encode_turn_request_wire,
 )
 from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
@@ -82,19 +93,29 @@ def _ok_result(*, session_id: str = "sess-1") -> HermesGraphAgentTurnResult:
     )
 
 
+def _put_json(queue: Any, payload: dict[str, Any]) -> None:
+    queue.put(encode_json_wire(payload))
+
+
 def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
     """Picklable stub worker that never imports Rung 3 turn execution."""
-    response_queue.put({"type": "ready", "pid": os.getpid()})
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
     while True:
-        message = request_queue.get()
+        message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
-            response_queue.put({"type": "shutdown_ack", "pid": os.getpid()})
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
             return
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
-        response_queue.put(
-            {"type": "accepted", "requestId": request_id, "pid": os.getpid()}
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
         payload = message.get("payload") or {}
         question = str(payload.get("question") or "")
@@ -108,77 +129,134 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
                 process_isolation="process_exclusive",
             )
         )
-        response_queue.put(
+        _put_json(
+            response_queue,
             {
                 "type": "result",
                 "requestId": request_id,
                 "pid": os.getpid(),
                 "payload": result,
-            }
+            },
         )
 
 
 def _slow_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
-    response_queue.put({"type": "ready", "pid": os.getpid()})
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
     while True:
-        message = request_queue.get()
+        message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
             return
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
-        response_queue.put(
-            {"type": "accepted", "requestId": request_id, "pid": os.getpid()}
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
         time.sleep(60)
 
 
 def _crash_after_accept_worker(request_queue: Any, response_queue: Any) -> None:
-    response_queue.put({"type": "ready", "pid": os.getpid()})
-    message = request_queue.get()
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    message = decode_json_wire(request_queue.get())
     if message.get("type") == "execute":
         request_id = str(message.get("requestId") or "")
-        response_queue.put(
-            {"type": "accepted", "requestId": request_id, "pid": os.getpid()}
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
         os._exit(1)
 
 
+def _crash_once_then_ok_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    flag_path = Path(os.environ["DMB_HERMES_HOST_CRASH_FLAG"])
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    message = decode_json_wire(request_queue.get())
+    if message.get("type") == "shutdown":
+        return
+    if message.get("type") != "execute":
+        return
+    request_id = str(message.get("requestId") or "")
+    _put_json(
+        response_queue,
+        {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+    )
+    if not flag_path.exists():
+        flag_path.write_text("crashed-once", encoding="utf-8")
+        os._exit(1)
+    _put_json(
+        response_queue,
+        {
+            "type": "result",
+            "requestId": request_id,
+            "pid": os.getpid(),
+            "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
+        },
+    )
+
+
 def _die_before_accept_once_worker(request_queue: Any, response_queue: Any) -> None:
-    """Module-level worker using env flag for one pre-accept death."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
     flag_path = Path(os.environ["DMB_HERMES_HOST_DIE_FLAG"])
-    response_queue.put({"type": "ready", "pid": os.getpid()})
-    message = request_queue.get()
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    message = decode_json_wire(request_queue.get())
     if message.get("type") == "shutdown":
         return
     if not flag_path.exists():
         flag_path.write_text("died-once", encoding="utf-8")
         os._exit(1)
     request_id = str(message.get("requestId") or "")
-    response_queue.put({"type": "accepted", "requestId": request_id, "pid": os.getpid()})
-    response_queue.put(
+    _put_json(
+        response_queue,
+        {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+    )
+    _put_json(
+        response_queue,
         {
             "type": "result",
             "requestId": request_id,
             "pid": os.getpid(),
             "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
-        }
+        },
     )
 
 
 def _holding_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
     started_path = Path(os.environ["DMB_HERMES_HOST_STARTED"])
     release_path = Path(os.environ["DMB_HERMES_HOST_RELEASE"])
-    response_queue.put({"type": "ready", "pid": os.getpid()})
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
     while True:
-        message = request_queue.get()
+        message = decode_json_wire(request_queue.get())
         if message.get("type") == "shutdown":
             return
         if message.get("type") != "execute":
             continue
         request_id = str(message.get("requestId") or "")
-        response_queue.put(
-            {"type": "accepted", "requestId": request_id, "pid": os.getpid()}
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
         )
         started_path.write_text(request_id, encoding="utf-8")
         deadline = time.time() + 10
@@ -186,7 +264,8 @@ def _holding_worker(request_queue: Any, response_queue: Any) -> None:
             if release_path.exists():
                 break
             time.sleep(0.01)
-        response_queue.put(
+        _put_json(
+            response_queue,
             {
                 "type": "result",
                 "requestId": request_id,
@@ -201,24 +280,46 @@ def _holding_worker(request_queue: Any, response_queue: Any) -> None:
                         process_isolation="process_exclusive",
                     )
                 ),
-            }
+            },
         )
 
 
-def test_host_module_does_not_call_rung3_at_import() -> None:
+def _accept_counting_slow_worker(request_queue: Any, response_queue: Any) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+    )
+
+    accept_path = Path(os.environ["DMB_HERMES_HOST_ACCEPT_COUNT"])
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        count = 0
+        if accept_path.exists():
+            count = int(accept_path.read_text(encoding="utf-8") or "0")
+        accept_path.write_text(str(count + 1), encoding="utf-8")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        time.sleep(60)
+
+
+def test_host_module_does_not_import_rung3_runtime_module() -> None:
     source = HOST_MODULE.read_text(encoding="utf-8")
     tree = ast.parse(source)
-    module_level_imported_run = False
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module and node.module.endswith(
-            "hermes_graph_agent"
-        ):
-            for alias in node.names:
-                if alias.name == "run_hermes_graph_agent_turn":
-                    module_level_imported_run = True
-    assert module_level_imported_run is False
-    preamble = source.split("def hermes_graph_agent_worker_main", 1)[0]
-    assert "run_hermes_graph_agent_turn(" not in preamble
+        if isinstance(node, ast.ImportFrom) and node.module:
+            assert not node.module.endswith("hermes_graph_agent"), (
+                "host module must not import hermes_graph_agent at module level"
+            )
+    worker_src = source.split("def hermes_graph_agent_worker_main", 1)[1]
+    assert "run_hermes_graph_agent_turn" in worker_src
+    assert "run_hermes_graph_agent_turn(request)" in worker_src
 
 
 def test_default_worker_source_calls_real_rung3_entry() -> None:
@@ -273,11 +374,117 @@ def test_request_result_round_trip_is_bounded_and_deterministic() -> None:
     assert restored_result.hermes_session_id == result.hermes_session_id
 
 
+def test_encode_json_wire_round_trips_and_is_bytes() -> None:
+    payload = {"type": "ready", "pid": 1234}
+    raw = encode_json_wire(payload)
+    assert isinstance(raw, bytes)
+    assert json.loads(raw.decode("utf-8")) == payload
+
+
+def test_oversized_question_rejected() -> None:
+    with pytest.raises(ValueError, match="question"):
+        serialize_hermes_graph_agent_turn_request(
+            _request(question="x" * (MAX_QUESTION_CHARS + 1))
+        )
+
+
+def test_oversized_history_rejected() -> None:
+    history = [{"role": "user", "content": "hi"} for _ in range(MAX_HISTORY_MESSAGES + 1)]
+    with pytest.raises(ValueError, match="conversationHistory"):
+        serialize_hermes_graph_agent_turn_request(_request(conversation_history=history))
+
+
+def test_oversized_policy_collections_rejected() -> None:
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=tuple(f"toolset-{index}" for index in range(MAX_POLICY_TOOLSETS + 1)),
+        enabled_tool_names=("search_campaign_graph",),
+        graph_scope=_scope(),
+        plugin_activations=(),
+        tool_rules=(),
+    )
+    with pytest.raises(ValueError, match="enabledToolsets"):
+        serialize_capability_policy(policy)
+
+
+def test_unknown_request_keys_rejected() -> None:
+    wire = serialize_hermes_graph_agent_turn_request(_request())
+    wire["extraField"] = "nope"
+    with pytest.raises(ValueError, match="unknown keys"):
+        deserialize_hermes_graph_agent_turn_request(wire)
+
+
+def test_non_json_serializable_nested_object_rejected() -> None:
+    wire = serialize_hermes_graph_agent_turn_request(_request())
+    wire["focus"] = {"kind": object()}
+    with pytest.raises(ValueError, match="JSON-serializable|focus"):
+        encode_json_wire(wire)
+
+
+def test_relative_and_traversal_root_rejected() -> None:
+    with pytest.raises(ValueError, match="absolute"):
+        serialize_hermes_graph_agent_turn_request(_request(root=Path("foo")))
+    with pytest.raises(ValueError, match="\\.\\."):
+        deserialize_hermes_graph_agent_turn_request(
+            {**serialize_hermes_graph_agent_turn_request(_request()), "root": "/tmp/../etc/passwd"}
+        )
+
+
+def test_malformed_result_structures_rejected() -> None:
+    wire = serialize_hermes_graph_agent_turn_result(_ok_result())
+    wire["status"] = "maybe"
+    with pytest.raises(ValueError, match="status"):
+        deserialize_hermes_graph_agent_turn_result(wire)
+    wire = serialize_hermes_graph_agent_turn_result(_ok_result())
+    wire["toolEvents"] = [{"toolName": "x", "state": "bogus"}]
+    with pytest.raises(ValueError, match="state"):
+        deserialize_hermes_graph_agent_turn_result(wire)
+
+
+def test_oversized_tool_events_and_messages_rejected() -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphToolEvent,
+    )
+
+    events = [
+        HermesGraphToolEvent(tool_name=f"tool-{index}", state="start")
+        for index in range(MAX_TOOL_EVENTS + 1)
+    ]
+    with pytest.raises(ValueError, match="toolEvents"):
+        serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="ok",
+                messages=[],
+                hermes_session_id="sess",
+                tool_events=events,
+                process_isolation="process_exclusive",
+            )
+        )
+    long_message = {"role": "assistant", "content": "x" * (MAX_MESSAGE_CHARS + 1)}
+    with pytest.raises(ValueError, match="content"):
+        serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="ok",
+                messages=[long_message],
+                hermes_session_id="sess",
+                tool_events=[],
+                process_isolation="process_exclusive",
+            )
+        )
+
+
 def test_deserialize_rejects_forbidden_factory_fields() -> None:
     wire = serialize_hermes_graph_agent_turn_request(_request())
     wire["agentFactory"] = "evil"
     with pytest.raises(ValueError, match="forbidden"):
         deserialize_hermes_graph_agent_turn_request(wire)
+
+
+def test_encode_turn_request_wire_respects_max_bytes() -> None:
+    request = _request(question="x" * MAX_QUESTION_CHARS)
+    raw = encode_turn_request_wire(request)
+    assert len(raw) <= MAX_WIRE_BYTES
 
 
 def test_host_uses_spawn_start_method() -> None:
@@ -434,25 +641,110 @@ def test_timeout_discards_worker_and_is_not_replayed() -> None:
         host.shutdown()
 
 
-def test_subsequent_request_can_use_fresh_worker_after_loss() -> None:
+def test_same_host_recovers_after_post_accept_crash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    flag = tmp_path / "crashed"
+    monkeypatch.setenv("DMB_HERMES_HOST_CRASH_FLAG", str(flag))
     host = HermesGraphAgentHost(
-        worker_target=_crash_after_accept_worker,
+        worker_target=_crash_once_then_ok_worker,
         accept_timeout_s=2.0,
         turn_timeout_s=2.0,
     )
     try:
-        lost = host.execute(_request(question="crash"))
-        assert lost.error_code == "hermes_worker_lost"
+        host.start()
+        first_pid = host.worker_pid
+        assert first_pid is not None
+        first = host.execute(_request(question="crash-once"))
+        assert first.status == "error"
+        assert first.error_code == "hermes_worker_lost"
+        assert not Path(f"/proc/{first_pid}").exists()
+        second = host.execute(_request(question="recover"))
+        assert second.status == "ok"
+        assert second.final_response == "Tripod is near the North Gate."
+        assert host.worker_pid is not None
+        assert host.worker_pid != first_pid
     finally:
         host.shutdown()
 
-    host2 = HermesGraphAgentHost(worker_target=_stub_worker_main)
+
+def test_shutdown_terminates_active_turn_promptly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accept_count = tmp_path / "accept_count"
+    monkeypatch.setenv("DMB_HERMES_HOST_ACCEPT_COUNT", str(accept_count))
+    host = HermesGraphAgentHost(
+        worker_target=_accept_counting_slow_worker,
+        turn_timeout_s=60.0,
+        accept_timeout_s=2.0,
+    )
+    result_holder: list[HermesGraphAgentTurnResult | None] = [None]
+
+    def _execute_turn() -> None:
+        result_holder[0] = host.execute(_request(question="blocked"))
+
     try:
-        ok = host2.execute(_request(question="after"))
-        assert ok.status == "ok"
-        assert ok.final_response == "echo:after"
+        host.start()
+        worker_pid = None
+        thread = threading.Thread(target=_execute_turn)
+        thread.start()
+        deadline = time.time() + 5
+        while time.time() < deadline and not accept_count.exists():
+            time.sleep(0.01)
+        assert accept_count.exists()
+        worker_pid = host.worker_pid
+        assert worker_pid is not None
+        shutdown_started = time.monotonic()
+        shutdown_thread = threading.Thread(
+            target=lambda: host.shutdown(timeout_s=2.0),
+        )
+        shutdown_thread.start()
+        shutdown_thread.join(timeout=5.0)
+        thread.join(timeout=5.0)
+        assert shutdown_thread.is_alive() is False
+        assert time.monotonic() - shutdown_started < 5.0
+        assert result_holder[0] is not None
+        assert result_holder[0].status == "error"
+        assert result_holder[0].error_code in {
+            "hermes_worker_lost",
+            "hermes_worker_timeout",
+        }
+        assert accept_count.read_text(encoding="utf-8") == "1"
+        assert host.worker_pid is None
+        if worker_pid is not None:
+            assert not Path(f"/proc/{worker_pid}").exists()
     finally:
-        host2.shutdown()
+        host.shutdown()
+
+
+def test_execute_after_shutdown_returns_start_failed() -> None:
+    host = HermesGraphAgentHost(worker_target=_stub_worker_main)
+    host.shutdown()
+    result = host.execute(_request(question="after-shutdown"))
+    assert result.status == "error"
+    assert result.error_code == "hermes_worker_start_failed"
+
+
+def test_start_cleans_dead_worker_handles() -> None:
+    host = HermesGraphAgentHost(worker_target=_stub_worker_main)
+    try:
+        host.start()
+        first_pid = host.worker_pid
+        assert first_pid is not None
+        os.kill(first_pid, 9)
+        deadline = time.time() + 2
+        while time.time() < deadline and Path(f"/proc/{first_pid}").exists():
+            time.sleep(0.01)
+        host.start()
+        second_pid = host.worker_pid
+        assert second_pid is not None
+        assert second_pid != first_pid
+        result = host.execute(_request(question="after-death"))
+        assert result.status == "ok"
+    finally:
+        host.shutdown()
 
 
 def test_shutdown_leaves_no_live_worker() -> None:
@@ -489,7 +781,6 @@ def test_app_lifespan_shuts_down_global_host() -> None:
         host.start()
         pid = host.worker_pid
         assert pid is not None
-    # Lifespan finally calls shutdown_hermes_graph_agent_host().
     time.sleep(0.05)
     if pid is not None:
         assert not Path(f"/proc/{pid}").exists()
