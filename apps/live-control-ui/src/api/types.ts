@@ -403,6 +403,10 @@ export interface AgentInteractionTrace {
   steps: AgentInteractionTraceStep[];
   context_summary: AgentInteractionContextSummary;
   artifact_refs: AgentInteractionTraceArtifactRef[];
+  /** Additive PR354 graph-tool events; presentation owned by PR355. */
+  tool_events?: unknown[];
+  hermes_session_id?: string | null;
+  process_isolation?: string | null;
   warnings: string[];
 }
 

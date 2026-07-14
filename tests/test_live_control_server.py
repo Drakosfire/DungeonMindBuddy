@@ -1250,7 +1250,10 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     assert body["grounding"]["state"] == "grounded"
     assert body["hermes_session"] is None
     assert body["agent_trace"]["hermes_session_id"] == "obs-only"
-    assert "steps" not in body["agent_trace"]
+    assert body["agent_trace"]["usage"]["available"] is False
+    assert body["agent_trace"]["steps"] == []
+    assert body["agent_trace"]["context_summary"] == {}
+    assert body["agent_trace"]["artifact_refs"] == []
     assert body["citations"] == []
 
 

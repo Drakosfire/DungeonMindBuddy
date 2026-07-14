@@ -17,6 +17,8 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
 )
 from apps.live_control_server.services.hermes_graph_query import (
     ABSTENTION_ANSWER,
+    EXECUTION_ERROR_ANSWER,
+    UNAVAILABLE_ANSWER,
     build_hermes_graph_turn_request,
     classify_hermes_graph_result,
     run_hermes_graph_query,
@@ -84,31 +86,50 @@ def client(isolated_session: Path) -> TestClient:
     return TestClient(create_app())
 
 
+_MISSING = object()
+
+
 def _tool_event(
     *,
-    outcome: str = "enough",
+    outcome: str | None = "enough",
     source_anchor_ids: list[str] | None = None,
-    revision_pin: str = "revision:resolved-server",
-    world_id: str = "world:eldyrwild",
-    campaign_id: str = "campaign:c1",
+    revision_pin: Any = _MISSING,
+    world_id: Any = _MISSING,
+    campaign_id: Any = _MISSING,
+    focus: Any = _MISSING,
+    admissibility: Any = _MISSING,
     state: str = "completion",
+    matched_node_ids: list[str] | None = None,
+    relationship_ids: list[str] | None = None,
+    diagnostic_codes: list[str] | None = None,
+    retrieval_schema: str | None = "dmb_world_graph_retrieval_result_v1",
 ) -> HermesGraphToolEvent:
     return HermesGraphToolEvent(
         tool_name="search_campaign_graph",
         state=state,  # type: ignore[arg-type]
         duration_ms=12.0,
-        world_id=world_id,
-        campaign_id=campaign_id,
-        focus={"kind": "session", "sessionId": "session-21"},
-        admissibility="gm",
-        revision_pin=revision_pin,
+        world_id="world:eldyrwild" if world_id is _MISSING else world_id,
+        campaign_id="campaign:c1" if campaign_id is _MISSING else campaign_id,
+        focus=(
+            {"kind": "session", "sessionId": "session-21"}
+            if focus is _MISSING
+            else focus
+        ),
+        admissibility="gm" if admissibility is _MISSING else admissibility,
+        revision_pin=(
+            "revision:resolved-server" if revision_pin is _MISSING else revision_pin
+        ),
         bounded_ids={},
-        retrieval_schema="dmb_world_graph_retrieval_result_v1",
+        retrieval_schema=retrieval_schema,
         outcome=outcome,
-        matched_node_ids=["threat:tripod-null-calf"],
-        relationship_ids=[],
+        matched_node_ids=list(
+            matched_node_ids
+            if matched_node_ids is not None
+            else ["threat:tripod-null-calf"]
+        ),
+        relationship_ids=list(relationship_ids or []),
         source_anchor_ids=list(source_anchor_ids or []),
-        diagnostic_codes=[],
+        diagnostic_codes=list(diagnostic_codes or []),
     )
 
 
@@ -657,3 +678,249 @@ def test_http_host_error_no_fallback(
     assert body["grounding"]["state"] == "error"
     assert body["diagnostics"]["error_code"] == "hermes_worker_timeout"
     assert body["mode"] == "hermes_graph_agent"
+
+
+def test_missing_scope_fields_never_ground() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    cases = [
+        _tool_event(world_id=None, source_anchor_ids=["source-anchor:v1:a"]),
+        _tool_event(campaign_id=None, source_anchor_ids=["source-anchor:v1:b"]),
+        _tool_event(focus=None, source_anchor_ids=["source-anchor:v1:c"]),
+        _tool_event(admissibility=None, source_anchor_ids=["source-anchor:v1:d"]),
+        _tool_event(revision_pin=None, source_anchor_ids=["source-anchor:v1:e"]),
+        HermesGraphToolEvent(
+            tool_name="search_campaign_graph",
+            state="completion",
+            duration_ms=1.0,
+            world_id=None,
+            campaign_id=None,
+            focus=None,
+            admissibility=None,
+            revision_pin=None,
+            bounded_ids={},
+            retrieval_schema="dmb_world_graph_retrieval_result_v1",
+            outcome="enough",
+            matched_node_ids=[],
+            relationship_ids=[],
+            source_anchor_ids=["source-anchor:v1:omitted"],
+            diagnostic_codes=[],
+        ),
+        _tool_event(
+            outcome="not-a-canonical-outcome",
+            source_anchor_ids=["source-anchor:v1:bad-outcome"],
+        ),
+    ]
+    for event in cases:
+        state, *_ = classify_hermes_graph_result(
+            _ok_result(events=[event]),
+            scope=scope,
+        )
+        assert state != "grounded"
+        assert state != "partial"
+
+
+def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+
+    alone_state, alone_answer, _, alone_codes, alone_error = classify_hermes_graph_result(
+        _ok_result(
+            final_response="model prose after tool failure",
+            events=[
+                _tool_event(
+                    state="error",
+                    outcome=None,
+                    source_anchor_ids=[],
+                    diagnostic_codes=["invalid_arguments"],
+                    retrieval_schema="dmb_world_graph_retrieval_error_v1",
+                )
+            ],
+        ),
+        scope=scope,
+    )
+    assert alone_state == "error"
+    assert alone_answer == EXECUTION_ERROR_ANSWER
+    assert alone_answer != ABSTENTION_ANSWER
+    assert alone_error == "invalid_arguments"
+    assert "invalid_arguments" in alone_codes
+
+    no_completion_state, _, _, _, no_completion_error = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _tool_event(
+                    state="error",
+                    outcome=None,
+                    source_anchor_ids=[],
+                    diagnostic_codes=["integrity_failure"],
+                ),
+                _tool_event(outcome="empty", source_anchor_ids=[]),
+            ]
+        ),
+        scope=scope,
+    )
+    assert no_completion_state == "error"
+    assert no_completion_error == "integrity_failure"
+
+    recovered_state, recovered_answer, *_ = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _tool_event(
+                    state="error",
+                    outcome=None,
+                    source_anchor_ids=[],
+                    diagnostic_codes=["transient_failure"],
+                ),
+                _tool_event(source_anchor_ids=["anchor:recovered"]),
+            ]
+        ),
+        scope=scope,
+    )
+    assert recovered_state == "grounded"
+    assert recovered_answer.startswith("Tripod")
+
+    adapter_state, _, _, adapter_codes, adapter_error = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _tool_event(
+                    state="error",
+                    outcome=None,
+                    source_anchor_ids=[],
+                    diagnostic_codes=["hermes_graph_read_tool_adapter_error"],
+                    retrieval_schema="dmb_world_graph_retrieval_error_v1",
+                )
+            ]
+        ),
+        scope=scope,
+    )
+    assert adapter_state == "error"
+    assert adapter_error == "hermes_graph_read_tool_adapter_error"
+    assert "hermes_graph_read_tool_adapter_error" in adapter_codes
+
+
+def test_scope_mismatch_events_are_redacted_from_serialized_response(
+    tmp_path: Path,
+) -> None:
+    host = _FakeHost(
+        _ok_result(
+            events=[
+                _tool_event(
+                    campaign_id="campaign:FOREIGN-LEAK",
+                    revision_pin="revision:FOREIGN-REV",
+                    source_anchor_ids=["source-anchor:FOREIGN-ANCHOR"],
+                    matched_node_ids=["node:FOREIGN-NODE"],
+                    relationship_ids=["edge:FOREIGN-EDGE"],
+                )
+            ]
+        )
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-redact",
+        turn_id="agent-turn-redact",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == "hermes_grounding_contract_error"
+    blob = json.dumps(response)
+    assert "FOREIGN-LEAK" not in blob
+    assert "FOREIGN-REV" not in blob
+    assert "FOREIGN-ANCHOR" not in blob
+    assert "FOREIGN-NODE" not in blob
+    assert "FOREIGN-EDGE" not in blob
+    assert response["agent_trace"]["tool_events"] == []
+    assert "hermes_tool_event_scope_mismatch" in response["grounding"]["diagnostic_codes"]
+
+
+def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id=None,
+        turn_id=None,
+        root=tmp_path,
+        host_factory=lambda: _FakeHost(_ok_result()),  # type: ignore[arg-type, return-value]
+    )
+    trace = response["agent_trace"]
+    assert trace["usage"] == {
+        "available": False,
+        "input_tokens": None,
+        "output_tokens": None,
+        "total_tokens": None,
+    }
+    assert trace["steps"] == []
+    assert trace["context_summary"] == {}
+    assert trace["artifact_refs"] == []
+    assert isinstance(trace["tool_events"], list)
+
+
+def test_http_world_graph_unavailable_is_typed_not_422(
+    client: TestClient,
+    isolated_session: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    no_fallback: None,
+) -> None:
+    host_calls: list[str] = []
+
+    def boom() -> Any:
+        host_calls.append("called")
+        raise AssertionError("host must not be called when graph is unavailable")
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "unavailable",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": None,
+            "head_revision_id": None,
+            "is_head": None,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "Where is Tripod?",
+            "matched_node_ids": [],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": ["world_graph_unavailable"],
+            "trust_boundary": {},
+        },
+    )
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", boom)
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "Where is Tripod?",
+            "world_graph_context": GRAPH_NESTED,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "error"
+    assert body["diagnostics"]["error_code"] == "world_graph_unavailable"
+    assert body["answer"] == UNAVAILABLE_ANSWER
+    assert "world_graph_context_invalid" not in json.dumps(body)
+    assert body.get("schema") == "dmb_live_query_response_v1"
+    assert host_calls == []
+    assert response.status_code != 422

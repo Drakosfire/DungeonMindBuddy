@@ -44,21 +44,23 @@ EXECUTION_ERROR_ANSWER = (
     "DungeonBuddy could not complete this World Graph Hermes turn. "
     "No legacy retrieval fallback was used."
 )
+UNAVAILABLE_ANSWER = (
+    "DungeonBuddy’s World Graph is currently unavailable for this query. "
+    "No legacy retrieval fallback was used."
+)
 PARTIAL_COVERAGE_WARNING = (
     "Graph retrieval returned partial or truncated evidence; treat the answer as qualified."
 )
 
-EMPTY_DENIED_OUTCOMES = frozenset({"empty", "denied"})
+# Canonical World Graph retrieval outcomes (PR010A / Rung 3).
+CANONICAL_RETRIEVAL_OUTCOMES = frozenset(
+    {"enough", "partial", "empty", "denied", "truncated", "unavailable"}
+)
+EVIDENCE_BEARING_OUTCOMES = frozenset({"enough", "partial", "truncated"})
 PARTIAL_OUTCOMES = frozenset({"partial", "truncated"})
 UNAVAILABLE_OUTCOME = "unavailable"
-HOST_ERROR_CODES = frozenset(
-    {
-        "hermes_worker_lost",
-        "hermes_worker_timeout",
-        "hermes_worker_start_failed",
-        "hermes_worker_protocol_error",
-    }
-)
+WORLD_GRAPH_UNAVAILABLE_CODE = "world_graph_unavailable"
+GRAPH_TOOL_ERROR_CODE = "hermes_graph_tool_error"
 
 
 class HermesGraphQueryRequestError(ValueError):
@@ -110,6 +112,16 @@ def _new_trace_id() -> str:
 
 def _new_query_id() -> str:
     return f"live-query-{uuid.uuid4().hex[:12]}"
+
+
+def _usage_unavailable() -> dict[str, Any]:
+    """Existing Plan TraceDetailsPanel requires usage.available."""
+    return {
+        "available": False,
+        "input_tokens": None,
+        "output_tokens": None,
+        "total_tokens": None,
+    }
 
 
 def validate_hermes_query_inputs(
@@ -236,24 +248,58 @@ def _normalize_focus_for_compare(focus: Mapping[str, Any] | None) -> dict[str, s
     }
 
 
-def _tool_event_scope_matches(
+def _tool_event_scope_contradicts(
     event: HermesGraphToolEvent,
     scope: _DispatchedScope,
 ) -> bool:
+    """True when the event asserts a scope field that differs from dispatched.
+
+    Missing fields are not contradictions; they fail the complete-match check
+    used for evidence instead.
+    """
     if event.world_id is not None and event.world_id != scope.world_id:
-        return False
+        return True
     if event.campaign_id is not None and event.campaign_id != scope.campaign_id:
-        return False
+        return True
     if event.admissibility is not None and event.admissibility != scope.admissibility:
-        return False
+        return True
     if event.revision_pin is not None and event.revision_pin != scope.revision_id:
-        return False
+        return True
     if event.focus is not None:
         event_focus = _normalize_focus_for_compare(event.focus)
         scope_focus = _normalize_focus_for_compare(scope.focus)
         if event_focus != scope_focus:
-            return False
-    return True
+            return True
+    return False
+
+
+def _tool_event_scope_matches(
+    event: HermesGraphToolEvent,
+    scope: _DispatchedScope,
+) -> bool:
+    """Fail closed: every authoritative scope field must be present and equal."""
+    if event.world_id is None or event.world_id != scope.world_id:
+        return False
+    if event.campaign_id is None or event.campaign_id != scope.campaign_id:
+        return False
+    if event.admissibility is None or event.admissibility != scope.admissibility:
+        return False
+    if event.revision_pin is None or event.revision_pin != scope.revision_id:
+        return False
+    if event.focus is None:
+        return False
+    event_focus = _normalize_focus_for_compare(event.focus)
+    scope_focus = _normalize_focus_for_compare(scope.focus)
+    return event_focus == scope_focus
+
+
+def _normalized_outcome(event: HermesGraphToolEvent) -> str | None:
+    raw = (event.outcome or "").strip().lower()
+    if not raw:
+        return None
+    if raw not in CANONICAL_RETRIEVAL_OUTCOMES:
+        return None
+    return raw
 
 
 def _is_evidence_bearing(
@@ -264,10 +310,8 @@ def _is_evidence_bearing(
         return False
     if not _tool_event_scope_matches(event, scope):
         return False
-    outcome = (event.outcome or "").strip().lower()
-    if outcome in EMPTY_DENIED_OUTCOMES or outcome == UNAVAILABLE_OUTCOME:
-        return False
-    if not outcome:
+    outcome = _normalized_outcome(event)
+    if outcome is None or outcome not in EVIDENCE_BEARING_OUTCOMES:
         return False
     if not list(event.source_anchor_ids):
         return False
@@ -297,6 +341,21 @@ def _project_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
     }
 
 
+def _safe_projected_tool_events(
+    events: Sequence[HermesGraphToolEvent],
+    scope: _DispatchedScope,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Project in-scope events; drop contradictory (foreign) events entirely."""
+    projected: list[dict[str, Any]] = []
+    saw_mismatch = False
+    for event in events:
+        if _tool_event_scope_contradicts(event, scope):
+            saw_mismatch = True
+            continue
+        projected.append(_project_tool_event(event))
+    return projected, saw_mismatch
+
+
 def _unique_source_anchors(events: Sequence[HermesGraphToolEvent]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
@@ -307,6 +366,50 @@ def _unique_source_anchors(events: Sequence[HermesGraphToolEvent]) -> list[str]:
             seen.add(anchor_id)
             ordered.append(anchor_id)
     return ordered
+
+
+def _later_evidence_recovers(
+    events: Sequence[HermesGraphToolEvent],
+    *,
+    after_index: int,
+    scope: _DispatchedScope,
+) -> bool:
+    for later in events[after_index + 1 :]:
+        if _is_evidence_bearing(later, scope):
+            return True
+    return False
+
+
+def _unrecovered_error_events(
+    events: Sequence[HermesGraphToolEvent],
+    scope: _DispatchedScope,
+) -> list[HermesGraphToolEvent]:
+    """Error-state tool events not followed by a later evidence-bearing completion."""
+    unrecovered: list[HermesGraphToolEvent] = []
+    for index, event in enumerate(events):
+        if event.state != "error":
+            continue
+        if _tool_event_scope_contradicts(event, scope):
+            continue
+        if _later_evidence_recovers(events, after_index=index, scope=scope):
+            continue
+        unrecovered.append(event)
+    return unrecovered
+
+
+def _error_code_from_tool_events(events: Sequence[HermesGraphToolEvent]) -> tuple[str, list[str]]:
+    codes: list[str] = []
+    schemas: list[str] = []
+    for event in events:
+        codes.extend(str(code) for code in event.diagnostic_codes if code)
+        if event.retrieval_schema:
+            schemas.append(str(event.retrieval_schema))
+    deduped = list(dict.fromkeys([*codes, *schemas]))
+    if codes:
+        return str(codes[0]), deduped
+    if schemas:
+        return GRAPH_TOOL_ERROR_CODE, deduped
+    return GRAPH_TOOL_ERROR_CODE, [GRAPH_TOOL_ERROR_CODE]
 
 
 def classify_hermes_graph_result(
@@ -337,7 +440,9 @@ def classify_hermes_graph_result(
         )
 
     for event in result.tool_events:
-        if event.state == "completion" and not _tool_event_scope_matches(event, scope):
+        if event.state in {"completion", "error"} and _tool_event_scope_contradicts(
+            event, scope
+        ):
             return (
                 "error",
                 EXECUTION_ERROR_ANSWER,
@@ -357,10 +462,22 @@ def classify_hermes_graph_result(
         )
 
     completions = [event for event in result.tool_events if event.state == "completion"]
+    evidence = [event for event in completions if _is_evidence_bearing(event, scope)]
+
+    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
+    if unrecovered_errors:
+        error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
+        return (
+            "error",
+            EXECUTION_ERROR_ANSWER,
+            [],
+            diagnostic_codes,
+            error_code,
+        )
+
     if any(
-        (event.outcome or "").strip().lower() == UNAVAILABLE_OUTCOME
-        for event in completions
-    ) and not any(_is_evidence_bearing(event, scope) for event in completions):
+        _normalized_outcome(event) == UNAVAILABLE_OUTCOME for event in completions
+    ) and not evidence:
         return (
             "error",
             EXECUTION_ERROR_ANSWER,
@@ -369,7 +486,6 @@ def classify_hermes_graph_result(
             "hermes_graph_unavailable",
         )
 
-    evidence = [event for event in completions if _is_evidence_bearing(event, scope)]
     final_response = (result.final_response or "").strip()
 
     if not evidence:
@@ -380,7 +496,7 @@ def classify_hermes_graph_result(
     for event in evidence:
         diagnostic_codes.extend(list(event.diagnostic_codes))
     is_partial = any(
-        (event.outcome or "").strip().lower() in PARTIAL_OUTCOMES for event in evidence
+        _normalized_outcome(event) in PARTIAL_OUTCOMES for event in evidence
     )
     if is_partial:
         warnings.append(PARTIAL_COVERAGE_WARNING)
@@ -446,6 +562,12 @@ def _agent_trace(
         "elapsed_ms": elapsed_ms,
         "hermes_session_id": result.hermes_session_id or None,
         "process_isolation": result.process_isolation,
+        # Existing Plan TraceDetailsPanel contract (required shell fields).
+        "usage": _usage_unavailable(),
+        "steps": [],
+        "context_summary": {},
+        "artifact_refs": [],
+        # Additive for PR355 graph-trace presentation.
         "tool_events": list(tool_events),
         "warnings": list(warnings),
     }
@@ -457,6 +579,96 @@ def _top_level_status(state: GroundingState) -> str:
     if state in {"partial", "abstained"}:
         return "partial"
     return "error"
+
+
+def _scope_from_unavailable_envelope(graph_envelope: Mapping[str, Any]) -> _DispatchedScope:
+    focus_raw = graph_envelope.get("focus")
+    focus_map = focus_raw if isinstance(focus_raw, Mapping) else None
+    return _DispatchedScope(
+        world_id=str(graph_envelope.get("world_id") or "").strip() or "world:unknown",
+        campaign_id=str(graph_envelope.get("campaign_id") or "").strip() or "campaign:unknown",
+        focus=_focus_for_grounding(focus_map),
+        admissibility=str(graph_envelope.get("admissibility") or "gm"),
+        revision_id="",
+    )
+
+
+def build_hermes_graph_unavailable_response(
+    *,
+    packet: Mapping[str, Any],
+    graph_envelope: Mapping[str, Any],
+    agent_thread_id: str | None,
+    turn_id: str | None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    elapsed_ms: int = 0,
+) -> dict[str, Any]:
+    """Typed product error when the resolved graph is unavailable — no host call."""
+    started = started_at or _utc_now_z()
+    completed = completed_at or started
+    scope = _scope_from_unavailable_envelope(graph_envelope)
+    empty_result = HermesGraphAgentTurnResult(
+        status="error",
+        final_response=None,
+        messages=[],
+        hermes_session_id="",
+        tool_events=[],
+        error_code=WORLD_GRAPH_UNAVAILABLE_CODE,
+        error_message=UNAVAILABLE_ANSWER,
+        process_isolation="process_exclusive",
+    )
+    return {
+        "schema": LIVE_QUERY_SCHEMA,
+        "query_id": _new_query_id(),
+        "session": int(packet["session"]),
+        "mode": MODE,
+        "status": "error",
+        "answer": UNAVAILABLE_ANSWER,
+        "classification": {
+            "intent": MODE,
+            "latency_mode": MODE,
+            "event_type": MODE,
+        },
+        "events_written": [],
+        "jobs_queued": [],
+        "next_suggestions": [],
+        "diagnostics": {"error_code": WORLD_GRAPH_UNAVAILABLE_CODE},
+        "provenance": {
+            "backend": BACKEND,
+            "runtime": RUNTIME,
+            "mode": MODE,
+        },
+        "citations": [],
+        "context_packet": None,
+        "warnings": [WORLD_GRAPH_UNAVAILABLE_CODE],
+        "mutations": [],
+        "grounding": {
+            "schema": GROUNDING_SCHEMA,
+            "state": "error",
+            "world_id": scope.world_id,
+            "campaign_id": scope.campaign_id,
+            "focus": dict(scope.focus),
+            "admissibility": scope.admissibility,
+            "revision_id": None,
+            "successful_tool_count": 0,
+            "source_anchor_count": 0,
+            "diagnostic_codes": [WORLD_GRAPH_UNAVAILABLE_CODE],
+            "warnings": [WORLD_GRAPH_UNAVAILABLE_CODE],
+        },
+        "agent_trace": _agent_trace(
+            state="error",
+            result=empty_result,
+            tool_events=[],
+            warnings=[WORLD_GRAPH_UNAVAILABLE_CODE],
+            started_at=started,
+            completed_at=completed,
+            elapsed_ms=elapsed_ms,
+        ),
+        "agent_thread_id": agent_thread_id,
+        "turn_id": turn_id,
+        "hermes_session": None,
+        "world_graph_context": dict(graph_envelope),
+    }
 
 
 def build_hermes_graph_product_response(
@@ -475,7 +687,9 @@ def build_hermes_graph_product_response(
         result,
         scope=scope,
     )
-    projected_events = [_project_tool_event(event) for event in result.tool_events]
+    projected_events, saw_mismatch = _safe_projected_tool_events(result.tool_events, scope)
+    if saw_mismatch and "hermes_tool_event_scope_mismatch" not in diagnostic_codes:
+        diagnostic_codes = [*diagnostic_codes, "hermes_tool_event_scope_mismatch"]
     response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
@@ -546,6 +760,14 @@ def run_hermes_graph_query(
     Calls ``host.execute`` exactly once. Host-owned pre-accept retry remains
     inside the host; this adapter never retries.
     """
+    if str(graph_envelope.get("status") or "") == "unavailable":
+        return build_hermes_graph_unavailable_response(
+            packet=packet,
+            graph_envelope=graph_envelope,
+            agent_thread_id=agent_thread_id,
+            turn_id=turn_id,
+        )
+
     request, scope = build_hermes_graph_turn_request(
         question=text,
         graph_envelope=graph_envelope,
@@ -574,9 +796,11 @@ def run_hermes_graph_query(
 __all__ = [
     "ABSTENTION_ANSWER",
     "EXECUTION_ERROR_ANSWER",
+    "UNAVAILABLE_ANSWER",
     "HermesGraphQueryRequestError",
     "build_hermes_graph_product_response",
     "build_hermes_graph_turn_request",
+    "build_hermes_graph_unavailable_response",
     "classify_hermes_graph_result",
     "run_hermes_graph_query",
     "validate_hermes_query_inputs",
