@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import fcntl
-import hashlib
 import json
 import os
 import shutil
@@ -15,8 +14,15 @@ from typing import Iterator
 
 from graph_memory.kernel.contribution_diagnostics import build_contribution_integrity_report
 from graph_memory.kernel.contribution_models import GraphContribution
-from graph_memory.kernel.contribution_merge import merge_contribution_to_revision
+from graph_memory.kernel.contribution_merge import (
+    merge_contribution_to_revision,
+    stamp_initialization_authority,
+)
 from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
+from graph_memory.kernel.contributions import (
+    canonical_payload_sha256,
+    compute_contribution_payload_sha256,
+)
 from graph_memory.kernel.world_graph import (
     load_current_world_graph,
     open_world_graph_head,
@@ -49,26 +55,16 @@ UNION_SUPERGRAPH_SCHEMA = "dmb_union_supergraph_store_v0"
 UNION_SUPERGRAPH_VERSION = "0.1"
 
 
-def _canonical_json_sha256(payload: object) -> str:
-    canonical = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    return hashlib.sha256(canonical).hexdigest()
-
-
-def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
-    """Hash the complete canonical GraphContribution payload."""
-    return _canonical_json_sha256(
-        contribution.model_dump(mode="json", by_alias=True)
-    )
-
-
 def compute_initialization_plan_digest(plan: WorldInitializationPlan) -> str:
     """Hash the complete canonical initialization plan payload."""
-    return _canonical_json_sha256(plan.model_dump(mode="json", by_alias=True))
+    return canonical_payload_sha256(plan.model_dump(mode="json", by_alias=True))
+
+
+def compute_initialization_attestation_digest(
+    attestation: WorldInitializationApprovalAttestation,
+) -> str:
+    """Hash the complete canonical approval-attestation payload."""
+    return canonical_payload_sha256(attestation.model_dump(mode="json", by_alias=True))
 
 
 def _utc_now_iso() -> str:
@@ -532,6 +528,16 @@ def _stage_and_build_world(
         baseline = build_empty_technical_baseline_store(
             plan.campaign_id,
             plan.focus_session_id,
+        )
+        plan_digest = compute_initialization_plan_digest(plan)
+        attestation_digest = compute_initialization_attestation_digest(
+            plan.approval_attestation
+        )
+        baseline = stamp_initialization_authority(
+            baseline,
+            initialization_contribution_ids=list(plan.ordered_contribution_ids),
+            initialization_plan_digest=plan_digest,
+            initialization_attestation_digest=attestation_digest,
         )
         baseline_result = publish_world_revision(
             staging_root,

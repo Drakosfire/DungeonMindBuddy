@@ -41,6 +41,46 @@ def _canonical_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
+# Lifecycle ledger fields that may change after a contribution is first written
+# (supersession, retraction, diagnostics append). They are excluded from the
+# revision-bound source-authority digest so historical revision pins remain
+# readable after later lifecycle mutations of the mutable ledger record.
+CONTRIBUTION_SOURCE_PAYLOAD_EXCLUDED_FIELDS = frozenset({"status", "diagnostics"})
+
+
+def canonical_payload_sha256(payload: object) -> str:
+    """Hash any JSON-serializable payload with the repo's canonical JSON rules."""
+    return hashlib.sha256(
+        json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
+    """Hash the complete canonical GraphContribution payload (including lifecycle)."""
+    return canonical_payload_sha256(contribution.model_dump(mode="json", by_alias=True))
+
+
+def contribution_source_payload(contribution: GraphContribution) -> dict[str, Any]:
+    """Return the lifecycle-neutral source body used for revision-bound digests."""
+    payload = contribution.model_dump(mode="json", by_alias=True)
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in CONTRIBUTION_SOURCE_PAYLOAD_EXCLUDED_FIELDS
+    }
+
+
+def compute_contribution_source_payload_sha256(contribution: GraphContribution) -> str:
+    """Hash the lifecycle-neutral contribution source payload.
+
+    Stable across ledger ``status`` / ``diagnostics`` mutations. Changes when
+    semantic contribution content changes.
+    """
+    return canonical_payload_sha256(contribution_source_payload(contribution))
+
+
 def compute_contribution_id(
     *,
     world_id: str,
