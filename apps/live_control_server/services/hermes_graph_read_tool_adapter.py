@@ -152,24 +152,25 @@ def execute_hermes_graph_read_tool_json(
 ) -> str:
     """Execute one Rung 1 graph-read tool and return PR010A success/error JSON."""
     try:
-        result = execute_hermes_graph_read_tool(tool_name, arguments, root=root)
+        try:
+            result = execute_hermes_graph_read_tool(tool_name, arguments, root=root)
+        except HermesGraphReadToolContractError as exc:
+            if exc.code == "unknown_tool":
+                return _contract_error_json(
+                    code="unknown_tool",
+                    message=str(exc),
+                    status_code=404,
+                )
+            if exc.code == "invalid_arguments":
+                return _contract_error_json(
+                    code="invalid_arguments",
+                    message=str(exc),
+                    status_code=400,
+                )
+            return _unexpected_adapter_error_json()
+        except WorldGraphRetrievalServiceError as exc:
+            return _serialize_model(exc.response())
         return _serialize_model(result)
-    except HermesGraphReadToolContractError as exc:
-        if exc.code == "unknown_tool":
-            return _contract_error_json(
-                code="unknown_tool",
-                message=str(exc),
-                status_code=404,
-            )
-        if exc.code == "invalid_arguments":
-            return _contract_error_json(
-                code="invalid_arguments",
-                message=str(exc),
-                status_code=400,
-            )
-        return _unexpected_adapter_error_json()
-    except WorldGraphRetrievalServiceError as exc:
-        return _serialize_model(exc.response())
     except Exception:
         return _unexpected_adapter_error_json()
 

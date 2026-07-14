@@ -287,6 +287,24 @@ def test_old_tool_names_return_unknown_tool(old_name: str) -> None:
     assert parsed["statusCode"] == 404
 
 
+@pytest.mark.parametrize(
+    "variant",
+    (
+        "SEARCH_CAMPAIGN_GRAPH",
+        "Search_campaign_graph",
+        " search_campaign_graph",
+        "search_campaign_graph ",
+        "search-campaign-graph",
+    ),
+)
+def test_exact_tool_identity_rejects_normalization_variants(variant: str) -> None:
+    payload = execute_hermes_graph_read_tool_json(variant, _search_args())
+    parsed = json.loads(payload)
+    assert parsed["schema"] == RETRIEVAL_ERROR_SCHEMA
+    assert parsed["code"] == "unknown_tool"
+    assert parsed["statusCode"] == 404
+
+
 def test_invalid_arguments_fail_before_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -395,6 +413,41 @@ def test_service_error_preserves_response(
     assert parsed == expected
     assert parsed["code"] == "retrieval_integrity_error"
     assert parsed["statusCode"] == 409
+
+
+def test_service_error_response_failure_is_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _BrokenServiceError(WorldGraphRetrievalServiceError):
+        def response(self) -> Any:  # type: ignore[override]
+            raise RuntimeError("/secret/path RESPONSE boom OPENAI_KEY=sk-leak")
+
+    broken = _BrokenServiceError(
+        "integrity failure",
+        code="retrieval_integrity_error",
+        status_code=409,
+    )
+
+    def _raise(*_args: Any, **_kwargs: Any) -> Any:
+        raise broken
+
+    import apps.live_control_server.services.world_graph_retrieval as wgr
+
+    monkeypatch.setattr(wgr, "search_campaign_graph", _raise)
+
+    payload = execute_hermes_graph_read_tool_json(
+        "search_campaign_graph",
+        _search_args(),
+    )
+    parsed = json.loads(payload)
+    assert parsed["schema"] == RETRIEVAL_ERROR_SCHEMA
+    assert parsed["code"] == "hermes_graph_read_tool_adapter_error"
+    assert parsed["statusCode"] == 500
+    assert "/secret/path" not in payload
+    assert "OPENAI_KEY" not in payload
+    assert "sk-leak" not in payload
+    assert "boom" not in parsed["message"]
+    assert parsed["message"] == "Hermes graph-read tool adapter failed unexpectedly."
 
 
 def test_unexpected_adapter_failure_is_fail_closed(
