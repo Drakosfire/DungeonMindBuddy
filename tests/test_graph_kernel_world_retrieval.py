@@ -47,12 +47,12 @@ BUNDLE_PATH = (
     REPO_ROOT
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
-BUNDLE_DIGEST = "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+BUNDLE_DIGEST = "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
 CAMPAIGN_ID = "longmont-c2"
 FOCUS_SESSION_ID = "session-23"
-APPROVED_MERGE_SHA = "f69c69f271c427209860d902636347b70fea5920"
+APPROVED_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
 ACTOR = "gm"
 
 TRIPOD_ID = "threat:tripod-null-calf"
@@ -1016,16 +1016,10 @@ def test_historical_graph_data_read_excludes_mutable_lifecycle_fields(
     assert mutated_token not in str(diagnostics_exc.value)
 
 
-def test_read_source_anchor_mirathorn_stop_condition_heading_not_found(
+def test_read_source_anchor_mirathorn_heading_exact_match(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    """STOP CONDITION proof for approved handoff scenario 6 (Mirathorn heading read).
-
-    The admitted Mirathorn locator ``heading:The City of Mirathorn`` does not match
-    any Markdown heading in the real corpus file — the title exists only in YAML
-    frontmatter. Positive scenario 6 therefore cannot complete without a prerequisite
-    data-correction slice or an operator waiver.
-    """
+    """Positive Mirathorn repo:// heading read after Rung 0 locator correction."""
     _initialize(tmp_path, loaded_bundle)
     anchor = _first_anchor_for_node(
         tmp_path, MIRATHORN_ID, evidence_ref_id=MIRATHORN_EVIDENCE_REF_ID
@@ -1038,15 +1032,15 @@ def test_read_source_anchor_mirathorn_stop_condition_heading_not_found(
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes((REPO_ROOT / MIRATHORN_RELATIVE_PATH).read_bytes())
 
-    with pytest.raises(WorldGraphRetrievalError) as exc_info:
-        kernel.read_source_anchor(
-            tmp_path,
-            _anchor_read_request(anchor.anchor_id),
-            repo_root=fake_repo_root,
-        )
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.code == "heading_not_found"
-
+    read_result = kernel.read_source_anchor(
+        tmp_path,
+        _anchor_read_request(anchor.anchor_id),
+        repo_root=fake_repo_root,
+    )
+    assert read_result.outcome == "enough"
+    assert read_result.media_type == "text/markdown"
+    assert "Mirathorn Overview" in (read_result.content or "")
+    assert read_result.content_sha256
 
 def test_read_source_anchor_repo_heading_exact_match_with_digest(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
@@ -1054,7 +1048,7 @@ def test_read_source_anchor_repo_heading_exact_match_with_digest(
     """Proves the repo heading reader contract only (synthetic exact-match fixture).
 
     This is NOT the Mirathorn acceptance scenario — see
-    ``test_read_source_anchor_mirathorn_stop_condition_heading_not_found``.
+    ``test_read_source_anchor_mirathorn_heading_exact_match``.
     """
     _initialize(tmp_path, loaded_bundle)
     heading_text = "PR010A Synthetic Section"

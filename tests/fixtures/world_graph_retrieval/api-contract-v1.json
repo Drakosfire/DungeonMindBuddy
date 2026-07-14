@@ -1,0 +1,3972 @@
+{
+  "examples": {
+    "campaignMismatchError": {
+      "code": "campaign_scope_mismatch",
+      "diagnostics": [
+        {
+          "code": "campaign_scope_mismatch",
+          "message": "request campaign_id='foreign-campaign' store campaign_id='longmont-c2'",
+          "severity": "error"
+        }
+      ],
+      "message": "Requested campaign_id does not match the selected revision store scope.",
+      "schema": "dmb_world_graph_retrieval_error_v1",
+      "statusCode": 409
+    },
+    "evidenceForNode": {
+      "attributes": [],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [],
+      "matchReasons": {},
+      "matchedNodeIds": [],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "evidence",
+      "outcome": "enough",
+      "relationships": [],
+      "requestSummary": {
+        "bounds": {
+          "maxSourceAnchors": 24
+        },
+        "target": {
+          "id": "threat:tripod-null-calf",
+          "kind": "node"
+        }
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "invalidAdmissibilityError": {
+      "code": "unsupported_admissibility",
+      "diagnostics": [
+        {
+          "code": "unsupported_admissibility",
+          "message": "Only gm admissibility is supported in PR007A.",
+          "severity": "error"
+        }
+      ],
+      "message": "Unsupported projection admissibility policy: 'player'",
+      "schema": "dmb_world_graph_retrieval_error_v1",
+      "statusCode": 422
+    },
+    "neighborhoodDepth1": {
+      "attributes": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:4d5d774d7cbf1e71",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-first-appearance"
+          ],
+          "label": "first_appearance",
+          "predicate": "first_appearance",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Mireward north-gate pressure sequence.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "first_appearance",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Mireward north-gate pressure sequence."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:68bdeb27db521569",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-challenge"
+          ],
+          "label": "challenge_expectation",
+          "predicate": "challenge_expectation",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "challenge_expectation",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:f902e45c1371e9c6",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-battlefield-role"
+          ],
+          "label": "battlefield_role",
+          "predicate": "battlefield_role",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "battlefield_role",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          },
+          "visibility": "gm"
+        }
+      ],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [
+          "threat:tripod-null-calf"
+        ],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": [
+          "source-anchor:v1:d5c0adf0c862e4f97f793c9f9dbc6b9f8f0b94ae137e72c358e3943346d2e5f8"
+        ]
+      },
+      "diagnostics": [
+        {
+          "code": "unreadable_source_anchors",
+          "message": "1 source anchor(s) are not readable.",
+          "severity": "warning"
+        }
+      ],
+      "matchReasons": {},
+      "matchedNodeIds": [
+        "threat:tripod-null-calf",
+        "event:longmont-c2:session-23:mireward-gate-battle"
+      ],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        },
+        {
+          "aliases": [
+            "Mireward Gate Battle"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:corpus:recap:s23:mireward-gate-battle",
+            "evidence:corpus:recap:s23:occurred-at",
+            "evidence:corpus:recap:s23:party-participated"
+          ],
+          "kind": "event",
+          "label": "Mireward Gate Battle",
+          "nodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "role": "encounter",
+          "sourceArtifactIds": [
+            "corpus:eldyrwild:session-23-recap",
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "recap",
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "neighborhood",
+      "outcome": "partial",
+      "relationships": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "campaignScope": "longmont-c2",
+          "direction": "outbound",
+          "directionFromNodeId": "threat:tripod-null-calf",
+          "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in"
+          ],
+          "label": "appeared in",
+          "predicate": "appeared_in",
+          "sessionIds": [],
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "sourceNodeId": "threat:tripod-null-calf",
+          "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "visibility": "gm"
+        }
+      ],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "maxDepth": 1,
+        "seedNodeIds": [
+          "threat:tripod-null-calf"
+        ]
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d5c0adf0c862e4f97f793c9f9dbc6b9f8f0b94ae137e72c358e3943346d2e5f8",
+          "displayLabel": null,
+          "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+          "locatorKind": "unsupported",
+          "readable": false,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": "session-23",
+          "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+          "sourceDomain": "recap",
+          "supportingAssertionIds": [
+            "assertion:fd6940fca55789de"
+          ],
+          "supportingGraphObjectIds": [
+            "event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:fff4f1fb7f670c1a82260797de32baa0189a951772b58bae3383cb4c5f318fff",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "neighborhoodPartial": {
+      "attributes": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:4d5d774d7cbf1e71",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-first-appearance"
+          ],
+          "label": "first_appearance",
+          "predicate": "first_appearance",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Mireward north-gate pressure sequence.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "first_appearance",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Mireward north-gate pressure sequence."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:68bdeb27db521569",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-challenge"
+          ],
+          "label": "challenge_expectation",
+          "predicate": "challenge_expectation",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "challenge_expectation",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:f902e45c1371e9c6",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-battlefield-role"
+          ],
+          "label": "battlefield_role",
+          "predicate": "battlefield_role",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "battlefield_role",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          },
+          "visibility": "gm"
+        }
+      ],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [
+          "threat:does-not-exist"
+        ],
+        "requestedSeedNodeIds": [
+          "threat:tripod-null-calf",
+          "threat:does-not-exist"
+        ],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": [
+          "source-anchor:v1:d5c0adf0c862e4f97f793c9f9dbc6b9f8f0b94ae137e72c358e3943346d2e5f8"
+        ]
+      },
+      "diagnostics": [
+        {
+          "code": "missing_seed_node_ids",
+          "message": "Seed node ids not found in this revision: threat:does-not-exist.",
+          "severity": "warning"
+        },
+        {
+          "code": "unreadable_source_anchors",
+          "message": "1 source anchor(s) are not readable.",
+          "severity": "warning"
+        }
+      ],
+      "matchReasons": {},
+      "matchedNodeIds": [
+        "threat:tripod-null-calf",
+        "event:longmont-c2:session-23:mireward-gate-battle"
+      ],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        },
+        {
+          "aliases": [
+            "Mireward Gate Battle"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:corpus:recap:s23:mireward-gate-battle",
+            "evidence:corpus:recap:s23:occurred-at",
+            "evidence:corpus:recap:s23:party-participated"
+          ],
+          "kind": "event",
+          "label": "Mireward Gate Battle",
+          "nodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "role": "encounter",
+          "sourceArtifactIds": [
+            "corpus:eldyrwild:session-23-recap",
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "recap",
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "neighborhood",
+      "outcome": "partial",
+      "relationships": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "campaignScope": "longmont-c2",
+          "direction": "outbound",
+          "directionFromNodeId": "threat:tripod-null-calf",
+          "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in"
+          ],
+          "label": "appeared in",
+          "predicate": "appeared_in",
+          "sessionIds": [],
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "sourceNodeId": "threat:tripod-null-calf",
+          "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "visibility": "gm"
+        }
+      ],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "maxDepth": 1,
+        "seedNodeIds": [
+          "threat:tripod-null-calf",
+          "threat:does-not-exist"
+        ]
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d5c0adf0c862e4f97f793c9f9dbc6b9f8f0b94ae137e72c358e3943346d2e5f8",
+          "displayLabel": null,
+          "evidenceRefId": "evidence:corpus:recap:s23:mireward-gate-battle",
+          "locatorKind": "unsupported",
+          "readable": false,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": "session-23",
+          "sourceArtifactId": "corpus:eldyrwild:session-23-recap",
+          "sourceDomain": "recap",
+          "supportingAssertionIds": [
+            "assertion:fd6940fca55789de"
+          ],
+          "supportingGraphObjectIds": [
+            "event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:fff4f1fb7f670c1a82260797de32baa0189a951772b58bae3383cb4c5f318fff",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "neighborhoodTruncated": {
+      "attributes": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:4d5d774d7cbf1e71",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-first-appearance"
+          ],
+          "label": "first_appearance",
+          "predicate": "first_appearance",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Mireward north-gate pressure sequence.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "first_appearance",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Mireward north-gate pressure sequence."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:68bdeb27db521569",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-challenge"
+          ],
+          "label": "challenge_expectation",
+          "predicate": "challenge_expectation",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "challenge_expectation",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:f902e45c1371e9c6",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-battlefield-role"
+          ],
+          "label": "battlefield_role",
+          "predicate": "battlefield_role",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "battlefield_role",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          },
+          "visibility": "gm"
+        }
+      ],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [
+          "threat:tripod-null-calf"
+        ],
+        "resolvedRedirects": {},
+        "truncatedFields": [
+          "nodes"
+        ],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [
+        {
+          "code": "result_truncated",
+          "message": "Result truncated for: nodes.",
+          "severity": "warning"
+        }
+      ],
+      "matchReasons": {},
+      "matchedNodeIds": [
+        "threat:tripod-null-calf"
+      ],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "neighborhood",
+      "outcome": "truncated",
+      "relationships": [],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 1,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "maxDepth": 2,
+        "seedNodeIds": [
+          "threat:tripod-null-calf"
+        ]
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "objectEmpty": {
+      "attributes": [],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [],
+      "matchReasons": {},
+      "matchedNodeIds": [],
+      "nodes": [],
+      "operation": "object",
+      "outcome": "empty",
+      "relationships": [],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "nodeId": "threat:does-not-exist"
+      },
+      "requestedNodeId": "threat:does-not-exist",
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "objectFound": {
+      "attributes": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:4d5d774d7cbf1e71",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-first-appearance"
+          ],
+          "label": "first_appearance",
+          "predicate": "first_appearance",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Mireward north-gate pressure sequence.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "first_appearance",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Mireward north-gate pressure sequence."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:68bdeb27db521569",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-challenge"
+          ],
+          "label": "challenge_expectation",
+          "predicate": "challenge_expectation",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "challenge_expectation",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:f902e45c1371e9c6",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-battlefield-role"
+          ],
+          "label": "battlefield_role",
+          "predicate": "battlefield_role",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "battlefield_role",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          },
+          "visibility": "gm"
+        }
+      ],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [],
+      "matchReasons": {},
+      "matchedNodeIds": [
+        "threat:tripod-null-calf"
+      ],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "object",
+      "outcome": "enough",
+      "relationships": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "campaignScope": "longmont-c2",
+          "direction": "outbound",
+          "directionFromNodeId": null,
+          "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in"
+          ],
+          "label": "appeared in",
+          "predicate": "appeared_in",
+          "sessionIds": [],
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "sourceNodeId": "threat:tripod-null-calf",
+          "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "visibility": "gm"
+        }
+      ],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "nodeId": "threat:tripod-null-calf"
+      },
+      "requestedNodeId": "threat:tripod-null-calf",
+      "resolvedNodeId": "threat:tripod-null-calf",
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:fff4f1fb7f670c1a82260797de32baa0189a951772b58bae3383cb4c5f318fff",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "searchEmpty": {
+      "attributes": [],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [],
+      "matchReasons": {},
+      "matchedNodeIds": [],
+      "nodes": [],
+      "operation": "search",
+      "outcome": "empty",
+      "relationships": [],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "queryText": "completely unrelated phrase not present in the graph",
+        "seedNodeIds": []
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "searchEnough": {
+      "attributes": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:4d5d774d7cbf1e71",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-first-appearance"
+          ],
+          "label": "first_appearance",
+          "predicate": "first_appearance",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Mireward north-gate pressure sequence.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "first_appearance",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-first-appearance",
+                "locator": "jsonptr:/accepted_assertions/4",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Mireward north-gate pressure sequence."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:68bdeb27db521569",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-challenge"
+          ],
+          "label": "challenge_expectation",
+          "predicate": "challenge_expectation",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "challenge_expectation",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-challenge",
+                "locator": "jsonptr:/accepted_assertions/3",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Serious pressure for six level-5 PCs with NPC allies, but not a full boss encounter."
+          },
+          "visibility": "gm"
+        },
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "assertionId": "assertion:f902e45c1371e9c6",
+          "campaignScope": "longmont-c2",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-battlefield-role"
+          ],
+          "label": "battlefield_role",
+          "predicate": "battlefield_role",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "subjectNodeId": "threat:tripod-null-calf",
+          "supportState": "supported",
+          "temporalScope": null,
+          "textValue": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race.",
+          "value": {
+            "approval_state": "accepted",
+            "attribute": "battlefield_role",
+            "canon_state": "canonical",
+            "evidence": [
+              {
+                "evidence_ref_id": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+                "locator": "jsonptr:/accepted_assertions/2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock"
+              }
+            ],
+            "source_artifacts": [
+              {
+                "campaign_id": "longmont-c2",
+                "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+                "source_domain": "statblock",
+                "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json"
+              }
+            ],
+            "source_domains": [
+              "statblock"
+            ],
+            "text": "Siege scout and positional controller; pins carts, gates, rope lines, or cure-line access rather than functioning as a pure damage race."
+          },
+          "visibility": "gm"
+        }
+      ],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [],
+      "matchReasons": {
+        "threat:tripod-null-calf": [
+          "attribute_phrase",
+          "token:controller:attribute",
+          "token:positional:attribute"
+        ]
+      },
+      "matchedNodeIds": [
+        "threat:tripod-null-calf"
+      ],
+      "nodes": [
+        {
+          "aliases": [
+            "Tripod Null-Calf"
+          ],
+          "anchoredToFocusSession": true,
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in",
+            "evidence:bundle:v1:statblock:tripod-battlefield-role",
+            "evidence:bundle:v1:statblock:tripod-challenge",
+            "evidence:bundle:v1:statblock:tripod-first-appearance",
+            "evidence:bundle:v1:statblock:tripod-null-calf"
+          ],
+          "kind": "threat",
+          "label": "Tripod Null-Calf",
+          "nodeId": "threat:tripod-null-calf",
+          "role": "encounter-threat",
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "summary": null
+        }
+      ],
+      "operation": "search",
+      "outcome": "enough",
+      "relationships": [
+        {
+          "activeContributionIds": [
+            "contribution:022187fdefdf4557"
+          ],
+          "campaignScope": "longmont-c2",
+          "direction": "outbound",
+          "directionFromNodeId": null,
+          "edgeId": "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle",
+          "epistemicKind": "fact",
+          "evidenceRefIds": [
+            "evidence:bundle:v1:statblock:tripod-appeared-in"
+          ],
+          "label": "appeared in",
+          "predicate": "appeared_in",
+          "sessionIds": [],
+          "sourceArtifactIds": [
+            "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep"
+          ],
+          "sourceDomains": [
+            "statblock"
+          ],
+          "sourceNodeId": "threat:tripod-null-calf",
+          "targetNodeId": "event:longmont-c2:session-23:mireward-gate-battle",
+          "visibility": "gm"
+        }
+      ],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "queryText": "positional controller",
+        "seedNodeIds": []
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceAnchors": [
+        {
+          "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+          "displayLabel": "/accepted_assertions/4",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:4d5d774d7cbf1e71"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:25fb5371863db814a0323d7fa6e02653c0c9491f3ab890acdf5f98b1d920ecf1",
+          "displayLabel": "/accepted_assertions/2",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-battlefield-role",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:f902e45c1371e9c6"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:7dbeafb628c95be9065af9476697b581326ddac698ff97694fc7efc763c04095",
+          "displayLabel": "/accepted_assertions/3",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-challenge",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:68bdeb27db521569"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:d6307c089f298eda380808e65fec949c3f8e2007910584820501dba86ade338a",
+          "displayLabel": "/accepted_assertions/0",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-null-calf",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:a9af3f77bf0f1101"
+          ],
+          "supportingGraphObjectIds": [
+            "threat:tripod-null-calf"
+          ]
+        },
+        {
+          "anchorId": "source-anchor:v1:fff4f1fb7f670c1a82260797de32baa0189a951772b58bae3383cb4c5f318fff",
+          "displayLabel": "/accepted_assertions/1",
+          "evidenceRefId": "evidence:bundle:v1:statblock:tripod-appeared-in",
+          "locatorKind": "json_pointer",
+          "readable": true,
+          "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+          "sessionId": null,
+          "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+          "sourceDomain": "statblock",
+          "supportingAssertionIds": [
+            "assertion:40b5ac605a2e8f74"
+          ],
+          "supportingGraphObjectIds": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ]
+        }
+      ],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "searchUnavailable": {
+      "attributes": [],
+      "coverage": {
+        "missingEvidenceRefIds": [],
+        "missingSeedNodeIds": [],
+        "requestedSeedNodeIds": [],
+        "resolvedRedirects": {},
+        "truncatedFields": [],
+        "unreadableAnchorIds": []
+      },
+      "diagnostics": [
+        {
+          "code": "world_graph_unavailable",
+          "message": "The requested world graph or revision could not be opened.",
+          "severity": "warning"
+        }
+      ],
+      "matchReasons": {},
+      "matchedNodeIds": [],
+      "nodes": [],
+      "operation": "search",
+      "outcome": "unavailable",
+      "relationships": [],
+      "requestSummary": {
+        "bounds": {
+          "maxAttributes": 24,
+          "maxNodes": 8,
+          "maxRelationships": 16,
+          "maxSourceAnchors": 24
+        },
+        "queryText": "anything",
+        "seedNodeIds": []
+      },
+      "requestedNodeId": null,
+      "resolvedNodeId": null,
+      "schema": "dmb_world_graph_retrieval_result_v1",
+      "snapshot": null,
+      "sourceAnchors": [],
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "sourceAnchorRead": {
+      "anchorId": "source-anchor:v1:05beab431e789dc9577e0b0b3472071c89682454944bc08a7d7ba8e76257d63e",
+      "content": "{\n  \"acceptance_state\": \"accepted\",\n  \"assertion_id\": \"assertion:4d5d774d7cbf1e71\",\n  \"assertion_kind\": \"attribute\",\n  \"campaign_scope\": \"longmont-c2\",\n  \"contribution_id\": \"contribution:022187fdefdf4557\",\n  \"epistemic_kind\": \"fact\",\n  \"evidence_ref_ids\": [\n    \"evidence:bundle:v1:statblock:tripod-first-appearance\"\n  ],\n  \"identity_resolution_outcome\": \"created_new\",\n  \"label\": \"first_appearance\",\n  \"predicate\": \"first_appearance\",\n  \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n  \"source_revision_id\": \"bundle-revision:eldyrwild-longmont-c2-initial-v1\",\n  \"subject_node_id\": \"threat:tripod-null-calf\",\n  \"target_node_id\": null,\n  \"temporal_scope\": null,\n  \"value\": {\n    \"approval_state\": \"accepted\",\n    \"attribute\": \"first_appearance\",\n    \"canon_state\": \"canonical\",\n    \"evidence\": [\n      {\n        \"evidence_ref_id\": \"evidence:bundle:v1:statblock:tripod-first-appearance\",\n        \"locator\": \"jsonptr:/accepted_assertions/4\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\"\n      }\n    ],\n    \"source_artifacts\": [\n      {\n        \"campaign_id\": \"longmont-c2\",\n        \"source_artifact_id\": \"graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep\",\n        \"source_domain\": \"statblock\",\n        \"uri\": \"graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/006-tripod-null-calf-threat-prep.json\"\n      }\n    ],\n    \"source_domains\": [\n      \"statblock\"\n    ],\n    \"text\": \"Mireward north-gate pressure sequence.\"\n  },\n  \"visibility\": \"gm\"\n}",
+      "contentSha256": "009099bfebfb165ae36c886bebb9cb9f5a5b9a75882fbf2bf6bdfad789b4768d",
+      "diagnostics": [],
+      "evidenceRefId": "evidence:bundle:v1:statblock:tripod-first-appearance",
+      "lineEnd": null,
+      "lineStart": null,
+      "locatorKind": "json_pointer",
+      "mediaType": "application/json",
+      "outcome": "enough",
+      "schema": "dmb_world_graph_source_anchor_read_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceArtifactId": "graph-native:eldyrwild-c2-initial-v1:006-tripod-null-calf-threat-prep",
+      "sourceDomain": "statblock",
+      "truncated": false,
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "sourceAnchorReadIntegrityError": {
+      "code": "source_integrity_error",
+      "diagnostics": [
+        {
+          "code": "source_integrity_error",
+          "message": "Initialization receipt plan digest disagrees with revision state.",
+          "severity": "error"
+        }
+      ],
+      "message": "Initialization receipt plan digest disagrees with revision state.",
+      "schema": "dmb_world_graph_retrieval_error_v1",
+      "statusCode": 409
+    },
+    "sourceAnchorReadRepoHeading": {
+      "anchorId": "source-anchor:v1:165efa293b46d7638fed53c63114592c7fe0e289fb561d7f29232c5b54a38274",
+      "content": "### Mirathorn Overview\n\n#### You know you are approaching Mirathorn for a few reasons. The sound, you can hear it from at least a few kilometers.",
+      "contentSha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "diagnostics": [],
+      "evidenceRefId": "evidence:corpus:worldbuilding:mirathorn",
+      "lineEnd": 21,
+      "lineStart": 18,
+      "locatorKind": "heading",
+      "mediaType": "text/markdown",
+      "outcome": "enough",
+      "schema": "dmb_world_graph_source_anchor_read_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceArtifactId": "corpus:eldyrwild:mirathorn-city",
+      "sourceDomain": "worldbuilding",
+      "truncated": false,
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    },
+    "sourceAnchorReadUnknown": {
+      "anchorId": "source-anchor:v1:0000000000000000000000000000000000000000000000000000000000000000",
+      "content": null,
+      "contentSha256": null,
+      "diagnostics": [
+        {
+          "code": "unknown_anchor",
+          "message": "No admissible source anchor matches this anchor id in the requested context.",
+          "severity": "warning"
+        }
+      ],
+      "evidenceRefId": null,
+      "lineEnd": null,
+      "lineStart": null,
+      "locatorKind": null,
+      "mediaType": null,
+      "outcome": "empty",
+      "schema": "dmb_world_graph_source_anchor_read_v1",
+      "snapshot": {
+        "admissibility": "gm",
+        "campaignId": "longmont-c2",
+        "focus": {
+          "kind": "none",
+          "sessionId": null
+        },
+        "headRevisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "isHead": true,
+        "revisionId": "rev:031c50b108af3c2523ee04accbf6ea4d",
+        "worldId": "eldyrwild"
+      },
+      "sourceArtifactId": null,
+      "sourceDomain": null,
+      "truncated": false,
+      "trustBoundary": {
+        "canTrust": [
+          "Every returned node, relationship, attribute, and source anchor is admitted by one explicit World Graph revision plus the requested world/campaign/focus/admissibility context.",
+          "Source anchors are exact-matched and revalidated against that context before any content is returned; no anchor from another revision or context resolves.",
+          "Anchor derivation is deterministic: the same admissible input always produces the same anchor id and the same ordering."
+        ],
+        "cannotTrust": [
+          "Source artifact prose is not independently fact-checked beyond digest/anchor verification.",
+          "Quality or completeness of graph extraction is not audited by this contract.",
+          "An omitted source is not proof that a fact is absent from the underlying prose."
+        ]
+      }
+    }
+  },
+  "schemas": {
+    "errorResponse": {
+      "$defs": {
+        "WorldGraphRetrievalDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "info",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "WorldGraphRetrievalDiagnostic",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "schema": {
+          "const": "dmb_world_graph_retrieval_error_v1",
+          "default": "dmb_world_graph_retrieval_error_v1",
+          "enum": [
+            "dmb_world_graph_retrieval_error_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "statusCode": {
+          "title": "Statuscode",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "statusCode"
+      ],
+      "title": "WorldGraphRetrievalErrorResponse",
+      "type": "object"
+    },
+    "evidenceRequest": {
+      "$defs": {
+        "WorldGraphEvidenceTarget": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "node",
+                "relationship",
+                "attribute"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "title": "WorldGraphEvidenceTarget",
+          "type": "object"
+        },
+        "WorldGraphRetrievalEvidenceBounds": {
+          "additionalProperties": false,
+          "properties": {
+            "maxSourceAnchors": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxsourceanchors",
+              "type": "integer"
+            }
+          },
+          "title": "WorldGraphRetrievalEvidenceBounds",
+          "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/WorldGraphRetrievalEvidenceBounds"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_evidence_request_v1",
+          "enum": [
+            "dmb_world_graph_evidence_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/WorldGraphEvidenceTarget"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "target"
+      ],
+      "title": "WorldGraphEvidenceRequest",
+      "type": "object"
+    },
+    "neighborhoodRequest": {
+      "$defs": {
+        "WorldGraphRetrievalBounds": {
+          "additionalProperties": false,
+          "properties": {
+            "maxAttributes": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxattributes",
+              "type": "integer"
+            },
+            "maxNodes": {
+              "default": 8,
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Maxnodes",
+              "type": "integer"
+            },
+            "maxRelationships": {
+              "default": 16,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Maxrelationships",
+              "type": "integer"
+            },
+            "maxSourceAnchors": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxsourceanchors",
+              "type": "integer"
+            }
+          },
+          "title": "WorldGraphRetrievalBounds",
+          "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/WorldGraphRetrievalBounds"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "maxDepth": {
+          "default": 1,
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Maxdepth",
+          "type": "integer"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_neighborhood_request_v1",
+          "enum": [
+            "dmb_world_graph_neighborhood_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "seedNodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Seednodeids",
+          "type": "array"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "seedNodeIds"
+      ],
+      "title": "WorldGraphNeighborhoodRequest",
+      "type": "object"
+    },
+    "objectRequest": {
+      "$defs": {
+        "WorldGraphRetrievalBounds": {
+          "additionalProperties": false,
+          "properties": {
+            "maxAttributes": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxattributes",
+              "type": "integer"
+            },
+            "maxNodes": {
+              "default": 8,
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Maxnodes",
+              "type": "integer"
+            },
+            "maxRelationships": {
+              "default": 16,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Maxrelationships",
+              "type": "integer"
+            },
+            "maxSourceAnchors": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxsourceanchors",
+              "type": "integer"
+            }
+          },
+          "title": "WorldGraphRetrievalBounds",
+          "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/WorldGraphRetrievalBounds"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "nodeId": {
+          "minLength": 1,
+          "title": "Nodeid",
+          "type": "string"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_object_request_v1",
+          "enum": [
+            "dmb_world_graph_object_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "nodeId"
+      ],
+      "title": "WorldGraphObjectRequest",
+      "type": "object"
+    },
+    "retrievalResult": {
+      "$defs": {
+        "WorldGraphProjectionFocus": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphProjectionFocus",
+          "type": "object"
+        },
+        "WorldGraphRetrievalAttribute": {
+          "additionalProperties": false,
+          "properties": {
+            "activeContributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Activecontributionids",
+              "type": "array"
+            },
+            "assertionId": {
+              "title": "Assertionid",
+              "type": "string"
+            },
+            "campaignScope": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Campaignscope"
+            },
+            "epistemicKind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Epistemickind"
+            },
+            "evidenceRefIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidencerefids",
+              "type": "array"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "predicate": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Predicate"
+            },
+            "sourceArtifactIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourceartifactids",
+              "type": "array"
+            },
+            "subjectNodeId": {
+              "title": "Subjectnodeid",
+              "type": "string"
+            },
+            "supportState": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Supportstate"
+            },
+            "temporalScope": {
+              "anyOf": [
+                {
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Temporalscope"
+            },
+            "textValue": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Textvalue"
+            },
+            "value": {
+              "title": "Value",
+              "type": "object"
+            },
+            "visibility": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Visibility"
+            }
+          },
+          "required": [
+            "assertionId",
+            "subjectNodeId"
+          ],
+          "title": "WorldGraphRetrievalAttribute",
+          "type": "object"
+        },
+        "WorldGraphRetrievalCoverage": {
+          "additionalProperties": false,
+          "properties": {
+            "missingEvidenceRefIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Missingevidencerefids",
+              "type": "array"
+            },
+            "missingSeedNodeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Missingseednodeids",
+              "type": "array"
+            },
+            "requestedSeedNodeIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Requestedseednodeids",
+              "type": "array"
+            },
+            "resolvedRedirects": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "title": "Resolvedredirects",
+              "type": "object"
+            },
+            "truncatedFields": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Truncatedfields",
+              "type": "array"
+            },
+            "unreadableAnchorIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Unreadableanchorids",
+              "type": "array"
+            }
+          },
+          "title": "WorldGraphRetrievalCoverage",
+          "type": "object"
+        },
+        "WorldGraphRetrievalDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "info",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "WorldGraphRetrievalDiagnostic",
+          "type": "object"
+        },
+        "WorldGraphRetrievalNode": {
+          "additionalProperties": false,
+          "properties": {
+            "aliases": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Aliases",
+              "type": "array"
+            },
+            "anchoredToFocusSession": {
+              "default": false,
+              "title": "Anchoredtofocussession",
+              "type": "boolean"
+            },
+            "evidenceRefIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidencerefids",
+              "type": "array"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "nodeId": {
+              "title": "Nodeid",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "sourceArtifactIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourceartifactids",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Summary"
+            }
+          },
+          "required": [
+            "nodeId",
+            "label",
+            "kind",
+            "role"
+          ],
+          "title": "WorldGraphRetrievalNode",
+          "type": "object"
+        },
+        "WorldGraphRetrievalRelationship": {
+          "additionalProperties": false,
+          "properties": {
+            "activeContributionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Activecontributionids",
+              "type": "array"
+            },
+            "campaignScope": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Campaignscope"
+            },
+            "direction": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Direction"
+            },
+            "directionFromNodeId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Directionfromnodeid"
+            },
+            "edgeId": {
+              "title": "Edgeid",
+              "type": "string"
+            },
+            "epistemicKind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Epistemickind"
+            },
+            "evidenceRefIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Evidencerefids",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "predicate": {
+              "title": "Predicate",
+              "type": "string"
+            },
+            "sessionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sessionids",
+              "type": "array"
+            },
+            "sourceArtifactIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourceartifactids",
+              "type": "array"
+            },
+            "sourceDomains": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Sourcedomains",
+              "type": "array"
+            },
+            "sourceNodeId": {
+              "title": "Sourcenodeid",
+              "type": "string"
+            },
+            "targetNodeId": {
+              "title": "Targetnodeid",
+              "type": "string"
+            },
+            "visibility": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Visibility"
+            }
+          },
+          "required": [
+            "edgeId",
+            "sourceNodeId",
+            "targetNodeId",
+            "predicate",
+            "label"
+          ],
+          "title": "WorldGraphRetrievalRelationship",
+          "type": "object"
+        },
+        "WorldGraphRetrievalSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "admissibility": {
+              "title": "Admissibility",
+              "type": "string"
+            },
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "focus": {
+              "$ref": "#/$defs/WorldGraphProjectionFocus"
+            },
+            "headRevisionId": {
+              "title": "Headrevisionid",
+              "type": "string"
+            },
+            "isHead": {
+              "title": "Ishead",
+              "type": "boolean"
+            },
+            "revisionId": {
+              "title": "Revisionid",
+              "type": "string"
+            },
+            "worldId": {
+              "title": "Worldid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "worldId",
+            "campaignId",
+            "revisionId",
+            "headRevisionId",
+            "isHead",
+            "focus",
+            "admissibility"
+          ],
+          "title": "WorldGraphRetrievalSnapshot",
+          "type": "object"
+        },
+        "WorldGraphRetrievalTrustBoundary": {
+          "additionalProperties": false,
+          "properties": {
+            "canTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cantrust",
+              "type": "array"
+            },
+            "cannotTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cannottrust",
+              "type": "array"
+            }
+          },
+          "title": "WorldGraphRetrievalTrustBoundary",
+          "type": "object"
+        },
+        "WorldGraphSourceAnchor": {
+          "additionalProperties": false,
+          "properties": {
+            "anchorId": {
+              "title": "Anchorid",
+              "type": "string"
+            },
+            "displayLabel": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Displaylabel"
+            },
+            "evidenceRefId": {
+              "title": "Evidencerefid",
+              "type": "string"
+            },
+            "locatorKind": {
+              "enum": [
+                "heading",
+                "json_pointer",
+                "unsupported"
+              ],
+              "title": "Locatorkind",
+              "type": "string"
+            },
+            "readable": {
+              "title": "Readable",
+              "type": "boolean"
+            },
+            "revisionId": {
+              "title": "Revisionid",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            },
+            "sourceArtifactId": {
+              "title": "Sourceartifactid",
+              "type": "string"
+            },
+            "sourceDomain": {
+              "title": "Sourcedomain",
+              "type": "string"
+            },
+            "supportingAssertionIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Supportingassertionids",
+              "type": "array"
+            },
+            "supportingGraphObjectIds": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Supportinggraphobjectids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "anchorId",
+            "revisionId",
+            "evidenceRefId",
+            "sourceArtifactId",
+            "sourceDomain",
+            "readable",
+            "locatorKind"
+          ],
+          "title": "WorldGraphSourceAnchor",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalAttribute"
+          },
+          "title": "Attributes",
+          "type": "array"
+        },
+        "coverage": {
+          "$ref": "#/$defs/WorldGraphRetrievalCoverage"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "matchReasons": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Matchreasons",
+          "type": "object"
+        },
+        "matchedNodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matchednodeids",
+          "type": "array"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "operation": {
+          "enum": [
+            "search",
+            "object",
+            "neighborhood",
+            "evidence"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "enough",
+            "partial",
+            "empty",
+            "denied",
+            "truncated",
+            "unavailable"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "requestSummary": {
+          "title": "Requestsummary",
+          "type": "object"
+        },
+        "requestedNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requestednodeid"
+        },
+        "resolvedNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolvednodeid"
+        },
+        "schema": {
+          "const": "dmb_world_graph_retrieval_result_v1",
+          "default": "dmb_world_graph_retrieval_result_v1",
+          "enum": [
+            "dmb_world_graph_retrieval_result_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldGraphRetrievalSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourceAnchors": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphSourceAnchor"
+          },
+          "title": "Sourceanchors",
+          "type": "array"
+        },
+        "trustBoundary": {
+          "$ref": "#/$defs/WorldGraphRetrievalTrustBoundary"
+        }
+      },
+      "required": [
+        "operation",
+        "outcome"
+      ],
+      "title": "WorldGraphRetrievalResult",
+      "type": "object"
+    },
+    "searchRequest": {
+      "$defs": {
+        "WorldGraphRetrievalBounds": {
+          "additionalProperties": false,
+          "properties": {
+            "maxAttributes": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxattributes",
+              "type": "integer"
+            },
+            "maxNodes": {
+              "default": 8,
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Maxnodes",
+              "type": "integer"
+            },
+            "maxRelationships": {
+              "default": 16,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Maxrelationships",
+              "type": "integer"
+            },
+            "maxSourceAnchors": {
+              "default": 24,
+              "maximum": 32,
+              "minimum": 1,
+              "title": "Maxsourceanchors",
+              "type": "integer"
+            }
+          },
+          "title": "WorldGraphRetrievalBounds",
+          "type": "object"
+        },
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/WorldGraphRetrievalBounds"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "queryText": {
+          "minLength": 1,
+          "title": "Querytext",
+          "type": "string"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_search_request_v1",
+          "enum": [
+            "dmb_world_graph_search_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "seedNodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Seednodeids",
+          "type": "array"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "queryText"
+      ],
+      "title": "WorldGraphSearchRequest",
+      "type": "object"
+    },
+    "sourceAnchorReadRequest": {
+      "$defs": {
+        "WorldGraphRetrievalFocus": {
+          "additionalProperties": false,
+          "description": "Alias-only focus for retrieval wire requests (not the projection model).",
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphRetrievalFocus",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "admissibility": {
+          "default": "gm",
+          "title": "Admissibility",
+          "type": "string"
+        },
+        "anchorId": {
+          "minLength": 1,
+          "title": "Anchorid",
+          "type": "string"
+        },
+        "campaignId": {
+          "minLength": 1,
+          "title": "Campaignid",
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/WorldGraphRetrievalFocus"
+        },
+        "maxChars": {
+          "default": 4000,
+          "maximum": 12000,
+          "minimum": 1,
+          "title": "Maxchars",
+          "type": "integer"
+        },
+        "revisionPin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revisionpin"
+        },
+        "schema": {
+          "const": "dmb_world_graph_source_anchor_read_request_v1",
+          "enum": [
+            "dmb_world_graph_source_anchor_read_request_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "worldId": {
+          "minLength": 1,
+          "title": "Worldid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worldId",
+        "campaignId",
+        "schema",
+        "anchorId"
+      ],
+      "title": "WorldGraphSourceAnchorReadRequest",
+      "type": "object"
+    },
+    "sourceAnchorReadResult": {
+      "$defs": {
+        "WorldGraphProjectionFocus": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "default": "none",
+              "enum": [
+                "none",
+                "session"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Sessionid"
+            }
+          },
+          "title": "WorldGraphProjectionFocus",
+          "type": "object"
+        },
+        "WorldGraphRetrievalDiagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "severity": {
+              "default": "info",
+              "enum": [
+                "error",
+                "warning",
+                "info"
+              ],
+              "title": "Severity",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "WorldGraphRetrievalDiagnostic",
+          "type": "object"
+        },
+        "WorldGraphRetrievalSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "admissibility": {
+              "title": "Admissibility",
+              "type": "string"
+            },
+            "campaignId": {
+              "title": "Campaignid",
+              "type": "string"
+            },
+            "focus": {
+              "$ref": "#/$defs/WorldGraphProjectionFocus"
+            },
+            "headRevisionId": {
+              "title": "Headrevisionid",
+              "type": "string"
+            },
+            "isHead": {
+              "title": "Ishead",
+              "type": "boolean"
+            },
+            "revisionId": {
+              "title": "Revisionid",
+              "type": "string"
+            },
+            "worldId": {
+              "title": "Worldid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "worldId",
+            "campaignId",
+            "revisionId",
+            "headRevisionId",
+            "isHead",
+            "focus",
+            "admissibility"
+          ],
+          "title": "WorldGraphRetrievalSnapshot",
+          "type": "object"
+        },
+        "WorldGraphRetrievalTrustBoundary": {
+          "additionalProperties": false,
+          "properties": {
+            "canTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cantrust",
+              "type": "array"
+            },
+            "cannotTrust": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Cannottrust",
+              "type": "array"
+            }
+          },
+          "title": "WorldGraphRetrievalTrustBoundary",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "anchorId": {
+          "title": "Anchorid",
+          "type": "string"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        },
+        "contentSha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contentsha256"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/WorldGraphRetrievalDiagnostic"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "evidenceRefId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidencerefid"
+        },
+        "lineEnd": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lineend"
+        },
+        "lineStart": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linestart"
+        },
+        "locatorKind": {
+          "anyOf": [
+            {
+              "enum": [
+                "heading",
+                "json_pointer",
+                "unsupported"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locatorkind"
+        },
+        "mediaType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mediatype"
+        },
+        "outcome": {
+          "enum": [
+            "enough",
+            "partial",
+            "empty",
+            "denied",
+            "truncated",
+            "unavailable"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "schema": {
+          "const": "dmb_world_graph_source_anchor_read_v1",
+          "default": "dmb_world_graph_source_anchor_read_v1",
+          "enum": [
+            "dmb_world_graph_source_anchor_read_v1"
+          ],
+          "title": "Schema",
+          "type": "string"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldGraphRetrievalSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourceArtifactId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourceartifactid"
+        },
+        "sourceDomain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcedomain"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "trustBoundary": {
+          "$ref": "#/$defs/WorldGraphRetrievalTrustBoundary"
+        }
+      },
+      "required": [
+        "outcome",
+        "anchorId"
+      ],
+      "title": "WorldGraphSourceAnchorReadResult",
+      "type": "object"
+    }
+  },
+  "version": "1.0"
+}
