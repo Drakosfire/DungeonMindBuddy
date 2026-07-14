@@ -40,7 +40,7 @@ BUNDLE_PATH = (
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
 BUNDLE_DIGEST = (
-    "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+    "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"

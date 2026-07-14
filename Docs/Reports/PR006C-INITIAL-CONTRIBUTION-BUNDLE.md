@@ -47,7 +47,7 @@ The hybrid of “claims recap/worldbuilding support while citing only the contri
 | Field | Value |
 | --- | --- |
 | Bundle ID | `eldyrwild-longmont-c2-initial-v1` |
-| Bundle digest | `c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca` |
+| Bundle digest | `5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5` |
 | World ID | `eldyrwild` |
 | Campaign scope | `longmont-c2` |
 | Planning focus | `mireward-planning-window` |

@@ -45,7 +45,7 @@ FOCUS_SESSION_ID = "session-21"
 TRIPOD_ID = "threat:tripod-null-calf"
 EVENT_ID = "event:longmont-c2:session-23:mireward-gate-battle"
 BUNDLE_DIGEST = (
-    "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+    "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
 APPROVED_MERGE_SHA = "f69c69f271c427209860d902636347b70fea5920"
 ORDERED_CONTRIBUTION_IDS = [
