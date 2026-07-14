@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-13 — PR010A done; PR010B Rung 1–2 done (#350/#351); Rung 3 embedded Hermes graph-agent turn active; Rung 4 thread binding next
+**Updated:** 2026-07-14 — PR010B Rung 3 done; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -66,9 +66,11 @@ PR010B is decomposed into independently useful rungs:
 ```text
 DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
 DONE    PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter (#351)
-DOING   PR010B Rung 3 — embedded Hermes graph-agent turn
-NEXT    PR010B Rung 4 — Agent Interaction thread/session binding
-LATER   PR010B product replacement, dogfood acceptance, and demolition
+DONE    PR010B Rung 3 — embedded Hermes graph-agent turn
+DONE    PR010B Rung 4 / PR353 — persistent Hermes graph-agent host (#353)
+DOING   PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover
+NEXT    PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, dogfood
+LATER   PR010B product replacement, demolition, thread continuity
 ```
 
 ---
@@ -164,7 +166,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Doing — Rung 1 complete (#350); Rung 2 complete (#351); Rung 3 (embedded Hermes graph-agent turn) active; Rung 4 (Agent Interaction thread/session binding) next.
+**Status:** Doing — Rung 1–3 complete; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active; PR355 Plan presentation/citations next.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 

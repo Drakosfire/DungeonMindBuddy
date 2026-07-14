@@ -11,13 +11,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.config import repo_root, session_dir, world_graph_root
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextRequest,
     render_world_graph_prompt_block,
     resolve_agent_world_graph_query_context,
 )
 from apps.live_control_server.services.citation_freshness import build_evidence_snapshots
+from apps.live_control_server.services.hermes_graph_query import (
+    run_hermes_graph_query,
+    validate_hermes_query_inputs,
+)
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
     load_session,
@@ -437,6 +441,36 @@ def process_live_query(
     repo = root or repo_root()
     packet, _layout, _events, _jobs = load_session(session_base)
 
+    if query_backend == "hermes":
+        # PR354: Hermes is graph-host only. Legacy CLI / dungeon_context_lookup
+        # remain in this module for Rung 7 demolition but are unreachable here.
+        _ = trace_requested  # accepted for API compatibility; unused in this slice
+        campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
+        validate_hermes_query_inputs(
+            world_graph_context=world_graph_context,
+            request_manifest_path=request_manifest_path,
+            hermes_session_id=hermes_session_id,
+            outer_campaign_id=campaign_id,
+        )
+        assert world_graph_context is not None  # validated above
+        graph_envelope = resolve_agent_world_graph_query_context(
+            world_graph_context,
+            outer_text=text,
+            outer_campaign_id=campaign_id,
+            root=world_graph_root(),
+        )
+        return run_hermes_graph_query(
+            text=text,
+            packet=packet,
+            graph_envelope=graph_envelope,
+            agent_thread_id=resolved_agent_thread_id,
+            turn_id=resolved_turn_id,
+            root=world_graph_root(),
+        )
+
+    if query_backend not in LIVE_QUERY_BACKENDS:
+        raise ValueError(f"unsupported query backend: {query_backend}")
+
     graph_envelope: dict[str, Any] | None = None
     if world_graph_context is not None:
         campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
@@ -445,21 +479,6 @@ def process_live_query(
             outer_text=text,
             outer_campaign_id=campaign_id,
         )
-
-    if query_backend == "hermes":
-        response = run_hermes_conversation(
-            text,
-            packet=packet,
-            request_manifest_path=request_manifest_path,
-            agent_thread_id=resolved_agent_thread_id,
-            turn_id=resolved_turn_id,
-            hermes_session_id=hermes_session_id,
-            trace_requested=trace_requested,
-            world_graph_context=graph_envelope,
-        )
-        return _attach_world_graph_context(response, graph_envelope)
-    if query_backend not in LIVE_QUERY_BACKENDS:
-        raise ValueError(f"unsupported query backend: {query_backend}")
 
     classification = classify_live_turn(text)
     if _should_route_context_lookup(text, classification.event_type):

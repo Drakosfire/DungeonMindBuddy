@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -203,7 +202,80 @@ def test_live_context_lookup_response_includes_source_line_evidence_snapshots(
 def test_query_can_route_through_hermes_backend(
     client: TestClient,
     isolated_session: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
+
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            assert request.conversation_history is None
+            assert request.session_id is None
+            assert request.capability_policy is None
+            assert request.revision_pin == "rev:route"
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="Tripod stands at the North Gate.",
+                messages=[{"role": "assistant", "content": "ignored transcript"}],
+                hermes_session_id="hermes-obs",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:route",
+                        outcome="enough",
+                        matched_node_ids=["threat:tripod-null-calf"],
+                        source_anchor_ids=["anchor:route-1"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:route",
+            "head_revision_id": "rev:route",
+            "is_head": True,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "What happened at the end of session 22?",
+            "matched_node_ids": ["threat:tripod-null-calf"],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "run_hermes_conversation",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("legacy hermes")),
+    )
+
     response = client.post(
         "/api/live/query",
         json={
@@ -212,56 +284,100 @@ def test_query_can_route_through_hermes_backend(
             "mode": "live",
             "query_backend": "hermes",
             "text": "What happened at the end of session 22?",
+            "world_graph_context": _GRAPH_NESTED,
         },
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["mode"] == "hermes_context_lookup"
-    assert body["classification"]["intent"] == "hermes_context_lookup"
-    assert body["provenance"]["backend"] == "hermes"
-    assert body["diagnostics"]["hermes_tool"] == "dungeon_context_lookup"
-    assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
-    assert body["retrieval_freshness"]["schema"] == "dmb_retrieval_freshness_decision_v1"
-    assert body["retrieval_freshness"]["decision"] == "fresh_retrieval"
-    assert body["evidence_snapshots"]
-    assert body["evidence_snapshots"][0]["schema"] == "dmb_agent_evidence_snapshot_v1"
-    assert body["evidence_snapshots"][0]["fingerprint_algorithm"] == "sha256:source-lines-v1"
-    assert "text_excerpt" not in json.dumps(body["evidence_snapshots"])
+    assert body["mode"] == "hermes_graph_agent"
+    assert body["classification"]["intent"] == "hermes_graph_agent"
+    assert body["status"] == "ok"
+    assert body["grounding"]["state"] == "grounded"
+    assert body["citations"] == []
+    assert body["context_packet"] is None
+    assert body["hermes_session"] is None
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
-    trace = body.get("agent_trace")
-    assert isinstance(trace, dict)
-    assert trace["backend"] == "hermes"
-    assert trace["runtime"] == "in_process"
-    assert trace["mode"] == "hermes_context_lookup"
-    assert trace["status"] == "ok"
-    assert trace["elapsed_ms"] >= 0
-    assert trace["context_summary"]["admitted_count"] >= 0
-    assert trace["context_summary"]["context_payload_kind"] == "manifest_evidence_excerpts"
-    assert trace["context_summary"]["total_excerpt_token_estimate"] >= 0
-    assert trace["usage"]["available"] is False
+    assert body["agent_trace"]["runtime"] == "process_isolated"
+    assert body["agent_trace"]["tool_events"][0]["source_anchor_ids"] == ["anchor:route-1"]
+    assert "ignored transcript" not in json.dumps(body)
     assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
     assert (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8") == ""
 
 
-def test_query_can_route_through_hermes_cli_backend(
+def test_query_hermes_cli_env_does_not_invoke_subprocess(
     client: TestClient,
     isolated_session: Path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
 
     monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
-    monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
 
     def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        assert args[0][0] == "/usr/bin/hermes"
-        assert "--oneshot" in args[0]
-        assert kwargs["cwd"] == ROOT
-        assert kwargs["env"]["DUNGEONBUDDY_REPO"] == str(ROOT)
-        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="Hermes loop answer")
+        raise AssertionError("Hermes CLI subprocess must be unreachable after PR354")
 
     monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:cli-blocked",
+            "head_revision_id": "rev:cli-blocked",
+            "is_head": True,
+            "focus": {"kind": "none", "session_id": None},
+            "admissibility": "gm",
+            "query_text": "q",
+            "matched_node_ids": [],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="host answer",
+                messages=[],
+                hermes_session_id="",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "none", "sessionId": None},
+                        admissibility="gm",
+                        revision_pin="rev:cli-blocked",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:cli-blocked"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
         "/api/live/query",
@@ -271,33 +387,14 @@ def test_query_can_route_through_hermes_cli_backend(
             "mode": "live",
             "query_backend": "hermes",
             "text": "What happened at the end of session 22?",
+            "world_graph_context": _GRAPH_NESTED,
         },
     )
-
     assert response.status_code == 200
     body = response.json()
-    assert body["mode"] == "hermes_cli_oneshot"
-    assert body["answer"] == "Hermes loop answer"
-    assert body["provenance"]["runtime"] == "cli"
-    assert body["context_packet"]["schema"] == "dmb_enriched_planning_context_packet_v1"
-    assert body["diagnostics"]["preflight_context_lookup"]["success"] is True
-    trace = body.get("agent_trace")
-    assert isinstance(trace, dict)
-    assert trace["runtime"] == "cli"
-    assert trace["backend"] == "hermes"
-    assert trace["mode"] == "hermes_cli_oneshot"
-    assert trace["status"] == "ok"
-    assert trace["provider"] == "custom"
-    assert trace["model"] == "gpt-5.4-mini"
-    assert trace["elapsed_ms"] >= 0
-    assert trace["command_summary"]
-    assert "oneshot" in trace["command_summary"]
-    assert "Retrieved evidence excerpts:" in trace["prompt_preview"]
-    assert trace["context_summary"]["admitted_count"] >= 0
-    assert trace["context_summary"]["context_payload_kind"] == "manifest_evidence_excerpts"
-    assert trace["context_summary"]["total_excerpt_token_estimate"] >= 0
-    assert trace["steps"][0]["name"] == "dungeon_context_lookup"
-    assert trace["usage"]["available"] is False
+    assert body["mode"] == "hermes_graph_agent"
+    assert body["answer"] == "host answer"
+    assert body["agent_trace"]["runtime"] == "process_isolated"
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     assert (isolated_session / "event_log.jsonl").read_text(encoding="utf-8") == ""
@@ -924,9 +1021,15 @@ def test_live_query_world_graph_preflight_once_before_backend(
 def test_live_and_hermes_receive_equivalent_graph_context(
     client: TestClient,
     isolated_session: Path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
     from types import SimpleNamespace
 
     envelope = {
@@ -996,7 +1099,32 @@ def test_live_and_hermes_receive_equivalent_graph_context(
             jobs_to_queue=[],
         )
 
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="hermes answer",
+                messages=[],
+                hermes_session_id="",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:parity",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:parity"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
     monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", fake_context_lookup_turn)
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     live_body = client.post(
         "/api/live/query",
@@ -1024,15 +1152,22 @@ def test_live_and_hermes_receive_equivalent_graph_context(
 
     assert live_body["world_graph_context"] == hermes_body["world_graph_context"]
     assert live_body["world_graph_context"]["revision_id"] == "rev:parity"
+    assert hermes_body["mode"] == "hermes_graph_agent"
 
 
-def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
+def test_hermes_graph_host_path_ignores_legacy_lookup(
     client: TestClient,
     isolated_session: Path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """In-process Hermes must not pretend dungeon_context_lookup received the graph."""
+    """PR354 Hermes path must not call dungeon_context_lookup."""
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
     import integrations.hermes.plugins.dungeonbuddy as dungeonbuddy
 
     envelope = {
@@ -1047,16 +1182,7 @@ def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
         "admissibility": "gm",
         "query_text": "Tripod Null-Calf",
         "matched_node_ids": ["threat:tripod-null-calf"],
-        "nodes": [
-            {
-                "node_id": "threat:tripod-null-calf",
-                "label": "Tripod Null-Calf",
-                "kind": "threat",
-                "role": "antagonist",
-                "summary": "gate pressure",
-                "anchored_to_focus_session": False,
-            }
-        ],
+        "nodes": [],
         "relationships": [],
         "attributes": [],
         "projection_truncated": False,
@@ -1074,16 +1200,37 @@ def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
         lambda *args, **kwargs: dict(envelope),
     )
 
-    captured_params: dict[str, object] = {}
-    real_lookup = dungeonbuddy.handle_dungeon_context_lookup
+    def boom_lookup(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("dungeon_context_lookup must not be called")
 
-    def spy_lookup(params: dict, **kwargs: object) -> str:
-        captured_params.clear()
-        captured_params.update(params)
-        return real_lookup(params, **kwargs)
+    monkeypatch.setattr(dungeonbuddy, "handle_dungeon_context_lookup", boom_lookup)
 
-    # Late import inside _process_hermes_context_query picks this up at call time.
-    monkeypatch.setattr(dungeonbuddy, "handle_dungeon_context_lookup", spy_lookup)
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            assert request.revision_pin == "rev:honest"
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="graph-grounded answer",
+                messages=[],
+                hermes_session_id="obs-only",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:honest",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:honest"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
         "/api/live/query",
@@ -1099,15 +1246,12 @@ def test_hermes_in_process_attaches_graph_without_claiming_prompt_supply(
     assert response.status_code == 200
     body = response.json()
     assert body["world_graph_context"]["revision_id"] == "rev:honest"
-    assert "world_graph_prompt_supplied" not in body.get("diagnostics", {})
-    assert captured_params, "expected dungeon_context_lookup to be called"
-    assert set(captured_params.keys()) <= {"question", "question_id", "manifest_path"}
-    assert "WORLD GRAPH CONTEXT" not in json.dumps(captured_params)
-    steps = body["agent_trace"]["steps"]
-    assert steps[0]["name"] == "world_graph_context_attached_to_response"
-    assert "not passed to dungeon_context_lookup" in steps[0]["summary"]
-    assert body["agent_trace"]["prompt_char_count"] == len("Tripod Null-Calf")
-    assert all(step["name"] != "world_graph_query_context" for step in steps)
+    assert body["mode"] == "hermes_graph_agent"
+    assert body["grounding"]["state"] == "grounded"
+    assert body["hermes_session"] is None
+    assert body["agent_trace"]["hermes_session_id"] == "obs-only"
+    assert "steps" not in body["agent_trace"]
+    assert body["citations"] == []
 
 
 def test_world_graph_unavailable_allows_corpus_path(
@@ -1298,12 +1442,19 @@ def test_revision_not_found_fails_without_backend(
     assert backend_called["live"] is False
 
 
-def test_hermes_cli_includes_graph_prompt_block(
+def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     client: TestClient,
     isolated_session: Path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """CLI env must not reach subprocess; host path owns Hermes after PR354."""
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
 
     monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
     monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
@@ -1335,29 +1486,37 @@ def test_hermes_cli_includes_graph_prompt_block(
             },
         },
     )
-    monkeypatch.setattr(
-        live_agent_loop,
-        "_run_dungeon_context_lookup_for_cli",
-        lambda *args, **kwargs: {
-            "success": True,
-            "context_packet": {"admitted_evidence": [], "rejected_evidence": []},
-            "sufficiency_summary": {"answerable_now": True, "suggested_routes": []},
-            "manifest_path": None,
-        },
-    )
 
-    captured: dict[str, object] = {}
-
-    def fake_run(args, **kwargs):
-        captured["prompt"] = args[-1]
-        return subprocess.CompletedProcess(args=args, returncode=0, stdout="cli answer")
+    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("subprocess hermes must not run")
 
     monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
-    monkeypatch.setattr(
-        live_agent_loop,
-        "_collect_hermes_home_artifacts",
-        lambda hermes_home: ([], {}, []),
-    )
+
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="host not cli",
+                messages=[],
+                hermes_session_id="",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:cli",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:cli"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
 
     response = client.post(
         "/api/live/query",
@@ -1371,8 +1530,8 @@ def test_hermes_cli_includes_graph_prompt_block(
         },
     )
     assert response.status_code == 200
-    prompt = str(captured.get("prompt") or "")
-    assert prompt.count("WORLD GRAPH CONTEXT:") == 1
-    assert "threat:tripod-null-calf" in prompt
-    assert "not source quotations" in prompt
-    assert response.json()["world_graph_context"]["revision_id"] == "rev:cli"
+    body = response.json()
+    assert body["mode"] == "hermes_graph_agent"
+    assert body["answer"] == "host not cli"
+    assert body["world_graph_context"]["revision_id"] == "rev:cli"
+    assert "prompt_preview" not in body["agent_trace"]
