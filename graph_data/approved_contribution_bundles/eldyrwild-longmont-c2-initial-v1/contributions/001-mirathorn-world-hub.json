@@ -27,7 +27,7 @@
         "evidence": [
           {
             "evidence_ref_id": "evidence:corpus:worldbuilding:mirathorn",
-            "locator": "heading:The City of Mirathorn",
+            "locator": "heading:Mirathorn Overview",
             "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
             "source_domain": "worldbuilding"
           }

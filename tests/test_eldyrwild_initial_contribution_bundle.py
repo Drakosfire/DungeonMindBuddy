@@ -24,7 +24,7 @@ BUNDLE_PATH = (
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
 BUNDLE_DIGEST = (
-    "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+    "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
@@ -368,6 +368,50 @@ def test_exact_bundle_digest(validated_bundle) -> None:
     _bundle, report = validated_bundle
     assert report.bundle_digest == BUNDLE_DIGEST
     assert report.bundle_id == BUNDLE_ID
+
+
+def test_mirathorn_repo_heading_locator_matches_exact_markdown_heading(
+    loaded_bundle,
+) -> None:
+    """Approved Mirathorn evidence must target one exact Markdown heading.
+
+    PR010A acceptance requires a real `repo://` exact-heading read. This rung
+    retargets the locator to an existing corpus heading so that later retrieval
+    work has a valid approved input without inventing a document-title fallback.
+    """
+    mirathorn = next(
+        contribution
+        for contribution in loaded_bundle.contributions
+        if contribution.contribution_id == "contribution:82f23934d8eaca8a"
+    )
+    evidence = mirathorn.accepted_assertions[0].value["evidence"][0]
+    artifact = mirathorn.accepted_assertions[0].value["source_artifacts"][0]
+    assert evidence["locator"] == "heading:Mirathorn Overview"
+    assert artifact["uri"].startswith("repo://")
+    relative = artifact["uri"].removeprefix("repo://")
+    source_path = REPO_ROOT / relative
+    assert source_path.is_file()
+    lines = source_path.read_text(encoding="utf-8").splitlines()
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if line.lstrip().startswith("#")
+        and line.lstrip().lstrip("#").strip() == "Mirathorn Overview"
+    ]
+    assert len(matches) == 1
+    heading_index = matches[0]
+    heading_level = len(lines[heading_index]) - len(lines[heading_index].lstrip("#"))
+    section_lines: list[str] = []
+    for line in lines[heading_index + 1 :]:
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            level = len(line) - len(line.lstrip("#"))
+            if level <= heading_level:
+                break
+        section_lines.append(line)
+    section = "\n".join(section_lines).strip()
+    assert section
+    assert "The City of Mirathorn" not in lines[heading_index]
 
 
 def test_exactly_six_contributions(validated_bundle) -> None:

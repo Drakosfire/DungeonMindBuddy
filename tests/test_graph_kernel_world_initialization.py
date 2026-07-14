@@ -26,13 +26,13 @@ BUNDLE_PATH = (
     / "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
 )
 BUNDLE_DIGEST = (
-    "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca"
+    "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
 BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
 CAMPAIGN_ID = "longmont-c2"
 FOCUS_SESSION_ID = "session-23"
-APPROVED_MERGE_SHA = "f69c69f271c427209860d902636347b70fea5920"
+APPROVED_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
 ACTOR = "gm"
 
 ORDERED_CONTRIBUTION_IDS = [
