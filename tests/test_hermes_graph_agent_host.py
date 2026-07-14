@@ -32,8 +32,10 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     encode_json_wire,
     encode_turn_request_wire,
 )
+import apps.live_control_server.services.hermes_graph_agent_host as hermes_host_mod
 from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
+    _WorkerHandles,
     get_hermes_graph_agent_host,
     hermes_graph_agent_worker_main,
     shutdown_hermes_graph_agent_host,
@@ -1455,6 +1457,86 @@ def test_host_executes_real_aiagent_tool_turn_through_wire(tmp_path: Path) -> No
         assert result.process_isolation == "process_exclusive"
     finally:
         host.shutdown()
+
+
+class _ImmortalProcess:
+    """Deterministic fake whose is_alive() stays True after terminate/kill."""
+
+    def __init__(self, pid: int = 424242) -> None:
+        self.pid = pid
+        self.terminate_calls = 0
+        self.kill_calls = 0
+
+    def is_alive(self) -> bool:
+        return True
+
+    def terminate(self) -> None:
+        self.terminate_calls += 1
+
+    def kill(self) -> None:
+        self.kill_calls += 1
+
+    def join(self, timeout: float | None = None) -> None:
+        return None
+
+
+class _FakeQueue:
+    def put(self, *_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def get(self, timeout: float | None = None) -> bytes:
+        raise TimeoutError("fake queue empty")
+
+
+def test_immortal_worker_stays_tracked_blocks_spawn_and_retains_global_host() -> None:
+    """A process that survives kill must stay tracked; no second worker allowed."""
+    immortal = _ImmortalProcess(pid=424242)
+    fake_handles = _WorkerHandles(
+        process=immortal,  # type: ignore[arg-type]
+        request_queue=_FakeQueue(),  # type: ignore[arg-type]
+        response_queue=_FakeQueue(),  # type: ignore[arg-type]
+        pid=424242,
+    )
+    host = HermesGraphAgentHost(worker_target=_stub_worker_main)
+    with host._worker_lock:  # noqa: SLF001
+        host._worker = fake_handles  # noqa: SLF001
+        host._worker_ready = False  # noqa: SLF001 — force spawn/stop path
+        host._started = True  # noqa: SLF001
+        host._closed = False  # noqa: SLF001
+
+    shutdown_hermes_graph_agent_host(timeout_s=0.1)
+    with hermes_host_mod._HOST_LOCK:  # noqa: SLF001
+        hermes_host_mod._GLOBAL_HOST = host  # noqa: SLF001
+
+    try:
+        with pytest.raises(RuntimeError, match="still alive"):
+            host._spawn_worker()  # noqa: SLF001
+        assert host._worker is fake_handles  # noqa: SLF001
+        assert host.worker_pid == 424242
+
+        stopped = host.shutdown(timeout_s=0.5)
+        assert stopped is False
+        assert host._worker is fake_handles  # noqa: SLF001
+        assert host.worker_pid == 424242
+        assert immortal.terminate_calls >= 1
+        assert immortal.kill_calls >= 1
+
+        cleared = shutdown_hermes_graph_agent_host(timeout_s=0.5)
+        assert cleared is False
+        assert hermes_host_mod._GLOBAL_HOST is host  # noqa: SLF001
+        assert get_hermes_graph_agent_host() is host
+        assert host.worker_pid == 424242
+    finally:
+        with host._worker_lock:  # noqa: SLF001
+            host._worker = None  # noqa: SLF001
+            host._worker_ready = False  # noqa: SLF001
+            host._closed = True  # noqa: SLF001
+        with hermes_host_mod._HOST_LOCK:  # noqa: SLF001
+            if hermes_host_mod._GLOBAL_HOST is host:  # noqa: SLF001
+                hermes_host_mod._GLOBAL_HOST = None  # noqa: SLF001
 
 
 def test_rung3_suite_entry_still_importable() -> None:

@@ -256,13 +256,17 @@ class HermesGraphAgentHost:
                     return
             self._spawn_worker()
 
-    def shutdown(self, *, timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S) -> None:
-        """Stop the worker within one total deadline and release IPC resources."""
+    def shutdown(self, *, timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S) -> bool:
+        """Stop the worker within one total deadline.
+
+        Returns True when no live worker remains tracked. If the process survives
+        the deadline, the handle is retained and this returns False.
+        """
         deadline = time.monotonic() + float(timeout_s)
         with self._worker_lock:
             self._closed = True
             self._started = False
-            self._stop_worker_locked(deadline=deadline)
+            return self._stop_worker_locked(deadline=deadline)
 
     def execute(
         self,
@@ -446,7 +450,10 @@ class HermesGraphAgentHost:
                 and self._worker_ready
             ):
                 return self._worker
-            self._stop_worker_locked(deadline=time.monotonic() + 1.0)
+            if not self._stop_worker_locked(deadline=time.monotonic() + 1.0):
+                raise RuntimeError(
+                    "Hermes worker still alive; refusing to spawn replacement"
+                )
         return self._spawn_worker()
 
     def _spawn_worker(self) -> _WorkerHandles:
@@ -460,7 +467,10 @@ class HermesGraphAgentHost:
                 and self._worker_ready
             ):
                 return self._worker
-            self._stop_worker_locked(deadline=time.monotonic() + 1.0)
+            if not self._stop_worker_locked(deadline=time.monotonic() + 1.0):
+                raise RuntimeError(
+                    "Hermes worker still alive; refusing to spawn replacement"
+                )
             request_queue: Queue[bytes] = self._ctx.Queue()
             response_queue: Queue[bytes] = self._ctx.Queue()
             process = self._ctx.Process(
@@ -495,10 +505,16 @@ class HermesGraphAgentHost:
                 self._discard_handles(local, deadline=time.monotonic() + 1.0)
                 raise RuntimeError("Hermes worker spawn aborted")
             if self._closed:
-                self._stop_worker_locked(deadline=time.monotonic() + 1.0)
+                if not self._stop_worker_locked(deadline=time.monotonic() + 1.0):
+                    raise RuntimeError(
+                        "Hermes worker spawn aborted by shutdown; prior worker still alive"
+                    )
                 raise RuntimeError("Hermes worker spawn aborted by shutdown")
             if ready is None or ready.get("type") != "ready":
-                self._stop_worker_locked(deadline=time.monotonic() + 1.0)
+                if not self._stop_worker_locked(deadline=time.monotonic() + 1.0):
+                    raise RuntimeError(
+                        "Hermes worker did not become ready and remains alive"
+                    )
                 raise RuntimeError("Hermes worker did not become ready")
             self._worker_ready = True
             return local
@@ -508,21 +524,25 @@ class HermesGraphAgentHost:
         local_worker: _WorkerHandles,
         *,
         deadline: float,
-    ) -> None:
+    ) -> bool:
         if self._worker is local_worker:
-            self._stop_worker_locked(deadline=deadline)
+            return self._stop_worker_locked(deadline=deadline)
+        return True
 
-    def _stop_worker_locked(self, *, deadline: float) -> None:
+    def _stop_worker_locked(self, *, deadline: float) -> bool:
+        """Stop the current worker. Return True only when confirmed dead/absent."""
         worker = self._worker
         if worker is None:
             self._worker_ready = False
-            return
+            return True
         stopped = self._discard_handles(worker, deadline=deadline)
         if stopped:
             self._worker = None
             self._worker_ready = False
-        # If the process is still alive after the deadline, retain the handle so
-        # we do not orphan a live worker from host tracking.
+            return True
+        # Process still alive after the deadline — retain the handle so we do
+        # not orphan a live worker from host tracking, and refuse replacement.
+        return False
 
     def _discard_handles(self, worker: _WorkerHandles, *, deadline: float) -> bool:
         """Attempt graceful → SIGTERM → SIGKILL within ``deadline``. Return True if dead."""
@@ -615,14 +635,28 @@ def get_hermes_graph_agent_host() -> HermesGraphAgentHost:
         return _GLOBAL_HOST
 
 
-def shutdown_hermes_graph_agent_host() -> None:
-    """Shut down and drop the process-wide host singleton."""
+def shutdown_hermes_graph_agent_host(
+    *,
+    timeout_s: float = DEFAULT_SHUTDOWN_TIMEOUT_S,
+) -> bool:
+    """Shut down the process-wide host; clear the singleton only if terminated.
+
+    Returns True when no live tracked worker remains. If termination fails, the
+    host stays registered under ``_GLOBAL_HOST`` so a later
+    :func:`get_hermes_graph_agent_host` cannot create a second worker.
+    """
     global _GLOBAL_HOST
     with _HOST_LOCK:
         host = _GLOBAL_HOST
-        _GLOBAL_HOST = None
-    if host is not None:
-        host.shutdown()
+    if host is None:
+        return True
+    stopped = host.shutdown(timeout_s=timeout_s)
+    if stopped:
+        with _HOST_LOCK:
+            if _GLOBAL_HOST is host:
+                _GLOBAL_HOST = None
+        return True
+    return False
 
 
 __all__ = [
