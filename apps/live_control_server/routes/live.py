@@ -12,6 +12,9 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextError,
     AgentWorldGraphQueryContextRequest,
 )
+from apps.live_control_server.services.hermes_graph_query import (
+    HermesGraphQueryRequestError,
+)
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.services.citation_source_reader import (
     CitationSourceError,
@@ -833,6 +836,8 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,
         )
+    except HermesGraphQueryRequestError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.response_body())
     except AgentWorldGraphQueryContextError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())
     except ValidationError as exc:

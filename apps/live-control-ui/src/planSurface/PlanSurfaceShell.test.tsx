@@ -730,6 +730,91 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByText("No context packet returned for this query.")).not.toBeInTheDocument();
   });
 
+  it("renders PR354 Hermes graph agent_trace safely with Trace On", async () => {
+    const user = userEvent.setup();
+    const pr354Trace = {
+      trace_id: "agent-trace-pr354-shell",
+      runtime: "process_isolated",
+      backend: "hermes",
+      mode: "hermes_graph_agent",
+      started_at: "2026-07-14T18:00:00Z",
+      completed_at: "2026-07-14T18:00:01Z",
+      elapsed_ms: 88,
+      status: "ok",
+      usage: {
+        available: false,
+        input_tokens: null,
+        output_tokens: null,
+        total_tokens: null,
+      },
+      steps: [],
+      context_summary: {},
+      artifact_refs: [],
+      tool_events: [
+        {
+          tool_name: "search_campaign_graph",
+          state: "completion",
+          outcome: "enough",
+          source_anchor_ids: ["source-anchor:v1:fixture"],
+        },
+      ],
+      hermes_session_id: "hermes-sess-obs-only",
+      process_isolation: "process_exclusive",
+      warnings: [],
+    };
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockSourceBundle),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            answer: "Tripod stands at the North Gate.",
+            classification: {
+              intent: "hermes_graph_agent",
+              latency_mode: "hermes_graph_agent",
+              event_type: "hermes_graph_agent",
+            },
+            mode: "hermes_graph_agent",
+            status: "ok",
+            events_written: [],
+            jobs_queued: [],
+            next_suggestions: [],
+            diagnostics: { grounding_state: "grounded" },
+            provenance: { backend: "hermes", runtime: "process_isolated" },
+            citations: [],
+            context_packet: null,
+            grounding: {
+              schema: "dmb_hermes_graph_grounding_v1",
+              state: "grounded",
+              revision_id: "revision:fixture",
+              source_anchor_count: 1,
+            },
+            agent_trace: pr354Trace,
+            hermes_session: null,
+          }),
+      } as Response);
+
+    renderPlanSurface();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+
+    expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+    expect(screen.getByText(/88 ms/)).toBeInTheDocument();
+    expect(screen.getByText("not reported")).toBeInTheDocument();
+    expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
+    // Default new-thread UI keeps trace visible ("Trace On"); panel must not crash on PR354 shell.
+    expect(screen.getByRole("button", { name: /Trace (On|Off)/ })).toBeInTheDocument();
+  });
+
   it("persists bounded conversation metadata and supports clear history", async () => {
     const user = userEvent.setup();
     const makeQueryResponse = (answer: string, traceId: string) => ({

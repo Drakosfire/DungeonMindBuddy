@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-13 — PR010B Rung 1–2 done (#350/#351); Rung 3 active (embedded Hermes graph-agent turn); Rung 4 next (thread/session binding)
+**Updated:** 2026-07-14 — PR010B Rung 3 done; PR353 host merged (#353); PR354 single-turn Hermes backend cutover active
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -144,22 +144,27 @@ Broader Plan polish may continue as independent product slices, but it does not 
 ```text
 DONE    PR010B Rung 1 — strict graph-only read-tool dispatcher (#350)
 DONE    PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter (#351)
-DOING   PR010B Rung 3 — embedded Hermes graph-agent turn
-NEXT    PR010B Rung 4 — Agent Interaction thread/session binding
-LATER   product replacement, dogfood acceptance, and demolition
+DONE    PR010B Rung 3 — embedded Hermes graph-agent turn
+DONE    PR010B Rung 4 / PR353 — persistent Hermes graph-agent host (#353)
+DOING   PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover
+NEXT    PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, dogfood
+LATER   product replacement, demolition, thread continuity (Rung 5+)
 ```
 
 - **PR010B Rung 1 — graph-only Hermes read-tool executor** (`DONE` via #350): exact internal dispatch from the five PR010A tool names to the merged live-control retrieval service.
 - **PR010B Rung 2 — model-visible tool catalog plus JSON-string adapter** (`DONE` via #351): OpenAI/Hermes-compatible function definitions derived from the same Rung 1 registry metadata, plus JSON-string execution over Rung 1 with existing PR010A success/error envelopes.
-- **PR010B Rung 3 — embedded Hermes graph-agent turn** (this capability): dependency-locked in-process `AIAgent` turn with packaged `dungeonbuddy_graph` plugin; optional caller-owned history; typed result with ordered safe tool events. No thread binding or durable persistence.
+- **PR010B Rung 3 — embedded Hermes graph-agent turn** (`DONE`): dependency-locked in-process `AIAgent` turn with packaged `dungeonbuddy_graph` plugin; typed result with ordered safe tool events.
+- **PR010B Rung 4 / PR353 — persistent Hermes graph-agent host** (`DONE` via #353): process-isolated reusable worker host with bounded JSON IPC and no-replay acceptance barrier.
+- **PR010B Rung 4 / PR354 — single-turn Hermes backend product cutover** (this capability): `query_backend="hermes"` routes one revision-pinned turn through the PR353 host with grounding classification and no legacy fallback.
 
-**Next rung (blocked on Rung 3):**
+**Next sub-slice (blocked on PR354):**
 
-- **PR010B Rung 4 — Agent Interaction thread/session binding and reload continuity**
+- **PR010B Rung 4 / PR355 — Plan presentation, citations, persistence, and dogfood proof**
 
 **Later rungs (still false):**
 
-- PR010B replacement / acceptance — Plan product wiring, obsolete Hermes retrieval demolition, dogfood proof, backend-toggle removal.
+- Thread/session binding and reload continuity (Rung 5+).
+- PR010B replacement / acceptance — obsolete Hermes retrieval demolition, backend-toggle removal.
 **Purpose:** Make Hermes the actual conversational agent for Plan prep, using only PR010A graph retrieval and graph-admitted source anchors.
 
 **Deliverables:**
