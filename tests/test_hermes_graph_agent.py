@@ -956,8 +956,15 @@ def test_policy_with_incomplete_enabled_names_fails_before_provider(
     assert result.final_response is None
 
 
-def test_tool_event_durations_correlate_by_tool_call_id(tmp_path: Path) -> None:
-    import time as time_mod
+def test_tool_event_durations_correlate_by_tool_call_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Completion duration is keyed by tool_call_id, not wall-clock ordering."""
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(agent_mod.time, "perf_counter", lambda: clock["t"])
 
     class _ConcurrentSameTool(_FakeAgent):
         def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
@@ -972,10 +979,12 @@ def test_tool_event_durations_correlate_by_tool_call_id(tmp_path: Path) -> None:
                 "campaignId": "campaign:c1",
                 "queryText": "beta-query-text-longer",
             }
+            # start A at t=1000.0
             self._start("call-a", "search_campaign_graph", args_a)
-            time_mod.sleep(0.02)
+            clock["t"] = 1000.010
             self._start("call-b", "search_campaign_graph", args_b)
-            time_mod.sleep(0.03)
+            # complete A after 50 ms of fake elapsed time from its own start
+            clock["t"] = 1000.050
             self._complete(
                 "call-a",
                 "search_campaign_graph",
@@ -989,7 +998,8 @@ def test_tool_event_durations_correlate_by_tool_call_id(tmp_path: Path) -> None:
                     }
                 ),
             )
-            time_mod.sleep(0.02)
+            # complete B after 190 ms of fake elapsed time from its own start
+            clock["t"] = 1000.200
             self._complete(
                 "call-b",
                 "search_campaign_graph",
@@ -1021,10 +1031,8 @@ def test_tool_event_durations_correlate_by_tool_call_id(tmp_path: Path) -> None:
     assert result.status == "ok"
     completions = [e for e in result.tool_events if e.state == "completion"]
     assert len(completions) == 2
-    # call-a started first and completed first → shorter duration than call-b.
-    assert completions[0].duration_ms is not None
-    assert completions[1].duration_ms is not None
-    assert completions[0].duration_ms < completions[1].duration_ms
+    assert completions[0].duration_ms == pytest.approx(50.0)
+    assert completions[1].duration_ms == pytest.approx(190.0)
     assert "queryText" not in completions[0].bounded_ids
     assert completions[0].bounded_ids["queryTextChars"] == len("alpha-query-text")
     assert completions[1].bounded_ids["queryTextChars"] == len("beta-query-text-longer")
@@ -1191,9 +1199,10 @@ def test_discovery_failure_after_success_fails_before_agent_construction(
     assert second.status == "error"
     assert second.error_code in {
         "hermes_plugin_discovery_skipped",
-        "hermes_graph_plugin_not_loaded",
+        "hermes_plugin_not_loaded",
+        "hermes_plugin_disabled",
+        "hermes_plugin_registration_incomplete",
         "hermes_tool_surface_mismatch",
-        "hermes_graph_plugin_registration_incomplete",
     }
     assert second.final_response is None
 
@@ -1270,3 +1279,165 @@ def test_tool_events_use_authoritative_policy_scope_not_model_args(
         assert "player-spoof" not in (event.admissibility or "")
         assert "queryText" not in event.bounded_ids
         assert event.bounded_ids.get("queryTextChars") == len("secret query")
+
+
+SYNTH_TOOLSET = "dmb_synth_probe"
+SYNTH_TOOL_NAME = "synth_probe_ping"
+
+
+def _seed_synth_user_plugin(home: Path) -> None:
+    """Install a minimal Hermes user plugin under ``HERMES_HOME/plugins``."""
+    plugin_dir = home / "plugins" / SYNTH_TOOLSET
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    (plugin_dir / "plugin.yaml").write_text(
+        "name: dmb_synth_probe\n"
+        "version: 0.0.1\n"
+        "description: Synthetic second plugin for mixed-policy regression\n"
+        "kind: standalone\n",
+        encoding="utf-8",
+    )
+    (plugin_dir / "__init__.py").write_text(
+        "def register(ctx):\n"
+        "    def _handler(args, **kwargs):\n"
+        "        del args, kwargs\n"
+        '        return \'{"ok": true}\'\n'
+        "\n"
+        "    ctx.register_tool(\n"
+        f'        name="{SYNTH_TOOL_NAME}",\n'
+        f'        toolset="{SYNTH_TOOLSET}",\n'
+        "        schema={\n"
+        f'            "name": "{SYNTH_TOOL_NAME}",\n'
+        '            "description": "Synthetic probe tool",\n'
+        '            "parameters": {"type": "object", "properties": {}},\n'
+        "        },\n"
+        "        handler=_handler,\n"
+        '        description="Synthetic probe tool",\n'
+        "    )\n",
+        encoding="utf-8",
+    )
+
+
+def test_mixed_plugin_capability_policy_loads_both_surfaces(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Graph + synthetic second plugin toolset both load and validate."""
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+
+    real_prepare = agent_mod._prepare_isolated_hermes_home
+
+    def _prepare_with_synth(
+        home: Path,
+        *,
+        enabled_toolsets: list[str] | tuple[str, ...],
+    ) -> None:
+        real_prepare(home, enabled_toolsets=enabled_toolsets)
+        if SYNTH_TOOLSET in enabled_toolsets:
+            _seed_synth_user_plugin(home)
+
+    monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
+
+    graph_names = tuple(ORDERED_TOOL_NAMES)
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
+        enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
+        graph_scope=_default_scope(),
+        tool_rules=tuple(
+            HermesToolCapabilityRule(
+                tool_name=name,
+                toolset=TOOLSET_NAME,
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            )
+            for name in graph_names
+        )
+        + (
+            HermesToolCapabilityRule(
+                tool_name=SYNTH_TOOL_NAME,
+                toolset=SYNTH_TOOLSET,
+                require_graph_scope=False,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+            capability_policy=policy,
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert result.status == "ok", (result.error_code, result.error_message)
+    init = _FakeAgent.last_init or {}
+    assert init.get("enabled_toolsets") == [TOOLSET_NAME, SYNTH_TOOLSET]
+    assert set(policy.tool_names_for_toolset(TOOLSET_NAME)) == set(graph_names)
+    assert policy.tool_names_for_toolset(SYNTH_TOOLSET) == (SYNTH_TOOL_NAME,)
+
+
+def test_builtin_hermes_toolset_is_explicitly_rejected(tmp_path: Path) -> None:
+    """Built-in toolsets must not be silently purged/rediscovered."""
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME, "terminal"),
+        enabled_tool_names=ORDERED_TOOL_NAMES + ("terminal",),
+        graph_scope=_default_scope(),
+        tool_rules=tuple(
+            HermesToolCapabilityRule(
+                tool_name=name,
+                toolset=TOOLSET_NAME,
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            )
+            for name in ORDERED_TOOL_NAMES
+        )
+        + (
+            HermesToolCapabilityRule(
+                tool_name="terminal",
+                toolset="terminal",
+                require_graph_scope=False,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+
+    class _MustNotRun(_FakeAgent):
+        def __init__(self, **kwargs: Any) -> None:
+            raise AssertionError("agent must not construct for unsupported builtins")
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="q",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+            capability_policy=policy,
+        ),
+        agent_factory=_MustNotRun,
+    )
+    assert result.status == "error"
+    assert result.error_code == "hermes_builtin_toolset_unsupported"
+    assert result.final_response is None
+
+
+def test_policy_rule_toolset_must_be_enabled() -> None:
+    from graph_memory.hermes_graph_plugin import validate_capability_policy_structure
+
+    bad = HermesCapabilityPolicy(
+        enabled_toolsets=(TOOLSET_NAME,),
+        enabled_tool_names=("search_campaign_graph",),
+        graph_scope=_default_scope(),
+        tool_rules=(
+            HermesToolCapabilityRule(
+                tool_name="search_campaign_graph",
+                toolset="other_plugin",
+                require_graph_scope=True,
+                allowed_effects=frozenset({"read"}),
+            ),
+        ),
+    )
+    assert validate_capability_policy_structure(bad) == (
+        "hermes_capability_policy_rule_toolset_mismatch"
+    )

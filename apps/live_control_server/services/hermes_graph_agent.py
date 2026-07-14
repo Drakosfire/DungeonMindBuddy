@@ -43,7 +43,6 @@ from typing import Any, Literal
 import yaml
 
 from graph_memory.hermes_graph_plugin import (
-    TOOLSET_NAME,
     HermesCapabilityPolicy,
     HermesGraphScope,
     HermesToolCapabilityRule,
@@ -433,52 +432,87 @@ def _safe_mode_enabled() -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def _purge_stale_policy_tools_from_registry(
+def _hermes_builtin_toolset_names() -> frozenset[str]:
+    """Return statically defined Hermes built-in toolset names."""
+    from toolsets import TOOLSETS
+
+    return frozenset(TOOLSETS.keys())
+
+
+def _reject_unsupported_builtin_toolsets(
+    policy: HermesCapabilityPolicy,
+) -> str | None:
+    """Built-in Hermes toolsets are not rediscovered by plugin sweeps yet."""
+    builtins = _hermes_builtin_toolset_names()
+    if any(name in builtins for name in policy.enabled_toolsets):
+        return "hermes_builtin_toolset_unsupported"
+    return None
+
+
+def _rediscoverable_plugin_toolsets(
+    policy: HermesCapabilityPolicy,
+) -> frozenset[str]:
+    """Toolsets this wrapper will rediscover via plugin loading (not builtins)."""
+    builtins = _hermes_builtin_toolset_names()
+    return frozenset(
+        name for name in policy.enabled_toolsets if name not in builtins
+    )
+
+
+def _purge_stale_rediscoverable_plugin_tools(
     registry: Any,
     policy: HermesCapabilityPolicy,
 ) -> None:
-    """Remove prior process-global registry entries covered by this policy.
+    """Remove stale registry entries only for plugin toolsets we will rediscover.
 
-    Hermes ``discover_plugins(force=True)`` clears plugin-manager tracking but
-    does not clear the global tool registry. Stale names would otherwise
-    satisfy surface validation after a skipped or failed discovery.
+    Built-in Hermes toolsets are never purged here (and are rejected earlier).
     """
-    enabled_toolsets = set(policy.enabled_toolsets)
-    enabled_names = set(policy.enabled_tool_names)
+    rediscoverable = _rediscoverable_plugin_toolsets(policy)
+    if not rediscoverable:
+        return
     entries, _ = registry._snapshot_state()
     for entry in entries:
-        if entry.toolset in enabled_toolsets or entry.name in enabled_names:
+        if entry.toolset in rediscoverable:
             registry.deregister(entry.name)
 
 
-def _verify_current_graph_plugin_discovery(
+def _find_loaded_plugin(manager: Any, toolset_name: str) -> Any | None:
+    loaded = manager._plugins.get(toolset_name)
+    if loaded is not None:
+        return loaded
+    for key, plugin in manager._plugins.items():
+        manifest = getattr(plugin, "manifest", None)
+        name = getattr(manifest, "name", None) if manifest is not None else None
+        if key == toolset_name or name == toolset_name:
+            return plugin
+    return None
+
+
+def _verify_enabled_plugin_discovery(
     hermes_plugins: Any,
     policy: HermesCapabilityPolicy,
 ) -> str | None:
-    """Prove the current discovery sweep loaded the graph plugin successfully."""
+    """Prove each enabled *plugin* toolset loaded successfully in this sweep.
+
+    Compares each toolset only against tools attributed to that toolset in the
+    policy — never against the full ``enabled_tool_names`` set.
+    """
     if _safe_mode_enabled():
         return "hermes_plugin_discovery_skipped"
 
     manager = hermes_plugins.get_plugin_manager()
-    loaded = manager._plugins.get(TOOLSET_NAME)
-    if loaded is None:
-        for key, plugin in manager._plugins.items():
-            manifest = getattr(plugin, "manifest", None)
-            name = getattr(manifest, "name", None) if manifest is not None else None
-            if key == TOOLSET_NAME or name == TOOLSET_NAME:
-                loaded = plugin
-                break
-    if loaded is None:
-        return "hermes_graph_plugin_not_loaded"
-    if not bool(getattr(loaded, "enabled", False)):
-        return "hermes_graph_plugin_disabled"
-    if getattr(loaded, "error", None):
-        return "hermes_graph_plugin_load_error"
-
-    registered = list(getattr(loaded, "tools_registered", []) or [])
-    expected = set(policy.enabled_tool_names)
-    if TOOLSET_NAME in policy.enabled_toolsets and not expected.issubset(set(registered)):
-        return "hermes_graph_plugin_registration_incomplete"
+    for toolset in _rediscoverable_plugin_toolsets(policy):
+        loaded = _find_loaded_plugin(manager, toolset)
+        if loaded is None:
+            return "hermes_plugin_not_loaded"
+        if not bool(getattr(loaded, "enabled", False)):
+            return "hermes_plugin_disabled"
+        if getattr(loaded, "error", None):
+            return "hermes_plugin_load_error"
+        expected = set(policy.tool_names_for_toolset(toolset))
+        registered = set(getattr(loaded, "tools_registered", []) or [])
+        if expected and not expected.issubset(registered):
+            return "hermes_plugin_registration_incomplete"
     return None
 
 
@@ -684,12 +718,25 @@ def run_hermes_graph_agent_turn(
                     from model_tools import get_tool_definitions
                     from tools.registry import registry
 
-                    # Drop stale global registry entries before rediscovery.
-                    _purge_stale_policy_tools_from_registry(registry, policy)
+                    builtin_error = _reject_unsupported_builtin_toolsets(policy)
+                    if builtin_error is not None:
+                        return _error_result(
+                            hermes_session_id=session_id,
+                            error_code=builtin_error,
+                            error_message=(
+                                "Capability policy enables a Hermes built-in "
+                                "toolset that this wrapper does not rediscover; "
+                                "refuse rather than silently deregister "
+                                "built-in tools."
+                            ),
+                        )
+
+                    # Drop stale entries only for plugin toolsets we rediscover.
+                    _purge_stale_rediscoverable_plugin_tools(registry, policy)
 
                     hermes_plugins.discover_plugins(force=True)
 
-                    discovery_error = _verify_current_graph_plugin_discovery(
+                    discovery_error = _verify_enabled_plugin_discovery(
                         hermes_plugins,
                         policy,
                     )
@@ -698,8 +745,8 @@ def run_hermes_graph_agent_turn(
                             hermes_session_id=session_id,
                             error_code=discovery_error,
                             error_message=(
-                                "Hermes graph plugin was not successfully loaded "
-                                "during the current discovery sweep."
+                                "One or more enabled plugin toolsets were not "
+                                "successfully loaded during the current discovery sweep."
                             ),
                         )
 

@@ -71,9 +71,13 @@ class HermesToolCapabilityRule:
     do not treat this field as a complete cross-toolset write/read gate until
     a later rung associates authoritative effect metadata with every
     model-visible tool.
+
+    ``toolset`` identifies which Hermes toolset owns the tool so discovery
+    verification and stale-registry purge stay toolset-scoped.
     """
 
     tool_name: str
+    toolset: str = TOOLSET_NAME
     require_graph_scope: bool = True
     allowed_effects: frozenset[ToolEffect] = field(
         default_factory=lambda: frozenset({"read"})
@@ -84,9 +88,10 @@ class HermesToolCapabilityRule:
 class HermesCapabilityPolicy:
     """Caller-supplied capability boundary for an embedded Hermes turn.
 
-    PR #352 configures this as graph-only / five-tool / read-only. Future
-    non-graph tools may appear here with their own scope rules; the runtime
-    must not hard-code “exactly five forever” outside of the default factory.
+    The default factory is graph-only / five-tool / read-only. Callers may
+    enable additional **plugin** toolsets with matching per-tool rules. Hermes
+    built-in toolsets (terminal, web, …) are not supported by this wrapper yet
+    and must be rejected explicitly rather than silently deregistered.
     """
 
     enabled_toolsets: tuple[str, ...]
@@ -99,6 +104,11 @@ class HermesCapabilityPolicy:
             if rule.tool_name == tool_name:
                 return rule
         return None
+
+    def tool_names_for_toolset(self, toolset: str) -> tuple[str, ...]:
+        return tuple(
+            rule.tool_name for rule in self.tool_rules if rule.toolset == toolset
+        )
 
 
 def default_graph_only_capability_policy(
@@ -113,6 +123,7 @@ def default_graph_only_capability_policy(
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
+                toolset=TOOLSET_NAME,
                 require_graph_scope=True,
                 allowed_effects=frozenset({"read"}),
             )
@@ -142,10 +153,12 @@ def validate_capability_policy_structure(
         return "hermes_capability_policy_rule_name_mismatch"
     if len(policy.tool_rules) != len(names):
         return "hermes_capability_policy_rule_count_mismatch"
+    enabled_toolsets = set(policy.enabled_toolsets)
     for rule in policy.tool_rules:
+        if rule.toolset not in enabled_toolsets:
+            return "hermes_capability_policy_rule_toolset_mismatch"
         if not rule.allowed_effects:
             return "hermes_capability_policy_empty_effects"
-        # Graph-scope tools must permit at least read for this product path.
         if rule.require_graph_scope and "read" not in rule.allowed_effects:
             return "hermes_capability_policy_graph_read_required"
     return None
