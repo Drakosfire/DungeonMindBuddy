@@ -17,7 +17,6 @@ from graph_memory.kernel.contribution_diagnostics import (
 from graph_memory.kernel.contribution_merge import (
     merge_contribution_to_revision,
     retract_graph_contribution,
-    stamp_initialization_authority,
     supersede_graph_contribution,
 )
 from graph_memory.kernel.contribution_models import (
@@ -154,7 +153,6 @@ __all__ = [
     "initialize_world_from_contributions",
     "inspect_world_initialization_state",
     "read_initialization_receipt",
-    "stamp_initialization_authority",
     # Identity (PR004)
     "IdentityCandidate",
     "IdentityCanonState",

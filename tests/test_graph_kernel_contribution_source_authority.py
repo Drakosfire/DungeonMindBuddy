@@ -130,16 +130,24 @@ def test_merge_stamps_source_digest_and_survives_supersession(seeded_root: Path)
     assert "rebuild_equivalent_to_head" in rebuild.diagnostics
 
 
-def test_initialization_authority_is_write_once(seeded_root: Path) -> None:
+def test_initialization_authority_stamp_is_not_public_kernel_api(
+    seeded_root: Path,
+) -> None:
+    """Init stamps are owned by world_initialization, not the public Kernel surface."""
+    assert "stamp_initialization_authority" not in kernel.__all__
+    assert not hasattr(kernel, "stamp_initialization_authority")
+
+    from graph_memory.kernel.contribution_merge import stamp_initialization_authority
+
     root = seeded_root
     _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
-    stamped = kernel.stamp_initialization_authority(
+    stamped = stamp_initialization_authority(
         store,
         initialization_contribution_ids=["contribution:a"],
         initialization_plan_digest="a" * 64,
         initialization_attestation_digest="b" * 64,
     )
-    same = kernel.stamp_initialization_authority(
+    same = stamp_initialization_authority(
         stamped,
         initialization_contribution_ids=["contribution:a"],
         initialization_plan_digest="a" * 64,
@@ -147,7 +155,7 @@ def test_initialization_authority_is_write_once(seeded_root: Path) -> None:
     )
     assert same.initialization_plan_digest == "a" * 64
     with pytest.raises(ValueError, match="already established"):
-        kernel.stamp_initialization_authority(
+        stamp_initialization_authority(
             stamped,
             initialization_contribution_ids=["contribution:a"],
             initialization_plan_digest="c" * 64,
@@ -155,25 +163,21 @@ def test_initialization_authority_is_write_once(seeded_root: Path) -> None:
         )
 
 
-def test_legacy_head_without_source_digests_requires_migration(
-    seeded_root: Path,
-) -> None:
-    """Contributions present on a pre-authority head must migrate via rebuild."""
-    root = seeded_root
-    contrib = _node_contribution(
-        artifact="artifact:legacy-digest",
-        node_id="npc_legacy_digest",
-        label="LegacyDigest",
-    )
-    # Simulate a legacy world: ledger+index updated without revision-bound digests.
+def _seed_incomplete_authority_head(root: Path):
+    """Write a ledger contribution without revision-bound digests (invalid shape)."""
     from graph_memory.world_supergraph.contribution_store import (
-        # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local legacy head fixture.
+        # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local incomplete-authority fixture.
         ContributionIndex,
         save_contribution_index,
         upsert_contribution_in_index,
         write_contribution_record,
     )
 
+    contrib = _node_contribution(
+        artifact="artifact:incomplete-authority",
+        node_id="npc_incomplete_authority",
+        label="IncompleteAuthority",
+    )
     _head, revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     write_contribution_record(root, WORLD_ID, contrib)
     index = ContributionIndex(
@@ -182,24 +186,73 @@ def test_legacy_head_without_source_digests_requires_migration(
     index = upsert_contribution_in_index(index, contrib)
     save_contribution_index(root, WORLD_ID, index)
     assert store.contribution_source_payload_sha256 == {}
+    return contrib
 
-    blocked = kernel.merge_contribution_to_revision(
+
+def test_incomplete_source_authority_refuses_merge_before_idempotent_noop(
+    seeded_root: Path,
+) -> None:
+    """Incomplete heads fail closed even when replaying an already-active contribution."""
+    root = seeded_root
+    contrib = _seed_incomplete_authority_head(root)
+
+    blocked_new = kernel.merge_contribution_to_revision(
         root,
         world_id=WORLD_ID,
         contribution=_node_contribution(
-            artifact="artifact:legacy-digest-b",
-            node_id="npc_legacy_digest_b",
-            label="LegacyDigestB",
+            artifact="artifact:incomplete-authority-b",
+            node_id="npc_incomplete_authority_b",
+            label="IncompleteAuthorityB",
         ),
+    )
+    assert blocked_new.published is False
+    assert any(
+        "contribution_source_authority_incomplete" in item
+        for item in blocked_new.diagnostics
+    )
+
+    # Same contribution already "active" in the incomplete ledger must not no-op succeed.
+    blocked_idempotent = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=contrib,
+    )
+    assert blocked_idempotent.published is False
+    assert any(
+        "contribution_source_authority_incomplete" in item
+        for item in blocked_idempotent.diagnostics
+    )
+    assert not any(
+        "idempotent_noop" in item for item in blocked_idempotent.diagnostics
+    )
+
+
+def test_incomplete_source_authority_refuses_retraction(seeded_root: Path) -> None:
+    root = seeded_root
+    contrib = _seed_incomplete_authority_head(root)
+
+    blocked = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contrib.contribution_id,
+        reason="should-not-publish-from-incomplete-authority",
     )
     assert blocked.published is False
     assert any(
-        "contribution_source_digest_migration_required" in item
+        "contribution_source_authority_incomplete" in item
         for item in blocked.diagnostics
     )
 
-    migrated = kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=True)
-    assert migrated.published is True
+
+def test_rebuild_recomputes_source_digests_without_migration_compat(
+    seeded_root: Path,
+) -> None:
+    """Deterministic rebuild may recompute digests; this is not legacy migration API."""
+    root = seeded_root
+    contrib = _seed_incomplete_authority_head(root)
+
+    rebuilt = kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=True)
+    assert rebuilt.published is True
     _h2, _r2, after = kernel.open_current_world_graph(root, WORLD_ID)
     assert (
         after.contribution_source_payload_sha256[contrib.contribution_id]
@@ -210,9 +263,9 @@ def test_legacy_head_without_source_digests_requires_migration(
         root,
         world_id=WORLD_ID,
         contribution=_node_contribution(
-            artifact="artifact:legacy-digest-c",
-            node_id="npc_legacy_digest_c",
-            label="LegacyDigestC",
+            artifact="artifact:after-rebuild",
+            node_id="npc_after_rebuild",
+            label="AfterRebuild",
         ),
     )
     assert allowed.published is True

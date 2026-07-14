@@ -669,7 +669,10 @@ def _with_legacy_assertion_id(assertion):
 
 def _seed_active_legacy_contribution(root: Path, contribution):
     """Persist a pre-repair contribution and publish its legacy support into head."""
-    from graph_memory.kernel.contribution_merge import apply_accepted_assertions
+    from graph_memory.kernel.contribution_merge import (
+        apply_accepted_assertions,
+        stamp_contribution_source_digest,
+    )
     from graph_memory.world_supergraph.contribution_store import (
         # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: test-local legacy head fixture.
         ContributionIndex,
@@ -692,6 +695,10 @@ def _seed_active_legacy_contribution(root: Path, contribution):
 
     head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     proposed, _support, _accepted = apply_accepted_assertions(store, contribution)
+    # Source digests are a separate forward-only authority plane from assertion
+    # identity repair. Stamp digests here so these fixtures isolate the legacy
+    # assertion-id gate.
+    proposed = stamp_contribution_source_digest(proposed, contribution)
     kernel.publish_world_graph_revision(
         root,
         WORLD_ID,
