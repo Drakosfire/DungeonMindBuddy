@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from pydantic import ValidationError
@@ -24,6 +25,14 @@ from graph_memory.retrieval.models import (
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
 )
+
+HermesGraphReadRequestModel = type[
+    WorldGraphSearchRequest
+    | WorldGraphObjectRequest
+    | WorldGraphNeighborhoodRequest
+    | WorldGraphEvidenceRequest
+    | WorldGraphSourceAnchorReadRequest
+]
 
 HermesGraphReadToolContractCode = Literal["unknown_tool", "invalid_arguments"]
 
@@ -53,13 +62,7 @@ class HermesGraphReadToolContractError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class _HermesGraphReadToolEntry:
-    request_model: type[
-        WorldGraphSearchRequest
-        | WorldGraphObjectRequest
-        | WorldGraphNeighborhoodRequest
-        | WorldGraphEvidenceRequest
-        | WorldGraphSourceAnchorReadRequest
-    ]
+    request_model: HermesGraphReadRequestModel
     service_name: str
 
 
@@ -85,6 +88,17 @@ _REGISTRY: dict[str, _HermesGraphReadToolEntry] = {
         "read_source_anchor",
     ),
 }
+
+
+def hermes_graph_read_tool_request_models() -> Mapping[str, HermesGraphReadRequestModel]:
+    """Read-only exact tool name → PR010A request model from the execution registry.
+
+    Insertion order is the deterministic catalog order. Callers must not mutate
+    the returned mapping; it is a ``MappingProxyType`` over registry metadata.
+    """
+    return MappingProxyType(
+        {name: entry.request_model for name, entry in _REGISTRY.items()}
+    )
 
 
 def execute_hermes_graph_read_tool(
@@ -120,6 +134,8 @@ def execute_hermes_graph_read_tool(
 
 __all__ = [
     "HERMES_GRAPH_READ_TOOL_NAMES",
+    "HermesGraphReadRequestModel",
     "HermesGraphReadToolContractError",
     "execute_hermes_graph_read_tool",
+    "hermes_graph_read_tool_request_models",
 ]
