@@ -9,6 +9,9 @@ contribution modules and exported from ``graph_memory.kernel``.
 PR007 projection APIs are implemented in ``graph_memory.kernel.world_projection``
 and exported from ``graph_memory.kernel``.
 
+PR010A retrieval + source-anchor admission APIs are implemented in
+``graph_memory.kernel.world_retrieval`` and exported from ``graph_memory.kernel``.
+
 See also: ``Docs/Design/CONTRACT-graph-kernel-boundary.md``.
 """
 
@@ -53,5 +56,15 @@ IMPLEMENTED_IN_PR007_PROJECTION: tuple[str, ...] = (
 
 # Kept for older references; empty — projection APIs are no longer reserved.
 RESERVED_FOR_PR007_PROJECTION: tuple[str, ...] = ()
+
+# --- Implemented in PR010A — retrieval + source-anchor admission ---
+
+IMPLEMENTED_IN_PR010_RETRIEVAL: tuple[str, ...] = (
+    "search_campaign_graph",
+    "get_campaign_object",
+    "get_object_neighborhood",
+    "get_object_evidence",
+    "read_source_anchor",
+)
 
 ALL_RESERVED_KERNEL_APIS: tuple[str, ...] = ()
