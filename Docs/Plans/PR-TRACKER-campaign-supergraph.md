@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-13 — PR008A/PR008B done; PR010 split into retrieval contract and Hermes dogfood
+**Updated:** 2026-07-13 — PR010A done through #346–#349; PR010B active (Rung 1 graph-only Hermes read-tool executor)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
@@ -37,8 +37,8 @@ DEFERRED PR006D3      Bootstrap activation UI
 DONE    PR007A        Revision-pinned projection/read snapshot
 DONE    PR008A        Plan World Graph migration
 DONE    PR008B        Agent Interaction graph query-context attachment
-READY   PR010A        Graph retrieval contract + source-anchor admission
-BLOCKED PR010B        Hermes graph-retrieval dogfood
+DONE    PR010A        Graph retrieval contract + source-anchor admission
+DOING   PR010B        Hermes graph-retrieval dogfood
 BLOCKED PR011         Agent Context + governed tool runtime
 READY   PR009         Play projection migration (parallel product lane)
 BLOCKED PR012         Leftover cleanup safety net
@@ -93,7 +93,7 @@ Broader Plan polish may continue as independent product slices, but it does not 
 
 ## PR010A — Graph retrieval contract + source-anchor admission
 
-**Status:** `READY`
+**Status:** `DONE` — merged ladder `#346` (Mirathorn accepted locator correction), `#347` (contribution source authority), `#348` (Kernel retrieval), `#349` (live-control retrieval API)
 **Phase:** 7
 
 **Purpose:** Create the deterministic read contract that lets surfaces and agents discover, traverse, and admit evidence from one revision-pinned World Supergraph without consulting a parallel Markdown retrieval system.
@@ -136,8 +136,16 @@ Broader Plan polish may continue as independent product slices, but it does not 
 
 ## PR010B — Hermes graph-retrieval dogfood
 
-**Status:** `BLOCKED` on PR010A
+**Status:** `DOING`
 **Phase:** 7 / read-only agent dogfood
+
+**Active rung:**
+
+- **PR010B Rung 1 — graph-only Hermes read-tool executor** (this capability): exact internal dispatch from the five PR010A tool names to the merged live-control retrieval service.
+
+**Next rung (blocked on Rung 1):**
+
+- **PR010B Rung 2 — in-process Hermes tool definitions plus real agent/session loop**
 
 **Purpose:** Make Hermes the actual conversational agent for Plan prep, using only PR010A graph retrieval and graph-admitted source anchors.
 
