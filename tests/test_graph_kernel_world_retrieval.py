@@ -836,6 +836,186 @@ def test_historical_graph_data_read_survives_contribution_retraction(
     assert '"label": "Tripod Null-Calf"' in (pinned_read.content or "")
 
 
+def _lifecycle_pointer_contribution(*, suffix: str):
+    """Contribution with graph-data locators covering mutable + immutable pointers."""
+    node_id = f"threat:lifecycle-pointer-{suffix}"
+    source_artifact_id = f"graph-native:test:lifecycle-pointer-{suffix}"
+    uri = f"graph-data://test/lifecycle-pointer-{suffix}"
+    evidence_specs = [
+        ("status", "jsonptr:/status"),
+        ("diagnostics", "jsonptr:/diagnostics"),
+        ("root", "jsonptr:"),
+        ("assertion", "jsonptr:/accepted_assertions/0"),
+    ]
+    evidence_entries = [
+        {
+            "evidence_ref_id": f"evidence:test:lifecycle-pointer-{suffix}:{name}",
+            "source_artifact_id": source_artifact_id,
+            "source_domain": "manual_seed",
+            "locator": locator,
+        }
+        for name, locator in evidence_specs
+    ]
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label=f"Lifecycle Pointer {suffix}",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=source_artifact_id,
+        value={
+            "kind": "threat",
+            "role": "threat",
+            "source_domains": ["manual_seed"],
+            "aliases": [f"Lifecycle Pointer {suffix}"],
+            "canon_state": "canonical",
+            "evidence": evidence_entries,
+            "source_artifacts": [
+                {
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                    "campaign_id": CAMPAIGN_ID,
+                    "uri": uri,
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=source_artifact_id,
+        source_revision_id=f"lifecycle-pointer-{suffix}-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    return (
+        node_id,
+        contribution,
+        {
+            name: f"evidence:test:lifecycle-pointer-{suffix}:{name}"
+            for name, _locator in evidence_specs
+        },
+    )
+
+
+def _anchor_for_evidence(
+    root: Path, node_id: str, evidence_ref_id: str, *, revision_pin: str
+):
+    result = kernel.get_object_evidence(
+        root,
+        _evidence_request(
+            WorldGraphEvidenceTarget(kind="node", id=node_id),
+            revision_pin=revision_pin,
+        ),
+    )
+    return next(a for a in result.source_anchors if a.evidence_ref_id == evidence_ref_id)
+
+
+@pytest.mark.parametrize("lifecycle_op", ["retract", "supersede"])
+def test_historical_graph_data_read_excludes_mutable_lifecycle_fields(
+    tmp_path: Path, loaded_bundle, lifecycle_op: str
+) -> None:
+    """Pinned graph-data reads must not expose post-revision ledger mutations.
+
+    Digests omit ``status``/``diagnostics``; pointer resolution must use that same
+    lifecycle-neutral payload so root/status/diagnostics cannot leak current
+    ledger values after retraction or supersession.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    node_id, contribution, evidence_ids = _lifecycle_pointer_contribution(
+        suffix=lifecycle_op
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path, world_id=WORLD_ID, contribution=contribution
+    )
+    assert merged.published is True
+    pinned_revision = merged.revision_id
+    assert pinned_revision
+
+    status_anchor = _anchor_for_evidence(
+        tmp_path, node_id, evidence_ids["status"], revision_pin=pinned_revision
+    )
+    diagnostics_anchor = _anchor_for_evidence(
+        tmp_path, node_id, evidence_ids["diagnostics"], revision_pin=pinned_revision
+    )
+    root_anchor = _anchor_for_evidence(
+        tmp_path, node_id, evidence_ids["root"], revision_pin=pinned_revision
+    )
+    assertion_anchor = _anchor_for_evidence(
+        tmp_path, node_id, evidence_ids["assertion"], revision_pin=pinned_revision
+    )
+    assert status_anchor.readable is True
+    assert diagnostics_anchor.readable is True
+    assert root_anchor.readable is True
+    assert assertion_anchor.readable is True
+
+    if lifecycle_op == "retract":
+        lifecycle_result = kernel.retract_graph_contribution(
+            tmp_path,
+            world_id=WORLD_ID,
+            contribution_id=contribution.contribution_id,
+            reason="pr010a-lifecycle-pointer-integrity",
+        )
+        assert lifecycle_result.published is True
+        mutated_token = "retracted"
+    else:
+        replacement = kernel.create_graph_contribution(
+            world_id=WORLD_ID,
+            source_kind="manual_import",
+            source_artifact_id=contribution.source_artifact_id,
+            source_revision_id=f"lifecycle-pointer-{lifecycle_op}-2",
+            accepted_assertions=contribution.accepted_assertions,
+            campaign_scope=CAMPAIGN_ID,
+            supersedes_contribution_id=contribution.contribution_id,
+        )
+        lifecycle_result = kernel.supersede_graph_contribution(
+            tmp_path,
+            world_id=WORLD_ID,
+            new_contribution=replacement,
+            superseded_contribution_id=contribution.contribution_id,
+        )
+        assert lifecycle_result.published is True
+        mutated_token = "superseded"
+
+    pinned_assertion = kernel.read_source_anchor(
+        tmp_path,
+        _anchor_read_request(assertion_anchor.anchor_id, revision_pin=pinned_revision),
+    )
+    assert pinned_assertion.outcome == "enough"
+    assert f'"label": "Lifecycle Pointer {lifecycle_op}"' in (
+        pinned_assertion.content or ""
+    )
+
+    pinned_root = kernel.read_source_anchor(
+        tmp_path,
+        _anchor_read_request(root_anchor.anchor_id, revision_pin=pinned_revision),
+    )
+    assert pinned_root.outcome == "enough"
+    root_payload = json.loads(pinned_root.content or "{}")
+    assert "status" not in root_payload
+    assert "diagnostics" not in root_payload
+    assert mutated_token not in (pinned_root.content or "")
+
+    with pytest.raises(WorldGraphRetrievalError) as status_exc:
+        kernel.read_source_anchor(
+            tmp_path,
+            _anchor_read_request(status_anchor.anchor_id, revision_pin=pinned_revision),
+        )
+    assert status_exc.value.code == "invalid_json_pointer"
+    assert mutated_token not in str(status_exc.value)
+
+    with pytest.raises(WorldGraphRetrievalError) as diagnostics_exc:
+        kernel.read_source_anchor(
+            tmp_path,
+            _anchor_read_request(
+                diagnostics_anchor.anchor_id, revision_pin=pinned_revision
+            ),
+        )
+    assert diagnostics_exc.value.code == "invalid_json_pointer"
+    assert mutated_token not in str(diagnostics_exc.value)
+
+
 def test_read_source_anchor_mirathorn_heading_exact_match(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory
 ) -> None:
@@ -861,7 +1041,6 @@ def test_read_source_anchor_mirathorn_heading_exact_match(
     assert read_result.media_type == "text/markdown"
     assert "Mirathorn Overview" in (read_result.content or "")
     assert read_result.content_sha256
-
 
 def test_read_source_anchor_repo_heading_exact_match_with_digest(
     tmp_path: Path, loaded_bundle, tmp_path_factory: pytest.TempPathFactory

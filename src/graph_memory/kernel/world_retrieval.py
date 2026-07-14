@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contributions import (
     compute_contribution_source_payload_sha256,
+    contribution_source_payload,
 )
 from graph_memory.kernel.world_graph import load_world_graph_revision
 from graph_memory.kernel.world_initialization import (
@@ -1600,9 +1601,11 @@ def read_source_anchor(
             contribution_id=match.contribution_id,
             contribution=contribution,
         )
+        # Pointer resolution must use the same lifecycle-neutral payload that
+        # the revision-bound digest covers — never the mutable ledger envelope.
         read_outcome = _handle_source_read(
             lambda: read_graph_data_json_pointer_anchor(
-                contribution_payload=contribution.model_dump(mode="json"),
+                contribution_payload=contribution_source_payload(contribution),
                 json_pointer=json_pointer,
                 max_chars=request.max_chars,
             )
