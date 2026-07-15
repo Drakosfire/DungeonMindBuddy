@@ -2,12 +2,17 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-14 — PR010B Rung 4C / PR355 done; Rung 5 same-thread object continuity is next critical path
+**Updated:** 2026-07-15 — Hermes product re-anchor accepted; Rung 5 continuity remains the retained read-only foundation
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
 
-This roadmap describes implementation milestones. This document and the PR tracker are the only active sequencing authority for Campaign Supergraph work. Older handoffs, experiments, backlog entries, Project Sources, and historical Agent Interaction documents may explain why decisions were made, but they cannot override this roadmap.
+This roadmap describes Campaign Supergraph infrastructure milestones. This
+document and the PR tracker remain sequencing authority for graph infrastructure.
+The Hermes Campaign Authoring Foundation plan and its re-anchor record govern the
+separate product/authoring gate. Older handoffs, experiments, backlog entries,
+Project Sources, and historical Agent Interaction documents may explain why
+decisions were made, but they cannot override either active authority.
 
 ## Locked architecture decisions
 
@@ -74,6 +79,12 @@ READY   PR010B Rung 5 — same-thread object continuity through bounded visible-
 LATER   PR010B Rung 6 — durable Hermes session-pointer and reload/process lifecycle
 LATER   PR010B Rung 7 — cumulative product acceptance and replaced-path demolition
 ```
+
+The current Hermes branch contains the bounded Rung 5 implementation and its
+trust-boundary tests, but it is not yet the accepted Campaign Supergraph `main`
+path. The re-anchor retains that work as S0 infrastructure and does not
+authorize Rung 6 or additional graph-tool expansion before the Hermes Phase 0
+code/UI gate and S1 acceptance.
 
 ---
 

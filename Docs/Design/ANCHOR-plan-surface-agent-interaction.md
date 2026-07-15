@@ -1,7 +1,7 @@
 # Anchor — Plan Surface Agent Interaction
 
 **Status:** Active surface reference; not sequencing authority
-**Re-anchored:** 2026-07-13 after PR008A/PR008B
+**Re-anchored:** 2026-07-15 after the Hermes Campaign Authoring Foundation reset
 
 Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded first on `/plan`. Its current architectural direction is now governed by:
 
@@ -20,7 +20,8 @@ archive.
 - PR008A migrated Plan object cards, references, relationship traversal, and diagnostics to the revision-pinned World Supergraph projection.
 - PR008B attached deterministic World Graph query context to Agent Interaction.
 - Named local threads, citations, source reading, freshness metadata, and inspectable traces exist.
-- The actual Hermes agent/session loop does not yet consume graph retrieval.
+- The current Hermes branch contains a bounded graph-agent turn and visible-prose
+  continuity path; the branch is not yet the accepted `main` product path.
 - App-level `AgentInteractionProvider` and cross-surface continuity remain future work.
 
 ## Surface role
@@ -41,10 +42,13 @@ The next Agent Interaction work is not the provider hoist. The active sequence i
 ```text
 PR010A graph retrieval contract
   -> PR010B Hermes graph-retrieval dogfood on /plan
-    -> PR011 app-level context and governed tool runtime
+    -> Hermes Phase 0 code/UI cleanup + S1 latest-recap acceptance
+      -> PR011 app-level context and governed tool runtime
 ```
 
-The provider lift belongs in PR011, after the Hermes read-only conversation shape and graph-only retrieval boundary have been dogfooded successfully. React `/play` remains a parallel surface migration under PR009.
+The provider lift belongs in PR011, after the Hermes read-only conversation shape,
+graph-only retrieval boundary, and S1 latest-recap acceptance are dogfooded
+successfully. React `/play` remains a parallel surface migration under PR009.
 
 ## Retrieval invariant
 

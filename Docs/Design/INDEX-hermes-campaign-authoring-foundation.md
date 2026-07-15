@@ -1,12 +1,12 @@
 # Active Hermes Campaign Authoring Foundation Documents
 
-**Status:** Phase 0 archive surface; Phase 1 re-anchor pending  
+**Status:** Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate rejected pending repair
 **Created:** 2026-07-15  
 **Sequencing authority:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
 
 This is the small active Hermes design set for the campaign sensemaking and authoring
-reset. The documents are deliberately marked proposed until the explicit re-anchor
-gate is accepted.
+reset. The product direction is accepted; new creative primitives remain gated by
+the remaining Phase 0 evidence and S1 acceptance.
 
 ## Active set
 
@@ -17,7 +17,15 @@ gate is accepted.
 | Architecture | [`ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md) | Retrieval, authoring, draft, and promotion boundaries |
 | Stories | [`UX-STORIES-hermes-campaign-authoring-foundation.md`](UX-STORIES-hermes-campaign-authoring-foundation.md) | User and agent behavior contracts |
 | Evaluation | [`EVAL-hermes-campaign-authoring-foundation.md`](EVAL-hermes-campaign-authoring-foundation.md) | Archive, re-anchor, sensemaking, and statblock gates |
+| Re-anchor record | [`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md) | Accepted decisions, current state, and remaining Phase 0 gate |
 | Checklist | Not created yet | Created when construction begins |
+
+## Phase 0 gate artifacts
+
+- [`../Reports/HERMES-PHASE-0-CODE-DEMOLITION-MAP.md`](../Reports/HERMES-PHASE-0-CODE-DEMOLITION-MAP.md)
+- [`../Reports/HERMES-PHASE-0-UI-CLEANUP-MAP.md`](../Reports/HERMES-PHASE-0-UI-CLEANUP-MAP.md)
+- [`../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md`](../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md)
+- [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md)
 
 ## Active references outside this set
 
@@ -33,8 +41,10 @@ product authorities:
 - `Docs/Design/DESIGN-graph-object-authoring-surface.md`
 - `.hermes.md` as runtime policy
 
-These references must be reconciled with the active set at Phase 1. They do not
-authorize new Hermes sequencing independently.
+These references are reconciled by the re-anchor record and Phase 0 reports. The
+Campaign Supergraph roadmap and tracker remain sequencing authority for graph
+infrastructure; the Hermes reset plan governs the authoring/product gate. Neither
+authorizes new creative primitives before the remaining Phase 0 gate and S1.
 
 ## Archive boundary
 
@@ -48,6 +58,8 @@ Its completed work is historical input and is not sequencing authority for this 
 
 ## Phase 0 limitations
 
-This index does not claim that code demolition is complete. Backend and UI cleanup
-remain a separate reference-checked work item after the document archive and
-re-anchor decisions are accepted.
+The document archive, product re-anchor, initial low-risk code/UI cleanup slice,
+and UI failure triage are complete. The reports record retained adapters and
+deferred cleanup. The deterministic S1 resolver is green, but the real
+Plan/Hermes dogfood rejected the S1 read-only acceptance; the route must be
+repaired and rerun before new authoring primitives are built.

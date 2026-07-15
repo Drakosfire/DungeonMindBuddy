@@ -1,10 +1,13 @@
 # Plan — Hermes Campaign Authoring Foundation Reset
 
-**Status:** PROPOSED; planning and discussion only  
+**Status:** ACTIVE RESET; Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate rejected; broader gate open
 **Created:** 2026-07-15  
 **Primary goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **First proving domain:** statblocks  
-**Implementation rule:** no feature construction begins until the archive and re-anchor gates are accepted
+**Re-anchor record:** [`REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
+**Implementation rule:** no new creative primitive begins until the remaining Phase 0 code/UI gate is accepted
+**Phase 0 evidence:** [`../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md`](../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md)
+**S1 dogfood evidence:** [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md)
 
 ## Why this reset exists
 
@@ -224,6 +227,27 @@ Do not leave Phase 0 based on a file count alone. The exit artifact must contain
 - list of known broken or stale tests;
 - explicit deletions/quarantines approved for the next implementation phase.
 
+#### Current gate state
+
+The initial reference-checked cleanup slice is complete:
+
+- code demolition map, UI cleanup map, and reference-scan report exist;
+- retained S0 systems and compatibility adapters are listed;
+- the dead Hermes CLI/context slice, superseded five-tool adapter, dead Plan toolbar,
+  and Plan backend picker were removed;
+- the retained graph retrieval, source-anchor, continuity, and v2 statblock adapter
+  gates are green.
+
+The known UI failure families were triaged and the UI baseline is green. The
+deterministic S1 latest-recap resolver is also green, but the three-trial real
+Plan/Hermes dogfood reproduced a generic graph-empty abstention: Hermes did not
+name the latest recap, comparison boundary, or memory lag. The S1 gate is
+therefore rejected.
+
+The broader Phase 0 gate remains open for the S1 route repair and rerun, plus
+deferred Live/planner/Graph Review migrations. No new creative workflow primitive
+begins during that open gate.
+
 ## Phase 1 — explicit re-anchor
 
 **Priority:** immediately after Phase 0  
@@ -241,8 +265,16 @@ The re-anchor must answer:
 6. Is statblock generation the first proving domain?
 7. Are locations, NPCs, and encounters later consumers of the same workflow kernel?
 
-Update the active anchor, architecture, stories, and plan together. Do not begin
-implementation while these documents disagree.
+The product direction is now accepted and recorded in
+[`REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md).
+The active anchor, architecture, stories, evaluation, and plan agree on the
+campaign sensemaking/authoring direction.
+
+The initial Phase 0C/0D cleanup slice and its reports are now complete. The current
+bounded graph retrieval and continuity implementation is retained as the S0
+foundation, not treated as proof that the authoring reset is complete. The UI
+baseline is green, but broader cleanup remains gated by deferred adapter decisions
+and a repaired, passing S1 latest-recap dogfood.
 
 The re-anchor should also produce:
 
@@ -253,6 +285,10 @@ The re-anchor should also produce:
 - first proving journey;
 - explicit non-goals;
 - next gate command or manual dogfood action.
+
+The first conversational acceptance is the latest-recap change read. The first
+full authoring proving domain is statblocks. These are sequential gates over the
+same retrieval boundary, not competing product directions.
 
 ## Phase 2 — durable reusable primitives
 

@@ -1,13 +1,14 @@
 # Goal Anchor — Hermes as a Campaign Sensemaking Partner
 
-**Status:** PROPOSED GOAL; operator review required  
+**Status:** ACCEPTED PRODUCT GOAL; implementation remains gated by Phase 0 code/UI cleanup
 **Created:** 2026-07-15  
 **Scope:** Hermes free-form interaction, recap change investigation, campaign sensemaking, graph/source evidence, and prep implications
 
 This is a product goal anchor for the Hermes Campaign Authoring Foundation Reset.
-The explicit Phase 1 re-anchor must reconcile it with the active architecture,
-stories, evaluation, and the Campaign Supergraph roadmap before implementation
-sequencing changes.
+The explicit Phase 1 re-anchor is recorded in
+[`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md).
+It reconciles this goal with the active architecture, stories, evaluation, and
+the Campaign Supergraph roadmap before new authoring primitives are built.
 
 Start with the active Hermes document index:
 [`INDEX-hermes-campaign-authoring-foundation.md`](INDEX-hermes-campaign-authoring-foundation.md).
@@ -118,4 +119,9 @@ The first proving slice should be one end-to-end `change_since_latest_recap` jou
 the latest recap is identified, the relevant before/after or recap-to-head delta is
 retrieved, Hermes selects meaningful changes, and the final prose distinguishes
 campaign facts, implications, unresolved material, and prep relevance.
+
+This is the first conversational acceptance gate. The first full authoring proving
+domain is statblocks, using the same retrieval boundary and proceeding through
+typed draft review and explicit promotion. The two proving gates are intentionally
+separate; neither treats conversation continuity as campaign authority.
 

@@ -1,10 +1,11 @@
 # Evaluation — Hermes Campaign Authoring Foundation
 
-**Status:** PROPOSED ACTIVE DESIGN; re-anchor required before implementation  
+**Status:** ACCEPTED ACTIVE DESIGN; implementation remains gated by Phase 0 code/UI cleanup
 **Created:** 2026-07-15  
 **Goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **Architecture:** [`ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)  
 **Plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
+**Re-anchor:** [`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
 
 ## Evaluation principle
 
@@ -31,7 +32,7 @@ The repository must have:
 
 ## Phase 1 re-anchor gate
 
-The goal anchor, architecture, stories, evaluation, and plan must agree that:
+The goal anchor, architecture, stories, evaluation, and plan now agree that:
 
 - Hermes is a campaign sensemaking and authoring partner;
 - free-form text remains a real agent task;
@@ -40,6 +41,10 @@ The goal anchor, architecture, stories, evaluation, and plan must agree that:
 - graph incompleteness becomes useful disclosed context;
 - statblocks are the first proving domain;
 - later domains reuse the same workflow kernel.
+
+The acceptance sequence is explicit: S1 latest-recap change reading is the first
+conversational gate; S2 statblock collaboration is the first complete authoring
+gate. Passing S1 does not imply that promotion or durable authoring is available.
 
 ## First sensemaking scenario
 

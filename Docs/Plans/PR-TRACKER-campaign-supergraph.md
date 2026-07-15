@@ -2,12 +2,15 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-14 — PR010B Rung 4C / PR355 done; Rung 5 same-thread object continuity READY
+**Updated:** 2026-07-15 — Hermes product re-anchor accepted; Rung 5 continuity retained as S0 foundation
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
 
-Tracker IDs are roadmap slice IDs, not GitHub PR numbers. Older handoffs, backlog items, research notes, and Project Sources cannot override this tracker.
+Tracker IDs are roadmap slice IDs, not GitHub PR numbers. This tracker sequences
+Campaign Supergraph infrastructure. The Hermes reset plan and re-anchor record
+sequence the separate product/authoring gate. Older handoffs, backlog items,
+research notes, and Project Sources cannot override either active authority.
 
 ## Global rules
 
@@ -45,6 +48,11 @@ BLOCKED PR012         Leftover cleanup safety net
 ```
 
 PR010 is intentionally split into PR010A and PR010B. Do not renumber PR011 or PR012.
+
+The bounded Rung 5 continuity implementation is present on the current Hermes
+branch but is not yet merged into `main`. Treat it as retained S0 infrastructure:
+do not start Rung 6 or expand the graph-tool surface until the Hermes Phase 0
+code/UI gate and S1 latest-recap acceptance are complete.
 
 ## Completed foundation
 

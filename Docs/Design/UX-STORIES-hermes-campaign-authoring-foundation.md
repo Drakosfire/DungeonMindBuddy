@@ -1,10 +1,11 @@
 # User and Agent Stories — Hermes Campaign Authoring Foundation
 
-**Status:** PROPOSED ACTIVE DESIGN; re-anchor required before implementation  
+**Status:** ACCEPTED ACTIVE DESIGN; implementation remains gated by Phase 0 code/UI cleanup
 **Created:** 2026-07-15  
 **Goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **Architecture:** [`ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)  
 **Plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
+**Re-anchor:** [`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
 
 ## User stories
 
@@ -89,3 +90,10 @@ confirmation can create durable campaign memory.
 - A generated artifact remains a draft until explicit promotion.
 - Conversation continuity can resolve intent but never becomes factual authority.
 - Facts, source detail, inference, proposal, and gap have distinct support states.
+
+## Re-anchor sequencing
+
+The latest-recap change read is the first conversational acceptance journey.
+Statblock collaboration is the first full authoring journey; locations, NPCs, and
+encounters follow only after the shared workflow kernel and promotion boundary
+are proven.
