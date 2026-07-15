@@ -168,8 +168,6 @@ describe("PlanSurfaceShell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("World graph (all sessions) · preparing Session 23")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Live retrieval" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Hermes tools" })).toBeInTheDocument();
     expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
     expect(screen.queryByText("Advanced source metadata")).not.toBeInTheDocument();
     expect(screen.queryByText(/future Agent Interaction contract/i)).not.toBeInTheDocument();
@@ -195,6 +193,10 @@ describe("PlanSurfaceShell", () => {
 
   it("asks prep memory through live query using the live packet session", async () => {
     const user = userEvent.setup();
+    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Live retrieval thread");
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), liveThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", liveThread.threadId), JSON.stringify(liveThread));
+
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
@@ -433,7 +435,6 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("World graph (all sessions) · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -706,7 +707,6 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("World graph (all sessions) · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -790,7 +790,6 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("World graph (all sessions) · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -1508,7 +1507,6 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByRole("heading", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Trace On" }));
@@ -1543,7 +1541,6 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
@@ -1576,7 +1573,6 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
@@ -1683,7 +1679,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -1740,7 +1735,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -1806,7 +1800,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(
       screen.getByLabelText("Question"),
       "What do we know about Tripod Null-Calf at the North Gate?",
@@ -1866,7 +1859,6 @@ describe("PlanSurfaceShell", () => {
 
     const { unmount } = renderPlanSurface();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(
       screen.getByLabelText("Question"),
       "What do we know about Tripod Null-Calf at the North Gate?",
@@ -1938,7 +1930,6 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(
       screen.getByLabelText("Question"),
       "What is it connected to that should affect my prep?",
@@ -1984,7 +1975,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await screen.findByText("Tripod stands at the North Gate.");
@@ -2070,7 +2060,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2097,7 +2086,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
@@ -2120,7 +2108,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
@@ -2153,7 +2140,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2188,7 +2174,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2230,7 +2215,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2283,7 +2267,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2354,7 +2337,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2377,7 +2359,6 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));

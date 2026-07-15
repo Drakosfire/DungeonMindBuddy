@@ -423,7 +423,7 @@ export function PlanAgentInteractionBar({
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<IngestionSourceBundle | null>(null);
   const [question, setQuestion] = useState("");
-  const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("live");
+  const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("hermes");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
   const thread = agentInteraction.activeThread;
@@ -937,29 +937,6 @@ export function PlanAgentInteractionBar({
             ) : null}
             <form className="plan-agent-ask" onSubmit={submitQuestion}>
                 <h3>Ask DungeonBuddy</h3>
-                <fieldset className="plan-agent-backend-picker">
-                  <legend>Answer mode</legend>
-                  <label>
-                    <input
-                      type="radio"
-                      name="plan-agent-query-backend"
-                      value="live"
-                      checked={queryBackend === "live"}
-                      onChange={() => setQueryBackend("live")}
-                    />
-                    <span>Live retrieval</span>
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="plan-agent-query-backend"
-                      value="hermes"
-                      checked={queryBackend === "hermes"}
-                      onChange={() => setQueryBackend("hermes")}
-                    />
-                    <span>Hermes tools</span>
-                  </label>
-                </fieldset>
                 <div className="plan-agent-prompt-suggestions" aria-label="Suggested prep questions">
                   {PREP_MEMORY_PROMPTS.map((prompt) => (
                     <button

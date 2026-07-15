@@ -604,29 +604,6 @@
   gap: 0.35rem;
 }
 
-.plan-agent-backend-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.9rem;
-  margin: 0 0 0.65rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 10px;
-}
-
-.plan-agent-backend-picker legend {
-  padding: 0 0.25rem;
-  color: var(--fg-mute, #9aa3b5);
-  font-size: 0.82rem;
-}
-
-.plan-agent-backend-picker label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--fg, #e8eaef);
-}
-
 .plan-agent-ask label span {
   color: var(--fg-mute, #9aa3b5);
   font-size: 0.82rem;

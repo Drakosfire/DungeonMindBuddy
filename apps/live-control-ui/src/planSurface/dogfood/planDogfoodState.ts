@@ -67,8 +67,8 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
   { id: "source-preview", label: "Use Show source preview from the card when available" },
   {
     id: "hermes-tools-trace",
-    label: "Open Ask DungeonBuddy → Hermes tools → Trace On",
-    description: "Rung 5 uses Hermes graph agent only; Live sibling stays isolated.",
+    label: "Open Ask DungeonBuddy → inspect graph evidence and trace",
+    description: "Fresh Plan threads use the Hermes graph agent; Live remains a compatibility path for persisted threads.",
   },
   {
     id: "hermes-turn-1-tripod",
