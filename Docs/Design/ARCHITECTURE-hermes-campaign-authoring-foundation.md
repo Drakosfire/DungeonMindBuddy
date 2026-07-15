@@ -1,9 +1,10 @@
 # Architecture — Hermes Campaign Authoring Foundation
 
-**Status:** PROPOSED ACTIVE DESIGN; re-anchor required before implementation  
+**Status:** ACCEPTED ACTIVE DESIGN; implementation remains gated by Phase 0 code/UI cleanup
 **Created:** 2026-07-15  
 **Goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **Plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
+**Re-anchor:** [`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
 
 ## Purpose
 
@@ -105,7 +106,7 @@ write canon.
 
 ## Re-anchor gate
 
-This document is an active design surface, not implementation authority yet. Phase 1
-must reconcile it with the goal anchor, stories, evaluation contract, retained
-systems, demolition decisions, and the statblock proving slice before new primitives
-are built.
+The Phase 1 product re-anchor is accepted. The first conversational acceptance is
+the latest-recap change read; the first full authoring proving domain is statblocks.
+This document remains implementation-gated until the Phase 0 code/UI demolition
+maps, reference scan, retained-adapter list, and stale-test list are complete.
