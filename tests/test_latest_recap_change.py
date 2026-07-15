@@ -145,6 +145,14 @@ def test_latest_recap_context_is_passed_to_the_hermes_session_packet(
             "campaign_id": "longmont-c2",
             "outcome": "memory_lag",
             "memory_lag": True,
+            "latest_recap": {"session_id": "session-24"},
+            "comparison_boundary": {
+                "kind": "latest_admitted_recap_to_graph_head",
+                "recap_session_id": "session-24",
+                "graph_latest_session_id": "session-23",
+                "graph_revision_id": "rev:head",
+            },
+            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
         },
     }
 
@@ -157,3 +165,16 @@ def test_latest_recap_context_is_passed_to_the_hermes_session_packet(
     assert request.retrieval_session is not None
     assert request.retrieval_session["latest_recap_change"]["outcome"] == "memory_lag"
     assert request.retrieval_session["intent_hint"] == "compare"
+
+    from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
+    from graph_memory.interaction.session_store import get_session
+
+    stored = get_session(request.retrieval_session_id)
+    assert stored is not None
+    assert stored.latest_recap_change is not None
+    assert stored.latest_recap_change["outcome"] == "memory_lag"
+
+    rehydrated = hydrate_session_from_packet(request.retrieval_session)
+    assert rehydrated.latest_recap_change is not None
+    assert rehydrated.latest_recap_change["latest_recap"]["session_id"] == "session-24"
+    assert rehydrated.project_for_hermes()["latest_recap_change"]["memory_lag"] is True

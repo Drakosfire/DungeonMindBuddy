@@ -2,21 +2,20 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate rejected; Phase 0 code/UI gate remains open
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Phase 2 creative primitives unblocked
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
 This is the explicit Phase 1 re-anchor record. It reconciles the active Hermes
 design set with the implementation branch and the Campaign Supergraph
-infrastructure roadmap. It does not claim that backend demolition, UI cleanup,
-creative workflow primitives, or statblock promotion are complete.
+infrastructure roadmap. It does not claim that creative workflow primitives or
+statblock promotion are complete.
 
 ## Evidence used
 
-- Buddy branch `agent/pr010b5-plan-hermes-thread-continuity`:
-  `1d0b52398cfc9161d50b01d31340c8e9c33c7bce`
-- `origin/agent/pr010b5-plan-hermes-thread-continuity` was fetch-verified at
-  the same commit.
+- Buddy branch `agent/pr010b5-plan-hermes-thread-continuity` integrated tip:
+  `f44ced680dcb3b31d9743d822eaf541ab9906a6c`, plus the local S1 route-repair
+  working tree on top of that tip.
 - Buddy `origin/main` remains at `4e9b4893`, whose documented critical path is
   PR010B Rung 5 same-thread continuity.
 - The 2026-07-15 archive batch and its link/boundary verification are recorded
@@ -25,9 +24,11 @@ creative workflow primitives, or statblock promotion are complete.
   continuity work. It does not yet contain a generic
   `CreativeOperationSession`, `GenerationPacket`, `DraftArtifact`,
   `PromotionPlan`, or `CommitReceipt` implementation.
-- The deterministic S1 latest-recap artifact is green, while the three-trial real
-  Plan/Hermes dogfood is recorded as rejected in
+- The deterministic S1 latest-recap artifact is green, and the repaired
+  three-trial Hermes dogfood is recorded as accepted in
   [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md).
+  Live repair trials artifact:
+  `evals/graph_memory_layer/artifacts/last_s1_live_repair_trials.json`.
 
 ## Re-anchor decisions
 
@@ -126,22 +127,20 @@ complete and its evidence is recorded in the Phase 0 reports:
 
 ## Phase 0 exit work still open
 
-Before new creative primitives are built, the reset now has the required maps,
-reference scan, retained-adapter list, stale-test list, and explicit approval record
-for the initial removal set. The UI failure families have been triaged and the
-broader gate still needs:
+The reset now has the required maps, reference scan, retained-adapter list,
+stale-test list, explicit approval record for the initial removal set, and an
+accepted S1 latest-recap dogfood after route repair. Remaining Phase 0 follow-ups
+are cleanup rather than product blockers:
 
-- repair and rerun of the rejected S1 latest-recap read-only dogfood;
-- replacement-owner decisions for deferred Live, planner, and Graph Review paths.
+- replacement-owner decisions for deferred Live, planner, and Graph Review paths;
+- merge/landing of the continuity integration branch to `main`.
 
-The current branch is therefore **re-anchored for direction and the initial cleanup
-slice, but not released from the broader Phase 0 implementation gate**.
+The current branch is therefore **re-anchored for direction, initial cleanup, and
+S1 acceptance**. Phase 2 creative primitives are unblocked.
 
 ## Next gate
 
-Repair the S1 route so an empty focused graph does not terminate the turn before
-Hermes can use the server-provided latest-recap context. Rerun the S1 read-only
-dogfood acceptance before constructing `CreativeOperationSession`.
-The next implementation slice must be independently falsifiable and must not
-add another graph tool or domain-specific generation path without satisfying
-that gate.
+Construct the smallest independently falsifiable `CreativeOperationSession`
+kernel for the S2 statblock proving domain. Do not reopen the rejected
+empty-graph abstention path, and do not add domain generators until the shared
+workflow boundary exists.

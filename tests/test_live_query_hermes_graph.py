@@ -1326,6 +1326,91 @@ def test_valid_history_graph_gap_still_abstains(tmp_path: Path) -> None:
     assert response["citations"] == []
 
 
+def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
+    tmp_path: Path,
+) -> None:
+    s1_envelope = {
+        **READY_ENVELOPE,
+        "status": "empty",
+        "matched_node_ids": [],
+        "nodes": [],
+        "warning_codes": ["graph_context_empty"],
+        "latest_recap_change": {
+            "schema": "dmb_latest_recap_change_context_v1",
+            "status": "ready",
+            "campaign_id": "longmont-c2",
+            "outcome": "memory_lag",
+            "memory_lag": True,
+            "latest_recap": {
+                "artifact_id": "longmont-c2/session-24",
+                "campaign_id": "longmont-c2",
+                "session_id": "session-24",
+                "source_recap_path": "Session 24 - Recap.md",
+            },
+            "comparison_boundary": {
+                "kind": "latest_admitted_recap_to_graph_head",
+                "recap_session_id": "session-24",
+                "graph_latest_session_id": "session-23",
+                "graph_revision_id": "revision:resolved-server",
+            },
+            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+        },
+    }
+
+    class _EchoSessionHost:
+        def __init__(self) -> None:
+            self.calls: list[HermesGraphAgentTurnRequest] = []
+
+        def execute(
+            self,
+            request: HermesGraphAgentTurnRequest,
+        ) -> HermesGraphAgentTurnResult:
+            self.calls.append(request)
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="Invented movement must not become the answer.",
+                messages=[],
+                hermes_session_id="hermes-s1-empty",
+                tool_events=[
+                    _tool_event(
+                        outcome="empty",
+                        source_anchor_ids=[],
+                        matched_node_ids=[],
+                        relationship_ids=[],
+                    )
+                ],
+                retrieval_session_id=request.retrieval_session_id,
+                retrieval_session=(
+                    dict(request.retrieval_session)
+                    if request.retrieval_session is not None
+                    else None
+                ),
+            )
+
+    host = _EchoSessionHost()
+    response = run_hermes_graph_query(
+        text="What changed after the latest ingested recap?",
+        packet=PACKET,
+        graph_envelope=s1_envelope,
+        agent_thread_id="agent-thread-s1",
+        turn_id="turn-s1",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+
+    assert host.calls
+    assert host.calls[0].retrieval_session is not None
+    assert host.calls[0].retrieval_session["latest_recap_change"]["outcome"] == "memory_lag"
+    assert response["grounding"]["state"] == "partial"
+    assert response["grounding"]["acceptance_state"] == "partial_coverage"
+    assert "no_admissible_claims" not in response["grounding"]["reason_codes"]
+    assert "session-24" in response["answer"]
+    assert "session-23" in response["answer"]
+    assert "memory lag" in response["answer"].lower()
+    assert "Invented movement" not in response["answer"]
+    assert response["latest_recap_change"]["outcome"] == "memory_lag"
+
+
 def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:
     host = _FakeHost(_ok_result())
     with pytest.raises(Exception) as exc:

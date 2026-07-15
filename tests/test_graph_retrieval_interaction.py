@@ -197,6 +197,76 @@ def test_validate_structured_answer_emits_source_citations_only_for_open_reads()
     assert denied.outcome == "graph_grounded"
 
 
+def test_validate_s1_memory_lag_gap_is_partial_not_generic_abstention() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:longmont-c2",
+            revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
+            focus={"kind": "session", "session_id": "session-24"},
+        ),
+        question="What changed after the latest ingested recap?",
+        intent_hint="compare",
+        claims=[],
+        latest_recap_change={
+            "schema": "dmb_latest_recap_change_context_v1",
+            "status": "ready",
+            "campaign_id": "longmont-c2",
+            "outcome": "memory_lag",
+            "memory_lag": True,
+            "latest_recap": {
+                "artifact_id": "longmont-c2/session-24",
+                "campaign_id": "longmont-c2",
+                "session_id": "session-24",
+                "source_recap_path": "Session 24 - Recap.md",
+            },
+            "comparison_boundary": {
+                "kind": "latest_admitted_recap_to_graph_head",
+                "recap_session_id": "session-24",
+                "graph_latest_session_id": "session-23",
+                "graph_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+            },
+            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+        },
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="Invented campaign movement must not become factual.",
+    )
+
+    assert validated.outcome == "partial_coverage"
+    assert "no_admissible_claims" not in validated.reason_codes
+    assert "named_gap" in validated.reason_codes
+    assert "session-24" in validated.answer_text
+    assert "session-23" in validated.answer_text
+    assert "memory lag" in validated.answer_text.lower()
+    assert "Invented campaign movement" not in validated.answer_text
+
+
+def test_validate_empty_graph_without_latest_recap_still_abstains() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="What is it connected to?",
+        claims=[],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="History prose should not answer this.",
+    )
+
+    assert validated.outcome == "abstained"
+    assert "no_admissible_claims" in validated.reason_codes
+    assert "History prose should not answer this." not in validated.answer_text
+
+
 def test_forensic_enabled_respects_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(FORENSIC_ENV_FLAG, raising=False)
     assert forensic_enabled() is False

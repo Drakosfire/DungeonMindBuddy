@@ -134,6 +134,9 @@ class GraphRetrievalSession(BaseModel):
     coverage: CoverageState = Field(default_factory=CoverageState)
     diagnostics: list[str] = Field(default_factory=list)
     preflight_candidate_ids: list[str] = Field(default_factory=list)
+    # Server-owned S1 comparison metadata. Dict form keeps the interaction
+    # package free of apps imports while surviving host IPC round-trips.
+    latest_recap_change: dict[str, Any] | None = None
 
     def claim_by_id(self, claim_id: str) -> GraphClaim | None:
         for claim in self.claims:
@@ -187,10 +190,15 @@ class GraphRetrievalSession(BaseModel):
                 "citation_authority": "opened_source_reads",
                 "graph_citations_permitted": True,
             },
+            **(
+                {"latest_recap_change": dict(self.latest_recap_change)}
+                if isinstance(self.latest_recap_change, dict)
+                else {}
+            ),
         }
 
     def project_for_hermes(self) -> dict[str, Any]:
-        return {
+        packet: dict[str, Any] = {
             "schema": GRAPH_RETRIEVAL_SESSION_SCHEMA,
             "retrieval_session_id": self.id,
             "snapshot": self.snapshot.model_dump(mode="json", by_alias=True),
@@ -216,6 +224,9 @@ class GraphRetrievalSession(BaseModel):
             ],
             "diagnostics": list(self.diagnostics),
         }
+        if isinstance(self.latest_recap_change, dict):
+            packet["latest_recap_change"] = dict(self.latest_recap_change)
+        return packet
 
 
 __all__ = [

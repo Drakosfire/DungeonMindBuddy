@@ -64,6 +64,93 @@ PARTIAL_SOURCE_WARNING = (
 )
 
 
+def _latest_recap_change(session: GraphRetrievalSession) -> Mapping[str, Any] | None:
+    raw = session.latest_recap_change
+    return raw if isinstance(raw, Mapping) else None
+
+
+def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
+    """Server-owned S1 gap prose from comparison metadata — never model invention."""
+    latest = context.get("latest_recap") if isinstance(context.get("latest_recap"), Mapping) else {}
+    boundary = (
+        context.get("comparison_boundary")
+        if isinstance(context.get("comparison_boundary"), Mapping)
+        else {}
+    )
+    recap_session = str(latest.get("session_id") or boundary.get("recap_session_id") or "").strip()
+    graph_latest = str(boundary.get("graph_latest_session_id") or "").strip()
+    revision_id = str(boundary.get("graph_revision_id") or "").strip()
+    outcome = str(context.get("outcome") or "unknown").strip()
+    diagnostic_codes = [
+        str(code).strip()
+        for code in (context.get("diagnostic_codes") or [])
+        if str(code).strip()
+    ]
+
+    if not recap_session:
+        return (
+            "DungeonBuddy could identify a latest-recap comparison request, but the "
+            "admitted latest recap is not available in registry metadata for this campaign."
+        )
+
+    lines = [
+        f"The latest admitted recap is {recap_session}.",
+    ]
+    if graph_latest or revision_id:
+        boundary_bits: list[str] = []
+        if graph_latest:
+            boundary_bits.append(f"graph head session {graph_latest}")
+        if revision_id:
+            boundary_bits.append(f"revision {revision_id}")
+        lines.append(
+            "Comparison boundary: latest admitted recap to "
+            + (" and ".join(boundary_bits) + ".")
+        )
+    else:
+        lines.append(
+            "Comparison boundary: latest admitted recap to the current graph head "
+            "(graph-head session is unavailable)."
+        )
+
+    if outcome == "memory_lag" or bool(context.get("memory_lag")):
+        lines.append(
+            f"{recap_session} is admitted as a recap source, but it is not yet present "
+            "in the durable World Graph head. That is memory lag, not a completed "
+            "no-change comparison."
+        )
+        lines.append(
+            "I cannot narrate grounded campaign movement from graph claims for this "
+            "turn because the focused graph has no admissible matched objects yet. "
+            "Promote or ingest the latest recap into campaign memory, or ask about a "
+            "specific object already present in the graph head."
+        )
+    elif outcome == "no_change":
+        lines.append(
+            "The completed comparison found no later graph session beyond the latest "
+            "admitted recap. That is a completed no-change result for the graph-head "
+            "boundary, not an unknown retrieval failure."
+        )
+    elif outcome == "changed":
+        lines.append(
+            "The graph head appears to contain post-recap session material, but this "
+            "turn still lacks admissible matched graph claims to narrate the movement."
+        )
+    elif outcome == "source_unavailable":
+        lines.append(
+            "The latest admitted recap source file is unavailable, so the comparison "
+            "cannot be completed from source evidence."
+        )
+    else:
+        lines.append(
+            "The latest-recap comparison boundary is incomplete or unknown for this "
+            "campaign, so I cannot yet describe what changed."
+        )
+
+    if diagnostic_codes:
+        lines.append("Diagnostics: " + ", ".join(diagnostic_codes) + ".")
+    return "\n\n".join(lines)
+
+
 def _claims_by_id(session: GraphRetrievalSession) -> dict[str, GraphClaim]:
     return {claim.claim_id: claim for claim in session.claims}
 
@@ -160,12 +247,31 @@ def synthesize_draft_from_session(
                 supporting_claim_ids=[c.claim_id for c in factual],
             )
         )
+    latest_recap = _latest_recap_change(session)
+    if not factual and latest_recap is not None:
+        # Server-owned S1 fallback: empty focused graph must still disclose the
+        # comparison boundary and memory lag instead of a generic abstention.
+        # Model prose is intentionally ignored here — it is not claim support.
+        sections.append(
+            AnswerSection(
+                text=_s1_gap_answer_text(latest_recap),
+                statement_kind="gap",
+            )
+        )
     known = [c.predicate or c.claim_kind for c in factual]
     missing = ["source verification"] if unreadable else []
+    if not factual and latest_recap is not None:
+        if bool(latest_recap.get("memory_lag")):
+            missing.append("latest_recap_in_graph_head")
+        coverage_state = "partial_coverage"
+    else:
+        coverage_state = (
+            "partial_coverage" if missing else ("graph_grounded" if factual else "empty")
+        )
     return StructuredAnswerDraft(
         sections=sections,
         coverage={
-            "state": "partial_coverage" if missing else ("graph_grounded" if factual else "empty"),
+            "state": coverage_state,
             "known": known,
             "missing": missing,
         },
@@ -279,7 +385,13 @@ def validate_structured_answer(
         warnings.append(PARTIAL_SOURCE_WARNING)
         reason_codes.append("source_anchor_unreadable")
 
-    if not accepted_unique and not inferences:
+    named_gap_only = (
+        not accepted_unique
+        and not inferences
+        and "named_gap" in reason_codes
+        and _latest_recap_change(session) is not None
+    )
+    if not accepted_unique and not inferences and not named_gap_only:
         return ValidatedAnswer(
             outcome="abstained",
             answer_text=ABSTENTION_ANSWER,
@@ -289,8 +401,11 @@ def validate_structured_answer(
             reason_codes=["no_admissible_claims", *reason_codes],
         )
 
-    if citations and accepted_unique:
-        outcome: TurnOutcomeState = "source_verified"
+    if named_gap_only:
+        outcome = "partial_coverage"
+        reason_codes.append("latest_recap_memory_lag_disclosed")
+    elif citations and accepted_unique:
+        outcome = "source_verified"
     elif unreadable and accepted_unique:
         outcome = "partial_coverage"
     elif inferences and not accepted_unique:

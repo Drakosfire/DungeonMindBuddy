@@ -301,10 +301,13 @@ def build_hermes_graph_turn_request(
     session = retrieval_session
     if session is None:
         session = create_session_from_preflight(graph_envelope, question=question)
-    retrieval_session_packet = session.project_for_hermes()
     latest_recap_change = graph_envelope.get("latest_recap_change")
-    if isinstance(latest_recap_change, Mapping):
-        retrieval_session_packet["latest_recap_change"] = dict(latest_recap_change)
+    if isinstance(latest_recap_change, Mapping) and session.latest_recap_change is None:
+        # Preserve S1 context on the shared session object so host hydrate and
+        # claim validation see the same server-owned comparison boundary.
+        session.latest_recap_change = dict(latest_recap_change)
+        replace_session(session)
+    retrieval_session_packet = session.project_for_hermes()
     request = HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,

@@ -1,11 +1,11 @@
 # Plan — Hermes Campaign Authoring Foundation Reset
 
-**Status:** ACTIVE RESET; Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate rejected; broader gate open
+**Status:** ACTIVE RESET; Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate accepted; Phase 2 creative primitives unblocked
 **Created:** 2026-07-15  
 **Primary goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **First proving domain:** statblocks  
 **Re-anchor record:** [`REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
-**Implementation rule:** no new creative primitive begins until the remaining Phase 0 code/UI gate is accepted
+**Implementation rule:** S1 conversational gate is accepted; Phase 2 creative primitives may begin without reopening the rejected empty-graph abstention path
 **Phase 0 evidence:** [`../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md`](../Reports/HERMES-PHASE-0-REFERENCE-SCAN.md)
 **S1 dogfood evidence:** [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md)
 
@@ -239,14 +239,12 @@ The initial reference-checked cleanup slice is complete:
   gates are green.
 
 The known UI failure families were triaged and the UI baseline is green. The
-deterministic S1 latest-recap resolver is also green, but the three-trial real
-Plan/Hermes dogfood reproduced a generic graph-empty abstention: Hermes did not
-name the latest recap, comparison boundary, or memory lag. The S1 gate is
-therefore rejected.
+deterministic S1 latest-recap resolver remained green, and the repaired three-trial
+Hermes dogfood now names the latest recap, comparison boundary, and memory lag
+with a specific disclosed evidence-gap request. The S1 gate is therefore accepted.
 
-The broader Phase 0 gate remains open for the S1 route repair and rerun, plus
-deferred Live/planner/Graph Review migrations. No new creative workflow primitive
-begins during that open gate.
+Deferred Live/planner/Graph Review migrations remain open as cleanup follow-ups.
+Phase 2 creative workflow primitives are unblocked by S1 acceptance.
 
 ## Phase 1 — explicit re-anchor
 
@@ -273,8 +271,9 @@ campaign sensemaking/authoring direction.
 The initial Phase 0C/0D cleanup slice and its reports are now complete. The current
 bounded graph retrieval and continuity implementation is retained as the S0
 foundation, not treated as proof that the authoring reset is complete. The UI
-baseline is green, but broader cleanup remains gated by deferred adapter decisions
-and a repaired, passing S1 latest-recap dogfood.
+baseline is green and the S1 latest-recap dogfood is accepted after route repair.
+Deferred adapter decisions remain follow-up cleanup, not a blocker for Phase 2
+primitive construction.
 
 The re-anchor should also produce:
 

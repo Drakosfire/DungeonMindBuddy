@@ -117,6 +117,10 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
         operations.append(RetrievalOperationEvent.model_validate(dict(item)))
 
     coverage_raw = packet.get("coverage") if isinstance(packet.get("coverage"), Mapping) else {}
+    latest_recap_raw = packet.get("latest_recap_change")
+    latest_recap_change = (
+        dict(latest_recap_raw) if isinstance(latest_recap_raw, Mapping) else None
+    )
     session = GraphRetrievalSession(
         id=str(packet.get("retrieval_session_id") or packet.get("id") or ""),
         snapshot=snapshot,
@@ -140,6 +144,7 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
             str(x) for x in (packet.get("preflight_candidate_ids") or [])
         ]
         or [ref.id for ref in referents],
+        latest_recap_change=latest_recap_change,
     )
     if not session.id:
         raise ValueError("retrieval session packet missing id")

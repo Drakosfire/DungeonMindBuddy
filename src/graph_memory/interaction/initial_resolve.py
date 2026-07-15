@@ -97,6 +97,23 @@ def create_session_from_preflight(
         )
 
     claims = claims_from_preflight_envelope(envelope)
+    latest_recap_raw = envelope.get("latest_recap_change")
+    latest_recap_change = (
+        dict(latest_recap_raw) if isinstance(latest_recap_raw, Mapping) else None
+    )
+    gap_codes: list[str] = []
+    missing: list[str] = []
+    coverage_state = (
+        "partial_coverage" if matched and not claims else ("ready" if claims else "empty")
+    )
+    if latest_recap_change is not None:
+        for code in latest_recap_change.get("diagnostic_codes") or []:
+            text = str(code).strip()
+            if text:
+                gap_codes.append(text)
+        if bool(latest_recap_change.get("memory_lag")):
+            missing.append("latest_recap_in_graph_head")
+            coverage_state = "partial_coverage"
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id=str(envelope.get("world_id") or ""),
@@ -112,16 +129,17 @@ def create_session_from_preflight(
         claims=claims,
         preflight_candidate_ids=matched,
         coverage=CoverageState(
-            state="partial_coverage" if matched and not claims else ("ready" if claims else "empty"),
+            state=coverage_state,
             known=[c.predicate or c.claim_kind for c in claims if c.may_state_as_campaign_fact()],
-            missing=[],
-            gap_codes=[],
+            missing=missing,
+            gap_codes=gap_codes,
         ),
         diagnostics=[
             str(code)
             for code in (envelope.get("warning_codes") or [])
             if str(code).strip()
         ],
+        latest_recap_change=latest_recap_change,
     )
     session.operations.append(
         RetrievalOperationEvent(

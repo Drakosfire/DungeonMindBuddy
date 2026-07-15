@@ -1,12 +1,12 @@
 # Active Hermes Campaign Authoring Foundation Documents
 
-**Status:** Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate rejected pending repair
+**Status:** Phase 1 product re-anchor accepted; initial Phase 0 cleanup slice complete; S1 gate accepted after repair
 **Created:** 2026-07-15  
 **Sequencing authority:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
 
 This is the small active Hermes design set for the campaign sensemaking and authoring
-reset. The product direction is accepted; new creative primitives remain gated by
-the remaining Phase 0 evidence and S1 acceptance.
+reset. The product direction is accepted and the S1 latest-recap gate is green after
+repair. Phase 2 creative primitives may begin under the reset plan.
 
 ## Active set
 
@@ -43,8 +43,9 @@ product authorities:
 
 These references are reconciled by the re-anchor record and Phase 0 reports. The
 Campaign Supergraph roadmap and tracker remain sequencing authority for graph
-infrastructure; the Hermes reset plan governs the authoring/product gate. Neither
-authorizes new creative primitives before the remaining Phase 0 gate and S1.
+infrastructure; the Hermes reset plan governs the authoring/product gate. S1
+acceptance unblocks Phase 2 creative primitives; deferred adapter cleanup does
+not reopen the empty-graph abstention failure.
 
 ## Archive boundary
 
@@ -60,6 +61,7 @@ Its completed work is historical input and is not sequencing authority for this 
 
 The document archive, product re-anchor, initial low-risk code/UI cleanup slice,
 and UI failure triage are complete. The reports record retained adapters and
-deferred cleanup. The deterministic S1 resolver is green, but the real
-Plan/Hermes dogfood rejected the S1 read-only acceptance; the route must be
-repaired and rerun before new authoring primitives are built.
+deferred cleanup. The S1 latest-recap read-only acceptance is now green after
+route repair: empty focused-graph turns disclose the admitted recap, comparison
+boundary, and memory lag instead of a generic abstention. Creative workflow
+primitives may begin under the reset plan.

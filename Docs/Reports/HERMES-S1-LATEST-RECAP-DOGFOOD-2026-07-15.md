@@ -1,6 +1,6 @@
 # Hermes S1 Latest-Recap Dogfood — 2026-07-15
 
-**Gate:** REJECTED
+**Gate:** ACCEPTED after repair rerun
 **Question:** “What changed after the latest ingested recap?”
 **Scope:** read-only Plan/Hermes sensemaking over the retained S0 retrieval boundary
 
@@ -25,11 +25,11 @@ The server-owned context correctly identified:
 
 Artifact: `evals/graph_memory_layer/artifacts/last_s1_latest_recap_dogfood.json`
 
-## Real Plan/Hermes trials
+## Initial live rejection
 
-The canonical question was submitted three times in the live Plan surface at
-`/plan?campaign=longmont-c2&session=24&dogfood=1&tool=recap`, using fresh
-requests in the same Ask DungeonBuddy drawer.
+Earlier the same day, three live Plan/Hermes trials at
+`/plan?campaign=longmont-c2&session=24&dogfood=1&tool=recap` all returned a
+generic empty-graph abstention:
 
 | Trial | Agent result | Graph result | Duration |
 |---|---|---|---:|
@@ -37,29 +37,36 @@ requests in the same Ask DungeonBuddy drawer.
 | 2 | `hermes · partial · abstained` | `empty · 0 matched · abstained` | 10282 ms |
 | 3 | `hermes · partial · abstained` | `empty · 0 matched · abstained` | 10390 ms |
 
-The selected final response exposed:
+Root cause: `latest_recap_change` was injected into the Hermes packet, then dropped
+on retrieval-session hydrate; with no admissible claims the validator returned
+`no_admissible_claims` instead of a specific disclosed gap.
 
-- answer: generic insufficient-admitted-evidence abstention;
-- reason: `no_admissible_claims`;
-- warning: `graph_context_empty`;
-- diagnostic: `focus_overlay_built`, `Focused 0 nodes for focus=session`;
-- ingestion proof still showed admitted source units through Session 24.
+## Repair rerun — live Hermes trials
 
-The user-facing response did not identify the latest recap, comparison boundary,
-or memory lag, and did not select meaningful campaign movement.
+After preserving `latest_recap_change` through the retrieval-session boundary and
+adding a server-owned S1 gap fallback, three fresh Hermes queries were submitted
+through `POST /api/live/query` with `query_backend=hermes` and Plan-equivalent
+focus `session-24` (outer live packet remained `session=22`).
+
+| Trial | Grounding | Acceptance | Memory lag | Duration |
+|---|---|---|---|---:|
+| 1 | `partial` | `partial_coverage` | disclosed | 14079 ms |
+| 2 | `partial` | `partial_coverage` | disclosed | 11680 ms |
+| 3 | `partial` | `partial_coverage` | disclosed | 11191 ms |
+
+Each trial named `session-24`, the comparison boundary to graph-head
+`session-23` at revision `rev:5cadc9798562862cdde22350d8a3b56c`, disclosed
+memory lag, and made a specific evidence-gap / promotion request. None returned
+`no_admissible_claims`.
+
+Artifact: `evals/graph_memory_layer/artifacts/last_s1_live_repair_trials.json`
 
 ## Gate decision
 
-**Reject S1.** The deterministic resolver is green, but the real agent path does
-not consume that context as a useful sensemaking answer. Three trials reproduced
-the same generic abstention, so this is a stable product failure rather than
-sampling noise.
+**Accept S1.** The deterministic resolver remains green, and the repaired live
+route no longer terminates on an empty focused graph before using the
+server-provided latest-recap context.
 
-The next gate is to repair the S1 route so an empty focused graph does not
-terminate the turn before Hermes can use the server-provided latest-recap
-context. A successful rerun must name the admitted recap and comparison
-boundary, disclose memory lag, and either describe grounded movement or make a
-specific disclosed evidence-gap request.
-
-`CreativeOperationSession` and other creative workflow primitives remain
-explicitly out of scope until that rerun passes.
+S1 acceptance proves the first conversational sensemaking gate. It does not
+authorize creative workflow primitives by itself; Phase 2
+`CreativeOperationSession` construction may now begin under the reset plan.
