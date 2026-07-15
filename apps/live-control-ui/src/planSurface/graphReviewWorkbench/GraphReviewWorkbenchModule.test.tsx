@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -271,20 +271,25 @@ describe("GraphReviewWorkbenchModule", () => {
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Author Draft" }));
 
-    await screen.findByText("Author Draft text-selection actions");
+    await screen.findByTestId("graph-review-author-draft-workspace");
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Alden/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Selected object: Alden" })).toHaveTextContent(
-      "Stage memory assertion",
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Use as relationship source" }),
-    );
+    const reader = screen.getByLabelText("Authoring recap");
+    const aldenPill = await waitFor(() => {
+      const pill = within(reader)
+        .getAllByRole("button", { name: /Alden/ })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(aldenPill);
+    fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
+    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Bera/ }).at(-1)!);
-    expect(screen.getByRole("dialog", { name: "Selected object: Bera" })).toHaveTextContent(
-      "Relationship source: Alden",
-    );
+    const beraPill = within(reader)
+      .getAllByRole("button", { name: /Bera/ })
+      .find((button) => button.classList.contains("recap-node-token")) as HTMLButtonElement;
+    fireEvent.click(beraPill);
+    expect(screen.getByLabelText("Target object")).toHaveValue("existing_node:bera");
     expect(
       screen.getByRole("button", { name: "Stage relationship" }),
     ).toBeEnabled();

@@ -26,13 +26,18 @@ describe("Tiptap runbook descriptors", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("keeps the North Gate reset starter aligned with the durable Markdown artifact", () => {
+  it("keeps the North Gate reset starter isolated from the durable Markdown artifact", () => {
     const artifactPath = resolve(
       process.cwd(),
       "../../evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
     );
     const artifactMarkdown = readFileSync(artifactPath, "utf8").trim();
+    const starterMarkdown = northGateSessionRunbookStarterMarkdown.trim();
 
-    expect(northGateSessionRunbookStarterMarkdown.trim()).toBe(artifactMarkdown);
+    expect(starterMarkdown).not.toBe(artifactMarkdown);
+    expect(starterMarkdown).toContain("# C2S23 North Gate Session Runbook");
+    expect(starterMarkdown).toContain("## Hard boundaries");
+    expect(starterMarkdown).toContain("[North Reach Gate](#dmb-ref:location:north-reach-gate)");
+    expect(artifactMarkdown).toContain("# C2S23 Mireward Reach North Gate Runbook");
   });
 });

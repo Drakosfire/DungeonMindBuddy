@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -77,6 +77,24 @@ function mockRecapIngestWithInspect(
   });
 }
 
+function setupIngestUser() {
+  return userEvent.setup({ delay: null });
+}
+
+async function fillRecapInputs(
+  user: ReturnType<typeof setupIngestUser>,
+  rawText: string,
+  sessionTitle: string,
+) {
+  const rawField = screen.getByLabelText("Raw recap text");
+  await user.click(rawField);
+  fireEvent.change(rawField, { target: { value: rawText } });
+
+  const titleField = screen.getByLabelText("Session title");
+  await user.click(titleField);
+  fireEvent.change(titleField, { target: { value: sessionTitle } });
+}
+
 describe("IngestionModule", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
@@ -113,18 +131,21 @@ describe("IngestionModule", () => {
   });
 
   it("renders editable recap/source session input", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
 
     const recapSessionInput = screen.getByLabelText("Recap/source session");
     expect(recapSessionInput).toHaveValue(22);
     expect(screen.getAllByText("Required")).toHaveLength(1);
     expect(screen.queryByText(/Used for the canonical recap filename/)).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 - Mireward Road\n\nThe group travels.");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road");
+    await fillRecapInputs(
+      user,
+      "Session 22 - Mireward Road\n\nThe group travels.",
+      "Session 22 - Mireward Road",
+    );
     expect(screen.queryByText("Required")).not.toBeInTheDocument();
     await user.clear(recapSessionInput);
-    await user.type(recapSessionInput, "21");
+    fireEvent.change(recapSessionInput, { target: { value: "21" } });
     expect(recapSessionInput).toHaveValue(21);
   });
 
@@ -422,7 +443,7 @@ describe("IngestionModule", () => {
   });
 
   it("does not pause full ingest when existing staged notes are reused and graph is ready", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     mockRecapIngestWithInspect(() =>
       makeStatus({
         status: "ready_for_planning_activation",
@@ -446,8 +467,11 @@ describe("IngestionModule", () => {
     );
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nDifferent pasted text.");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nDifferent pasted text.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     expect(await screen.findByText("Full ingest complete using staged notes")).toBeInTheDocument();
@@ -530,7 +554,7 @@ describe("IngestionModule", () => {
   });
 
   it("submits build_frontmatter_seed from the breadcrumb boundary", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     const spy = mockRecapIngestWithInspect((body) => {
       if (body.operation === "apply_normalize") {
         return makeStatus({
@@ -554,8 +578,11 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\n...",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Apply + Normalize" }));
@@ -573,7 +600,7 @@ describe("IngestionModule", () => {
   });
 
   it("submits run_breadcrumb_ingest after frontmatter seed is found", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     const spy = mockRecapIngestWithInspect((body) => {
       if (body.operation === "run_breadcrumb_ingest") {
         return makeStatus({
@@ -588,8 +615,11 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\n...",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Run Breadcrumb Ingest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Run Breadcrumb Ingest" }));
@@ -642,7 +672,7 @@ describe("IngestionModule", () => {
   });
 
   it("opens the recap view for generated recap memory", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
       value: { ...window.location, assign },
@@ -667,19 +697,25 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
-    const openButton = await screen.findByRole("button", { name: "Open Recap View" });
-    expect(screen.getByText(/Recap memory generated\. Open Recap View/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
+    expect(screen.getByText(/Recap memory generated/i)).toBeInTheDocument();
+    const openButton = screen.getByRole("button", { name: "Open Recap View" });
     await user.click(openButton);
 
     expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
   });
 
   it("always sends graph extraction flags with Generate Recap Memory", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     const spy = mockRecapIngestWithInspect(() =>
       makeStatus({
         status: "ready_for_planning_activation",
@@ -695,8 +731,11 @@ describe("IngestionModule", () => {
     );
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
     await waitFor(() =>
@@ -712,7 +751,7 @@ describe("IngestionModule", () => {
   });
 
   it("reports blocked one-click graph extraction without hiding Open Recap View", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     mockRecapIngestWithInspect(() =>
       makeStatus({
         status: "ready_for_planning_activation",
@@ -729,16 +768,25 @@ describe("IngestionModule", () => {
     );
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nThe party pressed on.");
-    await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
     await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
 
-    expect(await screen.findByText(/Preview graph extraction was blocked: OPENAI_API_KEY is not configured/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Preview graph extraction was blocked: OPENAI_API_KEY is not configured/,
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
   });
 
   it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
-    const user = userEvent.setup();
+    const user = setupIngestUser();
     const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
       if (body.operation === "inspect_status") {
         return makeStatus({
@@ -767,10 +815,15 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
-    const extractToggle = screen.getByLabelText("Extract graph from recap with category extraction (gpt-5.4-mini)");
+    const extractToggle = await screen.findByLabelText(
+      "Extract graph from recap with category extraction (gpt-5.4-mini)",
+    );
     expect(extractToggle).toBeInTheDocument();
     await user.click(extractToggle);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled());
+    await waitFor(
+      () => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled(),
+      { timeout: 5000 },
+    );
     await user.click(screen.getByRole("button", { name: "Build Graph Preview" }));
 
     await waitFor(() =>

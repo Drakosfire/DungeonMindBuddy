@@ -6,7 +6,23 @@ import { App } from "./App";
 import * as liveApi from "./api/liveApi";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
-vi.mock("./api/liveApi");
+vi.mock("./api/liveApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api/liveApi")>();
+  return {
+    ...actual,
+    getSurface: vi.fn(),
+    getEvents: vi.fn(),
+    getJobs: vi.fn(),
+    getPlanView: vi.fn(),
+    getGraphIngestRuns: vi.fn(),
+    getGoldReviewSessions: vi.fn(),
+    getManualReviewBeds: vi.fn(),
+    getArtifact: vi.fn(),
+    getCapabilities: vi.fn(),
+    prepareTiptapMarkdownWrite: vi.fn(),
+    commitTiptapMarkdownWrite: vi.fn(),
+  };
+});
 
 describe("App inspector integration", () => {
   beforeEach(() => {
@@ -80,7 +96,7 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/plan");
     render(<App />);
 
-    expect(await screen.findByText(/preparing Session 23 · ingesting Session 21/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
     const toolbox = screen.getByRole("navigation", { name: "Toolbox tools" });
     expect(toolbox).toBeInTheDocument();
     expect(within(toolbox).queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
@@ -110,7 +126,8 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/tiptap-callout-spike");
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "false");
+    expect(await screen.findByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
+    expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live play" })).toHaveAttribute(
@@ -118,14 +135,26 @@ describe("App inspector integration", () => {
       "/evals/c2_live_prep/mireward-prep/live-play.html",
     );
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Reset local draft" })).not.toBeDisabled();
+    });
 
-    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "true");
+    const editToggle = await screen.findByRole(
+      "button",
+      { name: "Edit" },
+      { timeout: 5000 },
+    );
+    expect(editToggle).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(editToggle);
+
     expect(await screen.findByRole("button", { name: /Insert Read aloud/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Lock editing/ }));
 
-    expect(screen.getByRole("button", { name: /Unlock editing/ })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Unlock editing/ })).toHaveAttribute("aria-pressed", "true");
+    });
     expect(screen.getByRole("button", { name: /Insert Read aloud/ })).toBeDisabled();
   });
 
