@@ -60,8 +60,13 @@ describe("buildPlanDogfoodReport", () => {
     expect(report).toContain("- [x] Open /plan?dogfood=1 with the intended live session dir");
     expect(report).toContain("- [x] Edit the board with real prep notes for this session");
     expect(report).toContain("- [ ] Stop the dev server");
+    expect(report).toContain(
+      "- [ ] Ask Turn 1: What do we know about Tripod Null-Calf at the North Gate?",
+    );
     expect(report).toContain("Save felt trustworthy.");
     expect(report).toContain("## Suggested follow-ups");
+    expect(report).toContain("Remove World Graph search from the Plan toolbar");
+    expect(report).toContain("Rung 6 durable Hermes session");
   });
 
   it("uses placeholder when notes are empty", () => {

@@ -13,7 +13,6 @@ from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 from graph_memory.world_supergraph.model import WorldGraphIntegrityReport
 from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.storage import (
-    canonicalize_graph_payload,
     list_revision_ids,
     load_current_world_graph,
     load_world_graph_revision,
@@ -68,8 +67,8 @@ def build_world_graph_integrity_report(
         revision = load_world_graph_revision_manifest(root, world_id, head_revision_id)
         store = load_world_graph_revision(root, world_id, head_revision_id)
         parent_revision_id = revision.parent_revision_id
-        payload = dump_union_supergraph_store(store)
-        canonical = canonicalize_graph_payload(payload)
+        graph_path = world_paths.graph_payload_path(root, world_id, head_revision_id)
+        canonical = graph_path.read_text(encoding="utf-8")
         payload_sha = sha256_hex(canonical)
         if payload_sha != revision.graph_payload_sha256:
             errors.append(
@@ -77,7 +76,8 @@ def build_world_graph_integrity_report(
             )
         load_ok = True
         try:
-            validate_union_supergraph_store_payload(payload)
+            # Validate the parseable runtime model; hash already checked on-disk bytes.
+            validate_union_supergraph_store_payload(dump_union_supergraph_store(store))
             validation_ok = True
         except UnionSupergraphValidationError as exc:
             errors.append(str(exc))

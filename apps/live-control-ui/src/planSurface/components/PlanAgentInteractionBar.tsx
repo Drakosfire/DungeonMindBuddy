@@ -450,7 +450,8 @@ export function PlanAgentInteractionBar({
 
   const memorySessionLabel = prepMemoryLabel(sessionDescriptor);
   // Outer /api/live/query must match the loaded live packet session (liveSession),
-  // not memorySession (packet-1). World-graph focus still uses memorySession via planWorldGraphContext.
+  // not memorySession. World-graph focus uses memorySession when ?session= is set;
+  // otherwise focus is world-union (kind: none).
   const querySession = sessionDescriptor.liveSession;
 
   useEffect(() => {
@@ -860,13 +861,13 @@ export function PlanAgentInteractionBar({
   return (
     <section
       className={`plan-agent-shell ${open ? "open" : "closed"}`}
-      aria-label="Ask prep memory"
+      aria-label="Ask DungeonBuddy"
     >
       {open ? (
-        <div className="plan-agent-pane" role="complementary" aria-label="Prep memory drawer">
+        <div className="plan-agent-pane" role="complementary" aria-label="DungeonBuddy drawer">
           <header className="plan-agent-pane-header">
             <div>
-              <p className="plan-surface-kicker">Ask prep memory</p>
+              <p className="plan-surface-kicker">Ask DungeonBuddy</p>
               {renaming ? (
                 <div className="plan-agent-title-editor">
                   <label>
@@ -880,7 +881,7 @@ export function PlanAgentInteractionBar({
                 <h2>{threadTitle}</h2>
               )}
               <p>{memorySessionLabel}</p>
-              <p>Ask grounded questions against reviewed campaign memory while writing prep.</p>
+              <p>DungeonBuddy answers from campaign memory while you write prep.</p>
             </div>
             <div className="plan-agent-pane-actions">
               <button type="button" onClick={() => {
@@ -891,13 +892,13 @@ export function PlanAgentInteractionBar({
               </button>
               <button type="button" onClick={createNewThread}>New prep thread</button>
               <button type="button" onClick={() => setThreadSwitcherOpen((value) => !value)}>Prep threads</button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close prep memory drawer">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close DungeonBuddy drawer">
                 Close
               </button>
             </div>
           </header>
           {threadSwitcherOpen ? (
-            <section className="plan-agent-thread-switcher" aria-label="Prep memory threads">
+            <section className="plan-agent-thread-switcher" aria-label="DungeonBuddy threads">
               <h3>Prep threads</h3>
               {threadSummaries.length ? (
                 <ul>
@@ -935,7 +936,7 @@ export function PlanAgentInteractionBar({
               </section>
             ) : null}
             <form className="plan-agent-ask" onSubmit={submitQuestion}>
-                <h3>Ask prep memory</h3>
+                <h3>Ask DungeonBuddy</h3>
                 <fieldset className="plan-agent-backend-picker">
                   <legend>Answer mode</legend>
                   <label>
@@ -995,7 +996,7 @@ export function PlanAgentInteractionBar({
                   type="submit"
                   disabled={!question.trim() || askStatus === "asking" || graphContextInitializing}
                 >
-                  {askStatus === "asking" ? "Asking…" : "Ask prep memory"}
+                  {askStatus === "asking" ? "Asking…" : "Ask DungeonBuddy"}
                 </button>
                 {askStatus === "error" ? (
                   <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
@@ -1109,6 +1110,24 @@ export function PlanAgentInteractionBar({
                           ?? null
                         }
                         summary={activeTurn.worldGraphContextSummary}
+                        grounding={
+                          turnResponses[activeTurn.turnId]?.grounding
+                          ?? activeTurn.grounding
+                          ?? null
+                        }
+                        retrievalSessionId={
+                          turnResponses[activeTurn.turnId]?.retrieval_session_id
+                          ?? activeTurn.worldGraphContextSummary?.retrievalSessionId
+                          ?? null
+                        }
+                        graphReferences={
+                          turnResponses[activeTurn.turnId]?.graph_references
+                          ?? null
+                        }
+                        sourceCitations={
+                          turnResponses[activeTurn.turnId]?.source_citations
+                          ?? null
+                        }
                         persistedOnly={
                           !turnResponses[activeTurn.turnId]?.world_graph_context
                           && !activeTurn.worldGraphContext
@@ -1337,8 +1356,8 @@ export function PlanAgentInteractionBar({
 
       <div className="plan-agent-bar">
         <div>
-          <p className="plan-surface-kicker">Ask prep memory</p>
-          <strong>Ask prep memory · {threadTitle}</strong>
+          <p className="plan-surface-kicker">Ask DungeonBuddy</p>
+          <strong>Ask DungeonBuddy · {threadTitle}</strong>
         </div>
         <button type="button" onClick={toggleDrawer} aria-expanded={open}>
           {open ? "Close drawer" : "Open drawer"}

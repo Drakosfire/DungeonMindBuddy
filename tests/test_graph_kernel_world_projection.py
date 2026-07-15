@@ -654,6 +654,51 @@ def test_manifest_hash_mismatch_at_pinned_revision_fails_integrity(
     assert exc_info.value.code == "projection_integrity_error"
 
 
+def test_payload_hash_uses_on_disk_bytes_not_model_dump_round_trip(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Published graph.json may include keys dump(store) drops or omit defaults dump adds."""
+    from graph_memory.kernel.world_projection import _verify_revision_payload_hash
+    from graph_memory.union_supergraph.load import (
+        dump_union_supergraph_store,
+        parse_union_supergraph_store,
+    )
+    from graph_memory.world_supergraph.storage import canonicalize_graph_payload, sha256_hex
+
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    payload["version"] = "legacy-top-level"
+    payload["source_domains"] = ["recap"]
+    payload.pop("contribution_source_payload_sha256", None)
+    payload.pop("initialization_attestation_digest", None)
+    payload.pop("initialization_contribution_ids", None)
+    payload.pop("initialization_plan_digest", None)
+    on_disk = canonicalize_graph_payload(payload)
+    dumped = dump_union_supergraph_store(parse_union_supergraph_store(payload))
+    dumped_canonical = canonicalize_graph_payload(dumped)
+    assert dumped_canonical != on_disk
+
+    # On-disk digest is authoritative even when model dump drifts.
+    _verify_revision_payload_hash(sha256_hex(on_disk), canonical_graph_json=on_disk)
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        _verify_revision_payload_hash(
+            sha256_hex(on_disk),
+            canonical_graph_json=dumped_canonical,
+        )
+    assert exc_info.value.code == "projection_integrity_error"
+
+    # Full projection still works for the untouched published revision.
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(revision_pin=pinned_revision_id),
+    )
+    assert projection.snapshot.revision_id == pinned_revision_id
+
+
 def test_tampered_graph_payload_with_matching_hash_fails_revision_identity(
     tmp_path: Path,
     loaded_bundle,

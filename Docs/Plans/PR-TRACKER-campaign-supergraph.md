@@ -5,7 +5,7 @@
 **Updated:** 2026-07-14 — PR010B Rung 4C / PR355 done; Rung 5 same-thread object continuity READY
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
-**Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
+**Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
 
 Tracker IDs are roadmap slice IDs, not GitHub PR numbers. Older handoffs, backlog items, research notes, and Project Sources cannot override this tracker.
 

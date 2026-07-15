@@ -1,0 +1,276 @@
+"""Unit tests for graph_memory.interaction (Hermes graph retrieval package)."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+from graph_memory.interaction.answer_validator import validate_structured_answer
+from graph_memory.interaction.claims import GraphClaim
+from graph_memory.interaction.digest_audit import (
+    TRIPOD_CONTRIBUTION_ID,
+    audit_contribution_source_digests,
+)
+from graph_memory.interaction.expansion_executor import execute_expand_graph_retrieval
+from graph_memory.interaction.forensic import (
+    FORENSIC_ENV_FLAG,
+    classify_runtime_branch,
+    forensic_enabled,
+)
+from graph_memory.interaction.initial_resolve import create_session_from_preflight
+from graph_memory.interaction.schema_constants import DIGEST_AUDIT_SCHEMA
+from graph_memory.interaction.session import (
+    GraphRetrievalSession,
+    SessionSnapshot,
+    SourceAnchorState,
+    SourceReadEntry,
+)
+from graph_memory.interaction.session_store import clear_sessions
+
+
+@pytest.fixture(autouse=True)
+def _clear_retrieval_sessions() -> None:
+    clear_sessions()
+    yield
+    clear_sessions()
+
+
+def _accepted_claim(*, claim_id: str = "assertion:loc") -> GraphClaim:
+    return GraphClaim(
+        claim_id=claim_id,
+        claim_kind="attribute",
+        subject_node_id="threat:tripod",
+        subject_label="Tripod",
+        predicate="location",
+        value_text="North Gate",
+        revision_id="revision:test",
+        authority_class="gm_authored_accepted_assertion",
+    )
+
+
+def _derived_claim() -> GraphClaim:
+    return GraphClaim(
+        claim_id="summary:tripod",
+        claim_kind="navigation_summary",
+        subject_node_id="threat:tripod",
+        predicate="summary",
+        value_text="Scout overview",
+        revision_id="revision:test",
+        authority_class="derived_summary",
+    )
+
+
+def test_graph_claim_may_state_as_campaign_fact() -> None:
+    assert _accepted_claim().may_state_as_campaign_fact() is True
+    assert _derived_claim().may_state_as_campaign_fact() is False
+
+
+def test_create_session_from_preflight_seeds_referents_and_claims() -> None:
+    envelope = {
+        "world_id": "world:eldyrwild",
+        "campaign_id": "campaign:c1",
+        "revision_id": "revision:test",
+        "matched_node_ids": ["threat:tripod"],
+        "nodes": [{"node_id": "threat:tripod", "label": "Tripod Null-Calf"}],
+        "attributes": [
+            {
+                "assertion_id": "assertion:loc",
+                "subject_node_id": "threat:tripod",
+                "predicate": "location",
+                "text_value": "North Gate",
+            }
+        ],
+        "focus": {"kind": "session", "session_id": "session-21"},
+        "admissibility": "gm",
+    }
+
+    session = create_session_from_preflight(envelope, question="Where is Tripod?")
+
+    assert session.id
+    assert [ref.id for ref in session.referents] == ["threat:tripod"]
+    assert session.referents[0].origin == "deterministic_match"
+    assert session.preflight_candidate_ids == ["threat:tripod"]
+    factual = [c for c in session.claims if c.may_state_as_campaign_fact()]
+    assert {c.claim_id for c in factual} == {
+        "identity:threat:tripod",
+        "assertion:loc",
+    }
+    assert session.question == "Where is Tripod?"
+
+
+def test_validate_structured_answer_partial_when_claims_and_unreadable_anchors() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+            focus={"kind": "session", "session_id": "session-21"},
+        ),
+        question="Where is Tripod?",
+        claims=[_accepted_claim()],
+        source_anchors=[
+            SourceAnchorState(
+                anchor_id="anchor:opaque",
+                readable=False,
+                opened=False,
+                supporting_claim_ids=["assertion:loc"],
+            )
+        ],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="Tripod is at the North Gate.",
+    )
+
+    assert validated.outcome == "partial_coverage"
+    assert validated.accepted_claim_ids == ["assertion:loc"]
+    assert any("Source verification" in warning for warning in validated.warnings)
+
+
+def test_validate_structured_answer_graph_grounded_without_unreadable_anchors() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="Where is Tripod?",
+        claims=[_accepted_claim()],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="Tripod is at the North Gate.",
+    )
+
+    assert validated.outcome == "graph_grounded"
+    assert validated.source_citations == []
+
+
+def test_validate_structured_answer_emits_source_citations_only_for_open_reads() -> None:
+    session_with_read = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="Quote the source",
+        claims=[_accepted_claim()],
+        source_reads=[
+            SourceReadEntry(
+                source_read_id="read:1",
+                anchor_id="anchor:readable",
+                outcome="enough",
+                content_sha256="abc123",
+                source_artifact_id="artifact:session-21",
+            )
+        ],
+    )
+    with_read = validate_structured_answer(session_with_read, None, model_prose="Quoted detail.")
+    assert len(with_read.source_citations) == 1
+    assert with_read.source_citations[0].anchor_id == "anchor:readable"
+    assert with_read.outcome == "source_verified"
+
+    session_denied_read = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="Quote the source",
+        claims=[_accepted_claim()],
+        source_reads=[
+            SourceReadEntry(
+                source_read_id="read:2",
+                anchor_id="anchor:denied",
+                outcome="denied",
+            )
+        ],
+    )
+    denied = validate_structured_answer(session_denied_read, None, model_prose="No quote.")
+    assert denied.source_citations == []
+    assert denied.outcome == "graph_grounded"
+
+
+def test_forensic_enabled_respects_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(FORENSIC_ENV_FLAG, raising=False)
+    assert forensic_enabled() is False
+    monkeypatch.setenv(FORENSIC_ENV_FLAG, "true")
+    assert forensic_enabled() is True
+
+
+def test_classify_runtime_branch_no_tool_and_no_completion() -> None:
+    assert (
+        classify_runtime_branch(tool_events=[], acceptance_state="abstained")
+        == "no_tool"
+    )
+    assert (
+        classify_runtime_branch(
+            tool_events=[{"state": "start", "tool": "search_campaign_graph"}],
+            acceptance_state="abstained",
+        )
+        == "no_completion"
+    )
+
+
+def test_expand_graph_retrieval_rejects_unknown_session() -> None:
+    with pytest.raises(ValueError, match="unknown retrieval session"):
+        execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrieval_session_id": "sess:missing",
+                "operation": "object",
+                "targets": [{"kind": "node", "id": "threat:tripod"}],
+            }
+        )
+
+
+def test_tripod_contribution_id_constant() -> None:
+    assert TRIPOD_CONTRIBUTION_ID == "contribution:022187fdefdf4557"
+
+
+def test_audit_contribution_source_digests_returns_schema(tmp_path) -> None:
+    contribution_id = "contribution:abc"
+    digest = "sha256:deadbeef"
+    fake_store = SimpleNamespace(
+        revision_id="revision:head",
+        contribution_source_payload_sha256={contribution_id: digest},
+    )
+    fake_head = SimpleNamespace(head_revision_id="revision:head")
+    fake_revision = SimpleNamespace(revision_id="revision:head")
+    fake_index = SimpleNamespace(
+        all_contribution_ids=[contribution_id],
+        failed_contribution_ids=[],
+    )
+    fake_contrib = SimpleNamespace(status="ok")
+
+    with (
+        patch(
+            "graph_memory.interaction.digest_audit.load_current_world_graph",
+            return_value=(fake_head, fake_revision, fake_store),
+        ),
+        patch(
+            "graph_memory.interaction.digest_audit.load_contribution_index",
+            return_value=fake_index,
+        ),
+        patch(
+            "graph_memory.interaction.digest_audit.load_contribution_record",
+            return_value=fake_contrib,
+        ),
+        patch(
+            "graph_memory.interaction.digest_audit.compute_contribution_source_payload_sha256",
+            return_value=digest,
+        ),
+    ):
+        result = audit_contribution_source_digests(tmp_path)
+
+    assert result["schema"] == DIGEST_AUDIT_SCHEMA
+    assert result["complete"] is True
+    assert result["ok_count"] == 1
+    assert result["revision_id"] == "revision:head"
+    assert result["highlighted"][TRIPOD_CONTRIBUTION_ID] is None

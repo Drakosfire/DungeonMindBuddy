@@ -1,9 +1,8 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
-import { PlanNavBar } from "./components/PlanNavBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
 import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
@@ -25,7 +24,20 @@ function themeStyle(config: PlanSurfaceConfig): CSSProperties {
 }
 
 export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceShellProps) {
-  const config = useMemo(() => createPlanSurfaceConfig(planView), [planView]);
+  const [locationSearch, setLocationSearch] = useState(
+    () => (typeof window !== "undefined" ? window.location.search : ""),
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setLocationSearch(window.location.search);
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  const config = useMemo(
+    () => createPlanSurfaceConfig(planView, locationSearch),
+    [planView, locationSearch],
+  );
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
@@ -34,30 +46,29 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       <ProjectionProvider config={config}>
         <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
           <div
-          className="plan-surface-root"
-          data-surface={config.id}
-          data-md-theme={config.theme.themeId}
-          style={themeStyle(config)}
-        >
-          <PlanNavBar config={config} saveStatusLabel={saveStatusLabel} />
-          {dogfoodMode ? (
-            <PlanDogfoodPanel
-              sessionDescriptor={config.sessionDescriptor}
-              saveStatusLabel={saveStatusLabel}
-            />
-          ) : null}
-          <div className="plan-surface-layout">
-            <div className="plan-surface-main">
-              <PlanSurfaceCanvas
+            className="plan-surface-root"
+            data-surface={config.id}
+            data-md-theme={config.theme.themeId}
+            style={themeStyle(config)}
+          >
+            {dogfoodMode ? (
+              <PlanDogfoodPanel
                 sessionDescriptor={config.sessionDescriptor}
-                theme={config.theme}
-                onEditorToolsChange={onEditorToolsChange}
-                onSaveStatusChange={setSaveStatusLabel}
+                saveStatusLabel={saveStatusLabel}
               />
+            ) : null}
+            <div className="plan-surface-layout">
+              <div className="plan-surface-main">
+                <PlanSurfaceCanvas
+                  sessionDescriptor={config.sessionDescriptor}
+                  theme={config.theme}
+                  onEditorToolsChange={onEditorToolsChange}
+                  onSaveStatusChange={setSaveStatusLabel}
+                />
+              </div>
+              <AdaptiveProjectionContainer config={config} />
             </div>
-            <AdaptiveProjectionContainer config={config} />
-          </div>
-          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
+            <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
           </div>
         </PlanGraphReferenceResolverProvider>
       </ProjectionProvider>

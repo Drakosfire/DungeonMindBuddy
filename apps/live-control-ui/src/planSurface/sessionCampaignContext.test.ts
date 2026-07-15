@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { RecapArtifactRecord } from "../api/types";
 import {
   formatReviewCampaignLabel,
+  requestedPrepSessionFromLocation,
+  requestedSessionNumberFromLocation,
   resolveInitialReviewCampaignId,
   resolveSessionRecapContext,
   sessionsForReviewCampaign,
@@ -36,6 +38,14 @@ describe("sessionCampaignContext", () => {
   it("formats longmont campaign labels", () => {
     expect(formatReviewCampaignLabel("longmont-c1")).toBe("Longmont C1");
     expect(formatReviewCampaignLabel("elderwyld")).toBe("elderwyld");
+  });
+
+  it("parses bare and prefixed session query params", () => {
+    expect(requestedSessionNumberFromLocation("?session=24")).toBe(24);
+    expect(requestedSessionNumberFromLocation("?session=session-23")).toBe(23);
+    expect(requestedSessionNumberFromLocation("?prepSession=25")).toBeNull();
+    expect(requestedPrepSessionFromLocation("?prepSession=25")).toBe(25);
+    expect(requestedPrepSessionFromLocation("?session=24")).toBeNull();
   });
 
   it("prefers the URL campaign over plan context", () => {

@@ -394,12 +394,16 @@ export function worstCorpusFreshnessStatus(statuses: CitationFreshnessStatus[]):
 
 function buildWorldGraphContextSummary(
   context: AgentWorldGraphQueryContext | null | undefined,
+  response?: LiveQueryResponse | null,
 ): PersistedWorldGraphContextSummary | null {
   if (!context) return null;
   const warningCodes = [...(context.warning_codes ?? [])];
   if (!warningCodes.includes("graph_context_detail_not_persisted")) {
     warningCodes.push("graph_context_detail_not_persisted");
   }
+  const grounding = response?.grounding ?? null;
+  const graphReferences = response?.graph_references ?? [];
+  const sourceCitations = response?.source_citations ?? [];
   return {
     schema: "dmb_agent_world_graph_context_summary_v1",
     status: context.status,
@@ -415,6 +419,21 @@ function buildWorldGraphContextSummary(
     matchedNodeIds: context.matched_node_ids,
     projectionTruncated: context.projection_truncated,
     warningCodes,
+    retrievalSessionId: response?.retrieval_session_id ?? null,
+    acceptanceState: grounding?.acceptance_state ?? null,
+    acceptedClaimIds: grounding?.accepted_claim_ids ?? [],
+    graphReferenceCount: grounding?.graph_reference_count ?? graphReferences.length,
+    sourceCitationCount: grounding?.source_anchor_count ?? sourceCitations.length,
+    reasonCodes: grounding?.reason_codes ?? [],
+    graphReferencePreview: graphReferences.slice(0, 6).map((ref) => ({
+      objectId: ref.object_id,
+      label: ref.label ?? null,
+      claimId: ref.claim_id ?? null,
+    })),
+    sourceCitationPreview: sourceCitations.slice(0, 6).map((cite) => ({
+      anchorId: cite.anchor_id,
+      sourceArtifactId: cite.source_artifact_id ?? null,
+    })),
   };
 }
 
@@ -455,7 +474,10 @@ export function turnFromResponse(
       evidenceSnapshots: [],
       corpusFreshness: null,
       worldGraphContext: response.world_graph_context ?? null,
-      worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+      worldGraphContextSummary: buildWorldGraphContextSummary(
+        response.world_graph_context,
+        response,
+      ),
       grounding: validated.grounding,
     };
   }
@@ -488,7 +510,10 @@ export function turnFromResponse(
     ),
     corpusFreshness: null,
     worldGraphContext: response.world_graph_context ?? null,
-    worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+    worldGraphContextSummary: buildWorldGraphContextSummary(
+      response.world_graph_context,
+      response,
+    ),
     grounding: parseHermesGraphGrounding(response.grounding),
   };
 }

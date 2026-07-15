@@ -10,15 +10,32 @@ import {
 } from "./planSessionDescriptor";
 
 describe("planSessionDescriptor", () => {
-  it("derives prep session and campaign label from plan view", () => {
+  it("does not invent live-1 as the memory session without an explicit override", () => {
     const sessionDescriptor = createPlanSessionDescriptor(mockPlanView);
     expect(sessionDescriptor.campaignId).toBe("longmont-c2");
     expect(sessionDescriptor.campaignLabel).toBe("Longmont C2");
     expect(sessionDescriptor.liveSession).toBe(22);
     expect(sessionDescriptor.prepSession).toBe(23);
-    expect(sessionDescriptor.memorySession).toBe(21);
+    expect(sessionDescriptor.memorySession).toBeNull();
     expect(sessionDescriptor.sourceStatusKind).toBe("unknown");
-    expect(sessionDescriptor.sourceStatusLabel).toContain("Session 21");
+    expect(sessionDescriptor.sourceStatusLabel).toContain("World graph");
+  });
+
+  it("honors explicit session and prepSession overrides from the URL", () => {
+    const sessionDescriptor = createPlanSessionDescriptor(mockPlanView, {
+      memorySession: 24,
+      prepSession: 25,
+    });
+    expect(sessionDescriptor.memorySession).toBe(24);
+    expect(sessionDescriptor.prepSession).toBe(25);
+    expect(sessionDescriptor.planningDocument.documentId).toBe("longmont-c2-session-25-prep");
+    expect(sessionDescriptor.sourceStatusLabel).toContain("Session 24");
+  });
+
+  it("uses live session for ingest/tool fallback when memory focus is unset", () => {
+    const context = buildPlanContextFromPlanView(mockPlanView);
+    expect(context.ingestSession).toBe(22);
+    expect(context.prepSession).toBe(23);
   });
 
   it("creates only the generic session-prep document", () => {

@@ -61,7 +61,6 @@ from graph_memory.projection.world_projection import (
     derive_attribute_text_value,
     rank_search_node_matches,
 )
-from graph_memory.union_supergraph.load import dump_union_supergraph_store
 from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode, UnionSupergraphStore
 from graph_memory.union_supergraph.projection_identity import (
     UnionProjectionIdentityContext,
@@ -74,7 +73,6 @@ from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.contribution_store import load_contribution_record
 from graph_memory.world_supergraph.model import WorldGraphHead, WorldGraphRevision
 from graph_memory.world_supergraph.storage import (
-    canonicalize_graph_payload,
     compute_revision_id,
     load_world_graph_revision_manifest,
     sha256_hex,
@@ -168,13 +166,28 @@ def _integrity_error(message: str, *, detail: str) -> WorldGraphProjectionError:
     )
 
 
+def _read_revision_graph_canonical(
+    root: Path,
+    world_id: str,
+    revision_id: str,
+) -> str:
+    """Return the immutable on-disk graph payload text for a revision.
+
+    Publish writes ``canonicalize_graph_payload(...)`` bytes and stores that
+    digest in the revision manifest. Integrity checks must hash those bytes —
+    never a post-parse ``dump_union_supergraph_store`` round-trip, which drifts
+    when the UnionSupergraphStore model gains defaults or drops unknown keys.
+    """
+    path = world_paths.graph_payload_path(root, world_id, revision_id)
+    return path.read_text(encoding="utf-8")
+
+
 def _verify_revision_payload_hash(
     manifest_graph_payload_sha256: str,
-    store: UnionSupergraphStore,
+    *,
+    canonical_graph_json: str,
 ) -> None:
-    payload = dump_union_supergraph_store(store)
-    canonical = canonicalize_graph_payload(payload)
-    payload_sha = sha256_hex(canonical)
+    payload_sha = sha256_hex(canonical_graph_json)
     if payload_sha != manifest_graph_payload_sha256:
         raise _integrity_error(
             "Revision payload hash does not match manifest graph_payload_sha256.",
@@ -187,10 +200,10 @@ def _verify_revision_payload_hash(
 
 def _verify_revision_identity(
     manifest: WorldGraphRevision,
-    store: UnionSupergraphStore,
     *,
     world_id: str,
     revision_id: str,
+    canonical_graph_json: str,
 ) -> None:
     if manifest.world_id != world_id:
         raise _integrity_error(
@@ -217,8 +230,19 @@ def _verify_revision_identity(
                 f"expected={expected_payload_path!r}"
             ),
         )
-    payload = dump_union_supergraph_store(store)
-    expected_schema = str(payload.get("schema") or store.schema)
+    try:
+        payload = json.loads(canonical_graph_json)
+    except json.JSONDecodeError as exc:
+        raise _integrity_error(
+            "Revision graph payload is malformed.",
+            detail=f"revision graph payload JSON decode failed: {exc}",
+        ) from exc
+    if not isinstance(payload, dict):
+        raise _integrity_error(
+            "Revision graph payload is malformed.",
+            detail="revision graph payload root must be a JSON object",
+        )
+    expected_schema = str(payload.get("schema") or "")
     if manifest.graph_schema != expected_schema:
         raise _integrity_error(
             "Revision manifest graph_schema does not match loaded graph payload.",
@@ -227,12 +251,11 @@ def _verify_revision_identity(
                 f"payload schema={expected_schema!r}"
             ),
         )
-    canonical = canonicalize_graph_payload(payload)
     recomputed_revision_id = compute_revision_id(
         world_id=manifest.world_id,
         parent_revision_id=manifest.parent_revision_id,
         operation_ids=manifest.operation_ids,
-        canonical_graph_json=canonical,
+        canonical_graph_json=canonical_graph_json,
     )
     if recomputed_revision_id != revision_id:
         raise _integrity_error(
@@ -307,12 +330,16 @@ def _load_revision_store_with_integrity(
         ) from exc
 
     try:
-        _verify_revision_payload_hash(manifest.graph_payload_sha256, store)
+        canonical_graph_json = _read_revision_graph_canonical(root, world_id, revision_id)
+        _verify_revision_payload_hash(
+            manifest.graph_payload_sha256,
+            canonical_graph_json=canonical_graph_json,
+        )
         _verify_revision_identity(
             manifest,
-            store,
             world_id=world_id,
             revision_id=revision_id,
+            canonical_graph_json=canonical_graph_json,
         )
     except WorldGraphProjectionError:
         raise

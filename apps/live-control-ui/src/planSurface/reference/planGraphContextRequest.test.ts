@@ -10,9 +10,9 @@ const sessionDescriptor = {
   campaignId: "longmont-c2",
   campaignLabel: "Longmont C2",
   prepSession: 23,
-  memorySession: 21,
+  memorySession: null as number | null,
   liveSession: 22,
-  sourceStatusLabel: "Session 21",
+  sourceStatusLabel: "World graph",
   sourceStatusKind: "unknown" as const,
   planningDocument: {
     documentId: "longmont-c2-session-23-prep",
@@ -24,20 +24,30 @@ const sessionDescriptor = {
 };
 
 describe("planGraphContextRequest", () => {
-  it("maps the Longmont C2 memory session to the Eldyrwild World Graph request", () => {
+  it("defaults World Graph focus to none when memory session is unset", () => {
     const context = getPlanWorldGraphContext(sessionDescriptor);
 
     expect(context).toEqual({
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
-      focus: { kind: "session", sessionId: "session-21" },
+      focus: { kind: "none", sessionId: null },
     });
     expect(buildPlanWorldGraphProjectionRequest(context!)).toEqual({
       schema: "dmb_world_graph_projection_request_v1",
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
-      focus: { kind: "session", sessionId: "session-21" },
+      focus: { kind: "none", sessionId: null },
       admissibility: "gm",
+    });
+  });
+
+  it("maps an explicit memory session to a session focus lens", () => {
+    const context = getPlanWorldGraphContext({ ...sessionDescriptor, memorySession: 24 });
+
+    expect(context).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session", sessionId: "session-24" },
     });
   });
 

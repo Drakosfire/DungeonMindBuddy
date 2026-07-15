@@ -300,7 +300,42 @@ export interface WorldGraphAnchorCitation {
   revision_id: string;
 }
 
-export type LiveQueryCitation = LegacyPathCitation | WorldGraphAnchorCitation;
+export interface GraphReferenceCitation {
+  schema: "dmb_graph_reference_v1";
+  kind: "graph_reference";
+  revision_id: string;
+  object_kind: "assertion" | "node" | "relationship" | "claim" | string;
+  object_id: string;
+  label?: string | null;
+  claim_id?: string | null;
+  world_id?: string;
+  campaign_id?: string;
+  focus?: { kind: "none" | "session"; session_id: string | null };
+  admissibility?: string;
+}
+
+export interface SourceCitationCitation {
+  schema: "dmb_source_citation_v1";
+  kind: "source_citation";
+  revision_id: string;
+  anchor_id: string;
+  source_artifact_id?: string | null;
+  content_sha256?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  truncated?: boolean;
+  source_read_id?: string | null;
+  world_id?: string;
+  campaign_id?: string;
+  focus?: { kind: "none" | "session"; session_id: string | null };
+  admissibility?: string;
+}
+
+export type LiveQueryCitation =
+  | LegacyPathCitation
+  | WorldGraphAnchorCitation
+  | GraphReferenceCitation
+  | SourceCitationCitation;
 
 export type HermesGraphGroundingState = "grounded" | "partial" | "abstained" | "error";
 
@@ -316,6 +351,12 @@ export interface HermesGraphGrounding {
   source_anchor_count: number;
   diagnostic_codes: string[];
   warnings: string[];
+  /** Additive retrieval-session acceptance from structured graph answers. */
+  acceptance_state?: string | null;
+  accepted_claim_ids?: string[];
+  rejected_claim_ids?: string[];
+  reason_codes?: string[];
+  graph_reference_count?: number | null;
 }
 
 export interface HermesGraphToolTraceEvent {
@@ -620,6 +661,21 @@ export interface PersistedWorldGraphContextSummary {
   matchedNodeIds: string[];
   projectionTruncated: boolean;
   warningCodes: string[];
+  retrievalSessionId?: string | null;
+  acceptanceState?: string | null;
+  acceptedClaimIds?: string[];
+  graphReferenceCount?: number | null;
+  sourceCitationCount?: number | null;
+  reasonCodes?: string[];
+  graphReferencePreview?: Array<{
+    objectId: string;
+    label?: string | null;
+    claimId?: string | null;
+  }>;
+  sourceCitationPreview?: Array<{
+    anchorId: string;
+    sourceArtifactId?: string | null;
+  }>;
 }
 
 export interface LiveQueryOptions {
@@ -714,6 +770,9 @@ export interface LiveQueryResponse {
   evidence_snapshots?: AgentEvidenceSnapshot[];
   world_graph_context?: AgentWorldGraphQueryContext | null;
   grounding?: HermesGraphGrounding | null;
+  retrieval_session_id?: string | null;
+  graph_references?: GraphReferenceCitation[];
+  source_citations?: SourceCitationCitation[];
 }
 
 export interface LiveEvent {

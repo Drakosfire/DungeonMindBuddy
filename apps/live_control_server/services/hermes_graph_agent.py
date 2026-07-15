@@ -62,11 +62,19 @@ from graph_memory.hermes_graph_plugin import (
     HermesToolCapabilityRule,
     default_graph_only_capability_policy,
     reset_active_capability_policy,
+    reset_active_retrieval_session_id,
     reset_graph_root_override,
     set_active_capability_policy,
+    set_active_retrieval_session_id,
     set_graph_root_override,
     validate_capability_policy_structure,
 )
+from graph_memory.interaction.forensic import (
+    build_tool_forensic_event,
+    forensic_enabled,
+)
+from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
+from graph_memory.interaction.session_store import get_session
 from graph_memory.retrieval.models import (
     RETRIEVAL_ERROR_SCHEMA,
     RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA,
@@ -86,15 +94,18 @@ _GRAPH_SYSTEM_POLICY = """\
 You are a campaign-prep assistant for DungeonMindBuddy.
 
 Factual retrieval rules:
-- Configured World Graph tools are the sole factual retrieval plane for this turn.
-- Every graph tool call MUST use the supplied worldId, campaignId, focus,
-  admissibility, and revisionPin from the turn scope below. The runtime also
-  enforces that scope at dispatch.
-- Source text is readable only through opaque anchorId values returned by graph tools.
-- If the graph returns empty, partial, denied, truncated, or unavailable outcomes,
-  preserve uncertainty or abstain. Do not invent lore and do not search elsewhere.
+- A shared GraphRetrievalSession is already opened for this turn with deterministic
+  candidates and accepted graph claims. Prefer those claims; expand only when needed.
+- Use expand_graph_retrieval for object/neighborhood/compare/path/timeline/support/coverage.
+- Use read_graph_source only for quotation, exact detail, conflict checks, or when
+  claim policy requires source verification. Accepted graph claims may be stated as
+  graph-grounded facts without a source read.
+- Always pass the retrievalSessionId supplied for this turn. Scope/revision are
+  server-enforced.
+- If coverage is partial or anchors are unreadable, answer with the known graph
+  facts and name the gap. Do not invent lore and do not search Markdown/corpus.
 - Prior conversation messages resolve intent and pronouns only. They are not
-  campaign truth and must not override fresh graph-tool results.
+  campaign truth.
 
 Forbidden:
 - Manifest, corpus, Markdown, lexical, filesystem, web, terminal, continuity,
@@ -203,9 +214,14 @@ def _prepare_isolated_hermes_home(
     )
 
 
-def _scope_block(policy: HermesCapabilityPolicy) -> str:
+def _scope_block(
+    policy: HermesCapabilityPolicy,
+    *,
+    retrieval_session_id: str | None = None,
+    retrieval_session: Mapping[str, Any] | None = None,
+) -> str:
     scope = policy.graph_scope
-    payload = {
+    payload: dict[str, Any] = {
         "worldId": scope.world_id,
         "campaignId": scope.campaign_id,
         "focus": dict(scope.focus),
@@ -215,7 +231,17 @@ def _scope_block(policy: HermesCapabilityPolicy) -> str:
         "enabledToolsets": list(policy.enabled_toolsets),
         "enabledToolNames": list(policy.enabled_tool_names),
         "processIsolation": PROCESS_ISOLATION_MODE,
+        "retrievalSessionId": retrieval_session_id,
     }
+    if retrieval_session is not None:
+        payload["initialClaimPacket"] = {
+            "candidates": list(retrieval_session.get("candidates") or [])[:8],
+            "claimLedger": list(retrieval_session.get("claim_ledger") or [])[:24],
+            "intentHint": retrieval_session.get("intent_hint"),
+            "availableExpansions": list(
+                retrieval_session.get("available_expansions") or []
+            ),
+        }
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls):\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
@@ -533,6 +559,7 @@ def _pre_tool_call_policy_hook(
 class _ToolEventCollector:
     def __init__(self, policy: HermesCapabilityPolicy) -> None:
         self.events: list[HermesGraphToolEvent] = []
+        self.forensic_events: list[dict[str, Any]] = []
         self._starts_by_call_id: dict[str, float] = {}
         self._scope = policy.graph_scope
 
@@ -566,6 +593,9 @@ class _ToolEventCollector:
         self._starts_by_call_id[call_key] = started
         args = args if isinstance(args, dict) else {}
         scope_fields = self._authoritative_scope_fields()
+        call_id = (
+            str(tool_call_id) if tool_call_id is not None else f"anon:{len(self.events)}"
+        )
         self.events.append(
             HermesGraphToolEvent(
                 tool_name=str(tool_name),
@@ -578,6 +608,14 @@ class _ToolEventCollector:
                 bounded_ids=_safe_ids_from_args(args),
             )
         )
+        if forensic_enabled():
+            self.forensic_events.append(
+                build_tool_forensic_event(
+                    call_id=call_id,
+                    tool=str(tool_name),
+                    state="start",
+                )
+            )
 
     def on_complete(
         self,
@@ -619,6 +657,18 @@ class _ToolEventCollector:
                 diagnostic_codes=summary["diagnostic_codes"],
             )
         )
+        if forensic_enabled():
+            self.forensic_events.append(
+                build_tool_forensic_event(
+                    call_id=call_key,
+                    tool=str(tool_name),
+                    state=state,
+                    raw_result=result,
+                    outcome=summary["outcome"],
+                    result_schema=summary["retrieval_schema"],
+                    diagnostic_codes=summary["diagnostic_codes"],
+                )
+            )
 
 
 def run_hermes_graph_agent_turn(
@@ -654,6 +704,20 @@ def run_hermes_graph_agent_turn(
             error_message="Hermes capability policy failed structural validation.",
         )
 
+    retrieval_session_packet: dict[str, Any] | None = None
+    if request.retrieval_session is not None:
+        retrieval_session_packet = dict(request.retrieval_session)
+        if request.retrieval_session_id and "retrieval_session_id" not in retrieval_session_packet:
+            retrieval_session_packet["retrieval_session_id"] = request.retrieval_session_id
+        try:
+            hydrate_session_from_packet(retrieval_session_packet)
+        except Exception:
+            return _error_result(
+                hermes_session_id=session_id,
+                error_code="retrieval_session_hydrate_error",
+                error_message="Hermes could not hydrate the shared retrieval session.",
+            )
+
     with _RUNTIME_LOCK:
         # Capture and mutate process-global env only while holding the lock so
         # concurrent turns cannot restore a sibling's deleted temp home.
@@ -661,6 +725,7 @@ def run_hermes_graph_agent_turn(
         previous_home = os.environ.get("HERMES_HOME")
         root_token = set_graph_root_override(request.root)
         policy_token = set_active_capability_policy(policy)
+        session_token = set_active_retrieval_session_id(request.retrieval_session_id)
         collector = _ToolEventCollector(policy)
         pre_tool_hook: Callable[..., Any] | None = None
         plugin_manager: Any | None = None
@@ -766,7 +831,8 @@ def run_hermes_graph_agent_turn(
                         tool_start_callback=collector.on_start,
                         tool_complete_callback=collector.on_complete,
                         ephemeral_system_prompt=(
-                            f"{_GRAPH_SYSTEM_POLICY}\n\n{_scope_block(policy)}"
+                            f"{_GRAPH_SYSTEM_POLICY}\n\n"
+                            f"{_scope_block(policy, retrieval_session_id=request.retrieval_session_id, retrieval_session=retrieval_session_packet)}"
                         ),
                     )
 
@@ -835,6 +901,11 @@ def run_hermes_graph_agent_turn(
             if final_response is not None and not isinstance(final_response, str):
                 final_response = str(final_response)
 
+            hydrated = (
+                get_session(request.retrieval_session_id)
+                if request.retrieval_session_id
+                else None
+            )
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response=final_response,
@@ -844,6 +915,10 @@ def run_hermes_graph_agent_turn(
                 hermes_session_id=str(raw.get("session_id") or session_id),
                 tool_events=list(collector.events),
                 process_isolation=PROCESS_ISOLATION_MODE,
+                retrieval_session_id=request.retrieval_session_id,
+                retrieval_session=(
+                    hydrated.project_for_hermes() if hydrated is not None else retrieval_session_packet
+                ),
             )
         except Exception:
             return _error_result(
@@ -853,6 +928,7 @@ def run_hermes_graph_agent_turn(
                 tool_events=collector.events,
             )
         finally:
+            reset_active_retrieval_session_id(session_token)
             if plugin_manager is not None and pre_tool_hook is not None:
                 hooks = plugin_manager._hooks.get("pre_tool_call") or []
                 try:

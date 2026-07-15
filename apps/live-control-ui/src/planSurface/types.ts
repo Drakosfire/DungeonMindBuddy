@@ -23,6 +23,10 @@ export interface PlanContextDescriptor {
   campaignId: string;
   liveSession: number;
   prepSession: number;
+  /**
+   * Recap/tool fallback session: explicit `?session=` when present, else the live
+   * packet session. Never invents live-1 as a stale memory default.
+   */
   ingestSession: number;
   headerLabel: string;
 }
@@ -44,7 +48,8 @@ export interface PlanSessionDescriptor {
   campaignId: string;
   campaignLabel: string;
   prepSession: number;
-  memorySession: number;
+  /** Explicit `?session=` memory/graph focus; null → world-union focus (do not invent live-1). */
+  memorySession: number | null;
   liveSession: number;
   sourceStatusLabel: string;
   sourceStatusKind: PlanSourceStatusKind;

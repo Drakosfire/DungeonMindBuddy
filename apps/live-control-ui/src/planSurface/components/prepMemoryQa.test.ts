@@ -81,6 +81,12 @@ describe("prepMemoryQa helpers", () => {
     );
   });
 
+  it("formats prep memory label for world-union focus", () => {
+    expect(prepMemoryLabel({ ...sessionDescriptor, memorySession: null })).toBe(
+      "World graph (all sessions) · preparing Session 23",
+    );
+  });
+
   it("detects grounding from citations or admitted evidence for legacy Live responses", () => {
     const grounded: LiveQueryResponse = {
       answer: "Grounded",

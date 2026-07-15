@@ -5,7 +5,7 @@
 **Updated:** 2026-07-14 — PR010B Rung 4C / PR355 done; Rung 5 same-thread object continuity is next critical path
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
-**Hermes anchor:** [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
+**Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
 
 This roadmap describes implementation milestones. This document and the PR tracker are the only active sequencing authority for Campaign Supergraph work. Older handoffs, experiments, backlog entries, Project Sources, and historical Agent Interaction documents may explain why decisions were made, but they cannot override this roadmap.
 

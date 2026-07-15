@@ -21,13 +21,18 @@ export function getPlanWorldGraphContext(
   const worldId = WORLD_ID_BY_CAMPAIGN[sessionDescriptor.campaignId];
   if (!worldId) return null;
 
+  const focus =
+    sessionDescriptor.memorySession == null
+      ? ({ kind: "none", sessionId: null } as const)
+      : ({
+          kind: "session",
+          sessionId: `session-${sessionDescriptor.memorySession}`,
+        } as const);
+
   return {
     worldId,
     campaignId: sessionDescriptor.campaignId,
-    focus: {
-      kind: "session",
-      sessionId: `session-${sessionDescriptor.memorySession}`,
-    },
+    focus,
   };
 }
 

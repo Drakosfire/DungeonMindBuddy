@@ -259,16 +259,33 @@ def rebuild_from_contributions(
     )
 
     head, head_revision, current = load_current_world_graph(root, world_id)
-    if current.initialization_plan_digest is not None:
+    init_plan = current.initialization_plan_digest
+    init_attest = current.initialization_attestation_digest
+    init_contribs = list(current.initialization_contribution_ids)
+    if init_plan is None or init_attest is None or not init_contribs:
+        # Lazy import avoids kernel circular import via world_initialization.
+        from graph_memory.kernel.world_initialization import (
+            compute_initialization_attestation_digest,
+            read_initialization_receipt,
+        )
+
+        receipt = read_initialization_receipt(root, world_id)
+        if receipt is not None:
+            init_plan = init_plan or receipt.plan_digest
+            init_attest = init_attest or compute_initialization_attestation_digest(
+                receipt.approval_attestation
+            )
+            if not init_contribs:
+                init_contribs = [
+                    item.contribution_id for item in receipt.ordered_contributions
+                ]
+            diagnostics.append("rebuild_restored_initialization_digests_from_receipt")
+    if init_plan is not None:
         working = working.model_copy(
             update={
-                "initialization_contribution_ids": list(
-                    current.initialization_contribution_ids
-                ),
-                "initialization_plan_digest": current.initialization_plan_digest,
-                "initialization_attestation_digest": (
-                    current.initialization_attestation_digest
-                ),
+                "initialization_contribution_ids": init_contribs,
+                "initialization_plan_digest": init_plan,
+                "initialization_attestation_digest": init_attest,
             }
         )
     compared_head_revision_id = head.head_revision_id

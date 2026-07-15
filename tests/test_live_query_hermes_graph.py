@@ -270,7 +270,7 @@ def test_grounded_partial_abstention_and_error_classification() -> None:
     assert grounded_state == "grounded"
     assert grounded_answer.startswith("Tripod")
 
-    partial_state, _, warnings, _, _ = classify_hermes_graph_result(
+    partial_state, _, warnings, _, _, _ = classify_hermes_graph_result(
         _ok_result(
             events=[
                 _tool_event(outcome="partial", source_anchor_ids=["anchor:p1"]),
@@ -301,13 +301,29 @@ def test_grounded_partial_abstention_and_error_classification() -> None:
     assert denied_state == "abstained"
     assert denied_answer == ABSTENTION_ANSWER
 
-    no_anchor_state, *_ = classify_hermes_graph_result(
+    matched_without_anchors_state, matched_answer, *_ = classify_hermes_graph_result(
         _ok_result(
             events=[_tool_event(outcome="enough", source_anchor_ids=[])],
         ),
         scope=scope,
     )
-    assert no_anchor_state == "abstained"
+    assert matched_without_anchors_state == "grounded"
+    assert matched_answer.startswith("Tripod")
+
+    no_evidence_state, *_ = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _tool_event(
+                    outcome="enough",
+                    source_anchor_ids=[],
+                    matched_node_ids=[],
+                    relationship_ids=[],
+                )
+            ],
+        ),
+        scope=scope,
+    )
+    assert no_evidence_state == "abstained"
 
     prose_only_state, *_ = classify_hermes_graph_result(
         _ok_result(events=[]),
@@ -315,7 +331,7 @@ def test_grounded_partial_abstention_and_error_classification() -> None:
     )
     assert prose_only_state == "abstained"
 
-    mismatch_state, _, _, codes, error_code = classify_hermes_graph_result(
+    mismatch_state, _, _, codes, error_code, _ = classify_hermes_graph_result(
         _ok_result(
             events=[
                 _tool_event(
@@ -338,7 +354,7 @@ def test_grounded_partial_abstention_and_error_classification() -> None:
         "hermes_worker_protocol_error",
         "hermes_turn_error",
     ):
-        state, _, _, _, mapped = classify_hermes_graph_result(
+        state, _, _, _, mapped, _ = classify_hermes_graph_result(
             _error_result(code),
             scope=scope,
         )
@@ -395,7 +411,8 @@ def test_run_hermes_graph_query_preserves_tool_events_and_uses_fake_host(
     assert response["mode"] == "hermes_graph_agent"
     assert response["status"] == "ok"
     assert response["grounding"]["state"] == "grounded"
-    assert response["grounding"]["source_anchor_count"] == 2
+    assert response["grounding"]["source_anchor_count"] == 0
+    assert response["grounding"]["graph_reference_count"] == 0
     assert response["citations"] == [
         {
             "schema": "dmb_world_graph_anchor_citation_v1",
@@ -604,7 +621,8 @@ def test_http_hermes_grounded_and_validation(
     assert body["citations"][0]["kind"] == "world_graph_anchor"
     assert body["citations"][0]["anchor_id"] == "anchor:a1"
     assert body["citations"][0]["revision_id"] == "revision:http"
-    assert body["grounding"]["source_anchor_count"] == 1
+    assert body["grounding"]["source_anchor_count"] == 0
+    assert body["grounding"]["graph_reference_count"] == 0
     assert host.calls[0].revision_pin == "revision:http"
     assert host.calls[0].root == tmp_path.resolve()
     assert len(host.calls) == 1
@@ -756,7 +774,7 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
         root=Path("/tmp"),
     )
 
-    alone_state, alone_answer, _, alone_codes, alone_error = classify_hermes_graph_result(
+    alone_state, alone_answer, _, alone_codes, alone_error, _ = classify_hermes_graph_result(
         _ok_result(
             final_response="model prose after tool failure",
             events=[
@@ -777,7 +795,7 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
     assert alone_error == "invalid_arguments"
     assert "invalid_arguments" in alone_codes
 
-    no_completion_state, _, _, _, no_completion_error = classify_hermes_graph_result(
+    no_completion_state, _, _, _, no_completion_error, _ = classify_hermes_graph_result(
         _ok_result(
             events=[
                 _tool_event(
@@ -811,7 +829,7 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
     assert recovered_state == "grounded"
     assert recovered_answer.startswith("Tripod")
 
-    adapter_state, _, _, adapter_codes, adapter_error = classify_hermes_graph_result(
+    adapter_state, _, _, adapter_codes, adapter_error, _ = classify_hermes_graph_result(
         _ok_result(
             events=[
                 _tool_event(
@@ -1020,7 +1038,8 @@ def test_graph_citations_shape_order_dedupe_and_scope() -> None:
         "anchor:second",
         "anchor:third",
     ]
-    assert response["grounding"]["source_anchor_count"] == 3
+    assert response["grounding"]["source_anchor_count"] == 0
+    assert response["grounding"]["graph_reference_count"] == 0
     for citation in citations:
         assert citation["schema"] == "dmb_world_graph_anchor_citation_v1"
         assert citation["kind"] == "world_graph_anchor"

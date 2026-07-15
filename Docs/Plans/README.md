@@ -12,8 +12,8 @@ Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 | --- | ---- |
 | [`PLAN-split-corpus-retrieval-to-autonomous-demo.md`](PLAN-split-corpus-retrieval-to-autonomous-demo.md) | Versioned super-plan (YAML + narrative): split-corpus retrieval through autonomous C1S1–C1S3 demo. |
 | [`CHECKLIST-dynamic-lexical-retrieval-rollout.md`](CHECKLIST-dynamic-lexical-retrieval-rollout.md) | Operational tracker (phases A–E, session log). |
-| [`HANDOFF-phase-b-route-equivalence-artifact-output.md`](HANDOFF-phase-b-route-equivalence-artifact-output.md) | **Active** subagent brief: deterministic CLI + canonical JSONL artifacts + byte-stable regression for `build_route_equivalence_manifest`. Replaces the retired Phase A / route-id handoff. |
-| [`HANDOFF-pr1-merge-readiness.md`](HANDOFF-pr1-merge-readiness.md) | Historical merge-readiness instructions for PR #1 (PR #1 closed; PR #2 merged). Kept for narrative continuity; no action required. |
+| [`archive/2026-05-10/handoffs/HANDOFF-phase-b-route-equivalence-artifact-output.md`](archive/2026-05-10/handoffs/HANDOFF-phase-b-route-equivalence-artifact-output.md) | **Historical** Phase B handoff (merged). Not an active dispatch surface. |
+| [`archive/2026-05-09/handoffs/`](archive/2026-05-09/handoffs/) | Older PR merge-readiness / phase handoffs for narrative continuity. |
 | [`../Design/DECISION-world-campaign-knowledge-hierarchy.md`](../Design/DECISION-world-campaign-knowledge-hierarchy.md) | Decision anchor (world vs campaign authority). |
 
 ---
@@ -29,31 +29,17 @@ Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
 ---
 
-## Sentence routing & grounded ingestion
+## Hermes campaign authoring foundation (active proposed)
 
 | Doc | Role |
 | --- | ---- |
-| [`PLAN-Sentence-Routing-Stages-B-through-D.md`](PLAN-Sentence-Routing-Stages-B-through-D.md) | Staged plan B–D for sentence-routing work. |
-| [`DESIGN-Sentence-Routing-Stage-B-Hub-Routing.md`](DESIGN-Sentence-Routing-Stage-B-Hub-Routing.md) | Stage B hub-routing design. |
-| [`EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md`](EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md) | Retrieval falsification experiment doc. |
-| [`GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md`](GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md) | Vision / guardrails for sentence-grounded ingestion. |
+| [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md) | Phase 0–5 reset plan; current Hermes sequencing for the foundation reset. |
+| [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md) | Active Hermes document index. |
+| [`archive/2026-07-15/hermes-campaign-authoring-foundation-reset/`](archive/2026-07-15/hermes-campaign-authoring-foundation-reset/) | Superseded Hermes ladder / design-reset sandbox. |
 
----
-
-## Session recap benchmarks
-
-| Doc | Role |
-| --- | ---- |
-| [`EXPERIMENT-Session-Recap-Ingest-Benchmark.md`](EXPERIMENT-Session-Recap-Ingest-Benchmark.md) | Ingest benchmark experiment. |
-| [`STATUS-Session-Recap-Ingest-Benchmark.md`](STATUS-Session-Recap-Ingest-Benchmark.md) | Ingest benchmark status. |
-| [`EXPERIMENT-Session-Recap-Timeline-Pass-Benchmark.md`](EXPERIMENT-Session-Recap-Timeline-Pass-Benchmark.md) | Timeline-pass benchmark experiment. |
-| [`STATUS-Session-Recap-Timeline-Pass-Benchmark.md`](STATUS-Session-Recap-Timeline-Pass-Benchmark.md) | Timeline-pass benchmark status. |
-| [`EXPERIMENT-Session-Recap-Timeline-Append-Benchmark.md`](EXPERIMENT-Session-Recap-Timeline-Append-Benchmark.md) | Timeline-append benchmark experiment. |
-| [`STATUS-Session-Recap-Timeline-Append-Benchmark.md`](STATUS-Session-Recap-Timeline-Append-Benchmark.md) | Timeline-append benchmark status. |
-| [`EXPERIMENT-Inline-Recap-Breadcrumbing.md`](EXPERIMENT-Inline-Recap-Breadcrumbing.md) | Inline recap breadcrumbing experiment. |
-| [`BACKLOG-session-recap-benchmarking.md`](BACKLOG-session-recap-benchmarking.md) | Session recap benchmarking backlog. |
-| [`SCOPE-B-GOLD-Session-20-Ingest.md`](SCOPE-B-GOLD-Session-20-Ingest.md) | Scope B gold / Session 20 ingest companion to evals. |
-| [`INDEX-Recap-Normalization.md`](INDEX-Recap-Normalization.md) | Recap normalization index. |
+Many older sentence-routing / session-recap experiment docs were moved under
+[`archive/`](archive/) or [`../Experiments/`](../Experiments/). Prefer those
+indexed paths over stale root filenames.
 
 ---
 

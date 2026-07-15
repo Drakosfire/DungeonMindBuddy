@@ -25,7 +25,11 @@ const HERMES_GROUNDING_STATES: readonly HermesGraphGroundingState[] = [
 const FOCUS_KINDS = ["none", "session"] as const;
 
 export function prepMemoryLabel(sessionDescriptor: PlanSessionDescriptor): string {
-  return `Memory through Session ${sessionDescriptor.memorySession} · preparing Session ${sessionDescriptor.prepSession}`;
+  const memory =
+    sessionDescriptor.memorySession == null
+      ? "World graph (all sessions)"
+      : `Memory through Session ${sessionDescriptor.memorySession}`;
+  return `${memory} · preparing Session ${sessionDescriptor.prepSession}`;
 }
 
 export function isHermesGraphAgentResponse(answer: LiveQueryResponse): boolean {
@@ -98,6 +102,20 @@ export function parseHermesGraphGrounding(value: unknown): HermesGraphGrounding 
     source_anchor_count: value.source_anchor_count,
     diagnostic_codes,
     warnings,
+    acceptance_state: typeof value.acceptance_state === "string" ? value.acceptance_state : null,
+    accepted_claim_ids: Array.isArray(value.accepted_claim_ids)
+      ? value.accepted_claim_ids.filter((item): item is string => typeof item === "string")
+      : undefined,
+    rejected_claim_ids: Array.isArray(value.rejected_claim_ids)
+      ? value.rejected_claim_ids.filter((item): item is string => typeof item === "string")
+      : undefined,
+    reason_codes: Array.isArray(value.reason_codes)
+      ? value.reason_codes.filter((item): item is string => typeof item === "string")
+      : undefined,
+    graph_reference_count:
+      typeof value.graph_reference_count === "number" && Number.isFinite(value.graph_reference_count)
+        ? value.graph_reference_count
+        : null,
   };
 }
 
@@ -204,13 +222,21 @@ export function validateHermesGraphCitations(
   ));
 
   const droppedCount = graphCitations.length - validated.length;
+  const hasClaimLedgerSupport = (
+    (parsedGrounding.accepted_claim_ids?.length ?? 0) > 0
+    || (parsedGrounding.graph_reference_count ?? 0) > 0
+    || (parsedGrounding.source_anchor_count ?? 0) > 0
+  );
+
   if (validated.length === 0) {
     return {
       grounding: parsedGrounding,
       citations: [],
       contractWarning: droppedCount > 0
         ? "One or more graph citations were dropped due to scope or revision mismatch."
-        : "Hermes grounding contract error",
+        : hasClaimLedgerSupport
+          ? null
+          : "Hermes grounding contract error",
     };
   }
 
@@ -228,7 +254,12 @@ export function hasGrounding(answer: LiveQueryResponse): boolean {
     const { citations, grounding } = validateHermesGraphCitations(answer.citations, answer.grounding);
     if (!grounding) return false;
     if (grounding.state !== "grounded" && grounding.state !== "partial") return false;
-    return citations.length > 0;
+    if (citations.length > 0) return true;
+    if ((grounding.accepted_claim_ids?.length ?? 0) > 0) return true;
+    if ((grounding.graph_reference_count ?? 0) > 0) return true;
+    if ((answer.graph_references?.length ?? 0) > 0) return true;
+    if ((answer.source_citations?.length ?? 0) > 0) return true;
+    return false;
   }
 
   return Boolean(
@@ -244,13 +275,21 @@ export function answerHeading(answer: LiveQueryResponse): string {
       return "Hermes grounding contract error";
     }
 
+    const hasSupport = (
+      validated.citations.length > 0
+      || (validated.grounding.accepted_claim_ids?.length ?? 0) > 0
+      || (validated.grounding.graph_reference_count ?? 0) > 0
+      || (answer.graph_references?.length ?? 0) > 0
+      || (answer.source_citations?.length ?? 0) > 0
+    );
+
     switch (validated.grounding.state) {
       case "grounded":
-        return validated.citations.length > 0
+        return hasSupport
           ? "Graph-grounded answer"
           : "Hermes grounding contract error";
       case "partial":
-        return validated.citations.length > 0
+        return hasSupport
           ? "Qualified graph answer"
           : "Hermes grounding contract error";
       case "abstained":

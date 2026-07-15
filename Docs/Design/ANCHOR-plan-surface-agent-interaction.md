@@ -7,8 +7,13 @@ Agent Interaction began as a Plan-local bottom bar/pane and remains dogfooded fi
 
 1. [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 2. [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
-3. [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](ANCHOR-agent-interaction-hermes.md)
-4. [`Docs/Design/UX-STORIES-agent-interaction-hermes.md`](UX-STORIES-agent-interaction-hermes.md)
+3. [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](ANCHOR-hermes-campaign-sensemaking-goal.md)
+4. [`Docs/Design/ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)
+5. [`Docs/Design/UX-STORIES-hermes-campaign-authoring-foundation.md`](UX-STORIES-hermes-campaign-authoring-foundation.md)
+
+The Hermes documents above are the active reset surface. The old graph-only anchor
+and Rung-based stories remain only as compatibility stubs pointing to the dated
+archive.
 
 ## Current state
 

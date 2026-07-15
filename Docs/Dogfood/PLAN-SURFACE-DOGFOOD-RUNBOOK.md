@@ -33,16 +33,26 @@ Use `/plan` for a real prep pass and capture feedback on the current prep cockpi
 
 ## Session mapping cheat sheet
 
-| Live packet `session` | Plan header “preparing” | Memory focus | Durable target file |
+| Live packet `session` | Default “preparing” | Memory / graph focus | Durable target file |
 | ---: | --- | --- | --- |
-| 22 | Session 23 | Session 21 | `Session 23 Prep.md` |
-| 23 | Session 24 | Session 22 | `Session 24 Prep.md` |
-| 24 | Session 25 | Session 23 | `Session 25 Prep.md` |
-| 25 | Session 26 | Session 24 | `Session 26 Prep.md` |
+| 22 | Session 23 | World union (no `?session=`) | `Session 23 Prep.md` |
+| 23 | Session 24 | World union (no `?session=`) | `Session 24 Prep.md` |
+| 24 | Session 25 | World union (no `?session=`) | `Session 25 Prep.md` |
 
-**After playing Session 25:** to edit **Session 25 Prep** in Plan, the live packet must be **`session: 24`** (preparing 25), not 25.
+**Explicit focus / board overrides (preferred):**
 
-Fixture packets in-repo today: `evals/c2_live_prep/live/session_22/` and `session_23/`. There is no stock `session_24` fixture — create one (copy `session_23`, set `"session": 24`) when dogfooding Session 25 Prep.
+```text
+/plan?dogfood=1&session=24
+/plan?dogfood=1&session=24&prepSession=25
+```
+
+- `?session=N` (or `session-N`) sets memory/graph focus to that session.
+- `?prepSession=N` sets the Session Prep board target; otherwise prep defaults to `liveSession + 1`.
+- Without `?session=`, Ask / World Graph use **world-union** focus (`kind: none`) — Plan no longer invents `live - 1` (the old Session 21 trap).
+
+**After playing Session 25:** to edit **Session 25 Prep** without changing the live packet, open `/plan?prepSession=25` (optionally `&session=24` for memory focus).
+
+Fixture packets in-repo today: `evals/c2_live_prep/live/session_22/` and `session_23/`. There is no stock `session_24` fixture — create one (copy `session_23`, set `"session": 24`) when dogfooding with a live packet at 24.
 
 `Session 25 Prep.md` may live only in another worktree until copied into this checkout’s:
 
@@ -93,21 +103,37 @@ corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 25 P
 4. Reopen `/plan?dogfood=1` with the same live session dir.
 5. Confirm local draft recovery. Do **not** mark “loaded from corpus” unless hydrate has shipped.
 
-## Pass D — Reference + World Graph cards
+## Pass D — Reference chips (board-local)
 
 1. Click a reference chip → inspect selected-object card.
 2. Use source preview when available.
-3. Edit → **World Graph objects**: find a real node (e.g. Tripod Null-Calf / Mireward if present on the head).
-4. Add to dogfood list → open GraphObjectCard → traverse one relationship → remove from list (local only).
-5. Record whether cards felt game-useful vs thin bootstrap graph.
+3. Do **not** treat Edit → World Graph objects / toolbar graph search as part of this dogfood pass. The Plan main page under measurement is the markdown board + dogfood checklist.
 
-## Pass E — Prep memory Q&A
+## Pass E — Hermes same-thread continuity (Rung 5)
 
-1. Open Ask prep memory.
-2. Ask questions that match **memory session** content / planning needs for the prep you are writing.
-3. If World Graph context panel is present (PR008B branch), note status / revision / matched IDs separately from corpus citations.
-4. Open a **corpus** citation source when one appears — not graph metadata.
-5. Record live-packet mismatches if Q&A 400s.
+1. Open **Ask DungeonBuddy** → select **Hermes tools** → Trace On.
+2. **Turn 1** (new thread):
+
+   ```text
+   What do we know about Tripod Null-Calf at the North Gate?
+   ```
+
+   Confirm `hermes_graph_agent`, a graph tool ran, grounding/citations agree on revision.
+3. **Turn 2** (same thread):
+
+   ```text
+   What is it connected to that should affect my prep?
+   ```
+
+4. In Network, inspect Turn 2 `/api/live/query`:
+   - `conversation_history` is prior user/assistant prose only;
+   - new question is only in top-level `text`;
+   - no `hermes_session_id`, `manifest_path`, citations, traces, or source bodies in history.
+5. Confirm the answer resolves “it”, runs **fresh** graph tools, and cites only Turn 2 anchors.
+6. **Thread isolation:** new empty Thread B; ask the Turn 2 follow-up alone; confirm Thread A history is absent.
+7. Inspect `agent-interaction-*` localStorage: no `hermes_session_id` / `conversation_history` structural fields.
+8. Open a World Graph citation/evidence card from the answer when present.
+9. Record live-packet mismatches if Q&A 400s.
 
 ## Feedback capture
 
@@ -121,30 +147,29 @@ corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 25 P
 - Did the page feel like prep or like an empty scaffold?
 - Did you almost Save over a real `Session N Prep.md`?
 - Did reload feel like “loaded my prep” or “kept a browser draft”?
-- Were World Graph cards useful for *this* prep session, or stuck on older bootstrap objects?
-- Did prep-memory answers help write Session Prep, or fight the live-packet session?
+- Did Hermes Turn 2 feel continuous on “it” without claiming a resumed session?
+- Did Network/localStorage stay free of `hermes_session_id` / transcript fields?
+- Did toolbar / main-page graph search get in the way of board + dogfood work?
 - What should DungeonBuddy have loaded automatically?
 
-## Suggested Session 25 sequence (current tooling)
+## Suggested Session 23 sequence (current Rung 5 tooling)
 
 ```text
-1. Copy Session 25 Prep.md into this repo’s Session Prep folder if missing.
-2. Create evals/c2_live_prep/live/session_24/ from session_23 with live_packet.json "session": 24.
-3. export DUNGEONMIND_LIVE_SESSION_DIR=<repo>/evals/c2_live_prep/live/session_24
-4. Start API + UI; open /plan?dogfood=1
-5. Confirm header: preparing Session 25, memory Session 23, target …/Session 25 Prep.md
-6. Pass A: observe scaffold (or stale local draft); paste real Session 25 Prep before any Save
-7. Pass B: edit + Save
-8. Pass C: reload (local draft); optional clear-localStorage proof of missing hydrate
-9. Pass D: chip + World Graph card traverse
-10. Pass E: two prep-memory questions useful for Session 25 prep
-11. Copy dogfood report
+1. export DUNGEONMIND_LIVE_SESSION_DIR=<repo>/evals/c2_live_prep/live/session_22
+2. Start API + UI; open /plan?dogfood=1&session=23 (or omit session for world-union focus)
+3. Confirm working board title (Session 23 Prep) and URL focus (`?session=` / world union); save status lives on the board heading
+4. Pass A: observe scaffold (or stale local draft); paste real Session 23 Prep before any Save
+5. Pass B: edit + Save
+6. Pass C: reload (local draft); optional clear-localStorage proof of missing hydrate
+7. Pass D: reference chip + source preview only
+8. Pass E: Hermes Turn 1 Tripod → same-thread Turn 2 “it” → Network/history proof → Thread B isolation → localStorage inspection
+9. Copy dogfood report (suggested follow-ups are pre-seeded)
 ```
 
 ## What this unlocks
 
 Dogfood reports should drive the next slice. Default next Plan prep-loop slice from current evidence:
 
-1. **Corpus hydrate on load** (READY backlog) — closes the scaffold / clobber class of failures.
-2. Then: prep-session override / post-play editing without inventing live packets.
-3. Graph-backed cards and Agent query context stay valuable but secondary to “the board is my prep doc.”
+1. **Remove World Graph search from Plan toolbar / main page** — keep dogfood + markdown board as the surface under measurement.
+2. **Corpus hydrate on load** (READY backlog) — closes the scaffold / clobber class of failures.
+3. After Rung 5 acceptance: **Rung 6** durable Hermes session / reload lifecycle (not prose replay).

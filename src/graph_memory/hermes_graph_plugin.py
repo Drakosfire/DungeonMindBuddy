@@ -1,9 +1,9 @@
-"""Packaged Hermes plugin: graph-only World Graph read tools (PR010B Rung 3).
+"""Packaged Hermes plugin: shared GraphRetrievalSession interaction tools.
 
-Registers exactly five tools under toolset ``dungeonbuddy_graph``, deriving each
-schema from the Rung 2 catalog and routing every handler to the Rung 2 JSON
-adapter. Active capability policy is enforced at dispatch (scope inject /
-allowlist), not only in model-facing prose. No legacy retrieval path.
+Registers expand_graph_retrieval + read_graph_source under toolset
+``dungeonbuddy_graph``. Kernel search/object/neighborhood/evidence/source-read
+primitives remain internal. Capability policy injects authoritative scope and
+the active retrieval session ID.
 """
 
 from __future__ import annotations
@@ -16,25 +16,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from apps.live_control_server.services.hermes_graph_read_tool_adapter import (
-    execute_hermes_graph_read_tool_json,
-    hermes_graph_read_tool_definitions,
-)
-from apps.live_control_server.services.hermes_graph_read_tools import (
-    HERMES_GRAPH_READ_TOOL_NAMES,
+from apps.live_control_server.services.hermes_graph_interaction_tools import (
+    HERMES_GRAPH_INTERACTION_TOOL_NAMES,
+    ORDERED_INTERACTION_TOOL_NAMES,
+    execute_hermes_graph_interaction_tool_json,
+    hermes_graph_interaction_tool_definitions,
 )
 
 TOOLSET_NAME = "dungeonbuddy_graph"
 
 ToolEffect = Literal["read", "write"]
 
-ORDERED_GRAPH_TOOL_NAMES: tuple[str, ...] = (
-    "search_campaign_graph",
-    "get_campaign_object",
-    "get_object_neighborhood",
-    "get_object_evidence",
-    "read_source_anchor",
-)
+ORDERED_GRAPH_TOOL_NAMES: tuple[str, ...] = ORDERED_INTERACTION_TOOL_NAMES
+HERMES_GRAPH_READ_TOOL_NAMES = HERMES_GRAPH_INTERACTION_TOOL_NAMES
 
 # Optional process-local graph root override for tests / embedded callers.
 # Not part of the model-visible tool arguments.
@@ -46,6 +40,12 @@ _graph_root_override: ContextVar[Path | None] = ContextVar(
 # Active capability policy for the current embedded turn (process ContextVar).
 _active_capability_policy: ContextVar["HermesCapabilityPolicy | None"] = ContextVar(
     "hermes_graph_plugin_capability_policy",
+    default=None,
+)
+
+# Active GraphRetrievalSession id for the current embedded turn.
+_active_retrieval_session_id: ContextVar[str | None] = ContextVar(
+    "hermes_graph_plugin_retrieval_session_id",
     default=None,
 )
 
@@ -149,7 +149,7 @@ class HermesCapabilityPolicy:
 def default_graph_only_capability_policy(
     scope: HermesGraphScope,
 ) -> HermesCapabilityPolicy:
-    """Default PR010B Rung 3 policy: five graph reads, graph scope required."""
+    """Default policy: expand + source-read over one shared retrieval session."""
     names = tuple(ORDERED_GRAPH_TOOL_NAMES)
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
@@ -165,12 +165,26 @@ def default_graph_only_capability_policy(
             HermesToolCapabilityRule(
                 tool_name=name,
                 toolset=TOOLSET_NAME,
-                require_graph_scope=True,
+                # Session tools bind via retrievalSessionId; scope is validated
+                # against the hydrated session rather than request body fields.
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             )
             for name in names
         ),
     )
+
+
+def set_active_retrieval_session_id(session_id: str | None) -> Any:
+    return _active_retrieval_session_id.set(session_id)
+
+
+def reset_active_retrieval_session_id(token: Any) -> None:
+    _active_retrieval_session_id.reset(token)
+
+
+def get_active_retrieval_session_id() -> str | None:
+    return _active_retrieval_session_id.get()
 
 
 def validate_capability_policy_structure(
@@ -306,6 +320,11 @@ def apply_capability_policy_to_arguments(
         payload["focus"] = dict(scope.focus)
         payload["admissibility"] = scope.admissibility
         payload["revisionPin"] = scope.revision_pin
+    session_id = _active_retrieval_session_id.get()
+    if session_id and tool_name in HERMES_GRAPH_INTERACTION_TOOL_NAMES:
+        # Authoritative session inject — model cannot retarget another session.
+        payload["retrievalSessionId"] = session_id
+        payload["retrieval_session_id"] = session_id
     return payload, None
 
 
@@ -317,7 +336,7 @@ def _handler_for(tool_name: str):
             if denied is not None:
                 return denied
             assert payload is not None
-            return execute_hermes_graph_read_tool_json(
+            return execute_hermes_graph_interaction_tool_json(
                 tool_name,
                 payload,
                 root=_graph_root_override.get(),
@@ -327,8 +346,8 @@ def _handler_for(tool_name: str):
             # Hermes never sees a raised exception from a graph tool.
             return (
                 '{"schema":"dmb_world_graph_retrieval_error_v1",'
-                '"code":"hermes_graph_read_tool_adapter_error",'
-                '"message":"Hermes graph-read tool adapter failed unexpectedly.",'
+                '"code":"hermes_graph_interaction_tool_error",'
+                '"message":"Hermes graph interaction tool failed unexpectedly.",'
                 '"statusCode":500,'
                 '"diagnostics":[]}'
             )
@@ -339,17 +358,19 @@ def _handler_for(tool_name: str):
 
 
 def register(ctx: Any) -> None:
-    """Register the five PR010A graph-read tools with Hermes."""
-    definitions = hermes_graph_read_tool_definitions()
+    """Register expand_graph_retrieval + read_graph_source with Hermes."""
+    definitions = hermes_graph_interaction_tool_definitions()
     names = [item["function"]["name"] for item in definitions]
-    if set(names) != set(HERMES_GRAPH_READ_TOOL_NAMES) or len(names) != len(
-        HERMES_GRAPH_READ_TOOL_NAMES
+    if set(names) != set(HERMES_GRAPH_INTERACTION_TOOL_NAMES) or len(names) != len(
+        HERMES_GRAPH_INTERACTION_TOOL_NAMES
     ):
         raise RuntimeError(
-            "Rung 2 catalog names drifted from HERMES_GRAPH_READ_TOOL_NAMES"
+            "Interaction catalog names drifted from HERMES_GRAPH_INTERACTION_TOOL_NAMES"
         )
     if tuple(names) != ORDERED_GRAPH_TOOL_NAMES:
-        raise RuntimeError("Rung 2 catalog order drifted from ORDERED_GRAPH_TOOL_NAMES")
+        raise RuntimeError(
+            "Interaction catalog order drifted from ORDERED_GRAPH_TOOL_NAMES"
+        )
 
     for item in definitions:
         function_schema = copy.deepcopy(item["function"])
@@ -375,10 +396,13 @@ __all__ = [
     "apply_capability_policy_to_arguments",
     "default_graph_only_capability_policy",
     "get_active_capability_policy",
+    "get_active_retrieval_session_id",
     "register",
     "reset_active_capability_policy",
+    "reset_active_retrieval_session_id",
     "reset_graph_root_override",
     "set_active_capability_policy",
+    "set_active_retrieval_session_id",
     "set_graph_root_override",
     "validate_capability_policy_structure",
 ]

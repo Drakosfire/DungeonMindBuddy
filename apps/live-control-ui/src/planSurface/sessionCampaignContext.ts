@@ -18,10 +18,38 @@ export function isReviewCampaignId(value: string | null | undefined): value is R
   return value != null && (REVIEW_CAMPAIGN_IDS as readonly string[]).includes(value);
 }
 
-export function requestedCampaignFromLocation(): string | null {
-  if (typeof window === "undefined") return null;
-  const campaign = new URLSearchParams(window.location.search).get("campaign")?.trim();
+export function requestedCampaignFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): string | null {
+  if (search == null) return null;
+  const campaign = new URLSearchParams(search).get("campaign")?.trim();
   return campaign || null;
+}
+
+/** Accepts `session-24` or bare `24`. */
+export function requestedSessionNumberFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): number | null {
+  if (search == null) return null;
+  const raw = new URLSearchParams(search).get("session")?.trim();
+  if (!raw) return null;
+  const match = raw.match(/^(?:session-)?(\d+)$/i);
+  if (!match) return null;
+  const session = Number.parseInt(match[1], 10);
+  return Number.isFinite(session) && session > 0 ? session : null;
+}
+
+/** Optional `?prepSession=24` (or `session-24`) for the Plan board target. */
+export function requestedPrepSessionFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): number | null {
+  if (search == null) return null;
+  const raw = new URLSearchParams(search).get("prepSession")?.trim();
+  if (!raw) return null;
+  const match = raw.match(/^(?:session-)?(\d+)$/i);
+  if (!match) return null;
+  const session = Number.parseInt(match[1], 10);
+  return Number.isFinite(session) && session > 0 ? session : null;
 }
 
 export function resolveInitialReviewCampaignId(

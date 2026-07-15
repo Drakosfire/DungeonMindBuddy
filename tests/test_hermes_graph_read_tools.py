@@ -1,6 +1,20 @@
-"""Owning tests for the PR010B Rung 1 Hermes graph-read tool executor."""
+"""Owning tests for the PR010B Rung 1 Hermes graph-read tool executor.
+
+Superseded by the two-tool interaction catalog (``expand_graph_retrieval``,
+``read_graph_source``). Kernel-facing ``hermes_graph_read_tools`` remains for
+internal dispatch; model-visible contract tests live in interaction-tool tests.
+"""
 
 from __future__ import annotations
+
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Obsolete five-tool model catalog; kernel read_tools unchanged but "
+        "Hermes plugin registers expand_graph_retrieval + read_graph_source only."
+    ),
+)
 
 import ast
 from collections.abc import Callable, Mapping

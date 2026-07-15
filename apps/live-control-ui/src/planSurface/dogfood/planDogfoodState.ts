@@ -12,16 +12,24 @@ export interface PlanDogfoodState {
   updatedAt: string | null;
 }
 
+/**
+ * Operator measurement checklist for the current Plan prep loop.
+ * Rung 5 focus: board + markdown recovery, then Hermes same-thread continuity.
+ * World Graph object search/dogfood-list steps stay out of this checklist —
+ * the Plan main page is the board + dogfood panel, not a graph browser.
+ */
 export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
   {
     id: "open-plan",
     label: "Open /plan?dogfood=1 with the intended live session dir",
-    description: "URL campaign/session params do not select the Plan session; live packet does.",
+    description:
+      "Live packet still drives liveSession; set ?session=N (and optional ?prepSession=N) for memory/graph focus and board target.",
   },
   {
     id: "confirm-context",
-    label: "Confirm header prep/memory sessions and Nav target path",
-    description: "prepSession = liveSession + 1; target should be Session {prep} Prep.md",
+    label: "Confirm prep board title / target path (URL session + prepSession if set)",
+    description:
+      "Without ?session=, Ask DungeonBuddy uses world-union focus. prepSession defaults to live+1 unless ?prepSession= is set. Board title lives on the working board, not a second header.",
   },
   {
     id: "observe-board-source",
@@ -58,28 +66,47 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
   },
   { id: "source-preview", label: "Use Show source preview from the card when available" },
   {
-    id: "graph-object-add",
-    label: "Find a World Graph object (Edit → World Graph objects) and add it to the dogfood list",
+    id: "hermes-tools-trace",
+    label: "Open Ask DungeonBuddy → Hermes tools → Trace On",
+    description: "Rung 5 uses Hermes graph agent only; Live sibling stays isolated.",
   },
   {
-    id: "graph-object-view",
-    label: "View a dogfood card through the real GraphObjectCard path",
+    id: "hermes-turn-1-tripod",
+    label: "Ask Turn 1: What do we know about Tripod Null-Calf at the North Gate?",
+    description: "Confirm hermes_graph_agent, graph tool ran, grounding/citations agree.",
   },
   {
-    id: "graph-object-traverse",
-    label: "Traverse a related object and judge whether the card stays useful",
+    id: "hermes-turn-2-same-thread",
+    label: "Same thread, ask Turn 2: What is it connected to that should affect my prep?",
+    description: "Pronoun continuity only; facts must come from a fresh graph lookup.",
   },
   {
-    id: "graph-object-remove",
-    label: "Remove a card from the dogfood list (local only)",
+    id: "hermes-network-history",
+    label:
+      "Inspect Turn 2 Network: conversation_history is prior Q/A only; no hermes_session_id or manifest_path",
+    description: "History must not carry citations, traces, revisions, or source bodies.",
   },
   {
-    id: "ask-prep-memory",
-    label: "Ask prep memory a real question for this prep session",
+    id: "hermes-fresh-graph",
+    label:
+      "Confirm Turn 2 resolves “it”, runs fresh graph tools, and cites only Turn 2 anchors",
+    description: "Conversationally continuous, factually fresh — not a resumed Hermes session.",
   },
   {
-    id: "open-supporting-source",
-    label: "Open a supporting corpus citation source from the answer",
+    id: "hermes-thread-isolation",
+    label: "New empty Thread B: ask the Turn 2 follow-up alone; confirm Thread A history is absent",
+    description: "No Thread A prose or citations may leak into Thread B requests.",
+  },
+  {
+    id: "hermes-no-session-persist",
+    label:
+      "Inspect agent-interaction localStorage: no hermes_session_id or conversation_history fields",
+    description: "Outbound history is reconstructed from visible Q/A; Rung 6 owns durable sessions.",
+  },
+  {
+    id: "open-graph-evidence",
+    label: "Open a supporting World Graph citation/evidence card from the Hermes answer",
+    description: "Prefer graph-anchor evidence over legacy path citations for Hermes turns.",
   },
   {
     id: "record-useful",
@@ -89,6 +116,13 @@ export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
     id: "record-confusing",
     label: "Record what felt confusing, stale, scaffold-y, or missing (especially load)",
   },
+];
+
+/** Seeded into copied reports so operator feedback stays attached to the current slice. */
+export const PLAN_DOGFOOD_SUGGESTED_FOLLOW_UPS: string[] = [
+  "Remove World Graph search from the Plan toolbar / main page — keep the surface as dogfood checklist + markdown working board.",
+  "Ship corpus hydrate on load so scaffold cannot clobber an existing Session Prep.md.",
+  "After Rung 5 acceptance: Rung 6 durable Hermes session / reload lifecycle (not prose replay).",
 ];
 
 export function dogfoodModeFromLocation(location: Location = window.location): boolean {

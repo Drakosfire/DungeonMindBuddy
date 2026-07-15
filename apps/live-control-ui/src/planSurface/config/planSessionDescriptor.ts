@@ -17,10 +17,21 @@ export type {
   PlanSourceStatusKind,
 } from "../types";
 
-export function buildPlanContextFromPlanView(planView: PlanViewProjection): PlanContextDescriptor {
+export interface PlanSessionLocationOverrides {
+  /** Explicit graph/memory focus from `?session=`. Null/absent → no invented default. */
+  memorySession?: number | null;
+  /** Explicit prep board target from `?prepSession=`. */
+  prepSession?: number | null;
+}
+
+export function buildPlanContextFromPlanView(
+  planView: PlanViewProjection,
+  overrides: PlanSessionLocationOverrides = {},
+): PlanContextDescriptor {
   const liveSession = planView.session;
-  const prepSession = liveSession + 1;
-  const ingestSession = Math.max(1, liveSession - 1);
+  const prepSession = overrides.prepSession ?? liveSession + 1;
+  // Do not invent live-1. Explicit URL session wins; otherwise tool fallbacks use live.
+  const ingestSession = overrides.memorySession ?? liveSession;
   const campaignLabel = formatReviewCampaignLabel(planView.campaign_id);
   return {
     campaignId: planView.campaign_id,
@@ -74,17 +85,26 @@ export function createPlanDocumentDescriptor(context: PlanContextDescriptor): Pl
   };
 }
 
-export function createPlanSessionDescriptor(planView: PlanViewProjection): PlanSessionDescriptor {
-  const context = buildPlanContextFromPlanView(planView);
+export function createPlanSessionDescriptor(
+  planView: PlanViewProjection,
+  overrides: PlanSessionLocationOverrides = {},
+): PlanSessionDescriptor {
+  const context = buildPlanContextFromPlanView(planView, overrides);
   const planningDocument = createPlanDocumentDescriptor(context);
+  const memorySession =
+    overrides.memorySession === undefined ? null : overrides.memorySession;
+  const sourceStatusLabel =
+    memorySession == null
+      ? "World graph (all sessions) · set ?session=N to focus"
+      : `Session ${memorySession} · open /ingest to review`;
   return {
     surfaceId: "plan",
     campaignId: context.campaignId,
     campaignLabel: formatReviewCampaignLabel(context.campaignId),
     prepSession: context.prepSession,
-    memorySession: context.ingestSession,
+    memorySession,
     liveSession: context.liveSession,
-    sourceStatusLabel: `Session ${context.ingestSession} · open /ingest to review`,
+    sourceStatusLabel,
     sourceStatusKind: "unknown",
     planningDocument,
   };
@@ -93,20 +113,26 @@ export function createPlanSessionDescriptor(planView: PlanViewProjection): PlanS
 export function buildPlanIngestHref(sessionDescriptor: PlanSessionDescriptor): string {
   const params = new URLSearchParams({
     campaign: sessionDescriptor.campaignId,
-    session: `session-${sessionDescriptor.memorySession}`,
   });
+  if (sessionDescriptor.memorySession != null) {
+    params.set("session", `session-${sessionDescriptor.memorySession}`);
+  }
   return `/ingest?${params.toString()}`;
 }
 
 function sessionPrepStarterMarkdown(sessionDescriptor: PlanSessionDescriptor): string {
   const { campaignLabel, prepSession, memorySession } = sessionDescriptor;
+  const memoryHeading =
+    memorySession == null
+      ? "## Memory (world graph)"
+      : `## Memory through Session ${memorySession}`;
   return String.raw`# ${defaultSessionPrepTitle(campaignLabel, prepSession)}
 
 ## Session intent
 
 What should this session accomplish at the table?
 
-## Memory through Session ${memorySession}
+${memoryHeading}
 
 Summarize what the party knows, unresolved threads, and likely pressure going into Session ${prepSession}.
 

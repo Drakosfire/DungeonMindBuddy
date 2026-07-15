@@ -25,22 +25,42 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
     get_hermes_graph_agent_host,
 )
+from graph_memory.interaction.answer_validator import (
+    ABSTENTION_ANSWER as CLAIM_ABSTENTION_ANSWER,
+    validate_structured_answer,
+)
+from graph_memory.interaction.forensic import (
+    build_forensic_envelope,
+    forensic_enabled,
+)
+from graph_memory.interaction.initial_resolve import create_session_from_preflight
+from graph_memory.interaction.session import GraphRetrievalSession
+from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
+from graph_memory.interaction.session_store import get_session, replace_session
 
-GroundingState = Literal["grounded", "partial", "abstained", "error"]
+GroundingState = Literal[
+    "grounded",
+    "partial",
+    "abstained",
+    "error",
+    "graph_grounded",
+    "source_verified",
+    "partial_coverage",
+    "inferred_from_graph",
+]
 HostFactory = Callable[[], HermesGraphAgentHost]
 
 GROUNDING_SCHEMA = "dmb_hermes_graph_grounding_v1"
 CITATION_SCHEMA = "dmb_world_graph_anchor_citation_v1"
+SOURCE_CITATION_SCHEMA = "dmb_source_citation_v1"
+GRAPH_REFERENCE_SCHEMA = "dmb_graph_reference_v1"
 LIVE_QUERY_SCHEMA = "dmb_live_query_response_v1"
 VALIDATION_ERROR_SCHEMA = "dmb_live_query_validation_error_v1"
 MODE = "hermes_graph_agent"
 RUNTIME = "process_isolated"
 BACKEND = "hermes"
 
-ABSTENTION_ANSWER = (
-    "DungeonBuddy’s World Graph does not currently contain enough admitted evidence "
-    "to answer this question reliably."
-)
+ABSTENTION_ANSWER = CLAIM_ABSTENTION_ANSWER
 EXECUTION_ERROR_ANSWER = (
     "DungeonBuddy could not complete this World Graph Hermes turn. "
     "No legacy retrieval fallback was used."
@@ -252,6 +272,7 @@ def build_hermes_graph_turn_request(
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
+    retrieval_session: GraphRetrievalSession | None = None,
 ) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
     """Translate resolved World Graph context into one host turn request."""
     revision_id = _require_resolved_revision(graph_envelope)
@@ -277,6 +298,9 @@ def build_hermes_graph_turn_request(
         if conversation_history
         else None
     )
+    session = retrieval_session
+    if session is None:
+        session = create_session_from_preflight(graph_envelope, question=question)
     request = HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,
@@ -288,6 +312,8 @@ def build_hermes_graph_turn_request(
         session_id=None,
         root=graph_root,
         capability_policy=None,
+        retrieval_session_id=session.id,
+        retrieval_session=session.project_for_hermes(),
     )
     scope = _DispatchedScope(
         world_id=world_id,
@@ -368,6 +394,11 @@ def _is_evidence_bearing(
     event: HermesGraphToolEvent,
     scope: _DispatchedScope,
 ) -> bool:
+    """Legacy helper retained for trace projection.
+
+    Product acceptance no longer treats nonempty source_anchor_ids as grounding.
+    Claim-class authority in validate_structured_answer owns acceptance.
+    """
     if event.state != "completion":
         return False
     if not _tool_event_scope_matches(event, scope):
@@ -375,9 +406,22 @@ def _is_evidence_bearing(
     outcome = _normalized_outcome(event)
     if outcome is None or outcome not in EVIDENCE_BEARING_OUTCOMES:
         return False
-    if not list(event.source_anchor_ids):
-        return False
-    return True
+    # Accept completions that returned matched nodes/relationships even without anchors.
+    if list(event.source_anchor_ids) or list(event.matched_node_ids) or list(event.relationship_ids):
+        return True
+    return False
+
+
+def _map_outcome_to_legacy_grounding(outcome: str) -> GroundingState:
+    if outcome in {"graph_grounded", "source_verified"}:
+        return "grounded"
+    if outcome in {"partial_coverage", "inferred_from_graph", "conflicting_authority"}:
+        return "partial"
+    if outcome == "execution_error":
+        return "error"
+    if outcome in {"abstained", "unsupported"}:
+        return "abstained"
+    return "abstained"
 
 
 def _project_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
@@ -444,11 +488,11 @@ def _graph_citations_from_evidence(
     scope: _DispatchedScope,
     tool_events: Sequence[HermesGraphToolEvent],
 ) -> list[dict[str, Any]]:
-    """Project opaque graph citations from PR354-accepted evidence only.
+    """Legacy anchor citation projection — unused when claim acceptance is present.
 
-    Citations are emitted only for grounded/partial finals. Anchor IDs come
-    solely from evidence-bearing completions at the dispatched scope; model
-    prose, messages, and trace strings never create citations.
+    Kept for fallback paths without a retrieval session. Prefer
+    ``_citations_from_acceptance`` which separates graph references from
+    source citations created only after successful integrity-checked reads.
     """
     if state not in {"grounded", "partial"}:
         return []
@@ -468,6 +512,62 @@ def _graph_citations_from_evidence(
         }
         for anchor_id in anchors
     ]
+
+
+def _citations_from_acceptance(
+    acceptance: Mapping[str, Any],
+    *,
+    scope: _DispatchedScope,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return ``(legacy_citations, graph_references, source_citations)``."""
+    graph_refs = [
+        dict(item)
+        for item in acceptance.get("graph_references") or []
+        if isinstance(item, Mapping)
+    ]
+    source_cites = [
+        dict(item)
+        for item in acceptance.get("source_citations") or []
+        if isinstance(item, Mapping)
+    ]
+    # Product citations array prefers successful source citations; otherwise
+    # project graph references so the UI still has claim-level referents.
+    focus = dict(scope.focus)
+    if source_cites:
+        legacy = [
+            {
+                "schema": SOURCE_CITATION_SCHEMA,
+                "kind": "source_citation",
+                "anchor_id": cite.get("anchorId") or cite.get("anchor_id"),
+                "world_id": scope.world_id,
+                "campaign_id": scope.campaign_id,
+                "focus": focus,
+                "admissibility": scope.admissibility,
+                "revision_id": cite.get("revisionId") or cite.get("revision_id") or scope.revision_id,
+                "source_artifact_id": cite.get("sourceArtifactId") or cite.get("source_artifact_id"),
+                "content_sha256": cite.get("contentSha256") or cite.get("content_sha256"),
+                "source_read_id": cite.get("sourceReadId") or cite.get("source_read_id"),
+            }
+            for cite in source_cites
+        ]
+    else:
+        legacy = [
+            {
+                "schema": GRAPH_REFERENCE_SCHEMA,
+                "kind": "graph_reference",
+                "object_id": ref.get("objectId") or ref.get("object_id"),
+                "object_kind": ref.get("objectKind") or ref.get("object_kind"),
+                "claim_id": ref.get("claimId") or ref.get("claim_id"),
+                "label": ref.get("label"),
+                "world_id": scope.world_id,
+                "campaign_id": scope.campaign_id,
+                "focus": focus,
+                "admissibility": scope.admissibility,
+                "revision_id": ref.get("revisionId") or ref.get("revision_id") or scope.revision_id,
+            }
+            for ref in graph_refs
+        ]
+    return legacy, graph_refs, source_cites
 
 
 def _later_evidence_recovers(
@@ -519,13 +619,15 @@ def classify_hermes_graph_result(
     *,
     scope: _DispatchedScope,
     projection_ok: bool | None = None,
-) -> tuple[GroundingState, str, list[str], list[str], str | None]:
-    """Classify grounding from status + final_response + tool_events only.
+    retrieval_session: GraphRetrievalSession | None = None,
+) -> tuple[GroundingState, str, list[str], list[str], str | None, dict[str, Any]]:
+    """Classify grounding from the shared claim ledger first.
 
-    Returns ``(state, answer, warnings, diagnostic_codes, error_code)``.
-    ``result.messages`` is intentionally ignored.
+    Returns
+    ``(state, answer, warnings, diagnostic_codes, error_code, acceptance_detail)``.
+    ``result.messages`` is intentionally ignored as factual authority.
     """
-    _ = result.messages  # transcript is never evidence for PR354
+    _ = result.messages  # transcript is never factual authority
 
     if projection_ok is None:
         _, _, projection_ok = _safe_projected_tool_events(result.tool_events, scope)
@@ -536,6 +638,7 @@ def classify_hermes_graph_result(
             [],
             ["hermes_grounding_contract_error"],
             "hermes_grounding_contract_error",
+            {"state": "execution_error", "reason_codes": ["projection_failed"]},
         )
 
     for event in result.tool_events:
@@ -548,6 +651,7 @@ def classify_hermes_graph_result(
                 [],
                 ["hermes_tool_event_scope_mismatch"],
                 "hermes_grounding_contract_error",
+                {"state": "execution_error", "reason_codes": ["scope_mismatch"]},
             )
 
     if result.status == "error":
@@ -558,10 +662,8 @@ def classify_hermes_graph_result(
             [],
             [error_code],
             error_code,
+            {"state": "execution_error", "reason_codes": [error_code]},
         )
-
-    completions = [event for event in result.tool_events if event.state == "completion"]
-    evidence = [event for event in completions if _is_evidence_bearing(event, scope)]
 
     unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
     if unrecovered_errors:
@@ -572,41 +674,90 @@ def classify_hermes_graph_result(
             [],
             diagnostic_codes,
             error_code,
+            {"state": "execution_error", "reason_codes": diagnostic_codes},
         )
 
-    if any(
-        _normalized_outcome(event) == UNAVAILABLE_OUTCOME for event in completions
-    ) and not evidence:
+    session = retrieval_session
+    if session is None and result.retrieval_session is not None:
+        try:
+            session = hydrate_session_from_packet(result.retrieval_session)
+        except Exception:
+            session = None
+    if session is None and result.retrieval_session_id:
+        session = get_session(result.retrieval_session_id)
+
+    if session is not None:
+        validated = validate_structured_answer(
+            session,
+            None,
+            model_prose=(result.final_response or "").strip() or None,
+            execution_error=False,
+        )
+        replace_session(session)
+        legacy_state = _map_outcome_to_legacy_grounding(validated.outcome)
+        acceptance = {
+            "state": validated.outcome,
+            "reason_codes": list(validated.reason_codes),
+            "accepted_claim_ids": list(validated.accepted_claim_ids),
+            "rejected_claim_ids": list(validated.rejected_claim_ids),
+            "graph_references": [
+                ref.model_dump(mode="json")
+                for ref in validated.graph_references
+            ],
+            "source_citations": [
+                cite.model_dump(mode="json")
+                for cite in validated.source_citations
+            ],
+        }
         return (
-            "error",
-            EXECUTION_ERROR_ANSWER,
-            [],
-            ["hermes_graph_unavailable"],
-            "hermes_graph_unavailable",
+            legacy_state,
+            validated.answer_text,
+            list(validated.warnings),
+            list(validated.diagnostic_codes),
+            None,
+            acceptance,
         )
 
+    # Fallback path without a retrieval session: prefer matched nodes over anchors.
+    completions = [event for event in result.tool_events if event.state == "completion"]
+    evidence = [event for event in completions if _is_evidence_bearing(event, scope)]
     final_response = (result.final_response or "").strip()
-
     if not evidence:
-        return ("abstained", ABSTENTION_ANSWER, [], ["hermes_insufficient_evidence"], None)
-
-    warnings: list[str] = []
-    diagnostic_codes: list[str] = []
-    for event in evidence:
-        diagnostic_codes.extend(list(event.diagnostic_codes))
-    is_partial = any(
-        _normalized_outcome(event) in PARTIAL_OUTCOMES for event in evidence
-    )
+        return (
+            "abstained",
+            ABSTENTION_ANSWER,
+            [],
+            ["hermes_insufficient_evidence"],
+            None,
+            {"state": "abstained", "reason_codes": ["no_session_no_evidence"]},
+        )
+    is_partial = any(_normalized_outcome(event) in PARTIAL_OUTCOMES for event in evidence)
     if is_partial:
-        warnings.append(PARTIAL_COVERAGE_WARNING)
-        diagnostic_codes.append("hermes_partial_coverage")
-        if not final_response:
-            return ("abstained", ABSTENTION_ANSWER, warnings, diagnostic_codes, None)
-        return ("partial", final_response, warnings, diagnostic_codes, None)
-
+        return (
+            "partial",
+            final_response or ABSTENTION_ANSWER,
+            [PARTIAL_COVERAGE_WARNING],
+            ["hermes_partial_coverage"],
+            None,
+            {"state": "partial_coverage", "reason_codes": ["legacy_partial"]},
+        )
     if not final_response:
-        return ("abstained", ABSTENTION_ANSWER, warnings, diagnostic_codes, None)
-    return ("grounded", final_response, warnings, diagnostic_codes, None)
+        return (
+            "abstained",
+            ABSTENTION_ANSWER,
+            [],
+            ["hermes_insufficient_evidence"],
+            None,
+            {"state": "abstained", "reason_codes": ["empty_final_response"]},
+        )
+    return (
+        "grounded",
+        final_response,
+        [],
+        [],
+        None,
+        {"state": "graph_grounded", "reason_codes": ["legacy_matched_ids"]},
+    )
 
 
 def _grounding_block(
@@ -781,12 +932,14 @@ def build_hermes_graph_product_response(
     completed_at: str,
     elapsed_ms: int,
     world_graph_context: Mapping[str, Any] | None = None,
+    retrieval_session: GraphRetrievalSession | None = None,
 ) -> dict[str, Any]:
     # Project once behind a safe boundary; reuse for classification and trace.
     projected_events, saw_mismatch, projection_ok = _safe_projected_tool_events(
         result.tool_events,
         scope,
     )
+    acceptance: dict[str, Any] = {}
     if not projection_ok:
         state: GroundingState = "error"
         answer = EXECUTION_ERROR_ANSWER
@@ -795,20 +948,33 @@ def build_hermes_graph_product_response(
         error_code: str | None = "hermes_grounding_contract_error"
         projected_events = []
         grounding_events: Sequence[HermesGraphToolEvent] = []
+        acceptance = {"state": "execution_error", "reason_codes": ["projection_failed"]}
     else:
-        state, answer, warnings, diagnostic_codes, error_code = classify_hermes_graph_result(
-            result,
-            scope=scope,
-            projection_ok=True,
+        state, answer, warnings, diagnostic_codes, error_code, acceptance = (
+            classify_hermes_graph_result(
+                result,
+                scope=scope,
+                projection_ok=True,
+                retrieval_session=retrieval_session,
+            )
         )
         grounding_events = result.tool_events
         if saw_mismatch and "hermes_tool_event_scope_mismatch" not in diagnostic_codes:
             diagnostic_codes = [*diagnostic_codes, "hermes_tool_event_scope_mismatch"]
-    citations = _graph_citations_from_evidence(
-        state=state,
-        scope=scope,
-        tool_events=grounding_events,
-    )
+
+    graph_refs: list[dict[str, Any]] = []
+    source_cites: list[dict[str, Any]] = []
+    if acceptance.get("graph_references") is not None or acceptance.get("source_citations") is not None:
+        citations, graph_refs, source_cites = _citations_from_acceptance(
+            acceptance,
+            scope=scope,
+        )
+    else:
+        citations = _graph_citations_from_evidence(
+            state=state,
+            scope=scope,
+            tool_events=grounding_events,
+        )
     grounding = _grounding_block(
         state=state,
         scope=scope,
@@ -816,9 +982,14 @@ def build_hermes_graph_product_response(
         diagnostic_codes=diagnostic_codes,
         warnings=warnings,
     )
+    acceptance_state = str(acceptance.get("state") or state)
+    grounding["acceptance_state"] = acceptance_state
+    grounding["accepted_claim_ids"] = list(acceptance.get("accepted_claim_ids") or [])
+    grounding["rejected_claim_ids"] = list(acceptance.get("rejected_claim_ids") or [])
+    grounding["reason_codes"] = list(acceptance.get("reason_codes") or [])
     if state in {"grounded", "partial"}:
-        # Product contract: citation count matches accepted unique anchors.
-        grounding["source_anchor_count"] = len(citations)
+        grounding["source_anchor_count"] = len(source_cites) if source_cites else 0
+        grounding["graph_reference_count"] = len(graph_refs)
     response: dict[str, Any] = {
         "schema": LIVE_QUERY_SCHEMA,
         "query_id": _new_query_id(),
@@ -837,7 +1008,10 @@ def build_hermes_graph_product_response(
         "diagnostics": (
             {"error_code": error_code}
             if error_code is not None
-            else {"grounding_state": state}
+            else {
+                "grounding_state": state,
+                "acceptance_state": acceptance_state,
+            }
         ),
         "provenance": {
             "backend": BACKEND,
@@ -846,6 +1020,8 @@ def build_hermes_graph_product_response(
             "process_isolation": result.process_isolation,
         },
         "citations": citations,
+        "graph_references": graph_refs,
+        "source_citations": source_cites,
         "context_packet": None,
         "warnings": list(warnings),
         "mutations": [],
@@ -862,9 +1038,23 @@ def build_hermes_graph_product_response(
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
         "hermes_session": None,
+        "retrieval_session_id": result.retrieval_session_id,
     }
     if world_graph_context is not None:
         response["world_graph_context"] = dict(world_graph_context)
+    if forensic_enabled():
+        preflight_ids: list[str] = []
+        if isinstance(world_graph_context, Mapping):
+            matched = world_graph_context.get("matched_node_ids") or []
+            if isinstance(matched, list):
+                preflight_ids = [str(item) for item in matched if item]
+        response["forensic"] = build_forensic_envelope(
+            retrieval_session_id=result.retrieval_session_id,
+            preflight_candidate_ids=preflight_ids,
+            agent_seed_ids=list(acceptance.get("accepted_claim_ids") or []),
+            tool_events=[_project_tool_event(event) for event in result.tool_events],
+            acceptance=acceptance,
+        )
     return response
 
 

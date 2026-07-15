@@ -1,6 +1,19 @@
-"""Owning tests for the PR010B Rung 2 Hermes graph-read model tool adapter."""
+"""Owning tests for the PR010B Rung 2 Hermes graph-read model tool adapter.
+
+Superseded by ``hermes_graph_interaction_tools.py`` (expand_graph_retrieval +
+read_graph_source). The legacy adapter remains for internal callers only.
+"""
 
 from __future__ import annotations
+
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Obsolete five-tool adapter catalog; model-visible tools are defined in "
+        "hermes_graph_interaction_tools.py."
+    ),
+)
 
 import ast
 import copy

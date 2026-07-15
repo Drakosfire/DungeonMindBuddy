@@ -1,6 +1,7 @@
 import type { PlanSessionDescriptor } from "../types";
 import type { WorldGraphProjectionSnapshot } from "../../api/types";
 import type { PlanDogfoodChecklistItem, PlanDogfoodState } from "./planDogfoodState";
+import { PLAN_DOGFOOD_SUGGESTED_FOLLOW_UPS } from "./planDogfoodState";
 
 export function buildPlanDogfoodReport(args: {
   sessionDescriptor: PlanSessionDescriptor;
@@ -19,14 +20,14 @@ export function buildPlanDogfoodReport(args: {
   });
 
   const notesBlock = state.notes.trim() || "_No notes recorded._";
-  const followUps = "- ";
+  const followUps = PLAN_DOGFOOD_SUGGESTED_FOLLOW_UPS.map((item) => `- ${item}`).join("\n");
 
   return [
     "# /plan Dogfood Report",
     "",
     `Campaign: ${sessionDescriptor.campaignLabel}`,
     `Prep session: ${sessionDescriptor.prepSession}`,
-    `Memory session: ${sessionDescriptor.memorySession}`,
+    `Memory session: ${sessionDescriptor.memorySession ?? "none (world union)"}`,
     `Document: ${planningDocument.title}`,
     `Target path: ${planningDocument.targetRelpath}`,
     `Save status: ${saveStatusLabel}`,

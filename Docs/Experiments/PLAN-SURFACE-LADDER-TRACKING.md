@@ -10,7 +10,7 @@ Current authority:
 
 1. [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 2. [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
-3. [`Docs/Design/ANCHOR-agent-interaction-hermes.md`](../Design/ANCHOR-agent-interaction-hermes.md)
+3. [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
 4. [`Docs/Design/ANCHOR-plan-surface-agent-interaction.md`](../Design/ANCHOR-plan-surface-agent-interaction.md)
 
 The active Agent Interaction sequence is:
