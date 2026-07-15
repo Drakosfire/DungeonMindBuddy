@@ -91,7 +91,7 @@ describe("AgentInteractionProvider", () => {
     expect(result.current.turns[0].question).not.toBe("B?");
   });
 
-  it("clears stale Hermes session after hermes_graph_agent response", () => {
+  it("clears stale Hermes session and strips graph hermes_session_id from safe traces", () => {
     const staleSession = {
       sessionId: "stale-hermes-session",
       runtime: "api",
@@ -134,7 +134,7 @@ describe("AgentInteractionProvider", () => {
     });
 
     expect(result.current.activeThread?.hermesSession).toBeNull();
-    expect(result.current.activeThread?.turns[0].trace?.hermes_session_id).toBe("observability-only-session");
+    expect(result.current.activeThread?.turns[0].trace?.hermes_session_id).toBeUndefined();
   });
 
   it("keeps subsequent Hermes turns independent without forwarding a session handle", () => {

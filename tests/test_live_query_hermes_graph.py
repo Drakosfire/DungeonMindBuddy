@@ -1344,3 +1344,75 @@ def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:
         )
     assert exc.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
     assert host.calls == []
+
+
+def test_invalid_history_with_unavailable_envelope_still_rejects(
+    tmp_path: Path,
+) -> None:
+    host = _FakeHost(_ok_result())
+    unavailable = {
+        **READY_ENVELOPE,
+        "status": "unavailable",
+        "revision_id": "",
+        "warning_codes": ["world_graph_unavailable"],
+    }
+    with pytest.raises(Exception) as exc:
+        run_hermes_graph_query(
+            text="follow-up",
+            packet=PACKET,
+            graph_envelope=unavailable,
+            agent_thread_id="agent-thread-unavail-invalid",
+            turn_id="turn-unavail-invalid",
+            root=tmp_path,
+            host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+            conversation_history=[{"role": "user", "content": "solo"}],
+        )
+    assert exc.value.code == "hermes_history_invalid"  # type: ignore[attr-defined]
+    assert host.calls == []
+
+
+def test_invalid_history_fails_before_graph_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextRequest,
+    )
+    from apps.live_control_server.services.hermes_graph_query import (
+        HermesGraphQueryRequestError,
+    )
+
+    def _resolver_must_not_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("graph resolver must not run for malformed history")
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        _resolver_must_not_run,
+    )
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        live_agent_loop,
+        "load_session",
+        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 22}, {}, [], []),
+    )
+    monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
+
+    with pytest.raises(HermesGraphQueryRequestError) as exc:
+        live_agent_loop.process_live_query(
+            "follow-up",
+            base=tmp_path,
+            query_backend="hermes",
+            world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(
+                {
+                    "schema": "dmb_agent_world_graph_query_context_request_v1",
+                    "world_id": "eldyrwild",
+                    "campaign_id": "longmont-c2",
+                    "focus": {"kind": "session", "session_id": "session-21"},
+                    "admissibility": "gm",
+                }
+            ),
+            outer_campaign_id="longmont-c2",
+            conversation_history=[{"role": "user", "content": "solo"}],
+        )
+    assert exc.value.code == "hermes_history_invalid"

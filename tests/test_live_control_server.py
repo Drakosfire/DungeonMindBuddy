@@ -1664,6 +1664,16 @@ def test_hermes_history_accepts_valid_wire_shape(
     ]
 
 
+_TOO_MANY_HISTORY_MESSAGES = [
+    item
+    for i in range(7)
+    for item in (
+        {"role": "user", "content": f"q{i}"},
+        {"role": "assistant", "content": f"a{i}"},
+    )
+]
+
+
 @pytest.mark.parametrize(
     "history,expected_code",
     [
@@ -1683,6 +1693,53 @@ def test_hermes_history_accepts_valid_wire_shape(
             ],
             "hermes_history_invalid",
         ),
+        (
+            [
+                {"role": "system", "content": "nope"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "tool", "content": "nope"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": ""},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": 12},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "x" * 4001},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "a" * 3000},
+                {"role": "assistant", "content": "b" * 3000},
+                {"role": "user", "content": "c" * 3000},
+                {"role": "assistant", "content": "d" * 3000},
+                {"role": "user", "content": "e" * 3000},
+                {"role": "assistant", "content": "f" * 3000},
+            ],
+            "hermes_history_invalid",
+        ),
+        (_TOO_MANY_HISTORY_MESSAGES, "hermes_history_invalid"),
     ],
 )
 def test_hermes_history_invalid_returns_422_without_execution(
@@ -1692,10 +1749,10 @@ def test_hermes_history_invalid_returns_422_without_execution(
     history: Any,
     expected_code: str,
 ) -> None:
-    from apps.live_control_server.services import live_agent_loop
+    import apps.live_control_server.routes.live as live_routes
 
     monkeypatch.setattr(
-        live_agent_loop,
+        live_routes,
         "process_live_query",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("process_live_query must not run")
@@ -1719,15 +1776,65 @@ def test_hermes_history_invalid_returns_422_without_execution(
     assert "HOSTILE_TRACE" not in json.dumps(body)
 
 
+@pytest.mark.parametrize("history", [None, []])
+def test_hermes_null_or_empty_history_does_not_422_as_invalid(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    history: Any,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    captured: dict[str, Any] = {}
+
+    def _capture(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured["history"] = kwargs.get("conversation_history")
+        return {
+            "schema": "dmb_live_query_response_v1",
+            "answer": "ok",
+            "status": "ok",
+            "mode": "hermes_graph_agent",
+            "classification": {
+                "intent": "hermes_graph_agent",
+                "latency_mode": "hermes_graph_agent",
+                "event_type": "hermes_graph_agent",
+            },
+            "events_written": [],
+            "jobs_queued": [],
+            "next_suggestions": [],
+            "diagnostics": {},
+            "provenance": {"backend": "hermes", "runtime": "process_isolated"},
+            "citations": [],
+            "context_packet": None,
+            "agent_thread_id": "t",
+            "turn_id": "u",
+        }
+
+    monkeypatch.setattr(live_routes, "process_live_query", _capture)
+    payload: dict[str, Any] = {
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "mode": "live",
+        "query_backend": "hermes",
+        "text": "follow-up",
+        "world_graph_context": _GRAPH_NESTED,
+    }
+    if history is not None:
+        payload["conversation_history"] = history
+    response = client.post("/api/live/query", json=payload)
+    assert response.status_code == 200
+    assert captured["history"] is None
+
+
 def test_live_backend_rejects_non_empty_history(
     client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from apps.live_control_server.services import live_agent_loop
+    import apps.live_control_server.routes.live as live_routes
 
     monkeypatch.setattr(
-        live_agent_loop,
+        live_routes,
         "process_live_query",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("process_live_query must not run")
@@ -1749,3 +1856,51 @@ def test_live_backend_rejects_non_empty_history(
     )
     assert response.status_code == 422
     assert response.json()["code"] == "conversation_history_not_supported"
+
+
+def test_live_backend_allows_null_or_empty_history(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    calls = {"n": 0}
+
+    def _ok(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        calls["n"] += 1
+        return {
+            "schema": "dmb_live_query_response_v1",
+            "answer": "live-ok",
+            "status": "ok",
+            "mode": "live",
+            "classification": {
+                "intent": "note",
+                "latency_mode": "instant",
+                "event_type": "note",
+            },
+            "events_written": [],
+            "jobs_queued": [],
+            "next_suggestions": [],
+            "diagnostics": {},
+            "provenance": {"backend": "live", "runtime": "in_process"},
+            "citations": [],
+            "context_packet": None,
+            "agent_thread_id": "t",
+            "turn_id": "u",
+        }
+
+    monkeypatch.setattr(live_routes, "process_live_query", _ok)
+    for history in (None, []):
+        payload: dict[str, Any] = {
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "note",
+        }
+        if history is not None:
+            payload["conversation_history"] = history
+        response = client.post("/api/live/query", json=payload)
+        assert response.status_code == 200
+    assert calls["n"] == 2

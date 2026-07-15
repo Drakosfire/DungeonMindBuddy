@@ -73,23 +73,6 @@ export function buildHermesConversationHistory(turns: unknown): HermesConversati
   return flattenPairs(chronological);
 }
 
-function validMessagePair(
-  user: unknown,
-  assistant: unknown,
-): HermesConversationHistoryMessage[] | null {
-  if (!isRecord(user) || !isRecord(assistant)) return null;
-  const userContent = nonEmptyTrimmedString(user.content);
-  const assistantContent = nonEmptyTrimmedString(assistant.content);
-  if (!userContent || !assistantContent) return null;
-  if (user.role !== "user" || assistant.role !== "assistant") return null;
-  if (userContent.length > HERMES_HISTORY_MAX_MESSAGE_CHARS) return null;
-  if (assistantContent.length > HERMES_HISTORY_MAX_MESSAGE_CHARS) return null;
-  return [
-    { role: "user", content: userContent },
-    { role: "assistant", content: assistantContent },
-  ];
-}
-
 function selectBoundedMessages(
   messages: HermesConversationHistoryMessage[],
 ): HermesConversationHistoryMessage[] {
@@ -103,14 +86,40 @@ function selectBoundedMessages(
   return flattenPairs(selectBoundedPairs(pairs));
 }
 
+function validOutboundMessage(
+  entry: unknown,
+  role: HermesConversationHistoryRole,
+): HermesConversationHistoryMessage | null {
+  if (!isRecord(entry)) return null;
+  if (entry.role !== role) return null;
+  const content = nonEmptyTrimmedString(entry.content);
+  if (!content || content.length > HERMES_HISTORY_MAX_MESSAGE_CHARS) return null;
+  return { role, content };
+}
+
+/**
+ * Independently recognize user messages and pair each with the next valid
+ * assistant, dropping malformed entries without destroying later siblings.
+ */
 export function normalizeHermesOutboundConversationHistory(
   value: unknown,
 ): HermesConversationHistoryMessage[] {
   if (!Array.isArray(value)) return [];
   const pairs: HermesConversationHistoryMessage[] = [];
-  for (let index = 0; index + 1 < value.length; index += 2) {
-    const built = validMessagePair(value[index], value[index + 1]);
-    if (built) pairs.push(...built);
+  let pendingUser: HermesConversationHistoryMessage | null = null;
+  for (const entry of value) {
+    const asUser = validOutboundMessage(entry, "user");
+    if (asUser) {
+      pendingUser = asUser;
+      continue;
+    }
+    const asAssistant = validOutboundMessage(entry, "assistant");
+    if (asAssistant && pendingUser) {
+      pairs.push(pendingUser, asAssistant);
+      pendingUser = null;
+      continue;
+    }
+    // Malformed, wrong-role, or orphan assistant: drop and keep scanning.
   }
   return selectBoundedMessages(pairs);
 }

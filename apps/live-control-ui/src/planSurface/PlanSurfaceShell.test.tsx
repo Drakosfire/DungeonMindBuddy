@@ -1851,6 +1851,131 @@ describe("PlanSurfaceShell", () => {
     expect(JSON.stringify(secondBody.conversation_history)).not.toContain("source-anchor");
   });
 
+  it("after persist and reload, follow-up history ignores hostile stored children and session ids", async () => {
+    const user = userEvent.setup();
+    const firstResponse = buildHermesGraphQueryResponse({
+      answer: "Tripod stands at the North Gate.",
+      agent_trace: {
+        ...buildHermesGraphQueryResponse().agent_trace,
+        hermes_session_id: "hermes-session-must-not-persist",
+      },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(firstResponse),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    const { unmount } = renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What do we know about Tripod Null-Calf at the North Gate?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    expect(activeThreadId).toBeTruthy();
+    const storedKey = threadStorageKey("longmont-c2", String(activeThreadId));
+    const storedBefore = localStorage.getItem(storedKey) ?? "";
+    expect(storedBefore).not.toContain("hermes_session_id");
+    expect(storedBefore).not.toContain("hermes-session-must-not-persist");
+
+    const parsed = JSON.parse(storedBefore) as {
+      turns: Array<Record<string, unknown>>;
+    };
+    // Newest-first: inject a malformed sibling ahead of the valid persisted turn.
+    parsed.turns.unshift({
+      turnId: "hostile-malformed",
+      askedAt: "2026-07-14T17:00:00Z",
+      completedAt: "2026-07-14T17:00:01Z",
+      question: "",
+      answer: "Malformed stored child",
+      backend: "hermes",
+      status: "ok",
+      citations: [],
+      warnings: [],
+      grounding: null,
+      trace: {
+        trace_id: "RAW_TRACE_SECRET",
+        hermes_session_id: "RAW_HERMES_TRANSCRIPT_SECRET",
+        mode: "hermes_graph_agent",
+        runtime: "process_isolated",
+        backend: "hermes",
+        started_at: "2026-07-14T17:00:00Z",
+        completed_at: "2026-07-14T17:00:01Z",
+        elapsed_ms: 1,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [],
+        warnings: [],
+      },
+    });
+    localStorage.setItem(storedKey, JSON.stringify(parsed));
+
+    unmount();
+    fetchSpy.mockClear();
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+            answer: "Follow-up after reload.",
+          })),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText("Follow-up after reload.");
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    expect(queryCalls).toHaveLength(1);
+    const followUpBody = JSON.parse(String(queryCalls[0][1]?.body)) as Record<string, unknown>;
+    expect(followUpBody.conversation_history).toEqual([
+      {
+        role: "user",
+        content: "What do we know about Tripod Null-Calf at the North Gate?",
+      },
+      { role: "assistant", content: "Tripod stands at the North Gate." },
+    ]);
+    expect(JSON.stringify(followUpBody)).not.toContain("hermes_session_id");
+    expect(JSON.stringify(followUpBody)).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+
+    const storedAfter = localStorage.getItem(storedKey) ?? "";
+    expect(storedAfter).not.toContain("hermes_session_id");
+    expect(storedAfter).not.toContain("hermes-session-must-not-persist");
+    expect(storedAfter).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+  });
+
   it("does not leak Thread A history into Thread B follow-up requests", async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {

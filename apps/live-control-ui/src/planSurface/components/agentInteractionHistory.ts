@@ -242,7 +242,7 @@ function safeHermesGraphTraceForPersistence(
     context_summary: {},
     artifact_refs: [],
     tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
-    hermes_session_id: truncatePersistedString(trace.hermes_session_id),
+    // Rung 5: never persist a Hermes session pointer. Rung 6 owns durable session ids.
     process_isolation: truncatePersistedString(trace.process_isolation),
     warnings: warnings.slice(0, MAX_PERSISTED_WARNINGS),
   };

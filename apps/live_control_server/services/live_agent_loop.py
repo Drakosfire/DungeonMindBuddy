@@ -455,6 +455,8 @@ def process_live_query(
             outer_campaign_id=campaign_id,
         )
         assert world_graph_context is not None  # validated above
+        # History must fail closed before graph resolution or host construction.
+        normalized_history = normalize_hermes_conversation_history(conversation_history)
         graph_envelope = resolve_agent_world_graph_query_context(
             world_graph_context,
             outer_text=text,
@@ -468,7 +470,7 @@ def process_live_query(
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
             root=world_graph_root(),
-            conversation_history=normalize_hermes_conversation_history(conversation_history),
+            conversation_history=normalized_history,
         )
 
     if query_backend not in LIVE_QUERY_BACKENDS:

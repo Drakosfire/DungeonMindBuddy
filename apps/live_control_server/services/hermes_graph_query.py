@@ -884,6 +884,8 @@ def run_hermes_graph_query(
     Calls ``host.execute`` exactly once. Host-owned pre-accept retry remains
     inside the host; this adapter never retries.
     """
+    # Fail closed on malformed history before unavailable short-circuit or host work.
+    normalized_history = normalize_hermes_conversation_history(conversation_history)
     if str(graph_envelope.get("status") or "") == "unavailable":
         return build_hermes_graph_unavailable_response(
             packet=packet,
@@ -892,7 +894,6 @@ def run_hermes_graph_query(
             turn_id=turn_id,
         )
 
-    normalized_history = normalize_hermes_conversation_history(conversation_history)
     request, scope = build_hermes_graph_turn_request(
         question=text,
         graph_envelope=graph_envelope,

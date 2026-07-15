@@ -808,6 +808,23 @@ describe("agentInteractionHistory", () => {
         turnId: "valid-turn",
         question: "Valid question?",
         answer: "Valid answer.",
+        trace: {
+          trace_id: "trace-valid",
+          runtime: "process_isolated",
+          backend: "hermes",
+          mode: "hermes_graph_agent",
+          started_at: "2026-06-22T00:00:00.000Z",
+          completed_at: "2026-06-22T00:00:01.000Z",
+          elapsed_ms: 1,
+          status: "ok",
+          usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+          steps: [],
+          context_summary: {},
+          artifact_refs: [],
+          tool_events: [],
+          hermes_session_id: "hermes-session-must-not-persist",
+          warnings: [],
+        } as AgentInteractionTrace,
       },
       {
         turnId: "malformed-turn",
@@ -826,7 +843,23 @@ describe("agentInteractionHistory", () => {
         answer: "Poison answer.",
         backend: "hermes",
         status: "ok",
-        trace: { trace_id: "RAW_TRACE_SECRET" } as never,
+        trace: {
+          trace_id: "RAW_TRACE_SECRET",
+          runtime: "process_isolated",
+          backend: "hermes",
+          mode: "hermes_graph_agent",
+          started_at: "2026-06-22T00:00:04.000Z",
+          completed_at: "2026-06-22T00:00:05.000Z",
+          elapsed_ms: 1,
+          status: "ok",
+          usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+          steps: [],
+          context_summary: {},
+          artifact_refs: [],
+          tool_events: [],
+          hermes_session_id: "RAW_HERMES_TRANSCRIPT_SECRET",
+          warnings: [],
+        } as never,
         citations: [graphCitation],
         grounding: graphGrounding,
       } as never,
@@ -838,9 +871,12 @@ describe("agentInteractionHistory", () => {
       { role: "user", content: "Valid question?" },
       { role: "assistant", content: "Valid answer." },
     ]);
-    const stored = JSON.stringify(thread);
+
+    persistAgentThread(thread);
+    const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
     expect(stored).not.toContain("conversation_history");
     expect(stored).not.toContain("hermes_session_id");
+    expect(stored).not.toContain("hermes-session-must-not-persist");
     expect(stored).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
   });
 });

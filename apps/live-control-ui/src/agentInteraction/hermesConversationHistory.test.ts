@@ -125,4 +125,20 @@ describe("normalizeHermesOutboundConversationHistory", () => {
     expect(JSON.stringify(normalized)).not.toContain("RAW_TRACE_SECRET");
     expect(JSON.stringify(normalized)).not.toContain("RAW_CITATION_SECRET");
   });
+
+  it("preserves later valid siblings when a mid-stream child is malformed", () => {
+    const normalized = normalizeHermesOutboundConversationHistory([
+      { role: "user", content: "First?" },
+      null,
+      { role: "assistant", content: "First answer." },
+      { role: "user", content: "Second?" },
+      { role: "assistant", content: "Second answer." },
+    ]);
+    expect(normalized).toEqual([
+      { role: "user", content: "First?" },
+      { role: "assistant", content: "First answer." },
+      { role: "user", content: "Second?" },
+      { role: "assistant", content: "Second answer." },
+    ]);
+  });
 });
