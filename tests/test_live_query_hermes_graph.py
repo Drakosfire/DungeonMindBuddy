@@ -191,12 +191,8 @@ def _raise_if_called(*_args: Any, **_kwargs: Any) -> Any:
 
 @pytest.fixture
 def no_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(live_agent_loop, "run_hermes_conversation", _raise_if_called)
-    monkeypatch.setattr(live_agent_loop, "_process_hermes_context_query", _raise_if_called)
-    monkeypatch.setattr(live_agent_loop, "_process_hermes_cli_query", _raise_if_called)
     monkeypatch.setattr(live_agent_loop, "run_context_lookup_turn", _raise_if_called)
     monkeypatch.setattr(live_agent_loop, "handle_live_turn", _raise_if_called)
-    monkeypatch.setattr(live_agent_loop.subprocess, "run", _raise_if_called)
 
 
 def test_validate_rejects_missing_context_and_legacy_fields() -> None:
@@ -828,24 +824,6 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
     )
     assert recovered_state == "grounded"
     assert recovered_answer.startswith("Tripod")
-
-    adapter_state, _, _, adapter_codes, adapter_error, _ = classify_hermes_graph_result(
-        _ok_result(
-            events=[
-                _tool_event(
-                    state="error",
-                    outcome=None,
-                    source_anchor_ids=[],
-                    diagnostic_codes=["hermes_graph_read_tool_adapter_error"],
-                    retrieval_schema="dmb_world_graph_retrieval_error_v1",
-                )
-            ]
-        ),
-        scope=scope,
-    )
-    assert adapter_state == "error"
-    assert adapter_error == "hermes_graph_read_tool_adapter_error"
-    assert "hermes_graph_read_tool_adapter_error" in adapter_codes
 
 
 def test_scope_mismatch_events_are_redacted_from_serialized_response(

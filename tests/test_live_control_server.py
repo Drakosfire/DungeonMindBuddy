@@ -271,11 +271,6 @@ def test_query_can_route_through_hermes_backend(
     )
     monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
-    monkeypatch.setattr(
-        live_agent_loop,
-        "run_hermes_conversation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("legacy hermes")),
-    )
 
     response = client.post(
         "/api/live/query",
@@ -330,12 +325,8 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
         HermesGraphToolEvent,
     )
 
-    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
+    monkeypatch.setenv("DUNGEONMIND_LIVE_HERMES_MODE", "cli")
 
-    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise AssertionError("Hermes CLI subprocess must be unreachable after PR354")
-
-    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
     monkeypatch.setattr(
         live_agent_loop,
         "resolve_agent_world_graph_query_context",
@@ -1474,7 +1465,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CLI env must not reach subprocess; host path owns Hermes after PR354."""
+    """Legacy CLI env is ignored; graph host owns Hermes after Phase 0 demolition."""
     from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -1482,8 +1473,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
         HermesGraphToolEvent,
     )
 
-    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
-    monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
+    monkeypatch.setenv("DUNGEONMIND_LIVE_HERMES_MODE", "cli")
     monkeypatch.setattr(
         live_agent_loop,
         "resolve_agent_world_graph_query_context",
@@ -1512,11 +1502,6 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
             },
         },
     )
-
-    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise AssertionError("subprocess hermes must not run")
-
-    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
 
     class _Host:
         def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
