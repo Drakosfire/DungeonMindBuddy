@@ -301,6 +301,10 @@ def build_hermes_graph_turn_request(
     session = retrieval_session
     if session is None:
         session = create_session_from_preflight(graph_envelope, question=question)
+    retrieval_session_packet = session.project_for_hermes()
+    latest_recap_change = graph_envelope.get("latest_recap_change")
+    if isinstance(latest_recap_change, Mapping):
+        retrieval_session_packet["latest_recap_change"] = dict(latest_recap_change)
     request = HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,
@@ -313,7 +317,7 @@ def build_hermes_graph_turn_request(
         root=graph_root,
         capability_policy=None,
         retrieval_session_id=session.id,
-        retrieval_session=session.project_for_hermes(),
+        retrieval_session=retrieval_session_packet,
     )
     scope = _DispatchedScope(
         world_id=world_id,
@@ -982,6 +986,14 @@ def build_hermes_graph_product_response(
         diagnostic_codes=diagnostic_codes,
         warnings=warnings,
     )
+    latest_recap_change = (
+        world_graph_context.get("latest_recap_change")
+        if isinstance(world_graph_context, Mapping)
+        and isinstance(world_graph_context.get("latest_recap_change"), Mapping)
+        else None
+    )
+    if latest_recap_change is not None:
+        grounding["latest_recap_change"] = dict(latest_recap_change)
     acceptance_state = str(acceptance.get("state") or state)
     grounding["acceptance_state"] = acceptance_state
     grounding["accepted_claim_ids"] = list(acceptance.get("accepted_claim_ids") or [])
@@ -1040,6 +1052,8 @@ def build_hermes_graph_product_response(
         "hermes_session": None,
         "retrieval_session_id": result.retrieval_session_id,
     }
+    if latest_recap_change is not None:
+        response["latest_recap_change"] = dict(latest_recap_change)
     if world_graph_context is not None:
         response["world_graph_context"] = dict(world_graph_context)
     if forensic_enabled():

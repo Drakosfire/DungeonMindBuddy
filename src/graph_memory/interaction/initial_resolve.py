@@ -30,6 +30,8 @@ def _focus_dict(focus: Any) -> dict[str, Any]:
 
 def _infer_intent_hint(question: str) -> str:
     text = question.strip().lower()
+    if "what changed" in text and "recap" in text:
+        return "compare"
     if any(token in text for token in ("last session", "previous session", "happened")):
         return "timeline"
     if "compare" in text:

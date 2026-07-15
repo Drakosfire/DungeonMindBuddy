@@ -104,6 +104,10 @@ Factual retrieval rules:
   server-enforced.
 - If coverage is partial or anchors are unreadable, answer with the known graph
   facts and name the gap. Do not invent lore and do not search Markdown/corpus.
+- For a latest-recap change question, use the server-provided latest-recap
+  comparison context. Name the admitted recap and comparison boundary, disclose
+  memory lag when the recap is not in the graph head, and distinguish no-change
+  from unknown or retrieval failure. The context is metadata, not recap prose.
 - Prior conversation messages resolve intent and pronouns only. They are not
   campaign truth.
 
@@ -234,7 +238,7 @@ def _scope_block(
         "retrievalSessionId": retrieval_session_id,
     }
     if retrieval_session is not None:
-        payload["initialClaimPacket"] = {
+        initial_packet: dict[str, Any] = {
             "candidates": list(retrieval_session.get("candidates") or [])[:8],
             "claimLedger": list(retrieval_session.get("claim_ledger") or [])[:24],
             "intentHint": retrieval_session.get("intent_hint"),
@@ -242,6 +246,10 @@ def _scope_block(
                 retrieval_session.get("available_expansions") or []
             ),
         }
+        latest_recap_change = retrieval_session.get("latest_recap_change")
+        if isinstance(latest_recap_change, Mapping):
+            initial_packet["latestRecapChange"] = dict(latest_recap_change)
+        payload["initialClaimPacket"] = initial_packet
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls):\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
