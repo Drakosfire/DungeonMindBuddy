@@ -149,7 +149,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
-    expect(screen.getByText(/smoke-test real prep/i)).toBeInTheDocument();
+    expect(screen.getByText(/S1 only: ask what changed after the latest ingested recap/i)).toBeInTheDocument();
   });
 
   it("opens the prep memory Q&A drawer", async () => {
@@ -271,7 +271,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByRole("region", { name: "Grounded answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
+    expect(screen.getByRole("region", { name: "Hermes reply" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
     expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Supporting sources" })).toHaveTextContent("play_recap · canon_play");
     expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
@@ -288,7 +288,8 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
     expect(screen.getByText("Fresh corpus evidence was admitted for this turn.")).toBeInTheDocument();
     expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
-    expect(screen.getByText("Grounded answer")).toBeInTheDocument();
+    expect(screen.queryByText("Grounded answer")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
     expect(screen.getByText("Supporting sources")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
     expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
@@ -670,7 +671,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    const answerRegion = await screen.findByRole("region", { name: "Ungrounded draft" });
+    const answerRegion = await screen.findByRole("region", { name: "Hermes reply" });
     expect(screen.getByText(/No grounded evidence returned/i)).toBeInTheDocument();
     expect(answerRegion).toBeInTheDocument();
     expect(screen.getByText("I can speculate, but I did not find supporting campaign text.")).toBeInTheDocument();
@@ -846,12 +847,12 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
-    expect(screen.getByText("Conversation (1)")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toHaveTextContent("Conversation (1)");
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
-    expect(screen.getByText("Conversation (2)")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toHaveTextContent("Conversation (2)");
 
     const stored = localStorage.getItem("plan-agent-turns-v1:longmont-c2");
     expect(stored).toBeTruthy();
@@ -872,7 +873,7 @@ describe("PlanSurfaceShell", () => {
     expect(storedThread).not.toMatch(/\/tmp\/hermes/);
 
     await user.click(screen.getByRole("button", { name: "Clear history" }));
-    expect(screen.queryByText("Conversation (2)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
     expect(localStorage.getItem("plan-agent-turns-v1:longmont-c2")).toBe("[]");
   });
 
@@ -1062,7 +1063,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Keep going" }));
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear history" }));
-    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `After clear ${index}?` } });
@@ -1098,7 +1099,7 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
     expect(screen.getByText("Ask DungeonBuddy · New prep thread")).toBeInTheDocument();
-    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
     const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
     const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
     expect(activeThread.title).toBe("New prep thread");
@@ -1511,18 +1512,18 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Trace On" }));
 
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     await user.click(screen.getByText("Memory coverage diagnostics"));
     expect(document.querySelector(".plan-agent-diagnostics-drawer .plan-agent-error")).toBeTruthy();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/query"))).toBe(true);
   });
 
   it.each([
-    ["grounded", "Graph-grounded answer", true] as const,
-    ["partial", "Qualified graph answer", true] as const,
-    ["abstained", "Graph evidence gap", false] as const,
-    ["error", "Hermes graph error", false] as const,
-  ])("renders Hermes graph grounding state %s", async (state, heading, showCards) => {
+    ["grounded", true] as const,
+    ["partial", true] as const,
+    ["abstained", false] as const,
+    ["error", false] as const,
+  ])("renders Hermes graph grounding state %s", async (state, showCards) => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
@@ -1545,7 +1546,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: heading })).toHaveTextContent(`${state} answer`);
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(`${state} answer`);
     if (showCards) {
       expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
     } else {
@@ -1577,7 +1578,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toHaveTextContent(
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(
       "Citation scope mismatch answer.",
     );
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
@@ -1631,7 +1632,7 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
 
     const storedAfterGraph = JSON.parse(
       localStorage.getItem(threadStorageKey("longmont-c2", seededThread.threadId)) ?? "{}",
@@ -2090,7 +2091,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
   });
 
@@ -2112,7 +2113,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
   });
 
@@ -2149,7 +2150,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();
     expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
   });
   it("keeps Plan usable when top-level warnings are non-array and grounding is malformed", async () => {
     const user = userEvent.setup();
@@ -2179,7 +2180,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
   });
 
@@ -2363,7 +2364,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Corpus change signal" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Check current source state" })).not.toBeInTheDocument();
   });

@@ -85,7 +85,9 @@ describe("PlanDogfoodPanel", () => {
     renderPanel();
 
     expect(screen.getByRole("region", { name: "Dogfood checklist" })).toBeInTheDocument();
-    expect(screen.getByText("Edit the board with real prep notes for this session")).toBeInTheDocument();
+    expect(
+      screen.getByText('Ask: "What changed after the latest ingested recap?"'),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Dogfood notes")).toBeInTheDocument();
     expect(screen.getByTestId("plan-world-graph-snapshot")).toHaveTextContent("World Graph unavailable.");
   });
@@ -95,7 +97,7 @@ describe("PlanDogfoodPanel", () => {
     renderPanel();
 
     const checkbox = screen.getByRole("checkbox", {
-      name: "Edit the board with real prep notes for this session",
+      name: /Ask: "What changed after the latest ingested recap\?"/,
     });
     await user.click(checkbox);
 
@@ -103,14 +105,14 @@ describe("PlanDogfoodPanel", () => {
     const stored = JSON.parse(
       localStorage.getItem(planDogfoodStorageKey(sessionDescriptor)) ?? "{}",
     );
-    expect(stored.checked["add-real-notes"]).toBe(true);
+    expect(stored.checked["ask-s1-question"]).toBe(true);
   });
 
   it("reloads checked state from localStorage on remount", () => {
     localStorage.setItem(
       planDogfoodStorageKey(sessionDescriptor),
       JSON.stringify({
-        checked: { "save-markdown": true },
+        checked: { "answer-discloses-lag": true },
         notes: "",
         updatedAt: "2026-07-09T00:00:00.000Z",
       }),
@@ -118,7 +120,11 @@ describe("PlanDogfoodPanel", () => {
 
     renderPanel();
 
-    expect(screen.getByRole("checkbox", { name: "Save to Markdown and confirm the target file updated" })).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: /Answer discloses memory lag/,
+      }),
+    ).toBeChecked();
   });
 
   it("persists notes to localStorage", async () => {
@@ -155,7 +161,11 @@ describe("PlanDogfoodPanel", () => {
     expect(localStorage.getItem(planDogfoodStorageKey(sessionDescriptor))).toBeNull();
     expect(localStorage.getItem(canvasKey)).toContain("board-content");
     expect(screen.getByLabelText("Dogfood notes")).toHaveValue("");
-    expect(screen.getByRole("checkbox", { name: "Open /plan?dogfood=1 with the intended live session dir" })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: /Open \/plan\?dogfood=1&campaign=longmont-c2&session=24/,
+      }),
+    ).not.toBeChecked();
   });
 
   it("copies dogfood report to clipboard and shows success message", async () => {
@@ -167,8 +177,12 @@ describe("PlanDogfoodPanel", () => {
     });
 
     renderPanel("Saved to Markdown");
-    await user.click(screen.getByRole("checkbox", { name: "Open /plan?dogfood=1 with the intended live session dir" }));
-    await user.type(screen.getByLabelText("Dogfood notes"), "Useful source preview.");
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /Open \/plan\?dogfood=1&campaign=longmont-c2&session=24/,
+      }),
+    );
+    await user.type(screen.getByLabelText("Dogfood notes"), "Lag disclosure felt useful.");
     await user.click(screen.getByRole("button", { name: "Copy dogfood report" }));
 
     await waitFor(() => {
@@ -177,8 +191,9 @@ describe("PlanDogfoodPanel", () => {
     const copied = String(writeText.mock.calls[0]?.[0] ?? "");
     expect(copied).toContain("# /plan Dogfood Report");
     expect(copied).toContain("Campaign: Longmont C2");
-    expect(copied).toContain("Useful source preview.");
+    expect(copied).toContain("Lag disclosure felt useful.");
     expect(copied).toContain("Save status: Saved to Markdown");
+    expect(copied).toContain("CreativeOperationSession");
     expect(screen.getByText("Dogfood report copied.")).toBeInTheDocument();
   });
 

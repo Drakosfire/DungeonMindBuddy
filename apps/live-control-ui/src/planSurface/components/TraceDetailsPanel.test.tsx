@@ -162,6 +162,30 @@ describe("TraceDetailsPanel", () => {
     expect(screen.getByText("Skipped 2 malformed graph tool events.")).toBeInTheDocument();
   });
 
+  it("renders Hermes trace diagnostics when present", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          answer_scope: "conversation_context",
+          tool_event_count: 1,
+          evidence_event_count: 0,
+          final_response_present: true,
+          validator_path: "explicit_conversation_context",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Answer scope")).toBeInTheDocument();
+    expect(screen.getByText("conversation_context")).toBeInTheDocument();
+    expect(screen.getByText("Tool events")).toBeInTheDocument();
+    expect(screen.getByText("Evidence events")).toBeInTheDocument();
+    expect(screen.getByText("Final response")).toBeInTheDocument();
+    expect(screen.getByText("present")).toBeInTheDocument();
+    expect(screen.getByText("Validator path")).toBeInTheDocument();
+    expect(screen.getByText("explicit_conversation_context")).toBeInTheDocument();
+  });
+
   it("redacts Hermes graph agent prompt preview and legacy artifact paths", () => {
     render(
       <TraceDetailsPanel

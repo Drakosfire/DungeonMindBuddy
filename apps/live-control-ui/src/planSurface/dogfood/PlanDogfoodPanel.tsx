@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PlanSessionDescriptor } from "../types";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { buildPlanDogfoodReport } from "./planDogfoodReport";
-import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
 import {
   clearPlanDogfoodState,
   loadPlanDogfoodState,
@@ -95,8 +94,8 @@ export function PlanDogfoodPanel({
           <p className="plan-surface-kicker">Dogfood mode</p>
           <h2 className="plan-dogfood-title">Dogfood checklist</h2>
           <p className="plan-dogfood-subtitle">
-            Use this to smoke-test real prep, saving, recovery, references, source preview, and prep
-            memory.
+            S1 only: ask what changed after the latest ingested recap and judge the co-GM
+            sensemaking answer (memory lag disclosed, not generic abstention).
           </p>
         </div>
         <button
@@ -120,7 +119,12 @@ export function PlanDogfoodPanel({
                     checked={Boolean(state.checked[item.id])}
                     onChange={(event) => handleToggle(item.id, event.target.checked)}
                   />
-                  <span>{item.label}</span>
+                  <span className="plan-dogfood-check-copy">
+                    <span className="plan-dogfood-check-label">{item.label}</span>
+                    {item.description ? (
+                      <span className="plan-dogfood-check-description">{item.description}</span>
+                    ) : null}
+                  </span>
                 </label>
               </li>
             ))}
@@ -147,8 +151,6 @@ export function PlanDogfoodPanel({
             )}
           </section>
 
-          <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
-
           <label className="plan-dogfood-notes-label" htmlFor="plan-dogfood-notes">
             Dogfood notes
           </label>
@@ -156,7 +158,7 @@ export function PlanDogfoodPanel({
             id="plan-dogfood-notes"
             className="plan-dogfood-notes"
             value={state.notes}
-            placeholder="What broke? What felt useful? What felt too graph-y? What did you expect to see but didn't?"
+            placeholder="Did it feel like a co-GM? Was memory lag useful? What still felt like abstention or a ledger?"
             rows={4}
             onChange={(event) => handleNotesChange(event.target.value)}
           />

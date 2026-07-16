@@ -56,6 +56,8 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     serialize_hermes_graph_agent_turn_result,
 )
 from graph_memory.hermes_graph_plugin import (
+    DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+    HERMES_GRAPH_READ_TOOL_NAMES,
     HermesCapabilityPolicy,
     HermesGraphScope,
     HermesPluginActivation,
@@ -105,11 +107,44 @@ Factual retrieval rules:
 - If coverage is partial or anchors are unreadable, answer with the known graph
   facts and name the gap. Do not invent lore and do not search Markdown/corpus.
 - For a latest-recap change question, use the server-provided latest-recap
-  comparison context. Name the admitted recap and comparison boundary, disclose
-  memory lag when the recap is not in the graph head, and distinguish no-change
-  from unknown or retrieval failure. The context is metadata, not recap prose.
+  comparison context and any admittedRecapExcerpt. Use the boundary to
+  distinguish no-change from unknown or retrieval failure and to avoid claiming
+  that recap material is already in the graph head. When an
+  admittedRecapExcerpt is present, answer as a co-GM: select meaningful
+  movement, pressure, and prep relevance from that excerpt. Do not paste the
+  whole excerpt. Do not invent beyond it. The excerpt is admitted source
+  evidence, not durable World Graph memory; the UI presents that provenance
+  separately from the frontstage answer.
 - Prior conversation messages resolve intent and pronouns only. They are not
   campaign truth.
+- If the question is about this conversation itself (for example, what has
+  been discussed, asked, or answered so far) rather than about campaign
+  facts, call declare_conversation_context exactly once, do not call graph
+  tools, then summarize the visible conversation history. Do not state
+  anything as verified campaign fact — summarize what was asked and answered,
+  nothing more.
+- For campaign facts, never call declare_conversation_context.
+
+Frontstage answer style:
+- Treat “what changed?” as a co-GM sensemaking question, not a recap
+  extraction or evidence report. Lead with the situation’s movement and why it
+  matters.
+- For latest-recap questions, default to two or three short paragraphs in
+  natural prose. Do not produce an exhaustive bullet list or replay the
+  encounter beat by beat. Combine related actions into consequences and keep
+  only the two to four developments that materially change the situation.
+- Put the strongest pressure or turning point first, then explain the other
+  consequential pressures. End with a grounded prep implication only when the
+  excerpt supports one.
+- The UI exposes comparison boundary, memory lag, diagnostics, and the raw
+  admitted-recap excerpt in a separate support panel. Keep those internal
+  labels out of the frontstage answer. If the lag is essential to avoid
+  misleading the user, mention it once in a natural subordinate clause, not as
+  a report heading or repeated disclaimer.
+- Do not use report scaffolding such as “What I can say,” “So the meaningful
+  change is,” “From the admitted recap,” or “If you want, I can...”. Do not
+  append an unsolicited menu of follow-up options. Do not mention claim IDs,
+  diagnostic codes, revision IDs, tool names, or “Hermes answer.”
 
 Forbidden:
 - Manifest, corpus, Markdown, lexical, filesystem, web, terminal, continuity,
@@ -158,6 +193,27 @@ def import_hermes_aiagent() -> Any:
             return module.AIAgent
 
 
+def _derive_answer_scope(
+    tool_events: Sequence[HermesGraphToolEvent],
+) -> Literal["graph", "conversation_context"] | None:
+    """Infer explicit answer scope from completed tool events only."""
+    graph_called = False
+    declare_completed = False
+    for event in tool_events:
+        if event.tool_name in HERMES_GRAPH_READ_TOOL_NAMES:
+            graph_called = True
+        if (
+            event.tool_name == DECLARE_CONVERSATION_CONTEXT_TOOL_NAME
+            and event.state == "completion"
+        ):
+            declare_completed = True
+    if declare_completed and not graph_called:
+        return "conversation_context"
+    if graph_called:
+        return "graph"
+    return None
+
+
 def _error_result(
     *,
     hermes_session_id: str,
@@ -203,19 +259,80 @@ def _prepare_isolated_hermes_home(
     home: Path,
     *,
     enabled_plugin_ids: Sequence[str],
+    model: str,
+    provider: str = "openai-api",
+    base_url: str = "https://api.openai.com/v1",
 ) -> None:
+    """Write an isolated Hermes profile that cannot inherit ~/.hermes Anthropic defaults."""
     home.mkdir(parents=True, exist_ok=True)
     config_path = home / "config.yaml"
     config = {
         "plugins": {
             "enabled": list(enabled_plugin_ids),
             "disabled": [],
-        }
+        },
+        # Pin product inference to OpenAI. Ambient Hermes CLI profiles often
+        # default to anthropic/* + auto provider; that 404s when Buddy only
+        # has OPENAI_API_KEY.
+        "model": {
+            "default": model,
+            "provider": provider,
+            "base_url": base_url,
+        },
     }
     config_path.write_text(
         yaml.safe_dump(config, sort_keys=False),
         encoding="utf-8",
     )
+
+
+def _resolve_hermes_openai_inference(
+    *,
+    require_api_key: bool = True,
+) -> tuple[str, str, str] | str:
+    """Return ``(provider, model, base_url)`` or an error_code string.
+
+    DungeonBuddy product turns use OpenAI only — never Hermes auto-detect,
+    which prefers Anthropic when ``ANTHROPIC_API_KEY`` is ambient in the shell.
+    """
+    import json
+
+    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+
+    load_dungeonmindbuddy_dotenv()
+    has_openai = bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+    if require_api_key and not has_openai:
+        return "hermes_openai_credentials_missing"
+
+    model = "gpt-5.4-mini"
+    policy_candidates = [
+        Path(__file__).resolve().parents[4] / "MODEL_POLICY.json",  # monorepo root
+        Path(__file__).resolve().parents[3] / "MODEL_POLICY.json",  # buddy root
+    ]
+    for policy_path in policy_candidates:
+        if not policy_path.is_file():
+            continue
+        try:
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        actions = policy.get("actions") if isinstance(policy.get("actions"), dict) else {}
+        models = policy.get("models") if isinstance(policy.get("models"), dict) else {}
+        role = actions.get("hermes_graph_agent") or actions.get(
+            "default_text_generation"
+        )
+        if isinstance(role, str) and role.strip():
+            resolved = models.get(role.strip())
+            if isinstance(resolved, str) and resolved.strip():
+                model = resolved.strip()
+                break
+        break
+
+    override = (os.environ.get("DUNGEONMIND_HERMES_GRAPH_MODEL") or "").strip()
+    if override:
+        model = override
+
+    return ("openai-api", model, "https://api.openai.com/v1")
 
 
 def _scope_block(
@@ -248,7 +365,11 @@ def _scope_block(
         }
         latest_recap_change = retrieval_session.get("latest_recap_change")
         if isinstance(latest_recap_change, Mapping):
-            initial_packet["latestRecapChange"] = dict(latest_recap_change)
+            latest_packet = dict(latest_recap_change)
+            excerpt = latest_packet.pop("admitted_recap_excerpt", None)
+            initial_packet["latestRecapChange"] = latest_packet
+            if isinstance(excerpt, str) and excerpt.strip():
+                initial_packet["admittedRecapExcerpt"] = excerpt.strip()
         payload["initialClaimPacket"] = initial_packet
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls):\n"
@@ -712,6 +833,21 @@ def run_hermes_graph_agent_turn(
             error_message="Hermes capability policy failed structural validation.",
         )
 
+    inference = _resolve_hermes_openai_inference(
+        # Injected factories are unit-test doubles; production path requires a key.
+        require_api_key=agent_factory is None,
+    )
+    if isinstance(inference, str):
+        return _error_result(
+            hermes_session_id=session_id,
+            error_code=inference,
+            error_message=(
+                "Hermes graph turns require OPENAI_API_KEY (DungeonBuddy product "
+                "path). Ambient Anthropic/OpenRouter Hermes CLI config is not used."
+            ),
+        )
+    provider, model, base_url = inference
+
     retrieval_session_packet: dict[str, Any] | None = None
     if request.retrieval_session is not None:
         retrieval_session_packet = dict(request.retrieval_session)
@@ -742,6 +878,9 @@ def run_hermes_graph_agent_turn(
             _prepare_isolated_hermes_home(
                 hermes_home,
                 enabled_plugin_ids=policy.enabled_plugin_ids,
+                model=model,
+                provider=provider,
+                base_url=base_url,
             )
             os.environ["HERMES_HOME"] = str(hermes_home)
 
@@ -836,6 +975,10 @@ def run_hermes_graph_agent_turn(
                         skip_context_files=True,
                         enabled_toolsets=list(policy.enabled_toolsets),
                         session_id=session_id,
+                        provider=provider,
+                        model=model,
+                        base_url=base_url,
+                        api_mode="chat_completions",
                         tool_start_callback=collector.on_start,
                         tool_complete_callback=collector.on_complete,
                         ephemeral_system_prompt=(
@@ -927,6 +1070,7 @@ def run_hermes_graph_agent_turn(
                 retrieval_session=(
                     hydrated.project_for_hermes() if hydrated is not None else retrieval_session_packet
                 ),
+                answer_scope=_derive_answer_scope(collector.events),
             )
         except Exception:
             return _error_result(

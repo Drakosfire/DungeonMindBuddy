@@ -18,6 +18,7 @@ import type {
 } from "../../api/types";
 import {
   parseHermesGraphGrounding,
+  s1SupportFromAnswer,
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
 
@@ -479,6 +480,7 @@ export function turnFromResponse(
         response,
       ),
       grounding: validated.grounding,
+      s1Support: s1SupportFromAnswer(response),
     };
   }
 
@@ -515,6 +517,7 @@ export function turnFromResponse(
       response,
     ),
     grounding: parseHermesGraphGrounding(response.grounding),
+    s1Support: s1SupportFromAnswer(response),
   };
 }
 
@@ -689,6 +692,7 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
         corpusFreshness: sanitized.corpusFreshness ?? null,
         worldGraphContextSummary: sanitized.worldGraphContextSummary ?? null,
         grounding: sanitized.grounding ?? null,
+        s1Support: sanitized.s1Support ?? null,
       }];
     }),
   };

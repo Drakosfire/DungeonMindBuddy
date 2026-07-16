@@ -218,6 +218,7 @@ def process_live_query(
             agent_thread_id=resolved_agent_thread_id,
             turn_id=resolved_turn_id,
             root=world_graph_root(),
+            corpus_root=repo,
             conversation_history=normalized_history,
         )
 

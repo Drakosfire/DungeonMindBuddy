@@ -29,7 +29,7 @@ describe("buildPlanDogfoodReport", () => {
       sessionDescriptor,
       checklist: PLAN_DOGFOOD_CHECKLIST,
       state: {
-        checked: { "open-plan": true, "add-real-notes": true },
+        checked: { "open-s1-plan": true, "ask-s1-question": true },
         notes: "Save felt trustworthy.",
         updatedAt: "2026-07-09T00:00:00.000Z",
       },
@@ -57,16 +57,20 @@ describe("buildPlanDogfoodReport", () => {
     expect(report).toContain("World Graph head revision: rev-22");
     expect(report).toContain("World Graph focus: session-21");
     expect(report).toContain("Generated at: 2026-07-09T12:00:00.000Z");
-    expect(report).toContain("- [x] Open /plan?dogfood=1 with the intended live session dir");
-    expect(report).toContain("- [x] Edit the board with real prep notes for this session");
-    expect(report).toContain("- [ ] Stop the dev server");
     expect(report).toContain(
-      "- [ ] Ask Turn 1: What do we know about Tripod Null-Calf at the North Gate?",
+      "- [x] Open /plan?dogfood=1&campaign=longmont-c2&session=24",
     );
+    expect(report).toContain(
+      '- [x] Ask: "What changed after the latest ingested recap?"',
+    );
+    expect(report).toContain(
+      "- [ ] Answer discloses memory lag, then narrates from the admitted recap",
+    );
+    expect(report).not.toContain("Tripod Null-Calf");
     expect(report).toContain("Save felt trustworthy.");
     expect(report).toContain("## Suggested follow-ups");
-    expect(report).toContain("Remove World Graph search from the Plan toolbar");
-    expect(report).toContain("Rung 6 durable Hermes session");
+    expect(report).toContain("CreativeOperationSession");
+    expect(report).toContain("empty-graph generic abstention");
   });
 
   it("uses placeholder when notes are empty", () => {

@@ -14,12 +14,43 @@ from graph_memory.interaction.expansion_executor import (
     execute_read_graph_source,
 )
 
+DECLARE_CONVERSATION_CONTEXT_TOOL_NAME = "declare_conversation_context"
+
 ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     "expand_graph_retrieval",
     "read_graph_source",
 )
 
+ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
+    DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+    *ORDERED_INTERACTION_TOOL_NAMES,
+)
+
 HERMES_GRAPH_INTERACTION_TOOL_NAMES = frozenset(ORDERED_INTERACTION_TOOL_NAMES)
+HERMES_ANSWER_SCOPE_TOOL_NAMES = frozenset({DECLARE_CONVERSATION_CONTEXT_TOOL_NAME})
+
+DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA = "dmb_hermes_answer_scope_v1"
+
+
+def declare_conversation_context_tool_definition() -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+            "description": (
+                "Declare that this turn answers from the visible conversation "
+                "history only, not from campaign World Graph facts. Call exactly "
+                "once before summarizing when the question is about this chat "
+                "itself. Do not call graph retrieval tools in the same turn."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    }
 
 
 def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
@@ -63,6 +94,23 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
     ]
 
 
+def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:
+    return [
+        declare_conversation_context_tool_definition(),
+        *hermes_graph_interaction_tool_definitions(),
+    ]
+
+
+def execute_declare_conversation_context(
+    _arguments: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
+    del _arguments
+    return {
+        "schema": DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA,
+        "scope": "conversation_context",
+    }
+
+
 def execute_hermes_graph_interaction_tool_json(
     tool_name: str,
     arguments: Mapping[str, Any],
@@ -74,6 +122,8 @@ def execute_hermes_graph_interaction_tool_json(
             result = execute_expand_graph_retrieval(arguments, root=root)
         elif tool_name == "read_graph_source":
             result = execute_read_graph_source(arguments, root=root)
+        elif tool_name == DECLARE_CONVERSATION_CONTEXT_TOOL_NAME:
+            result = execute_declare_conversation_context(arguments)
         else:
             result = {
                 "schema": "dmb_world_graph_retrieval_error_v1",
@@ -98,8 +148,15 @@ def execute_hermes_graph_interaction_tool_json(
 
 
 __all__ = [
+    "DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA",
+    "DECLARE_CONVERSATION_CONTEXT_TOOL_NAME",
+    "HERMES_ANSWER_SCOPE_TOOL_NAMES",
     "HERMES_GRAPH_INTERACTION_TOOL_NAMES",
     "ORDERED_INTERACTION_TOOL_NAMES",
+    "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
+    "declare_conversation_context_tool_definition",
+    "execute_declare_conversation_context",
     "execute_hermes_graph_interaction_tool_json",
     "hermes_graph_interaction_tool_definitions",
+    "hermes_model_visible_tool_definitions",
 ]

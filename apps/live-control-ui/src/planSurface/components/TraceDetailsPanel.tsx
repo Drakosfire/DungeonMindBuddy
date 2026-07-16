@@ -105,6 +105,15 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
     ? 1
     : rawToolEvents.length - normalizedToolEvents.length;
   const elapsedMs = typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0;
+  const hasAnswerScopeTool = normalizedToolEvents.some(
+    (event) => event.tool_name === "declare_conversation_context",
+  );
+  const toolActivityLabel = hasAnswerScopeTool ? "Tool activity" : "Graph tool activity";
+  const answerScope = displayOptionalString(trace.answer_scope);
+  const toolEventCount = typeof trace.tool_event_count === "number" ? trace.tool_event_count : null;
+  const evidenceEventCount = typeof trace.evidence_event_count === "number" ? trace.evidence_event_count : null;
+  const finalResponsePresent = typeof trace.final_response_present === "boolean" ? trace.final_response_present : null;
+  const validatorPath = displayOptionalString(trace.validator_path);
 
   return (
     <section className="plan-agent-trace" aria-label="Agent interaction trace">
@@ -168,6 +177,36 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
               <dd><code>{hermesSessionId}</code></dd>
             </div>
           ) : null}
+          {isHermesGraphAgent && answerScope ? (
+            <div>
+              <dt>Answer scope</dt>
+              <dd>{answerScope}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && toolEventCount != null ? (
+            <div>
+              <dt>Tool events</dt>
+              <dd>{toolEventCount}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && evidenceEventCount != null ? (
+            <div>
+              <dt>Evidence events</dt>
+              <dd>{evidenceEventCount}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && finalResponsePresent != null ? (
+            <div>
+              <dt>Final response</dt>
+              <dd>{finalResponsePresent ? "present" : "absent"}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && validatorPath ? (
+            <div>
+              <dt>Validator path</dt>
+              <dd><code>{validatorPath}</code></dd>
+            </div>
+          ) : null}
         </dl>
 
         {!isHermesGraphAgent && commandSummary ? (
@@ -229,7 +268,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
 
         {isHermesGraphAgent && (normalizedToolEvents.length > 0 || skippedToolEvents > 0) ? (
           <details className="plan-agent-trace-tool-events" open>
-            <summary>Graph tool activity ({normalizedToolEvents.length})</summary>
+            <summary>{toolActivityLabel} ({normalizedToolEvents.length})</summary>
             <ul>
               {normalizedToolEvents.map((event, index) => (
                 <li key={`${event.tool_name}-${index}`} className="plan-agent-trace-tool-event">

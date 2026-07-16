@@ -20,6 +20,7 @@ from graph_memory.hermes_graph_plugin import (
 )
 
 HermesGraphAgentStatus = Literal["ok", "error"]
+HermesAnswerScope = Literal["graph", "conversation_context"]
 ToolEventState = Literal["start", "completion", "error"]
 ProcessIsolationMode = Literal["process_exclusive"]
 
@@ -97,6 +98,7 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "processIsolation",
         "retrievalSessionId",
         "retrievalSession",
+        "answerScope",
     }
 )
 _TOOL_EVENT_ALLOWED_KEYS = frozenset(
@@ -151,6 +153,7 @@ class HermesGraphAgentTurnResult:
     process_isolation: ProcessIsolationMode = PROCESS_ISOLATION_MODE
     retrieval_session_id: str | None = None
     retrieval_session: dict[str, Any] | None = None
+    answer_scope: HermesAnswerScope | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -786,6 +789,7 @@ def serialize_hermes_graph_agent_turn_result(
             else _clip_str(result.retrieval_session_id, max_chars=MAX_SESSION_ID_CHARS)
         ),
         "retrievalSession": retrieval_session,
+        "answerScope": result.answer_scope,
     }
 
 
@@ -904,6 +908,12 @@ def deserialize_hermes_graph_agent_turn_result(
     retrieval_session_raw = payload.get("retrievalSession")
     if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
         raise ValueError("retrievalSession must be a mapping or null")
+    answer_scope_raw = payload.get("answerScope")
+    if answer_scope_raw is not None and answer_scope_raw not in {
+        "graph",
+        "conversation_context",
+    }:
+        raise ValueError("answerScope must be graph, conversation_context, or null")
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -923,6 +933,7 @@ def deserialize_hermes_graph_agent_turn_result(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        answer_scope=answer_scope_raw,  # type: ignore[arg-type]
     )
 
 
@@ -948,6 +959,7 @@ __all__ = [
     "HermesGraphAgentTurnRequest",
     "HermesGraphAgentTurnResult",
     "HermesGraphToolEvent",
+    "HermesAnswerScope",
     "PROCESS_ISOLATION_MODE",
     "decode_json_wire",
     "decode_turn_request_wire",

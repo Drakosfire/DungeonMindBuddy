@@ -799,6 +799,41 @@ describe("agentInteractionHistory", () => {
     expect(turn.trace?.backend).toBe("hermes");
   });
 
+  it("persists s1Support from response and round-trips through storage", () => {
+    const thread = makeThread("S1 support prep");
+    const turn = turnFromResponse("What changed after the latest recap?", {
+      answer: "The gate pressure shifted.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      s1_support: {
+        lag_disclosure: "Latest ingested recap is Session 21; memory through Session 20.",
+        admitted_recap_excerpt: "North Gate: Lysandro holds the line.",
+      },
+    }, "hermes");
+    expect(turn.s1Support).toEqual({
+      lagDisclosure: "Latest ingested recap is Session 21; memory through Session 20.",
+      admittedRecapExcerpt: "North Gate: Lysandro holds the line.",
+    });
+    thread.turns = [turn];
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    expect(stored).toContain("lagDisclosure");
+    expect(stored).toContain("admittedRecapExcerpt");
+    expect(stored).not.toContain("lag_disclosure");
+
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded?.turns[0].s1Support).toEqual(turn.s1Support);
+  });
+
   it("projects only valid sibling turns for outbound Hermes continuity", async () => {
     const { buildHermesConversationHistory } = await import("../../agentInteraction/hermesConversationHistory");
     const thread = makeThread("Continuity thread");

@@ -49,6 +49,9 @@ TurnOutcomeState = Literal[
     "unsupported",
     "abstained",
     "execution_error",
+    # No graph-retrieval tool was called this turn and no claims were already
+    # accepted — Hermes answered from the visible conversation, not the graph.
+    "conversation_context",
 ]
 
 

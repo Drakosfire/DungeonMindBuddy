@@ -337,7 +337,13 @@ export type LiveQueryCitation =
   | GraphReferenceCitation
   | SourceCitationCitation;
 
-export type HermesGraphGroundingState = "grounded" | "partial" | "abstained" | "error";
+export type HermesGraphGroundingState =
+  | "grounded"
+  | "partial"
+  | "abstained"
+  | "error"
+  /** No graph tool was called this turn; answer came from the visible conversation. */
+  | "conversation_context";
 
 export interface HermesGraphGrounding {
   schema: "dmb_hermes_graph_grounding_v1";
@@ -503,6 +509,12 @@ export interface AgentInteractionTrace {
   tool_events?: HermesGraphToolTraceEvent[];
   hermes_session_id?: string | null;
   process_isolation?: string | null;
+  /** Explicit Hermes answer scope when declare_conversation_context completed. */
+  answer_scope?: "graph" | "conversation_context" | null;
+  tool_event_count?: number | null;
+  evidence_event_count?: number | null;
+  final_response_present?: boolean | null;
+  validator_path?: string | null;
   warnings: string[];
 }
 
@@ -554,6 +566,10 @@ export interface AgentInteractionTurn {
   worldGraphContext?: AgentWorldGraphQueryContext | null;
   worldGraphContextSummary?: PersistedWorldGraphContextSummary | null;
   grounding?: HermesGraphGrounding | null;
+  s1Support?: {
+    lagDisclosure?: string | null;
+    admittedRecapExcerpt?: string | null;
+  } | null;
 }
 
 export interface AgentInteractionThread {
@@ -773,6 +789,12 @@ export interface LiveQueryResponse {
   retrieval_session_id?: string | null;
   graph_references?: GraphReferenceCitation[];
   source_citations?: SourceCitationCitation[];
+  /** S1 support channel: lag disclosure + admitted-recap excerpt (not Hermes chat). */
+  s1_support?: {
+    lag_disclosure?: string | null;
+    admitted_recap_excerpt?: string | null;
+  } | null;
+  latest_recap_change?: Record<string, unknown> | null;
 }
 
 export interface LiveEvent {

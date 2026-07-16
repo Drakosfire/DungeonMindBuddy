@@ -1,9 +1,10 @@
-"""Packaged Hermes plugin: shared GraphRetrievalSession interaction tools.
+"""Packaged Hermes plugin: graph interaction and answer-scope tools.
 
-Registers expand_graph_retrieval + read_graph_source under toolset
-``dungeonbuddy_graph``. Kernel search/object/neighborhood/evidence/source-read
-primitives remain internal. Capability policy injects authoritative scope and
-the active retrieval session ID.
+Registers expand_graph_retrieval + read_graph_source and the explicit
+conversation-context declaration under toolset ``dungeonbuddy_graph``. Kernel
+search/object/neighborhood/evidence/source-read primitives remain internal.
+Capability policy injects authoritative scope and the active retrieval session
+ID only for graph interaction tools.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
+    DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     HERMES_GRAPH_INTERACTION_TOOL_NAMES,
     ORDERED_INTERACTION_TOOL_NAMES,
+    ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     execute_hermes_graph_interaction_tool_json,
-    hermes_graph_interaction_tool_definitions,
+    hermes_model_visible_tool_definitions,
 )
 
 TOOLSET_NAME = "dungeonbuddy_graph"
@@ -149,8 +152,9 @@ class HermesCapabilityPolicy:
 def default_graph_only_capability_policy(
     scope: HermesGraphScope,
 ) -> HermesCapabilityPolicy:
-    """Default policy: expand + source-read over one shared retrieval session."""
-    names = tuple(ORDERED_GRAPH_TOOL_NAMES)
+    """Default policy: declare scope + expand + source-read over one shared session."""
+    graph_names = tuple(ORDERED_GRAPH_TOOL_NAMES)
+    names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
@@ -161,16 +165,24 @@ def default_graph_only_capability_policy(
                 toolsets=(TOOLSET_NAME,),
             ),
         ),
-        tool_rules=tuple(
+        tool_rules=(
             HermesToolCapabilityRule(
-                tool_name=name,
+                tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
                 toolset=TOOLSET_NAME,
-                # Session tools bind via retrievalSessionId; scope is validated
-                # against the hydrated session rather than request body fields.
                 require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
-            )
-            for name in names
+            ),
+            *(
+                HermesToolCapabilityRule(
+                    tool_name=name,
+                    toolset=TOOLSET_NAME,
+                    # Session tools bind via retrievalSessionId; scope is validated
+                    # against the hydrated session rather than request body fields.
+                    require_graph_scope=False,
+                    allowed_effects=frozenset({"read"}),
+                )
+                for name in graph_names
+            ),
         ),
     )
 
@@ -323,8 +335,9 @@ def apply_capability_policy_to_arguments(
     session_id = _active_retrieval_session_id.get()
     if session_id and tool_name in HERMES_GRAPH_INTERACTION_TOOL_NAMES:
         # Authoritative session inject — model cannot retarget another session.
+        # Wire form is camelCase (aliases on Expand/Read request models).
         payload["retrievalSessionId"] = session_id
-        payload["retrieval_session_id"] = session_id
+        payload.pop("retrieval_session_id", None)
     return payload, None
 
 
@@ -358,16 +371,21 @@ def _handler_for(tool_name: str):
 
 
 def register(ctx: Any) -> None:
-    """Register expand_graph_retrieval + read_graph_source with Hermes."""
-    definitions = hermes_graph_interaction_tool_definitions()
+    """Register model-visible graph + answer-scope tools with Hermes."""
+    definitions = hermes_model_visible_tool_definitions()
     names = [item["function"]["name"] for item in definitions]
-    if set(names) != set(HERMES_GRAPH_INTERACTION_TOOL_NAMES) or len(names) != len(
-        HERMES_GRAPH_INTERACTION_TOOL_NAMES
-    ):
+    if tuple(names) != ORDERED_MODEL_VISIBLE_TOOL_NAMES:
+        raise RuntimeError(
+            "Model-visible catalog order drifted from ORDERED_MODEL_VISIBLE_TOOL_NAMES"
+        )
+    graph_names = [name for name in names if name in HERMES_GRAPH_INTERACTION_TOOL_NAMES]
+    if set(graph_names) != set(HERMES_GRAPH_INTERACTION_TOOL_NAMES) or len(
+        graph_names
+    ) != len(HERMES_GRAPH_INTERACTION_TOOL_NAMES):
         raise RuntimeError(
             "Interaction catalog names drifted from HERMES_GRAPH_INTERACTION_TOOL_NAMES"
         )
-    if tuple(names) != ORDERED_GRAPH_TOOL_NAMES:
+    if tuple(graph_names) != ORDERED_GRAPH_TOOL_NAMES:
         raise RuntimeError(
             "Interaction catalog order drifted from ORDERED_GRAPH_TOOL_NAMES"
         )
@@ -386,7 +404,9 @@ def register(ctx: Any) -> None:
 
 
 __all__ = [
+    "DECLARE_CONVERSATION_CONTEXT_TOOL_NAME",
     "ORDERED_GRAPH_TOOL_NAMES",
+    "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
     "TOOLSET_NAME",
     "HermesCapabilityPolicy",
     "HermesGraphScope",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -129,6 +130,9 @@ def test_validate_structured_answer_partial_when_claims_and_unreadable_anchors()
     assert validated.outcome == "partial_coverage"
     assert validated.accepted_claim_ids == ["assertion:loc"]
     assert any("Source verification" in warning for warning in validated.warnings)
+    assert validated.answer_text == "Tripod is at the North Gate."
+    assert "hermes_agent_answer" in validated.reason_codes
+    assert "Source verification" not in validated.answer_text
 
 
 def test_validate_structured_answer_graph_grounded_without_unreadable_anchors() -> None:
@@ -197,7 +201,16 @@ def test_validate_structured_answer_emits_source_citations_only_for_open_reads()
     assert denied.outcome == "graph_grounded"
 
 
-def test_validate_s1_memory_lag_gap_is_partial_not_generic_abstention() -> None:
+def test_validate_s1_memory_lag_gap_is_partial_not_generic_abstention(
+    tmp_path: Path,
+) -> None:
+    recap_path = tmp_path / "Session 24 - Recap.md"
+    recap_path.write_text(
+        "---\ntitle: Session 24\n---\n\n"
+        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n\n"
+        "Edge called for reinforcement as Mireward's shield line buckled.\n",
+        encoding="utf-8",
+    )
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id="world:eldyrwild",
@@ -230,19 +243,77 @@ def test_validate_s1_memory_lag_gap_is_partial_not_generic_abstention() -> None:
         },
     )
 
+    agent_answer = (
+        "After Session 24 the fight is still at the North Gate: Tripod Null-Calf "
+        "is under pressure and the meatwings are charming the party. Graph memory "
+        "has not caught up past session-23 yet."
+    )
     validated = validate_structured_answer(
         session,
         None,
-        model_prose="Invented campaign movement must not become factual.",
+        model_prose=agent_answer,
+        corpus_root=tmp_path,
     )
 
     assert validated.outcome == "partial_coverage"
     assert "no_admissible_claims" not in validated.reason_codes
     assert "named_gap" in validated.reason_codes
-    assert "session-24" in validated.answer_text
-    assert "session-23" in validated.answer_text
-    assert "memory lag" in validated.answer_text.lower()
-    assert "Invented campaign movement" not in validated.answer_text
+    assert "hermes_agent_answer" in validated.reason_codes
+    assert "admitted_recap_source_read" in validated.reason_codes
+    assert validated.answer_text.startswith("After Session 24")
+    assert "North Gate" in validated.answer_text
+    assert "memory lag" not in validated.answer_text.lower()
+    assert "From the admitted session-24 recap" not in validated.answer_text
+    assert validated.support_lag_text is not None
+    assert "memory lag" in validated.support_lag_text.lower()
+    assert validated.support_excerpt_text is not None
+    assert "From the admitted session-24 recap" in validated.support_excerpt_text
+    assert "I cannot narrate grounded campaign movement" not in validated.answer_text
+
+
+def test_validate_s1_keeps_excerpt_out_of_chat_when_agent_silent(tmp_path: Path) -> None:
+    recap_path = tmp_path / "Session 24 - Recap.md"
+    recap_path.write_text(
+        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
+        encoding="utf-8",
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:longmont-c2",
+            revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
+            focus={"kind": "session", "session_id": "session-24"},
+        ),
+        question="What changed after the latest ingested recap?",
+        claims=[],
+        latest_recap_change={
+            "schema": "dmb_latest_recap_change_context_v1",
+            "status": "ready",
+            "campaign_id": "longmont-c2",
+            "outcome": "memory_lag",
+            "memory_lag": True,
+            "latest_recap": {
+                "artifact_id": "longmont-c2/session-24",
+                "campaign_id": "longmont-c2",
+                "session_id": "session-24",
+                "source_recap_path": "Session 24 - Recap.md",
+            },
+            "comparison_boundary": {
+                "kind": "latest_admitted_recap_to_graph_head",
+                "recap_session_id": "session-24",
+                "graph_latest_session_id": "session-23",
+                "graph_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+            },
+            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+        },
+    )
+    validated = validate_structured_answer(session, None, corpus_root=tmp_path)
+    assert validated.answer_text == "Hermes did not return a chat answer for this turn."
+    assert "From the admitted session-24 recap" not in validated.answer_text
+    assert validated.support_excerpt_text is not None
+    assert "North Gate" in validated.support_excerpt_text
+    assert "admitted_recap_source_read" in validated.reason_codes
+    assert "hermes_agent_answer" not in validated.reason_codes
 
 
 def test_validate_empty_graph_without_latest_recap_still_abstains() -> None:
@@ -265,6 +336,108 @@ def test_validate_empty_graph_without_latest_recap_still_abstains() -> None:
     assert validated.outcome == "abstained"
     assert "no_admissible_claims" in validated.reason_codes
     assert "History prose should not answer this." not in validated.answer_text
+
+
+def test_validate_zero_tool_calls_with_prose_is_conversation_context() -> None:
+    """Agent made no graph-retrieval calls this turn — trust its own prose."""
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="What have we discussed so far?",
+        claims=[],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="We covered Tripod Null-Calf's position and the siege timeline.",
+        tool_call_count=0,
+    )
+
+    assert validated.outcome == "conversation_context"
+    assert validated.answer_text == (
+        "We covered Tripod Null-Calf's position and the siege timeline."
+    )
+    assert "conversation_context_no_tool_calls" in validated.reason_codes
+    assert validated.validator_path == "zero_tool_compatibility"
+    assert validated.diagnostic_codes == []
+    assert validated.accepted_claim_ids == []
+    assert validated.graph_references == []
+    assert validated.source_citations == []
+
+
+def test_validate_explicit_answer_scope_preserves_prose() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="What have we discussed so far?",
+        claims=[],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="Earlier we talked about siege prep and Tripod.",
+        tool_call_count=0,
+        answer_scope="conversation_context",
+    )
+
+    assert validated.outcome == "conversation_context"
+    assert validated.answer_text == "Earlier we talked about siege prep and Tripod."
+    assert validated.validator_path == "explicit_conversation_context"
+    assert "explicit_conversation_context" in validated.reason_codes
+
+
+def test_validate_zero_tool_calls_without_prose_still_abstains() -> None:
+    """No tool calls and no model prose either — nothing to trust, still abstain."""
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="What have we discussed so far?",
+        claims=[],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose=None,
+        tool_call_count=0,
+    )
+
+    assert validated.outcome == "abstained"
+    assert "no_admissible_claims" in validated.reason_codes
+
+
+def test_validate_nonzero_tool_calls_with_no_claims_still_abstains() -> None:
+    """Agent did query the graph this turn but got nothing back — real abstention."""
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="What is it connected to?",
+        claims=[],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        None,
+        model_prose="Prose after an empty graph query should still be discarded.",
+        tool_call_count=1,
+    )
+
+    assert validated.outcome == "abstained"
+    assert "Prose after an empty graph query" not in validated.answer_text
 
 
 def test_forensic_enabled_respects_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -296,6 +469,21 @@ def test_expand_graph_retrieval_rejects_unknown_session() -> None:
                 "retrieval_session_id": "sess:missing",
                 "operation": "object",
                 "targets": [{"kind": "node", "id": "threat:tripod"}],
+            }
+        )
+
+
+def test_expand_accepts_policy_injected_camelcase_wire_form() -> None:
+    """Hermes model + policy inject use camelCase; must not be invalid_arguments."""
+    with pytest.raises(ValueError, match="unknown retrieval session"):
+        execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": "sess:missing",
+                "retrieval_session_id": "sess:missing",  # dual inject must normalize
+                "operation": "search",
+                "queryText": "What changed after the latest ingested recap?",
+                "worldId": "world:eldyrwild",  # scope inject must be stripped
             }
         )
 

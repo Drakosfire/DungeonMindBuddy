@@ -1,4 +1,5 @@
 import type {
+  AgentInteractionTurn,
   HermesGraphGrounding,
   HermesGraphGroundingState,
   LiveQueryCitation,
@@ -20,6 +21,7 @@ const HERMES_GROUNDING_STATES: readonly HermesGraphGroundingState[] = [
   "partial",
   "abstained",
   "error",
+  "conversation_context",
 ];
 
 const FOCUS_KINDS = ["none", "session"] as const;
@@ -165,6 +167,37 @@ function evidenceRevisionIsPinned(grounding: HermesGraphGrounding): boolean {
   return isNonEmptyString(grounding.revision_id);
 }
 
+/** Hermes answered from the visible conversation; no graph query this turn. */
+export function isConversationContext(grounding: HermesGraphGrounding | null | undefined): boolean {
+  return grounding?.state === "conversation_context";
+}
+
+/** S1 named-gap / admitted-recap partials are valid with zero graph claims. */
+export function hasNamedEvidenceGap(grounding: HermesGraphGrounding): boolean {
+  if (grounding.state !== "partial") return false;
+  const reasons = grounding.reason_codes ?? [];
+  return (
+    reasons.includes("named_gap")
+    || reasons.includes("latest_recap_memory_lag_disclosed")
+    || reasons.includes("admitted_recap_source_read")
+    || reasons.includes("hermes_agent_answer")
+  );
+}
+
+function hasVisibleEvidenceSupport(
+  grounding: HermesGraphGrounding,
+  citations: WorldGraphAnchorCitation[],
+  answer?: LiveQueryResponse,
+): boolean {
+  return (
+    citations.length > 0
+    || (grounding.accepted_claim_ids?.length ?? 0) > 0
+    || (grounding.graph_reference_count ?? 0) > 0
+    || (answer?.graph_references?.length ?? 0) > 0
+    || (answer?.source_citations?.length ?? 0) > 0
+  );
+}
+
 export function validateHermesGraphCitations(
   citations: unknown,
   grounding: unknown,
@@ -186,6 +219,16 @@ export function validateHermesGraphCitations(
   const graphCitations = rawList
     .map((item) => parseWorldGraphAnchorCitation(item))
     .filter((item): item is WorldGraphAnchorCitation => item !== null);
+
+  if (parsedGrounding.state === "conversation_context") {
+    return {
+      grounding: parsedGrounding,
+      citations: [],
+      contractWarning: graphCitations.length
+        ? "Graph citations ignored for conversation-context turns."
+        : null,
+    };
+  }
 
   if (parsedGrounding.state === "abstained" || parsedGrounding.state === "error") {
     return {
@@ -227,6 +270,7 @@ export function validateHermesGraphCitations(
     || (parsedGrounding.graph_reference_count ?? 0) > 0
     || (parsedGrounding.source_anchor_count ?? 0) > 0
   );
+  const namedGapOk = hasNamedEvidenceGap(parsedGrounding);
 
   if (validated.length === 0) {
     return {
@@ -234,7 +278,7 @@ export function validateHermesGraphCitations(
       citations: [],
       contractWarning: droppedCount > 0
         ? "One or more graph citations were dropped due to scope or revision mismatch."
-        : hasClaimLedgerSupport
+        : hasClaimLedgerSupport || namedGapOk
           ? null
           : "Hermes grounding contract error",
     };
@@ -254,12 +298,8 @@ export function hasGrounding(answer: LiveQueryResponse): boolean {
     const { citations, grounding } = validateHermesGraphCitations(answer.citations, answer.grounding);
     if (!grounding) return false;
     if (grounding.state !== "grounded" && grounding.state !== "partial") return false;
-    if (citations.length > 0) return true;
-    if ((grounding.accepted_claim_ids?.length ?? 0) > 0) return true;
-    if ((grounding.graph_reference_count ?? 0) > 0) return true;
-    if ((answer.graph_references?.length ?? 0) > 0) return true;
-    if ((answer.source_citations?.length ?? 0) > 0) return true;
-    return false;
+    if (hasNamedEvidenceGap(grounding)) return true;
+    return hasVisibleEvidenceSupport(grounding, citations, answer);
   }
 
   return Boolean(
@@ -275,12 +315,10 @@ export function answerHeading(answer: LiveQueryResponse): string {
       return "Hermes grounding contract error";
     }
 
-    const hasSupport = (
-      validated.citations.length > 0
-      || (validated.grounding.accepted_claim_ids?.length ?? 0) > 0
-      || (validated.grounding.graph_reference_count ?? 0) > 0
-      || (answer.graph_references?.length ?? 0) > 0
-      || (answer.source_citations?.length ?? 0) > 0
+    const hasSupport = hasVisibleEvidenceSupport(
+      validated.grounding,
+      validated.citations,
+      answer,
     );
 
     switch (validated.grounding.state) {
@@ -289,6 +327,13 @@ export function answerHeading(answer: LiveQueryResponse): string {
           ? "Graph-grounded answer"
           : "Hermes grounding contract error";
       case "partial":
+        if (hasNamedEvidenceGap(validated.grounding)) {
+          const reasons = validated.grounding.reason_codes ?? [];
+          if (reasons.includes("hermes_agent_answer")) {
+            return "Hermes answer";
+          }
+          return "No Hermes answer";
+        }
         return hasSupport
           ? "Qualified graph answer"
           : "Hermes grounding contract error";
@@ -296,12 +341,55 @@ export function answerHeading(answer: LiveQueryResponse): string {
         return "Graph evidence gap";
       case "error":
         return "Hermes graph error";
+      case "conversation_context":
+        return "Answered from conversation";
       default:
         return "Hermes grounding contract error";
     }
   }
 
   return hasGrounding(answer) ? "Grounded answer" : "Ungrounded draft";
+}
+
+export type AgentInteractionTurnS1Support = {
+  lagDisclosure?: string | null;
+  admittedRecapExcerpt?: string | null;
+} | null;
+
+/** S1 lag / admitted-recap support — never the Hermes chat bubble body. */
+export function s1SupportFromAnswer(answer: LiveQueryResponse | null | undefined): AgentInteractionTurnS1Support {
+  if (!answer) return null;
+  const fromSupport = answer.s1_support;
+  const fromLatest = isRecord(answer.latest_recap_change) ? answer.latest_recap_change : null;
+  const lag =
+    (typeof fromSupport?.lag_disclosure === "string" && fromSupport.lag_disclosure.trim()
+      ? fromSupport.lag_disclosure.trim()
+      : null)
+    || (fromLatest && typeof fromLatest.lag_disclosure === "string" && fromLatest.lag_disclosure.trim()
+      ? fromLatest.lag_disclosure.trim()
+      : null);
+  const excerpt =
+    (typeof fromSupport?.admitted_recap_excerpt === "string" && fromSupport.admitted_recap_excerpt.trim()
+      ? fromSupport.admitted_recap_excerpt.trim()
+      : null)
+    || (fromLatest && typeof fromLatest.admitted_recap_excerpt === "string"
+      && fromLatest.admitted_recap_excerpt.trim()
+      ? fromLatest.admitted_recap_excerpt.trim()
+      : null);
+  if (!lag && !excerpt) return null;
+  return { lagDisclosure: lag, admittedRecapExcerpt: excerpt };
+}
+
+/** Resolve persisted turn S1 support, falling back to wire response fields. */
+export function s1SupportFromTurn(
+  turn: Pick<AgentInteractionTurn, "s1Support"> | null | undefined,
+  wire?: LiveQueryResponse | null,
+): AgentInteractionTurnS1Support {
+  const persisted = turn?.s1Support;
+  if (persisted?.lagDisclosure || persisted?.admittedRecapExcerpt) {
+    return persisted;
+  }
+  return s1SupportFromAnswer(wire);
 }
 
 export const UNGROUNDED_ANSWER_WARNING =

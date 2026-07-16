@@ -104,9 +104,10 @@ def _tool_event(
     relationship_ids: list[str] | None = None,
     diagnostic_codes: list[str] | None = None,
     retrieval_schema: str | None = "dmb_world_graph_retrieval_result_v1",
+    tool_name: str = "expand_graph_retrieval",
 ) -> HermesGraphToolEvent:
     return HermesGraphToolEvent(
-        tool_name="search_campaign_graph",
+        tool_name=tool_name,
         state=state,  # type: ignore[arg-type]
         duration_ms=12.0,
         world_id="world:eldyrwild" if world_id is _MISSING else world_id,
@@ -139,6 +140,7 @@ def _ok_result(
     final_response: str = "Tripod stands at the North Gate.",
     events: list[HermesGraphToolEvent] | None = None,
     messages: list[dict[str, Any]] | None = None,
+    answer_scope: str | None = None,
 ) -> HermesGraphAgentTurnResult:
     tool_events = (
         [_tool_event(source_anchor_ids=["anchor:a1"])]
@@ -154,6 +156,14 @@ def _ok_result(
         error_code=None,
         error_message=None,
         process_isolation="process_exclusive",
+        answer_scope=answer_scope,  # type: ignore[arg-type]
+    )
+
+
+def _declare_tool_event(*, state: str = "completion") -> HermesGraphToolEvent:
+    return HermesGraphToolEvent(
+        tool_name="declare_conversation_context",
+        state=state,  # type: ignore[arg-type]
     )
 
 
@@ -884,6 +894,8 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
     assert trace["context_summary"] == {}
     assert trace["artifact_refs"] == []
     assert isinstance(trace["tool_events"], list)
+    assert trace["tool_event_count"] >= 1
+    assert trace["final_response_present"] is True
 
 
 def test_malformed_tool_event_returns_typed_contract_error_not_500() -> None:
@@ -1326,9 +1338,154 @@ def test_valid_history_graph_gap_still_abstains(tmp_path: Path) -> None:
     assert response["citations"] == []
 
 
+class _EchoRetrievalSessionHost:
+    """Echoes back retrieval_session_id/retrieval_session like the real Hermes runtime.
+
+    ``_FakeHost``/``_ok_result`` do not echo these fields, so they always miss the
+    server-side claim ledger and exercise the legacy no-session fallback path
+    instead of ``validate_structured_answer``. Production Hermes turns always
+    echo them (see ``run_hermes_graph_agent_turn``), so tests of the claim-ledger
+    path need to reproduce that here.
+    """
+
+    def __init__(
+        self,
+        *,
+        final_response: str | None,
+        tool_events: list[HermesGraphToolEvent],
+        answer_scope: str | None = None,
+    ) -> None:
+        self.final_response = final_response
+        self.tool_events = tool_events
+        self.answer_scope = answer_scope
+        self.calls: list[HermesGraphAgentTurnRequest] = []
+
+    def execute(self, request: HermesGraphAgentTurnRequest) -> HermesGraphAgentTurnResult:
+        self.calls.append(request)
+        return HermesGraphAgentTurnResult(
+            status="ok",
+            final_response=self.final_response,
+            messages=[],
+            hermes_session_id="hermes-sess-echo",
+            tool_events=list(self.tool_events),
+            retrieval_session_id=request.retrieval_session_id,
+            retrieval_session=(
+                dict(request.retrieval_session)
+                if request.retrieval_session is not None
+                else None
+            ),
+            process_isolation="process_exclusive",
+            answer_scope=self.answer_scope,  # type: ignore[arg-type]
+        )
+
+
+# No matched_node_ids/nodes — an empty claim ledger, distinct from READY_ENVELOPE
+# (whose matched_node_ids alone are enough to synthesize an identity claim; see
+# claims_from_preflight_envelope's "matched durable IDs are authoritative" path).
+EMPTY_CLAIM_ENVELOPE = {
+    **READY_ENVELOPE,
+    "status": "empty",
+    "matched_node_ids": [],
+    "nodes": [],
+}
+
+
+def test_zero_tool_calls_with_prose_is_conversation_context(tmp_path: Path) -> None:
+    """Hermes chose not to query the graph this turn — trust its prose, don't abstain."""
+    host = _EchoRetrievalSessionHost(
+        final_response="We covered Tripod Null-Calf's position and the siege timeline.",
+        tool_events=[],
+    )
+    response = run_hermes_graph_query(
+        text="What have we discussed so far?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-conversation",
+        turn_id="turn-conversation",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=VALID_HISTORY,
+    )
+    assert response["grounding"]["state"] == "conversation_context"
+    assert response["status"] == "ok"
+    assert response["answer"] == (
+        "We covered Tripod Null-Calf's position and the siege timeline."
+    )
+    assert response["citations"] == []
+    assert "conversation_context_no_tool_calls" in response["grounding"]["reason_codes"]
+    assert response["agent_trace"]["validator_path"] == "zero_tool_compatibility"
+
+
+def test_explicit_declare_conversation_context_turn(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="We discussed siege prep and Tripod's position.",
+        tool_events=[_declare_tool_event()],
+        answer_scope="conversation_context",
+    )
+    response = run_hermes_graph_query(
+        text="What have we discussed so far?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-declare",
+        turn_id="turn-declare",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=VALID_HISTORY,
+    )
+    assert response["grounding"]["state"] == "conversation_context"
+    assert response["answer"] == "We discussed siege prep and Tripod's position."
+    assert "explicit_conversation_context" in response["grounding"]["reason_codes"]
+    trace = response["agent_trace"]
+    assert trace["answer_scope"] == "conversation_context"
+    assert trace["tool_event_count"] == 1
+    assert trace["evidence_event_count"] == 0
+    assert trace["final_response_present"] is True
+    assert trace["validator_path"] == "explicit_conversation_context"
+
+
+def test_zero_tool_calls_without_prose_still_abstains(tmp_path: Path) -> None:
+    """Zero tool calls and an empty final_response — still nothing to answer with."""
+    host = _EchoRetrievalSessionHost(final_response="", tool_events=[])
+    response = run_hermes_graph_query(
+        text="What have we discussed so far?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-conversation-empty",
+        turn_id="turn-conversation-empty",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+
+
+def test_nonzero_tool_calls_with_empty_evidence_still_abstains(tmp_path: Path) -> None:
+    """Agent did query the graph this turn but got nothing back — real abstention."""
+    host = _EchoRetrievalSessionHost(
+        final_response="Prose after an empty graph query should still be discarded.",
+        tool_events=[_tool_event(outcome="empty", source_anchor_ids=[])],
+    )
+    response = run_hermes_graph_query(
+        text="What is it connected to?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-nonzero-empty",
+        turn_id="turn-nonzero-empty",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+
+
 def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
     tmp_path: Path,
 ) -> None:
+    recap_path = tmp_path / "Session 24 - Recap.md"
+    recap_path.write_text(
+        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
+        encoding="utf-8",
+    )
     s1_envelope = {
         **READY_ENVELOPE,
         "status": "empty",
@@ -1368,7 +1525,10 @@ def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
             self.calls.append(request)
             return HermesGraphAgentTurnResult(
                 status="ok",
-                final_response="Invented movement must not become the answer.",
+                final_response=(
+                    "Session 24 keeps the siege at the North Gate under pressure; "
+                    "graph memory still lags at session-23."
+                ),
                 messages=[],
                 hermes_session_id="hermes-s1-empty",
                 tool_events=[
@@ -1395,20 +1555,137 @@ def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
         agent_thread_id="agent-thread-s1",
         turn_id="turn-s1",
         root=tmp_path,
+        corpus_root=tmp_path,
         host_factory=lambda: host,  # type: ignore[arg-type, return-value]
     )
 
     assert host.calls
     assert host.calls[0].retrieval_session is not None
     assert host.calls[0].retrieval_session["latest_recap_change"]["outcome"] == "memory_lag"
+    assert "admitted_recap_excerpt" in host.calls[0].retrieval_session["latest_recap_change"]
     assert response["grounding"]["state"] == "partial"
     assert response["grounding"]["acceptance_state"] == "partial_coverage"
     assert "no_admissible_claims" not in response["grounding"]["reason_codes"]
-    assert "session-24" in response["answer"]
-    assert "session-23" in response["answer"]
-    assert "memory lag" in response["answer"].lower()
-    assert "Invented movement" not in response["answer"]
+    assert "hermes_agent_answer" in response["grounding"]["reason_codes"]
+    assert response["answer"].startswith("Session 24 keeps the siege")
+    assert "From the admitted session-24 recap" not in response["answer"]
+    assert "memory lag" not in response["answer"].lower()
+    assert response["s1_support"]["lag_disclosure"]
+    assert "memory lag" in response["s1_support"]["lag_disclosure"].lower()
+    assert "North Gate" in response["s1_support"]["admitted_recap_excerpt"]
     assert response["latest_recap_change"]["outcome"] == "memory_lag"
+    assert "lag_disclosure" in response["latest_recap_change"]
+
+
+def test_s1_admitted_recap_read_uses_corpus_root_not_graph_store_root(
+    tmp_path: Path,
+) -> None:
+    """Live path uses world_graph_root (out/) for graph and repo_root for corpus."""
+    graph_root = tmp_path / "out"
+    graph_root.mkdir()
+    corpus_root = tmp_path / "repo"
+    corpus_root.mkdir()
+    (corpus_root / "Session 24 - Recap.md").write_text(
+        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
+        encoding="utf-8",
+    )
+    s1_envelope = {
+        **READY_ENVELOPE,
+        "status": "empty",
+        "matched_node_ids": [],
+        "nodes": [],
+        "warning_codes": ["graph_context_empty"],
+        "latest_recap_change": {
+            "schema": "dmb_latest_recap_change_context_v1",
+            "status": "ready",
+            "campaign_id": "longmont-c2",
+            "outcome": "memory_lag",
+            "memory_lag": True,
+            "latest_recap": {
+                "artifact_id": "longmont-c2/session-24",
+                "campaign_id": "longmont-c2",
+                "session_id": "session-24",
+                "source_recap_path": "Session 24 - Recap.md",
+            },
+            "comparison_boundary": {
+                "kind": "latest_admitted_recap_to_graph_head",
+                "recap_session_id": "session-24",
+                "graph_latest_session_id": "session-23",
+                "graph_revision_id": "revision:resolved-server",
+            },
+            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+        },
+    }
+
+    class _EchoSessionHost:
+        def execute(
+            self,
+            request: HermesGraphAgentTurnRequest,
+        ) -> HermesGraphAgentTurnResult:
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response=(
+                    "Session 24 keeps the siege at the North Gate under pressure; "
+                    "graph memory still lags at session-23."
+                ),
+                messages=[],
+                hermes_session_id="hermes-s1-roots",
+                tool_events=[
+                    _tool_event(
+                        outcome="empty",
+                        source_anchor_ids=[],
+                        matched_node_ids=[],
+                        relationship_ids=[],
+                    )
+                ],
+                retrieval_session_id=request.retrieval_session_id,
+                retrieval_session=(
+                    dict(request.retrieval_session)
+                    if request.retrieval_session is not None
+                    else None
+                ),
+            )
+
+    captured: list[HermesGraphAgentTurnRequest] = []
+
+    class _CaptureHost(_EchoSessionHost):
+        def execute(self, request: HermesGraphAgentTurnRequest) -> HermesGraphAgentTurnResult:
+            captured.append(request)
+            return super().execute(request)
+
+    # Wrong corpus root: agent answer still fronts; excerpt is not attached.
+    wrong = run_hermes_graph_query(
+        text="What changed after the latest ingested recap?",
+        packet=PACKET,
+        graph_envelope=s1_envelope,
+        agent_thread_id="agent-thread-s1-wrong",
+        turn_id="turn-s1-wrong",
+        root=graph_root,
+        corpus_root=graph_root,
+        host_factory=lambda: _CaptureHost(),  # type: ignore[arg-type, return-value]
+    )
+    assert wrong["answer"].startswith("Session 24 keeps the siege")
+    assert "hermes_agent_answer" in wrong["grounding"]["reason_codes"]
+    assert not (
+        captured[0].retrieval_session or {}
+    ).get("latest_recap_change", {}).get("admitted_recap_excerpt")
+
+    captured.clear()
+    right = run_hermes_graph_query(
+        text="What changed after the latest ingested recap?",
+        packet=PACKET,
+        graph_envelope=s1_envelope,
+        agent_thread_id="agent-thread-s1-right",
+        turn_id="turn-s1-right",
+        root=graph_root,
+        corpus_root=corpus_root,
+        host_factory=lambda: _CaptureHost(),  # type: ignore[arg-type, return-value]
+    )
+    assert right["answer"].startswith("Session 24 keeps the siege")
+    assert "hermes_agent_answer" in right["grounding"]["reason_codes"]
+    assert "North Gate" in (
+        captured[0].retrieval_session or {}
+    ).get("latest_recap_change", {}).get("admitted_recap_excerpt", "")
 
 
 def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:

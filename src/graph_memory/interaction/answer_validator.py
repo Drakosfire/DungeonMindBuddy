@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from graph_memory.interaction.claims import GraphClaim, TurnOutcomeState
+from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
 from graph_memory.interaction.references import (
     GraphReference,
     InferenceReference,
@@ -17,6 +19,12 @@ from graph_memory.interaction.schema_constants import STRUCTURED_ANSWER_DRAFT_SC
 from graph_memory.interaction.session import GraphRetrievalSession
 
 StatementKind = Literal["graph_fact", "source_detail", "inference", "suggestion", "gap"]
+ValidatorPath = Literal[
+    "explicit_conversation_context",
+    "zero_tool_compatibility",
+    "claim_ledger_validation",
+]
+ExplicitAnswerScope = Literal["conversation_context"]
 
 
 class AnswerSection(BaseModel):
@@ -53,12 +61,17 @@ class ValidatedAnswer(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     diagnostic_codes: list[str] = Field(default_factory=list)
     reason_codes: list[str] = Field(default_factory=list)
+    # S1 only: server support channel (never join into Hermes chat answer_text).
+    support_lag_text: str | None = None
+    support_excerpt_text: str | None = None
+    validator_path: ValidatorPath | None = None
 
 
 ABSTENTION_ANSWER = (
     "DungeonBuddy’s World Graph does not currently contain enough admitted evidence "
     "to answer this question reliably."
 )
+HERMES_NO_CHAT_ANSWER = "Hermes did not return a chat answer for this turn."
 PARTIAL_SOURCE_WARNING = (
     "Source verification is unavailable or incomplete for one or more supporting anchors."
 )
@@ -69,8 +82,16 @@ def _latest_recap_change(session: GraphRetrievalSession) -> Mapping[str, Any] | 
     return raw if isinstance(raw, Mapping) else None
 
 
-def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
-    """Server-owned S1 gap prose from comparison metadata — never model invention."""
+def _corpus_root(corpus_root: Path | None) -> Path:
+    if corpus_root is not None:
+        return corpus_root.resolve()
+    from apps.live_control_server.config import repo_root
+
+    return repo_root().resolve()
+
+
+def _s1_lag_disclosure_text(context: Mapping[str, Any]) -> str:
+    """Server-owned lag / boundary disclosure — never invents campaign movement."""
     latest = context.get("latest_recap") if isinstance(context.get("latest_recap"), Mapping) else {}
     boundary = (
         context.get("comparison_boundary")
@@ -118,12 +139,6 @@ def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
             "in the durable World Graph head. That is memory lag, not a completed "
             "no-change comparison."
         )
-        lines.append(
-            "I cannot narrate grounded campaign movement from graph claims for this "
-            "turn because the focused graph has no admissible matched objects yet. "
-            "Promote or ingest the latest recap into campaign memory, or ask about a "
-            "specific object already present in the graph head."
-        )
     elif outcome == "no_change":
         lines.append(
             "The completed comparison found no later graph session beyond the latest "
@@ -149,6 +164,82 @@ def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
     if diagnostic_codes:
         lines.append("Diagnostics: " + ", ".join(diagnostic_codes) + ".")
     return "\n\n".join(lines)
+
+
+def _s1_support_fields(
+    context: Mapping[str, Any],
+    *,
+    corpus_root: Path,
+) -> tuple[str, str | None, bool]:
+    """Lag disclosure + optional admitted-recap excerpt for the support channel.
+
+    Returns ``(lag_text, excerpt_or_status_text, excerpt_readable)``.
+    """
+    lag = _s1_lag_disclosure_text(context)
+    latest = context.get("latest_recap") if isinstance(context.get("latest_recap"), Mapping) else {}
+    source_path = str(latest.get("source_recap_path") or "").strip()
+    recap_session = str(latest.get("session_id") or "").strip() or "the latest admitted recap"
+    memory_lag = bool(context.get("memory_lag")) or str(context.get("outcome") or "") == "memory_lag"
+    if not memory_lag or not source_path:
+        return lag, None, False
+
+    excerpt = context.get("admitted_recap_excerpt")
+    if not isinstance(excerpt, str) or not excerpt.strip():
+        excerpt = read_admitted_recap_excerpt(root=corpus_root, source_recap_path=source_path)
+    if isinstance(excerpt, str) and excerpt.strip():
+        return (
+            lag,
+            (
+                f"From the admitted {recap_session} recap (source evidence; not yet "
+                "durable World Graph memory):\n\n"
+                f"{excerpt.strip()}"
+            ),
+            True,
+        )
+    return (
+        lag,
+        (
+            f"The admitted {recap_session} recap is registered, but its source "
+            "file could not be read for this turn."
+        ),
+        False,
+    )
+
+
+def _s1_admitted_recap_sections(
+    context: Mapping[str, Any],
+    *,
+    corpus_root: Path,
+    model_prose: str | None = None,
+) -> list[AnswerSection]:
+    """Draft sections for S1 named-gap.
+
+    Hermes chat prose (suggestion) stays separate from the lag gap marker.
+    Admitted-recap excerpt is never drafted into chat sections — it belongs
+    on ValidatedAnswer.support_* after validation.
+    """
+    _ = corpus_root  # excerpt is built in _s1_support_fields at validate time
+    sections: list[AnswerSection] = []
+    agent_text = (model_prose or "").strip()
+    if agent_text:
+        sections.append(
+            AnswerSection(
+                text=agent_text,
+                statement_kind="suggestion",
+            )
+        )
+    sections.append(
+        AnswerSection(
+            text=_s1_lag_disclosure_text(context),
+            statement_kind="gap",
+        )
+    )
+    return sections
+
+
+# Back-compat alias used by older tests / imports.
+def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
+    return _s1_lag_disclosure_text(context)
 
 
 def _claims_by_id(session: GraphRetrievalSession) -> dict[str, GraphClaim]:
@@ -207,6 +298,7 @@ def synthesize_draft_from_session(
     session: GraphRetrievalSession,
     *,
     model_prose: str | None = None,
+    corpus_root: Path | None = None,
 ) -> StructuredAnswerDraft:
     """Build a deterministic answer draft from factual claims when model prose lacks structure."""
     factual = [c for c in session.claims if c.may_state_as_campaign_fact()]
@@ -236,26 +328,17 @@ def synthesize_draft_from_session(
     unreadable = [
         a.anchor_id for a in session.source_anchors if (not a.readable) and (not a.opened)
     ]
-    if factual and unreadable:
-        sections.append(
-            AnswerSection(
-                text=(
-                    "Source verification is unavailable for one or more graph-native "
-                    "anchors in this revision; the graph facts above remain admissible."
-                ),
-                statement_kind="gap",
-                supporting_claim_ids=[c.claim_id for c in factual],
-            )
-        )
+    # Keep source-verification limits in the validator warning/support channel.
+    # They are not frontstage answer prose and should not interrupt a co-GM read.
     latest_recap = _latest_recap_change(session)
     if not factual and latest_recap is not None:
-        # Server-owned S1 fallback: empty focused graph must still disclose the
-        # comparison boundary and memory lag instead of a generic abstention.
-        # Model prose is intentionally ignored here — it is not claim support.
-        sections.append(
-            AnswerSection(
-                text=_s1_gap_answer_text(latest_recap),
-                statement_kind="gap",
+        # Prefer Hermes agent prose when present. Admitted-recap excerpt is for
+        # the agent packet; do not replace the chat answer with a raw dump.
+        sections.extend(
+            _s1_admitted_recap_sections(
+                latest_recap,
+                corpus_root=_corpus_root(corpus_root),
+                model_prose=model_prose,
             )
         )
     known = [c.predicate or c.claim_kind for c in factual]
@@ -285,7 +368,25 @@ def validate_structured_answer(
     model_prose: str | None = None,
     execution_error: bool = False,
     execution_error_code: str | None = None,
+    corpus_root: Path | None = None,
+    tool_call_count: int | None = None,
+    answer_scope: ExplicitAnswerScope | None = None,
 ) -> ValidatedAnswer:
+    """Validate a Hermes turn's answer against the shared claim ledger.
+
+    ``tool_call_count`` is the number of graph-retrieval tool events Hermes
+    emitted *this turn* (graph retrieval tools only — start/completion/error
+    all count). It is ``None`` for callers that do not track this (legacy/direct
+    unit-test callers), which always preserves the strict abstain-on-no-claims
+    behavior below. Only an explicit ``0`` — meaning the agent itself chose
+    not to touch the graph, not that we guessed it didn't need to — can route
+    into the ``conversation_context`` outcome instead of abstention.
+
+    ``answer_scope`` is set when Hermes completed ``declare_conversation_context``
+    without graph retrieval this turn. Explicit ``conversation_context`` preserves
+    model prose only when no graph claims, inferences, or latest-recap named-gap
+    evidence were accepted.
+    """
     if execution_error:
         return ValidatedAnswer(
             outcome="execution_error",
@@ -295,6 +396,7 @@ def validate_structured_answer(
             ),
             diagnostic_codes=[execution_error_code or "hermes_graph_agent_error"],
             reason_codes=["execution_error"],
+            validator_path="claim_ledger_validation",
         )
 
     parsed = (
@@ -303,7 +405,11 @@ def validate_structured_answer(
         else draft
     )
     if parsed is None or not parsed.sections:
-        parsed = synthesize_draft_from_session(session, model_prose=model_prose)
+        parsed = synthesize_draft_from_session(
+            session,
+            model_prose=model_prose,
+            corpus_root=corpus_root,
+        )
 
     by_id = _claims_by_id(session)
     accepted: list[GraphClaim] = []
@@ -312,7 +418,6 @@ def validate_structured_answer(
     warnings: list[str] = []
     reason_codes: list[str] = []
     accepted_texts: list[str] = []
-    source_read_ids = {read.source_read_id for read in session.source_reads}
     opened_reads = {
         read.source_read_id
         for read in session.source_reads
@@ -392,6 +497,34 @@ def validate_structured_answer(
         and _latest_recap_change(session) is not None
     )
     if not accepted_unique and not inferences and not named_gap_only:
+        if (
+            answer_scope == "conversation_context"
+            and model_prose
+            and model_prose.strip()
+        ):
+            return ValidatedAnswer(
+                outcome="conversation_context",
+                answer_text=model_prose.strip(),
+                rejected_claim_ids=list(dict.fromkeys(rejected)),
+                warnings=list(dict.fromkeys(warnings)),
+                diagnostic_codes=[],
+                reason_codes=["explicit_conversation_context", *reason_codes],
+                validator_path="explicit_conversation_context",
+            )
+        if tool_call_count == 0 and model_prose and model_prose.strip():
+            # The agent made zero graph-retrieval tool calls this turn and
+            # there is nothing already accepted to ground on — trust its own
+            # decision that this question didn't need the graph, rather than
+            # discarding its answer with the generic abstention text.
+            return ValidatedAnswer(
+                outcome="conversation_context",
+                answer_text=model_prose.strip(),
+                rejected_claim_ids=list(dict.fromkeys(rejected)),
+                warnings=list(dict.fromkeys(warnings)),
+                diagnostic_codes=[],
+                reason_codes=["conversation_context_no_tool_calls", *reason_codes],
+                validator_path="zero_tool_compatibility",
+            )
         return ValidatedAnswer(
             outcome="abstained",
             answer_text=ABSTENTION_ANSWER,
@@ -399,11 +532,44 @@ def validate_structured_answer(
             warnings=warnings,
             diagnostic_codes=["hermes_insufficient_evidence"],
             reason_codes=["no_admissible_claims", *reason_codes],
+            validator_path="claim_ledger_validation",
         )
 
     if named_gap_only:
         outcome = "partial_coverage"
         reason_codes.append("latest_recap_memory_lag_disclosed")
+        context = _latest_recap_change(session)
+        lag_text: str | None = None
+        excerpt_text: str | None = None
+        if context is not None:
+            lag_text, excerpt_text, excerpt_readable = _s1_support_fields(
+                context,
+                corpus_root=_corpus_root(corpus_root),
+            )
+            if excerpt_readable:
+                reason_codes.append("admitted_recap_source_read")
+        agent_text = (model_prose or "").strip()
+        if agent_text:
+            answer_text = agent_text
+            reason_codes.append("suggestion_noncanonical")
+            reason_codes.append("hermes_agent_answer")
+        else:
+            answer_text = HERMES_NO_CHAT_ANSWER
+        return ValidatedAnswer(
+            outcome=outcome,
+            answer_text=answer_text,
+            accepted_claim_ids=[],
+            rejected_claim_ids=list(dict.fromkeys(rejected)),
+            graph_references=[],
+            source_citations=[],
+            inferences=[],
+            warnings=list(dict.fromkeys(warnings)),
+            diagnostic_codes=list(dict.fromkeys(reason_codes)),
+            reason_codes=list(dict.fromkeys(reason_codes)),
+            support_lag_text=lag_text,
+            support_excerpt_text=excerpt_text,
+            validator_path="claim_ledger_validation",
+        )
     elif citations and accepted_unique:
         outcome = "source_verified"
     elif unreadable and accepted_unique:
@@ -416,6 +582,8 @@ def validate_structured_answer(
     answer_text = "\n\n".join(text for text in accepted_texts if text.strip())
     if not answer_text.strip() and model_prose and accepted_unique:
         answer_text = model_prose.strip()
+    if model_prose and model_prose.strip() in accepted_texts:
+        reason_codes.append("hermes_agent_answer")
 
     return ValidatedAnswer(
         outcome=outcome,
@@ -428,11 +596,13 @@ def validate_structured_answer(
         warnings=list(dict.fromkeys(warnings)),
         diagnostic_codes=list(dict.fromkeys(reason_codes)),
         reason_codes=list(dict.fromkeys(reason_codes)),
+        validator_path="claim_ledger_validation",
     )
 
 
 __all__ = [
     "ABSTENTION_ANSWER",
+    "HERMES_NO_CHAT_ANSWER",
     "AnswerSection",
     "StructuredAnswerDraft",
     "ValidatedAnswer",

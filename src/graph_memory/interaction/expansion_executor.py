@@ -67,14 +67,17 @@ class ExpandGraphRetrievalRequest(BaseModel):
         alias="schema",
         default=EXPAND_GRAPH_RETRIEVAL_SCHEMA,
     )
-    retrieval_session_id: str = Field(min_length=1)
+    retrieval_session_id: str = Field(min_length=1, alias="retrievalSessionId")
     operation: ExpansionOperation
     targets: list[ExpandTarget] = Field(default_factory=list)
-    query_text: str | None = None
-    relation_families: list[str] = Field(default_factory=list)
-    claim_predicates: list[str] = Field(default_factory=list)
+    query_text: str | None = Field(default=None, alias="queryText")
+    relation_families: list[str] = Field(default_factory=list, alias="relationFamilies")
+    claim_predicates: list[str] = Field(default_factory=list, alias="claimPredicates")
     depth: Literal[1, 2] = 1
-    historical_revision_id: str | None = None
+    historical_revision_id: str | None = Field(
+        default=None,
+        alias="historicalRevisionId",
+    )
     bounds: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -85,9 +88,48 @@ class ReadGraphSourceRequest(BaseModel):
         alias="schema",
         default=READ_GRAPH_SOURCE_SCHEMA,
     )
-    retrieval_session_id: str = Field(min_length=1)
-    anchor_ids: list[str] = Field(min_length=1, max_length=8)
-    max_chars: int = Field(default=4000, ge=1, le=12000)
+    retrieval_session_id: str = Field(min_length=1, alias="retrievalSessionId")
+    anchor_ids: list[str] = Field(
+        min_length=1,
+        max_length=8,
+        alias="anchorIds",
+    )
+    max_chars: int = Field(default=4000, ge=1, le=12000, alias="maxChars")
+
+
+_SCOPE_WIRE_KEYS = frozenset(
+    {
+        "worldId",
+        "campaignId",
+        "focus",
+        "admissibility",
+        "revisionPin",
+        "world_id",
+        "campaign_id",
+        "revision_pin",
+    }
+)
+
+
+def _normalize_interaction_arguments(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    """Prefer camelCase wire keys; drop scope injects expand/read models forbid."""
+    payload = {key: value for key, value in dict(arguments).items() if key not in _SCOPE_WIRE_KEYS}
+    # Dual inject (alias + field name) is forbidden under extra=forbid once aliased.
+    if "retrievalSessionId" in payload and "retrieval_session_id" in payload:
+        payload.pop("retrieval_session_id", None)
+    if "queryText" in payload and "query_text" in payload:
+        payload.pop("query_text", None)
+    if "anchorIds" in payload and "anchor_ids" in payload:
+        payload.pop("anchor_ids", None)
+    if "maxChars" in payload and "max_chars" in payload:
+        payload.pop("max_chars", None)
+    if "historicalRevisionId" in payload and "historical_revision_id" in payload:
+        payload.pop("historical_revision_id", None)
+    if "relationFamilies" in payload and "relation_families" in payload:
+        payload.pop("relation_families", None)
+    if "claimPredicates" in payload and "claim_predicates" in payload:
+        payload.pop("claim_predicates", None)
+    return payload
 
 
 def _focus_for_request(focus: Mapping[str, Any]) -> WorldGraphRetrievalFocus:
@@ -216,7 +258,9 @@ def execute_expand_graph_retrieval(
     root: Path | None = None,
 ) -> dict[str, Any]:
     try:
-        request = ExpandGraphRetrievalRequest.model_validate(dict(arguments))
+        request = ExpandGraphRetrievalRequest.model_validate(
+            _normalize_interaction_arguments(arguments)
+        )
     except ValidationError as exc:
         return {
             "schema": "dmb_world_graph_retrieval_error_v1",
@@ -355,7 +399,9 @@ def execute_read_graph_source(
     root: Path | None = None,
 ) -> dict[str, Any]:
     try:
-        request = ReadGraphSourceRequest.model_validate(dict(arguments))
+        request = ReadGraphSourceRequest.model_validate(
+            _normalize_interaction_arguments(arguments)
+        )
     except ValidationError as exc:
         return {
             "schema": "dmb_world_graph_retrieval_error_v1",

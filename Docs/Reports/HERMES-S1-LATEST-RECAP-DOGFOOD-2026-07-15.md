@@ -67,6 +67,12 @@ Artifact: `evals/graph_memory_layer/artifacts/last_s1_live_repair_trials.json`
 route no longer terminates on an empty focused graph before using the
 server-provided latest-recap context.
 
-S1 acceptance proves the first conversational sensemaking gate. It does not
-authorize creative workflow primitives by itself; Phase 2
-`CreativeOperationSession` construction may now begin under the reset plan.
+S1 acceptance proves the first conversational sensemaking gate after repair.
+The empty-graph route no longer generic-abstains. A follow-up slice (2026-07-15)
+adds **server-owned admitted-recap reads** on memory lag so the answer narrates
+from the Session 24 recap document while still disclosing that it is not yet in
+the World Graph head (`admitted_recap_source_read`).
+
+**Still open (not S1):** there is no product UI to promote a session extract into
+the World Graph head. Parked in `Backlog.md` as READY
+(“No UI path to promote session extract into World Graph head”).

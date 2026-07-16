@@ -13,116 +13,76 @@ export interface PlanDogfoodState {
 }
 
 /**
- * Operator measurement checklist for the current Plan prep loop.
- * Rung 5 focus: board + markdown recovery, then Hermes same-thread continuity.
- * World Graph object search/dogfood-list steps stay out of this checklist —
- * the Plan main page is the board + dogfood panel, not a graph browser.
+ * Operator measurement checklist for the accepted S1 slice only:
+ * conversational latest-recap sensemaking (U1 / A1 / A2).
+ * Board save/recovery, Tripod continuity, and creative authoring are out of scope.
  */
 export const PLAN_DOGFOOD_CHECKLIST: PlanDogfoodChecklistItem[] = [
   {
-    id: "open-plan",
-    label: "Open /plan?dogfood=1 with the intended live session dir",
+    id: "open-s1-plan",
+    label: "Open /plan?dogfood=1&campaign=longmont-c2&session=24",
     description:
-      "Live packet still drives liveSession; set ?session=N (and optional ?prepSession=N) for memory/graph focus and board target.",
+      "Focus memory/graph on session-24 (latest admitted recap). Live packet may still be session-22.",
   },
   {
-    id: "confirm-context",
-    label: "Confirm prep board title / target path (URL session + prepSession if set)",
+    id: "confirm-focus",
+    label: "Confirm Ask focus / World Graph focus is session-24 (or the latest admitted recap)",
+    description: "Dogfood panel snapshot should show session focus, not world-union.",
+  },
+  {
+    id: "open-ask-hermes",
+    label: "Open Ask DungeonBuddy on a fresh Hermes thread",
+    description: "New Plan threads use Hermes by default. Do not switch to Live for this slice.",
+  },
+  {
+    id: "ask-s1-question",
+    label: 'Ask: "What changed after the latest ingested recap?"',
     description:
-      "Without ?session=, Ask DungeonBuddy uses world-union focus. prepSession defaults to live+1 unless ?prepSession= is set. Board title lives on the working board, not a second header.",
+      "Use the populated pill or type it verbatim. Free-form text is the task; the pill is only a starting prompt.",
   },
   {
-    id: "observe-board-source",
-    label: "Record whether the board is scaffold, local draft, or full corpus prep",
-    description: "Corpus hydrate on load is not shipped; scaffold/local draft is expected.",
+    id: "answer-names-boundary",
+    label: "Answer names the latest admitted recap and the comparison boundary",
+    description: "Expect session-24 vs graph head (typically session-23) at a pinned revision.",
   },
   {
-    id: "protect-existing-prep",
-    label: "If Session Prep.md already has content, paste it before Save",
-    description: "Saving scaffold would overwrite the durable prep file.",
-  },
-  { id: "add-real-notes", label: "Edit the board with real prep notes for this session" },
-  { id: "use-reference-chip", label: "Add or use at least one reference chip" },
-  { id: "save-markdown", label: "Save to Markdown and confirm the target file updated" },
-  {
-    id: "reload-tab",
-    label: "Reload the tab and confirm the local draft remains",
-    description: "This proves localStorage recovery, not corpus re-read.",
+    id: "answer-discloses-lag",
+    label: "Lag + admitted recap appear in support, not the Hermes bubble",
+    description:
+      "Hermes chat = agent prose (or honest “no chat answer”). Separate panel: Latest-recap comparison support.",
   },
   {
-    id: "optional-clear-local-proof",
-    label: "(Optional) Clear Plan canvas localStorage, reload, confirm scaffold returns",
-    description: "Falsifies corpus hydrate; skip if you do not want to re-paste content.",
-  },
-  { id: "stop-server", label: "Stop the dev server" },
-  { id: "restart-server", label: "Restart the dev server" },
-  {
-    id: "reopen-plan",
-    label: "Reopen /plan and confirm local draft recovery",
+    id: "answer-feels-sensemaking",
+    label: "Hermes chat feels like co-GM sensemaking from Session 24, not a claim ledger",
+    description: "Meaning first; lag/excerpt/IDs stay in support or inspection.",
   },
   {
-    id: "inspect-card",
-    label: "Click a reference chip and inspect the selected-object card",
-  },
-  { id: "source-preview", label: "Use Show source preview from the card when available" },
-  {
-    id: "hermes-tools-trace",
-    label: "Open Ask DungeonBuddy → inspect graph evidence and trace",
-    description: "Fresh Plan threads use the Hermes graph agent; Live remains a compatibility path for persisted threads.",
+    id: "inspect-grounding",
+    label: "Inspect grounding: partial_coverage + admitted_recap_source_read",
+    description:
+      "Not no_admissible_claims, and not Hermes grounding contract error. World-head promote remains a separate open gap.",
   },
   {
-    id: "hermes-turn-1-tripod",
-    label: "Ask Turn 1: What do we know about Tripod Null-Calf at the North Gate?",
-    description: "Confirm hermes_graph_agent, graph tool ran, grounding/citations agree.",
-  },
-  {
-    id: "hermes-turn-2-same-thread",
-    label: "Same thread, ask Turn 2: What is it connected to that should affect my prep?",
-    description: "Pronoun continuity only; facts must come from a fresh graph lookup.",
-  },
-  {
-    id: "hermes-network-history",
-    label:
-      "Inspect Turn 2 Network: conversation_history is prior Q/A only; no hermes_session_id or manifest_path",
-    description: "History must not carry citations, traces, revisions, or source bodies.",
-  },
-  {
-    id: "hermes-fresh-graph",
-    label:
-      "Confirm Turn 2 resolves “it”, runs fresh graph tools, and cites only Turn 2 anchors",
-    description: "Conversationally continuous, factually fresh — not a resumed Hermes session.",
-  },
-  {
-    id: "hermes-thread-isolation",
-    label: "New empty Thread B: ask the Turn 2 follow-up alone; confirm Thread A history is absent",
-    description: "No Thread A prose or citations may leak into Thread B requests.",
-  },
-  {
-    id: "hermes-no-session-persist",
-    label:
-      "Inspect agent-interaction localStorage: no hermes_session_id or conversation_history fields",
-    description: "Outbound history is reconstructed from visible Q/A; Rung 6 owns durable sessions.",
-  },
-  {
-    id: "open-graph-evidence",
-    label: "Open a supporting World Graph citation/evidence card from the Hermes answer",
-    description: "Prefer graph-anchor evidence over legacy path citations for Hermes turns.",
+    id: "optional-inspect-evidence",
+    label: "(Optional) Open evidence / trace and confirm the lag story matches",
+    description: "Supporting inspection only — do not require a full claim list.",
   },
   {
     id: "record-useful",
-    label: "Record what felt useful for writing Session Prep",
+    label: "Record what felt useful as campaign sensemaking",
   },
   {
-    id: "record-confusing",
-    label: "Record what felt confusing, stale, scaffold-y, or missing (especially load)",
+    id: "record-missing",
+    label: "Record what still felt like a report, abstention, or missing co-GM move",
   },
 ];
 
 /** Seeded into copied reports so operator feedback stays attached to the current slice. */
 export const PLAN_DOGFOOD_SUGGESTED_FOLLOW_UPS: string[] = [
-  "Remove World Graph search from the Plan toolbar / main page — keep the surface as dogfood checklist + markdown working board.",
-  "Ship corpus hydrate on load so scaffold cannot clobber an existing Session Prep.md.",
-  "After Rung 5 acceptance: Rung 6 durable Hermes session / reload lifecycle (not prose replay).",
+  "Ship UI/CLI to promote reviewed session extracts into World Graph head (Backlog READY).",
+  "Phase 2: smallest CreativeOperationSession kernel (no domain generator yet).",
+  "S2 later: Collect everything we know about this threat → clarify → draft statblock → promotion preview.",
+  "Do not reopen the rejected empty-graph generic abstention path for S1.",
 ];
 
 export function dogfoodModeFromLocation(location: Location = window.location): boolean {

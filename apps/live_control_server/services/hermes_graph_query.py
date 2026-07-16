@@ -25,6 +25,7 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
     get_hermes_graph_agent_host,
 )
+from graph_memory.hermes_graph_plugin import HERMES_GRAPH_READ_TOOL_NAMES
 from graph_memory.interaction.answer_validator import (
     ABSTENTION_ANSWER as CLAIM_ABSTENTION_ANSWER,
     validate_structured_answer,
@@ -47,6 +48,7 @@ GroundingState = Literal[
     "source_verified",
     "partial_coverage",
     "inferred_from_graph",
+    "conversation_context",
 ]
 HostFactory = Callable[[], HermesGraphAgentHost]
 
@@ -271,10 +273,14 @@ def build_hermes_graph_turn_request(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
+    corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
 ) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
     """Translate resolved World Graph context into one host turn request."""
+    from apps.live_control_server.config import repo_root as default_repo_root
+    from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
+
     revision_id = _require_resolved_revision(graph_envelope)
     world_id = str(graph_envelope.get("world_id") or "").strip()
     campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
@@ -306,7 +312,31 @@ def build_hermes_graph_turn_request(
         # Preserve S1 context on the shared session object so host hydrate and
         # claim validation see the same server-owned comparison boundary.
         session.latest_recap_change = dict(latest_recap_change)
-        replace_session(session)
+    if isinstance(session.latest_recap_change, dict):
+        # Server-owned admitted-recap read for Hermes sensemaking (not a model path).
+        latest = session.latest_recap_change.get("latest_recap")
+        source_path = ""
+        if isinstance(latest, Mapping):
+            source_path = str(latest.get("source_recap_path") or "").strip()
+        memory_lag = bool(session.latest_recap_change.get("memory_lag")) or (
+            str(session.latest_recap_change.get("outcome") or "") == "memory_lag"
+        )
+        mutated = False
+        if memory_lag and source_path and not session.latest_recap_change.get(
+            "admitted_recap_excerpt"
+        ):
+            excerpt = read_admitted_recap_excerpt(
+                root=(corpus_root or default_repo_root()).resolve(),
+                source_recap_path=source_path,
+            )
+            if excerpt:
+                session.latest_recap_change = {
+                    **session.latest_recap_change,
+                    "admitted_recap_excerpt": excerpt,
+                }
+                mutated = True
+        if mutated or isinstance(latest_recap_change, Mapping):
+            replace_session(session)
     retrieval_session_packet = session.project_for_hermes()
     request = HermesGraphAgentTurnRequest(
         question=question,
@@ -414,7 +444,9 @@ def _is_evidence_bearing(
     if outcome is None or outcome not in EVIDENCE_BEARING_OUTCOMES:
         return False
     # Accept completions that returned matched nodes/relationships even without anchors.
-    if list(event.source_anchor_ids) or list(event.matched_node_ids) or list(event.relationship_ids):
+    if list(event.source_anchor_ids or []) or list(
+        event.matched_node_ids or []
+    ) or list(event.relationship_ids or []):
         return True
     return False
 
@@ -426,6 +458,8 @@ def _map_outcome_to_legacy_grounding(outcome: str) -> GroundingState:
         return "partial"
     if outcome == "execution_error":
         return "error"
+    if outcome == "conversation_context":
+        return "conversation_context"
     if outcome in {"abstained", "unsupported"}:
         return "abstained"
     return "abstained"
@@ -621,12 +655,24 @@ def _error_code_from_tool_events(events: Sequence[HermesGraphToolEvent]) -> tupl
     return GRAPH_TOOL_ERROR_CODE, [GRAPH_TOOL_ERROR_CODE]
 
 
+def _graph_tool_event_count(events: Sequence[HermesGraphToolEvent]) -> int:
+    return sum(1 for event in events if event.tool_name in HERMES_GRAPH_READ_TOOL_NAMES)
+
+
+def _evidence_event_count(
+    events: Sequence[HermesGraphToolEvent],
+    scope: _DispatchedScope,
+) -> int:
+    return sum(1 for event in events if _is_evidence_bearing(event, scope))
+
+
 def classify_hermes_graph_result(
     result: HermesGraphAgentTurnResult,
     *,
     scope: _DispatchedScope,
     projection_ok: bool | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
+    corpus_root: Path | None = None,
 ) -> tuple[GroundingState, str, list[str], list[str], str | None, dict[str, Any]]:
     """Classify grounding from the shared claim ledger first.
 
@@ -694,11 +740,19 @@ def classify_hermes_graph_result(
         session = get_session(result.retrieval_session_id)
 
     if session is not None:
+        explicit_scope = (
+            "conversation_context"
+            if result.answer_scope == "conversation_context"
+            else None
+        )
         validated = validate_structured_answer(
             session,
             None,
             model_prose=(result.final_response or "").strip() or None,
             execution_error=False,
+            corpus_root=corpus_root,
+            tool_call_count=_graph_tool_event_count(result.tool_events),
+            answer_scope=explicit_scope,
         )
         replace_session(session)
         legacy_state = _map_outcome_to_legacy_grounding(validated.outcome)
@@ -715,7 +769,13 @@ def classify_hermes_graph_result(
                 cite.model_dump(mode="json")
                 for cite in validated.source_citations
             ],
+            "validator_path": validated.validator_path,
         }
+        if validated.support_lag_text or validated.support_excerpt_text:
+            acceptance["s1_support"] = {
+                "lag_disclosure": validated.support_lag_text,
+                "admitted_recap_excerpt": validated.support_excerpt_text,
+            }
         return (
             legacy_state,
             validated.answer_text,
@@ -736,7 +796,11 @@ def classify_hermes_graph_result(
             [],
             ["hermes_insufficient_evidence"],
             None,
-            {"state": "abstained", "reason_codes": ["no_session_no_evidence"]},
+            {
+                "state": "abstained",
+                "reason_codes": ["no_session_no_evidence"],
+                "validator_path": "no_session_fallback",
+            },
         )
     is_partial = any(_normalized_outcome(event) in PARTIAL_OUTCOMES for event in evidence)
     if is_partial:
@@ -746,7 +810,11 @@ def classify_hermes_graph_result(
             [PARTIAL_COVERAGE_WARNING],
             ["hermes_partial_coverage"],
             None,
-            {"state": "partial_coverage", "reason_codes": ["legacy_partial"]},
+            {
+                "state": "partial_coverage",
+                "reason_codes": ["legacy_partial"],
+                "validator_path": "no_session_fallback",
+            },
         )
     if not final_response:
         return (
@@ -755,7 +823,11 @@ def classify_hermes_graph_result(
             [],
             ["hermes_insufficient_evidence"],
             None,
-            {"state": "abstained", "reason_codes": ["empty_final_response"]},
+            {
+                "state": "abstained",
+                "reason_codes": ["empty_final_response"],
+                "validator_path": "no_session_fallback",
+            },
         )
     return (
         "grounded",
@@ -763,7 +835,11 @@ def classify_hermes_graph_result(
         [],
         [],
         None,
-        {"state": "graph_grounded", "reason_codes": ["legacy_matched_ids"]},
+        {
+            "state": "graph_grounded",
+            "reason_codes": ["legacy_matched_ids"],
+            "validator_path": "no_session_fallback",
+        },
     )
 
 
@@ -801,13 +877,22 @@ def _agent_trace(
     started_at: str,
     completed_at: str,
     elapsed_ms: int,
+    scope: _DispatchedScope | None = None,
+    validator_path: str | None = None,
 ) -> dict[str, Any]:
     status = {
         "grounded": "ok",
         "partial": "partial",
         "abstained": "abstained",
         "error": "error",
+        "conversation_context": "ok",
     }[state]
+    raw_events = list(result.tool_events)
+    evidence_count = (
+        _evidence_event_count(raw_events, scope)
+        if scope is not None
+        else 0
+    )
     return {
         "trace_id": _new_trace_id(),
         "runtime": RUNTIME,
@@ -827,11 +912,16 @@ def _agent_trace(
         # Additive for PR355 graph-trace presentation.
         "tool_events": list(tool_events),
         "warnings": list(warnings),
+        "answer_scope": result.answer_scope,
+        "tool_event_count": len(raw_events),
+        "evidence_event_count": evidence_count,
+        "final_response_present": bool((result.final_response or "").strip()),
+        "validator_path": validator_path,
     }
 
 
 def _top_level_status(state: GroundingState) -> str:
-    if state == "grounded":
+    if state in {"grounded", "conversation_context"}:
         return "ok"
     if state in {"partial", "abstained"}:
         return "partial"
@@ -920,6 +1010,7 @@ def build_hermes_graph_unavailable_response(
             started_at=started,
             completed_at=completed,
             elapsed_ms=elapsed_ms,
+            validator_path="no_session_fallback",
         ),
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
@@ -940,6 +1031,7 @@ def build_hermes_graph_product_response(
     elapsed_ms: int,
     world_graph_context: Mapping[str, Any] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
+    corpus_root: Path | None = None,
 ) -> dict[str, Any]:
     # Project once behind a safe boundary; reuse for classification and trace.
     projected_events, saw_mismatch, projection_ok = _safe_projected_tool_events(
@@ -963,6 +1055,7 @@ def build_hermes_graph_product_response(
                 scope=scope,
                 projection_ok=True,
                 retrieval_session=retrieval_session,
+                corpus_root=corpus_root,
             )
         )
         grounding_events = result.tool_events
@@ -1049,6 +1142,8 @@ def build_hermes_graph_product_response(
             started_at=started_at,
             completed_at=completed_at,
             elapsed_ms=elapsed_ms,
+            scope=scope,
+            validator_path=str(acceptance.get("validator_path") or "") or None,
         ),
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
@@ -1057,6 +1152,15 @@ def build_hermes_graph_product_response(
     }
     if latest_recap_change is not None:
         response["latest_recap_change"] = dict(latest_recap_change)
+    s1_support = acceptance.get("s1_support")
+    if isinstance(s1_support, Mapping):
+        response["s1_support"] = dict(s1_support)
+        if latest_recap_change is not None:
+            merged = dict(latest_recap_change)
+            for key, value in s1_support.items():
+                if value is not None:
+                    merged[str(key)] = value
+            response["latest_recap_change"] = merged
     if world_graph_context is not None:
         response["world_graph_context"] = dict(world_graph_context)
     if forensic_enabled():
@@ -1083,6 +1187,7 @@ def run_hermes_graph_query(
     agent_thread_id: str | None,
     turn_id: str | None,
     root: Path | None = None,
+    corpus_root: Path | None = None,
     host_factory: HostFactory | None = None,
     conversation_history: Any | None = None,
 ) -> dict[str, Any]:
@@ -1090,7 +1195,14 @@ def run_hermes_graph_query(
 
     Calls ``host.execute`` exactly once. Host-owned pre-accept retry remains
     inside the host; this adapter never retries.
+
+    ``root`` is the World Graph store root. ``corpus_root`` is the Buddy repo
+    root used for registry-admitted recap reads; it must not default to the
+    graph store root (``out/``), or S1 memory-lag sensemaking cannot open
+    ``corpus/...`` paths.
     """
+    from apps.live_control_server.config import repo_root as default_repo_root
+
     # Fail closed on malformed history before unavailable short-circuit or host work.
     normalized_history = normalize_hermes_conversation_history(conversation_history)
     if str(graph_envelope.get("status") or "") == "unavailable":
@@ -1101,10 +1213,12 @@ def run_hermes_graph_query(
             turn_id=turn_id,
         )
 
+    resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
     request, scope = build_hermes_graph_turn_request(
         question=text,
         graph_envelope=graph_envelope,
         root=root,
+        corpus_root=resolved_corpus_root,
         conversation_history=normalized_history,
     )
     factory = host_factory or get_hermes_graph_agent_host
@@ -1124,6 +1238,7 @@ def run_hermes_graph_query(
         completed_at=completed_at,
         elapsed_ms=elapsed_ms,
         world_graph_context=graph_envelope,
+        corpus_root=resolved_corpus_root,
     )
 
 

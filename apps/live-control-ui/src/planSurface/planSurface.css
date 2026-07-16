@@ -818,28 +818,36 @@
   color: #bbf7d0;
 }
 
-.plan-agent-history {
-  margin-top: 0.75rem;
+.plan-agent-transcript {
+  margin-bottom: 0.85rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border, #2a3142);
   border-radius: 8px;
   background: rgba(12, 14, 20, 0.55);
+  display: grid;
+  gap: 0.65rem;
+  min-height: 0;
 }
 
-.plan-agent-history-header {
+.plan-agent-transcript-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
 }
 
-.plan-agent-history-header h4 {
+.plan-agent-transcript-header h3 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
-.plan-agent-history-clear {
+.plan-agent-transcript-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.plan-agent-transcript-clear {
   border: 1px solid var(--border, #2a3142);
   border-radius: 6px;
   background: transparent;
@@ -850,41 +858,121 @@
   cursor: pointer;
 }
 
-.plan-agent-history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.plan-agent-transcript-scroll {
   display: grid;
-  gap: 0.35rem;
+  gap: 1rem;
+  max-height: min(52vh, 28rem);
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
-.plan-agent-history-item {
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 6px;
-  background: var(--bg-input, #12141a);
-  color: var(--fg, #e8eaef);
-  padding: 0.45rem 0.55rem;
-  font: inherit;
+.plan-agent-transcript-turn {
+  display: grid;
+  gap: 0.55rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(42, 49, 66, 0.65);
+}
+
+.plan-agent-transcript-turn:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.plan-agent-transcript-turn[data-active="true"] {
+  border-left: 2px solid var(--accent, #7aa2f7);
+  padding-left: 0.55rem;
+  margin-left: -0.55rem;
+}
+
+.plan-agent-turn-inspection {
+  border: 1px solid rgba(42, 49, 66, 0.85);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  background: rgba(10, 12, 18, 0.45);
+}
+
+.plan-agent-turn-inspection > summary {
   cursor: pointer;
-}
-
-.plan-agent-history-item[data-active="true"] {
-  border-color: var(--accent, #7aa2f7);
-  background: rgba(122, 162, 247, 0.12);
-}
-
-.plan-agent-history-item strong {
-  display: block;
-  font-size: 0.82rem;
-  margin-bottom: 0.15rem;
-}
-
-.plan-agent-history-item span {
-  display: block;
+  font-size: 0.78rem;
   color: var(--fg-mute, #9aa3b5);
-  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
+}
+
+.plan-agent-turn-inspection .plan-agent-answer {
+  margin-top: 0.45rem;
+}
+
+.plan-agent-chat-bubble {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(12, 14, 20, 0.72);
+}
+
+.plan-agent-chat-bubble-user {
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.plan-agent-chat-bubble-assistant {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(30, 41, 59, 0.55);
+}
+
+.plan-agent-chat-bubble .plan-surface-kicker {
+  margin: 0 0 0.35rem;
+}
+
+.plan-agent-chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.plan-agent-chat-answer {
+  color: var(--fg, #e8eaef);
+}
+
+.plan-agent-s1-support {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  background: rgba(15, 18, 26, 0.55);
+}
+
+.plan-agent-s1-support summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--fg-mute, #9aa3b5);
+  margin-bottom: 0.35rem;
+}
+
+.plan-agent-s1-support-lag {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.85rem;
+  color: var(--fg, #e8eaef);
+}
+
+.plan-agent-s1-support-excerpt {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  white-space: pre-wrap;
+  line-height: 1.4;
+  font-size: 0.78rem;
+  color: var(--fg-mute, #c5cbd8);
+  overflow-x: auto;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.plan-agent-conversation-context-note {
+  margin: 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--fg-mute, #9aa3b5);
 }
 
 .plan-agent-trace {
@@ -6364,6 +6452,22 @@ body.plan-toolbox-open .plan-agent-shell {
 
 .plan-dogfood-check-item input {
   margin-top: 0.15rem;
+}
+
+.plan-dogfood-check-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.plan-dogfood-check-label {
+  color: var(--fg, #e8eaef);
+}
+
+.plan-dogfood-check-description {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--fg-mute, #9aa3b5);
 }
 
 .plan-dogfood-notes-label {

@@ -59,6 +59,26 @@ def _graph_store(*sessions: int) -> dict:
     }
 
 
+def test_read_admitted_recap_excerpt_strips_frontmatter_and_truncates(
+    tmp_path: Path,
+) -> None:
+    from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
+
+    recap = tmp_path / "Session 24 - Recap.md"
+    body = "Paragraph one about the North Gate.\n\n" + ("x" * 4000)
+    recap.write_text(f"---\ntitle: S24\n---\n\n{body}\n", encoding="utf-8")
+
+    excerpt = read_admitted_recap_excerpt(
+        root=tmp_path,
+        source_recap_path="Session 24 - Recap.md",
+        max_chars=200,
+    )
+    assert excerpt is not None
+    assert "title: S24" not in excerpt
+    assert "North Gate" in excerpt
+    assert "truncated" in excerpt.lower()
+
+
 def test_latest_recap_context_discloses_memory_lag(tmp_path: Path) -> None:
     context = build_latest_recap_change_context(
         root=tmp_path,

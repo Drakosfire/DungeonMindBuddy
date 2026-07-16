@@ -1,11 +1,12 @@
 # User and Agent Stories — Hermes Campaign Authoring Foundation
 
-**Status:** ACCEPTED ACTIVE DESIGN; implementation remains gated by Phase 0 code/UI cleanup
+**Status:** ACCEPTED ACTIVE DESIGN; S1 conversational gate accepted; Phase 2 creative primitives unblocked
 **Created:** 2026-07-15  
 **Goal anchor:** [`ANCHOR-hermes-campaign-sensemaking-goal.md`](ANCHOR-hermes-campaign-sensemaking-goal.md)  
 **Architecture:** [`ARCHITECTURE-hermes-campaign-authoring-foundation.md`](ARCHITECTURE-hermes-campaign-authoring-foundation.md)  
 **Plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](../Plans/PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Re-anchor:** [`../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md`](../Plans/REANCHOR-hermes-campaign-authoring-foundation-2026-07-15.md)
+**Operator dogfood (S1 only):** [`../Dogfood/PLAN-SURFACE-DOGFOOD-RUNBOOK.md`](../Dogfood/PLAN-SURFACE-DOGFOOD-RUNBOOK.md)
 
 ## User stories
 

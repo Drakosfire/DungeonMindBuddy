@@ -17,15 +17,25 @@ import yaml
 
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
+    _derive_answer_scope,
     _summarize_tool_result,
     run_hermes_graph_agent_turn,
 )
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    HermesGraphToolEvent,
+    deserialize_hermes_graph_agent_turn_result,
+    serialize_hermes_graph_agent_turn_result,
+)
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
-    hermes_graph_interaction_tool_definitions,
+    DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA,
+    DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+    execute_hermes_graph_interaction_tool_json,
+    hermes_model_visible_tool_definitions,
 )
 from graph_memory.hermes_graph_plugin import (
     HERMES_GRAPH_READ_TOOL_NAMES,
     ORDERED_GRAPH_TOOL_NAMES,
+    ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     TOOLSET_NAME,
     HermesCapabilityPolicy,
     HermesGraphScope,
@@ -162,8 +172,11 @@ def test_plugin_discovery_registers_exact_two_interaction_tools(
     entries, _ = registry._snapshot_state()
     graph_tools = [e for e in entries if e.toolset == TOOLSET_NAME]
     names = [e.name for e in graph_tools]
-    assert names == list(ORDERED_TOOL_NAMES)
-    assert set(names) == set(HERMES_GRAPH_READ_TOOL_NAMES)
+    assert names == list(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+    retrieval_names = [name for name in names if name in HERMES_GRAPH_READ_TOOL_NAMES]
+    assert retrieval_names == list(ORDERED_TOOL_NAMES)
+    assert set(retrieval_names) == set(HERMES_GRAPH_READ_TOOL_NAMES)
+    assert DECLARE_CONVERSATION_CONTEXT_TOOL_NAME in names
     for legacy in LEGACY_TOOL_NAMES:
         assert legacy not in names
 
@@ -181,7 +194,7 @@ def test_plugin_schemas_match_interaction_catalog_function_schemas(
     hermes_plugins.discover_plugins(force=True)
     catalog = {
         item["function"]["name"]: item["function"]
-        for item in hermes_graph_interaction_tool_definitions()
+        for item in hermes_model_visible_tool_definitions()
     }
     entries, _ = registry._snapshot_state()
     for entry in entries:
@@ -239,7 +252,7 @@ def test_plugin_handlers_route_to_interaction_json_executor(
         assert calls[0][0] == "expand_graph_retrieval"
         # Runtime injects authoritative retrieval session; model spoofing is overwritten.
         assert calls[0][1]["retrievalSessionId"] == "sess:policy-inject"
-        assert calls[0][1]["retrieval_session_id"] == "sess:policy-inject"
+        assert "retrieval_session_id" not in calls[0][1]
         assert calls[0][1]["operation"] == "search"
         assert calls[0][1]["queryText"] == "Tripod"
         assert json.loads(result)["outcome"] == "empty"
@@ -403,7 +416,58 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     assert init.get("skip_context_files") is True
     assert init.get("enabled_toolsets") == [TOOLSET_NAME]
     assert init.get("fallback_model") is None
+    assert init.get("provider") == "openai-api"
+    assert init.get("base_url") == "https://api.openai.com/v1"
+    assert init.get("api_mode") == "chat_completions"
+    assert isinstance(init.get("model"), str) and init.get("model")
     assert "disabled_toolsets" not in init or init.get("disabled_toolsets") in (None, [])
+    assert "anthropic" not in str(init.get("provider") or "").lower()
+    assert "anthropic" not in str(init.get("base_url") or "").lower()
+
+
+def test_missing_openai_key_fails_closed_for_production_factory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+
+    monkeypatch.setattr(
+        agent_mod,
+        "_resolve_hermes_openai_inference",
+        lambda **_kwargs: "hermes_openai_credentials_missing",
+    )
+    result = agent_mod.run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="What changed after the latest ingested recap?",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+        ),
+        agent_factory=None,
+    )
+    assert result.status == "error"
+    assert result.error_code == "hermes_openai_credentials_missing"
+    assert "OPENAI_API_KEY" in (result.error_message or "")
+
+
+def test_isolated_home_config_pins_openai_not_anthropic(tmp_path: Path) -> None:
+    from apps.live_control_server.services.hermes_graph_agent import (
+        _prepare_isolated_hermes_home,
+    )
+
+    home = tmp_path / "isolated"
+    _prepare_isolated_hermes_home(
+        home,
+        enabled_plugin_ids=["dungeonbuddy_graph"],
+        model="gpt-5.4-mini",
+        provider="openai-api",
+        base_url="https://api.openai.com/v1",
+    )
+    raw = yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8"))
+    assert raw["model"]["provider"] == "openai-api"
+    assert raw["model"]["default"] == "gpt-5.4-mini"
+    assert "anthropic" not in json.dumps(raw).lower()
+    assert "openrouter" not in json.dumps(raw).lower()
 
 
 def test_turn_passes_history_and_captures_messages(tmp_path: Path) -> None:
@@ -856,11 +920,15 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
     def _factory(**kwargs: Any) -> Any:
         with hermes_import_namespace():
             with patch("run_agent.OpenAI"):
-                agent = AIAgent(
-                    api_key="test-key-1234567890",
-                    base_url="https://openrouter.ai/api/v1",
+                # Runtime now pins openai-api; absorb those kwargs without
+                # double-passing base_url/provider from this test double.
+                init = {
+                    "api_key": "test-key-1234567890",
                     **kwargs,
-                )
+                }
+                init.setdefault("base_url", "https://api.openai.com/v1")
+                init["api_mode"] = "chat_completions"
+                agent = AIAgent(**init)
         agent.client = MagicMock()
         agent.client.chat.completions.create.side_effect = [tool_resp, final_resp]
         agent._cached_system_prompt = "test"
@@ -891,7 +959,6 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
             {
                 "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
                 "retrievalSessionId": "sess-real-aiagent",
-                "retrieval_session_id": "sess-real-aiagent",
                 "operation": "search",
                 "queryText": "Tripod",
             },
@@ -1349,15 +1416,24 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
         home: Path,
         *,
         enabled_plugin_ids: list[str] | tuple[str, ...],
+        model: str = "gpt-5.4-mini",
+        provider: str = "openai-api",
+        base_url: str = "https://api.openai.com/v1",
     ) -> None:
         captured_plugin_ids.append(list(enabled_plugin_ids))
-        real_prepare(home, enabled_plugin_ids=enabled_plugin_ids)
+        real_prepare(
+            home,
+            enabled_plugin_ids=enabled_plugin_ids,
+            model=model,
+            provider=provider,
+            base_url=base_url,
+        )
         if SYNTH_PLUGIN_KEY in enabled_plugin_ids:
             _seed_synth_user_plugin(home)
 
     monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
 
-    graph_names = tuple(ORDERED_TOOL_NAMES)
+    graph_names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
         enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
@@ -1505,3 +1581,62 @@ def test_policy_plugin_activations_must_cover_enabled_toolsets() -> None:
     assert validate_capability_policy_structure(bad) == (
         "hermes_capability_policy_plugin_toolset_mismatch"
     )
+
+
+def test_default_policy_exposes_declare_conversation_context_tool() -> None:
+    policy = default_graph_only_capability_policy(_default_scope())
+    assert DECLARE_CONVERSATION_CONTEXT_TOOL_NAME in policy.enabled_tool_names
+    assert policy.rule_for(DECLARE_CONVERSATION_CONTEXT_TOOL_NAME) is not None
+    assert policy.rule_for(DECLARE_CONVERSATION_CONTEXT_TOOL_NAME).require_graph_scope is False
+
+
+def test_declare_conversation_context_tool_returns_bounded_ack() -> None:
+    payload = json.loads(execute_hermes_graph_interaction_tool_json(
+        DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+        {},
+    ))
+    assert payload == {
+        "schema": DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA,
+        "scope": "conversation_context",
+    }
+
+
+def test_derive_answer_scope_requires_declare_without_graph_tools() -> None:
+    declare_only = [
+        HermesGraphToolEvent(
+            tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+            state="completion",
+        )
+    ]
+    assert _derive_answer_scope(declare_only) == "conversation_context"
+
+    with_graph = [
+        HermesGraphToolEvent(tool_name="expand_graph_retrieval", state="completion"),
+        HermesGraphToolEvent(
+            tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+            state="completion",
+        ),
+    ]
+    assert _derive_answer_scope(with_graph) == "graph"
+
+    no_tools: list[HermesGraphToolEvent] = []
+    assert _derive_answer_scope(no_tools) is None
+
+
+def test_turn_result_wire_round_trips_answer_scope() -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+    )
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Summary of this chat.",
+        messages=[],
+        hermes_session_id="sess-1",
+        tool_events=[],
+        answer_scope="conversation_context",
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert wire["answerScope"] == "conversation_context"
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.answer_scope == "conversation_context"

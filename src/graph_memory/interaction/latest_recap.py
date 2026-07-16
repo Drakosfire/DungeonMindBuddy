@@ -125,6 +125,45 @@ def _source_path(root: Path, source_recap_path: str) -> Path:
     return resolved
 
 
+def read_admitted_recap_excerpt(
+    *,
+    root: Path,
+    source_recap_path: str,
+    max_chars: int = 3500,
+) -> str | None:
+    """Server-owned read of a registry-admitted recap path (never model-supplied).
+
+    Returns frontmatter-stripped body text truncated at a paragraph boundary.
+    Returns None when the path is outside root, missing, or empty.
+    """
+    try:
+        path = _source_path(root, source_recap_path)
+        if not path.is_file():
+            return None
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, ValueError, UnicodeError):
+        return None
+
+    from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
+
+    try:
+        _, body = split_frontmatter(raw)
+    except FrontmatterParseError:
+        body = raw
+
+    body = body.strip()
+    if not body:
+        return None
+    if len(body) <= max_chars:
+        return body
+
+    clipped = body[:max_chars]
+    paragraph_break = clipped.rfind("\n\n")
+    if paragraph_break >= max_chars // 2:
+        clipped = clipped[:paragraph_break]
+    return clipped.rstrip() + "\n\n[… admitted recap excerpt truncated …]"
+
+
 def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
     sessions: set[str] = set()
     source_artifacts = _as_mapping(store.get("source_artifacts"))
@@ -321,5 +360,6 @@ __all__ = [
     "LatestRecapChangeContext",
     "build_latest_recap_change_context",
     "is_latest_recap_change_question",
+    "read_admitted_recap_excerpt",
     "resolve_latest_recap_change_context",
 ]
