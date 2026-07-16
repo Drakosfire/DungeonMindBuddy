@@ -947,24 +947,6 @@ export function PlanAgentInteractionBar({
 
             {turns.length ? (
               <section className="plan-agent-transcript" aria-label="Conversation transcript">
-                <div className="plan-agent-transcript-header">
-                  <h3>Conversation ({turns.length})</h3>
-                  <div className="plan-agent-transcript-actions">
-                    <button type="button" onClick={() => {
-                      const baseThread = thread ?? createAgentInteractionThread(
-                        sessionDescriptor.campaignId,
-                        querySession,
-                        "plan",
-                        queryBackend,
-                      );
-                      const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
-                      setThread(nextThread);
-                    }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
-                    <button type="button" className="plan-agent-transcript-clear" onClick={clearHistory}>
-                      Clear history
-                    </button>
-                  </div>
-                </div>
                 <div className="plan-agent-transcript-scroll">
                   {chronologicalTurns.map((turn) => {
                     const wire = turnResponses[turn.turnId];
@@ -1356,6 +1338,21 @@ export function PlanAgentInteractionBar({
             {askStatus === "error" ? (
               <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
             ) : null}
+            <div className="plan-agent-ask-controls">
+              <button type="button" onClick={() => {
+                const baseThread = thread ?? createAgentInteractionThread(
+                  sessionDescriptor.campaignId,
+                  querySession,
+                  "plan",
+                  queryBackend,
+                );
+                const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
+                setThread(nextThread);
+              }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
+              <button type="button" onClick={clearHistory} disabled={!turns.length}>
+                Clear history
+              </button>
+            </div>
           </form>
         </div>
       ) : null}

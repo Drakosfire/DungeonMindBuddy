@@ -833,12 +833,13 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Conversation transcript" })).toHaveTextContent("Conversation (1)");
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Conversation transcript" })).toHaveTextContent("Conversation (2)");
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
+    expect(screen.queryByText(/Conversation \(\d+\)/)).not.toBeInTheDocument();
 
     const stored = localStorage.getItem("plan-agent-turns-v1:longmont-c2");
     expect(stored).toBeTruthy();
@@ -1800,7 +1801,9 @@ describe("PlanSurfaceShell", () => {
       "What is it connected to that should affect my prep?",
     );
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    await screen.findByText(/Conversation \(2\)/);
+    await waitFor(() => {
+      expect(screen.getAllByText("Tripod stands at the North Gate.")).toHaveLength(2);
+    });
 
     const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
     expect(queryCalls).toHaveLength(2);

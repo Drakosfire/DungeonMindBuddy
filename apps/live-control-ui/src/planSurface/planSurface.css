@@ -628,6 +628,34 @@
   opacity: 0.5;
 }
 
+.plan-agent-ask-controls {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.plan-agent-ask-controls button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-mute, #9aa3b5);
+  padding: 0.2rem 0.5rem;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.plan-agent-ask-controls button:hover:not(:disabled) {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-agent-ask-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .plan-agent-answer {
   margin-top: 0.75rem;
   border: 1px solid rgba(122, 162, 247, 0.28);
@@ -818,35 +846,6 @@
   display: grid;
   gap: 0.65rem;
   min-height: 0;
-}
-
-.plan-agent-transcript-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.plan-agent-transcript-header h3 {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.plan-agent-transcript-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.plan-agent-transcript-clear {
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fg-mute, #9aa3b5);
-  padding: 0.2rem 0.5rem;
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
 }
 
 .plan-agent-transcript-scroll {
