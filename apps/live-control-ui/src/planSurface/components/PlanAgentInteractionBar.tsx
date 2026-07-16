@@ -45,7 +45,6 @@ import {
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
 import {
-  PREP_MEMORY_PROMPTS,
   hasGrounding,
   isConversationContext,
   isHermesGraphAgentResponse,
@@ -879,7 +878,6 @@ export function PlanAgentInteractionBar({
         <div className="plan-agent-pane" role="complementary" aria-label="DungeonBuddy drawer">
           <header className="plan-agent-pane-header">
             <div>
-              <p className="plan-surface-kicker">Ask DungeonBuddy</p>
               {renaming ? (
                 <div className="plan-agent-title-editor">
                   <label>
@@ -893,7 +891,6 @@ export function PlanAgentInteractionBar({
                 <h2>{threadTitle}</h2>
               )}
               <p>{memorySessionLabel}</p>
-              <p>DungeonBuddy answers from campaign memory while you write prep.</p>
             </div>
             <div className="plan-agent-pane-actions">
               <button type="button" onClick={() => {
@@ -1252,51 +1249,6 @@ export function PlanAgentInteractionBar({
               </section>
             ) : null}
 
-            <form className="plan-agent-ask" onSubmit={submitQuestion}>
-                <h3>Ask DungeonBuddy</h3>
-                <div className="plan-agent-prompt-suggestions" aria-label="Suggested prep questions">
-                  {PREP_MEMORY_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      className="plan-agent-prompt-suggestion"
-                      onClick={() => setQuestion(prompt)}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-                <label>
-                  <span>Question</span>
-                  <textarea
-                    value={question}
-                    onChange={(event) => setQuestion(event.currentTarget.value)}
-                    placeholder="What should I remember about the North Gate pressure sequence?"
-                    rows={3}
-                  />
-                </label>
-                {graphContextInitializing ? (
-                  <p className="plan-agent-muted">Initializing world graph context…</p>
-                ) : null}
-                {hasSupportedGraphContext && projectionState === "error" ? (
-                  <p className="plan-agent-warning">
-                    World graph projection error: {projectionError ?? "unknown error"}.
-                    {queryBackend === "hermes"
-                      ? " The server will resolve the authoritative revision for Hermes graph queries."
-                      : " Query will continue with an unpinned revision."}
-                  </p>
-                ) : null}
-                <button
-                  type="submit"
-                  disabled={!question.trim() || askStatus === "asking" || graphContextInitializing}
-                >
-                  {askStatus === "asking" ? "Asking…" : "Ask DungeonBuddy"}
-                </button>
-                {askStatus === "error" ? (
-                  <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
-                ) : null}
-            </form>
-
             <details className="plan-agent-diagnostics-drawer">
               <summary>Memory coverage diagnostics</summary>
               {status === "loading" ? <p className="plan-agent-muted">Loading source bundle…</p> : null}
@@ -1373,18 +1325,51 @@ export function PlanAgentInteractionBar({
               ) : null}
             </details>
           </div>
+
+          <form className="plan-agent-ask" onSubmit={submitQuestion}>
+            <label>
+              <span className="sr-only">Question</span>
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.currentTarget.value)}
+                placeholder="Ask about campaign memory…"
+                rows={2}
+              />
+            </label>
+            {graphContextInitializing ? (
+              <p className="plan-agent-muted">Initializing world graph context…</p>
+            ) : null}
+            {hasSupportedGraphContext && projectionState === "error" ? (
+              <p className="plan-agent-warning">
+                World graph projection error: {projectionError ?? "unknown error"}.
+                {queryBackend === "hermes"
+                  ? " The server will resolve the authoritative revision for Hermes graph queries."
+                  : " Query will continue with an unpinned revision."}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={!question.trim() || askStatus === "asking" || graphContextInitializing}
+            >
+              {askStatus === "asking" ? "Asking…" : "Ask DungeonBuddy"}
+            </button>
+            {askStatus === "error" ? (
+              <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
+            ) : null}
+          </form>
         </div>
       ) : null}
 
-      <div className="plan-agent-bar">
-        <div>
-          <p className="plan-surface-kicker">Ask DungeonBuddy</p>
-          <strong>Ask DungeonBuddy · {threadTitle}</strong>
+      {open ? null : (
+        <div className="plan-agent-bar">
+          <div>
+            <strong>Ask DungeonBuddy · {threadTitle}</strong>
+          </div>
+          <button type="button" onClick={toggleDrawer} aria-expanded={open}>
+            Open drawer
+          </button>
         </div>
-        <button type="button" onClick={toggleDrawer} aria-expanded={open}>
-          {open ? "Close drawer" : "Open drawer"}
-        </button>
-      </div>
+      )}
     </section>
   );
 }

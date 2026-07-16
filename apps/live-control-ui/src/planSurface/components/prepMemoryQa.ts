@@ -8,14 +8,6 @@ import type {
 } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
 
-export const PREP_MEMORY_PROMPTS = [
-  "What changed after the latest ingested recap?",
-  "What unresolved threads matter for prep?",
-  "Which NPCs are relevant next session?",
-  "What threats should I have ready?",
-  "What sources support this?",
-] as const;
-
 const HERMES_GROUNDING_STATES: readonly HermesGraphGroundingState[] = [
   "grounded",
   "partial",

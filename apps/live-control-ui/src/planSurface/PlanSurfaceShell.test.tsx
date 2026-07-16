@@ -167,28 +167,14 @@ describe("PlanSurfaceShell", () => {
       await screen.findByRole("complementary", { name: "DungeonBuddy drawer" }),
     ).toBeInTheDocument();
     expect(screen.getByText("World graph (all sessions) · preparing Session 23")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Question")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
     expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
     expect(screen.queryByText("Advanced source metadata")).not.toBeInTheDocument();
     expect(screen.queryByText(/future Agent Interaction contract/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Ask DungeonBuddy · New prep thread")).toBeInTheDocument();
-  });
-
-  it("fills the question field when a suggested prep prompt is clicked", async () => {
-    const user = userEvent.setup();
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify(mockSourceBundle),
-    } as Response);
-
-    renderPlanSurface();
-
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
-    await user.click(screen.getByRole("button", { name: "What threats should I have ready?" }));
-
-    expect(screen.getByLabelText("Question")).toHaveValue("What threats should I have ready?");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
+    expect(screen.queryByText("Ask DungeonBuddy · New prep thread")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Suggested prep questions")).not.toBeInTheDocument();
   });
 
   it("asks prep memory through live query using the live packet session", async () => {
@@ -262,7 +248,7 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("World graph (all sessions) · preparing Session 23");
-    expect(screen.getByRole("heading", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Question")).toBeInTheDocument();
     await user.type(
       screen.getByLabelText("Question"),
       "What changed after Session 22?",
@@ -921,7 +907,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Save title" }));
 
     expect(screen.getAllByText("Mireward inn prep").length).toBeGreaterThan(0);
-    expect(screen.getByText("Ask DungeonBuddy · Mireward inn prep")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mireward inn prep" })).toBeInTheDocument();
     expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Mireward inn prep");
   });
 
@@ -1098,7 +1084,7 @@ describe("PlanSurfaceShell", () => {
     }
 
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
-    expect(screen.getByText("Ask DungeonBuddy · New prep thread")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
     const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
     const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
@@ -1136,7 +1122,7 @@ describe("PlanSurfaceShell", () => {
     const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Restore thread A?");
     expect(switcher).toHaveTextContent("Restore thread B?");
-    expect(screen.getByText("Ask DungeonBuddy · Restore thread A?")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Restore thread A?" })).toBeInTheDocument();
   });
 
   it("ignores corrupt thread index localStorage", async () => {
@@ -1507,7 +1493,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    expect(await screen.findByRole("heading", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Question")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Trace On" }));
