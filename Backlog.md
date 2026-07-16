@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Separate graph continuity from source-anchor readability in Hermes acceptance — captured 2026-07-16
+**Context:** Live Rung 5 Tripod trial 1. Hermes performed fresh `expand_graph_retrieval` after resolving “it,” but the response remained partial with `unreadable_source_anchors`.
+**Insight:** `unreadable_source_anchors` is an evidence-chain/readability signal, not proof that same-thread continuity or graph retrieval failed. Graph-native authored assertions may currently be marked unreadable because the source locator lacks the revision-bound digest authority required by the source reader.
+**Action:** Investigate the Tripod graph-native source-anchor contract and decide whether those anchors should become source-openable, receive a distinct graph-native evidence state, or remain intentionally non-openable. Keep Rung 5 continuity acceptance and source-excerpt acceptance as separate gates.
+**Surfaces when:** Hermes source verification, `read_source_anchor`, `unreadable_source_anchors`, graph-native authored assertions, citation UI, or final Rung 5 three-trial acceptance.
+**Refs:** `Docs/Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md`, `src/graph_memory/kernel/world_retrieval.py`, `src/graph_memory/interaction/authority_classifier.py`, `src/graph_memory/interaction/answer_validator.py`
+
 ## [READY] No UI path to promote session extract into World Graph head — captured 2026-07-15
 **Priority:** high — blocks durable Session 24+ memory; S1 must compensate with admitted-recap reads until this exists.
 **Context:** S1 dogfood 2026-07-15. Session 24 recap + extract/preview (`out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z`, `preview_union_store_ready`) felt “done,” but Eldyrwild head `rev:5cadc979…` still only has bootstrap sessions 22–23. Ingest “graph ready” means preview union, not world publish. No Plan/Ingest control calls `create_graph_contribution` → `merge_contribution_to_revision`.

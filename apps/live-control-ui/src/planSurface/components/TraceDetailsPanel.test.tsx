@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentInteractionTrace } from "../../api/types";
-import { TraceDetailsPanel } from "./TraceDetailsPanel";
+import {
+  formatTraceForClipboard,
+  formatTraceToolSummary,
+  TraceDetailsPanel,
+} from "./TraceDetailsPanel";
 
 /** PR354 Hermes product trace shape — shell fields required by this panel. */
 const pr354HermesTrace: AgentInteractionTrace = {
@@ -49,6 +54,10 @@ const pr354HermesTrace: AgentInteractionTrace = {
 };
 
 describe("TraceDetailsPanel", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders a PR354 Hermes graph agent_trace with Trace shell fields safely", () => {
     render(
       <TraceDetailsPanel
@@ -58,7 +67,9 @@ describe("TraceDetailsPanel", () => {
     );
 
     expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
-    expect(screen.getByText(/hermes · process_isolated · ok · 42ms/)).toBeInTheDocument();
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(
+      /hermes · process_isolated · ok · 42ms · tools: search_campaign_graph/,
+    );
     expect(screen.getByText("not reported")).toBeInTheDocument();
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
   });
@@ -67,13 +78,73 @@ describe("TraceDetailsPanel", () => {
     render(<TraceDetailsPanel trace={pr354HermesTrace} />);
 
     expect(screen.getByText("Graph tool activity (1)")).toBeInTheDocument();
-    expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
+    expect(screen.getAllByText("search_campaign_graph").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/completion · 18ms · enough/)).toBeInTheDocument();
     expect(screen.getByText("node-tripod")).toBeInTheDocument();
     expect(screen.getByText("rel-gate")).toBeInTheDocument();
     expect(screen.getByText("source-anchor:v1:fixture")).toBeInTheDocument();
     expect(screen.getByText("Hermes session (observability)")).toBeInTheDocument();
     expect(screen.getByText("hermes-sess-obs-only")).toBeInTheDocument();
+  });
+
+  it("shows tools: none in the collapsed summary when Hermes made no tool calls", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          tool_events: [],
+          tool_event_count: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(/tools: none/);
+    expect(screen.getByText("Graph tool activity (0)")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-agent-trace-tools-none")).toHaveTextContent(
+      /No graph tools were called/,
+    );
+  });
+
+  it("copies a plain-text trace dump to the clipboard", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <TraceDetailsPanel
+        trace={pr354HermesTrace}
+        answer="Tripod stands at the North Gate."
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy trace" }));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copied = String(writeText.mock.calls[0]?.[0] ?? "");
+    expect(copied).toContain("Agent trace");
+    expect(copied).toContain("search_campaign_graph");
+    expect(copied).toContain("node-tripod");
+    expect(copied).toContain("Tripod stands at the North Gate.");
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("formatTraceToolSummary and formatTraceForClipboard are dogfood-ready", () => {
+    const events = pr354HermesTrace.tool_events ?? [];
+    expect(formatTraceToolSummary(events, { isHermesGraphAgent: true })).toBe(
+      "tools: search_campaign_graph",
+    );
+    expect(formatTraceToolSummary([], { isHermesGraphAgent: true })).toBe("tools: none");
+
+    const text = formatTraceForClipboard(pr354HermesTrace, {
+      answer: "Tripod stands at the North Gate.",
+      toolEvents: events,
+      skippedToolEvents: 0,
+    });
+    expect(text).toContain("Graph tool activity (1)");
+    expect(text).toContain("revision: rev-1");
+    expect(text).not.toContain("RAW_PROMPT_SECRET");
   });
 
   it("ignores malformed graph tool events with a bounded warning", () => {
@@ -132,7 +203,9 @@ describe("TraceDetailsPanel", () => {
     );
 
     expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
-    expect(screen.getByText(/· unknown · 42ms/)).toBeInTheDocument();
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(
+      /unknown · 42ms · tools: none/,
+    );
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
     expect(screen.getByText("n/a / n/a")).toBeInTheDocument();
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();

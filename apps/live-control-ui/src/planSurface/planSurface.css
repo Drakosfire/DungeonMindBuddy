@@ -968,6 +968,28 @@
   background: rgba(18, 20, 28, 0.75);
 }
 
+.plan-agent-trace-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.plan-agent-trace-copy {
+  border: 1px solid rgba(122, 162, 247, 0.45);
+  border-radius: 6px;
+  background: rgba(122, 162, 247, 0.08);
+  color: var(--fg, #e8ecf4);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+
+.plan-agent-trace-copy:hover {
+  background: rgba(122, 162, 247, 0.16);
+}
+
 .plan-agent-trace-details > summary {
   cursor: pointer;
   display: grid;
@@ -1839,6 +1861,11 @@ body.plan-toolbox-open .plan-agent-shell {
 }
 
 .plan-agent-trace-tool-event-warning {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+}
+
+.plan-agent-trace-tool-empty {
   margin: 0.45rem 0 0;
   font-size: 0.82rem;
 }

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Phase 2 creative primitives unblocked
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 live trial 1 passed; aggregate Rung 5 gate pending
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -29,6 +29,12 @@ statblock promotion are complete.
   [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md).
   Live repair trials artifact:
   `evals/graph_memory_layer/artifacts/last_s1_live_repair_trials.json`.
+- The first live Rung 5 Tripod continuity trial passed: Turn 2 issued fresh
+  graph retrieval, resolved the shorthand referent from bounded prior prose,
+  and returned Tripod/Mireward relationships at the pinned revision. The
+  evidence record is
+  [`../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md).
+  Two more trials remain before aggregate Rung 5 acceptance.
 
 ## Re-anchor decisions
 
