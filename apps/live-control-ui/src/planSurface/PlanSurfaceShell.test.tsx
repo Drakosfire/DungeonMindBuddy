@@ -1447,7 +1447,7 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-canvas-document-id")).toHaveTextContent(/Saved to Markdown/i);
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Saved to Markdown/i);
   });
 
   function buildHermesGraphGrounding(

@@ -303,8 +303,8 @@ export function PlanSurfaceCanvas({
       <div className="plan-canvas-heading">
         <p className="plan-surface-kicker">Working board</p>
         <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
-        <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
-          Document <code>{planningDocument.documentId}</code> · {statusLabel}
+        <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
+          {statusLabel}
         </p>
       </div>
       <div

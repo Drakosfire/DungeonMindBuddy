@@ -97,11 +97,6 @@
   font-size: 0.85rem;
 }
 
-.plan-canvas-meta code {
-  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 0.8rem;
-}
-
 .plan-markdown-save-panel {
   margin-top: 1rem;
   border: 1px solid var(--border, #2a3142);
